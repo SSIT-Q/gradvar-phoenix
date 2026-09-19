@@ -164,11 +164,23 @@ def jobs_dial(args):
         yield dict(stage="dial", patch="6x10", L=L, model="unital", dial="delay", p=0.0)
 
 
-def verdicts(df: pd.DataFrame, K: int = K_MASKS) -> dict:
+KURTOSIS_DEV17 = 8.4     # gradient kurtosis assumed for the M-draw sampling interval (Deviation 17 / 28)
+M_P0 = 200               # Deviation 28: the delay-matched p = 0 ladder points are booked at M = 200 draws
+
+
+def draw_two_sigma(var: float, M: int = M_P0, kurtosis: float = KURTOSIS_DEV17) -> float:
+    """2 sigma of the M-draw sample variance: Var[s^2] = (mu4 - sigma^4 (M - 3) / (M - 1)) / M with mu4 = kurtosis sigma^4."""
+    return 2.0 * var * float(np.sqrt((kurtosis - (M - 3) / (M - 1)) / M))
+
+
+def verdicts(df: pd.DataFrame, K: int = K_MASKS, kurtosis: float = KURTOSIS_DEV17, M_p0: int = M_P0) -> dict:
     """Gate 1b per ladder point (pattern floor Var_mask / (2 K) for ``K`` pooled masks per (draw, shift)) and the
-    Deviation 15 truncation rule, from the CSV."""
+    Deviation 15 truncation rule, from the CSV. Clause (b) of Gate 1b is reported in three readings: the literal one
+    (fall of the p = 0 series against the combined shot + pattern floor), against the shot floor only, and the
+    Deviation 28 rule (each series against its own floor: p = 0 has no mask lottery, so fall > 3 x shot floor AND
+    fall > 2 x the predicted M = ``M_p0`` draw 2 sigma at n = 39, with the gradient kurtosis ``kurtosis``)."""
     sf = shot_floor(4096)
-    out = {"shot_floor_4096": sf, "K_masks": int(K), "gate1b": [], "dev15": []}
+    out = {"shot_floor_4096": sf, "K_masks": int(K), "kurtosis_assumed": kurtosis, "M_p0": int(M_p0), "gate1b": [], "dev15": []}
     for stage_name in ("gate1b", "gate1b_exempt"):
       g = df[(df.stage == stage_name) & (df.get("status", "") != "pending") & df.n.notna()]
       out.setdefault(stage_name, [])
@@ -185,6 +197,7 @@ def verdicts(df: pd.DataFrame, K: int = K_MASKS) -> dict:
             pf = vm / (2 * K) if np.isfinite(vm) else float("nan")
             floor = sf + (pf if np.isfinite(pf) else 0.0)
             pts.append(dict(patch=spec, n=int(r1.n), L=int(L), var_p0=v0, var_p025=v1, separation=v1 - v0, var_mask=vm, K=int(K), pattern_floor=pf,
+                            p0_draw_2sigma_M200=draw_two_sigma(v0, M_p0, kurtosis), p0_below_shot_floor=bool(v0 < sf),
                             combined_floor=floor, ratio_to_floor=(v1 - v0) / floor if floor > 0 else np.nan,
                             separated_3x=bool(v1 - v0 >= 3 * floor), pattern_floor_below_half_sep=bool(pf < 0.5 * (v1 - v0)),
                             err_p0=err(r0), err_p025=err(r1), converged_p0=bool(r0.pp_converged), converged_p025=bool(r1.pp_converged)))
@@ -193,14 +206,30 @@ def verdicts(df: pd.DataFrame, K: int = K_MASKS) -> dict:
             v100 = [q for q in pts if q["patch"] == "10x10"]
             fall = (v40[0]["var_p0"] - v100[0]["var_p0"]) if (v40 and v100) else float("nan")
             falls = bool(v40 and v100 and fall > v100[0]["combined_floor"])
+            two_sigma_39 = v40[0]["p0_draw_2sigma_M200"] if v40 else float("nan")
+            dev28 = bool(v40 and v100 and fall > 3 * sf and fall > 2 * two_sigma_39)
+            series = [q["var_p0"] for q in pts]
+            monotone = all(a > b for a, b in zip(series, series[1:]))
             out[stage_name].append(dict(L=int(L), points=pts, all_separated_3x=all(q["separated_3x"] for q in pts),
                                         p0_fall_40_to_100=fall, combined_floor=(v100[0]["combined_floor"] if v100 else float("nan")),
                                         p0_falls_40_to_100_by_more_than_floor=falls,
                                         p0_falls_40_to_100_by_more_than_shot_floor=bool(v40 and v100 and fall > sf),
                                         p0_series=[(q["n"], q["var_p0"]) for q in pts],
+                                        p0_series_monotone_in_n=monotone,
+                                        p0_series_note=("non-monotone across the ladder: the 4x10 (5 broken couplers) and 10x10 (7) cones carry fewer "
+                                                        "CZs than the 6x10 cone, i.e. less scrambling, so their k = L variance sits higher"
+                                                        if not monotone else "monotone in n"),
+                                        p0_reference_below_shot_floor=all(q["p0_below_shot_floor"] for q in pts),
+                                        p0_reference_note=("every p = 0 point is below the 4096-shot floor: the unital reference is unresolvable "
+                                                           "(H6 inconclusive branch)" if all(q["p0_below_shot_floor"] for q in pts) else ""),
+                                        deviation_28=dict(rule="fall(n=39 -> 87) > 3 x shot floor AND > 2 x predicted M = 200 draw 2 sigma at n = 39",
+                                                          fall=fall, three_shot_floors=3 * sf, fall_over_3sf=(fall / (3 * sf) if sf else float("nan")),
+                                                          p0_draw_2sigma_M200_n39=two_sigma_39, fall_over_2sigma=(fall / two_sigma_39 if two_sigma_39 else float("nan")),
+                                                          required_fall_over_2sigma=2.0, kurtosis=kurtosis, M=int(M_p0), passes=dev28),
                                         note="the p = 0 (delay-matched) points carry no reset lottery, so their own floor is the shot floor; the "
                                              "pre-registered clause compares the fall with the combined shot + pattern floor of the p = 0.25 series",
-                                        passes=bool(all(q["separated_3x"] for q in pts) and falls)))
+                                        passes=bool(all(q["separated_3x"] for q in pts) and falls),
+                                        passes_deviation_28=bool(all(q["separated_3x"] for q in pts) and all(q["pattern_floor_below_half_sep"] for q in pts) and dev28)))
     d = df[(df.stage == "dev15") & (df.get("status", "") != "pending") & df.n.notna()]
     for (spec, L), grp in d.groupby(["patch", "L"]):
         rec = dict(patch=spec, n=int(grp.n.iloc[0]), L=int(L))
@@ -325,6 +354,7 @@ def main():
     ap.add_argument("--placements", default=str(PLACEMENTS), help="ladder_placements.json, or 'none' for place_patch")
     ap.add_argument("--out", default=None, help="override the output CSV path")
     ap.add_argument("--K", type=int, default=K_MASKS, help="pooled masks per (draw, shift) for the pattern floor (Deviation 27: 256)")
+    ap.add_argument("--kurtosis", type=float, default=KURTOSIS_DEV17, help="gradient kurtosis for the M-draw 2 sigma (Deviation 28)")
     args = ap.parse_args()
     global OUT_CSV
     if args.out:
@@ -336,7 +366,7 @@ def main():
             df["pattern_floor"] = df["var_mask"] / (2 * args.K)
             df["K_masks"] = np.where(df["var_mask"].notna(), args.K, np.nan)
         df.to_csv(OUT_CSV, index=False)
-        v = verdicts(df, K=args.K)
+        v = verdicts(df, K=args.K, kurtosis=args.kurtosis)
         v["gate1b_K64"] = verdicts(df, K=64)["gate1b"]          # the Section 3b v0.5 pooling, for comparison
         OUT_JSON.write_text(json.dumps(v, indent=2, default=float))
         figure(df)
