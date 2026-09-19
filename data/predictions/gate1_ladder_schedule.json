@@ -221,7 +221,7 @@
   "traj_max": 24,
   "max_exact_L": 4,
   "n_traj": 32,
-  "deadline_min": 55.0,
+  "deadline_min": 60.0,
   "cones": {
     "4x5 L=1": 2,
     "4x5 L=2": 16,
@@ -494,9 +494,9 @@
       "key": "4x10_L2_k1_noiseless",
       "n": 39,
       "M": 100,
-      "action": "timecap",
-      "method": "not_implemented",
-      "seconds": 0.0
+      "action": "computed",
+      "method": "statevector",
+      "seconds": 80.2303376197815
     },
     {
       "key": "4x10_L2_k1_unital",
@@ -518,9 +518,9 @@
       "key": "4x10_L2_k2_noiseless",
       "n": 39,
       "M": 100,
-      "action": "timecap",
-      "method": "not_implemented",
-      "seconds": 0.0
+      "action": "computed",
+      "method": "statevector",
+      "seconds": 80.95332789421082
     },
     {
       "key": "4x10_L2_k2_unital",
@@ -750,9 +750,9 @@
       "key": "6x10_L2_k2_nonunital",
       "n": 53,
       "M": 200,
-      "action": "timecap",
-      "method": "not_implemented",
-      "seconds": 0.0
+      "action": "computed",
+      "method": "statevector",
+      "seconds": 265.11373114585876
     },
     {
       "key": "6x10_L4_k1_noiseless",
@@ -934,17 +934,17 @@
       "key": "8x10_L2_k1_unital",
       "n": 70,
       "M": 200,
-      "action": "timecap",
-      "method": "not_implemented",
-      "seconds": 0.0
+      "action": "computed",
+      "method": "statevector",
+      "seconds": 112.27661538124084
     },
     {
       "key": "8x10_L2_k1_nonunital",
       "n": 70,
       "M": 200,
-      "action": "timecap",
-      "method": "not_implemented",
-      "seconds": 0.0
+      "action": "computed",
+      "method": "statevector",
+      "seconds": 342.90855860710144
     },
     {
       "key": "8x10_L2_k2_noiseless",
@@ -958,17 +958,17 @@
       "key": "8x10_L2_k2_unital",
       "n": 70,
       "M": 200,
-      "action": "timecap",
-      "method": "not_implemented",
-      "seconds": 0.0
+      "action": "computed",
+      "method": "statevector",
+      "seconds": 172.20902156829834
     },
     {
       "key": "8x10_L2_k2_nonunital",
       "n": 70,
       "M": 200,
-      "action": "timecap",
-      "method": "not_implemented",
-      "seconds": 0.0
+      "action": "computed",
+      "method": "statevector",
+      "seconds": 405.95737862586975
     },
     {
       "key": "8x10_L4_k1_noiseless",
@@ -1331,5 +1331,5 @@
       "seconds": 0.0
     }
   ],
-  "total_minutes": 0.34674423933029175
+  "total_minutes": 54.82340433994929
 }

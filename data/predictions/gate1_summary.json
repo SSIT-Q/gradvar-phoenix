@@ -15,6 +15,7 @@
       12
     ],
     "M": [
+      100,
       200
     ],
     "models": [
@@ -31,8 +32,8 @@
     ],
     "is_preregistered_ladder": false,
     "ladder_n": true,
-    "n_points_computed": 36,
-    "n_points_deferred": 99,
+    "n_points_computed": 43,
+    "n_points_deferred": 92,
     "M_by_point": [
       {
         "n": 20,
@@ -53,6 +54,11 @@
         "n": 39,
         "L": 1,
         "M": 200
+      },
+      {
+        "n": 39,
+        "L": 2,
+        "M": 100
       },
       {
         "n": 53,
@@ -361,7 +367,7 @@
         }
       ],
       "deviation_25": {
-        "text": "Deviation 25 (approved under the PI's delegated authority, 20 Sep 2026): (a-i) per-draw |g_sim - g_closed| < 1e-10 at n = 4..20, M = 100; (a-ii) n <= 12, M = 1000, 2^-n inside the percentile bootstrap interval; (a-iii) n = 13..20, M = 300, sample variance inside the central 95% interval of its exact null sampling distribution (10^4 closed-form Monte Carlo replicates at the same M); replicate rule: a point in the outer 2.5% at the pre-registered seed 2026 is rerun once with the second pre-registered seed 2027 and passes if the replicate lies inside the central 95%; both values are reported",
+        "text": "Deviation 25 (pending PI signature): (a-i) per-draw |g_sim - g_closed| < 1e-10 at n = 4..20, M = 100; (a-ii) n <= 12, M = 1000, 2^-n inside the percentile bootstrap interval; (a-iii) n = 13..20, M = 300, sample variance inside the central 95% interval of its exact null sampling distribution (10^4 closed-form Monte Carlo replicates at the same M)",
         "a_i": {
           "result": "pass",
           "note": "max |g_sim - g_closed| over n = 4..20, M = 100: 1.8e-14"
@@ -392,23 +398,9 @@
             "19": true,
             "20": false
           },
-          "points_after_replicate_rule": {
-            "13": true,
-            "14": true,
-            "15": true,
-            "16": true,
-            "17": true,
-            "18": true,
-            "19": true,
-            "20": true
-          },
-          "resolved_by_replicate": {
-            "20": true
-          },
-          "n_fail": 0,
-          "n_fail_at_seed_2026": 1,
+          "n_fail": 1,
           "n_missing": [],
-          "result": "pass",
+          "result": "fail",
           "replicates": [
             {
               "n": 20,
@@ -426,13 +418,13 @@
             }
           ]
         },
-        "result": "pass"
+        "result": "fail"
       },
       "heavy_tail_note": "gradient kurtosis (3/2)^n makes the sample variance and its percentile bootstrap unreliable at the M used for n >= ~13 (relative SE sqrt(((3/2)^n - 1)/M) > 0.3); M_for_rel_se_0p3 is the draw count needed per n",
       "result": "fail",
       "result_as_registered": "fail",
-      "result_deviation_25": "pass",
-      "note": "fails as registered (2^-n outside the bootstrap interval at n = [13, 14, 15, 16, 17, 18, 19, 20]); estimator artefact: kurtosis (3/2)^n, relative SE of the sample variance 0.80 (n = 13), 0.98 (n = 14), 1.21 (n = 15), 1.48 (n = 16), 1.81 (n = 17), 2.22 (n = 18), 2.72 (n = 19), 3.33 (n = 20); Deviation 25: (a-i) pass (max |g_sim - g_closed| over n = 4..20, M = 100: 1.8e-14), (a-ii) pass (9/9), (a-iii) pass (7/8 inside the exact null 95% interval at seed 2026, outside at n = 20, resolved by the seed-2027 replicate at n = 20); replicate(s): n = 20 seed 2027: var/2^-n = 0.212, inside null 95% [0.043, 5.764]: True"
+      "result_deviation_25": "fail",
+      "note": "fails as registered (2^-n outside the bootstrap interval at n = [13, 14, 15, 16, 17, 18, 19, 20]); estimator artefact: kurtosis (3/2)^n, relative SE of the sample variance 0.80 (n = 13), 0.98 (n = 14), 1.21 (n = 15), 1.48 (n = 16), 1.81 (n = 17), 2.22 (n = 18), 2.72 (n = 19), 3.33 (n = 20); Deviation 25: (a-i) pass (max |g_sim - g_closed| over n = 4..20, M = 100: 1.8e-14), (a-ii) pass (9/9), (a-iii) fail (7/8 inside the exact null 95% interval, outside at n = 20); replicate(s): n = 20 seed 2027: var/2^-n = 0.212, inside null 95% [0.043, 5.764]: True"
     },
     "b": {
       "text": "At M = 200 the bootstrap interval ratio (upper over lower) on the variance is below 1.5.",
@@ -608,6 +600,30 @@
         },
         {
           "model": "noiseless",
+          "n": 39,
+          "L": 2,
+          "k": 1,
+          "M": 100,
+          "hi_lo": 1.9254932043891118,
+          "below_1p5": false,
+          "bound": 2.0,
+          "below_bound": true,
+          "in_test": false
+        },
+        {
+          "model": "noiseless",
+          "n": 39,
+          "L": 2,
+          "k": 2,
+          "M": 100,
+          "hi_lo": 1.7010604328536132,
+          "below_1p5": false,
+          "bound": 2.0,
+          "below_bound": true,
+          "in_test": false
+        },
+        {
+          "model": "noiseless",
           "n": 53,
           "L": 1,
           "k": 1,
@@ -703,6 +719,18 @@
           "in_test": true
         },
         {
+          "model": "nonunital",
+          "n": 53,
+          "L": 2,
+          "k": 2,
+          "M": 200,
+          "hi_lo": 1.6124412010387577,
+          "below_1p5": false,
+          "bound": 2.0,
+          "below_bound": true,
+          "in_test": true
+        },
+        {
           "model": "noiseless",
           "n": 70,
           "L": 1,
@@ -751,12 +779,60 @@
           "in_test": true
         },
         {
+          "model": "unital",
+          "n": 70,
+          "L": 2,
+          "k": 1,
+          "M": 200,
+          "hi_lo": 1.592197320632294,
+          "below_1p5": false,
+          "bound": 2.0,
+          "below_bound": true,
+          "in_test": true
+        },
+        {
+          "model": "nonunital",
+          "n": 70,
+          "L": 2,
+          "k": 1,
+          "M": 200,
+          "hi_lo": 1.5833486170683,
+          "below_1p5": false,
+          "bound": 2.0,
+          "below_bound": true,
+          "in_test": true
+        },
+        {
           "model": "noiseless",
           "n": 70,
           "L": 2,
           "k": 2,
           "M": 200,
           "hi_lo": 1.6093077701176508,
+          "below_1p5": false,
+          "bound": 2.0,
+          "below_bound": true,
+          "in_test": true
+        },
+        {
+          "model": "unital",
+          "n": 70,
+          "L": 2,
+          "k": 2,
+          "M": 200,
+          "hi_lo": 1.6222444912504292,
+          "below_1p5": false,
+          "bound": 2.0,
+          "below_bound": true,
+          "in_test": true
+        },
+        {
+          "model": "nonunital",
+          "n": 70,
+          "L": 2,
+          "k": 2,
+          "M": 200,
+          "hi_lo": 1.6124412010387577,
           "below_1p5": false,
           "bound": 2.0,
           "below_bound": true,
@@ -871,12 +947,12 @@
           "in_test": true
         }
       ],
-      "n_points": 36,
-      "n_above_1p5": 21,
+      "n_points": 43,
+      "n_above_1p5": 28,
       "n_above_bound": 0,
       "bound": "Deviation 17: hi/lo < 1.5 at L = 1, < 2.0 at L = 2, < 2.5 at L >= 4 with M = 200 (1.5 where M >= 400 at L = 2 or M >= 700 at L >= 4)",
       "result": "pass",
-      "note": "evaluated at M = 200; 0 of 36 points at M >= 200 exceed the depth-dependent bound (21 exceed the original 1.5); 99 deferred point(s) not included"
+      "note": "evaluated at M = 100, 200 (pre-registration specifies M = 200); 0 of 41 points at M >= 200 exceed the depth-dependent bound (28 exceed the original 1.5); 2 point(s) at M < 200 listed but not tested; 92 deferred point(s) not included"
     },
     "c": {
       "text": "The unital-noise and noiseless predictions, computed with the ibm_phoenix calibration snapshot, differ by more than twice the 16384-shot floor at six or more (n, L) points, and the layer-index ratio (k = L versus k = 1) predicted by the non-unital model differs from the unital-only model by more than twice the floor at n = 40 or 100.",
@@ -939,6 +1015,15 @@
             "exceeds_2floor": true
           },
           {
+            "n": 70,
+            "L": 2,
+            "var_noiseless": 0.08265810241667904,
+            "var_unital": 0.0727310094395619,
+            "var_nonunital": 0.0729584081456128,
+            "unital_minus_noiseless": -0.009927092977117136,
+            "exceeds_2floor": true
+          },
+          {
             "n": 87,
             "L": 1,
             "var_noiseless": 0.24209755534847655,
@@ -957,7 +1042,7 @@
             "exceeds_2floor": true
           }
         ],
-        "n_exceeding": 8,
+        "n_exceeding": 9,
         "required": 6,
         "result": "pass",
         "deferred_points": [
@@ -1013,11 +1098,6 @@
           },
           {
             "n": 70,
-            "L": 2,
-            "note": "requires Pauli propagation"
-          },
-          {
-            "n": 70,
             "L": 4,
             "note": "requires Pauli propagation"
           },
@@ -1047,7 +1127,7 @@
             "note": "requires Pauli propagation"
           }
         ],
-        "note": "8 of 8 exactly computed (n, L) points exceed 2 x floor = 6.10e-05 at k = 1; the >= 6 count of the 25-point ladder is already met on the exact points; 17 (n, L) point(s) requires Pauli propagation"
+        "note": "9 of 9 exactly computed (n, L) points exceed 2 x floor = 6.10e-05 at k = 1; the >= 6 count of the 25-point ladder is already met on the exact points; 16 (n, L) point(s) requires Pauli propagation"
       },
       "part2": {
         "statistic": "D = R_nonunital - R_unital, R_m = [Var_m(k=L)/Var_m(k=1)] / [Var_noiseless(k=L)/Var_noiseless(k=1)], 95% paired bootstrap over shared theta draws; 'differs' = D_lo > 0 (directional, H3 predicts D > 0; Deviation 14)",
@@ -1271,29 +1351,29 @@
           {
             "n": 53,
             "L": 2,
-            "M": NaN,
-            "r_noiseless": NaN,
-            "r_noiseless_lo": NaN,
-            "r_noiseless_hi": NaN,
-            "r_unital": NaN,
-            "r_unital_lo": NaN,
-            "r_unital_hi": NaN,
-            "r_nonunital": NaN,
-            "r_nonunital_lo": NaN,
-            "r_nonunital_hi": NaN,
-            "R_unital": NaN,
-            "R_unital_lo": NaN,
-            "R_unital_hi": NaN,
-            "R_nonunital": NaN,
-            "R_nonunital_lo": NaN,
-            "R_nonunital_hi": NaN,
-            "D": NaN,
-            "D_lo": NaN,
-            "D_hi": NaN,
-            "separated": NaN,
-            "separated_two_sided": NaN,
-            "var_kL_nonunital_minus_unital": NaN,
-            "note": "missing point(s)"
+            "M": 200.0,
+            "r_noiseless": 1.1150625929238456,
+            "r_noiseless_lo": 0.8404962225747008,
+            "r_noiseless_hi": 1.4720643495167434,
+            "r_unital": 1.1152622568898154,
+            "r_unital_lo": 0.8352522331124957,
+            "r_unital_hi": 1.4758592407565783,
+            "r_nonunital": 1.1163733257703117,
+            "r_nonunital_lo": 0.835106749076313,
+            "r_nonunital_hi": 1.4840626460086683,
+            "R_unital": 1.000179060769536,
+            "R_unital_lo": 0.9828519871485994,
+            "R_unital_hi": 1.0182442503050042,
+            "R_nonunital": 1.0011754791657292,
+            "R_nonunital_lo": 0.9828748024353393,
+            "R_nonunital_hi": 1.021007477220798,
+            "D": 0.0009964183961932438,
+            "D_lo": -0.022666789190202378,
+            "D_hi": 0.025026228482831418,
+            "separated": false,
+            "separated_two_sided": false,
+            "var_kL_nonunital_minus_unital": 0.00033467101098527685,
+            "note": NaN
           },
           {
             "n": 53,
@@ -1379,29 +1459,29 @@
           {
             "n": 70,
             "L": 2,
-            "M": NaN,
-            "r_noiseless": NaN,
-            "r_noiseless_lo": NaN,
-            "r_noiseless_hi": NaN,
-            "r_unital": NaN,
-            "r_unital_lo": NaN,
-            "r_unital_hi": NaN,
-            "r_nonunital": NaN,
-            "r_nonunital_lo": NaN,
-            "r_nonunital_hi": NaN,
-            "R_unital": NaN,
-            "R_unital_lo": NaN,
-            "R_unital_hi": NaN,
-            "R_nonunital": NaN,
-            "R_nonunital_lo": NaN,
-            "R_nonunital_hi": NaN,
-            "D": NaN,
-            "D_lo": NaN,
-            "D_hi": NaN,
-            "separated": NaN,
-            "separated_two_sided": NaN,
-            "var_kL_nonunital_minus_unital": NaN,
-            "note": "missing point(s)"
+            "M": 200.0,
+            "r_noiseless": 1.1150625929238456,
+            "r_noiseless_lo": 0.8404962225747008,
+            "r_noiseless_hi": 1.4720643495167434,
+            "r_unital": 1.1152622568898154,
+            "r_unital_lo": 0.8352522331124957,
+            "r_unital_hi": 1.4758592407565783,
+            "r_nonunital": 1.1163733257703117,
+            "r_nonunital_lo": 0.835106749076313,
+            "r_nonunital_hi": 1.4840626460086683,
+            "R_unital": 1.000179060769536,
+            "R_unital_lo": 0.9828519871485994,
+            "R_unital_hi": 1.0182442503050042,
+            "R_nonunital": 1.0011754791657292,
+            "R_nonunital_lo": 0.9828748024353393,
+            "R_nonunital_hi": 1.021007477220798,
+            "D": 0.0009964183961932438,
+            "D_lo": -0.022666789190202378,
+            "D_hi": 0.025026228482831418,
+            "separated": false,
+            "separated_two_sided": false,
+            "var_kL_nonunital_minus_unital": 0.00033467101098527685,
+            "note": NaN
           },
           {
             "n": 70,
@@ -1849,11 +1929,6 @@
         },
         {
           "n": 53,
-          "L": 2,
-          "note": "requires Pauli propagation"
-        },
-        {
-          "n": 53,
           "L": 4,
           "note": "requires Pauli propagation"
         },
@@ -1865,11 +1940,6 @@
         {
           "n": 53,
           "L": 12,
-          "note": "requires Pauli propagation"
-        },
-        {
-          "n": 70,
-          "L": 2,
           "note": "requires Pauli propagation"
         },
         {
@@ -1904,7 +1974,7 @@
         }
       ],
       "result": "provisional pass",
-      "note": "null control simulated at n = [20, 39] under the non-unital model with sampled shots; Var_null / (1/(2N)) = 0.74 (N = 4096), 0.66 (N = 16384), 0.85 (N = 4096), 0.80 (N = 16384); smallest exactly computed noisy signal Var = 7.25e-02 (nonunital, n = 20, L = 2, k = 1), CI low 5.69e-02; the 10x allowance at both shot counts lies below it; PROVISIONAL: the smallest signal to be claimed is at L = 12, where the predictions requires Pauli propagation (18 deferred (n, L) points); the stop rule is not cleared until those points exist"
+      "note": "null control simulated at n = [20, 39] under the non-unital model with sampled shots; Var_null / (1/(2N)) = 0.74 (N = 4096), 0.66 (N = 16384), 0.85 (N = 4096), 0.80 (N = 16384); smallest exactly computed noisy signal Var = 7.25e-02 (nonunital, n = 20, L = 2, k = 1), CI low 5.69e-02; the 10x allowance at both shot counts lies below it; PROVISIONAL: the smallest signal to be claimed is at L = 12, where the predictions requires Pauli propagation (16 deferred (n, L) points); the stop rule is not cleared until those points exist"
     },
     "e": {
       "text": "eps_N below 1 at every point to be claimed.",
@@ -2024,6 +2094,22 @@
         },
         {
           "model": "noiseless",
+          "n": 39,
+          "L": 2,
+          "k": 1,
+          "eps_N_4096": 0.0014186512489958514,
+          "eps_N_16384": 0.00035466281224896286
+        },
+        {
+          "model": "noiseless",
+          "n": 39,
+          "L": 2,
+          "k": 2,
+          "eps_N_4096": 0.0007343001558170016,
+          "eps_N_16384": 0.0001835750389542504
+        },
+        {
+          "model": "noiseless",
           "n": 53,
           "L": 1,
           "k": 1,
@@ -2087,6 +2173,14 @@
           "eps_N_16384": 0.0003458161087237495
         },
         {
+          "model": "nonunital",
+          "n": 53,
+          "L": 2,
+          "k": 2,
+          "eps_N_4096": 0.0013769906107611888,
+          "eps_N_16384": 0.0003442476526902972
+        },
+        {
           "model": "noiseless",
           "n": 70,
           "L": 1,
@@ -2119,12 +2213,44 @@
           "eps_N_16384": 0.00033475270161282514
         },
         {
+          "model": "unital",
+          "n": 70,
+          "L": 2,
+          "k": 1,
+          "eps_N_4096": 0.0015407865261168189,
+          "eps_N_16384": 0.0003851966315292047
+        },
+        {
+          "model": "nonunital",
+          "n": 70,
+          "L": 2,
+          "k": 1,
+          "eps_N_4096": 0.0015352920721098174,
+          "eps_N_16384": 0.00038382301802745435
+        },
+        {
           "model": "noiseless",
           "n": 70,
           "L": 2,
           "k": 2,
           "eps_N_4096": 0.0012029318330406163,
           "eps_N_16384": 0.00030073295826015407
+        },
+        {
+          "model": "unital",
+          "n": 70,
+          "L": 2,
+          "k": 2,
+          "eps_N_4096": 0.001383264434894998,
+          "eps_N_16384": 0.0003458161087237495
+        },
+        {
+          "model": "nonunital",
+          "n": 70,
+          "L": 2,
+          "k": 2,
+          "eps_N_4096": 0.0013769906107611888,
+          "eps_N_16384": 0.0003442476526902972
         },
         {
           "model": "noiseless",
@@ -2199,7 +2325,7 @@
           "eps_N_16384": 0.00032693238733121907
         }
       ],
-      "n_points": 36,
+      "n_points": 43,
       "n_at_or_above_1": 0,
       "result": "pass",
       "note": "evaluated at 4096 shots on every computed point of this grid; the pre-registered scope is 'every point to be claimed'"
@@ -2466,14 +2592,6 @@
       "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 20 qubits))"
     },
     {
-      "model": "noiseless",
-      "n": 39,
-      "L": 2,
-      "k": 1,
-      "n_cone": 20,
-      "note": "not computed (time cap): not started or unfinished before the deadline; cone 20 qubits, L = 2; within the statevector limit, rerun with scripts/gate1_ladder.py"
-    },
-    {
       "model": "unital",
       "n": 39,
       "L": 2,
@@ -2488,14 +2606,6 @@
       "k": 1,
       "n_cone": 20,
       "note": "requires Pauli propagation, not implemented (cut for compute time: measured > 150 s per circuit with 32 trajectories on the 23-qubit cone: > 4 h per point at M = 50; cone 20 qubits, L = 2)"
-    },
-    {
-      "model": "noiseless",
-      "n": 39,
-      "L": 2,
-      "k": 2,
-      "n_cone": 20,
-      "note": "not computed (time cap): not started or unfinished before the deadline; cone 20 qubits, L = 2; within the statevector limit, rerun with scripts/gate1_ladder.py"
     },
     {
       "model": "unital",
@@ -2658,14 +2768,6 @@
       "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 39 qubits))"
     },
     {
-      "model": "nonunital",
-      "n": 53,
-      "L": 2,
-      "k": 2,
-      "n_cone": 16,
-      "note": "not computed (time cap): not started or unfinished before the deadline; cone 16 qubits, L = 2; within the statevector limit, rerun with scripts/gate1_ladder.py"
-    },
-    {
       "model": "noiseless",
       "n": 53,
       "L": 4,
@@ -2808,38 +2910,6 @@
       "k": 12,
       "n_cone": 53,
       "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 53 qubits))"
-    },
-    {
-      "model": "unital",
-      "n": 70,
-      "L": 2,
-      "k": 1,
-      "n_cone": 16,
-      "note": "not computed (time cap): not started or unfinished before the deadline; cone 16 qubits, L = 2; within the statevector limit, rerun with scripts/gate1_ladder.py"
-    },
-    {
-      "model": "nonunital",
-      "n": 70,
-      "L": 2,
-      "k": 1,
-      "n_cone": 16,
-      "note": "not computed (time cap): not started or unfinished before the deadline; cone 16 qubits, L = 2; within the statevector limit, rerun with scripts/gate1_ladder.py"
-    },
-    {
-      "model": "unital",
-      "n": 70,
-      "L": 2,
-      "k": 2,
-      "n_cone": 16,
-      "note": "not computed (time cap): not started or unfinished before the deadline; cone 16 qubits, L = 2; within the statevector limit, rerun with scripts/gate1_ladder.py"
-    },
-    {
-      "model": "nonunital",
-      "n": 70,
-      "L": 2,
-      "k": 2,
-      "n_cone": 16,
-      "note": "not computed (time cap): not started or unfinished before the deadline; cone 16 qubits, L = 2; within the statevector limit, rerun with scripts/gate1_ladder.py"
     },
     {
       "model": "noiseless",

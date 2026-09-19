@@ -224,7 +224,7 @@ cut are in **`docs/GATE1_RESULTS.md`**. Criteria on this run:
 | criterion | status | result | note |
 |---|---|---|---|
 | (a) | implemented | **fail** | fails as registered (2^-n outside the bootstrap interval at n = [13, 14, 15, 16, 17, 18, 19, 20]); estimator artefact: kurtosis (3/2)^n, relative SE of the sample variance 0.80 (n = 13), 0.98 (n = 14), 1.21 (n = 15), 1.48 (n = 16), 1.81 (n = 17), 2.22 (n = 18), 2.72 (n = 19), 3.33 (n = 20); Deviation 25: (a-i) pass (max /g_sim -... |
-| (b) | implemented | **pass** | evaluated at M = 200; 0 of 36 points at M >= 200 exceed the depth-dependent bound (21 exceed the original 1.5); 99 deferred point(s) not included |
+| (b) | implemented | **pass** | evaluated at M = 100, 200 (pre-registration specifies M = 200); 0 of 41 points at M >= 200 exceed the depth-dependent bound (28 exceed the original 1.5); 2 point(s) at M < 200 listed but not tested; 92 deferred point(s) not included |
 | (c) | implemented | **not-evaluated** |  |
 | (d) | implemented | **provisional pass** | null control simulated at n = [20, 39] under the non-unital model with sampled shots; Var_null / (1/(2N)) = 0.74 (N = 4096), 0.66 (N = 16384), 0.85 (N = 4096), 0.80 (N = 16384); smallest exactly computed noisy signal Var = 7.25e-02 (nonunital, n = 20, L = 2, k = 1), CI low 5.69e-02; the 10x allowance at both shot counts lies bel... |
 | (e) | implemented | **pass** | evaluated at 4096 shots on every computed point of this grid; the pre-registered scope is 'every point to be claimed' |
