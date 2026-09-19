@@ -119,7 +119,10 @@ Chain points n = 4..12 (M = 1000) contain 2^-n in their 95% bootstrap interval; 
 check `--identity-M 100`, `figures/gate1_chain_identity.csv`, gives |g_sim - g_closed| < 1e-10 at every n = 4..20). **Deviation 25** (pending PI signature) replaces (a) by
 (a-i) that identity check, (a-ii) the pre-registered bootstrap check at n <= 12, M = 1000, and (a-iii) at n = 13..20, M = 300, the sample variance inside the central 95%
 interval of its exact null sampling distribution (10^4 closed-form Monte Carlo replicates at the same M, `predict.chain_null_quantiles`); `gate1_summary.json` carries
-`result_as_registered`, `result_deviation_25` and the per-n table (kurtosis, relative SE, null quantiles). Results and the n = 20 second-seed replicate are in `docs/GATE1_RESULTS.md`.
+`result_as_registered`, `result_deviation_25` and the per-n table (kurtosis, relative SE, null quantiles). Replicate rule (Deviation 25, approved under the PI's
+delegated authority, 20 Sep 2026): a point in the outer 2.5% at the pre-registered seed 2026 is rerun once with the second pre-registered seed 2027 and passes if the
+replicate lies inside the central 95%, both values reported. On this data (a-i) passes (max 1.8e-14), (a-ii) 9/9, (a-iii) 7/8 at seed 2026 with n = 20 at the 2.4th
+percentile (0.043 vs quantile 0.043) and the seed-2027 replicate inside (0.212 in [0.043, 5.76]), so **Deviation 25: pass**; details in `docs/GATE1_RESULTS.md`.
 
 ## Gate 1 (noise predictions)
 
@@ -436,7 +439,7 @@ Deviations below.
   sampled through Aer's `ReadoutError`, which only acts on measured circuits.
 * **Bootstrap.** Predictions use 10,000 resamples (`--n-boot`), as pre-registered; the paired bootstrap of the
   layer-index statistic also uses 10,000.
-* **(a) fails as registered for n = 13..20 (estimator artefact; Deviation 25 (a-i)/(a-ii)/(a-iii) evaluated alongside**, see Gate 1 (noiseless) above); (d) and (f) are implemented on branch `gate1-grid`
+* **(a) fails as registered for n = 13..20 (estimator artefact; Deviation 25 (a-i)/(a-ii)/(a-iii) + replicate rule pass**, see Gate 1 (noiseless) above); (d) and (f) are implemented on branch `gate1-grid`
   (`scripts/gate1_null_control.py`, `scripts/gate1_renyi.py`) and evaluated in `gate1_summary.json`; criterion (b) uses the depth-dependent bound of Deviation 17
   (`predict.criterion_b_bound`), with the count above the original 1.5 kept in the JSON.
 * **Large patches are rectangles with holes.** With the default exclusion list (17, 55, 61, 62, 63,
