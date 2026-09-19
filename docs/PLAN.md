@@ -77,6 +77,7 @@ Paper 1's arXiv date now floats, so applications after mid-November 2026 may sti
 | 19 Sep 2026 | Ancilla-reset dissipative ansatz chosen as Paper 2. |
 | 19 Sep 2026 | Open-plan Heron r2 minutes assigned to dry run, cross-architecture comparison and Paper 2 comparator. |
 | 19 Sep 2026 | Independent review required after every major step and before and after any QPU usage. |
+| 19 Sep 2026 | IBM Quantum credentials live only as GitHub repository secrets (QISKIT_IBM_TOKEN, QISKIT_IBM_INSTANCE); hardware jobs run as a GitHub Action from a committed job list that carries a pre-flight review link; no key is ever posted in Slack or held by Claude. |
 | 19 Sep 2026 | Anonymous collaborator: authorship requires a name; an acknowledgement is the alternative. Decision due 30 Sep 2026 (P1.0.6). |
 
 ## 9. How to use this tracker

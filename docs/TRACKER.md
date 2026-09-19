@@ -10,7 +10,7 @@ Version 1, 19 September 2026. Companion to [PLAN.md](PLAN.md). Statuses: done, i
 |---|---|---|---|---|---|
 | P1.0.1 | Repository pushed | Cl | 19 Sep 2026 | done | Commit 2c5a743 on main |
 | P1.0.2 | Owais's first commit, and Dr. Raviram added as collaborator | O | 21 Sep 2026 | todo | Commit hash; collaborator visible on GitHub |
-| P1.0.3 | PI signature on pre-registration v0.2 (v0.1 signatures do not count) | R | 22 Sep 2026 | todo | Signed v0.2 posted in the thread |
+| P1.0.3 | PI signature on pre-registration v0.2 (v0.1 signatures do not count) | R | 22 Sep 2026 | done (19 Sep 2026) | Owais confirmed in thread 19 Sep 2026, 19:21 IST |
 | P1.0.4 | API key rotated and confirmed in the thread (unconfirmed since 19 Sep 2026) | O | 20 Sep 2026 | todo | Confirmation message in #mitacs |
 | P1.0.5 | Daily calibration snapshot job running and committing to data/calibrations | O | 22 Sep 2026 | todo | Two consecutive daily commits |
 | P1.0.6 | Collaborator decision: named author or acknowledgement | O, C | 30 Sep 2026 | todo | Decision recorded in the decision log |
@@ -25,6 +25,7 @@ Version 1, 19 September 2026. Companion to [PLAN.md](PLAN.md). Statuses: done, i
 | P1.1.4 | epsilon_N per point, and the half-patch Renyi-2 saturation depth L_s(n) | O | 3 Oct 2026 | todo | Table of epsilon_N and L_s(n) committed |
 | P1.1.5 | Gate 1 report against criteria (a) to (f), posted in the thread | O | 5 Oct 2026 | todo | Report link in #mitacs |
 | P1.1.6 | Gate 1 decision | R | 6 Oct 2026 | todo | Decision log entry |
+| P1.1.7 | Owais sets the two repository secrets (QISKIT_IBM_TOKEN, QISKIT_IBM_INSTANCE) on GitHub; no key is posted in Slack or held by Claude | O | 5 Oct 2026 | todo | Secrets visible in repository settings; confirmation in the thread |
 
 ### P1.2 Dry run (6 to 10 Oct 2026)
 
