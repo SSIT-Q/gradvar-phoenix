@@ -30,6 +30,7 @@ Version 1, 19 September 2026. Companion to [PLAN.md](PLAN.md). Statuses: done, i
 
 | ID | Task | Owner | Due | Status | Evidence |
 |---|---|---|---|---|---|
+| P1.2.0 | Pre-flight review of the dry run job list: exact jobs, shot counts, backend and instance signed off before any minute is spent | Cl reviews, R decides | 6 Oct 2026 | todo | Review outcome posted in the thread and linked here |
 | P1.2.1 | Pipeline checks on ibm_marrakesh under the open plan | O | 7 Oct 2026 | todo | Job IDs and results committed |
 | P1.2.2 | ibm_phoenix smoke test, about 5 Flex minutes: locked time per point, reset error and latency, depth ceiling | O | 9 Oct 2026 | todo | Smoke-test summary in the thread; raw results committed |
 | P1.2.3 | Minute budget re-based on measured locked time and posted | Cl | 10 Oct 2026 | todo | Ledger updated to version 2 |
@@ -39,11 +40,13 @@ Version 1, 19 September 2026. Companion to [PLAN.md](PLAN.md). Statuses: done, i
 
 | ID | Task | Owner | Due | Status | Evidence |
 |---|---|---|---|---|---|
+| P1.3.0 | Pre-flight review of the campaign job list: exact jobs, shot counts, backend and instance signed off before any Flex minute is spent | Cl reviews, R decides | 10 Oct 2026 | todo | Review outcome posted in the thread and linked here |
 | P1.3.1 | Main grid, noise levels 0 and 1 | O | 11 to 17 Oct 2026 | todo | Job results committed per session |
 | P1.3.2 | Level-2 reduced grid with the pre-registered extrapolator | O | 18 to 20 Oct 2026 | todo | Job results committed per session |
 | P1.3.3 | Layer-index points and null controls | O | 18 to 20 Oct 2026 | todo | Job results committed per session |
 | P1.3.4 | Repeat day for drift, n = 40 ladder | O | 22 to 24 Oct 2026 | todo | Job results committed; drift comparison figure |
 | P1.3.5 | Raw job results and calibration snapshots committed after every session | O | Continuous, 11 to 25 Oct 2026 | todo | Commit per session in data/ |
+| P1.3.6 | Post-run review of campaign logs against the pre-registration and the job list, before analysis begins | Cl reviews, R decides | 26 Oct 2026 | todo | Review outcome posted in the thread and linked here |
 
 ### P1.4 Analysis and paper (26 Oct 2026 onward)
 
@@ -85,9 +88,11 @@ Version 1, 19 September 2026. Companion to [PLAN.md](PLAN.md). Statuses: done, i
 
 | ID | Task | Owner | Due | Status | Evidence |
 |---|---|---|---|---|---|
+| P2.3.0 | Pre-flight review of the Paper 2 job list: exact jobs, shot counts, backend and instance signed off before any minute is spent | Cl reviews, R decides | Before P2.3.1, Dec 2026 | todo | Review outcome posted in the thread and linked here |
 | P2.3.1 | Smoke test of reset circuits | O | 1 to 7 Dec 2026 | todo | Smoke-test summary in the thread |
 | P2.3.2 | Campaign, about 35 percent of minutes | O | Dec 2026 to 10 Jan 2027 | todo | Job results committed per session |
 | P2.3.3 | Reserve spend only on referee-style checks | O, R | By Flex expiry, Jan 2027 | todo | Ledger reserve row |
+| P2.3.4 | Post-run review of Paper 2 logs against the Paper 2 pre-registration and the job list, before analysis begins | Cl reviews, R decides | After P2.3.2, by 15 Jan 2027 | todo | Review outcome posted in the thread and linked here |
 
 ### P2.4 Analysis and paper (Jan to Mar 2027)
 
@@ -103,6 +108,7 @@ These minutes are tracked apart from the 360 Flex minutes and never count agains
 
 | ID | Task | Owner | Due | Status | Evidence |
 |---|---|---|---|---|---|
+| OP.0 | Pre-flight review of every open-plan run: exact jobs, shot counts, backend and instance signed off before each OP task runs | Cl reviews, R decides | Before each of OP.1 to OP.3 | todo | Review outcome posted in the thread and linked here |
 | OP.1 | October dry run on ibm_marrakesh: end-to-end pipeline with the real logging schema, calibration snapshot, resilience levels 0, 1 and 2, null control, small circuits; about 3 minutes. Same activity as P1.2.1 | O | 7 Oct 2026 | todo | Job IDs and results committed; P1.2.1 marked with it |
 | OP.2 | November cross-architecture comparison for Paper 1: n = 20 ladder at L = 1, 2, 4, levels 0 and 1, about 50 draws, 2048 shots, about 5 minutes. Produces a discussion figure comparing heavy-hex Heron r2 with square-lattice phoenix | O | 15 Nov 2026 | todo | Results and comparison figure committed |
 | OP.3 | December Paper 2 comparator: reset ansatz on Heron r2 using measure-and-reset (no dedicated reset elements), to gauge how much phoenix's hardware reset matters | O | 15 Dec 2026 | todo | Results committed; comparison noted in the Paper 2 draft |

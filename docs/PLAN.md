@@ -30,6 +30,12 @@ No hardware minute is spent on a paper until its gate is passed. Dr. Raviram own
 | Gate 1 (simulation) | Any Paper 1 minute | The Gate 1 report (P1.1.5) meets pre-registration criteria (a) to (f): noiseless grid with bootstrap intervals, unital and non-unital noise predictions from the live calibration, layer-index ratio, epsilon_N and L_s(n) per point, and every planned hardware point predicted above the 4096-shot floor | R | 6 Oct 2026 |
 | Gate 2 (smoke test) | The Paper 1 campaign | The ibm_phoenix smoke test returns locked time per point, reset error and latency, and the depth ceiling; the re-based minute budget fits the 360-minute allocation with reserve intact | R, O | 10 Oct 2026 |
 | Gate P2 (Paper 2 simulation) | Any Paper 2 minute | Simulated variance advantage of the reset ansatz over the matched control sits above the shot floor at realistic reset error, and the classical surrogate is shown to degrade on the reset arm | R | 28 Nov 2026 |
+| Pre-flight review (before any QPU minute) | Every hardware session, Flex or open plan | An independent reviewer signs off the exact job list, shot counts, backend and instance; no job is submitted until the sign-off is posted in the thread | Cl reviews, R decides | Before each session |
+| Post-run review (before analysis) | Analysis of any hardware session | An independent reviewer audits the logged results against the pre-registration and the job list; discrepancies go into the Deviations table before any fit is run | Cl reviews, R decides | After each session |
+
+## 4a. Review rule
+
+Owais's standing instruction, 19 September 2026: an independent reviewer (a separate Claude worker that did not produce the work) checks every major deliverable before it is shown to the team; a pre-flight review signs off the exact job list, shot counts, backend and instance before any QPU minute is spent, on Flex or open plan; a post-run review audits the logged results against the pre-registration and the job list before analysis begins. Review outcomes are posted in the thread and linked from the tracker.
 
 ## 6. Side track: applications competing for Owais's time
 
@@ -70,6 +76,7 @@ Paper 1's arXiv date now floats, so applications after mid-November 2026 may sti
 | 19 Sep 2026 | Disorder arm (former Question 2) dropped after Li and Yin. |
 | 19 Sep 2026 | Ancilla-reset dissipative ansatz chosen as Paper 2. |
 | 19 Sep 2026 | Open-plan Heron r2 minutes assigned to dry run, cross-architecture comparison and Paper 2 comparator. |
+| 19 Sep 2026 | Independent review required after every major step and before and after any QPU usage. |
 | 19 Sep 2026 | Anonymous collaborator: authorship requires a name; an acknowledgement is the alternative. Decision due 30 Sep 2026 (P1.0.6). |
 
 ## 9. How to use this tracker
