@@ -1,0 +1,224 @@
+{
+ "__type__": "PrimitiveResult",
+ "__value__": {
+  "pub_results": [
+   {
+    "__type__": "PubResult",
+    "__value__": {
+     "data": {
+      "__type__": "DataBin",
+      "__value__": {
+       "field_names": [
+        "evs",
+        "stds",
+        "ensemble_standard_error"
+       ],
+       "shape": [
+        2
+       ],
+       "fields": {
+        "evs": {
+         "__type__": "ndarray",
+         "__value__": "eJyb7BfqGxDJyFDGUK2eklqcXKRupaBuk2ahrqOgnpZfVFKUmBefX5SSChJ3S8wpTgWKF2ckFqQC+RpGOpo6CrUKFACu9kADjl7dW/tVedYJdv1+aQ8APzMiXQ=="
+        },
+        "stds": {
+         "__type__": "ndarray",
+         "__value__": "eJyb7BfqGxDJyFDGUK2eklqcXKRupaBuk2ahrqOgnpZfVFKUmBefX5SSChJ3S8wpTgWKF2ckFqQC+RpGOpo6CrUKFACuttC7rvsSF9s/qFXLdTow2x4ATu4jJw=="
+        },
+        "ensemble_standard_error": {
+         "__type__": "ndarray",
+         "__value__": "eJyb7BfqGxDJyFDGUK2eklqcXKRupaBuk2ahrqOgnpZfVFKUmBefX5SSChJ3S8wpTgWKF2ckFqQC+RpGOpo6CrUKFACuxa82LPu3ep79D6sZF/e+n2IPAGfiJeA="
+        }
+       }
+      }
+     },
+     "metadata": {
+      "shots": 1024,
+      "target_precision": 0.03125,
+      "circuit_metadata": {},
+      "resilience": {},
+      "num_randomizations": 16
+     }
+    }
+   },
+   {
+    "__type__": "PubResult",
+    "__value__": {
+     "data": {
+      "__type__": "DataBin",
+      "__value__": {
+       "field_names": [
+        "evs",
+        "stds",
+        "ensemble_standard_error"
+       ],
+       "shape": [
+        2
+       ],
+       "fields": {
+        "evs": {
+         "__type__": "ndarray",
+         "__value__": "eJyb7BfqGxDJyFDGUK2eklqcXKRupaBuk2ahrqOgnpZfVFKUmBefX5SSChJ3S8wpTgWKF2ckFqQC+RpGOpo6CrUKFACu73W877foHbc/7xA/U958nT0AUmQjAA=="
+        },
+        "stds": {
+         "__type__": "ndarray",
+         "__value__": "eJyb7BfqGxDJyFDGUK2eklqcXKRupaBuk2ahrqOgnpZfVFKUmBefX5SSChJ3S8wpTgWKF2ckFqQC+RpGOpo6CrUKFACuWfJidzc8n2df1iUSlRk93x4ASncijQ=="
+        },
+        "ensemble_standard_error": {
+         "__type__": "ndarray",
+         "__value__": "eJyb7BfqGxDJyFDGUK2eklqcXKRupaBuk2ahrqOgnpZfVFKUmBefX5SSChJ3S8wpTgWKF2ckFqQC+RpGOpo6CrUKFACuv6JmF25nLbDXWnLF59KSBfYAUvIj3A=="
+        }
+       }
+      }
+     },
+     "metadata": {
+      "shots": 1024,
+      "target_precision": 0.03125,
+      "circuit_metadata": {},
+      "resilience": {},
+      "num_randomizations": 16
+     }
+    }
+   },
+   {
+    "__type__": "PubResult",
+    "__value__": {
+     "data": {
+      "__type__": "DataBin",
+      "__value__": {
+       "field_names": [
+        "evs",
+        "stds",
+        "ensemble_standard_error"
+       ],
+       "shape": [
+        2
+       ],
+       "fields": {
+        "evs": {
+         "__type__": "ndarray",
+         "__value__": "eJyb7BfqGxDJyFDGUK2eklqcXKRupaBuk2ahrqOgnpZfVFKUmBefX5SSChJ3S8wpTgWKF2ckFqQC+RpGOpo6CrUKFACuvX+vXcqtO7S/2Cgy9tDGu/sBZGollQ=="
+        },
+        "stds": {
+         "__type__": "ndarray",
+         "__value__": "eJyb7BfqGxDJyFDGUK2eklqcXKRupaBuk2ahrqOgnpZfVFKUmBefX5SSChJ3S8wpTgWKF2ckFqQC+RpGOpo6CrUKFACukxZpu7YpL7DX9XwrvlNytj0ASZEiXA=="
+        },
+        "ensemble_standard_error": {
+         "__type__": "ndarray",
+         "__value__": "eJyb7BfqGxDJyFDGUK2eklqcXKRupaBuk2ahrqOgnpZfVFKUmBefX5SSChJ3S8wpTgWKF2ckFqQC+RpGOpo6CrUKFACuLy8zYzqaFthf2HFt65U7c+0BYVclhw=="
+        }
+       }
+      }
+     },
+     "metadata": {
+      "shots": 1024,
+      "target_precision": 0.03125,
+      "circuit_metadata": {},
+      "resilience": {},
+      "num_randomizations": 16
+     }
+    }
+   },
+   {
+    "__type__": "PubResult",
+    "__value__": {
+     "data": {
+      "__type__": "DataBin",
+      "__value__": {
+       "field_names": [
+        "evs",
+        "stds",
+        "ensemble_standard_error"
+       ],
+       "shape": [
+        2
+       ],
+       "fields": {
+        "evs": {
+         "__type__": "ndarray",
+         "__value__": "eJyb7BfqGxDJyFDGUK2eklqcXKRupaBuk2ahrqOgnpZfVFKUmBefX5SSChJ3S8wpTgWKF2ckFqQC+RpGOpo6CrUKFACuDzczDzUp3N+/h1Pozq5J1+0BXb0kpg=="
+        },
+        "stds": {
+         "__type__": "ndarray",
+         "__value__": "eJyb7BfqGxDJyFDGUK2eklqcXKRupaBuk2ahrqOgnpZfVFKUmBefX5SSChJ3S8wpTgWKF2ckFqQC+RpGOpo6CrUKFAAuXc3WM19/z7M/uG7lx9svF9kDAFrHJX8="
+        },
+        "ensemble_standard_error": {
+         "__type__": "ndarray",
+         "__value__": "eJyb7BfqGxDJyFDGUK2eklqcXKRupaBuk2ahrqOgnpZfVFKUmBefX5SSChJ3S8wpTgWKF2ckFqQC+RpGOpo6CrUKFACuRawiR5Tq59rrG/722WQ43x4APgkhwQ=="
+        }
+       }
+      }
+     },
+     "metadata": {
+      "shots": 1024,
+      "target_precision": 0.03125,
+      "circuit_metadata": {},
+      "resilience": {},
+      "num_randomizations": 16
+     }
+    }
+   },
+   {
+    "__type__": "PubResult",
+    "__value__": {
+     "data": {
+      "__type__": "DataBin",
+      "__value__": {
+       "field_names": [
+        "evs",
+        "stds",
+        "ensemble_standard_error"
+       ],
+       "shape": [
+        2
+       ],
+       "fields": {
+        "evs": {
+         "__type__": "ndarray",
+         "__value__": "eJyb7BfqGxDJyFDGUK2eklqcXKRupaBuk2ahrqOgnpZfVFKUmBefX5SSChJ3S8wpTgWKF2ckFqQC+RpGOpo6CrUKFACu4Jl+JvEn7uxvj80WvOU43x4AStMi5g=="
+        },
+        "stds": {
+         "__type__": "ndarray",
+         "__value__": "eJyb7BfqGxDJyFDGUK2eklqcXKRupaBuk2ahrqOgnpZfVFKUmBefX5SSChJ3S8wpTgWKF2ckFqQC+RpGOpo6CrUKFACuQ1b7ih7rLbLX/JvDam831x4ATQciaw=="
+        },
+        "ensemble_standard_error": {
+         "__type__": "ndarray",
+         "__value__": "eJyb7BfqGxDJyFDGUK2eklqcXKRupaBuk2ahrqOgnpZfVFKUmBefX5SSChJ3S8wpTgWKF2ckFqQC+RpGOpo6CrUKFACu1iOJnjNE59n/ux545vLKBfYAUdkkJw=="
+        }
+       }
+      }
+     },
+     "metadata": {
+      "shots": 1024,
+      "target_precision": 0.03125,
+      "circuit_metadata": {},
+      "resilience": {},
+      "num_randomizations": 16
+     }
+    }
+   }
+  ],
+  "metadata": {
+   "dynamical_decoupling": {
+    "enable": false,
+    "sequence_type": "XX",
+    "extra_slack_distribution": "middle",
+    "scheduling_method": "alap"
+   },
+   "twirling": {
+    "enable_gates": false,
+    "enable_measure": true,
+    "num_randomizations": "auto",
+    "shots_per_randomization": "auto",
+    "interleave_randomizations": true,
+    "strategy": "active-accum"
+   },
+   "resilience": {
+    "measure_mitigation": true,
+    "zne_mitigation": false,
+    "pec_mitigation": false
+   },
+   "version": 2
+  }
+ }
+}

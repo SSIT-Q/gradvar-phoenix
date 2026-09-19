@@ -1,0 +1,388 @@
+{
+ "job_id": "dandqr5r85ps73fdu8hg",
+ "dry_run": false,
+ "job_kind": "probes",
+ "status": "completed",
+ "error": null,
+ "error_message": null,
+ "job_errors": null,
+ "timestamps": {
+  "submitted_local": "2026-09-19T19:07:23.643870+00:00",
+  "result_received_local": "2026-09-19T19:07:50.559205+00:00",
+  "created": "2026-09-19T19:07:24.180473Z",
+  "finished": "2026-09-19T19:07:45.901575Z",
+  "running": "2026-09-19T19:07:25.9993Z"
+ },
+ "usage_qpu_seconds": 3,
+ "metrics": {
+  "caller": "qiskit_ibm_runtime~estimator.py",
+  "qiskit_version": "qiskit_ibm_runtime-0.49.0,qiskit-2.5.2*,qiskit_aer-0.17.2*",
+  "timestamps": {
+   "created": "2026-09-19T19:07:24.180473Z",
+   "finished": "2026-09-19T19:07:45.901575Z",
+   "running": "2026-09-19T19:07:25.9993Z"
+  },
+  "usage": {
+   "qpu_charge_time_seconds": 3,
+   "status": "complete"
+  },
+  "circuits_execution_time_ns": 1088146944
+ },
+ "backend_name": "ibm_marrakesh",
+ "backend_version": "1.0.21",
+ "instance": "open",
+ "joblist_name": "dryrun_01_marrakesh_pipeline_check",
+ "preflight_review": "https://ssitcrew.slack.com/archives/C0C29EYR0GZ/p1789844519777249?thread_ts=1789669318.385169&cid=C0C29EYR0GZ",
+ "resilience_level": 0,
+ "shots": 1024,
+ "runner_git_commit": "f1c6a1d34caedadb3d9238a6d70f6bdd404e0d42",
+ "qiskit_ibm_runtime_version": "0.49.0",
+ "python": "3.11.16",
+ "rep_delay": {
+  "default_rep_delay_s": 0.00025,
+  "rep_delay_range_s": [
+   0.0,
+   0.002
+  ],
+  "source": "backend"
+ },
+ "rep_delay_probe": true,
+ "isa_instruction_names": [
+  "cz",
+  "delay",
+  "reset",
+  "rz",
+  "sx"
+ ],
+ "joblist_entries": [
+  {
+   "id": "reset_midcircuit_probe",
+   "kind": "reset_dial",
+   "reset_kind": "reset",
+   "n": 10,
+   "patch": "1x10",
+   "edge": "9_10",
+   "L": 2,
+   "k": 2,
+   "p": 0.5,
+   "masks": 1,
+   "shots": 1024,
+   "resilience": 0,
+   "seed": 20260919,
+   "purpose": "what the transpiler emits for a mid-circuit native reset (ISA name, measure count, scheduled duration)",
+   "layout": [
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14
+   ]
+  },
+  {
+   "id": "delay_midcircuit_control",
+   "kind": "reset_dial",
+   "reset_kind": "delay",
+   "n": 10,
+   "patch": "1x10",
+   "edge": "9_10",
+   "L": 2,
+   "k": 2,
+   "p": 0.5,
+   "masks": 1,
+   "shots": 1024,
+   "resilience": 0,
+   "seed": 20260919,
+   "purpose": "same mask with delay(400 ns) in place of reset: what the transpiler emits for the delay (dt units, duration)",
+   "layout": [
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14
+   ]
+  }
+ ],
+ "points": [
+  {
+   "probe_id": "reset_midcircuit_probe",
+   "kind": "reset_dial",
+   "reset_kind": "reset",
+   "mask_index": 0,
+   "mask_hash": "8aa3b1b32b12ea08",
+   "n": 10,
+   "L": 2,
+   "k_1based": 2,
+   "p": 0.5,
+   "prep": "1",
+   "seed": 20260919,
+   "qubits": [
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14
+   ],
+   "edge": "9_10",
+   "layout": [
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14
+   ],
+   "param_hash": "b40a309da02c6242",
+   "synthetic_target_instructions": [],
+   "patch": "1x10",
+   "origin": [
+    0,
+    0
+   ],
+   "holes": [],
+   "lattice_qubits": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "lattice_edge": "4_5",
+   "observables": [
+    [
+     [
+      "IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIZZIIIIIIIII",
+      1.0
+     ]
+    ]
+   ],
+   "param_values": [
+    [
+     1.301454140555793,
+     5.435804831746257,
+     4.7401467568194136,
+     4.919940359480578,
+     6.197407916832629,
+     3.6255353900854494,
+     0.38203709075463566,
+     5.5065597937928406,
+     2.549648388031271,
+     2.4871013519906846,
+     0.703348755474847,
+     5.03930051500196,
+     2.666598187877587,
+     5.872230362248331,
+     1.792440273401274,
+     2.7518103379951437,
+     4.2089641684595165,
+     3.4644784792802295,
+     5.860215318165663,
+     2.865445934113318
+    ],
+    [
+     1.301454140555793,
+     5.435804831746257,
+     4.7401467568194136,
+     4.919940359480578,
+     6.197407916832629,
+     3.6255353900854494,
+     0.38203709075463566,
+     5.5065597937928406,
+     2.549648388031271,
+     2.4871013519906846,
+     0.703348755474847,
+     5.03930051500196,
+     2.666598187877587,
+     5.872230362248331,
+     -1.349152380188519,
+     2.7518103379951437,
+     4.2089641684595165,
+     3.4644784792802295,
+     5.860215318165663,
+     2.865445934113318
+    ]
+   ]
+  },
+  {
+   "probe_id": "delay_midcircuit_control",
+   "kind": "reset_dial",
+   "reset_kind": "delay",
+   "mask_index": 0,
+   "mask_hash": "8aa3b1b32b12ea08",
+   "n": 10,
+   "L": 2,
+   "k_1based": 2,
+   "p": 0.5,
+   "prep": "1",
+   "seed": 20260919,
+   "qubits": [
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14
+   ],
+   "edge": "9_10",
+   "layout": [
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14
+   ],
+   "param_hash": "b40a309da02c6242",
+   "synthetic_target_instructions": [],
+   "patch": "1x10",
+   "origin": [
+    0,
+    0
+   ],
+   "holes": [],
+   "lattice_qubits": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "lattice_edge": "4_5",
+   "observables": [
+    [
+     [
+      "IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIZZIIIIIIIII",
+      1.0
+     ]
+    ]
+   ],
+   "param_values": [
+    [
+     1.301454140555793,
+     5.435804831746257,
+     4.7401467568194136,
+     4.919940359480578,
+     6.197407916832629,
+     3.6255353900854494,
+     0.38203709075463566,
+     5.5065597937928406,
+     2.549648388031271,
+     2.4871013519906846,
+     0.703348755474847,
+     5.03930051500196,
+     2.666598187877587,
+     5.872230362248331,
+     1.792440273401274,
+     2.7518103379951437,
+     4.2089641684595165,
+     3.4644784792802295,
+     5.860215318165663,
+     2.865445934113318
+    ],
+    [
+     1.301454140555793,
+     5.435804831746257,
+     4.7401467568194136,
+     4.919940359480578,
+     6.197407916832629,
+     3.6255353900854494,
+     0.38203709075463566,
+     5.5065597937928406,
+     2.549648388031271,
+     2.4871013519906846,
+     0.703348755474847,
+     5.03930051500196,
+     2.666598187877587,
+     5.872230362248331,
+     -1.349152380188519,
+     2.7518103379951437,
+     4.2089641684595165,
+     3.4644784792802295,
+     5.860215318165663,
+     2.865445934113318
+    ]
+   ]
+  }
+ ],
+ "instance_plan": "open",
+ "budget": {
+  "formula": "2 s per job + (rep_delay + L x 0.71 us + 1.94 us readout [+ dial durations]) x executions",
+  "dial_durations_us": {
+   "reset": 0.4,
+   "delay": 0.4,
+   "measure_reset": 1.94,
+   "measure_reset_2": 1.14,
+   "none": 0.0
+  },
+  "dial_durations_source": "ibm_phoenix target (2026-09-19)",
+  "jobs": 3,
+  "circuits": 24,
+  "executions": 24576,
+  "executions_upper_bound_with_zne": 24576,
+  "zne_noise_factors": 3,
+  "seconds_at_250us": 12.23,
+  "minutes_at_250us": 0.204,
+  "minutes_upper_bound_with_zne_at_250us": 0.204,
+  "seconds_at_1us": 6.11,
+  "minutes_at_1us": 0.102,
+  "minutes_upper_bound_with_zne_at_1us": 0.102
+ },
+ "budget_estimate_with_target_durations": {
+  "formula": "2 s per job + (rep_delay + L x 0.71 us + 1.94 us readout [+ dial durations]) x executions",
+  "dial_durations_us": {
+   "reset": 2.72,
+   "delay": 0.4,
+   "measure_reset": 2.72,
+   "measure_reset_2": 1.92,
+   "none": 0.0
+  },
+  "dial_durations_source": "ibm_marrakesh",
+  "jobs": 3,
+  "circuits": 24,
+  "executions": 24576,
+  "executions_upper_bound_with_zne": 24576,
+  "zne_noise_factors": 3,
+  "seconds_at_250us": 12.24,
+  "minutes_at_250us": 0.204,
+  "minutes_upper_bound_with_zne_at_250us": 0.204,
+  "seconds_at_1us": 6.12,
+  "minutes_at_1us": 0.102,
+  "minutes_upper_bound_with_zne_at_1us": 0.102
+ }
+}

@@ -1,0 +1,64 @@
+{
+ "_VERSION": 2,
+ "max_execution_time": {},
+ "environment": {
+  "log_level": "WARNING",
+  "job_tags": null,
+  "private": false
+ },
+ "simulator": {
+  "noise_model": {},
+  "seed_simulator": {},
+  "coupling_map": {},
+  "basis_gates": {}
+ },
+ "default_precision": {},
+ "default_shots": 1024,
+ "resilience_level": 0,
+ "seed_estimator": {},
+ "dynamical_decoupling": {
+  "enable": {},
+  "sequence_type": {},
+  "extra_slack_distribution": {},
+  "scheduling_method": {},
+  "skip_reset_qubits": {}
+ },
+ "resilience": {
+  "measure_mitigation": {},
+  "measure_noise_learning": {
+   "num_randomizations": {},
+   "shots_per_randomization": {}
+  },
+  "zne_mitigation": {},
+  "zne": {
+   "amplifier": {},
+   "noise_factors": {},
+   "extrapolator": {},
+   "extrapolated_noise_factors": {}
+  },
+  "pec_mitigation": {},
+  "pec": {
+   "max_overhead": {},
+   "noise_gain": {}
+  },
+  "layer_noise_learning": {
+   "max_layers_to_learn": {},
+   "shots_per_randomization": {},
+   "num_randomizations": {},
+   "layer_pair_depths": {}
+  },
+  "layer_noise_model": {}
+ },
+ "execution": {
+  "init_qubits": {},
+  "rep_delay": {}
+ },
+ "twirling": {
+  "enable_gates": {},
+  "enable_measure": {},
+  "num_randomizations": {},
+  "shots_per_randomization": {},
+  "strategy": {}
+ },
+ "experimental": {}
+}

@@ -1,0 +1,49 @@
+{
+ "backend_name": "ibm_marrakesh",
+ "backend_version": "1.0.21",
+ "num_qubits": 156,
+ "dt": 4e-09,
+ "operation_names": [
+  "cz",
+  "delay",
+  "id",
+  "if_else",
+  "measure",
+  "measure_2",
+  "measure_reset",
+  "measure_reset_2",
+  "reset",
+  "reset_2",
+  "rz",
+  "sx",
+  "x",
+  "xslow"
+ ],
+ "coupling_map_edges": 352,
+ "granularity": 1,
+ "min_length": 2,
+ "instructions": {
+  "xslow": 156,
+  "x": 156,
+  "if_else": 1,
+  "reset_2": 156,
+  "sx": 156,
+  "measure_reset_2": 156,
+  "delay": 156,
+  "measure_2": 156,
+  "cz": 352,
+  "reset": 156,
+  "measure": 156,
+  "id": 156,
+  "rz": 156,
+  "measure_reset": 156
+ },
+ "rep_delay": {
+  "default_rep_delay_s": 0.00025,
+  "rep_delay_range_s": [
+   0.0,
+   0.002
+  ],
+  "source": "backend"
+ }
+}

@@ -1,0 +1,44 @@
+{
+ "result_metadata": {
+  "dynamical_decoupling": {
+   "enable": false,
+   "sequence_type": "XX",
+   "extra_slack_distribution": "middle",
+   "scheduling_method": "alap"
+  },
+  "twirling": {
+   "enable_gates": false,
+   "enable_measure": false,
+   "num_randomizations": "auto",
+   "shots_per_randomization": "auto",
+   "interleave_randomizations": true,
+   "strategy": "active-accum"
+  },
+  "resilience": {
+   "measure_mitigation": false,
+   "zne_mitigation": false,
+   "pec_mitigation": false
+  },
+  "version": 2
+ },
+ "pubs": [
+  {
+   "pub_index": 0,
+   "metadata": {
+    "shots": 1024,
+    "target_precision": 0.03125,
+    "circuit_metadata": {},
+    "num_randomizations": 1
+   }
+  },
+  {
+   "pub_index": 1,
+   "metadata": {
+    "shots": 1024,
+    "target_precision": 0.03125,
+    "circuit_metadata": {},
+    "num_randomizations": 1
+   }
+  }
+ ]
+}

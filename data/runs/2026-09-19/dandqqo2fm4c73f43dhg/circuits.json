@@ -1,0 +1,132 @@
+[
+ {
+  "index": 0,
+  "n": 10,
+  "L": 2,
+  "k_1based": 1,
+  "probe_id": null,
+  "depth": 12,
+  "two_qubit_gates": 18,
+  "num_qubits": 156,
+  "isa_instruction_names": [
+   "cz",
+   "rz",
+   "sx"
+  ],
+  "ops": {
+   "sx": 40,
+   "rz": 40,
+   "cz": 18,
+   "barrier": 1
+  },
+  "mid_circuit_measures": 0,
+  "reset_count": 0,
+  "delay_count": 0,
+  "delays": [],
+  "target_durations_s": {}
+ },
+ {
+  "index": 1,
+  "n": 10,
+  "L": 2,
+  "k_1based": 1,
+  "probe_id": null,
+  "depth": 12,
+  "two_qubit_gates": 18,
+  "num_qubits": 156,
+  "isa_instruction_names": [
+   "cz",
+   "rz",
+   "sx"
+  ],
+  "ops": {
+   "sx": 40,
+   "rz": 40,
+   "cz": 18,
+   "barrier": 1
+  },
+  "mid_circuit_measures": 0,
+  "reset_count": 0,
+  "delay_count": 0,
+  "delays": [],
+  "target_durations_s": {}
+ },
+ {
+  "index": 2,
+  "n": 10,
+  "L": 2,
+  "k_1based": 1,
+  "probe_id": null,
+  "depth": 12,
+  "two_qubit_gates": 18,
+  "num_qubits": 156,
+  "isa_instruction_names": [
+   "cz",
+   "rz",
+   "sx"
+  ],
+  "ops": {
+   "sx": 40,
+   "rz": 40,
+   "cz": 18,
+   "barrier": 1
+  },
+  "mid_circuit_measures": 0,
+  "reset_count": 0,
+  "delay_count": 0,
+  "delays": [],
+  "target_durations_s": {}
+ },
+ {
+  "index": 3,
+  "n": 10,
+  "L": 2,
+  "k_1based": 1,
+  "probe_id": null,
+  "depth": 12,
+  "two_qubit_gates": 18,
+  "num_qubits": 156,
+  "isa_instruction_names": [
+   "cz",
+   "rz",
+   "sx"
+  ],
+  "ops": {
+   "sx": 40,
+   "rz": 40,
+   "cz": 18,
+   "barrier": 1
+  },
+  "mid_circuit_measures": 0,
+  "reset_count": 0,
+  "delay_count": 0,
+  "delays": [],
+  "target_durations_s": {}
+ },
+ {
+  "index": 4,
+  "n": 10,
+  "L": 2,
+  "k_1based": 1,
+  "probe_id": null,
+  "depth": 12,
+  "two_qubit_gates": 18,
+  "num_qubits": 156,
+  "isa_instruction_names": [
+   "cz",
+   "rz",
+   "sx"
+  ],
+  "ops": {
+   "sx": 40,
+   "rz": 40,
+   "cz": 18,
+   "barrier": 1
+  },
+  "mid_circuit_measures": 0,
+  "reset_count": 0,
+  "delay_count": 0,
+  "delays": [],
+  "target_durations_s": {}
+ }
+]
