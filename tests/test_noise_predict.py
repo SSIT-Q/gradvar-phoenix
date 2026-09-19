@@ -201,7 +201,7 @@ def test_layer_index_statistic_and_summary_list_all_criteria():
     assert list(s["criteria"]) == list("abcdef")
     for letter, c in s["criteria"].items():
         assert c["text"] == GATE1_CRITERIA[letter]
-        assert c["status"] in ("implemented", "not-implemented") and c["result"] in ("pass", "fail", "not-evaluated", "reported")
+        assert c["status"] in ("implemented", "not-implemented") and c["result"] in ("pass", "fail", "not-evaluated", "reported", "provisional pass")
     assert s["criteria"]["d"]["status"] == "not-implemented" and s["criteria"]["f"]["status"] == "not-implemented"
     assert s["grid"]["is_preregistered_ladder"] is False and s["overall"].startswith("not-evaluated")
     assert s["criteria"]["c"]["result"] == "not-evaluated" and s["criteria"]["c"]["part1"]["n_exceeding"] == 1
@@ -260,7 +260,9 @@ def test_cli_runs_4x3_L1_under_a_minute(tmp_path):
     assert out.returncode == 0, out.stderr
     assert time.time() - t0 < 60
     df = pd.read_csv(tmp_path / "p.csv")
-    assert set(df.model) == {"noiseless", "unital", "nonunital"} and (df.n == 12).all() and (df.L == 1).all() and (df.n_cone == 2).all()
+    assert set(df.model) == {"noiseless", "unital", "nonunital"} and (df.n == 12).all() and (df.L == 1).all()
+    assert (df[df.model == "noiseless"].n_cone == 2).all()                # light cone of Z_i Z_j at L = 1
+    assert (df[df.model != "noiseless"].n_cone.between(3, 8)).all()      # noisy L = 1: edge + patch neighbours (CZ channels included)
     assert (df["var"] > 0).all() and (df.eps_N_4096 > 0).all() and (tmp_path / "p.png").exists()
     s = json.loads((tmp_path / "s.json").read_text())
     assert list(s["criteria"]) == list("abcdef") and s["overall"].startswith("not-evaluated")
@@ -353,3 +355,86 @@ def test_dry_run_writes_job_bundle_layout(tmp_path, monkeypatch):
     df = pd.read_csv(logs[0])
     assert list(df.columns) == LOG_COLUMNS and len(df) == 15 and set(df.job_id) == {d.name for d in bundles}
     assert set(df.k) == {1, 4}                                                   # CSV k is 1-based like the job list
+
+
+def test_deviation_22_extended_exclusion_from_synthetic_properties(tmp_path):
+    """Deviation 22: (i) |ZZ| >= 1 MHz to an excluded qubit, (ii) init error >= 5e-4, read from raw properties; concatenated
+    ZZ names are resolved to lattice edges (including the ambiguous zz_1011 / zz_010 by elimination)."""
+    import gzip
+    from gradvar.lattice import lattice_edges
+    from gradvar.noise import exclusion_from_calibration, extended_exclusion, init_errors, zz_couplings
+    qubits = []
+    for q in range(120):
+        init = 1e-3 if q in (22, 40) else 2e-5
+        qubits.append([dict(name="T1", unit="us", value=100.0), dict(name="init_error", unit="", value=init),
+                       dict(name="readout_error", unit="", value=5e-3)])
+    general = []
+    for a, b in lattice_edges():
+        v = 27e-6                                   # 27 kHz median in GHz
+        if (a, b) == (17, 27):
+            v = 4.3e-3                              # 4.3 MHz to dead qubit 17 -> excludes 27
+        if (a, b) == (17, 18):
+            v = -5.0e-3                             # sign must not matter -> excludes 18
+        if (a, b) == (30, 31):
+            v = 2.0e-3                              # large coupling between two clean qubits: not a criterion
+        general.append(dict(name=f"zz_{a}{b}", unit="GHz", value=v))
+    props = dict(qubits=qubits, gates=[], general=general)
+    zz = zz_couplings(props)
+    assert set(zz) == set(lattice_edges()) and zz[(10, 11)] == 27e-6 and zz[(0, 10)] == 27e-6 and zz[(1, 11)] == 27e-6
+    assert init_errors(props)[22] == 1e-3
+    ext = extended_exclusion(props, base={17, 24, 49, 55, 61, 62, 63, 72, 73, 77, 107})
+    assert ext == dict(zz=[18, 27], init=[22, 40])
+    path = tmp_path / "props.json.gz"
+    with gzip.open(path, "wt") as f:
+        json.dump(props, f)
+    with_rule = set(exclusion_from_calibration(CAL, properties=str(path)))
+    without = set(exclusion_from_calibration(CAL))
+    assert with_rule - without == {18, 22, 27, 40} and without == {17, 24, 49, 55, 61, 62, 63, 72, 73, 77, 107}
+
+
+def test_deviation_22_on_the_19_sep_1925_snapshot():
+    from gradvar.noise import exclusion_from_calibration, latest_properties_file, place_patch
+    csv = str(ROOT / "data" / "calibrations" / "ibm_phoenix_2026-09-19T192510Z.csv")
+    props = latest_properties_file()
+    assert props and props.endswith("ibm_phoenix_properties_20260919T192510Z.json.gz")
+    ex = set(exclusion_from_calibration(csv, properties=props))
+    assert {18, 27} <= ex and {8, 11, 22, 59} <= ex          # ZZ to dead qubit 17; initialisation error >= 5e-4
+    for r, c in ((4, 5), (4, 10)):
+        assert place_patch(r, c, csv, allow_holes=True, properties=props).n == place_patch(r, c, csv, allow_holes=True).n   # rows 8-11 unaffected
+
+
+def test_deviation_26_cz_cut_breaks_couplers_and_moves_observable_edge(tmp_path):
+    """Deviation 26: a coupler with CZ error >= 5e-3 inside the placed patch carries no CZ (broken edge) and cannot host the
+    observable edge; the patch stays connected and the ansatz applies one CZ fewer per layer."""
+    from gradvar.lattice import interior_edge
+    from gradvar.noise import place_patch
+    df = pd.read_csv(CAL)
+    clean = place_patch(4, 5, CAL)
+    edge = interior_edge(clean)
+    a, b = edge
+
+    def raise_cz(row, other, val):
+        items = [it for it in str(row["CZ error"]).split(";") if ":" in it]
+        out = [f"{k}:{val}" if int(k) == other else f"{k}:{v}" for k, v in (it.split(":") for it in items)]
+        return ";".join(out)
+    df.loc[df.Qubit == a, "CZ error"] = df[df.Qubit == a].apply(lambda r: raise_cz(r, b, 2e-2), axis=1)
+    df.loc[df.Qubit == b, "CZ error"] = df[df.Qubit == b].apply(lambda r: raise_cz(r, a, 2e-2), axis=1)
+    path = tmp_path / "cal.csv"
+    df.to_csv(path, index=False)
+    broken = place_patch(4, 5, str(path))
+    if broken.origin == clean.origin:                       # same rectangle: the coupler is broken and the edge moves
+        assert broken.broken_edges == (edge,)
+        assert edge not in broken.edges() and len(broken.edges()) == len(clean.edges()) - 1
+        assert interior_edge(broken) != edge
+        assert hea_square(broken, 1, np.zeros(broken.n)).count_ops().get("cz", 0) == len(clean.edges()) - 1
+    else:                                                    # or a cleaner rectangle wins outright
+        assert not broken.broken_edges
+    assert place_patch(4, 5, str(path), cz_cut=None).origin == clean.origin and not place_patch(4, 5, str(path), cz_cut=None).broken_edges
+
+
+def test_deviation_26_on_the_19_sep_1925_snapshot_breaks_the_4x10_bad_couplers():
+    from gradvar.noise import latest_properties_file, place_patch
+    csv = str(ROOT / "data" / "calibrations" / "ibm_phoenix_2026-09-19T192510Z.csv")
+    p = place_patch(4, 10, csv, allow_holes=True, properties=latest_properties_file())
+    assert {(95, 96), (100, 101)} <= set(p.broken_edges)     # 3.1e-2 and 6.3e-2 on the 19:25Z snapshot
+    assert all(e not in p.edges() for e in p.broken_edges)

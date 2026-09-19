@@ -40,6 +40,27 @@ def chain_series(ns, M, seed, M_large=None, large_from=13):
     return rows
 
 
+def chain_closed_form(thetas):
+    """g = -sin(theta_0) prod_{i>0} cos(theta_i): the exact chain gradient (Var = 2^-n, kurtosis (3/2)^n)."""
+    thetas = np.asarray(thetas)
+    return -np.sin(thetas[:, 0]) * np.prod(np.cos(thetas[:, 1:]), axis=1)
+
+
+def chain_identity_series(ns, M, seed):
+    """Deviation 25 (a-i): per-draw |g_sim - g_closed| of the statevector parameter-shift gradient at M draws per n."""
+    rows = []
+    for n in ns:
+        t0 = time.time()
+        _, obs = chain_baseline(n)
+        ev = best_noiseless_expval(obs, n)   # quantum_info Statevector to 14 qubits, Aer statevector above (identical numbers, ~10x faster)
+        thetas = np.random.default_rng(seed + 7).uniform(0.0, 2.0 * np.pi, size=(M, n))
+        g_sim = np.array([parameter_shift(lambda p: chain_baseline(n, p)[0], th, 0, ev).gradient for th in thetas])
+        err = np.abs(g_sim - chain_closed_form(thetas))
+        rows.append(dict(n=n, M=M, max_abs_error=float(err.max()), mean_abs_error=float(err.mean()), seconds=time.time() - t0))
+        print(f"identity n={n:2d}: max|g_sim - g_closed| = {err.max():.2e} ({rows[-1]['seconds']:.1f}s)")
+    return rows
+
+
 def hea_series(patches, Ls, M, seed, max_n):
     rows = []
     for patch in patches:
@@ -97,9 +118,17 @@ def main(argv=None):
     p.add_argument("--hea-M", type=int, default=200)
     p.add_argument("--max-n", type=int, default=16)
     p.add_argument("--seed", type=int, default=2026)
+    p.add_argument("--identity-M", type=int, default=100, help="Deviation 25 (a-i): draws per n for the closed-form identity check (0 to skip)")
+    p.add_argument("--identity-only", action="store_true", help="run only the (a-i) identity check and write figures/gate1_chain_identity.csv")
     p.add_argument("--out", default=str(ROOT / "figures" / "gate1_noiseless.png"))
     a = p.parse_args(argv)
     print(f"qiskit-aer available: {HAS_AER}")
+    if a.identity_M:
+        ident = pd.DataFrame(chain_identity_series(range(4, a.chain_max_n + 1), a.identity_M, a.seed))
+        Path(a.out).parent.mkdir(parents=True, exist_ok=True)
+        ident.to_csv(Path(a.out).with_name("gate1_chain_identity.csv"), index=False)
+        if a.identity_only:
+            return
     rows = chain_series(range(4, a.chain_max_n + 1), a.chain_M, a.seed, a.chain_M_large, a.chain_large_from)
     rows += hea_series(gate1_patches(), (1, 2, 4), a.hea_M, a.seed, a.max_n)
     df = pd.DataFrame(rows)

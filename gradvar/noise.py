@@ -22,6 +22,8 @@ readout + CZ error. ``bloch_translation`` gives the per-layer estimate ||t|| ~ 1
 """
 from __future__ import annotations
 
+import gzip
+import json
 from pathlib import Path
 from typing import Dict, Iterable, Sequence, Tuple
 
@@ -29,7 +31,8 @@ import numpy as np
 import pandas as pd
 from qiskit.quantum_info import average_gate_fidelity
 
-from .lattice import DEFAULT_EXCLUDE, N_COLS, N_ROWS, Patch, qubit_index, rect_patch
+from .lattice import (DEFAULT_EXCLUDE, N_COLS, N_QUBITS, N_ROWS, Patch, interior_edge, is_connected, lattice_neighbours,  # noqa: F401
+                      qubit_index, rect_patch)
 from .sim import (BASIS, T_CZ_NS, T_READOUT_NS, T_SX_NS, cz_errors_from_calibration,  # noqa: F401
                   load_calibration)
 
@@ -43,6 +46,9 @@ N_CZ_SUBLAYERS = 4  # horizontal even/odd, vertical even/odd
 N_SX_PER_RY = 2     # Ry -> rz sx rz sx rz in the {rz, sx, x, cz} basis
 T_LAYER_NS = N_SX_PER_RY * T_SX_NS + N_CZ_SUBLAYERS * T_CZ_NS   # 352 ns per ansatz layer
 READOUT_CUT = 3e-2
+ZZ_CUT_MHZ = 1.0        # Deviation 22 (i): |ZZ| >= 1 MHz to an excluded or dead qubit
+INIT_ERROR_CUT = 5e-4   # Deviation 22 (ii): initialisation error >= 5e-4
+CZ_CUT = 5e-3           # Deviation 26: every coupler of the placed patch must have CZ error < 5e-3; a coupler above it is broken (no CZ)
 NOISE_BASIS = BASIS + ["delay"]
 DEFAULT_CALIBRATION = Path(__file__).resolve().parents[1] / "data" / "calibrations" / "ibm_phoenix_2026-09-19.csv"
 
@@ -53,25 +59,89 @@ def _require_aer():
 
 
 def latest_calibration_csv(directory: str | Path | None = None) -> str:
-    """Newest ``*.csv`` in data/calibrations (lexicographic on the UTC-stamped file name)."""
+    """Newest ``ibm_phoenix*.csv`` in data/calibrations (lexicographic on the UTC-stamped file name)."""
     d = Path(directory) if directory else DEFAULT_CALIBRATION.parent
-    files = sorted(p for p in d.glob("*.csv"))
+    files = sorted(p for p in d.glob("ibm_phoenix*.csv"))
     if not files:
         raise FileNotFoundError(f"no calibration CSV in {d}")
     return str(files[-1])
 
 
+def latest_properties_file(directory: str | Path | None = None, backend: str = "ibm_phoenix") -> str | None:
+    """Newest raw ``<backend>_properties_*.json[.gz]`` in data/calibrations, or None."""
+    d = Path(directory) if directory else DEFAULT_CALIBRATION.parent
+    files = sorted(list(d.glob(f"{backend}_properties_*.json.gz")) + list(d.glob(f"{backend}_properties_*.json")))
+    return str(files[-1]) if files else None
+
+
+def load_properties(path: str | Path) -> dict:
+    path = Path(path)
+    raw = gzip.open(path, "rb").read() if path.suffix == ".gz" else path.read_bytes()
+    return json.loads(raw)
+
+
+def zz_couplings(props: dict) -> Dict[Tuple[int, int], float]:
+    """{(a, b): ZZ in GHz} from the ``general`` block (entries ``zz_<a><b>``). The two indices are concatenated
+    without a separator, so a name is split at every position and kept when the pair is a lattice edge; the few
+    still-ambiguous names (e.g. ``zz_1011``) are resolved by elimination against the unambiguous ones."""
+    pending, out = {}, {}
+    for g in props.get("general", []):
+        name = str(g.get("name", ""))
+        if not name.startswith("zz_"):
+            continue
+        digits = name.split("_", 1)[1]
+        cands = set()
+        for i in range(1, len(digits)):
+            a, b = int(digits[:i]), int(digits[i:])
+            if a < N_QUBITS and b < N_QUBITS and b in lattice_neighbours(a):
+                cands.add((min(a, b), max(a, b)))
+        if len(cands) == 1:
+            out[next(iter(cands))] = float(g["value"])
+        elif cands:
+            pending[name] = (cands, float(g["value"]))
+    for name, (cands, v) in pending.items():
+        free = [e for e in cands if e not in out]
+        if len(free) == 1:
+            out[free[0]] = v
+        else:
+            raise ValueError(f"cannot resolve ZZ entry {name!r} to a unique lattice edge: {sorted(cands)}")
+    return out
+
+
+def init_errors(props: dict) -> Dict[int, float]:
+    return {q: float(x["value"]) for q, params in enumerate(props.get("qubits", [])) for x in params if x.get("name") == "init_error"}
+
+
+def extended_exclusion(props: dict, base: Iterable[int], zz_cut_mhz: float = ZZ_CUT_MHZ,
+                       init_cut: float = INIT_ERROR_CUT) -> Dict[str, list]:
+    """Deviation 22 (20 Sep 2026): from the raw properties, add (i) every qubit with |ZZ| >= ``zz_cut_mhz`` MHz to a
+    qubit already excluded (dead or cut) and (ii) every qubit with initialisation error >= ``init_cut``. Applied once
+    (not iterated: a qubit excluded by (i) does not propagate its own ZZ neighbours). Returns the two lists."""
+    base = set(int(q) for q in base)
+    zz_hits = sorted({q for (a, b), v in zz_couplings(props).items() if abs(v) * 1e3 >= zz_cut_mhz
+                      for q, other in ((a, b), (b, a)) if other in base and q not in base})
+    init_hits = sorted(q for q, v in init_errors(props).items() if v >= init_cut and q not in base)
+    return dict(zz=zz_hits, init=init_hits)
+
+
 # --------------------------------------------------------------------------- qubit cut and placement
 
 def exclusion_from_calibration(csv_path: str, readout_cut: float = READOUT_CUT,
-                               fixed: Iterable[int] = DEFAULT_EXCLUDE) -> Tuple[int, ...]:
-    """Pre-registered cut: fixed list (dead qubit 17 and the high-error cluster) plus every qubit whose
-    readout assignment error exceeds ``readout_cut`` or that is not operational on the snapshot."""
+                               fixed: Iterable[int] = DEFAULT_EXCLUDE, properties: str | Path | None = None,
+                               init_cut: float = INIT_ERROR_CUT, zz_cut_mhz: float = ZZ_CUT_MHZ) -> Tuple[int, ...]:
+    """Pre-registered cut: fixed list (dead qubit 17 and the high-error cluster) plus every qubit whose readout
+    assignment error exceeds ``readout_cut`` or that is not operational on the snapshot. With ``properties`` (raw
+    ``backend.properties()`` JSON, optionally gzipped) the Deviation-22 rule is added: |ZZ| >= ``zz_cut_mhz`` MHz to
+    an excluded qubit, or initialisation error >= ``init_cut``. Without ``properties`` the rule is not applied (the
+    pre-registered cut alone), so earlier placements are reproducible."""
     df = load_calibration(csv_path)
     bad = set(int(q) for q in fixed)
     bad |= set(int(q) for q in df.index[df["Readout assignment error"].astype(float) > readout_cut])
     if "Operational" in df:
         bad |= set(int(q) for q in df.index[df["Operational"].astype(str).str.strip().str.lower() != "yes"])
+    if properties is not None:
+        ext = extended_exclusion(load_properties(properties), bad, zz_cut_mhz, init_cut)
+        bad |= set(ext["zz"]) | set(ext["init"])
     return tuple(sorted(bad))
 
 
@@ -82,30 +152,65 @@ def patch_error_score(df: pd.DataFrame, patch: Patch, cz: Dict[Tuple[int, int], 
     return ro + sx + czs
 
 
+def bad_couplers(cz: Dict[Tuple[int, int], float], cz_cut: float = CZ_CUT) -> Dict[Tuple[int, int], float]:
+    return {e: v for e, v in cz.items() if v >= cz_cut}
+
+
 def place_patch(n_rows: int, n_cols: int, csv_path: str | None = None, readout_cut: float = READOUT_CUT,
-                allow_holes: bool = False) -> Patch:
-    """The n_rows x n_cols rectangle that avoids ``exclusion_from_calibration`` and has the smallest summed
-    readout + sx + CZ error over all clean placements (ties: row-major first). With ``allow_holes`` and no
-    clean placement, falls back to ``rect_patch(..., allow_holes=True)`` (fewest excluded qubits)."""
+                allow_holes: bool = False, properties: str | Path | None = None, cz_cut: float | None = CZ_CUT) -> Patch:
+    """The n_rows x n_cols rectangle that avoids ``exclusion_from_calibration`` (with the Deviation-22 rule when
+    ``properties`` is given), ranked by (number of excluded qubits inside, number of couplers at or above ``cz_cut``,
+    summed readout + sx + CZ error); ties row-major first. Without ``allow_holes`` only rectangles free of excluded
+    qubits are considered. Couplers at or above ``cz_cut`` (Deviation 26, default 5e-3) are recorded as
+    ``broken_edges`` and carry no CZ; the observable edge (``interior_edge``) is chosen among the remaining edges, so a
+    qubit whose observable-edge coupler fails cannot host the edge. ``cz_cut=None`` disables the coupler rule. The
+    result must stay connected through its unbroken edges."""
     csv_path = csv_path or str(DEFAULT_CALIBRATION)
     df = load_calibration(csv_path)
     cz = cz_errors_from_calibration(df)
-    ex = set(exclusion_from_calibration(csv_path, readout_cut))
-    best, best_score = None, None
+    bad = bad_couplers(cz, cz_cut) if cz_cut is not None else {}
+    ex = set(exclusion_from_calibration(csv_path, readout_cut, properties=properties))
+    best, best_key = None, None
     for r0 in range(N_ROWS - n_rows + 1):
         for c0 in range(N_COLS - n_cols + 1):
-            qubits = tuple(qubit_index(r0 + dr, c0 + dc) for dr in range(n_rows) for dc in range(n_cols))
-            if ex.intersection(qubits):
+            rect = tuple(qubit_index(r0 + dr, c0 + dc) for dr in range(n_rows) for dc in range(n_cols))
+            hit = ex.intersection(rect)
+            if hit and not allow_holes:
                 continue
-            patch = Patch(qubits=qubits, n_rows=n_rows, n_cols=n_cols, origin=(r0, c0))
-            score = patch_error_score(df, patch, cz)
-            if best is None or score < best_score:
-                best, best_score = patch, score
-    if best is not None:
-        return best
-    if allow_holes:
-        return rect_patch(n_rows, n_cols, exclude=ex, allow_holes=True)
-    raise ValueError(f"no clean {n_rows}x{n_cols} rectangle after the calibration cut {sorted(ex)}")
+            qubits = tuple(q for q in rect if q not in hit)
+            if not qubits:
+                continue
+            probe = Patch(qubits=qubits, n_rows=n_rows, n_cols=n_cols, origin=(r0, c0), holes=tuple(sorted(hit)))
+            broken = tuple(e for e in probe.edges() if e in bad)
+            patch = Patch(qubits=qubits, n_rows=n_rows, n_cols=n_cols, origin=(r0, c0), holes=tuple(sorted(hit)), broken_edges=broken)
+            if not patch.edges() or not is_connected(patch):
+                continue
+            key = (len(hit), len(broken), patch_error_score(df, patch, cz))
+            if best is None or key < best_key:
+                best, best_key = patch, key
+    if best is None:
+        raise ValueError(f"no {n_rows}x{n_cols} rectangle after the calibration cut {sorted(ex)}"
+                         + ("" if allow_holes else " (pass allow_holes=True to drop the excluded qubits)"))
+    return best
+
+
+def ladder_placements(csv_path: str, properties: str | Path | None, shapes=((4, 5), (4, 10), (6, 10), (8, 10), (10, 10)),
+                      cz_cut: float | None = CZ_CUT) -> Dict:
+    """The five ladder patches under the full rule set, as a JSON-ready dict (for the Pauli-propagation branch)."""
+    df = load_calibration(csv_path)
+    cz = cz_errors_from_calibration(df)
+    out = dict(calibration=str(Path(csv_path).name), properties=(str(Path(properties).name) if properties else None),
+               rules=dict(fixed=list(DEFAULT_EXCLUDE), readout_cut=READOUT_CUT, init_error_cut=INIT_ERROR_CUT, zz_cut_mhz=ZZ_CUT_MHZ, cz_cut=cz_cut),
+               excluded=list(exclusion_from_calibration(csv_path, properties=properties)), patches={})
+    for r, c in shapes:
+        p = place_patch(r, c, csv_path, allow_holes=True, properties=properties, cz_cut=cz_cut)
+        edge = interior_edge(p)
+        out["patches"][f"{r}x{c}"] = dict(n=p.n, origin=list(p.origin), qubits=list(p.qubits), holes=list(p.holes),
+                                          broken_edges=[list(e) for e in p.broken_edges],
+                                          broken_edge_cz_errors={f"{a}_{b}": cz[(a, b)] for a, b in p.broken_edges},
+                                          edges=[list(e) for e in p.edges()], observable_edge=list(edge),
+                                          observable_edge_cz_error=cz.get(tuple(edge)))
+    return out
 
 
 # --------------------------------------------------------------------------- channel construction

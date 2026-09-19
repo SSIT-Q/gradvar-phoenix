@@ -115,7 +115,11 @@ Result of the run shipped with this repository (seed 2026):
 | hea | 4x4 | 16 | 2 | 200 | 8.260e-02 | [6.619e-02, 9.996e-02] | - |
 | hea | 4x4 | 16 | 4 | 200 | 1.529e-02 | [1.146e-02, 1.942e-02] | - |
 
-Chain points n = 4..12 (M = 1000) contain 2^-n in their 95% bootstrap interval; **every point n = 13..20 (M = 300) does not**, and the measured variance sits 2-20x below 2^-n. This is a property of the estimator, not of the circuit: the chain gradient is -sin(theta_0) prod cos(theta_i), whose kurtosis is (3/2)^n (3300 at n = 20), so the relative standard error of the sample variance is sqrt(((3/2)^n - 1)/M) = 0.8 at n = 13 and 3.3 at n = 20 with M = 300 (1.3 at n = 20 even with the pre-registered M = 2000), the sample variance is typically far below its mean and the percentile bootstrap does not cover. `gate1_summary.json` criterion (a) therefore reads **fail** for n >= 13 and carries the per-n kurtosis, relative SE and the M needed for a 30% relative SE (37,000 draws at n = 20). Resolving (a) needs either that M or an amendment of the criterion (a per-draw closed-form check plus the variance at n <= 12); see `docs/GATE1_RESULTS.md`.
+Chain points n = 4..12 (M = 1000) contain 2^-n in their 95% bootstrap interval; **every point n = 13..20 (M = 300) does not**, and the measured variance sits 2-20x below 2^-n. This is a property of the estimator, not of the circuit: the chain gradient is -sin(theta_0) prod cos(theta_i), whose kurtosis is (3/2)^n (3300 at n = 20), so the relative standard error of the sample variance is sqrt(((3/2)^n - 1)/M) = 0.8 at n = 13 and 3.3 at n = 20 with M = 300 (1.3 at n = 20 even with the pre-registered M = 2000), the sample variance is typically far below its mean and the percentile bootstrap does not cover. Criterion (a) therefore **fails as registered; the failure is an estimator artefact** (the closed form reproduces every reported value to 1e-13, and the per-draw identity
+check `--identity-M 100`, `figures/gate1_chain_identity.csv`, gives |g_sim - g_closed| < 1e-10 at every n = 4..20). **Deviation 25** (pending PI signature) replaces (a) by
+(a-i) that identity check, (a-ii) the pre-registered bootstrap check at n <= 12, M = 1000, and (a-iii) at n = 13..20, M = 300, the sample variance inside the central 95%
+interval of its exact null sampling distribution (10^4 closed-form Monte Carlo replicates at the same M, `predict.chain_null_quantiles`); `gate1_summary.json` carries
+`result_as_registered`, `result_deviation_25` and the per-n table (kurtosis, relative SE, null quantiles). Results and the n = 20 second-seed replicate are in `docs/GATE1_RESULTS.md`.
 
 ## Gate 1 (noise predictions)
 
@@ -127,7 +131,22 @@ python scripts/trajectory_bias.py                                 # trajectory b
 
 **Qubit cut and placement.** `gradvar.noise.exclusion_from_calibration` applies the pre-registered cut to the
 snapshot: the fixed list (17, 55, 61, 62, 63, 72, 73) plus every qubit with readout assignment error above 3e-2
-or not operational; on the 2026-09-19 snapshot that adds 24, 49, 77 and 107. `place_patch(rows, cols)` returns
+or not operational; on the 2026-09-19 snapshot that adds 24, 49, 77 and 107. With `properties=` (the raw
+`backend.properties()` JSON, `noise.latest_properties_file()`) the **Deviation 22** rule (20 Sep 2026) is added:
+any qubit with |ZZ| >= 1 MHz to an excluded or dead qubit (`noise.zz_couplings`, names `zz_<a><b>` resolved to lattice
+edges) or with initialisation error >= 5e-4 (`noise.extended_exclusion`). On the 19:25Z properties that adds 18 and 27
+(ZZ -5.0 / +4.3 MHz to dead qubit 17) and 8, 11, 22, 59 (init error 5.8e-4 to 4.3e-3 against a 2e-5 median), so the
+6x10 / 8x10 / 10x10 patches move (the ladder is **20 / 39 / 53 / 70 / 87**; Deviation 18's 56 / 71 / 90 were under the
+old rule, and the first-pass predictions at those n sat on cones containing qubits 22 or 27). **Deviation 26** (v0.9.1)
+adds the coupler cut: every coupler of the placed patch must have CZ error < 5e-3 (`noise.CZ_CUT`); `place_patch` ranks
+placements by (excluded qubits inside, couplers at or above the cut, summed error) and records the couplers above the
+cut as `Patch.broken_edges`, on which no CZ is applied (ansatz, light cone and noise model skip them) and which cannot
+host the observable edge. On the 19:25Z snapshot the 4x10 keeps its rectangle but loses (86,87), (87,97), (95,96)
+[3.1e-2, on observable qubit 95], (100,101) [6.3e-2] and (100,110); the 6x10 / 8x10 / 10x10 sit at origins (6,0) /
+(4,0) / (2,0) with 5 / 6 / 7 broken couplers. `data/predictions/ladder_placements.json` lists qubits, holes, broken
+couplers, edges and the observable edge per patch (written by `scripts/gate1_ladder.py`; `noise.ladder_placements`).
+Without `properties` the Deviation-22 rule is not applied and `cz_cut=None` disables the coupler rule, so the earlier
+placements stay reproducible. `place_patch(rows, cols)` returns
 the clean rectangle with the smallest summed readout + sx + CZ error (4x3 -> origin (8,1), 4x4 -> (8,2),
 4x5 -> (8,1) with observable edge 93_103). No clean 4x10 exists after the cut, so 4x10 is placed at (8,0)
 minus qubit 107 (n = 39); 6x10 / 8x10 / 10x10 become n = 56 / 71 / 90. Job lists give the placed `n`.
@@ -189,21 +208,24 @@ verdict is given unless the grid is the pre-registered ladder; the demo grid rep
 ### Gate 1 ladder run (branch `gate1-grid`, 19 Sep 2026): exact-simulation half
 
 `data/predictions/gate1_predictions.csv`, `gate1_summary.json`, `gate1_ladder_schedule.json`, `gate1_null_control.json`, `gate1_renyi.json` and
-`figures/gate1_predictions.png`, `gate1_renyi.png` now hold the **Deviation-18 ladder** (4x5 / 4x10 / 6x10 / 8x10 / 10x10 -> n = 20 / 39 / 56 / 71 / 90 as placed
-under the readout cut) at L <= 4 on the light cone, k in {1, L}, all three models, M = 200, computed by `scripts/gate1_ladder.py` (exact density matrix
-for cones <= 10 qubits, 32 noise trajectories on the statevector up to 24 cone qubits, no MPS), plus the criterion-(d) null control (`scripts/gate1_null_control.py`)
-and the criterion-(f) Renyi-2 saturation depth (`scripts/gate1_renyi.py`). Every L = 8 / 12 point, every L = 4 point with a cone above 24 qubits and the noisy 4x5 L = 4 /
-4x10 L = 2 points (measured 38 s and > 150 s per circuit) are recorded as **requires Pauli propagation** (branch `gate1-pauli-prop`); six further points were not reached
-before the compute cap and are marked "not computed (time cap)". Full tables, the M used per point and what was cut are in **`docs/GATE1_RESULTS.md`**. Criteria on this run:
+`figures/gate1_predictions.png`, `gate1_renyi.png` hold the ladder (4x5 / 4x10 / 6x10 / 8x10 / 10x10 -> **n = 20 / 39 / 53 / 70 / 87** as placed under the
+readout cut plus the Deviation-22 and -26 rules on the 19:25Z snapshot) at L <= 4 on the light cone, k in {1, L}, all three models, M = 200, computed by
+`scripts/gate1_ladder.py` (exact density matrix for cones <= 10 qubits, the 8-qubit edge + neighbours register for noisy L = 1 points, 32 noise trajectories on the
+statevector up to 24 cone qubits, no MPS; every finished point is saved at once to `data/predictions/ladder_points/` and `--finalize` re-assembles the outputs), plus the
+criterion-(d) null control (`scripts/gate1_null_control.py`) and the criterion-(f) Renyi-2 saturation depth (`scripts/gate1_renyi.py`). Every L = 8 / 12 point, every L = 4
+point with a cone above 24 qubits and the noisy 4x5 L = 4 / 4x10 L = 2 points (measured 38 s and > 150 s per circuit) are recorded as **requires Pauli propagation** (branch
+`gate1-pauli-prop`); exact-feasible points not reached before the compute cap are marked "not computed (time cap)". The first pass (19 Sep, old exclusion rule, n = 56 / 71 / 90,
+log-reconstructed to 4 significant figures) is kept as `gate1_predictions_oldrule.csv` for comparison only. Full tables, old-vs-new values, the M used per point and what was
+cut are in **`docs/GATE1_RESULTS.md`**. Criteria on this run:
 
 | criterion | status | result | note |
 |---|---|---|---|
-| (a) | implemented | **fail** | 2^-n outside the bootstrap interval at n = [13, 14, 15, 16, 17, 18, 19, 20]; at those n the relative SE of the sample variance is 0.80 (n = 13, M = 300), 0.98 (n = 14, M = 300), 1.21 (n = 15, M = 300), 1.48 (n = 16, M = 300), 1.81 (n = 17, M = 300), 2.22 (n = 18, M = 300), 2.72 (n = 19, M = 300), 3.33 (n = 20, M = 300); see heav... |
-| (b) | implemented | **pass** | evaluated at M = 200; 0 of 37 points exceed the depth-dependent bound (16 exceed the original 1.5); 98 deferred point(s) not included |
+| (a) | implemented | **fail** | fails as registered (2^-n outside the bootstrap interval at n = [13, 14, 15, 16, 17, 18, 19, 20]); estimator artefact: kurtosis (3/2)^n, relative SE of the sample variance 0.80 (n = 13), 0.98 (n = 14), 1.21 (n = 15), 1.48 (n = 16), 1.81 (n = 17), 2.22 (n = 18), 2.72 (n = 19), 3.33 (n = 20); Deviation 25: (a-i) pass (max /g_sim -... |
+| (b) | implemented | **pass** | evaluated at M = 200; 0 of 31 points at M >= 200 exceed the depth-dependent bound (16 exceed the original 1.5); 104 deferred point(s) not included |
 | (c) | implemented | **not-evaluated** |  |
-| (d) | implemented | **pass** | null control simulated at n = [20, 39] under the non-unital model with sampled shots; Var_null / (1/(2N)) = 0.74 (N = 4096), 0.66 (N = 16384), 0.85 (N = 4096), 0.80 (N = 16384); smallest exactly computed noisy signal Var = 6.21e-02 (unital, n = 56, L = 2, k = 1), CI low 4.72e-02; the 10x allowance at both shot counts lies below ... |
+| (d) | implemented | **provisional pass** | null control simulated at n = [20, 39] under the non-unital model with sampled shots; Var_null / (1/(2N)) = 0.74 (N = 4096), 0.66 (N = 16384), 0.85 (N = 4096), 0.80 (N = 16384); smallest exactly computed noisy signal Var = 7.27e-02 (unital, n = 20, L = 2, k = 1), CI low 5.70e-02; the 10x allowance at both shot counts lies below ... |
 | (e) | implemented | **pass** | evaluated at 4096 shots on every computed point of this grid; the pre-registered scope is 'every point to be claimed' |
-| (f) | implemented | **reported** | L_s(n) at 95% of the Page value: n = 12: L_s = 14 (interp. 13.18), n = 16: L_s = 13 (interp. 12.49), n = 20: L_s = 12 (interp. 11.93); fit L_s = 15.03 + -0.156 n; design check on where the noiseless variance is expected to collapse, no pass/fail threshold pre-registered; patches n = 39..90 are beyond exact statevector simulation |
+| (f) | implemented | **reported** | L_s(n) at 95% of the Page value: n = 12: L_s = 14 (interp. 13.18), n = 16: L_s = 13 (interp. 12.49), n = 20: L_s = 12 (interp. 11.93); fit L_s = 15.03 + -0.156 n; design check on where the noiseless variance is expected to collapse, no pass/fail threshold pre-registered. Caveats: L_s(20) = 12 sits at the sweep edge (L_max = 12) ... |
 
 Overall: not-evaluated: the ladder points at L = 8 and 12 (and the large-cone L = 4 points) requires Pauli propagation, so no overall Gate 1 verdict is given; criteria evaluated on the exactly computed points where the pre-registration allows. `python scripts/gate1_predict.py --summary-only --null-json ... --renyi-json ...` rebuilds the summary from the saved CSV without re-simulating.
 
@@ -409,7 +431,7 @@ Deviations below.
   sampled through Aer's `ReadoutError`, which only acts on measured circuits.
 * **Bootstrap.** Predictions use 10,000 resamples (`--n-boot`), as pre-registered; the paired bootstrap of the
   layer-index statistic also uses 10,000.
-* **(a) fails for n = 13..20 at M = 300** (heavy-tailed chain gradient, see Gate 1 (noiseless) above); (d) and (f) are implemented on branch `gate1-grid`
+* **(a) fails as registered for n = 13..20 (estimator artefact; Deviation 25 (a-i)/(a-ii)/(a-iii) evaluated alongside**, see Gate 1 (noiseless) above); (d) and (f) are implemented on branch `gate1-grid`
   (`scripts/gate1_null_control.py`, `scripts/gate1_renyi.py`) and evaluated in `gate1_summary.json`; criterion (b) uses the depth-dependent bound of Deviation 17
   (`predict.criterion_b_bound`), with the count above the original 1.5 kept in the JSON.
 * **Large patches are rectangles with holes.** With the default exclusion list (17, 55, 61, 62, 63,

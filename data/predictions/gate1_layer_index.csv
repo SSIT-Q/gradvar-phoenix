@@ -1,21 +1,21 @@
-n,L,note
-20,2,missing point(s)
-20,4,missing point(s)
-20,8,missing point(s)
-20,12,missing point(s)
-39,2,missing point(s)
-39,4,missing point(s)
-39,8,missing point(s)
-39,12,missing point(s)
-56,2,missing point(s)
-56,4,missing point(s)
-56,8,missing point(s)
-56,12,missing point(s)
-71,2,missing point(s)
-71,4,missing point(s)
-71,8,missing point(s)
-71,12,missing point(s)
-90,2,missing point(s)
-90,4,missing point(s)
-90,8,missing point(s)
-90,12,missing point(s)
+n,L,note,M,r_noiseless,r_noiseless_lo,r_noiseless_hi,r_unital,r_unital_lo,r_unital_hi,r_nonunital,r_nonunital_lo,r_nonunital_hi,R_unital,R_unital_lo,R_unital_hi,R_nonunital,R_nonunital_lo,R_nonunital_hi,D,D_lo,D_hi,separated,separated_two_sided,var_kL_nonunital_minus_unital
+20,2,missing point(s),,,,,,,,,,,,,,,,,,,,,,
+20,4,missing point(s),,,,,,,,,,,,,,,,,,,,,,
+20,8,missing point(s),,,,,,,,,,,,,,,,,,,,,,
+20,12,missing point(s),,,,,,,,,,,,,,,,,,,,,,
+39,2,missing point(s),,,,,,,,,,,,,,,,,,,,,,
+39,4,missing point(s),,,,,,,,,,,,,,,,,,,,,,
+39,8,missing point(s),,,,,,,,,,,,,,,,,,,,,,
+39,12,missing point(s),,,,,,,,,,,,,,,,,,,,,,
+53,2,missing point(s),,,,,,,,,,,,,,,,,,,,,,
+53,4,missing point(s),,,,,,,,,,,,,,,,,,,,,,
+53,8,missing point(s),,,,,,,,,,,,,,,,,,,,,,
+53,12,missing point(s),,,,,,,,,,,,,,,,,,,,,,
+70,2,missing point(s),,,,,,,,,,,,,,,,,,,,,,
+70,4,missing point(s),,,,,,,,,,,,,,,,,,,,,,
+70,8,missing point(s),,,,,,,,,,,,,,,,,,,,,,
+70,12,missing point(s),,,,,,,,,,,,,,,,,,,,,,
+87,2,,200.0,1.027734068665656,0.7393510140477763,1.4172759040345753,1.0162290950787851,0.7307577117585248,1.4038072065802818,1.0306657310054204,0.7429524885408423,1.4192567204795377,0.9888054955677317,0.9684695520087575,1.008440918268654,1.0028525495350862,0.983109371296157,1.024917282618822,0.014047053967354506,-0.008955438432371076,0.0395827762699801,False,False,0.001264128785619545
+87,4,missing point(s),,,,,,,,,,,,,,,,,,,,,,
+87,8,missing point(s),,,,,,,,,,,,,,,,,,,,,,
+87,12,missing point(s),,,,,,,,,,,,,,,,,,,,,,

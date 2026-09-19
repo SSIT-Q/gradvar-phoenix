@@ -3,9 +3,9 @@
     "n": [
       20,
       39,
-      56,
-      71,
-      90
+      53,
+      70,
+      87
     ],
     "L": [
       1,
@@ -31,8 +31,8 @@
     ],
     "is_preregistered_ladder": false,
     "ladder_n": true,
-    "n_points_computed": 37,
-    "n_points_deferred": 98,
+    "n_points_computed": 31,
+    "n_points_deferred": 104,
     "M_by_point": [
       {
         "n": 20,
@@ -45,37 +45,42 @@
         "M": 200
       },
       {
+        "n": 20,
+        "L": 4,
+        "M": 200
+      },
+      {
         "n": 39,
         "L": 1,
         "M": 200
       },
       {
-        "n": 56,
+        "n": 53,
         "L": 1,
         "M": 200
       },
       {
-        "n": 56,
+        "n": 53,
         "L": 2,
         "M": 200
       },
       {
-        "n": 71,
+        "n": 70,
         "L": 1,
         "M": 200
       },
       {
-        "n": 71,
+        "n": 70,
         "L": 2,
         "M": 200
       },
       {
-        "n": 90,
+        "n": 87,
         "L": 1,
         "M": 200
       },
       {
-        "n": 90,
+        "n": 87,
         "L": 2,
         "M": 200
       }
@@ -87,6 +92,7 @@
       "text": "The regression check reproduces 2^-n within bootstrap error for n = 4 to 20.",
       "status": "implemented",
       "source": "/tmp/claude-0/-workspace/7097aca5-2811-5a07-966b-147d13c851bc/scratchpad/gp_grid/figures/gate1_noiseless.csv",
+      "identity_source": "/tmp/claude-0/-workspace/7097aca5-2811-5a07-966b-147d13c851bc/scratchpad/gp_grid/figures/gate1_chain_identity.csv",
       "points": {
         "4": true,
         "5": true,
@@ -116,7 +122,7 @@
           "ci_high": 0.0752118748843858,
           "analytic": 0.0625,
           "ratio": 1.0768067881573231,
-          "inside": true,
+          "inside_bootstrap": true,
           "kurtosis": 5.0625,
           "rel_se_of_sample_variance": 0.06373774391990981,
           "M_for_rel_se_0p3": 46
@@ -129,7 +135,7 @@
           "ci_high": 0.037395011068627,
           "analytic": 0.03125,
           "ratio": 1.0364223629094336,
-          "inside": true,
+          "inside_bootstrap": true,
           "kurtosis": 7.59375,
           "rel_se_of_sample_variance": 0.08120190884455858,
           "M_for_rel_se_0p3": 74
@@ -142,7 +148,7 @@
           "ci_high": 0.022613224663352,
           "analytic": 0.015625,
           "ratio": 1.184698857565504,
-          "inside": true,
+          "inside_bootstrap": true,
           "kurtosis": 11.390625,
           "rel_se_of_sample_variance": 0.10193441518937557,
           "M_for_rel_se_0p3": 116
@@ -155,7 +161,7 @@
           "ci_high": 0.0122502638122497,
           "analytic": 0.0078125,
           "ratio": 1.1975989943887104,
-          "inside": true,
+          "inside_bootstrap": true,
           "kurtosis": 17.0859375,
           "rel_se_of_sample_variance": 0.12683034928596545,
           "M_for_rel_se_0p3": 179
@@ -168,7 +174,7 @@
           "ci_high": 0.0055972674655121,
           "analytic": 0.00390625,
           "ratio": 1.065859477398144,
-          "inside": true,
+          "inside_bootstrap": true,
           "kurtosis": 25.62890625,
           "rel_se_of_sample_variance": 0.1569359941186215,
           "M_for_rel_se_0p3": 274
@@ -181,7 +187,7 @@
           "ci_high": 0.0028641976848391,
           "analytic": 0.001953125,
           "ratio": 1.0663750015641087,
-          "inside": true,
+          "inside_bootstrap": true,
           "kurtosis": 38.443359375,
           "rel_se_of_sample_variance": 0.19350286658083388,
           "M_for_rel_se_0p3": 417
@@ -194,7 +200,7 @@
           "ci_high": 0.0012234333633973,
           "analytic": 0.0009765625,
           "ratio": 0.9357060538404864,
-          "inside": true,
+          "inside_bootstrap": true,
           "kurtosis": 57.6650390625,
           "rel_se_of_sample_variance": 0.2380441956076644,
           "M_for_rel_se_0p3": 630
@@ -207,7 +213,7 @@
           "ci_high": 0.0006715436910902,
           "analytic": 0.00048828125,
           "ratio": 1.0011095477911551,
-          "inside": true,
+          "inside_bootstrap": true,
           "kurtosis": 86.49755859375,
           "rel_se_of_sample_variance": 0.2923996555978649,
           "M_for_rel_se_0p3": 950
@@ -220,7 +226,7 @@
           "ci_high": 0.0002532272770612,
           "analytic": 0.000244140625,
           "ratio": 0.7379011089440768,
-          "inside": true,
+          "inside_bootstrap": true,
           "kurtosis": 129.746337890625,
           "rel_se_of_sample_variance": 0.35881239929888853,
           "M_for_rel_se_0p3": 1431
@@ -233,10 +239,13 @@
           "ci_high": 7.357338957379534e-05,
           "analytic": 0.0001220703125,
           "ratio": 0.37134974118685943,
-          "inside": false,
+          "inside_bootstrap": false,
           "kurtosis": 194.6195068359375,
           "rel_se_of_sample_variance": 0.8033668876172279,
-          "M_for_rel_se_0p3": 2152
+          "M_for_rel_se_0p3": 2152,
+          "null_q025_over_2pow": 0.23605738997185263,
+          "null_q975_over_2pow": 3.20776702190959,
+          "inside_null_95": true
         },
         {
           "n": 14,
@@ -246,10 +255,13 @@
           "ci_high": 5.842734278959712e-05,
           "analytic": 6.103515625e-05,
           "ratio": 0.44681605385078527,
-          "inside": false,
+          "inside_bootstrap": false,
           "kurtosis": 291.92926025390625,
           "rel_se_of_sample_variance": 0.9847660640204627,
-          "M_for_rel_se_0p3": 3233
+          "M_for_rel_se_0p3": 3233,
+          "null_q025_over_2pow": 0.18901636443140735,
+          "null_q975_over_2pow": 3.5993921800201147,
+          "inside_null_95": true
         },
         {
           "n": 15,
@@ -259,10 +271,13 @@
           "ci_high": 1.9444499061631195e-05,
           "analytic": 3.0517578125e-05,
           "ratio": 0.31755288151555344,
-          "inside": false,
+          "inside_bootstrap": false,
           "kurtosis": 437.8938903808594,
           "rel_se_of_sample_variance": 1.206777928177425,
-          "M_for_rel_se_0p3": 4855
+          "M_for_rel_se_0p3": 4855,
+          "null_q025_over_2pow": 0.1489827484033061,
+          "null_q975_over_2pow": 4.182087011768431,
+          "inside_null_95": true
         },
         {
           "n": 16,
@@ -272,10 +287,13 @@
           "ci_high": 1.3217270876792809e-05,
           "analytic": 1.52587890625e-05,
           "ratio": 0.4612834985896751,
-          "inside": false,
+          "inside_bootstrap": false,
           "kurtosis": 656.8408355712891,
           "rel_se_of_sample_variance": 1.478558797806487,
-          "M_for_rel_se_0p3": 7288
+          "M_for_rel_se_0p3": 7288,
+          "null_q025_over_2pow": 0.12222491041318467,
+          "null_q975_over_2pow": 4.330320870768503,
+          "inside_null_95": true
         },
         {
           "n": 17,
@@ -285,10 +303,13 @@
           "ci_high": 5.270276295247831e-06,
           "analytic": 7.62939453125e-06,
           "ratio": 0.3830303121819342,
-          "inside": false,
+          "inside_bootstrap": false,
           "kurtosis": 985.2612533569336,
           "rel_se_of_sample_variance": 1.8113174333956796,
-          "M_for_rel_se_0p3": 10937
+          "M_for_rel_se_0p3": 10937,
+          "null_q025_over_2pow": 0.09620769079126149,
+          "null_q975_over_2pow": 4.934704826964556,
+          "inside_null_95": true
         },
         {
           "n": 18,
@@ -298,10 +319,13 @@
           "ci_high": 1.437346973469359e-06,
           "analytic": 3.814697265625e-06,
           "ratio": 0.17746024059243984,
-          "inside": false,
+          "inside_bootstrap": false,
           "kurtosis": 1477.8918800354004,
           "rel_se_of_sample_variance": 2.2187773510317195,
-          "M_for_rel_se_0p3": 16410
+          "M_for_rel_se_0p3": 16410,
+          "null_q025_over_2pow": 0.07542580877396426,
+          "null_q975_over_2pow": 5.072032699701143,
+          "inside_null_95": true
         },
         {
           "n": 19,
@@ -311,10 +335,13 @@
           "ci_high": 1.445567920529473e-06,
           "analytic": 1.9073486328125e-06,
           "ratio": 0.2827022422759905,
-          "inside": false,
+          "inside_bootstrap": false,
           "kurtosis": 2216.8378200531006,
           "rel_se_of_sample_variance": 2.7177428257367673,
-          "M_for_rel_se_0p3": 24621
+          "M_for_rel_se_0p3": 24621,
+          "null_q025_over_2pow": 0.0563994826200261,
+          "null_q975_over_2pow": 6.061509075061978,
+          "inside_null_95": true
         },
         {
           "n": 20,
@@ -324,15 +351,74 @@
           "ci_high": 6.998388242797525e-08,
           "analytic": 9.5367431640625e-07,
           "ratio": 0.04299617174763198,
-          "inside": false,
+          "inside_bootstrap": false,
           "kurtosis": 3325.256730079651,
           "rel_se_of_sample_variance": 3.3287919380658457,
-          "M_for_rel_se_0p3": 36937
+          "M_for_rel_se_0p3": 36937,
+          "null_q025_over_2pow": 0.043046012650882176,
+          "null_q975_over_2pow": 5.763710418281784,
+          "inside_null_95": false
         }
       ],
-      "heavy_tail_note": "gradient kurtosis (3/2)^n makes the sample variance and its percentile bootstrap unreliable at the M used for n >= ~14 (relative SE sqrt(((3/2)^n - 1)/M) > 0.3); M_for_rel_se_0p3 is the draw count needed per n",
+      "deviation_25": {
+        "text": "Deviation 25 (pending PI signature): (a-i) per-draw |g_sim - g_closed| < 1e-10 at n = 4..20, M = 100; (a-ii) n <= 12, M = 1000, 2^-n inside the percentile bootstrap interval; (a-iii) n = 13..20, M = 300, sample variance inside the central 95% interval of its exact null sampling distribution (10^4 closed-form Monte Carlo replicates at the same M)",
+        "a_i": {
+          "result": "pass",
+          "note": "max |g_sim - g_closed| over n = 4..20, M = 100: 1.8e-14"
+        },
+        "a_ii": {
+          "points": {
+            "4": true,
+            "5": true,
+            "6": true,
+            "7": true,
+            "8": true,
+            "9": true,
+            "10": true,
+            "11": true,
+            "12": true
+          },
+          "n_fail": 0,
+          "result": "pass"
+        },
+        "a_iii": {
+          "points": {
+            "13": true,
+            "14": true,
+            "15": true,
+            "16": true,
+            "17": true,
+            "18": true,
+            "19": true,
+            "20": false
+          },
+          "n_fail": 1,
+          "n_missing": [],
+          "result": "fail",
+          "replicates": [
+            {
+              "n": 20,
+              "M": 300,
+              "seed": 2027,
+              "variance": 2.026136043617333e-07,
+              "ci_low": 7.616405424004268e-08,
+              "ci_high": 3.640542893839538e-07,
+              "ratio": 0.21245576280720885,
+              "inside_bootstrap": false,
+              "null_q025_over_2pow": 0.043046012650882176,
+              "null_q975_over_2pow": 5.763710418281784,
+              "inside_null_95": true,
+              "max_abs_identity_error": 1.7562349788151615e-14
+            }
+          ]
+        },
+        "result": "fail"
+      },
+      "heavy_tail_note": "gradient kurtosis (3/2)^n makes the sample variance and its percentile bootstrap unreliable at the M used for n >= ~13 (relative SE sqrt(((3/2)^n - 1)/M) > 0.3); M_for_rel_se_0p3 is the draw count needed per n",
       "result": "fail",
-      "note": "2^-n outside the bootstrap interval at n = [13, 14, 15, 16, 17, 18, 19, 20]; at those n the relative SE of the sample variance is 0.80 (n = 13, M = 300), 0.98 (n = 14, M = 300), 1.21 (n = 15, M = 300), 1.48 (n = 16, M = 300), 1.81 (n = 17, M = 300), 2.22 (n = 18, M = 300), 2.72 (n = 19, M = 300), 3.33 (n = 20, M = 300); see heavy_tail_note"
+      "result_as_registered": "fail",
+      "result_deviation_25": "fail",
+      "note": "fails as registered (2^-n outside the bootstrap interval at n = [13, 14, 15, 16, 17, 18, 19, 20]); estimator artefact: kurtosis (3/2)^n, relative SE of the sample variance 0.80 (n = 13), 0.98 (n = 14), 1.21 (n = 15), 1.48 (n = 16), 1.81 (n = 17), 2.22 (n = 18), 2.72 (n = 19), 3.33 (n = 20); Deviation 25: (a-i) pass (max |g_sim - g_closed| over n = 4..20, M = 100: 1.8e-14), (a-ii) pass (9/9), (a-iii) fail (7/8 inside the exact null 95% interval, outside at n = 20); replicate(s): n = 20 seed 2027: var/2^-n = 0.212, inside null 95% [0.043, 5.764]: True"
     },
     "b": {
       "text": "At M = 200 the bootstrap interval ratio (upper over lower) on the variance is below 1.5.",
@@ -344,10 +430,11 @@
           "L": 1,
           "k": 1,
           "M": 200,
-          "hi_lo": 1.38,
+          "hi_lo": 1.378231174610622,
           "below_1p5": true,
           "bound": 1.5,
-          "below_bound": true
+          "below_bound": true,
+          "in_test": true
         },
         {
           "model": "unital",
@@ -355,10 +442,11 @@
           "L": 1,
           "k": 1,
           "M": 200,
-          "hi_lo": 1.38,
+          "hi_lo": 1.390993797710231,
           "below_1p5": true,
           "bound": 1.5,
-          "below_bound": true
+          "below_bound": true,
+          "in_test": true
         },
         {
           "model": "nonunital",
@@ -366,340 +454,11 @@
           "L": 1,
           "k": 1,
           "M": 200,
-          "hi_lo": 1.38,
+          "hi_lo": 1.390441978185418,
           "below_1p5": true,
           "bound": 1.5,
-          "below_bound": true
-        },
-        {
-          "model": "noiseless",
-          "n": 39,
-          "L": 1,
-          "k": 1,
-          "M": 200,
-          "hi_lo": 1.38,
-          "below_1p5": true,
-          "bound": 1.5,
-          "below_bound": true
-        },
-        {
-          "model": "unital",
-          "n": 39,
-          "L": 1,
-          "k": 1,
-          "M": 200,
-          "hi_lo": 1.38,
-          "below_1p5": true,
-          "bound": 1.5,
-          "below_bound": true
-        },
-        {
-          "model": "nonunital",
-          "n": 39,
-          "L": 1,
-          "k": 1,
-          "M": 200,
-          "hi_lo": 1.38,
-          "below_1p5": true,
-          "bound": 1.5,
-          "below_bound": true
-        },
-        {
-          "model": "noiseless",
-          "n": 56,
-          "L": 1,
-          "k": 1,
-          "M": 200,
-          "hi_lo": 1.38,
-          "below_1p5": true,
-          "bound": 1.5,
-          "below_bound": true
-        },
-        {
-          "model": "unital",
-          "n": 56,
-          "L": 1,
-          "k": 1,
-          "M": 200,
-          "hi_lo": 1.38,
-          "below_1p5": true,
-          "bound": 1.5,
-          "below_bound": true
-        },
-        {
-          "model": "nonunital",
-          "n": 56,
-          "L": 1,
-          "k": 1,
-          "M": 200,
-          "hi_lo": 1.38,
-          "below_1p5": true,
-          "bound": 1.5,
-          "below_bound": true
-        },
-        {
-          "model": "noiseless",
-          "n": 71,
-          "L": 1,
-          "k": 1,
-          "M": 200,
-          "hi_lo": 1.38,
-          "below_1p5": true,
-          "bound": 1.5,
-          "below_bound": true
-        },
-        {
-          "model": "unital",
-          "n": 71,
-          "L": 1,
-          "k": 1,
-          "M": 200,
-          "hi_lo": 1.38,
-          "below_1p5": true,
-          "bound": 1.5,
-          "below_bound": true
-        },
-        {
-          "model": "nonunital",
-          "n": 71,
-          "L": 1,
-          "k": 1,
-          "M": 200,
-          "hi_lo": 1.38,
-          "below_1p5": true,
-          "bound": 1.5,
-          "below_bound": true
-        },
-        {
-          "model": "noiseless",
-          "n": 90,
-          "L": 1,
-          "k": 1,
-          "M": 200,
-          "hi_lo": 1.38,
-          "below_1p5": true,
-          "bound": 1.5,
-          "below_bound": true
-        },
-        {
-          "model": "unital",
-          "n": 90,
-          "L": 1,
-          "k": 1,
-          "M": 200,
-          "hi_lo": 1.38,
-          "below_1p5": true,
-          "bound": 1.5,
-          "below_bound": true
-        },
-        {
-          "model": "nonunital",
-          "n": 90,
-          "L": 1,
-          "k": 1,
-          "M": 200,
-          "hi_lo": 1.38,
-          "below_1p5": true,
-          "bound": 1.5,
-          "below_bound": true
-        },
-        {
-          "model": "noiseless",
-          "n": 56,
-          "L": 2,
-          "k": 1,
-          "M": 200,
-          "hi_lo": 1.65,
-          "below_1p5": false,
-          "bound": 2.0,
-          "below_bound": true
-        },
-        {
-          "model": "unital",
-          "n": 56,
-          "L": 2,
-          "k": 1,
-          "M": 200,
-          "hi_lo": 1.66,
-          "below_1p5": false,
-          "bound": 2.0,
-          "below_bound": true
-        },
-        {
-          "model": "nonunital",
-          "n": 56,
-          "L": 2,
-          "k": 1,
-          "M": 200,
-          "hi_lo": 1.66,
-          "below_1p5": false,
-          "bound": 2.0,
-          "below_bound": true
-        },
-        {
-          "model": "noiseless",
-          "n": 56,
-          "L": 2,
-          "k": 2,
-          "M": 200,
-          "hi_lo": 1.52,
-          "below_1p5": false,
-          "bound": 2.0,
-          "below_bound": true
-        },
-        {
-          "model": "unital",
-          "n": 56,
-          "L": 2,
-          "k": 2,
-          "M": 200,
-          "hi_lo": 1.52,
-          "below_1p5": false,
-          "bound": 2.0,
-          "below_bound": true
-        },
-        {
-          "model": "nonunital",
-          "n": 56,
-          "L": 2,
-          "k": 2,
-          "M": 200,
-          "hi_lo": 1.53,
-          "below_1p5": false,
-          "bound": 2.0,
-          "below_bound": true
-        },
-        {
-          "model": "noiseless",
-          "n": 71,
-          "L": 2,
-          "k": 1,
-          "M": 200,
-          "hi_lo": 1.57,
-          "below_1p5": false,
-          "bound": 2.0,
-          "below_bound": true
-        },
-        {
-          "model": "unital",
-          "n": 71,
-          "L": 2,
-          "k": 1,
-          "M": 200,
-          "hi_lo": 1.59,
-          "below_1p5": false,
-          "bound": 2.0,
-          "below_bound": true
-        },
-        {
-          "model": "nonunital",
-          "n": 71,
-          "L": 2,
-          "k": 1,
-          "M": 200,
-          "hi_lo": 1.58,
-          "below_1p5": false,
-          "bound": 2.0,
-          "below_bound": true
-        },
-        {
-          "model": "noiseless",
-          "n": 71,
-          "L": 2,
-          "k": 2,
-          "M": 200,
-          "hi_lo": 1.47,
-          "below_1p5": true,
-          "bound": 2.0,
-          "below_bound": true
-        },
-        {
-          "model": "unital",
-          "n": 71,
-          "L": 2,
-          "k": 2,
-          "M": 200,
-          "hi_lo": 1.48,
-          "below_1p5": true,
-          "bound": 2.0,
-          "below_bound": true
-        },
-        {
-          "model": "nonunital",
-          "n": 71,
-          "L": 2,
-          "k": 2,
-          "M": 200,
-          "hi_lo": 1.48,
-          "below_1p5": true,
-          "bound": 2.0,
-          "below_bound": true
-        },
-        {
-          "model": "noiseless",
-          "n": 90,
-          "L": 2,
-          "k": 1,
-          "M": 200,
-          "hi_lo": 1.57,
-          "below_1p5": false,
-          "bound": 2.0,
-          "below_bound": true
-        },
-        {
-          "model": "unital",
-          "n": 90,
-          "L": 2,
-          "k": 1,
-          "M": 200,
-          "hi_lo": 1.59,
-          "below_1p5": false,
-          "bound": 2.0,
-          "below_bound": true
-        },
-        {
-          "model": "nonunital",
-          "n": 90,
-          "L": 2,
-          "k": 1,
-          "M": 200,
-          "hi_lo": 1.58,
-          "below_1p5": false,
-          "bound": 2.0,
-          "below_bound": true
-        },
-        {
-          "model": "noiseless",
-          "n": 90,
-          "L": 2,
-          "k": 2,
-          "M": 200,
-          "hi_lo": 1.47,
-          "below_1p5": true,
-          "bound": 2.0,
-          "below_bound": true
-        },
-        {
-          "model": "unital",
-          "n": 90,
-          "L": 2,
-          "k": 2,
-          "M": 200,
-          "hi_lo": 1.48,
-          "below_1p5": true,
-          "bound": 2.0,
-          "below_bound": true
-        },
-        {
-          "model": "nonunital",
-          "n": 90,
-          "L": 2,
-          "k": 2,
-          "M": 200,
-          "hi_lo": 1.48,
-          "below_1p5": true,
-          "bound": 2.0,
-          "below_bound": true
+          "below_bound": true,
+          "in_test": true
         },
         {
           "model": "noiseless",
@@ -707,10 +466,11 @@
           "L": 2,
           "k": 1,
           "M": 200,
-          "hi_lo": 1.55,
+          "hi_lo": 1.5475317107893758,
           "below_1p5": false,
           "bound": 2.0,
-          "below_bound": true
+          "below_bound": true,
+          "in_test": true
         },
         {
           "model": "unital",
@@ -718,10 +478,11 @@
           "L": 2,
           "k": 1,
           "M": 200,
-          "hi_lo": 1.55,
+          "hi_lo": 1.5539046582393483,
           "below_1p5": false,
           "bound": 2.0,
-          "below_bound": true
+          "below_bound": true,
+          "in_test": true
         },
         {
           "model": "nonunital",
@@ -732,7 +493,8 @@
           "hi_lo": 1.54,
           "below_1p5": false,
           "bound": 2.0,
-          "below_bound": true
+          "below_bound": true,
+          "in_test": true
         },
         {
           "model": "noiseless",
@@ -740,18 +502,307 @@
           "L": 2,
           "k": 2,
           "M": 200,
-          "hi_lo": 1.56,
+          "hi_lo": 1.5556786090191956,
           "below_1p5": false,
           "bound": 2.0,
-          "below_bound": true
+          "below_bound": true,
+          "in_test": true
+        },
+        {
+          "model": "noiseless",
+          "n": 20,
+          "L": 4,
+          "k": 1,
+          "M": 200,
+          "hi_lo": 2.28585391146006,
+          "below_1p5": false,
+          "bound": 2.5,
+          "below_bound": true,
+          "in_test": true
+        },
+        {
+          "model": "noiseless",
+          "n": 20,
+          "L": 4,
+          "k": 4,
+          "M": 200,
+          "hi_lo": 1.9407016081237252,
+          "below_1p5": false,
+          "bound": 2.5,
+          "below_bound": true,
+          "in_test": true
+        },
+        {
+          "model": "noiseless",
+          "n": 39,
+          "L": 1,
+          "k": 1,
+          "M": 200,
+          "hi_lo": 1.378231174610622,
+          "below_1p5": true,
+          "bound": 1.5,
+          "below_bound": true,
+          "in_test": true
+        },
+        {
+          "model": "unital",
+          "n": 39,
+          "L": 1,
+          "k": 1,
+          "M": 200,
+          "hi_lo": 1.3911651425272884,
+          "below_1p5": true,
+          "bound": 1.5,
+          "below_bound": true,
+          "in_test": true
+        },
+        {
+          "model": "nonunital",
+          "n": 39,
+          "L": 1,
+          "k": 1,
+          "M": 200,
+          "hi_lo": 1.390434804089707,
+          "below_1p5": true,
+          "bound": 1.5,
+          "below_bound": true,
+          "in_test": true
+        },
+        {
+          "model": "noiseless",
+          "n": 53,
+          "L": 1,
+          "k": 1,
+          "M": 200,
+          "hi_lo": 1.378231174610622,
+          "below_1p5": true,
+          "bound": 1.5,
+          "below_bound": true,
+          "in_test": true
+        },
+        {
+          "model": "unital",
+          "n": 53,
+          "L": 1,
+          "k": 1,
+          "M": 200,
+          "hi_lo": 1.3914369868602512,
+          "below_1p5": true,
+          "bound": 1.5,
+          "below_bound": true,
+          "in_test": true
+        },
+        {
+          "model": "nonunital",
+          "n": 53,
+          "L": 1,
+          "k": 1,
+          "M": 200,
+          "hi_lo": 1.3912612633571955,
+          "below_1p5": true,
+          "bound": 1.5,
+          "below_bound": true,
+          "in_test": true
+        },
+        {
+          "model": "noiseless",
+          "n": 53,
+          "L": 2,
+          "k": 1,
+          "M": 200,
+          "hi_lo": 1.5775743037053132,
+          "below_1p5": false,
+          "bound": 2.0,
+          "below_bound": true,
+          "in_test": true
+        },
+        {
+          "model": "noiseless",
+          "n": 53,
+          "L": 2,
+          "k": 2,
+          "M": 200,
+          "hi_lo": 1.6093077701176508,
+          "below_1p5": false,
+          "bound": 2.0,
+          "below_bound": true,
+          "in_test": true
+        },
+        {
+          "model": "noiseless",
+          "n": 70,
+          "L": 1,
+          "k": 1,
+          "M": 200,
+          "hi_lo": 1.378231174610622,
+          "below_1p5": true,
+          "bound": 1.5,
+          "below_bound": true,
+          "in_test": true
+        },
+        {
+          "model": "unital",
+          "n": 70,
+          "L": 1,
+          "k": 1,
+          "M": 200,
+          "hi_lo": 1.3914369868602512,
+          "below_1p5": true,
+          "bound": 1.5,
+          "below_bound": true,
+          "in_test": true
+        },
+        {
+          "model": "nonunital",
+          "n": 70,
+          "L": 1,
+          "k": 1,
+          "M": 200,
+          "hi_lo": 1.3912612633571955,
+          "below_1p5": true,
+          "bound": 1.5,
+          "below_bound": true,
+          "in_test": true
+        },
+        {
+          "model": "noiseless",
+          "n": 70,
+          "L": 2,
+          "k": 1,
+          "M": 200,
+          "hi_lo": 1.5775743037053132,
+          "below_1p5": false,
+          "bound": 2.0,
+          "below_bound": true,
+          "in_test": true
+        },
+        {
+          "model": "noiseless",
+          "n": 70,
+          "L": 2,
+          "k": 2,
+          "M": 200,
+          "hi_lo": 1.6093077701176508,
+          "below_1p5": false,
+          "bound": 2.0,
+          "below_bound": true,
+          "in_test": true
+        },
+        {
+          "model": "noiseless",
+          "n": 87,
+          "L": 1,
+          "k": 1,
+          "M": 200,
+          "hi_lo": 1.378231174610622,
+          "below_1p5": true,
+          "bound": 1.5,
+          "below_bound": true,
+          "in_test": true
+        },
+        {
+          "model": "unital",
+          "n": 87,
+          "L": 1,
+          "k": 1,
+          "M": 200,
+          "hi_lo": 1.3914373289883217,
+          "below_1p5": true,
+          "bound": 1.5,
+          "below_bound": true,
+          "in_test": true
+        },
+        {
+          "model": "nonunital",
+          "n": 87,
+          "L": 1,
+          "k": 1,
+          "M": 200,
+          "hi_lo": 1.3912611311850904,
+          "below_1p5": true,
+          "bound": 1.5,
+          "below_bound": true,
+          "in_test": true
+        },
+        {
+          "model": "noiseless",
+          "n": 87,
+          "L": 2,
+          "k": 1,
+          "M": 200,
+          "hi_lo": 1.5986067229890324,
+          "below_1p5": false,
+          "bound": 2.0,
+          "below_bound": true,
+          "in_test": true
+        },
+        {
+          "model": "unital",
+          "n": 87,
+          "L": 2,
+          "k": 1,
+          "M": 200,
+          "hi_lo": 1.5965115984987974,
+          "below_1p5": false,
+          "bound": 2.0,
+          "below_bound": true,
+          "in_test": true
+        },
+        {
+          "model": "nonunital",
+          "n": 87,
+          "L": 2,
+          "k": 1,
+          "M": 200,
+          "hi_lo": 1.6021298841029994,
+          "below_1p5": false,
+          "bound": 2.0,
+          "below_bound": true,
+          "in_test": true
+        },
+        {
+          "model": "noiseless",
+          "n": 87,
+          "L": 2,
+          "k": 2,
+          "M": 200,
+          "hi_lo": 1.5543876022451162,
+          "below_1p5": false,
+          "bound": 2.0,
+          "below_bound": true,
+          "in_test": true
+        },
+        {
+          "model": "unital",
+          "n": 87,
+          "L": 2,
+          "k": 2,
+          "M": 200,
+          "hi_lo": 1.5550638584432839,
+          "below_1p5": false,
+          "bound": 2.0,
+          "below_bound": true,
+          "in_test": true
+        },
+        {
+          "model": "nonunital",
+          "n": 87,
+          "L": 2,
+          "k": 2,
+          "M": 200,
+          "hi_lo": 1.5450347647954856,
+          "below_1p5": false,
+          "bound": 2.0,
+          "below_bound": true,
+          "in_test": true
         }
       ],
-      "n_points": 37,
+      "n_points": 31,
       "n_above_1p5": 16,
       "n_above_bound": 0,
       "bound": "Deviation 17: hi/lo < 1.5 at L = 1, < 2.0 at L = 2, < 2.5 at L >= 4 with M = 200 (1.5 where M >= 400 at L = 2 or M >= 700 at L >= 4)",
       "result": "pass",
-      "note": "evaluated at M = 200; 0 of 37 points exceed the depth-dependent bound (16 exceed the original 1.5); 98 deferred point(s) not included"
+      "note": "evaluated at M = 200; 0 of 31 points at M >= 200 exceed the depth-dependent bound (16 exceed the original 1.5); 104 deferred point(s) not included"
     },
     "c": {
       "text": "The unital-noise and noiseless predictions, computed with the ibm_phoenix calibration snapshot, differ by more than twice the 16384-shot floor at six or more (n, L) points, and the layer-index ratio (k = L versus k = 1) predicted by the non-unital model differs from the unital-only model by more than twice the floor at n = 40 or 100.",
@@ -762,86 +813,68 @@
           {
             "n": 20,
             "L": 1,
-            "var_noiseless": 0.2421,
-            "var_unital": 0.2223,
-            "var_nonunital": 0.2211,
-            "unital_minus_noiseless": -0.019800000000000012,
+            "var_noiseless": 0.24209755534847655,
+            "var_unital": 0.22524028881812655,
+            "var_nonunital": 0.22604398090254588,
+            "unital_minus_noiseless": -0.016857266530349996,
             "exceeds_2floor": true
           },
           {
             "n": 20,
             "L": 2,
-            "var_noiseless": 0.08268,
-            "var_unital": 0.07225,
+            "var_noiseless": 0.08267571623939973,
+            "var_unital": 0.0726859509959341,
             "var_nonunital": 0.0731,
-            "unital_minus_noiseless": -0.010430000000000009,
+            "unital_minus_noiseless": -0.009989765243465634,
             "exceeds_2floor": true
           },
           {
             "n": 39,
             "L": 1,
-            "var_noiseless": 0.2421,
-            "var_unital": 0.226,
-            "var_nonunital": 0.2247,
-            "unital_minus_noiseless": -0.016100000000000003,
+            "var_noiseless": 0.24209755534847655,
+            "var_unital": 0.2298701015620036,
+            "var_nonunital": 0.2303339197526491,
+            "unital_minus_noiseless": -0.012227453786472942,
             "exceeds_2floor": true
           },
           {
-            "n": 56,
+            "n": 53,
             "L": 1,
-            "var_noiseless": 0.2421,
-            "var_unital": 0.2245,
-            "var_nonunital": 0.2234,
-            "unital_minus_noiseless": -0.017600000000000005,
+            "var_noiseless": 0.24209755534847655,
+            "var_unital": 0.22666257216700725,
+            "var_nonunital": 0.22747782841244898,
+            "unital_minus_noiseless": -0.015434983181469297,
             "exceeds_2floor": true
           },
           {
-            "n": 56,
-            "L": 2,
-            "var_noiseless": 0.07096,
-            "var_unital": 0.06211,
-            "var_nonunital": 0.06292,
-            "unital_minus_noiseless": -0.008849999999999997,
-            "exceeds_2floor": true
-          },
-          {
-            "n": 71,
+            "n": 70,
             "L": 1,
-            "var_noiseless": 0.2421,
-            "var_unital": 0.2099,
-            "var_nonunital": 0.2089,
-            "unital_minus_noiseless": -0.032200000000000006,
+            "var_noiseless": 0.24209755534847655,
+            "var_unital": 0.22666257216700725,
+            "var_nonunital": 0.22747782841244898,
+            "unital_minus_noiseless": -0.015434983181469297,
             "exceeds_2floor": true
           },
           {
-            "n": 71,
-            "L": 2,
-            "var_noiseless": 0.07743,
-            "var_unital": 0.06349,
-            "var_nonunital": 0.06481,
-            "unital_minus_noiseless": -0.013939999999999994,
-            "exceeds_2floor": true
-          },
-          {
-            "n": 90,
+            "n": 87,
             "L": 1,
-            "var_noiseless": 0.2421,
-            "var_unital": 0.2099,
-            "var_nonunital": 0.2089,
-            "unital_minus_noiseless": -0.032200000000000006,
+            "var_noiseless": 0.24209755534847655,
+            "var_unital": 0.22906731956587287,
+            "var_nonunital": 0.2299115215469068,
+            "unital_minus_noiseless": -0.013030235782603677,
             "exceeds_2floor": true
           },
           {
-            "n": 90,
+            "n": 87,
             "L": 2,
-            "var_noiseless": 0.07743,
-            "var_unital": 0.06349,
-            "var_nonunital": 0.06481,
-            "unital_minus_noiseless": -0.013939999999999994,
+            "var_noiseless": 0.09280044093360582,
+            "var_unital": 0.08277072727491039,
+            "var_nonunital": 0.0828378663370594,
+            "unital_minus_noiseless": -0.010029713658695427,
             "exceeds_2floor": true
           }
         ],
-        "n_exceeding": 9,
+        "n_exceeding": 7,
         "required": 6,
         "result": "pass",
         "deferred_points": [
@@ -881,52 +914,62 @@
             "note": "requires Pauli propagation"
           },
           {
-            "n": 56,
+            "n": 53,
+            "L": 2,
+            "note": "requires Pauli propagation"
+          },
+          {
+            "n": 53,
             "L": 4,
             "note": "requires Pauli propagation"
           },
           {
-            "n": 56,
+            "n": 53,
             "L": 8,
             "note": "requires Pauli propagation"
           },
           {
-            "n": 56,
+            "n": 53,
             "L": 12,
             "note": "requires Pauli propagation"
           },
           {
-            "n": 71,
+            "n": 70,
+            "L": 2,
+            "note": "requires Pauli propagation"
+          },
+          {
+            "n": 70,
             "L": 4,
             "note": "requires Pauli propagation"
           },
           {
-            "n": 71,
+            "n": 70,
             "L": 8,
             "note": "requires Pauli propagation"
           },
           {
-            "n": 71,
+            "n": 70,
             "L": 12,
             "note": "requires Pauli propagation"
           },
           {
-            "n": 90,
+            "n": 87,
             "L": 4,
             "note": "requires Pauli propagation"
           },
           {
-            "n": 90,
+            "n": 87,
             "L": 8,
             "note": "requires Pauli propagation"
           },
           {
-            "n": 90,
+            "n": 87,
             "L": 12,
             "note": "requires Pauli propagation"
           }
         ],
-        "note": "9 of 9 exactly computed (n, L) points exceed 2 x floor = 6.10e-05 at k = 1; the >= 6 count of the 25-point ladder is already met on the exact points; 16 (n, L) point(s) requires Pauli propagation"
+        "note": "7 of 7 exactly computed (n, L) points exceed 2 x floor = 6.10e-05 at k = 1; the >= 6 count of the 25-point ladder is already met on the exact points; 18 (n, L) point(s) requires Pauli propagation"
       },
       "part2": {
         "statistic": "D = R_nonunital - R_unital, R_m = [Var_m(k=L)/Var_m(k=1)] / [Var_noiseless(k=L)/Var_noiseless(k=1)], 95% paired bootstrap over shared theta draws; 'differs' = D_lo > 0 (directional, H3 predicts D > 0; Deviation 14)",
@@ -934,105 +977,654 @@
           {
             "n": 20,
             "L": 2,
-            "note": "missing point(s)"
+            "note": "missing point(s)",
+            "M": NaN,
+            "r_noiseless": NaN,
+            "r_noiseless_lo": NaN,
+            "r_noiseless_hi": NaN,
+            "r_unital": NaN,
+            "r_unital_lo": NaN,
+            "r_unital_hi": NaN,
+            "r_nonunital": NaN,
+            "r_nonunital_lo": NaN,
+            "r_nonunital_hi": NaN,
+            "R_unital": NaN,
+            "R_unital_lo": NaN,
+            "R_unital_hi": NaN,
+            "R_nonunital": NaN,
+            "R_nonunital_lo": NaN,
+            "R_nonunital_hi": NaN,
+            "D": NaN,
+            "D_lo": NaN,
+            "D_hi": NaN,
+            "separated": NaN,
+            "separated_two_sided": NaN,
+            "var_kL_nonunital_minus_unital": NaN
           },
           {
             "n": 20,
             "L": 4,
-            "note": "missing point(s)"
+            "note": "missing point(s)",
+            "M": NaN,
+            "r_noiseless": NaN,
+            "r_noiseless_lo": NaN,
+            "r_noiseless_hi": NaN,
+            "r_unital": NaN,
+            "r_unital_lo": NaN,
+            "r_unital_hi": NaN,
+            "r_nonunital": NaN,
+            "r_nonunital_lo": NaN,
+            "r_nonunital_hi": NaN,
+            "R_unital": NaN,
+            "R_unital_lo": NaN,
+            "R_unital_hi": NaN,
+            "R_nonunital": NaN,
+            "R_nonunital_lo": NaN,
+            "R_nonunital_hi": NaN,
+            "D": NaN,
+            "D_lo": NaN,
+            "D_hi": NaN,
+            "separated": NaN,
+            "separated_two_sided": NaN,
+            "var_kL_nonunital_minus_unital": NaN
           },
           {
             "n": 20,
             "L": 8,
-            "note": "missing point(s)"
+            "note": "missing point(s)",
+            "M": NaN,
+            "r_noiseless": NaN,
+            "r_noiseless_lo": NaN,
+            "r_noiseless_hi": NaN,
+            "r_unital": NaN,
+            "r_unital_lo": NaN,
+            "r_unital_hi": NaN,
+            "r_nonunital": NaN,
+            "r_nonunital_lo": NaN,
+            "r_nonunital_hi": NaN,
+            "R_unital": NaN,
+            "R_unital_lo": NaN,
+            "R_unital_hi": NaN,
+            "R_nonunital": NaN,
+            "R_nonunital_lo": NaN,
+            "R_nonunital_hi": NaN,
+            "D": NaN,
+            "D_lo": NaN,
+            "D_hi": NaN,
+            "separated": NaN,
+            "separated_two_sided": NaN,
+            "var_kL_nonunital_minus_unital": NaN
           },
           {
             "n": 20,
             "L": 12,
-            "note": "missing point(s)"
+            "note": "missing point(s)",
+            "M": NaN,
+            "r_noiseless": NaN,
+            "r_noiseless_lo": NaN,
+            "r_noiseless_hi": NaN,
+            "r_unital": NaN,
+            "r_unital_lo": NaN,
+            "r_unital_hi": NaN,
+            "r_nonunital": NaN,
+            "r_nonunital_lo": NaN,
+            "r_nonunital_hi": NaN,
+            "R_unital": NaN,
+            "R_unital_lo": NaN,
+            "R_unital_hi": NaN,
+            "R_nonunital": NaN,
+            "R_nonunital_lo": NaN,
+            "R_nonunital_hi": NaN,
+            "D": NaN,
+            "D_lo": NaN,
+            "D_hi": NaN,
+            "separated": NaN,
+            "separated_two_sided": NaN,
+            "var_kL_nonunital_minus_unital": NaN
           },
           {
             "n": 39,
             "L": 2,
-            "note": "missing point(s)"
+            "note": "missing point(s)",
+            "M": NaN,
+            "r_noiseless": NaN,
+            "r_noiseless_lo": NaN,
+            "r_noiseless_hi": NaN,
+            "r_unital": NaN,
+            "r_unital_lo": NaN,
+            "r_unital_hi": NaN,
+            "r_nonunital": NaN,
+            "r_nonunital_lo": NaN,
+            "r_nonunital_hi": NaN,
+            "R_unital": NaN,
+            "R_unital_lo": NaN,
+            "R_unital_hi": NaN,
+            "R_nonunital": NaN,
+            "R_nonunital_lo": NaN,
+            "R_nonunital_hi": NaN,
+            "D": NaN,
+            "D_lo": NaN,
+            "D_hi": NaN,
+            "separated": NaN,
+            "separated_two_sided": NaN,
+            "var_kL_nonunital_minus_unital": NaN
           },
           {
             "n": 39,
             "L": 4,
-            "note": "missing point(s)"
+            "note": "missing point(s)",
+            "M": NaN,
+            "r_noiseless": NaN,
+            "r_noiseless_lo": NaN,
+            "r_noiseless_hi": NaN,
+            "r_unital": NaN,
+            "r_unital_lo": NaN,
+            "r_unital_hi": NaN,
+            "r_nonunital": NaN,
+            "r_nonunital_lo": NaN,
+            "r_nonunital_hi": NaN,
+            "R_unital": NaN,
+            "R_unital_lo": NaN,
+            "R_unital_hi": NaN,
+            "R_nonunital": NaN,
+            "R_nonunital_lo": NaN,
+            "R_nonunital_hi": NaN,
+            "D": NaN,
+            "D_lo": NaN,
+            "D_hi": NaN,
+            "separated": NaN,
+            "separated_two_sided": NaN,
+            "var_kL_nonunital_minus_unital": NaN
           },
           {
             "n": 39,
             "L": 8,
-            "note": "missing point(s)"
+            "note": "missing point(s)",
+            "M": NaN,
+            "r_noiseless": NaN,
+            "r_noiseless_lo": NaN,
+            "r_noiseless_hi": NaN,
+            "r_unital": NaN,
+            "r_unital_lo": NaN,
+            "r_unital_hi": NaN,
+            "r_nonunital": NaN,
+            "r_nonunital_lo": NaN,
+            "r_nonunital_hi": NaN,
+            "R_unital": NaN,
+            "R_unital_lo": NaN,
+            "R_unital_hi": NaN,
+            "R_nonunital": NaN,
+            "R_nonunital_lo": NaN,
+            "R_nonunital_hi": NaN,
+            "D": NaN,
+            "D_lo": NaN,
+            "D_hi": NaN,
+            "separated": NaN,
+            "separated_two_sided": NaN,
+            "var_kL_nonunital_minus_unital": NaN
           },
           {
             "n": 39,
             "L": 12,
-            "note": "missing point(s)"
+            "note": "missing point(s)",
+            "M": NaN,
+            "r_noiseless": NaN,
+            "r_noiseless_lo": NaN,
+            "r_noiseless_hi": NaN,
+            "r_unital": NaN,
+            "r_unital_lo": NaN,
+            "r_unital_hi": NaN,
+            "r_nonunital": NaN,
+            "r_nonunital_lo": NaN,
+            "r_nonunital_hi": NaN,
+            "R_unital": NaN,
+            "R_unital_lo": NaN,
+            "R_unital_hi": NaN,
+            "R_nonunital": NaN,
+            "R_nonunital_lo": NaN,
+            "R_nonunital_hi": NaN,
+            "D": NaN,
+            "D_lo": NaN,
+            "D_hi": NaN,
+            "separated": NaN,
+            "separated_two_sided": NaN,
+            "var_kL_nonunital_minus_unital": NaN
           },
           {
-            "n": 56,
+            "n": 53,
             "L": 2,
-            "note": "missing point(s)"
+            "note": "missing point(s)",
+            "M": NaN,
+            "r_noiseless": NaN,
+            "r_noiseless_lo": NaN,
+            "r_noiseless_hi": NaN,
+            "r_unital": NaN,
+            "r_unital_lo": NaN,
+            "r_unital_hi": NaN,
+            "r_nonunital": NaN,
+            "r_nonunital_lo": NaN,
+            "r_nonunital_hi": NaN,
+            "R_unital": NaN,
+            "R_unital_lo": NaN,
+            "R_unital_hi": NaN,
+            "R_nonunital": NaN,
+            "R_nonunital_lo": NaN,
+            "R_nonunital_hi": NaN,
+            "D": NaN,
+            "D_lo": NaN,
+            "D_hi": NaN,
+            "separated": NaN,
+            "separated_two_sided": NaN,
+            "var_kL_nonunital_minus_unital": NaN
           },
           {
-            "n": 56,
+            "n": 53,
             "L": 4,
-            "note": "missing point(s)"
+            "note": "missing point(s)",
+            "M": NaN,
+            "r_noiseless": NaN,
+            "r_noiseless_lo": NaN,
+            "r_noiseless_hi": NaN,
+            "r_unital": NaN,
+            "r_unital_lo": NaN,
+            "r_unital_hi": NaN,
+            "r_nonunital": NaN,
+            "r_nonunital_lo": NaN,
+            "r_nonunital_hi": NaN,
+            "R_unital": NaN,
+            "R_unital_lo": NaN,
+            "R_unital_hi": NaN,
+            "R_nonunital": NaN,
+            "R_nonunital_lo": NaN,
+            "R_nonunital_hi": NaN,
+            "D": NaN,
+            "D_lo": NaN,
+            "D_hi": NaN,
+            "separated": NaN,
+            "separated_two_sided": NaN,
+            "var_kL_nonunital_minus_unital": NaN
           },
           {
-            "n": 56,
+            "n": 53,
             "L": 8,
-            "note": "missing point(s)"
+            "note": "missing point(s)",
+            "M": NaN,
+            "r_noiseless": NaN,
+            "r_noiseless_lo": NaN,
+            "r_noiseless_hi": NaN,
+            "r_unital": NaN,
+            "r_unital_lo": NaN,
+            "r_unital_hi": NaN,
+            "r_nonunital": NaN,
+            "r_nonunital_lo": NaN,
+            "r_nonunital_hi": NaN,
+            "R_unital": NaN,
+            "R_unital_lo": NaN,
+            "R_unital_hi": NaN,
+            "R_nonunital": NaN,
+            "R_nonunital_lo": NaN,
+            "R_nonunital_hi": NaN,
+            "D": NaN,
+            "D_lo": NaN,
+            "D_hi": NaN,
+            "separated": NaN,
+            "separated_two_sided": NaN,
+            "var_kL_nonunital_minus_unital": NaN
           },
           {
-            "n": 56,
+            "n": 53,
             "L": 12,
-            "note": "missing point(s)"
+            "note": "missing point(s)",
+            "M": NaN,
+            "r_noiseless": NaN,
+            "r_noiseless_lo": NaN,
+            "r_noiseless_hi": NaN,
+            "r_unital": NaN,
+            "r_unital_lo": NaN,
+            "r_unital_hi": NaN,
+            "r_nonunital": NaN,
+            "r_nonunital_lo": NaN,
+            "r_nonunital_hi": NaN,
+            "R_unital": NaN,
+            "R_unital_lo": NaN,
+            "R_unital_hi": NaN,
+            "R_nonunital": NaN,
+            "R_nonunital_lo": NaN,
+            "R_nonunital_hi": NaN,
+            "D": NaN,
+            "D_lo": NaN,
+            "D_hi": NaN,
+            "separated": NaN,
+            "separated_two_sided": NaN,
+            "var_kL_nonunital_minus_unital": NaN
           },
           {
-            "n": 71,
+            "n": 70,
             "L": 2,
-            "note": "missing point(s)"
+            "note": "missing point(s)",
+            "M": NaN,
+            "r_noiseless": NaN,
+            "r_noiseless_lo": NaN,
+            "r_noiseless_hi": NaN,
+            "r_unital": NaN,
+            "r_unital_lo": NaN,
+            "r_unital_hi": NaN,
+            "r_nonunital": NaN,
+            "r_nonunital_lo": NaN,
+            "r_nonunital_hi": NaN,
+            "R_unital": NaN,
+            "R_unital_lo": NaN,
+            "R_unital_hi": NaN,
+            "R_nonunital": NaN,
+            "R_nonunital_lo": NaN,
+            "R_nonunital_hi": NaN,
+            "D": NaN,
+            "D_lo": NaN,
+            "D_hi": NaN,
+            "separated": NaN,
+            "separated_two_sided": NaN,
+            "var_kL_nonunital_minus_unital": NaN
           },
           {
-            "n": 71,
+            "n": 70,
             "L": 4,
-            "note": "missing point(s)"
+            "note": "missing point(s)",
+            "M": NaN,
+            "r_noiseless": NaN,
+            "r_noiseless_lo": NaN,
+            "r_noiseless_hi": NaN,
+            "r_unital": NaN,
+            "r_unital_lo": NaN,
+            "r_unital_hi": NaN,
+            "r_nonunital": NaN,
+            "r_nonunital_lo": NaN,
+            "r_nonunital_hi": NaN,
+            "R_unital": NaN,
+            "R_unital_lo": NaN,
+            "R_unital_hi": NaN,
+            "R_nonunital": NaN,
+            "R_nonunital_lo": NaN,
+            "R_nonunital_hi": NaN,
+            "D": NaN,
+            "D_lo": NaN,
+            "D_hi": NaN,
+            "separated": NaN,
+            "separated_two_sided": NaN,
+            "var_kL_nonunital_minus_unital": NaN
           },
           {
-            "n": 71,
+            "n": 70,
             "L": 8,
-            "note": "missing point(s)"
+            "note": "missing point(s)",
+            "M": NaN,
+            "r_noiseless": NaN,
+            "r_noiseless_lo": NaN,
+            "r_noiseless_hi": NaN,
+            "r_unital": NaN,
+            "r_unital_lo": NaN,
+            "r_unital_hi": NaN,
+            "r_nonunital": NaN,
+            "r_nonunital_lo": NaN,
+            "r_nonunital_hi": NaN,
+            "R_unital": NaN,
+            "R_unital_lo": NaN,
+            "R_unital_hi": NaN,
+            "R_nonunital": NaN,
+            "R_nonunital_lo": NaN,
+            "R_nonunital_hi": NaN,
+            "D": NaN,
+            "D_lo": NaN,
+            "D_hi": NaN,
+            "separated": NaN,
+            "separated_two_sided": NaN,
+            "var_kL_nonunital_minus_unital": NaN
           },
           {
-            "n": 71,
+            "n": 70,
             "L": 12,
-            "note": "missing point(s)"
+            "note": "missing point(s)",
+            "M": NaN,
+            "r_noiseless": NaN,
+            "r_noiseless_lo": NaN,
+            "r_noiseless_hi": NaN,
+            "r_unital": NaN,
+            "r_unital_lo": NaN,
+            "r_unital_hi": NaN,
+            "r_nonunital": NaN,
+            "r_nonunital_lo": NaN,
+            "r_nonunital_hi": NaN,
+            "R_unital": NaN,
+            "R_unital_lo": NaN,
+            "R_unital_hi": NaN,
+            "R_nonunital": NaN,
+            "R_nonunital_lo": NaN,
+            "R_nonunital_hi": NaN,
+            "D": NaN,
+            "D_lo": NaN,
+            "D_hi": NaN,
+            "separated": NaN,
+            "separated_two_sided": NaN,
+            "var_kL_nonunital_minus_unital": NaN
           },
           {
-            "n": 90,
+            "n": 87,
             "L": 2,
-            "note": "missing point(s)"
+            "note": NaN,
+            "M": 200.0,
+            "r_noiseless": 1.027734068665656,
+            "r_noiseless_lo": 0.7393510140477763,
+            "r_noiseless_hi": 1.4172759040345753,
+            "r_unital": 1.0162290950787851,
+            "r_unital_lo": 0.7307577117585248,
+            "r_unital_hi": 1.4038072065802818,
+            "r_nonunital": 1.0306657310054204,
+            "r_nonunital_lo": 0.7429524885408423,
+            "r_nonunital_hi": 1.4192567204795377,
+            "R_unital": 0.9888054955677317,
+            "R_unital_lo": 0.9684695520087575,
+            "R_unital_hi": 1.008440918268654,
+            "R_nonunital": 1.0028525495350862,
+            "R_nonunital_lo": 0.983109371296157,
+            "R_nonunital_hi": 1.024917282618822,
+            "D": 0.014047053967354506,
+            "D_lo": -0.008955438432371076,
+            "D_hi": 0.0395827762699801,
+            "separated": false,
+            "separated_two_sided": false,
+            "var_kL_nonunital_minus_unital": 0.001264128785619545
           },
           {
-            "n": 90,
+            "n": 87,
             "L": 4,
-            "note": "missing point(s)"
+            "note": "missing point(s)",
+            "M": NaN,
+            "r_noiseless": NaN,
+            "r_noiseless_lo": NaN,
+            "r_noiseless_hi": NaN,
+            "r_unital": NaN,
+            "r_unital_lo": NaN,
+            "r_unital_hi": NaN,
+            "r_nonunital": NaN,
+            "r_nonunital_lo": NaN,
+            "r_nonunital_hi": NaN,
+            "R_unital": NaN,
+            "R_unital_lo": NaN,
+            "R_unital_hi": NaN,
+            "R_nonunital": NaN,
+            "R_nonunital_lo": NaN,
+            "R_nonunital_hi": NaN,
+            "D": NaN,
+            "D_lo": NaN,
+            "D_hi": NaN,
+            "separated": NaN,
+            "separated_two_sided": NaN,
+            "var_kL_nonunital_minus_unital": NaN
           },
           {
-            "n": 90,
+            "n": 87,
             "L": 8,
-            "note": "missing point(s)"
+            "note": "missing point(s)",
+            "M": NaN,
+            "r_noiseless": NaN,
+            "r_noiseless_lo": NaN,
+            "r_noiseless_hi": NaN,
+            "r_unital": NaN,
+            "r_unital_lo": NaN,
+            "r_unital_hi": NaN,
+            "r_nonunital": NaN,
+            "r_nonunital_lo": NaN,
+            "r_nonunital_hi": NaN,
+            "R_unital": NaN,
+            "R_unital_lo": NaN,
+            "R_unital_hi": NaN,
+            "R_nonunital": NaN,
+            "R_nonunital_lo": NaN,
+            "R_nonunital_hi": NaN,
+            "D": NaN,
+            "D_lo": NaN,
+            "D_hi": NaN,
+            "separated": NaN,
+            "separated_two_sided": NaN,
+            "var_kL_nonunital_minus_unital": NaN
           },
           {
-            "n": 90,
+            "n": 87,
             "L": 12,
-            "note": "missing point(s)"
+            "note": "missing point(s)",
+            "M": NaN,
+            "r_noiseless": NaN,
+            "r_noiseless_lo": NaN,
+            "r_noiseless_hi": NaN,
+            "r_unital": NaN,
+            "r_unital_lo": NaN,
+            "r_unital_hi": NaN,
+            "r_nonunital": NaN,
+            "r_nonunital_lo": NaN,
+            "r_nonunital_hi": NaN,
+            "R_unital": NaN,
+            "R_unital_lo": NaN,
+            "R_unital_hi": NaN,
+            "R_nonunital": NaN,
+            "R_nonunital_lo": NaN,
+            "R_nonunital_hi": NaN,
+            "D": NaN,
+            "D_lo": NaN,
+            "D_hi": NaN,
+            "separated": NaN,
+            "separated_two_sided": NaN,
+            "var_kL_nonunital_minus_unital": NaN
           }
         ],
-        "prereg_points": [],
+        "prereg_points": [
+          {
+            "n": 39,
+            "L": 8,
+            "note": "missing point(s)",
+            "M": NaN,
+            "r_noiseless": NaN,
+            "r_noiseless_lo": NaN,
+            "r_noiseless_hi": NaN,
+            "r_unital": NaN,
+            "r_unital_lo": NaN,
+            "r_unital_hi": NaN,
+            "r_nonunital": NaN,
+            "r_nonunital_lo": NaN,
+            "r_nonunital_hi": NaN,
+            "R_unital": NaN,
+            "R_unital_lo": NaN,
+            "R_unital_hi": NaN,
+            "R_nonunital": NaN,
+            "R_nonunital_lo": NaN,
+            "R_nonunital_hi": NaN,
+            "D": NaN,
+            "D_lo": NaN,
+            "D_hi": NaN,
+            "separated": NaN,
+            "separated_two_sided": NaN,
+            "var_kL_nonunital_minus_unital": NaN
+          },
+          {
+            "n": 39,
+            "L": 12,
+            "note": "missing point(s)",
+            "M": NaN,
+            "r_noiseless": NaN,
+            "r_noiseless_lo": NaN,
+            "r_noiseless_hi": NaN,
+            "r_unital": NaN,
+            "r_unital_lo": NaN,
+            "r_unital_hi": NaN,
+            "r_nonunital": NaN,
+            "r_nonunital_lo": NaN,
+            "r_nonunital_hi": NaN,
+            "R_unital": NaN,
+            "R_unital_lo": NaN,
+            "R_unital_hi": NaN,
+            "R_nonunital": NaN,
+            "R_nonunital_lo": NaN,
+            "R_nonunital_hi": NaN,
+            "D": NaN,
+            "D_lo": NaN,
+            "D_hi": NaN,
+            "separated": NaN,
+            "separated_two_sided": NaN,
+            "var_kL_nonunital_minus_unital": NaN
+          },
+          {
+            "n": 87,
+            "L": 8,
+            "note": "missing point(s)",
+            "M": NaN,
+            "r_noiseless": NaN,
+            "r_noiseless_lo": NaN,
+            "r_noiseless_hi": NaN,
+            "r_unital": NaN,
+            "r_unital_lo": NaN,
+            "r_unital_hi": NaN,
+            "r_nonunital": NaN,
+            "r_nonunital_lo": NaN,
+            "r_nonunital_hi": NaN,
+            "R_unital": NaN,
+            "R_unital_lo": NaN,
+            "R_unital_hi": NaN,
+            "R_nonunital": NaN,
+            "R_nonunital_lo": NaN,
+            "R_nonunital_hi": NaN,
+            "D": NaN,
+            "D_lo": NaN,
+            "D_hi": NaN,
+            "separated": NaN,
+            "separated_two_sided": NaN,
+            "var_kL_nonunital_minus_unital": NaN
+          },
+          {
+            "n": 87,
+            "L": 12,
+            "note": "missing point(s)",
+            "M": NaN,
+            "r_noiseless": NaN,
+            "r_noiseless_lo": NaN,
+            "r_noiseless_hi": NaN,
+            "r_unital": NaN,
+            "r_unital_lo": NaN,
+            "r_unital_hi": NaN,
+            "r_nonunital": NaN,
+            "r_nonunital_lo": NaN,
+            "r_nonunital_hi": NaN,
+            "R_unital": NaN,
+            "R_unital_lo": NaN,
+            "R_unital_hi": NaN,
+            "R_nonunital": NaN,
+            "R_nonunital_lo": NaN,
+            "R_nonunital_hi": NaN,
+            "D": NaN,
+            "D_lo": NaN,
+            "D_hi": NaN,
+            "separated": NaN,
+            "separated_two_sided": NaN,
+            "var_kL_nonunital_minus_unital": NaN
+          }
+        ],
         "deferred_points": [
           {
             "n": 39,
@@ -1045,18 +1637,18 @@
             "note": "requires Pauli propagation"
           },
           {
-            "n": 90,
+            "n": 87,
             "L": 8,
             "note": "requires Pauli propagation"
           },
           {
-            "n": 90,
+            "n": 87,
             "L": 12,
             "note": "requires Pauli propagation"
           }
         ],
-        "result": "not-evaluated",
-        "note": "the pre-registered 'twice the floor' threshold compares a dimensionless ratio with a variance; per Deviation 14 (approved by the PI, 19 Sep 2026) it is replaced by the directional paired-bootstrap test D_lo > 0. No computed n = 40 / 100 (39 / 90), L = 8 / 12 point on this grid; 4 such point(s) requires Pauli propagation."
+        "result": "pass",
+        "note": "the pre-registered 'twice the floor' threshold compares a dimensionless ratio with a variance; per Deviation 14 (approved by the PI, 19 Sep 2026) it is replaced by the directional paired-bootstrap test D_lo > 0."
       },
       "result": "not-evaluated"
     },
@@ -1077,7 +1669,7 @@
           "mean_grad": -0.00041015625,
           "se_mean": 0.000670333064795206,
           "null_parameter_qubit": 81,
-          "smallest_exact_signal": 0.06211,
+          "smallest_exact_signal": 0.0726859509959341,
           "allowance_below_smallest_exact_signal": true,
           "var_null_below_smallest_exact_signal": true
         },
@@ -1094,7 +1686,7 @@
           "mean_grad": -0.000638427734375,
           "se_mean": 0.00031741461430472685,
           "null_parameter_qubit": 81,
-          "smallest_exact_signal": 0.06211,
+          "smallest_exact_signal": 0.0726859509959341,
           "allowance_below_smallest_exact_signal": true,
           "var_null_below_smallest_exact_signal": true
         },
@@ -1111,7 +1703,7 @@
           "mean_grad": 0.000364990234375,
           "se_mean": 0.0007208742216896788,
           "null_parameter_qubit": 110,
-          "smallest_exact_signal": 0.06211,
+          "smallest_exact_signal": 0.0726859509959341,
           "allowance_below_smallest_exact_signal": true,
           "var_null_below_smallest_exact_signal": true
         },
@@ -1128,18 +1720,18 @@
           "mean_grad": 0.00024139404296875,
           "se_mean": 0.0003504401164137426,
           "null_parameter_qubit": 110,
-          "smallest_exact_signal": 0.06211,
+          "smallest_exact_signal": 0.0726859509959341,
           "allowance_below_smallest_exact_signal": true,
           "var_null_below_smallest_exact_signal": true
         }
       ],
       "smallest_exact_signal": {
         "model": "unital",
-        "n": 56,
+        "n": 20,
         "L": 2,
         "k": 1,
-        "var": 0.06211,
-        "ci_lo": 0.04723
+        "var": 0.0726859509959341,
+        "ci_lo": 0.057004124836196095
       },
       "deferred_points": [
         {
@@ -1183,53 +1775,63 @@
           "note": "requires Pauli propagation"
         },
         {
-          "n": 56,
+          "n": 53,
+          "L": 2,
+          "note": "requires Pauli propagation"
+        },
+        {
+          "n": 53,
           "L": 4,
           "note": "requires Pauli propagation"
         },
         {
-          "n": 56,
+          "n": 53,
           "L": 8,
           "note": "requires Pauli propagation"
         },
         {
-          "n": 56,
+          "n": 53,
           "L": 12,
           "note": "requires Pauli propagation"
         },
         {
-          "n": 71,
+          "n": 70,
+          "L": 2,
+          "note": "requires Pauli propagation"
+        },
+        {
+          "n": 70,
           "L": 4,
           "note": "requires Pauli propagation"
         },
         {
-          "n": 71,
+          "n": 70,
           "L": 8,
           "note": "requires Pauli propagation"
         },
         {
-          "n": 71,
+          "n": 70,
           "L": 12,
           "note": "requires Pauli propagation"
         },
         {
-          "n": 90,
+          "n": 87,
           "L": 4,
           "note": "requires Pauli propagation"
         },
         {
-          "n": 90,
+          "n": 87,
           "L": 8,
           "note": "requires Pauli propagation"
         },
         {
-          "n": 90,
+          "n": 87,
           "L": 12,
           "note": "requires Pauli propagation"
         }
       ],
-      "result": "pass",
-      "note": "null control simulated at n = [20, 39] under the non-unital model with sampled shots; Var_null / (1/(2N)) = 0.74 (N = 4096), 0.66 (N = 16384), 0.85 (N = 4096), 0.80 (N = 16384); smallest exactly computed noisy signal Var = 6.21e-02 (unital, n = 56, L = 2, k = 1), CI low 4.72e-02; the 10x allowance at both shot counts lies below it; the smallest signal on the full ladder is at L = 8 / 12, where the predictions requires Pauli propagation (17 deferred (n, L) points), so this is the verdict on the exactly computable points only"
+      "result": "provisional pass",
+      "note": "null control simulated at n = [20, 39] under the non-unital model with sampled shots; Var_null / (1/(2N)) = 0.74 (N = 4096), 0.66 (N = 16384), 0.85 (N = 4096), 0.80 (N = 16384); smallest exactly computed noisy signal Var = 7.27e-02 (unital, n = 20, L = 2, k = 1), CI low 5.70e-02; the 10x allowance at both shot counts lies below it; PROVISIONAL: the smallest signal to be claimed is at L = 12, where the predictions requires Pauli propagation (19 deferred (n, L) points); the stop rule is not cleared until those points exist"
     },
     "e": {
       "text": "eps_N below 1 at every point to be claimed.",
@@ -1240,280 +1842,40 @@
           "n": 20,
           "L": 1,
           "k": 1,
-          "eps_N_4096": 0.000382,
-          "eps_N_16384": 9.55e-05
+          "eps_N_4096": 0.00038162505216425053,
+          "eps_N_16384": 9.540626304106263e-05
         },
         {
           "model": "unital",
           "n": 20,
           "L": 1,
           "k": 1,
-          "eps_N_4096": 0.000426,
-          "eps_N_16384": 0.0001065
+          "eps_N_4096": 0.00041956966335051857,
+          "eps_N_16384": 0.00010489241583762964
         },
         {
           "model": "nonunital",
           "n": 20,
           "L": 1,
           "k": 1,
-          "eps_N_4096": 0.000429,
-          "eps_N_16384": 0.00010725
-        },
-        {
-          "model": "noiseless",
-          "n": 39,
-          "L": 1,
-          "k": 1,
-          "eps_N_4096": 0.000382,
-          "eps_N_16384": 9.55e-05
-        },
-        {
-          "model": "unital",
-          "n": 39,
-          "L": 1,
-          "k": 1,
-          "eps_N_4096": 0.000418,
-          "eps_N_16384": 0.0001045
-        },
-        {
-          "model": "nonunital",
-          "n": 39,
-          "L": 1,
-          "k": 1,
-          "eps_N_4096": 0.000421,
-          "eps_N_16384": 0.00010525
-        },
-        {
-          "model": "noiseless",
-          "n": 56,
-          "L": 1,
-          "k": 1,
-          "eps_N_4096": 0.000382,
-          "eps_N_16384": 9.55e-05
-        },
-        {
-          "model": "unital",
-          "n": 56,
-          "L": 1,
-          "k": 1,
-          "eps_N_4096": 0.000421,
-          "eps_N_16384": 0.00010525
-        },
-        {
-          "model": "nonunital",
-          "n": 56,
-          "L": 1,
-          "k": 1,
-          "eps_N_4096": 0.000424,
-          "eps_N_16384": 0.000106
-        },
-        {
-          "model": "noiseless",
-          "n": 71,
-          "L": 1,
-          "k": 1,
-          "eps_N_4096": 0.000382,
-          "eps_N_16384": 9.55e-05
-        },
-        {
-          "model": "unital",
-          "n": 71,
-          "L": 1,
-          "k": 1,
-          "eps_N_4096": 0.000459,
-          "eps_N_16384": 0.00011475
-        },
-        {
-          "model": "nonunital",
-          "n": 71,
-          "L": 1,
-          "k": 1,
-          "eps_N_4096": 0.000462,
-          "eps_N_16384": 0.0001155
-        },
-        {
-          "model": "noiseless",
-          "n": 90,
-          "L": 1,
-          "k": 1,
-          "eps_N_4096": 0.000382,
-          "eps_N_16384": 9.55e-05
-        },
-        {
-          "model": "unital",
-          "n": 90,
-          "L": 1,
-          "k": 1,
-          "eps_N_4096": 0.000459,
-          "eps_N_16384": 0.00011475
-        },
-        {
-          "model": "nonunital",
-          "n": 90,
-          "L": 1,
-          "k": 1,
-          "eps_N_4096": 0.000462,
-          "eps_N_16384": 0.0001155
-        },
-        {
-          "model": "noiseless",
-          "n": 56,
-          "L": 2,
-          "k": 1,
-          "eps_N_4096": 0.00157,
-          "eps_N_16384": 0.0003925
-        },
-        {
-          "model": "unital",
-          "n": 56,
-          "L": 2,
-          "k": 1,
-          "eps_N_4096": 0.00181,
-          "eps_N_16384": 0.0004525
-        },
-        {
-          "model": "nonunital",
-          "n": 56,
-          "L": 2,
-          "k": 1,
-          "eps_N_4096": 0.00179,
-          "eps_N_16384": 0.0004475
-        },
-        {
-          "model": "noiseless",
-          "n": 56,
-          "L": 2,
-          "k": 2,
-          "eps_N_4096": 0.00123,
-          "eps_N_16384": 0.0003075
-        },
-        {
-          "model": "unital",
-          "n": 56,
-          "L": 2,
-          "k": 2,
-          "eps_N_4096": 0.00145,
-          "eps_N_16384": 0.0003625
-        },
-        {
-          "model": "nonunital",
-          "n": 56,
-          "L": 2,
-          "k": 2,
-          "eps_N_4096": 0.00144,
-          "eps_N_16384": 0.00036
-        },
-        {
-          "model": "noiseless",
-          "n": 71,
-          "L": 2,
-          "k": 1,
-          "eps_N_4096": 0.00143,
-          "eps_N_16384": 0.0003575
-        },
-        {
-          "model": "unital",
-          "n": 71,
-          "L": 2,
-          "k": 1,
-          "eps_N_4096": 0.00178,
-          "eps_N_16384": 0.000445
-        },
-        {
-          "model": "nonunital",
-          "n": 71,
-          "L": 2,
-          "k": 1,
-          "eps_N_4096": 0.00174,
-          "eps_N_16384": 0.000435
-        },
-        {
-          "model": "noiseless",
-          "n": 71,
-          "L": 2,
-          "k": 2,
-          "eps_N_4096": 0.00115,
-          "eps_N_16384": 0.0002875
-        },
-        {
-          "model": "unital",
-          "n": 71,
-          "L": 2,
-          "k": 2,
-          "eps_N_4096": 0.0014,
-          "eps_N_16384": 0.00035
-        },
-        {
-          "model": "nonunital",
-          "n": 71,
-          "L": 2,
-          "k": 2,
-          "eps_N_4096": 0.00141,
-          "eps_N_16384": 0.0003525
-        },
-        {
-          "model": "noiseless",
-          "n": 90,
-          "L": 2,
-          "k": 1,
-          "eps_N_4096": 0.00143,
-          "eps_N_16384": 0.0003575
-        },
-        {
-          "model": "unital",
-          "n": 90,
-          "L": 2,
-          "k": 1,
-          "eps_N_4096": 0.00178,
-          "eps_N_16384": 0.000445
-        },
-        {
-          "model": "nonunital",
-          "n": 90,
-          "L": 2,
-          "k": 1,
-          "eps_N_4096": 0.00174,
-          "eps_N_16384": 0.000435
-        },
-        {
-          "model": "noiseless",
-          "n": 90,
-          "L": 2,
-          "k": 2,
-          "eps_N_4096": 0.00115,
-          "eps_N_16384": 0.0002875
-        },
-        {
-          "model": "unital",
-          "n": 90,
-          "L": 2,
-          "k": 2,
-          "eps_N_4096": 0.0014,
-          "eps_N_16384": 0.00035
-        },
-        {
-          "model": "nonunital",
-          "n": 90,
-          "L": 2,
-          "k": 2,
-          "eps_N_4096": 0.00141,
-          "eps_N_16384": 0.0003525
+          "eps_N_4096": 0.0004176262383686813,
+          "eps_N_16384": 0.00010440655959217032
         },
         {
           "model": "noiseless",
           "n": 20,
           "L": 2,
           "k": 1,
-          "eps_N_4096": 0.00133,
-          "eps_N_16384": 0.0003325
+          "eps_N_4096": 0.0013342136723622263,
+          "eps_N_16384": 0.0003335534180905566
         },
         {
           "model": "unital",
           "n": 20,
           "L": 2,
           "k": 1,
-          "eps_N_4096": 0.00155,
-          "eps_N_16384": 0.0003875
+          "eps_N_4096": 0.0015370548161267811,
+          "eps_N_16384": 0.0003842637040316953
         },
         {
           "model": "nonunital",
@@ -1528,11 +1890,203 @@
           "n": 20,
           "L": 2,
           "k": 2,
-          "eps_N_4096": 0.00127,
-          "eps_N_16384": 0.0003175
+          "eps_N_4096": 0.0012658385855793958,
+          "eps_N_16384": 0.00031645964639484894
+        },
+        {
+          "model": "noiseless",
+          "n": 20,
+          "L": 4,
+          "k": 1,
+          "eps_N_4096": 0.009081195463903544,
+          "eps_N_16384": 0.002270298865975886
+        },
+        {
+          "model": "noiseless",
+          "n": 20,
+          "L": 4,
+          "k": 4,
+          "eps_N_4096": 0.007867319853418426,
+          "eps_N_16384": 0.0019668299633546064
+        },
+        {
+          "model": "noiseless",
+          "n": 39,
+          "L": 1,
+          "k": 1,
+          "eps_N_4096": 0.00038162505216425053,
+          "eps_N_16384": 9.540626304106263e-05
+        },
+        {
+          "model": "unital",
+          "n": 39,
+          "L": 1,
+          "k": 1,
+          "eps_N_4096": 0.00040872668321712544,
+          "eps_N_16384": 0.00010218167080428136
+        },
+        {
+          "model": "nonunital",
+          "n": 39,
+          "L": 1,
+          "k": 1,
+          "eps_N_4096": 0.00040765330335676224,
+          "eps_N_16384": 0.00010191332583919056
+        },
+        {
+          "model": "noiseless",
+          "n": 53,
+          "L": 1,
+          "k": 1,
+          "eps_N_4096": 0.00038162505216425053,
+          "eps_N_16384": 9.540626304106263e-05
+        },
+        {
+          "model": "unital",
+          "n": 53,
+          "L": 1,
+          "k": 1,
+          "eps_N_4096": 0.00041619261863158125,
+          "eps_N_16384": 0.00010404815465789531
+        },
+        {
+          "model": "nonunital",
+          "n": 53,
+          "L": 1,
+          "k": 1,
+          "eps_N_4096": 0.00041424869405407467,
+          "eps_N_16384": 0.00010356217351351867
+        },
+        {
+          "model": "noiseless",
+          "n": 53,
+          "L": 2,
+          "k": 1,
+          "eps_N_4096": 0.0013390108064513006,
+          "eps_N_16384": 0.00033475270161282514
+        },
+        {
+          "model": "noiseless",
+          "n": 53,
+          "L": 2,
+          "k": 2,
+          "eps_N_4096": 0.0012029318330406163,
+          "eps_N_16384": 0.00030073295826015407
+        },
+        {
+          "model": "noiseless",
+          "n": 70,
+          "L": 1,
+          "k": 1,
+          "eps_N_4096": 0.00038162505216425053,
+          "eps_N_16384": 9.540626304106263e-05
+        },
+        {
+          "model": "unital",
+          "n": 70,
+          "L": 1,
+          "k": 1,
+          "eps_N_4096": 0.00041619261863158125,
+          "eps_N_16384": 0.00010404815465789531
+        },
+        {
+          "model": "nonunital",
+          "n": 70,
+          "L": 1,
+          "k": 1,
+          "eps_N_4096": 0.00041424869405407467,
+          "eps_N_16384": 0.00010356217351351867
+        },
+        {
+          "model": "noiseless",
+          "n": 70,
+          "L": 2,
+          "k": 1,
+          "eps_N_4096": 0.0013390108064513006,
+          "eps_N_16384": 0.00033475270161282514
+        },
+        {
+          "model": "noiseless",
+          "n": 70,
+          "L": 2,
+          "k": 2,
+          "eps_N_4096": 0.0012029318330406163,
+          "eps_N_16384": 0.00030073295826015407
+        },
+        {
+          "model": "noiseless",
+          "n": 87,
+          "L": 1,
+          "k": 1,
+          "eps_N_4096": 0.00038162505216425053,
+          "eps_N_16384": 9.540626304106263e-05
+        },
+        {
+          "model": "unital",
+          "n": 87,
+          "L": 1,
+          "k": 1,
+          "eps_N_4096": 0.0004105620611828333,
+          "eps_N_16384": 0.00010264051529570833
+        },
+        {
+          "model": "nonunital",
+          "n": 87,
+          "L": 1,
+          "k": 1,
+          "eps_N_4096": 0.00040859375448512066,
+          "eps_N_16384": 0.00010214843862128016
+        },
+        {
+          "model": "noiseless",
+          "n": 87,
+          "L": 2,
+          "k": 1,
+          "eps_N_4096": 0.0011707040643482987,
+          "eps_N_16384": 0.00029267601608707467
+        },
+        {
+          "model": "unital",
+          "n": 87,
+          "L": 2,
+          "k": 1,
+          "eps_N_4096": 0.0013304178197089496,
+          "eps_N_16384": 0.0003326044549272374
+        },
+        {
+          "model": "nonunital",
+          "n": 87,
+          "L": 2,
+          "k": 1,
+          "eps_N_4096": 0.0013290754046612998,
+          "eps_N_16384": 0.00033226885116532495
+        },
+        {
+          "model": "noiseless",
+          "n": 87,
+          "L": 2,
+          "k": 2,
+          "eps_N_4096": 0.0011581136508493758,
+          "eps_N_16384": 0.00028952841271234395
+        },
+        {
+          "model": "unital",
+          "n": 87,
+          "L": 2,
+          "k": 2,
+          "eps_N_4096": 0.0013292638737103229,
+          "eps_N_16384": 0.0003323159684275807
+        },
+        {
+          "model": "nonunital",
+          "n": 87,
+          "L": 2,
+          "k": 2,
+          "eps_N_4096": 0.0013077295493248763,
+          "eps_N_16384": 0.00032693238733121907
         }
       ],
-      "n_points": 37,
+      "n_points": 31,
       "n_at_or_above_1": 0,
       "result": "pass",
       "note": "evaluated at 4096 shots on every computed point of this grid; the pre-registered scope is 'every point to be claimed'"
@@ -1666,7 +2220,7 @@
         }
       },
       "result": "reported",
-      "note": "L_s(n) at 95% of the Page value: n = 12: L_s = 14 (interp. 13.18), n = 16: L_s = 13 (interp. 12.49), n = 20: L_s = 12 (interp. 11.93); fit L_s = 15.03 + -0.156 n; design check on where the noiseless variance is expected to collapse, no pass/fail threshold pre-registered; patches n = 39..90 are beyond exact statevector simulation"
+      "note": "L_s(n) at 95% of the Page value: n = 12: L_s = 14 (interp. 13.18), n = 16: L_s = 13 (interp. 12.49), n = 20: L_s = 12 (interp. 11.93); fit L_s = 15.03 + -0.156 n; design check on where the noiseless variance is expected to collapse, no pass/fail threshold pre-registered. Caveats: L_s(20) = 12 sits at the sweep edge (L_max = 12) and S2(12) clears the threshold by ~0.5 SEM; the near n-independence is geometric (all three patches are 4 rows cut into 2 + 2, so saturation is set by the fixed 2-row distance to the boundary) and the fit must not be extrapolated to the 6x10-10x10 patches (n = 39..90 are beyond exact statevector simulation; a 2x10 vs 2x10 cut of the 4x10 patch would be the relevant check for n = 39)"
     }
   },
   "skipped_points": [
@@ -1676,7 +2230,7 @@
       "L": 2,
       "k": 2,
       "n_cone": 16,
-      "note": "not computed (time cap): the exact run was stopped before this point; cone 16 qubits, L = 2; within the statevector limit, rerun with scripts/gate1_ladder.py"
+      "note": "not computed (time cap): not started or unfinished before the deadline; cone 16 qubits, L = 2; within the statevector limit, rerun with scripts/gate1_ladder.py"
     },
     {
       "model": "nonunital",
@@ -1684,247 +2238,231 @@
       "L": 2,
       "k": 2,
       "n_cone": 16,
-      "note": "not computed (time cap): the exact run was stopped before this point; cone 16 qubits, L = 2; within the statevector limit, rerun with scripts/gate1_ladder.py"
+      "note": "not computed (time cap): not started or unfinished before the deadline; cone 16 qubits, L = 2; within the statevector limit, rerun with scripts/gate1_ladder.py"
     },
     {
-      "model": "noiseless",
+      "model": "unital",
       "n": 20,
       "L": 4,
       "k": 1,
       "n_cone": 20,
-      "note": "not computed (time cap): the exact run was stopped before this point; cone 20 qubits, L = 4; within the statevector limit, rerun with scripts/gate1_ladder.py"
+      "note": "requires Pauli propagation, not implemented (cut for compute time: measured 38 s per circuit (unital ~17 s) with 32 trajectories on the 20-qubit cone: ~63 min per point at M = 50; cone 20 qubits, L = 4)"
     },
     {
-      "model": "noiseless",
+      "model": "nonunital",
+      "n": 20,
+      "L": 4,
+      "k": 1,
+      "n_cone": 20,
+      "note": "requires Pauli propagation, not implemented (cut for compute time: measured 38 s per circuit (unital ~17 s) with 32 trajectories on the 20-qubit cone: ~63 min per point at M = 50; cone 20 qubits, L = 4)"
+    },
+    {
+      "model": "unital",
       "n": 20,
       "L": 4,
       "k": 4,
       "n_cone": 20,
-      "note": "not computed (time cap): the exact run was stopped before this point; cone 20 qubits, L = 4; within the statevector limit, rerun with scripts/gate1_ladder.py"
+      "note": "requires Pauli propagation, not implemented (cut for compute time: measured 38 s per circuit (unital ~17 s) with 32 trajectories on the 20-qubit cone: ~63 min per point at M = 50; cone 20 qubits, L = 4)"
+    },
+    {
+      "model": "nonunital",
+      "n": 20,
+      "L": 4,
+      "k": 4,
+      "n_cone": 20,
+      "note": "requires Pauli propagation, not implemented (cut for compute time: measured 38 s per circuit (unital ~17 s) with 32 trajectories on the 20-qubit cone: ~63 min per point at M = 50; cone 20 qubits, L = 4)"
+    },
+    {
+      "model": "noiseless",
+      "n": 20,
+      "L": 8,
+      "k": 1,
+      "n_cone": 20,
+      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 8 > 4, cone 20 qubits))"
+    },
+    {
+      "model": "unital",
+      "n": 20,
+      "L": 8,
+      "k": 1,
+      "n_cone": 20,
+      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 8 > 4, cone 20 qubits))"
+    },
+    {
+      "model": "nonunital",
+      "n": 20,
+      "L": 8,
+      "k": 1,
+      "n_cone": 20,
+      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 8 > 4, cone 20 qubits))"
+    },
+    {
+      "model": "noiseless",
+      "n": 20,
+      "L": 8,
+      "k": 8,
+      "n_cone": 20,
+      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 8 > 4, cone 20 qubits))"
+    },
+    {
+      "model": "unital",
+      "n": 20,
+      "L": 8,
+      "k": 8,
+      "n_cone": 20,
+      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 8 > 4, cone 20 qubits))"
+    },
+    {
+      "model": "nonunital",
+      "n": 20,
+      "L": 8,
+      "k": 8,
+      "n_cone": 20,
+      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 8 > 4, cone 20 qubits))"
+    },
+    {
+      "model": "noiseless",
+      "n": 20,
+      "L": 12,
+      "k": 1,
+      "n_cone": 20,
+      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 20 qubits))"
+    },
+    {
+      "model": "unital",
+      "n": 20,
+      "L": 12,
+      "k": 1,
+      "n_cone": 20,
+      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 20 qubits))"
+    },
+    {
+      "model": "nonunital",
+      "n": 20,
+      "L": 12,
+      "k": 1,
+      "n_cone": 20,
+      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 20 qubits))"
+    },
+    {
+      "model": "noiseless",
+      "n": 20,
+      "L": 12,
+      "k": 12,
+      "n_cone": 20,
+      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 20 qubits))"
+    },
+    {
+      "model": "unital",
+      "n": 20,
+      "L": 12,
+      "k": 12,
+      "n_cone": 20,
+      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 20 qubits))"
+    },
+    {
+      "model": "nonunital",
+      "n": 20,
+      "L": 12,
+      "k": 12,
+      "n_cone": 20,
+      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 20 qubits))"
     },
     {
       "model": "noiseless",
       "n": 39,
       "L": 2,
       "k": 1,
-      "n_cone": 23,
-      "note": "not computed (time cap): the exact run was stopped before this point; cone 23 qubits, L = 2; within the statevector limit, rerun with scripts/gate1_ladder.py"
+      "n_cone": 20,
+      "note": "not computed (time cap): not started or unfinished before the deadline; cone 20 qubits, L = 2; within the statevector limit, rerun with scripts/gate1_ladder.py"
+    },
+    {
+      "model": "unital",
+      "n": 39,
+      "L": 2,
+      "k": 1,
+      "n_cone": 20,
+      "note": "requires Pauli propagation, not implemented (cut for compute time: measured > 150 s per circuit with 32 trajectories on the 23-qubit cone: > 4 h per point at M = 50; cone 20 qubits, L = 2)"
+    },
+    {
+      "model": "nonunital",
+      "n": 39,
+      "L": 2,
+      "k": 1,
+      "n_cone": 20,
+      "note": "requires Pauli propagation, not implemented (cut for compute time: measured > 150 s per circuit with 32 trajectories on the 23-qubit cone: > 4 h per point at M = 50; cone 20 qubits, L = 2)"
     },
     {
       "model": "noiseless",
       "n": 39,
       "L": 2,
       "k": 2,
-      "n_cone": 23,
-      "note": "not computed (time cap): the exact run was stopped before this point; cone 23 qubits, L = 2; within the statevector limit, rerun with scripts/gate1_ladder.py"
-    },
-    {
-      "model": "unital",
-      "n": 20,
-      "L": 4,
-      "k": 1,
       "n_cone": 20,
-      "note": "requires Pauli propagation, not implemented (cut for compute time: measured 38 s per circuit (unital ~17 s) with 32 trajectories on the 20-qubit cone: ~63 min per point at M = 50; cone 20 qubits, L = 4)"
-    },
-    {
-      "model": "nonunital",
-      "n": 20,
-      "L": 4,
-      "k": 1,
-      "n_cone": 20,
-      "note": "requires Pauli propagation, not implemented (cut for compute time: measured 38 s per circuit (unital ~17 s) with 32 trajectories on the 20-qubit cone: ~63 min per point at M = 50; cone 20 qubits, L = 4)"
-    },
-    {
-      "model": "unital",
-      "n": 20,
-      "L": 4,
-      "k": 4,
-      "n_cone": 20,
-      "note": "requires Pauli propagation, not implemented (cut for compute time: measured 38 s per circuit (unital ~17 s) with 32 trajectories on the 20-qubit cone: ~63 min per point at M = 50; cone 20 qubits, L = 4)"
-    },
-    {
-      "model": "nonunital",
-      "n": 20,
-      "L": 4,
-      "k": 4,
-      "n_cone": 20,
-      "note": "requires Pauli propagation, not implemented (cut for compute time: measured 38 s per circuit (unital ~17 s) with 32 trajectories on the 20-qubit cone: ~63 min per point at M = 50; cone 20 qubits, L = 4)"
-    },
-    {
-      "model": "unital",
-      "n": 39,
-      "L": 2,
-      "k": 1,
-      "n_cone": 23,
-      "note": "requires Pauli propagation, not implemented (cut for compute time: measured > 150 s per circuit with 32 trajectories on the 23-qubit cone: > 4 h per point at M = 50; cone 23 qubits, L = 2)"
-    },
-    {
-      "model": "nonunital",
-      "n": 39,
-      "L": 2,
-      "k": 1,
-      "n_cone": 23,
-      "note": "requires Pauli propagation, not implemented (cut for compute time: measured > 150 s per circuit with 32 trajectories on the 23-qubit cone: > 4 h per point at M = 50; cone 23 qubits, L = 2)"
+      "note": "not computed (time cap): not started or unfinished before the deadline; cone 20 qubits, L = 2; within the statevector limit, rerun with scripts/gate1_ladder.py"
     },
     {
       "model": "unital",
       "n": 39,
       "L": 2,
       "k": 2,
-      "n_cone": 23,
-      "note": "requires Pauli propagation, not implemented (cut for compute time: measured > 150 s per circuit with 32 trajectories on the 23-qubit cone: > 4 h per point at M = 50; cone 23 qubits, L = 2)"
+      "n_cone": 20,
+      "note": "requires Pauli propagation, not implemented (cut for compute time: measured > 150 s per circuit with 32 trajectories on the 23-qubit cone: > 4 h per point at M = 50; cone 20 qubits, L = 2)"
     },
     {
       "model": "nonunital",
       "n": 39,
       "L": 2,
       "k": 2,
-      "n_cone": 23,
-      "note": "requires Pauli propagation, not implemented (cut for compute time: measured > 150 s per circuit with 32 trajectories on the 23-qubit cone: > 4 h per point at M = 50; cone 23 qubits, L = 2)"
-    },
-    {
-      "model": "noiseless",
-      "n": 20,
-      "L": 8,
-      "k": 1,
       "n_cone": 20,
-      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 8 > 4, cone 20 qubits))"
-    },
-    {
-      "model": "unital",
-      "n": 20,
-      "L": 8,
-      "k": 1,
-      "n_cone": 20,
-      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 8 > 4, cone 20 qubits))"
-    },
-    {
-      "model": "nonunital",
-      "n": 20,
-      "L": 8,
-      "k": 1,
-      "n_cone": 20,
-      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 8 > 4, cone 20 qubits))"
-    },
-    {
-      "model": "noiseless",
-      "n": 20,
-      "L": 8,
-      "k": 8,
-      "n_cone": 20,
-      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 8 > 4, cone 20 qubits))"
-    },
-    {
-      "model": "unital",
-      "n": 20,
-      "L": 8,
-      "k": 8,
-      "n_cone": 20,
-      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 8 > 4, cone 20 qubits))"
-    },
-    {
-      "model": "nonunital",
-      "n": 20,
-      "L": 8,
-      "k": 8,
-      "n_cone": 20,
-      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 8 > 4, cone 20 qubits))"
-    },
-    {
-      "model": "noiseless",
-      "n": 20,
-      "L": 12,
-      "k": 1,
-      "n_cone": 20,
-      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 20 qubits))"
-    },
-    {
-      "model": "unital",
-      "n": 20,
-      "L": 12,
-      "k": 1,
-      "n_cone": 20,
-      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 20 qubits))"
-    },
-    {
-      "model": "nonunital",
-      "n": 20,
-      "L": 12,
-      "k": 1,
-      "n_cone": 20,
-      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 20 qubits))"
-    },
-    {
-      "model": "noiseless",
-      "n": 20,
-      "L": 12,
-      "k": 12,
-      "n_cone": 20,
-      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 20 qubits))"
-    },
-    {
-      "model": "unital",
-      "n": 20,
-      "L": 12,
-      "k": 12,
-      "n_cone": 20,
-      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 20 qubits))"
-    },
-    {
-      "model": "nonunital",
-      "n": 20,
-      "L": 12,
-      "k": 12,
-      "n_cone": 20,
-      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 20 qubits))"
+      "note": "requires Pauli propagation, not implemented (cut for compute time: measured > 150 s per circuit with 32 trajectories on the 23-qubit cone: > 4 h per point at M = 50; cone 20 qubits, L = 2)"
     },
     {
       "model": "noiseless",
       "n": 39,
       "L": 4,
       "k": 1,
-      "n_cone": 39,
-      "note": "requires Pauli propagation, not implemented (cone 39 qubits exceeds the 24-qubit statevector limit, L = 4)"
+      "n_cone": 36,
+      "note": "requires Pauli propagation, not implemented (cone 36 qubits exceeds the 24-qubit statevector limit, L = 4)"
     },
     {
       "model": "unital",
       "n": 39,
       "L": 4,
       "k": 1,
-      "n_cone": 39,
-      "note": "requires Pauli propagation, not implemented (cone 39 qubits exceeds the 24-qubit statevector limit, L = 4)"
+      "n_cone": 36,
+      "note": "requires Pauli propagation, not implemented (cone 36 qubits exceeds the 24-qubit statevector limit, L = 4)"
     },
     {
       "model": "nonunital",
       "n": 39,
       "L": 4,
       "k": 1,
-      "n_cone": 39,
-      "note": "requires Pauli propagation, not implemented (cone 39 qubits exceeds the 24-qubit statevector limit, L = 4)"
+      "n_cone": 36,
+      "note": "requires Pauli propagation, not implemented (cone 36 qubits exceeds the 24-qubit statevector limit, L = 4)"
     },
     {
       "model": "noiseless",
       "n": 39,
       "L": 4,
       "k": 4,
-      "n_cone": 39,
-      "note": "requires Pauli propagation, not implemented (cone 39 qubits exceeds the 24-qubit statevector limit, L = 4)"
+      "n_cone": 36,
+      "note": "requires Pauli propagation, not implemented (cone 36 qubits exceeds the 24-qubit statevector limit, L = 4)"
     },
     {
       "model": "unital",
       "n": 39,
       "L": 4,
       "k": 4,
-      "n_cone": 39,
-      "note": "requires Pauli propagation, not implemented (cone 39 qubits exceeds the 24-qubit statevector limit, L = 4)"
+      "n_cone": 36,
+      "note": "requires Pauli propagation, not implemented (cone 36 qubits exceeds the 24-qubit statevector limit, L = 4)"
     },
     {
       "model": "nonunital",
       "n": 39,
       "L": 4,
       "k": 4,
-      "n_cone": 39,
-      "note": "requires Pauli propagation, not implemented (cone 39 qubits exceeds the 24-qubit statevector limit, L = 4)"
+      "n_cone": 36,
+      "note": "requires Pauli propagation, not implemented (cone 36 qubits exceeds the 24-qubit statevector limit, L = 4)"
     },
     {
       "model": "noiseless",
@@ -2023,436 +2561,500 @@
       "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 39 qubits))"
     },
     {
-      "model": "noiseless",
-      "n": 56,
-      "L": 4,
-      "k": 1,
-      "n_cone": 52,
-      "note": "requires Pauli propagation, not implemented (cone 52 qubits exceeds the 24-qubit statevector limit, L = 4)"
-    },
-    {
       "model": "unital",
-      "n": 56,
-      "L": 4,
+      "n": 53,
+      "L": 2,
       "k": 1,
-      "n_cone": 52,
-      "note": "requires Pauli propagation, not implemented (cone 52 qubits exceeds the 24-qubit statevector limit, L = 4)"
+      "n_cone": 16,
+      "note": "not computed (time cap): not started or unfinished before the deadline; cone 16 qubits, L = 2; within the statevector limit, rerun with scripts/gate1_ladder.py"
     },
     {
       "model": "nonunital",
-      "n": 56,
-      "L": 4,
+      "n": 53,
+      "L": 2,
       "k": 1,
-      "n_cone": 52,
-      "note": "requires Pauli propagation, not implemented (cone 52 qubits exceeds the 24-qubit statevector limit, L = 4)"
-    },
-    {
-      "model": "noiseless",
-      "n": 56,
-      "L": 4,
-      "k": 4,
-      "n_cone": 52,
-      "note": "requires Pauli propagation, not implemented (cone 52 qubits exceeds the 24-qubit statevector limit, L = 4)"
+      "n_cone": 16,
+      "note": "not computed (time cap): not started or unfinished before the deadline; cone 16 qubits, L = 2; within the statevector limit, rerun with scripts/gate1_ladder.py"
     },
     {
       "model": "unital",
-      "n": 56,
-      "L": 4,
-      "k": 4,
-      "n_cone": 52,
-      "note": "requires Pauli propagation, not implemented (cone 52 qubits exceeds the 24-qubit statevector limit, L = 4)"
+      "n": 53,
+      "L": 2,
+      "k": 2,
+      "n_cone": 16,
+      "note": "not computed (time cap): not started or unfinished before the deadline; cone 16 qubits, L = 2; within the statevector limit, rerun with scripts/gate1_ladder.py"
     },
     {
       "model": "nonunital",
-      "n": 56,
-      "L": 4,
-      "k": 4,
-      "n_cone": 52,
-      "note": "requires Pauli propagation, not implemented (cone 52 qubits exceeds the 24-qubit statevector limit, L = 4)"
+      "n": 53,
+      "L": 2,
+      "k": 2,
+      "n_cone": 16,
+      "note": "not computed (time cap): not started or unfinished before the deadline; cone 16 qubits, L = 2; within the statevector limit, rerun with scripts/gate1_ladder.py"
     },
     {
       "model": "noiseless",
-      "n": 56,
-      "L": 8,
+      "n": 53,
+      "L": 4,
       "k": 1,
-      "n_cone": 56,
-      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 8 > 4, cone 56 qubits))"
+      "n_cone": 48,
+      "note": "requires Pauli propagation, not implemented (cone 48 qubits exceeds the 24-qubit statevector limit, L = 4)"
     },
     {
       "model": "unital",
-      "n": 56,
-      "L": 8,
-      "k": 1,
-      "n_cone": 56,
-      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 8 > 4, cone 56 qubits))"
-    },
-    {
-      "model": "nonunital",
-      "n": 56,
-      "L": 8,
-      "k": 1,
-      "n_cone": 56,
-      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 8 > 4, cone 56 qubits))"
-    },
-    {
-      "model": "noiseless",
-      "n": 56,
-      "L": 8,
-      "k": 8,
-      "n_cone": 56,
-      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 8 > 4, cone 56 qubits))"
-    },
-    {
-      "model": "unital",
-      "n": 56,
-      "L": 8,
-      "k": 8,
-      "n_cone": 56,
-      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 8 > 4, cone 56 qubits))"
-    },
-    {
-      "model": "nonunital",
-      "n": 56,
-      "L": 8,
-      "k": 8,
-      "n_cone": 56,
-      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 8 > 4, cone 56 qubits))"
-    },
-    {
-      "model": "noiseless",
-      "n": 56,
-      "L": 12,
-      "k": 1,
-      "n_cone": 56,
-      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 56 qubits))"
-    },
-    {
-      "model": "unital",
-      "n": 56,
-      "L": 12,
-      "k": 1,
-      "n_cone": 56,
-      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 56 qubits))"
-    },
-    {
-      "model": "nonunital",
-      "n": 56,
-      "L": 12,
-      "k": 1,
-      "n_cone": 56,
-      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 56 qubits))"
-    },
-    {
-      "model": "noiseless",
-      "n": 56,
-      "L": 12,
-      "k": 12,
-      "n_cone": 56,
-      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 56 qubits))"
-    },
-    {
-      "model": "unital",
-      "n": 56,
-      "L": 12,
-      "k": 12,
-      "n_cone": 56,
-      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 56 qubits))"
-    },
-    {
-      "model": "nonunital",
-      "n": 56,
-      "L": 12,
-      "k": 12,
-      "n_cone": 56,
-      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 56 qubits))"
-    },
-    {
-      "model": "noiseless",
-      "n": 71,
+      "n": 53,
       "L": 4,
       "k": 1,
-      "n_cone": 59,
-      "note": "requires Pauli propagation, not implemented (cone 59 qubits exceeds the 24-qubit statevector limit, L = 4)"
-    },
-    {
-      "model": "unital",
-      "n": 71,
-      "L": 4,
-      "k": 1,
-      "n_cone": 59,
-      "note": "requires Pauli propagation, not implemented (cone 59 qubits exceeds the 24-qubit statevector limit, L = 4)"
+      "n_cone": 48,
+      "note": "requires Pauli propagation, not implemented (cone 48 qubits exceeds the 24-qubit statevector limit, L = 4)"
     },
     {
       "model": "nonunital",
-      "n": 71,
+      "n": 53,
       "L": 4,
       "k": 1,
-      "n_cone": 59,
-      "note": "requires Pauli propagation, not implemented (cone 59 qubits exceeds the 24-qubit statevector limit, L = 4)"
+      "n_cone": 48,
+      "note": "requires Pauli propagation, not implemented (cone 48 qubits exceeds the 24-qubit statevector limit, L = 4)"
     },
     {
       "model": "noiseless",
-      "n": 71,
+      "n": 53,
       "L": 4,
       "k": 4,
-      "n_cone": 59,
-      "note": "requires Pauli propagation, not implemented (cone 59 qubits exceeds the 24-qubit statevector limit, L = 4)"
+      "n_cone": 48,
+      "note": "requires Pauli propagation, not implemented (cone 48 qubits exceeds the 24-qubit statevector limit, L = 4)"
     },
     {
       "model": "unital",
-      "n": 71,
+      "n": 53,
       "L": 4,
       "k": 4,
-      "n_cone": 59,
-      "note": "requires Pauli propagation, not implemented (cone 59 qubits exceeds the 24-qubit statevector limit, L = 4)"
+      "n_cone": 48,
+      "note": "requires Pauli propagation, not implemented (cone 48 qubits exceeds the 24-qubit statevector limit, L = 4)"
     },
     {
       "model": "nonunital",
-      "n": 71,
+      "n": 53,
       "L": 4,
       "k": 4,
-      "n_cone": 59,
-      "note": "requires Pauli propagation, not implemented (cone 59 qubits exceeds the 24-qubit statevector limit, L = 4)"
+      "n_cone": 48,
+      "note": "requires Pauli propagation, not implemented (cone 48 qubits exceeds the 24-qubit statevector limit, L = 4)"
     },
     {
       "model": "noiseless",
-      "n": 71,
+      "n": 53,
       "L": 8,
       "k": 1,
-      "n_cone": 71,
-      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 8 > 4, cone 71 qubits))"
+      "n_cone": 53,
+      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 8 > 4, cone 53 qubits))"
     },
     {
       "model": "unital",
-      "n": 71,
+      "n": 53,
       "L": 8,
       "k": 1,
-      "n_cone": 71,
-      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 8 > 4, cone 71 qubits))"
+      "n_cone": 53,
+      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 8 > 4, cone 53 qubits))"
     },
     {
       "model": "nonunital",
-      "n": 71,
+      "n": 53,
       "L": 8,
       "k": 1,
-      "n_cone": 71,
-      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 8 > 4, cone 71 qubits))"
+      "n_cone": 53,
+      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 8 > 4, cone 53 qubits))"
     },
     {
       "model": "noiseless",
-      "n": 71,
+      "n": 53,
       "L": 8,
       "k": 8,
-      "n_cone": 71,
-      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 8 > 4, cone 71 qubits))"
+      "n_cone": 53,
+      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 8 > 4, cone 53 qubits))"
     },
     {
       "model": "unital",
-      "n": 71,
+      "n": 53,
       "L": 8,
       "k": 8,
-      "n_cone": 71,
-      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 8 > 4, cone 71 qubits))"
+      "n_cone": 53,
+      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 8 > 4, cone 53 qubits))"
     },
     {
       "model": "nonunital",
-      "n": 71,
+      "n": 53,
       "L": 8,
       "k": 8,
-      "n_cone": 71,
-      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 8 > 4, cone 71 qubits))"
+      "n_cone": 53,
+      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 8 > 4, cone 53 qubits))"
     },
     {
       "model": "noiseless",
-      "n": 71,
+      "n": 53,
       "L": 12,
       "k": 1,
-      "n_cone": 71,
-      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 71 qubits))"
+      "n_cone": 53,
+      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 53 qubits))"
     },
     {
       "model": "unital",
-      "n": 71,
+      "n": 53,
       "L": 12,
       "k": 1,
-      "n_cone": 71,
-      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 71 qubits))"
+      "n_cone": 53,
+      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 53 qubits))"
     },
     {
       "model": "nonunital",
-      "n": 71,
+      "n": 53,
       "L": 12,
       "k": 1,
-      "n_cone": 71,
-      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 71 qubits))"
+      "n_cone": 53,
+      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 53 qubits))"
     },
     {
       "model": "noiseless",
-      "n": 71,
+      "n": 53,
       "L": 12,
       "k": 12,
-      "n_cone": 71,
-      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 71 qubits))"
+      "n_cone": 53,
+      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 53 qubits))"
     },
     {
       "model": "unital",
-      "n": 71,
+      "n": 53,
       "L": 12,
       "k": 12,
-      "n_cone": 71,
-      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 71 qubits))"
+      "n_cone": 53,
+      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 53 qubits))"
     },
     {
       "model": "nonunital",
-      "n": 71,
+      "n": 53,
       "L": 12,
       "k": 12,
-      "n_cone": 71,
-      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 71 qubits))"
-    },
-    {
-      "model": "noiseless",
-      "n": 90,
-      "L": 4,
-      "k": 1,
-      "n_cone": 74,
-      "note": "requires Pauli propagation, not implemented (cone 74 qubits exceeds the 24-qubit statevector limit, L = 4)"
+      "n_cone": 53,
+      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 53 qubits))"
     },
     {
       "model": "unital",
-      "n": 90,
-      "L": 4,
+      "n": 70,
+      "L": 2,
       "k": 1,
-      "n_cone": 74,
-      "note": "requires Pauli propagation, not implemented (cone 74 qubits exceeds the 24-qubit statevector limit, L = 4)"
+      "n_cone": 16,
+      "note": "not computed (time cap): not started or unfinished before the deadline; cone 16 qubits, L = 2; within the statevector limit, rerun with scripts/gate1_ladder.py"
     },
     {
       "model": "nonunital",
-      "n": 90,
-      "L": 4,
+      "n": 70,
+      "L": 2,
       "k": 1,
-      "n_cone": 74,
-      "note": "requires Pauli propagation, not implemented (cone 74 qubits exceeds the 24-qubit statevector limit, L = 4)"
+      "n_cone": 16,
+      "note": "not computed (time cap): not started or unfinished before the deadline; cone 16 qubits, L = 2; within the statevector limit, rerun with scripts/gate1_ladder.py"
+    },
+    {
+      "model": "unital",
+      "n": 70,
+      "L": 2,
+      "k": 2,
+      "n_cone": 16,
+      "note": "not computed (time cap): not started or unfinished before the deadline; cone 16 qubits, L = 2; within the statevector limit, rerun with scripts/gate1_ladder.py"
+    },
+    {
+      "model": "nonunital",
+      "n": 70,
+      "L": 2,
+      "k": 2,
+      "n_cone": 16,
+      "note": "not computed (time cap): not started or unfinished before the deadline; cone 16 qubits, L = 2; within the statevector limit, rerun with scripts/gate1_ladder.py"
     },
     {
       "model": "noiseless",
-      "n": 90,
+      "n": 70,
+      "L": 4,
+      "k": 1,
+      "n_cone": 65,
+      "note": "requires Pauli propagation, not implemented (cone 65 qubits exceeds the 24-qubit statevector limit, L = 4)"
+    },
+    {
+      "model": "unital",
+      "n": 70,
+      "L": 4,
+      "k": 1,
+      "n_cone": 65,
+      "note": "requires Pauli propagation, not implemented (cone 65 qubits exceeds the 24-qubit statevector limit, L = 4)"
+    },
+    {
+      "model": "nonunital",
+      "n": 70,
+      "L": 4,
+      "k": 1,
+      "n_cone": 65,
+      "note": "requires Pauli propagation, not implemented (cone 65 qubits exceeds the 24-qubit statevector limit, L = 4)"
+    },
+    {
+      "model": "noiseless",
+      "n": 70,
       "L": 4,
       "k": 4,
-      "n_cone": 74,
-      "note": "requires Pauli propagation, not implemented (cone 74 qubits exceeds the 24-qubit statevector limit, L = 4)"
+      "n_cone": 65,
+      "note": "requires Pauli propagation, not implemented (cone 65 qubits exceeds the 24-qubit statevector limit, L = 4)"
     },
     {
       "model": "unital",
-      "n": 90,
+      "n": 70,
       "L": 4,
       "k": 4,
-      "n_cone": 74,
-      "note": "requires Pauli propagation, not implemented (cone 74 qubits exceeds the 24-qubit statevector limit, L = 4)"
+      "n_cone": 65,
+      "note": "requires Pauli propagation, not implemented (cone 65 qubits exceeds the 24-qubit statevector limit, L = 4)"
     },
     {
       "model": "nonunital",
-      "n": 90,
+      "n": 70,
       "L": 4,
       "k": 4,
-      "n_cone": 74,
-      "note": "requires Pauli propagation, not implemented (cone 74 qubits exceeds the 24-qubit statevector limit, L = 4)"
+      "n_cone": 65,
+      "note": "requires Pauli propagation, not implemented (cone 65 qubits exceeds the 24-qubit statevector limit, L = 4)"
     },
     {
       "model": "noiseless",
-      "n": 90,
+      "n": 70,
       "L": 8,
       "k": 1,
-      "n_cone": 90,
-      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 8 > 4, cone 90 qubits))"
+      "n_cone": 70,
+      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 8 > 4, cone 70 qubits))"
     },
     {
       "model": "unital",
-      "n": 90,
+      "n": 70,
       "L": 8,
       "k": 1,
-      "n_cone": 90,
-      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 8 > 4, cone 90 qubits))"
+      "n_cone": 70,
+      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 8 > 4, cone 70 qubits))"
     },
     {
       "model": "nonunital",
-      "n": 90,
+      "n": 70,
       "L": 8,
       "k": 1,
-      "n_cone": 90,
-      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 8 > 4, cone 90 qubits))"
+      "n_cone": 70,
+      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 8 > 4, cone 70 qubits))"
     },
     {
       "model": "noiseless",
-      "n": 90,
+      "n": 70,
       "L": 8,
       "k": 8,
-      "n_cone": 90,
-      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 8 > 4, cone 90 qubits))"
+      "n_cone": 70,
+      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 8 > 4, cone 70 qubits))"
     },
     {
       "model": "unital",
-      "n": 90,
+      "n": 70,
       "L": 8,
       "k": 8,
-      "n_cone": 90,
-      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 8 > 4, cone 90 qubits))"
+      "n_cone": 70,
+      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 8 > 4, cone 70 qubits))"
     },
     {
       "model": "nonunital",
-      "n": 90,
+      "n": 70,
       "L": 8,
       "k": 8,
-      "n_cone": 90,
-      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 8 > 4, cone 90 qubits))"
+      "n_cone": 70,
+      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 8 > 4, cone 70 qubits))"
     },
     {
       "model": "noiseless",
-      "n": 90,
+      "n": 70,
       "L": 12,
       "k": 1,
-      "n_cone": 90,
-      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 90 qubits))"
+      "n_cone": 70,
+      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 70 qubits))"
     },
     {
       "model": "unital",
-      "n": 90,
+      "n": 70,
       "L": 12,
       "k": 1,
-      "n_cone": 90,
-      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 90 qubits))"
+      "n_cone": 70,
+      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 70 qubits))"
     },
     {
       "model": "nonunital",
-      "n": 90,
+      "n": 70,
       "L": 12,
       "k": 1,
-      "n_cone": 90,
-      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 90 qubits))"
+      "n_cone": 70,
+      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 70 qubits))"
     },
     {
       "model": "noiseless",
-      "n": 90,
+      "n": 70,
       "L": 12,
       "k": 12,
-      "n_cone": 90,
-      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 90 qubits))"
+      "n_cone": 70,
+      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 70 qubits))"
     },
     {
       "model": "unital",
-      "n": 90,
+      "n": 70,
       "L": 12,
       "k": 12,
-      "n_cone": 90,
-      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 90 qubits))"
+      "n_cone": 70,
+      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 70 qubits))"
     },
     {
       "model": "nonunital",
-      "n": 90,
+      "n": 70,
       "L": 12,
       "k": 12,
-      "n_cone": 90,
-      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 90 qubits))"
+      "n_cone": 70,
+      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 70 qubits))"
+    },
+    {
+      "model": "noiseless",
+      "n": 87,
+      "L": 4,
+      "k": 1,
+      "n_cone": 72,
+      "note": "requires Pauli propagation, not implemented (cone 72 qubits exceeds the 24-qubit statevector limit, L = 4)"
+    },
+    {
+      "model": "unital",
+      "n": 87,
+      "L": 4,
+      "k": 1,
+      "n_cone": 72,
+      "note": "requires Pauli propagation, not implemented (cone 72 qubits exceeds the 24-qubit statevector limit, L = 4)"
+    },
+    {
+      "model": "nonunital",
+      "n": 87,
+      "L": 4,
+      "k": 1,
+      "n_cone": 72,
+      "note": "requires Pauli propagation, not implemented (cone 72 qubits exceeds the 24-qubit statevector limit, L = 4)"
+    },
+    {
+      "model": "noiseless",
+      "n": 87,
+      "L": 4,
+      "k": 4,
+      "n_cone": 72,
+      "note": "requires Pauli propagation, not implemented (cone 72 qubits exceeds the 24-qubit statevector limit, L = 4)"
+    },
+    {
+      "model": "unital",
+      "n": 87,
+      "L": 4,
+      "k": 4,
+      "n_cone": 72,
+      "note": "requires Pauli propagation, not implemented (cone 72 qubits exceeds the 24-qubit statevector limit, L = 4)"
+    },
+    {
+      "model": "nonunital",
+      "n": 87,
+      "L": 4,
+      "k": 4,
+      "n_cone": 72,
+      "note": "requires Pauli propagation, not implemented (cone 72 qubits exceeds the 24-qubit statevector limit, L = 4)"
+    },
+    {
+      "model": "noiseless",
+      "n": 87,
+      "L": 8,
+      "k": 1,
+      "n_cone": 87,
+      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 8 > 4, cone 87 qubits))"
+    },
+    {
+      "model": "unital",
+      "n": 87,
+      "L": 8,
+      "k": 1,
+      "n_cone": 87,
+      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 8 > 4, cone 87 qubits))"
+    },
+    {
+      "model": "nonunital",
+      "n": 87,
+      "L": 8,
+      "k": 1,
+      "n_cone": 87,
+      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 8 > 4, cone 87 qubits))"
+    },
+    {
+      "model": "noiseless",
+      "n": 87,
+      "L": 8,
+      "k": 8,
+      "n_cone": 87,
+      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 8 > 4, cone 87 qubits))"
+    },
+    {
+      "model": "unital",
+      "n": 87,
+      "L": 8,
+      "k": 8,
+      "n_cone": 87,
+      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 8 > 4, cone 87 qubits))"
+    },
+    {
+      "model": "nonunital",
+      "n": 87,
+      "L": 8,
+      "k": 8,
+      "n_cone": 87,
+      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 8 > 4, cone 87 qubits))"
+    },
+    {
+      "model": "noiseless",
+      "n": 87,
+      "L": 12,
+      "k": 1,
+      "n_cone": 87,
+      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 87 qubits))"
+    },
+    {
+      "model": "unital",
+      "n": 87,
+      "L": 12,
+      "k": 1,
+      "n_cone": 87,
+      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 87 qubits))"
+    },
+    {
+      "model": "nonunital",
+      "n": 87,
+      "L": 12,
+      "k": 1,
+      "n_cone": 87,
+      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 87 qubits))"
+    },
+    {
+      "model": "noiseless",
+      "n": 87,
+      "L": 12,
+      "k": 12,
+      "n_cone": 87,
+      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 87 qubits))"
+    },
+    {
+      "model": "unital",
+      "n": 87,
+      "L": 12,
+      "k": 12,
+      "n_cone": 87,
+      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 87 qubits))"
+    },
+    {
+      "model": "nonunital",
+      "n": 87,
+      "L": 12,
+      "k": 12,
+      "n_cone": 87,
+      "note": "requires Pauli propagation, not implemented (deferred to Pauli propagation, Deviation 15 (L = 12 > 4, cone 87 qubits))"
     }
   ],
   "stop_rule": "Failing (c) or (d) stops the hardware stage."
