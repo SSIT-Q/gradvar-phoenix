@@ -147,15 +147,6 @@ def jobs_gate1b(args):
             yield dict(stage="gate1b", patch=spec, L=L, model="unital", dial="reset", p=0.25, pattern=True)
 
 
-def jobs_gate1b_exempt(args):
-    """Variant of Gate 1b in which the observable qubits are exempt from the last layer's reset lottery (not the
-    pre-registered channel; computed to quantify the pattern-noise floor's origin)."""
-    for spec in ("4x10", "6x10", "10x10"):
-        for L in args.depths:
-            yield dict(stage="gate1b_exempt", patch=spec, L=L, model="unital", dial="delay", p=0.0, exempt_obs=True)
-            yield dict(stage="gate1b_exempt", patch=spec, L=L, model="unital", dial="reset", p=0.25, pattern=True, exempt_obs=True)
-
-
 def jobs_dial(args):
     for L in args.depths:
         for p in (0.25, 0.5):
@@ -214,7 +205,7 @@ def verdicts(df: pd.DataFrame, K: int = K_MASKS, kurtosis: float = KURTOSIS_DEV1
     fall > 2 x the predicted M = ``M_p0`` draw 2 sigma at n = 39, with the gradient kurtosis ``kurtosis``)."""
     sf = shot_floor(4096)
     out = {"shot_floor_4096": sf, "K_masks": int(K), "kurtosis_assumed": kurtosis, "M_p0": int(M_p0), "gate1b": [], "dev15": []}
-    for stage_name in ("gate1b", "gate1b_exempt"):
+    for stage_name in ("gate1b",):
       g = df[(df.stage == stage_name) & (df.get("status", "") != "pending") & df.n.notna()]
       out.setdefault(stage_name, [])
       for L in sorted(g.L.unique()):
@@ -438,7 +429,7 @@ def figure(df: pd.DataFrame):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--stage", choices=["dev15", "gate1b", "gate1b_exempt", "dial", "summary"], required=True)
+    ap.add_argument("--stage", choices=["dev15", "gate1b", "dial", "summary"], required=True)
     ap.add_argument("--patches", nargs="+", default=list(LADDER_NOMINAL))
     ap.add_argument("--depths", nargs="+", type=int, default=[8, 12])
     ap.add_argument("--deltas", nargs="+", type=float, default=[1e-6, 1e-7])
@@ -468,7 +459,7 @@ def main():
         figure(df)
         print(json.dumps(v, indent=1, default=float))
         return
-    gen = {"dev15": jobs_dev15, "gate1b": jobs_gate1b, "gate1b_exempt": jobs_gate1b_exempt, "dial": jobs_dial}[args.stage]
+    gen = {"dev15": jobs_dev15, "gate1b": jobs_gate1b, "dial": jobs_dial}[args.stage]
     jobs = []
     for j in gen(args):
         j.update(csv=args.csv, placements=args.placements, deltas=args.deltas, n_samples=args.n_samples, n_cap=args.n_cap,
