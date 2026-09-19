@@ -34,9 +34,10 @@ from .gradients import shifted_params
 from .lattice import DEFAULT_EXCLUDE, Patch, patch_for_n, rect_patch
 
 LOG_COLUMNS = [
-    "backend", "job_id", "timestamp", "calibration_snapshot", "n", "patch_qubits", "observable_edge",
-    "L", "k", "resilience_level", "shots", "seed", "param_hash", "ev_plus", "ev_minus", "std_plus",
-    "std_minus", "gradient", "transpiled_depth", "two_qubit_gates", "fractional_gates",
+    "backend", "job_id", "timestamp", "job_submit_time", "calibration_snapshot", "n", "patch_qubits", "observable_edge",
+    "L", "k", "resilience_level", "shots", "seed", "param_hash", "arm", "p", "K", "mask_seed", "rep_delay_granted",
+    "ev_plus", "ev_minus", "std_plus", "std_minus", "ensemble_se_plus", "ensemble_se_minus", "gradient",
+    "transpiled_depth", "two_qubit_gates", "fractional_gates",
 ]
 
 
@@ -113,10 +114,11 @@ def fake_backend(name: str | None = None):
 
 
 def rep_delay_info(backend) -> dict:
-    """``default_rep_delay`` and ``rep_delay_range`` (seconds) from the backend or its configuration; None when the
-    backend does not report them. Recorded in every per-job bundle (pre-registration Section 3b: the 1 us figure is
-    only usable if ``backend.rep_delay_range`` permits it)."""
-    out: Dict[str, Any] = dict(default_rep_delay_s=None, rep_delay_range_s=None, source=None)
+    """``default_rep_delay``, ``rep_delay_range`` (seconds) and ``dynamic_reprate_enabled`` from the backend or its
+    configuration; None when the backend does not report them. Recorded in every per-job bundle (pre-registration
+    Section 3b: the 1 us figure is only usable if ``backend.rep_delay_range`` permits it and the backend honours a
+    per-job ``rep_delay``, which is what ``dynamic_reprate_enabled`` states; Deviation 23)."""
+    out: Dict[str, Any] = dict(default_rep_delay_s=None, rep_delay_range_s=None, dynamic_reprate_enabled=None, source=None)
     sources = [("backend", backend)]
     try:
         cfg = backend.configuration() if callable(getattr(backend, "configuration", None)) else None
@@ -128,13 +130,35 @@ def rep_delay_info(backend) -> dict:
         try:
             d = getattr(obj, "default_rep_delay", None)
             r = getattr(obj, "rep_delay_range", None)
+            dyn = getattr(obj, "dynamic_reprate_enabled", None)
         except Exception:  # IBMBackend forwards unknown attributes to the configuration and may raise
-            d, r = None, None
+            d, r, dyn = None, None, None
         if d is not None or r is not None:
             out.update(default_rep_delay_s=None if d is None else float(d),
-                       rep_delay_range_s=None if r is None else [float(x) for x in r], source=label)
+                       rep_delay_range_s=None if r is None else [float(x) for x in r],
+                       dynamic_reprate_enabled=None if dyn is None else bool(dyn), source=label)
             break
+    if out["dynamic_reprate_enabled"] is None:
+        for _, obj in sources:
+            try:
+                dyn = getattr(obj, "dynamic_reprate_enabled", None)
+            except Exception:  # pragma: no cover
+                dyn = None
+            if dyn is not None:
+                out["dynamic_reprate_enabled"] = bool(dyn)
+                break
     return out
+
+
+def granted_rep_delay(options) -> float | str:
+    """The ``rep_delay`` the job was submitted with: ``options.execution.rep_delay`` in seconds when the runner set one,
+    else the string ``"default"`` (the backend applies ``default_rep_delay``; the runner never sets it today, so the
+    granted value is the backend default recorded in ``rep_delay_info``). Logged per row (``rep_delay_granted``)."""
+    ex = getattr(options, "execution", None)
+    rd = getattr(ex, "rep_delay", None) if ex is not None else None
+    if isinstance(rd, (int, float)) and not isinstance(rd, bool):
+        return float(rd)
+    return "default"
 
 
 # ------------------------------------------------------------------------------------------------ probes and budget
@@ -143,13 +167,25 @@ def rep_delay_info(backend) -> dict:
 PROBE_KINDS = {"reset_dial", "reset_error"}
 RESET_KINDS = {"reset", "delay", "measure_reset", "measure_reset_2", "none"}
 DIAL_DELAY_NS = 400.0
-# Minute-budget model of the pre-registration (Section 3b, "Minute budget"): 2 s per job plus
-# (rep_delay + circuit length) x executions, circuit length L x 0.71 us + 1.94 us readout; dial layers add the
-# ibm_phoenix target durations (reset 400 ns, measure_reset 1940 ns, measure_reset_2 1140 ns, delay 400 ns).
+# Minute-budget model, version 2 (post-run review of the Marrakesh pipeline check, 2026-09-19, defect D1). Per job:
+#   T_job = 2 s + (rep_delay + L x 0.71 us + t_meas + 10 us [+ dial durations]) x N_exec x (3 if resilience 2)
+#         + [resilience >= 1] x 32 x shots x n_bases x (rep_delay + t_meas + 10 us)
+# The first line is the circuit executions (resilience 2 runs every circuit at the 3 ZNE noise factors); the second is
+# the measurement-noise learning (TREX) of resilience >= 1: 32 randomisations x shots per distinct measurement basis
+# (n_bases = distinct measured-qubit sets in the job; 1 for every list here). t_meas is the backend target's measure
+# duration (fallback per backend name: ibm_phoenix 1.94 us, ibm_marrakesh 2.684 us); the 10 us is the per-execution
+# overhead fitted on the Marrakesh run (264.1 us per 1024-shot execution at rep_delay 250 us, L = 2). Dial layers add
+# the target durations (ibm_phoenix: reset 400 ns, measure_reset 1940 ns, measure_reset_2 1140 ns, delay 400 ns).
+# Model version 1 (2 s per job + (rep_delay + L x 0.71 us + 1.94 us) x executions, no TREX, no overhead) predicted
+# 12.2 s for the Marrakesh list against 22 s charged; version 2 predicts 21.1 s.
+BUDGET_MODEL_VERSION = 2
 LAYER_US, READOUT_US, X_US = 0.71, 1.94, 0.04
+READOUT_US_BY_BACKEND = {"ibm_phoenix": 1.94, "ibm_marrakesh": 2.684}   # backend.properties() readout_length, 2026-09-19
+EXEC_OVERHEAD_US = 10.0
+TREX_RANDOMIZATIONS = 32       # EstimatorV2 default resilience.measure_noise_learning.num_randomizations
 DIAL_US = {"reset": 0.40, "delay": 0.40, "measure_reset": 1.94, "measure_reset_2": 1.14, "none": 0.0}
 BUDGET_REP_DELAYS_US = (250.0, 1.0)
-ZNE_NOISE_FACTORS = 3          # resilience 2 runs each circuit at 3 noise factors; not in the formula, reported as a bound
+ZNE_NOISE_FACTORS = 3          # resilience 2 runs each circuit at 3 noise factors (default noise_factors (1, 3, 5))
 _SYNTHETIC_INSTRUCTIONS: Dict[int, set] = {}   # id(backend) -> reset kinds added to a fake target by dial_operation
 
 
@@ -322,58 +358,119 @@ def dial_durations_us(backend=None, qubits: Sequence[int] | None = None) -> Dict
     return out
 
 
+def readout_us(backend=None, backend_name: str | None = None) -> Tuple[float, str]:
+    """(t_meas in us, source): the median ``measure`` duration of ``backend.target`` when it reports one, else the
+    ``READOUT_US_BY_BACKEND`` figure for ``backend_name`` (default ibm_phoenix 1.94 us)."""
+    t = getattr(backend, "target", None)
+    if t is not None and "measure" in t.operation_names and t["measure"]:
+        vals = [p.duration for p in t["measure"].values() if p is not None and getattr(p, "duration", None)]
+        if vals:
+            return float(np.median(vals)) * 1e6, f"{getattr(backend, 'name', 'backend')} target"
+    name = str(backend_name or getattr(backend, "name", "") or "")
+    for key, val in READOUT_US_BY_BACKEND.items():
+        if key in name:
+            return val, f"{key} properties readout_length (2026-09-19)"
+    return READOUT_US, "ibm_phoenix properties readout_length (2026-09-19)"
+
+
 def _probe_length_us(pr: dict, dial_us: Dict[str, float]) -> float:
+    """Gate time of a probe circuit (without readout): the dial layers of ``reset_dial``, or X + reset kind."""
     rk = str(pr.get("reset_kind", "reset"))
     if pr["kind"] == "reset_dial":
-        return int(pr["L"]) * (LAYER_US + dial_us[rk]) + READOUT_US
-    return X_US + dial_us[rk] + READOUT_US
+        return int(pr["L"]) * (LAYER_US + dial_us[rk])
+    return X_US + dial_us[rk]
 
 
 def _probe_circuits(pr: dict) -> int:
     return 2 * int(pr.get("masks", 1)) if pr["kind"] == "reset_dial" else 1
 
 
-def estimate_budget(jl: dict, rep_delays_us: Sequence[float] = BUDGET_REP_DELAYS_US, backend=None) -> dict:
-    """Locked-time estimate of a job list with the pre-registration formula: 2 s per job plus
-    (rep_delay + circuit length) x executions, circuit length L x 0.71 us + 1.94 us readout (dial layers add the
-    dial durations: the ibm_phoenix figures, or the target's when ``backend`` is given). One job per resilience level
-    of the gradient points plus one per (level, shots) of the probes. Resilience 2 (ZNE) multiplies its circuits by the
-    noise factors; that is reported separately as an upper bound. Resilience-1 measurement-noise learning (TREX)
-    circuits and compile latency are not in the formula."""
-    dial_us = dial_durations_us(backend)
-    items = []   # (circuits, shots, length_us, level)
+def _probe_basis(pr: dict) -> str:
+    """Key of the measurement basis a probe's observables need (TREX learns one set of calibration circuits per basis)."""
+    if pr["kind"] == "reset_dial":
+        return f"ZZ:{pr.get('edge', pr.get('layout', pr.get('patch')))}"
+    return f"Z:{pr.get('qubits', pr.get('layout', pr.get('patch')))}"
+
+
+def budget_jobs(jl: dict, dial_us: Dict[str, float]) -> List[dict]:
+    """The jobs the runner will submit for ``jl`` (same grouping as ``execute_joblist``: one per resilience level of the
+    gradient points, one per (level, shots) of the probes), each with its circuit items ``(circuits, shots, gate_us)``
+    and the number of distinct measurement bases."""
+    by_level: Dict[int, dict] = {}
     for pt in jl.get("points", []) or []:
-        items.append((2 * int(pt["M"]), int(pt["shots"]), int(pt["L"]) * LAYER_US + READOUT_US, int(pt["resilience"])))
+        lvl = int(pt["resilience"])
+        j = by_level.setdefault(lvl, dict(tag=f"L{lvl}", level=lvl, shots=int(pt["shots"]), items=[], bases=set()))
+        j["items"].append((2 * int(pt["M"]), int(pt["shots"]), int(pt["L"]) * LAYER_US))
+        j["bases"].add(f"ZZ:{pt.get('edge')}")
+    by_probe: Dict[Tuple[int, int], dict] = {}
     for pr in jl.get("probes", []) or []:
-        items.append((_probe_circuits(pr), int(pr["shots"]), _probe_length_us(pr, dial_us), int(pr.get("resilience", 0))))
-    jobs = len({int(pt["resilience"]) for pt in jl.get("points", []) or []}) + \
-        len({(int(pr.get("resilience", 0)), int(pr["shots"])) for pr in jl.get("probes", []) or []})
-    circuits = sum(c for c, _, _, _ in items)
-    executions = sum(c * s for c, s, _, _ in items)
-    zne_executions = sum(c * s * (ZNE_NOISE_FACTORS if lvl == 2 else 1) for c, s, _, lvl in items)
-    out = dict(formula="2 s per job + (rep_delay + L x 0.71 us + 1.94 us readout [+ dial durations]) x executions",
+        key = (int(pr.get("resilience", 0)), int(pr["shots"]))
+        j = by_probe.setdefault(key, dict(tag=f"L{key[0]}-probes-s{key[1]}", level=key[0], shots=key[1], items=[], bases=set()))
+        j["items"].append((_probe_circuits(pr), int(pr["shots"]), _probe_length_us(pr, dial_us)))
+        j["bases"].add(_probe_basis(pr))
+    return [by_level[k] for k in sorted(by_level)] + [by_probe[k] for k in sorted(by_probe)]
+
+
+def estimate_budget(jl: dict, rep_delays_us: Sequence[float] = BUDGET_REP_DELAYS_US, backend=None) -> dict:
+    """Locked-time estimate of a job list, budget model version 2 (``BUDGET_MODEL_VERSION``; see the constants above):
+
+        T_job = 2 s + (rep_delay + L x 0.71 us + t_meas + 10 us [+ dial durations]) x N_exec x (3 if resilience 2)
+                + [resilience >= 1] x 32 x shots x n_bases x (rep_delay + t_meas + 10 us)
+
+    summed over the jobs the runner submits (one per resilience level of the gradient points, one per (level, shots) of
+    the probes). ``t_meas`` and the dial durations come from ``backend.target`` when ``backend`` is given, else from the
+    per-backend fallbacks (``jl['backend']``). ``executions`` counts circuit executions before the ZNE factor;
+    ``executions_with_zne`` and ``trex_executions`` are the two terms actually timed; ``per_job`` gives the breakdown
+    (``circuit_seconds_*`` + ``trex_seconds_*`` is what ``job.metrics()['circuits_execution_time_ns']`` times; the 2 s per job is on top).
+    Compile latency and queueing are not in the formula."""
+    dial_us = dial_durations_us(backend)
+    t_meas, t_meas_source = readout_us(backend, jl.get("backend"))
+    jobs = budget_jobs(jl, dial_us)
+    per_job = []
+    for j in jobs:
+        zne = ZNE_NOISE_FACTORS if j["level"] == 2 else 1
+        n_bases = max(1, len(j["bases"]))
+        trex = TREX_RANDOMIZATIONS * j["shots"] * n_bases if j["level"] >= 1 else 0
+        entry = dict(tag=j["tag"], resilience_level=j["level"], shots=j["shots"], circuits=sum(c for c, _, _ in j["items"]),
+                     executions=sum(c * s for c, s, _ in j["items"]), zne_factor=zne, n_bases=n_bases, trex_executions=trex)
+        for rd in rep_delays_us:
+            circ = sum(c * s * zne * (rd + g + t_meas + EXEC_OVERHEAD_US) for c, s, g in j["items"]) * 1e-6
+            learn = trex * (rd + t_meas + EXEC_OVERHEAD_US) * 1e-6
+            tag = f"{rd:g}us"
+            entry[f"circuit_seconds_at_{tag}"] = round(circ, 3)
+            entry[f"trex_seconds_at_{tag}"] = round(learn, 3)
+            entry[f"seconds_at_{tag}"] = round(2.0 + circ + learn, 3)
+        per_job.append(entry)
+    out = dict(model_version=BUDGET_MODEL_VERSION,
+               formula="2 s per job + (rep_delay + L x 0.71 us + t_meas + 10 us [+ dial durations]) x executions x (3 if resilience 2) "
+                       "+ [resilience >= 1] x 32 x shots x n_bases x (rep_delay + t_meas + 10 us)",
+               readout_us=round(t_meas, 3), readout_source=t_meas_source, exec_overhead_us=EXEC_OVERHEAD_US,
+               trex_randomizations=TREX_RANDOMIZATIONS, zne_noise_factors=ZNE_NOISE_FACTORS,
                dial_durations_us={k: round(v, 3) for k, v in dial_us.items()},
                dial_durations_source=getattr(backend, "name", None) if backend is not None else "ibm_phoenix target (2026-09-19)",
-               jobs=jobs, circuits=circuits, executions=executions,
-               executions_upper_bound_with_zne=zne_executions, zne_noise_factors=ZNE_NOISE_FACTORS)
+               jobs=len(jobs), circuits=sum(e["circuits"] for e in per_job), executions=sum(e["executions"] for e in per_job),
+               executions_with_zne=sum(e["executions"] * e["zne_factor"] for e in per_job),
+               trex_executions=sum(e["trex_executions"] for e in per_job))
     for rd in rep_delays_us:
-        secs = 2.0 * jobs + sum(c * s * (rd + ln) * 1e-6 for c, s, ln, _ in items)
-        zsecs = 2.0 * jobs + sum(c * s * (ZNE_NOISE_FACTORS if lvl == 2 else 1) * (rd + ln) * 1e-6 for c, s, ln, lvl in items)
         tag = f"{rd:g}us"
+        secs = sum(e[f"seconds_at_{tag}"] for e in per_job)
         out[f"seconds_at_{tag}"] = round(secs, 2)
         out[f"minutes_at_{tag}"] = round(secs / 60.0, 3)
-        out[f"minutes_upper_bound_with_zne_at_{tag}"] = round(zsecs / 60.0, 3)
+    out["per_job"] = per_job
     return out
 
 
 def check_budget(jl: dict, tolerance: float = 0.05) -> List[str]:
     """Differences between the job list's stored ``budget`` and ``estimate_budget(jl)`` beyond ``tolerance``; a missing
-    or empty ``budget`` is itself a difference (the field is required for submission)."""
+    or empty ``budget`` is itself a difference (the field is required for submission), and so is a stored
+    ``model_version`` other than ``BUDGET_MODEL_VERSION`` (a list budgeted with an older model must be re-budgeted)."""
     stored = jl.get("budget") or {}
     fresh = estimate_budget(jl)
     if not stored:
         return ["budget field missing or empty: fill it with `python -m gradvar.hardware --joblist <file> --budget`"]
     diffs = []
+    if int(stored.get("model_version", 1)) != BUDGET_MODEL_VERSION:
+        diffs.append(f"budget.model_version: job list says {stored.get('model_version', 1)}, runner computes {BUDGET_MODEL_VERSION}")
     for key in ("executions", "jobs") + tuple(k for k in fresh if k.startswith("minutes_at_")):
         if key in stored:
             a, b = float(stored[key]), float(fresh[key])
@@ -406,7 +503,9 @@ def snapshot_calibration(backend, out_dir: str = "data/calibrations") -> str:
 
 
 def param_hash(params: np.ndarray) -> str:
-    return hashlib.sha256(np.ascontiguousarray(params, dtype=np.float64).tobytes()).hexdigest()[:16]
+    """Full SHA-256 (64 hex chars) of the float64 parameter vector (Section 7 ``theta_hash``; the first 16 chars equal
+    the truncated hash logged before 2026-09-19, review defect D3d)."""
+    return hashlib.sha256(np.ascontiguousarray(params, dtype=np.float64).tobytes()).hexdigest()
 
 
 def two_qubit_count(circuit) -> int:
@@ -472,6 +571,117 @@ def patch_for(n: int, exclude=DEFAULT_EXCLUDE, shape: Tuple[int, int] | None = N
         if n % 4 == 0 and n // 4 <= 10:
             return rect_patch(4, n // 4, exclude)
         raise
+
+
+# ------------------------------------------------------------------------------------------------ layout re-check (D2)
+CZ_CUT = 1e-2          # coupler cut of the runner's layout re-check: 5x the ibm_phoenix median CZ error (1.9e-3, 19 Sep 2026)
+INIT_ERROR_CUT = 5e-4  # logged only (pre-registration v0.4 Deviation 22 cut; not enforced by the re-check)
+
+
+def pub_couplers(b) -> List[Tuple[int, int]]:
+    """Physical couplers a pub's CZ layers use: the Patch edges mapped through the layout (none for a bare qubit list)."""
+    patch = getattr(b, "patch", None)
+    if patch is None:
+        return []
+    lay = b.layout
+    if lay is None:
+        return [tuple(int(x) for x in e) for e in patch.edges()]
+    lay = tuple(int(q) for q in lay)
+    return [(lay[patch.local(a)], lay[patch.local(c)]) for a, c in patch.edges()]
+
+
+def layout_check(backend, qubits: Iterable[int], couplers: Iterable[Tuple[int, int]] = (),
+                 readout_cut: float | None = None, cz_cut: float = CZ_CUT) -> dict:
+    """Re-check a layout against ``backend.properties()`` (the live calibration at submission, not the snapshot the
+    list was built from): per-qubit readout assignment error, operational flag and init error, per-coupler CZ error,
+    and the verdict of the pre-registered readout cut (``gradvar.noise.READOUT_CUT``, 3e-2) and the coupler cut
+    ``cz_cut``. A qubit fails when its readout error exceeds the cut, it is not operational, or it has no readout figure;
+    a coupler fails when its CZ error exceeds the cut or the pair has no calibrated CZ. ``verdict`` is ``pass``, ``fail``
+    or ``unavailable`` (no properties: fake Target-only backends). Logged in every job.json as ``layout_check``; the
+    submitting path refuses on anything but ``pass`` unless the job list carries ``layout_check: "override"`` with a
+    ``layout_check_reason`` (review defect D2: Q11 at 8.4 percent readout sat in the Marrakesh patch unnoticed)."""
+    from .noise import READOUT_CUT
+    cut = READOUT_CUT if readout_cut is None else float(readout_cut)
+    qs = sorted({int(q) for q in qubits})
+    cps = sorted({tuple(int(x) for x in c) for c in couplers})
+    out: Dict[str, Any] = dict(readout_cut=cut, cz_cut=float(cz_cut), init_error_cut=INIT_ERROR_CUT, source="backend.properties()",
+                               properties_last_update=None, qubits={}, couplers={}, failing_qubits=[], failing_couplers=[], verdict="unavailable")
+    try:
+        props = backend.properties()
+    except Exception as e:  # pragma: no cover - network errors
+        out["error"] = f"{type(e).__name__}: {e}"
+        props = None
+    if props is None:
+        out["reason"] = "backend reports no properties (Target-only backend)"
+        return out
+    out["properties_last_update"] = str(getattr(props, "last_update_date", None))
+    cz_err: Dict[Tuple[int, int], float | None] = {}
+    for g in getattr(props, "gates", []) or []:
+        if len(getattr(g, "qubits", ())) == 2 and str(getattr(g, "gate", "")) in ("cz", "ecr", "cx"):
+            val = next((p.value for p in g.parameters if p.name == "gate_error"), None)
+            cz_err[tuple(int(q) for q in g.qubits)] = None if val is None else float(val)
+    for q in qs:
+        rec: Dict[str, Any] = dict(readout_error=None, operational=None, init_error=None, fails=[])
+        try:
+            rec["readout_error"] = float(props.readout_error(q))
+        except Exception:
+            rec["fails"].append("no readout error")
+        try:
+            rec["operational"] = bool(props.is_qubit_operational(q))
+        except Exception:
+            rec["operational"] = None
+        try:
+            rec["init_error"] = float(props.qubit_property(q, "init_error")[0])
+        except Exception:
+            rec["init_error"] = None
+        if rec["readout_error"] is not None and rec["readout_error"] > cut:
+            rec["fails"].append(f"readout error {rec['readout_error']:.4f} > {cut:g}")
+        if rec["operational"] is False:
+            rec["fails"].append("not operational")
+        if rec["init_error"] is not None and rec["init_error"] >= INIT_ERROR_CUT:
+            rec["init_error_above_prereg_cut"] = True      # logged, not enforced (Deviation 22 is applied at placement)
+        out["qubits"][str(q)] = rec
+        if rec["fails"]:
+            out["failing_qubits"].append(q)
+    for a, c in cps:
+        err = cz_err.get((a, c), cz_err.get((c, a)))
+        rec = dict(cz_error=err, fails=[])
+        if (a, c) not in cz_err and (c, a) not in cz_err:
+            rec["fails"].append("no calibrated two-qubit gate")
+        elif err is not None and err > float(cz_cut):
+            rec["fails"].append(f"CZ error {err:.4f} > {float(cz_cut):g}")
+        out["couplers"][f"{a}_{c}"] = rec
+        if rec["fails"]:
+            out["failing_couplers"].append([a, c])
+    out["verdict"] = "fail" if (out["failing_qubits"] or out["failing_couplers"]) else "pass"
+    return out
+
+
+def layout_check_for(jl: dict, built: Sequence, backend, enforce: bool) -> dict:
+    """``layout_check`` over the union of qubits and couplers of every built pub, plus how the runner acted on it:
+    ``enforced`` (True only on the submitting path), ``override`` (the job list's ``layout_check_reason`` when it carries
+    ``layout_check: "override"``), and ``action`` (``submit`` / ``refuse`` / ``logged``)."""
+    qubits = sorted({int(q) for b in built for q in (b.qubits if isinstance(b, BuiltProbe) else physical_qubits(b.patch, b.layout, b.edge)[0])})
+    couplers = sorted({tuple(c) for b in built for c in pub_couplers(b)})
+    chk = layout_check(backend, qubits, couplers)
+    override = str(jl.get("layout_check_reason", "")).strip() if str(jl.get("layout_check", "")).lower() == "override" else None
+    chk.update(enforced=bool(enforce), override=override, layout_qubits=qubits, layout_couplers=[list(c) for c in couplers])
+    if not enforce:
+        chk["action"] = "logged"
+    elif chk["verdict"] == "pass":
+        chk["action"] = "submit"
+    else:
+        chk["action"] = "submit-with-override" if override else "refuse"
+    return chk
+
+
+def _layout_check_message(chk: dict) -> str:
+    bad_q = ", ".join(f"Q{q} ({'; '.join(chk['qubits'][str(q)]['fails'])})" for q in chk["failing_qubits"])
+    bad_c = ", ".join(f"{a}-{c} ({'; '.join(chk['couplers'][f'{a}_{c}']['fails'])})" for a, c in chk["failing_couplers"])
+    parts = [p for p in (f"qubits: {bad_q}" if bad_q else "", f"couplers: {bad_c}" if bad_c else "") if p]
+    ok = f"all {len(chk['qubits'])} qubits and {len(chk['couplers'])} couplers within the cuts"
+    return f"layout check {chk['verdict']} (readout cut {chk['readout_cut']:g}, CZ cut {chk['cz_cut']:g}; properties " \
+           f"{chk.get('properties_last_update')}): " + ("; ".join(parts) or chk.get("reason") or ok)
 
 
 def build_pubs(points: Iterable[GridPoint], backend, exclude=DEFAULT_EXCLUDE, optimization_level: int = 1,
@@ -547,6 +757,11 @@ def load_joblist(path: str) -> dict:
             raise JoblistError(f"{flag} must be a JSON boolean")
     if "budget" in jl and not isinstance(jl["budget"], dict):
         raise JoblistError("budget must be an object (output of gradvar.hardware.estimate_budget)")
+    if "layout_check" in jl:
+        if jl["layout_check"] not in ("override", "enforce"):
+            raise JoblistError('layout_check must be "override" (with a non-empty layout_check_reason) or "enforce"')
+        if jl["layout_check"] == "override" and not str(jl.get("layout_check_reason", "")).strip():
+            raise JoblistError('layout_check: "override" needs a non-empty layout_check_reason')
     probes = jl.get("probes", []) or []
     if not isinstance(jl["points"], list) or not isinstance(probes, list):
         raise JoblistError("points and probes must be lists")
@@ -678,14 +893,16 @@ def circuit_summary(isa, backend) -> dict:
     reset-like instructions on the qubits they act on."""
     ops = {str(k): int(v) for k, v in isa.count_ops().items()}
     delays, used = [], {name: set() for name in TIMED_INSTRUCTIONS}
+    t = getattr(backend, "target", None)
+    dt = getattr(t, "dt", None) if t is not None else None
     for inst in isa.data:
         name = inst.operation.name
         if name == "delay":
-            delays.append(dict(duration=inst.operation.duration, unit=inst.operation.unit))
+            dur, unit = inst.operation.duration, inst.operation.unit
+            delays.append(dict(duration=dur, unit=unit, duration_ns=delay_ns(dur, unit, dt)))
         if name in used:
             used[name].update(isa.find_bit(q).index for q in inst.qubits)
     durations: Dict[str, Any] = {}
-    t = getattr(backend, "target", None)
     if t is not None:
         for name in TIMED_INSTRUCTIONS:
             if used[name] and name in t.operation_names:
@@ -694,9 +911,24 @@ def circuit_summary(isa, backend) -> dict:
                     props = (t[name] or {}).get((q,))
                     per_q[str(q)] = getattr(props, "duration", None) if props is not None else None
                 durations[name] = per_q
+    delay_ns_values = sorted({d["duration_ns"] for d in delays if d["duration_ns"] is not None})
     return dict(isa_instruction_names=sorted(n for n in ops if n != "barrier"), ops=ops,
                 mid_circuit_measures=ops.get("measure", 0), reset_count=sum(ops.get(n, 0) for n in ("reset", "measure_reset", "measure_reset_2")),
-                delay_count=ops.get("delay", 0), delays=delays[:8], target_durations_s=durations)
+                delay_count=ops.get("delay", 0), delays=delays[:8], delay_durations_ns=delay_ns_values,
+                dt_s=dt, target_durations_s=durations)
+
+
+_TIME_UNIT_NS = {"ns": 1.0, "us": 1e3, "ms": 1e6, "s": 1e9, "ps": 1e-3}
+
+
+def delay_ns(duration, unit: str, dt_s: float | None) -> float | None:
+    """A scheduled delay's duration in nanoseconds: ``dt`` units need the target's ``dt`` (None when unknown)."""
+    if duration is None:
+        return None
+    if unit == "dt":
+        return None if dt_s is None else round(float(duration) * float(dt_s) * 1e9, 6)
+    scale = _TIME_UNIT_NS.get(str(unit))
+    return None if scale is None else round(float(duration) * scale, 6)
 
 
 def _describe(b) -> dict:
@@ -711,6 +943,9 @@ def _describe(b) -> dict:
                  qubits=list(phys), edge=None if phys_edge is None else f"{phys_edge[0]}_{phys_edge[1]}",
                  layout=None if b.layout is None else list(b.layout),
                  param_hash=param_hash(b.theta) if b.theta.size else None,
+                 masks=b.probe.get("masks", 1) if b.probe.get("kind") == "reset_dial" else None,
+                 mask_seed=(b.seed + 1 + int(b.probe["mask_index"])) if b.probe.get("mask_index") is not None else None,
+                 dial_delay_ns=DIAL_DELAY_NS if str(b.probe.get("reset_kind", "reset")) == "delay" else None,
                  synthetic_target_instructions=list(b.synthetic_target_instructions))
         if b.patch is not None:
             d.update(patch=f"{b.patch.n_rows}x{b.patch.n_cols}", origin=list(b.patch.origin), holes=list(b.patch.holes),
@@ -752,6 +987,7 @@ def write_job_bundle(run_root: Path, job_id: str, group: List[BuiltPub], backend
     d.mkdir(parents=True, exist_ok=True)
     usage = metrics = error_message = None
     job_errors: Dict[str, str] = {}
+    job_attrs: Dict[str, Any] = dict(usage_estimation=None, session_id=None, creation_date=None)
     if job is not None:
         for name in ("usage", "metrics", "error_message"):
             try:
@@ -765,6 +1001,12 @@ def write_job_bundle(run_root: Path, job_id: str, group: List[BuiltPub], backend
                 metrics = val
             else:
                 error_message = val
+        for name in job_attrs:      # RuntimeJobV2 properties (review D5): IBM's own running-time estimate, the Batch id, creation time
+            try:
+                val = getattr(job, name, None)
+                job_attrs[name] = val if val is None or isinstance(val, (str, int, float, bool, dict, list)) else str(val)
+            except Exception as e:
+                job_errors[name] = f"{type(e).__name__}: {e}"
     ts = dict(timestamps or {})
     if metrics and isinstance(metrics, dict) and "timestamps" in metrics:
         ts.update(metrics["timestamps"])
@@ -775,15 +1017,17 @@ def write_job_bundle(run_root: Path, job_id: str, group: List[BuiltPub], backend
     else:
         entries = [e for e in jl.get("points", []) if int(e.get("resilience", -1)) == level]
     summaries = [circuit_summary(b.isa_circuit, backend) for b in group]
+    rd_info = rep_delay_info(backend)
     _dump(d / "job.json", dict(
         job_id=job_id, dry_run=dry, job_kind="probes" if is_probe_job else "gradient_points",
         status="failed" if error else ("dry-run" if dry else "completed"), error=error, error_message=error_message,
-        job_errors=job_errors or None, timestamps=ts, usage_qpu_seconds=usage, metrics=metrics,
+        job_errors=job_errors or None, timestamps=ts, usage_qpu_seconds=usage, metrics=metrics, **job_attrs,
         backend_name=getattr(backend, "name", str(backend)), backend_version=str(getattr(backend, "backend_version", "")),
         instance=jl.get("instance"), joblist_name=jl.get("name"), preflight_review=jl.get("preflight_review", ""),
         resilience_level=level, shots=shots, runner_git_commit=git_commit_hash(),
         qiskit_ibm_runtime_version=_runtime_version(), python=sys.version.split()[0],
-        rep_delay=rep_delay_info(backend), rep_delay_probe=bool(jl.get("rep_delay_probe", False)),
+        rep_delay=rd_info, rep_delay_granted_s=granted_rep_delay(options), dynamic_reprate_enabled=rd_info["dynamic_reprate_enabled"],
+        rep_delay_probe=bool(jl.get("rep_delay_probe", False)),
         isa_instruction_names=sorted({n for s in summaries for n in s["isa_instruction_names"]}),
         joblist_entries=entries,
         points=[dict(_describe(b), **_pub_payload(b)) for b in group],
@@ -833,27 +1077,42 @@ def _runtime_version() -> str:
         return "unknown"
 
 
-def _point_rows(backend, job_id: str, snapshot: str, group: List[BuiltPub], level: int, shots: int, result=None) -> List[dict]:
+def _point_rows(backend, job_id: str, snapshot: str, group: List[BuiltPub], level: int, shots: int, result=None,
+                options=None, submit_time: str | None = None) -> List[dict]:
+    """One CSV row per pub. ``std_*`` are EstimatorV2 ``stds`` (at resilience >= 1 the twirled spread, the conservative
+    figure); ``ensemble_se_*`` are ``ensemble_standard_error`` when the result carries it (review D4). ``arm`` is
+    ``grid`` for gradient points and the reset kind for probes; ``p`` / ``K`` / ``mask_seed`` are the dial probe's reset
+    probability, mask count and the seed of this circuit's mask (review D3b)."""
     rows = []
+    nan = float("nan")
     for i, b in enumerate(group):
-        evs = stds = (float("nan"), float("nan"))
+        evs = stds = ens = (nan, nan)
         if result is not None:
             pr = result[i]
             evs = np.asarray(pr.data.evs).reshape(-1)
             stds = np.asarray(pr.data.stds).reshape(-1)
+            ens_raw = getattr(pr.data, "ensemble_standard_error", None)
+            ens = np.asarray(ens_raw).reshape(-1) if ens_raw is not None else np.full(len(evs), nan)
             if len(evs) != 2:                  # reset_error probe: one <Z> per qubit; per-qubit values live in result.json
-                evs, stds = (float(np.mean(evs)), float("nan")), (float("nan"), float("nan"))
+                evs, stds, ens = (float(np.mean(evs)), nan), (nan, nan), (nan, nan)
         desc = _describe(b)
         probe = isinstance(b, BuiltProbe)
         rows.append({
             "backend": getattr(backend, "name", str(backend)), "job_id": job_id,
-            "timestamp": datetime.now(timezone.utc).isoformat(), "calibration_snapshot": snapshot,
+            "timestamp": datetime.now(timezone.utc).isoformat(), "job_submit_time": submit_time or "",
+            "calibration_snapshot": snapshot,
             "n": desc["n"], "patch_qubits": " ".join(map(str, desc["qubits"] if probe else desc["patch_qubits"])),
             "observable_edge": f"probe:{desc['probe_id']}" if probe else desc["edge"],
             "L": desc["L"], "k": desc["k_1based"],   # 1-based, as in the job list
             "resilience_level": level, "shots": shots, "seed": desc["seed"],
-            "param_hash": desc["param_hash"], "ev_plus": evs[0], "ev_minus": evs[1],
-            "std_plus": stds[0], "std_minus": stds[1], "gradient": (evs[0] - evs[1]) / 2,
+            "param_hash": desc["param_hash"],
+            "arm": desc["reset_kind"] if probe else "grid",
+            "p": desc.get("p", "") if probe else "", "K": desc.get("masks") if probe and desc.get("masks") is not None else "",
+            "mask_seed": desc.get("mask_seed") if probe and desc.get("mask_seed") is not None else "",
+            "rep_delay_granted": granted_rep_delay(options),
+            "ev_plus": evs[0], "ev_minus": evs[1],
+            "std_plus": stds[0], "std_minus": stds[1], "ensemble_se_plus": ens[0], "ensemble_se_minus": ens[1],
+            "gradient": (evs[0] - evs[1]) / 2,
             "transpiled_depth": b.depth, "two_qubit_gates": b.two_qubit_gates,
             "fractional_gates": bool(getattr(getattr(backend, "options", None), "use_fractional_gates", False)),
         })
@@ -890,11 +1149,20 @@ def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int,
     rd = rep_delay_info(backend)
     if jl.get("rep_delay_probe"):
         print(f"rep_delay probe: {getattr(backend, 'name', backend)} default_rep_delay={rd['default_rep_delay_s']} s, "
-              f"rep_delay_range={rd['rep_delay_range_s']} s (source: {rd['source']})")
+              f"rep_delay_range={rd['rep_delay_range_s']} s, dynamic_reprate_enabled={rd['dynamic_reprate_enabled']} (source: {rd['source']})")
     budget_target = estimate_budget(jl, backend=backend)
-    print(f"budget with {getattr(backend, 'name', 'backend')} target durations: {budget_target['minutes_at_250us']} min at 250 us "
-          f"(dial durations us: {budget_target['dial_durations_us']})")
-    extra = dict(instance_plan=instance_plan, budget=jl.get("budget"), budget_estimate_with_target_durations=budget_target)
+    print(f"budget (model v{budget_target['model_version']}) with {getattr(backend, 'name', 'backend')} target durations: "
+          f"{budget_target['minutes_at_250us']} min at 250 us, {budget_target['minutes_at_1us']} min at 1 us "
+          f"(t_meas {budget_target['readout_us']} us, dial durations us: {budget_target['dial_durations_us']})")
+    # D2: re-check every layout qubit and coupler against the live calibration; refuse to submit on a failed cut
+    # unless the list carries layout_check: "override" with a reason. Dry runs (fake calibrations) only log it.
+    chk = layout_check_for(jl, [b for _, _, _, g in groups for b in g], backend, enforce=submit)
+    print(_layout_check_message(chk) + (f" [override: {chk['override']}]" if chk["override"] else ""))
+    if submit and chk["action"] == "refuse":
+        raise SystemExit(f"refusing to submit: {_layout_check_message(chk)}; move the patch / layout, or set "
+                         f"layout_check: \"override\" with a layout_check_reason in the job list")
+    extra = dict(instance_plan=instance_plan, budget=jl.get("budget"), budget_estimate_with_target_durations=budget_target,
+                 layout_check=chk)
     root = Path(run_root)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     rows: List[dict] = []
@@ -906,9 +1174,10 @@ def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int,
             est.options.resilience_level = level
             est.options.default_shots = gshots
             job_id = f"dryrun-{stamp}-{tag}"
+            created = datetime.now(timezone.utc).isoformat()
             d = write_job_bundle(root, job_id, group, backend, est.options, level, gshots, jl, dry=True,
-                                 timestamps=dict(created=datetime.now(timezone.utc).isoformat()), extra=extra)
-            rows += _point_rows(backend, job_id, snapshot, group, level, gshots)
+                                 timestamps=dict(created=created), extra=extra)
+            rows += _point_rows(backend, job_id, snapshot, group, level, gshots, options=est.options, submit_time=created)
             names = sorted({n for b in group for n in circuit_summary(b.isa_circuit, backend)["isa_instruction_names"]})
             print(f"dry run: wrote {d} ({len(group)} pubs, resilience {level}, shots {gshots}, ISA ops {names}); nothing submitted")
     else:
@@ -939,7 +1208,7 @@ def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int,
                 completed = datetime.now(timezone.utc).isoformat()
                 d = write_job_bundle(root, job_id, group, backend, options, level, gshots, jl, result=result, job=job,
                                      timestamps=dict(submitted_local=created, result_received_local=completed), extra=extra)
-                rows += _point_rows(backend, job_id, snapshot, group, level, gshots, result)
+                rows += _point_rows(backend, job_id, snapshot, group, level, gshots, result, options=options, submit_time=created)
                 print(f"wrote {d}")
     if log_path:
         _append_rows(log_path, rows)
@@ -962,9 +1231,9 @@ def run_joblist(path: str, submit: bool, log_dir: str = "data/jobs", run_root: s
               f"{len(jl.get('probes', []) or [])} probes, backend {jl['backend']}, "
               f"instance {jl['instance']} ({instance_env_for(jl['instance'])}), dry_run={jl.get('dry_run', False)}, "
               f"preflight_review={'set' if joblist_submittable(jl) else 'EMPTY'}")
-        print(f"budget: {budget['jobs']} jobs, {budget['circuits']} circuits, {budget['executions']} executions; "
-              f"{budget['minutes_at_250us']} min at 250 us, {budget['minutes_at_1us']} min at 1 us rep_delay "
-              f"(ZNE upper bound {budget['minutes_upper_bound_with_zne_at_250us']} min at 250 us)")
+        print(f"budget (model v{budget['model_version']}): {budget['jobs']} jobs, {budget['circuits']} circuits, "
+              f"{budget['executions']} circuit executions ({budget['executions_with_zne']} with ZNE) + {budget['trex_executions']} TREX; "
+              f"{budget['minutes_at_250us']} min at 250 us, {budget['minutes_at_1us']} min at 1 us rep_delay")
         for diff in check_budget(jl):
             print(f"WARNING {diff}")
         backend = fake_backend(str(jl["backend"]))
