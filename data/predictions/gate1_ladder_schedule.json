@@ -221,7 +221,7 @@
   "traj_max": 24,
   "max_exact_L": 4,
   "n_traj": 32,
-  "deadline_min": 60.0,
+  "deadline_min": 55.0,
   "cones": {
     "4x5 L=1": 2,
     "4x5 L=2": 16,
@@ -1331,5 +1331,5 @@
       "seconds": 0.0
     }
   ],
-  "total_minutes": 54.82340433994929
+  "total_minutes": 0.3711638212203979
 }
