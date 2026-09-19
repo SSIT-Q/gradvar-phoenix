@@ -1,6 +1,6 @@
 # Programme plan and tracker: gradient concentration on ibm_phoenix
 
-Two papers, one allocation. Version 1, 19 September 2026; last updated 19 Sep 2026, 22:50 IST. Weekly review every Monday in #mitacs.
+Two papers, one allocation. Version 1, 19 September 2026; last updated 19 Sep 2026, 23:30 IST. Weekly review every Monday in #mitacs.
 
 Owners: **O** = Mohammed Owais, **R** = Dr. Raviram V (PI), **C** = physics collaborator (anonymous for now), **Cl** = Claude.
 
@@ -92,6 +92,7 @@ Paper 1's arXiv date now floats, so applications after mid-November 2026 may sti
 | 19 Sep 2026 | Programme finding: the H3 layer-index test is untestable on ibm_phoenix as pre-registered (predicted \|D\| of order 1e-2 or less at L = 8 to 12 against about 0.3 measurement uncertainty; Mele's mechanism needs L times the damping norm of order 1, that is hundreds of layers). Options put to the PI: keep H3 as a consistency prediction, move it to Paper 2 with engineered reset noise, or drop it. |
 | 19 Sep 2026 | Paper 2 redirect memo (six directions, two rankings) reviewed and posted; recommendation A/C as above; decision pending. The dial’s p=0.1 point doubles as the rescue for Paper 1’s H3 (Deviation 16 proposal). |
 | 19 Sep 2026 | Theorist second opinion (https://claude.ai/artifact/7WLx5wkkAz1f8AYMXxsVJj): co-author A with an n-ladder (40/60/100 at p=0.25, L=8, k=L); drop B without a tensor-network partner; frame as second-moment prediction for this ansatz, truncation arm as headline; Paper 1: drop H3, add the ladder at p=0 and 0.25; trainable-but-hard question not open as posed; Nature 1–2%. Coordinator's recommendation moved to 'A-ladder'; Owais's decision pending. |
+| 19 Sep 2026 | Deviations 16–19 drafted as pre-registration v0.4 after Owais's yes (23:21 IST): H3 reclassified; criterion (b) per-depth bound (1.5 / 2.0 / 2.5 at L = 1 / 2 / ≥4 with M = 200, or M raised to 400/700); ladder n = 20/39/56/71/90; anomaly protocol (3σ single point or 3-point monotone trend; replication on another day and patch from the 60-minute reserve; noisy simulation must fail to reproduce; unreplicated = exploratory). Signature pending. |
 
 ## 9. How to use this tracker
 
