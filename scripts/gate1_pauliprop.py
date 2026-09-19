@@ -33,7 +33,7 @@ OUT_CSV = ROOT / "data" / "predictions" / "pauliprop_predictions.csv"
 OUT_JSON = ROOT / "data" / "predictions" / "pauliprop_summary.json"
 OUT_FIG = ROOT / "figures" / "pauliprop_predictions.png"
 PLACEMENTS = ROOT / "data" / "predictions" / "ladder_placements.json"
-K_MASKS = 64
+K_MASKS = 256          # Deviation 27: 256 masks x 16 shots per (draw, shift); was 64 x 64 in Section 3b v0.5
 LADDER_NOMINAL = {"4x5": 20, "4x10": 40, "6x10": 60, "8x10": 80, "10x10": 100}
 
 
@@ -82,7 +82,7 @@ def run_point(job: dict) -> dict:
     if job.get("pattern"):
         prog = pp.make_program(patch, job["L"], job["L"], job["model"], csv, dial=dial, exempt_last_layer=exempt)
         pv = pp.pattern_variance(prog, job["n_samples"], seed=job.get("seed", 0) + 7)
-        out.update(var_mask=pv["var_mask"], var_mask_se=pv["se"], pattern_floor=pv["var_mask"] / (2 * K_MASKS),
+        out.update(var_mask=pv["var_mask"], var_mask_se=pv["se"], pattern_floor=pv["var_mask"] / (2 * K_MASKS), K_masks=K_MASKS,
                    pattern_runtime_s=pv["runtime_s"])
     return out
 
@@ -164,10 +164,11 @@ def jobs_dial(args):
         yield dict(stage="dial", patch="6x10", L=L, model="unital", dial="delay", p=0.0)
 
 
-def verdicts(df: pd.DataFrame) -> dict:
-    """Gate 1b per ladder point and Deviation 15 truncation rule, from the CSV."""
+def verdicts(df: pd.DataFrame, K: int = K_MASKS) -> dict:
+    """Gate 1b per ladder point (pattern floor Var_mask / (2 K) for ``K`` pooled masks per (draw, shift)) and the
+    Deviation 15 truncation rule, from the CSV."""
     sf = shot_floor(4096)
-    out = {"shot_floor_4096": sf, "gate1b": [], "dev15": []}
+    out = {"shot_floor_4096": sf, "K_masks": int(K), "gate1b": [], "dev15": []}
     for stage_name in ("gate1b", "gate1b_exempt"):
       g = df[df.stage == stage_name]
       out.setdefault(stage_name, [])
@@ -180,9 +181,10 @@ def verdicts(df: pd.DataFrame) -> dict:
                 continue
             r0, r1 = r0.iloc[0], r1.iloc[0]
             v0, v1 = best(r0), best(r1)
-            pf = float(r1.get("pattern_floor", np.nan))
+            vm = float(r1.get("var_mask", np.nan))
+            pf = vm / (2 * K) if np.isfinite(vm) else float("nan")
             floor = sf + (pf if np.isfinite(pf) else 0.0)
-            pts.append(dict(patch=spec, n=int(r1.n), L=int(L), var_p0=v0, var_p025=v1, separation=v1 - v0, pattern_floor=pf,
+            pts.append(dict(patch=spec, n=int(r1.n), L=int(L), var_p0=v0, var_p025=v1, separation=v1 - v0, var_mask=vm, K=int(K), pattern_floor=pf,
                             combined_floor=floor, ratio_to_floor=(v1 - v0) / floor if floor > 0 else np.nan,
                             separated_3x=bool(v1 - v0 >= 3 * floor), pattern_floor_below_half_sep=bool(pf < 0.5 * (v1 - v0)),
                             err_p0=err(r0), err_p025=err(r1), converged_p0=bool(r0.pp_converged), converged_p025=bool(r1.pp_converged)))
@@ -273,8 +275,9 @@ def figure(df: pd.DataFrame):
             ax.errorbar(h.ladder_n, [best(r, "kL") for _, r in h.iterrows()], yerr=[err(r, "kL") for _, r in h.iterrows()],
                         color=c, ls=ls, marker="s", capsize=2, label=f"{lab}, L={L}")
         h = g[(g.L == L) & (g.dial == "reset")].sort_values("n")
-        if not h.empty and "pattern_floor" in h:
-            ax.plot(h.ladder_n, h.pattern_floor + sf, color="grey", ls=ls, marker="x", label=f"shot + pattern floor, L={L}")
+        if not h.empty and "var_mask" in h:
+            for K, mk in ((64, "x"), (256, "+")):
+                ax.plot(h.ladder_n, h.var_mask / (2 * K) + sf, color="grey", ls=ls, marker=mk, label=f"shot + pattern floor K={K}, L={L}")
     ax.axhline(sf, color="grey", ls=":")
     ax.set_yscale("log")
     ax.set_xlabel("ladder n")
@@ -315,6 +318,7 @@ def main():
     ap.add_argument("--csv", default=str(noise.DEFAULT_CALIBRATION), help="calibration for legacy placement (--placements none)")
     ap.add_argument("--placements", default=str(PLACEMENTS), help="ladder_placements.json, or 'none' for place_patch")
     ap.add_argument("--out", default=None, help="override the output CSV path")
+    ap.add_argument("--K", type=int, default=K_MASKS, help="pooled masks per (draw, shift) for the pattern floor (Deviation 27: 256)")
     args = ap.parse_args()
     global OUT_CSV
     if args.out:
@@ -322,8 +326,12 @@ def main():
     if args.stage == "summary":
         df = pd.read_csv(OUT_CSV)
         df["status"] = [status_of(r.to_dict()) for _, r in df.iterrows()]          # recompute with the current rule
+        if "var_mask" in df:
+            df["pattern_floor"] = df["var_mask"] / (2 * args.K)
+            df["K_masks"] = np.where(df["var_mask"].notna(), args.K, np.nan)
         df.to_csv(OUT_CSV, index=False)
-        v = verdicts(df)
+        v = verdicts(df, K=args.K)
+        v["gate1b_K64"] = verdicts(df, K=64)["gate1b"]          # the Section 3b v0.5 pooling, for comparison
         OUT_JSON.write_text(json.dumps(v, indent=2, default=float))
         figure(df)
         print(json.dumps(v, indent=1, default=float))
