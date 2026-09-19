@@ -34,8 +34,10 @@ scripts/
   hardware_dry_run.py   build + transpile n=20, L=1,2,4 against FakeNighthawk; prints depth and 2q counts
   gate1_predict.py      Gate 1 predictions CLI (noiseless / unital / non-unital), figure + CSV + summary JSON
   trajectory_bias.py    measures the trajectory-sampling bias of the noisy predictions against the exact density matrix
-  snapshot_calibration.py  save ibm_phoenix properties JSON + calibration CSV (used by the daily GitHub Action)
-.github/workflows/calibration_snapshot.yml   daily 03:00 UTC calibration snapshot committed by a bot identity
+  snapshot_calibration.py  save ibm_phoenix properties JSON + calibration CSV, plus backend configuration JSON and a
+                           one-row-per-backend ledger (data/calibrations/backend_configurations.csv) for ibm_phoenix and
+                           the open-plan backends; no QPU time (used by the daily GitHub Action)
+.github/workflows/calibration_snapshot.yml   daily 03:00 UTC (or on demand) calibration + configuration snapshot committed by a bot identity
 data/predictions/gate1_predictions.csv (+ gate1_layer_index.csv, gate1_gradients.npz, gate1_summary.json)   output of scripts/gate1_predict.py
 data/joblists/                                 reviewed JSON job lists (schema in data/joblists/README.md); the only route to hardware
 requirements.lock                              exact versions the tests and workflows run with

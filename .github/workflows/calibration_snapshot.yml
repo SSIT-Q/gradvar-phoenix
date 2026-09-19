@@ -3,7 +3,7 @@ name: calibration snapshot
 on:
   schedule:
     - cron: "0 3 * * *"   # daily 03:00 UTC
-  workflow_dispatch:
+  workflow_dispatch:   # on demand: gh workflow run calibration_snapshot.yml --ref main
 
 permissions:
   contents: write
@@ -24,12 +24,16 @@ jobs:
           python-version: "3.11"
       - name: Install qiskit-ibm-runtime
         run: pip install "qiskit-ibm-runtime==0.49.0" "pandas==3.0.6"
-      - name: Snapshot ibm_phoenix calibration (CSV + gzipped raw properties, stamped with the API response time)
+      # Metadata only (properties, configuration, target): no QPU time is spent. Open-plan backends that are
+      # unavailable are skipped by the script; the step fails only if the ibm_phoenix calibration itself fails.
+      - name: Snapshot ibm_phoenix calibration (CSV + gzipped raw properties) and backend configurations (ibm_phoenix + open-plan)
         env:
           QISKIT_IBM_TOKEN: ${{ secrets.QISKIT_IBM_TOKEN }}
           QISKIT_IBM_INSTANCE: ${{ secrets.QISKIT_IBM_INSTANCE }}
           QISKIT_IBM_INSTANCE_OPEN: ${{ secrets.QISKIT_IBM_INSTANCE_OPEN }}
-        run: python scripts/snapshot_calibration.py --backend ibm_phoenix --out-dir data/calibrations
+        run: >
+          python scripts/snapshot_calibration.py --backend ibm_phoenix --out-dir data/calibrations
+          --config-backends ibm_phoenix --open-config-backends ibm_marrakesh ibm_torino ibm_kingston
       - name: Commit snapshot
         run: |
           git config user.name "gradvar-calibration-bot"
@@ -38,6 +42,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "no new snapshot"
           else
-            git commit -m "calibration snapshot: ibm_phoenix $(date -u +%Y-%m-%dT%H:%MZ)"
+            git commit -m "calibration + configuration snapshot: ibm_phoenix $(date -u +%Y-%m-%dT%H:%MZ)"
             git push
           fi
