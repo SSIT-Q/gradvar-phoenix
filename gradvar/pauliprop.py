@@ -231,7 +231,7 @@ class Program:
 
 
 def build_program(patch: Patch, L: int, k: int, channels: ChannelSet, cone: Sequence[int],
-                  edge: Tuple[int, int]) -> Program:
+                  edge: Tuple[int, int], exempt_last_layer: Sequence[int] = ()) -> Program:
     """Ops for the HEA restricted to ``cone`` (physical qubits; local index = position), derivative at layer
     k (1-based) on the first observable qubit, Heisenberg order (layer L first)."""
     patch = _as_patch(patch) if not isinstance(patch, Patch) else patch
@@ -240,9 +240,12 @@ def build_program(patch: Patch, L: int, k: int, channels: ChannelSet, cone: Sequ
     i, j = local[edge[0]], local[edge[1]]
     subs = [[(local[a], local[b]) for (a, b) in sub if a in local and b in local] for sub in patch.edges_by_sublayer()]
     ops: List[tuple] = []
+    exempt = {local[int(q)] for q in exempt_last_layer if int(q) in local}
     for layer in range(L, 0, -1):
         if channels.layer:
             for q in range(m):
+                if layer == L and q in exempt:
+                    continue          # variant: listed qubits are not in the reset lottery of the last layer
                 ops.append(("dial", q, channels.layer[q]))
         for sub in reversed(subs):
             busy = {q for e in sub for q in e}
@@ -317,8 +320,10 @@ def _merge_adjacent_bloch(ops: List[tuple]) -> List[tuple]:
 
 
 def make_program(patch, L: int, k: int, model: str, csv_path: str, dial: Optional[Bloch | Dict[int, Bloch]] = None,
-                 readout: bool = True) -> Program:
-    """Convenience: light cone, channels and program for one (patch, L, k, model[, dial])."""
+                 readout: bool = True, exempt_last_layer: Sequence[int] = ()) -> Program:
+    """Convenience: light cone, channels and program for one (patch, L, k, model[, dial]). ``exempt_last_layer``
+    (physical qubits, e.g. the observable edge) removes the dial from those qubits in the last layer only: a variant
+    of the pre-registered channel in which the observable qubits are not in the final reset lottery."""
     patch = _as_patch(patch) if not isinstance(patch, Patch) else patch
     if not 1 <= k <= L:
         raise ValueError(f"k must be in 1..L, got {k}")
@@ -327,7 +332,7 @@ def make_program(patch, L: int, k: int, model: str, csv_path: str, dial: Optiona
     if isinstance(dial, dict):   # keyed by physical qubit -> local
         dial = {cone.index(q): b for q, b in dial.items() if q in cone}
     ch = channels_from_models(model, csv_path, cone, patch.edges(), dial=dial, readout=readout)
-    return build_program(patch, L, k, ch, cone, edge)
+    return build_program(patch, L, k, ch, cone, edge, exempt_last_layer=exempt_last_layer)
 
 
 def dial_bloch_by_qubit(csv_path: str, qubits: Sequence[int], kind: str, p: float = 0.0,
@@ -833,9 +838,10 @@ def pattern_variance(prog: Program, n_samples: int = 200_000, seed: int = 0) -> 
 
 def predict_point(patch, L: int, k: int, model: str, csv_path: str, deltas: Sequence[float] = (1e-6, 1e-7),
                   n_samples: int = 200_000, dial=None, seed: int = 0, time_limit_s: float | None = None,
-                  n_cap: int | None = 400_000, sampled: bool = True, readout: bool = True) -> Dict:
+                  n_cap: int | None = 400_000, sampled: bool = True, readout: bool = True,
+                  exempt_last_layer: Sequence[int] = ()) -> Dict:
     """Truncation sweep over ``deltas`` (coarse to fine) plus the sampled estimate; returns a flat dict."""
-    prog = make_program(patch, L, k, model, csv_path, dial=dial, readout=readout)
+    prog = make_program(patch, L, k, model, csv_path, dial=dial, readout=readout, exempt_last_layer=exempt_last_layer)
     out = dict(model=model, n=_as_patch(patch).n, L=L, k=k, n_cone=prog.m, edge=f"{prog.qubits[prog.i]}_{prog.qubits[prog.j]}",
                mean_cost=prog and float("nan"))
     res = []

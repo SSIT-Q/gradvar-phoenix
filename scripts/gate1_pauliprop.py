@@ -72,13 +72,15 @@ def run_point(job: dict) -> dict:
     if job.get("dial"):
         dial = pp.dial_bloch_by_qubit(csv, patch.qubits, job["dial"], job.get("p", 0.0))
     t0 = time.time()
+    exempt = tuple(e) if job.get("exempt_obs") else ()
     out = pp.predict_point(patch, job["L"], job["L"], job["model"], csv, deltas=tuple(job["deltas"]), n_samples=job["n_samples"],
-                           dial=dial, seed=job.get("seed", 0), time_limit_s=job["time_limit_s"], n_cap=job["n_cap"])
+                           dial=dial, seed=job.get("seed", 0), time_limit_s=job["time_limit_s"], n_cap=job["n_cap"], exempt_last_layer=exempt)
     out.update(stage=job["stage"], patch=job["patch"], dial=job.get("dial", ""), p=job.get("p", float("nan")),
                ladder_n=patch.n, ladder_nominal_n=LADDER_NOMINAL.get(job["patch"], patch.n), placement=placement,
                calibration=Path(csv).name, n_broken_edges=len(patch.broken_edges), runtime_s=time.time() - t0)
+    out["exempt_obs_last_layer"] = bool(job.get("exempt_obs"))
     if job.get("pattern"):
-        prog = pp.make_program(patch, job["L"], job["L"], job["model"], csv, dial=dial)
+        prog = pp.make_program(patch, job["L"], job["L"], job["model"], csv, dial=dial, exempt_last_layer=exempt)
         pv = pp.pattern_variance(prog, job["n_samples"], seed=job.get("seed", 0) + 7)
         out.update(var_mask=pv["var_mask"], var_mask_se=pv["se"], pattern_floor=pv["var_mask"] / (2 * K_MASKS),
                    pattern_runtime_s=pv["runtime_s"])
@@ -145,6 +147,15 @@ def jobs_gate1b(args):
             yield dict(stage="gate1b", patch=spec, L=L, model="unital", dial="reset", p=0.25, pattern=True)
 
 
+def jobs_gate1b_exempt(args):
+    """Variant of Gate 1b in which the observable qubits are exempt from the last layer's reset lottery (not the
+    pre-registered channel; computed to quantify the pattern-noise floor's origin)."""
+    for spec in ("4x10", "6x10", "10x10"):
+        for L in args.depths:
+            yield dict(stage="gate1b_exempt", patch=spec, L=L, model="unital", dial="delay", p=0.0, exempt_obs=True)
+            yield dict(stage="gate1b_exempt", patch=spec, L=L, model="unital", dial="reset", p=0.25, pattern=True, exempt_obs=True)
+
+
 def jobs_dial(args):
     for L in args.depths:
         for p in (0.25, 0.5):
@@ -157,8 +168,10 @@ def verdicts(df: pd.DataFrame) -> dict:
     """Gate 1b per ladder point and Deviation 15 truncation rule, from the CSV."""
     sf = shot_floor(4096)
     out = {"shot_floor_4096": sf, "gate1b": [], "dev15": []}
-    g = df[df.stage == "gate1b"]
-    for L in sorted(g.L.unique()):
+    for stage_name in ("gate1b", "gate1b_exempt"):
+      g = df[df.stage == stage_name]
+      out.setdefault(stage_name, [])
+      for L in sorted(g.L.unique()):
         pts = []
         for spec in ("4x10", "6x10", "10x10"):
             r0 = g[(g.patch == spec) & (g.L == L) & (g.dial == "delay")]
@@ -177,9 +190,9 @@ def verdicts(df: pd.DataFrame) -> dict:
             v40 = [q for q in pts if q["patch"] == "4x10"]
             v100 = [q for q in pts if q["patch"] == "10x10"]
             falls = bool(v40 and v100 and (v40[0]["var_p0"] - v100[0]["var_p0"]) > v100[0]["combined_floor"])
-            out["gate1b"].append(dict(L=int(L), points=pts, all_separated_3x=all(q["separated_3x"] for q in pts),
-                                      p0_falls_40_to_100_by_more_than_floor=falls,
-                                      passes=bool(all(q["separated_3x"] for q in pts) and falls)))
+            out[stage_name].append(dict(L=int(L), points=pts, all_separated_3x=all(q["separated_3x"] for q in pts),
+                                        p0_falls_40_to_100_by_more_than_floor=falls,
+                                        passes=bool(all(q["separated_3x"] for q in pts) and falls)))
     d = df[df.stage == "dev15"]
     for (spec, L), grp in d.groupby(["patch", "L"]):
         rec = dict(patch=spec, n=int(grp.n.iloc[0]), L=int(L))
@@ -291,7 +304,7 @@ def figure(df: pd.DataFrame):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--stage", choices=["dev15", "gate1b", "dial", "summary"], required=True)
+    ap.add_argument("--stage", choices=["dev15", "gate1b", "gate1b_exempt", "dial", "summary"], required=True)
     ap.add_argument("--patches", nargs="+", default=list(LADDER_NOMINAL))
     ap.add_argument("--depths", nargs="+", type=int, default=[8, 12])
     ap.add_argument("--deltas", nargs="+", type=float, default=[1e-6, 1e-7])
@@ -315,7 +328,7 @@ def main():
         figure(df)
         print(json.dumps(v, indent=1, default=float))
         return
-    gen = {"dev15": jobs_dev15, "gate1b": jobs_gate1b, "dial": jobs_dial}[args.stage]
+    gen = {"dev15": jobs_dev15, "gate1b": jobs_gate1b, "gate1b_exempt": jobs_gate1b_exempt, "dial": jobs_dial}[args.stage]
     jobs = []
     for j in gen(args):
         j.update(csv=args.csv, placements=args.placements, deltas=args.deltas, n_samples=args.n_samples, n_cap=args.n_cap,
