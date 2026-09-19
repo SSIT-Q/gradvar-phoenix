@@ -173,6 +173,39 @@ def draw_two_sigma(var: float, M: int = M_P0, kurtosis: float = KURTOSIS_DEV17) 
     return 2.0 * var * float(np.sqrt((kurtosis - (M - 3) / (M - 1)) / M))
 
 
+KURTOSIS_FILE = ROOT / "data" / "predictions" / "pauliprop_kurtosis.json"
+
+
+def measured_kurtosis() -> dict | None:
+    """Empirical k = L gradient kurtosis at (n = 20, L = 8), noiseless statevector (scratch check committed as JSON)."""
+    return json.loads(KURTOSIS_FILE.read_text()) if KURTOSIS_FILE.exists() else None
+
+
+def min_M_for(fall: float, var: float, kurtosis: float, factor: float = 2.0, M_max: int = 100_000) -> int | None:
+    """Smallest M with fall >= factor x draw_two_sigma(var, M, kurtosis)."""
+    if not (np.isfinite(fall) and fall > 0):
+        return None
+    for M in range(4, M_max + 1):
+        if fall >= factor * draw_two_sigma(var, M, kurtosis):
+            return M
+    return None
+
+
+def dev28_readings(fall: float, var39: float, sf: float, kurtoses: dict, Ms=(200, 500)) -> dict:
+    """Deviation 28 clause (b) for every (kurtosis source, M): 2 sigma at n = 39, fall / 2 sigma, pass, and the minimum M."""
+    out = dict(rule="fall(n=39 -> 87) > 3 x shot floor AND > 2 x predicted M-draw 2 sigma of the p = 0 point at n = 39",
+               fall=fall, three_shot_floors=3 * sf, fall_over_3sf=(fall / (3 * sf) if np.isfinite(fall) else float("nan")),
+               fall_exceeds_3sf=bool(np.isfinite(fall) and fall > 3 * sf), readings=[], min_M={})
+    for label, kappa in kurtoses.items():
+        for M in Ms:
+            ts = draw_two_sigma(var39, M, kappa)
+            r = fall / ts if (np.isfinite(fall) and ts > 0) else float("nan")
+            out["readings"].append(dict(kurtosis_source=label, kurtosis=kappa, M=int(M), p0_draw_2sigma_n39=ts, fall_over_2sigma=r,
+                                        passes=bool(out["fall_exceeds_3sf"] and np.isfinite(r) and r >= 2.0)))
+        out["min_M"][label] = min_M_for(fall, var39, kappa)
+    return out
+
+
 def verdicts(df: pd.DataFrame, K: int = K_MASKS, kurtosis: float = KURTOSIS_DEV17, M_p0: int = M_P0) -> dict:
     """Gate 1b per ladder point (pattern floor Var_mask / (2 K) for ``K`` pooled masks per (draw, shift)) and the
     Deviation 15 truncation rule, from the CSV. Clause (b) of Gate 1b is reported in three readings: the literal one
@@ -207,7 +240,15 @@ def verdicts(df: pd.DataFrame, K: int = K_MASKS, kurtosis: float = KURTOSIS_DEV1
             fall = (v40[0]["var_p0"] - v100[0]["var_p0"]) if (v40 and v100) else float("nan")
             falls = bool(v40 and v100 and fall > v100[0]["combined_floor"])
             two_sigma_39 = v40[0]["p0_draw_2sigma_M200"] if v40 else float("nan")
-            dev28 = bool(v40 and v100 and fall > 3 * sf and fall > 2 * two_sigma_39)
+            kurtoses = {"assumed (Deviation 17)": kurtosis}
+            mk = measured_kurtosis()
+            if mk:
+                kurtoses[f"measured noiseless (n={mk['n']}, L={mk['L']}, M={mk['M']})"] = float(mk["kurtosis"])
+            d28 = dev28_readings(fall, v40[0]["var_p0"] if v40 else float("nan"), sf, kurtoses)
+            booked = [r for r in d28["readings"] if r["kurtosis_source"].startswith("measured") and r["M"] == 500] or \
+                     [r for r in d28["readings"] if r["M"] == 500]
+            dev28 = bool(booked and booked[0]["passes"])
+            d28["booked_reading"] = booked[0] if booked else None
             series = [q["var_p0"] for q in pts]
             monotone = all(a > b for a, b in zip(series, series[1:]))
             out[stage_name].append(dict(L=int(L), points=pts, all_separated_3x=all(q["separated_3x"] for q in pts),
@@ -222,10 +263,8 @@ def verdicts(df: pd.DataFrame, K: int = K_MASKS, kurtosis: float = KURTOSIS_DEV1
                                         p0_reference_below_shot_floor=all(q["p0_below_shot_floor"] for q in pts),
                                         p0_reference_note=("every p = 0 point is below the 4096-shot floor: the unital reference is unresolvable "
                                                            "(H6 inconclusive branch)" if all(q["p0_below_shot_floor"] for q in pts) else ""),
-                                        deviation_28=dict(rule="fall(n=39 -> 87) > 3 x shot floor AND > 2 x predicted M = 200 draw 2 sigma at n = 39",
-                                                          fall=fall, three_shot_floors=3 * sf, fall_over_3sf=(fall / (3 * sf) if sf else float("nan")),
-                                                          p0_draw_2sigma_M200_n39=two_sigma_39, fall_over_2sigma=(fall / two_sigma_39 if two_sigma_39 else float("nan")),
-                                                          required_fall_over_2sigma=2.0, kurtosis=kurtosis, M=int(M_p0), passes=dev28),
+                                        deviation_28=dict(d28, p0_draw_2sigma_M200_n39_assumed=two_sigma_39, required_fall_over_2sigma=2.0,
+                                                          passes=dev28, passes_note="'passes' uses the booked reading: M = 500 with the measured kurtosis when available, else the assumed one"),
                                         note="the p = 0 (delay-matched) points carry no reset lottery, so their own floor is the shot floor; the "
                                              "pre-registered clause compares the fall with the combined shot + pattern floor of the p = 0.25 series",
                                         passes=bool(all(q["separated_3x"] for q in pts) and falls),
