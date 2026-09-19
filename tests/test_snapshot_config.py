@@ -13,6 +13,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
+import snapshot_calibration as sc  # noqa: E402
 from snapshot_calibration import (CONFIG_COLUMNS, CONFIG_LEDGER, DURATION_OPS, configuration_row,  # noqa: E402
                                   properties_to_rows, write_configuration_snapshot)
 
@@ -88,3 +89,27 @@ def test_calibration_csv_keeps_init_and_measure_columns():
     assert len(dff) == 120 and (dff["MEASURE error"] != "").all() and (dff["MEASURE_2 error"] == "").all()
     bare = {"qubits": [[{"name": "T1", "value": 100.0}]], "gates": []}
     assert properties_to_rows(bare).loc[0, "Init error"] == "" and properties_to_rows(bare).loc[0, "MEASURE error"] == ""
+
+
+def test_main_survives_open_instance_failure(tmp_path, monkeypatch, capsys):
+    """The ibm_phoenix calibration is written and main() returns normally when the open-plan service cannot be
+    constructed (bad CRN) and the primary configuration fetch fails; nothing is submitted."""
+    class _Svc:
+        def backend(self, name, **kw):
+            raise RuntimeError(f"{name} is not in this instance")
+
+    def fake_make_service(env="QISKIT_IBM_INSTANCE"):
+        if env == "QISKIT_IBM_INSTANCE_OPEN":
+            raise ValueError("crn:bad is not a valid instance.")
+        return _Svc()
+
+    with gzip.open(ROOT / "data" / "calibrations" / "ibm_phoenix_properties_20260919T155931Z.json.gz", "rt") as f:
+        props = json.load(f)
+    monkeypatch.setattr(sc, "make_service", fake_make_service)
+    monkeypatch.setattr(sc, "fetch_properties", lambda name, service=None: props)
+    sc.main(["--backend", "ibm_phoenix", "--out-dir", str(tmp_path), "--config-backends", "ibm_phoenix",
+             "--open-config-backends", "ibm_marrakesh", "ibm_torino"])
+    assert len(list(tmp_path.glob("ibm_phoenix_*.csv"))) == 1 and len(list(tmp_path.glob("ibm_phoenix_properties_*.json.gz"))) == 1
+    assert not (tmp_path / CONFIG_LEDGER).exists()
+    out = capsys.readouterr().out
+    assert "skipped configuration for ibm_phoenix (primary instance)" in out and "skipped configuration snapshot (open instance): ValueError" in out

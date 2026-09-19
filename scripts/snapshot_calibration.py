@@ -300,7 +300,13 @@ def main(argv=None):
     config_backends = a.config_backends if a.config_backends is not None else [a.backend]
     snapshot_configurations(config_backends, service, a.out_dir, "primary")
     if a.open_config_backends:
-        snapshot_configurations(a.open_config_backends, make_service("QISKIT_IBM_INSTANCE_OPEN"), a.out_dir, "open")
+        try:
+            open_service = make_service("QISKIT_IBM_INSTANCE_OPEN")
+        except Exception as e:  # an invalid or expired open-instance CRN must not fail the ibm_phoenix snapshot
+            print(f"skipped configuration snapshot (open instance): {type(e).__name__}: {e}")
+            open_service = None
+        if open_service is not None:
+            snapshot_configurations(a.open_config_backends, open_service, a.out_dir, "open")
 
 
 if __name__ == "__main__":
