@@ -420,7 +420,7 @@ def figure(df: pd.DataFrame):
         ax.axhline(p ** 4 / 9, color=c, ls="-.", lw=0.8, label=f"p^4/9 (Cor. 6, |P|=2), p={p}")
     ax.set_yscale("log")
     ax.set_xlabel("L")
-    ax.set_title("Dial grid at n = 60 (56)")
+    ax.set_title(f"Dial grid on the 6x10 patch (n = {int(g.n.dropna().iloc[0]) if not g.empty and g.n.notna().any() else 60})")
     ax.legend(fontsize=6, ncol=2)
     fig.tight_layout()
     OUT_FIG.parent.mkdir(parents=True, exist_ok=True)
