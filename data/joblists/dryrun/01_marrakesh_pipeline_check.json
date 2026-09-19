@@ -1,0 +1,137 @@
+{
+  "name": "dryrun_01_marrakesh_pipeline_check",
+  "backend": "ibm_marrakesh",
+  "instance": "open",
+  "dry_run": true,
+  "rep_delay_probe": true,
+  "preflight_review": "TBD: pre-flight review permalink",
+  "notes": "Pre-registration Q1 v0.4, Section 6 (Minute budget): 'Pipeline checks (transpilation, job submission, logging, result parsing) therefore run on ibm_marrakesh under the open plan at no Flex cost'; also Paper 2 pre-registration Gate P2-1 (c): 'The Marrakesh dry run completes end to end, every row parses, and reset survives transpilation as a distinct instruction' and Section 3b kill rule (c) (a measure count above the terminal readout means reset was compiled to measure-plus-conditional-X). Smallest end-to-end run of the Paper 1 pipeline: one 1x10 path (n = 10), L = 2, k = 1, M = 5 draws, 1024 shots, resilience 0 and 1 (two Estimator jobs), plus two probe jobs: a shifted pair with a mid-circuit native reset after each layer (p = 0.5, one mask) and its delay(400 ns)-matched control. Layout: ibm_marrakesh is heavy-hex (girth 12), so the 2x5 square patch cannot embed without routing; the 1x10 path is placed with the explicit `layout` [5..14] (row 0 of the heavy hex, lowest summed CZ + readout error on the FakeMarrakesh calibration; runner-up path 0-9), the Patch keeps lattice coordinates as a frame and the observable edge is 9_10 (locals 4_5). On FakeMarrakesh: depth 12, 18 CZ (= L x 9 path edges), no routing; dial variants depth 14, 18 CZ. THE LAYOUT MUST BE RE-CHECKED AGAINST THE LIVE ibm_marrakesh CALIBRATION AT PRE-FLIGHT (swap to 0-9 if a qubit or coupler on 5-14 is out or above the readout cut). The per-job bundle records the ISA instruction names, the measure count, the reset/delay counts and the target durations (circuits.json) and backend.default_rep_delay / rep_delay_range and the verified instance plan (job.json). Target at most 3 open-plan minutes (estimate in budget). Nothing is submitted while dry_run is true and the pre-flight review permalink is TBD.",
+  "points": [
+    {
+      "n": 10,
+      "patch": "1x10",
+      "edge": "9_10",
+      "L": 2,
+      "k": 1,
+      "resilience": 0,
+      "shots": 1024,
+      "M": 5,
+      "seed": 7,
+      "layout": [
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ]
+    },
+    {
+      "n": 10,
+      "patch": "1x10",
+      "edge": "9_10",
+      "L": 2,
+      "k": 1,
+      "resilience": 1,
+      "shots": 1024,
+      "M": 5,
+      "seed": 7,
+      "layout": [
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ]
+    }
+  ],
+  "probes": [
+    {
+      "id": "reset_midcircuit_probe",
+      "kind": "reset_dial",
+      "reset_kind": "reset",
+      "n": 10,
+      "patch": "1x10",
+      "edge": "9_10",
+      "L": 2,
+      "k": 2,
+      "p": 0.5,
+      "masks": 1,
+      "shots": 1024,
+      "resilience": 0,
+      "seed": 20260919,
+      "purpose": "what the transpiler emits for a mid-circuit native reset (ISA name, measure count, scheduled duration)",
+      "layout": [
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ]
+    },
+    {
+      "id": "delay_midcircuit_control",
+      "kind": "reset_dial",
+      "reset_kind": "delay",
+      "n": 10,
+      "patch": "1x10",
+      "edge": "9_10",
+      "L": 2,
+      "k": 2,
+      "p": 0.5,
+      "masks": 1,
+      "shots": 1024,
+      "resilience": 0,
+      "seed": 20260919,
+      "purpose": "same mask with delay(400 ns) in place of reset: what the transpiler emits for the delay (dt units, duration)",
+      "layout": [
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ]
+    }
+  ],
+  "budget": {
+    "formula": "2 s per job + (rep_delay + L x 0.71 us + 1.94 us readout [+ dial durations]) x executions",
+    "dial_durations_us": {
+      "reset": 0.4,
+      "delay": 0.4,
+      "measure_reset": 1.94,
+      "measure_reset_2": 1.14,
+      "none": 0.0
+    },
+    "dial_durations_source": "ibm_phoenix target (2026-09-19)",
+    "jobs": 3,
+    "circuits": 24,
+    "executions": 24576,
+    "executions_upper_bound_with_zne": 24576,
+    "zne_noise_factors": 3,
+    "seconds_at_250us": 12.23,
+    "minutes_at_250us": 0.204,
+    "minutes_upper_bound_with_zne_at_250us": 0.204,
+    "seconds_at_1us": 6.11,
+    "minutes_at_1us": 0.102,
+    "minutes_upper_bound_with_zne_at_1us": 0.102
+  }
+}
