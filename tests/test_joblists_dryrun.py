@@ -18,7 +18,7 @@ LISTS = ["01_marrakesh_pipeline_check.json", "02_phoenix_smoke_test.json", "03_p
 pytestmark = pytest.mark.skipif(not HAS_AER, reason="qiskit-aer not installed")
 
 
-@pytest.mark.parametrize("name", LISTS)
+@pytest.mark.parametrize("name", LISTS[1:])   # 02 and 03 are still dry_run: true; 01 was enabled after its pre-flight review
 def test_dryrun_lists_validate_and_refuse_to_submit(name, tmp_path, monkeypatch):
     from gradvar.hardware import check_budget, joblist_submittable, load_joblist, run_joblist
     jl = load_joblist(str(DRYRUN / name))
@@ -35,6 +35,23 @@ def test_dryrun_lists_validate_and_refuse_to_submit(name, tmp_path, monkeypatch)
     reviewed = dict(jl, dry_run=False, preflight_review="https://x.slack.com/archives/C1/p1", budget=dict(jl["budget"], executions=1))
     (tmp_path / "b.json").write_text(json.dumps(reviewed))
     with pytest.raises(SystemExit, match="budget"):                      # stale budget field refuses too
+        run_joblist(str(tmp_path / "b.json"), submit=True, run_root=str(tmp_path / "r"), log_dir=str(tmp_path / "j"), calibration_csv=CAL)
+
+
+def test_marrakesh_list_is_enabled_with_review_permalink(tmp_path, monkeypatch):
+    """List 01 was flipped to dry_run: false in f1c6a1d after the pre-flight review; it must carry the Slack permalink of
+    that review, a budget that matches estimate_budget, and still refuse a stale budget before any credentials are used."""
+    import re
+    from gradvar.hardware import check_budget, joblist_submittable, load_joblist, run_joblist
+    jl = load_joblist(str(DRYRUN / LISTS[0]))
+    assert jl["dry_run"] is False and jl["rep_delay_probe"] is True and jl["backend"] == "ibm_marrakesh" and jl["instance"] == "open"
+    assert re.fullmatch(r"https://[a-z0-9-]+\.slack\.com/archives/C[A-Z0-9]+/p\d+(\?.*)?", jl["preflight_review"]), jl["preflight_review"]
+    assert joblist_submittable(jl) and check_budget(jl) == []
+    assert "pre-registration" in jl["notes"].lower()
+    monkeypatch.setenv("QISKIT_IBM_INSTANCE_OPEN", "crn:fake-open")
+    stale = dict(jl, budget=dict(jl["budget"], executions=1))
+    (tmp_path / "b.json").write_text(json.dumps(stale))
+    with pytest.raises(SystemExit, match="budget"):                      # refused before get_service is reached
         run_joblist(str(tmp_path / "b.json"), submit=True, run_root=str(tmp_path / "r"), log_dir=str(tmp_path / "j"), calibration_csv=CAL)
 
 
@@ -192,7 +209,7 @@ def test_dial_durations_from_target():
 def test_dry_run_false_with_placeholder_review_is_refused(tmp_path, monkeypatch):
     from gradvar.hardware import run_joblist
     monkeypatch.setenv("QISKIT_IBM_INSTANCE_OPEN", "crn:fake-open")
-    jl = json.loads((DRYRUN / LISTS[0]).read_text())
+    jl = json.loads((DRYRUN / LISTS[1]).read_text())                                  # 02 still carries the placeholder
     (tmp_path / "p.json").write_text(json.dumps(dict(jl, dry_run=False)))          # placeholder still in place
     with pytest.raises(SystemExit, match="preflight_review"):
         run_joblist(str(tmp_path / "p.json"), submit=True, run_root=str(tmp_path / "r"), log_dir=str(tmp_path / "j"), calibration_csv=CAL)
