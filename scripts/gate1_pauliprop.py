@@ -25,19 +25,49 @@ import numpy as np
 import pandas as pd
 
 from gradvar import noise, pauliprop as pp, predict
+from gradvar.lattice import Patch
 from gradvar.variance import shot_floor
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT_CSV = ROOT / "data" / "predictions" / "pauliprop_predictions.csv"
 OUT_JSON = ROOT / "data" / "predictions" / "pauliprop_summary.json"
 OUT_FIG = ROOT / "figures" / "pauliprop_predictions.png"
-LADDER = {"4x5": 20, "4x10": 39, "6x10": 56, "8x10": 71, "10x10": 90}
+PLACEMENTS = ROOT / "data" / "predictions" / "ladder_placements.json"
 K_MASKS = 64
+LADDER_NOMINAL = {"4x5": 20, "4x10": 40, "6x10": 60, "8x10": 80, "10x10": 100}
+
+
+def load_placements(path=PLACEMENTS) -> dict:
+    """data/predictions/ladder_placements.json (gate1-grid; Deviations 22 + 26): placed patches with holes, broken
+    couplers and observable edges, plus the calibration snapshot they were placed on."""
+    return json.loads(Path(path).read_text())
+
+
+def patch_from_placement(spec: str, pl: dict) -> Patch:
+    d = pl["patches"][spec]
+    r, c = (int(x) for x in spec.split("x"))
+    return Patch(qubits=tuple(d["qubits"]), n_rows=r, n_cols=c, origin=tuple(d["origin"]), holes=tuple(d["holes"]),
+                 broken_edges=tuple(tuple(e) for e in d["broken_edges"]))
+
+
+def resolve_patch(spec: str, csv: str, placements: str | None):
+    """(patch, calibration csv, placement label, observable edge). With a placements JSON the patch, its edge and the
+    calibration are taken from the file; otherwise ``predict.parse_patch`` on ``csv`` (legacy placement)."""
+    if placements and placements.lower() != "none":
+        pl = load_placements(placements)
+        patch = patch_from_placement(spec, pl)
+        cal = str(ROOT / "data" / "calibrations" / pl["calibration"])
+        edge = tuple(pl["patches"][spec]["observable_edge"])
+        return patch, cal, f"{Path(placements).name} (Deviations 22/26, {pl['calibration']})", edge
+    return predict.parse_patch(spec, csv), csv, "old placement (place_patch before the Deviation 26 CZ cut)", None
 
 
 def run_point(job: dict) -> dict:
-    csv = job["csv"]
-    patch = predict.parse_patch(job["patch"], csv)
+    patch, csv, placement, edge = resolve_patch(job["patch"], job["csv"], job.get("placements"))
+    from gradvar.circuits import hea_observable
+    _, e = hea_observable(patch)
+    if edge is not None and tuple(e) != tuple(edge):
+        raise RuntimeError(f"interior_edge {e} differs from the placed observable edge {edge} for {job['patch']}")
     dial = None
     if job.get("dial"):
         dial = pp.dial_bloch_by_qubit(csv, patch.qubits, job["dial"], job.get("p", 0.0))
@@ -45,7 +75,8 @@ def run_point(job: dict) -> dict:
     out = pp.predict_point(patch, job["L"], job["L"], job["model"], csv, deltas=tuple(job["deltas"]), n_samples=job["n_samples"],
                            dial=dial, seed=job.get("seed", 0), time_limit_s=job["time_limit_s"], n_cap=job["n_cap"])
     out.update(stage=job["stage"], patch=job["patch"], dial=job.get("dial", ""), p=job.get("p", float("nan")),
-               ladder_n=LADDER.get(job["patch"], patch.n), runtime_s=time.time() - t0)
+               ladder_n=patch.n, ladder_nominal_n=LADDER_NOMINAL.get(job["patch"], patch.n), placement=placement,
+               calibration=Path(csv).name, n_broken_edges=len(patch.broken_edges), runtime_s=time.time() - t0)
     if job.get("pattern"):
         prog = pp.make_program(patch, job["L"], job["L"], job["model"], csv, dial=dial)
         pv = pp.pattern_variance(prog, job["n_samples"], seed=job.get("seed", 0) + 7)
@@ -81,7 +112,7 @@ def status_of(r) -> str:
 
 def pending_rows(jobs):
     return [dict(stage=j["stage"], model=j["model"], patch=j["patch"], L=j["L"], dial=j.get("dial", ""), p=j.get("p", np.nan),
-                 ladder_n=LADDER.get(j["patch"]), status="pending") for j in jobs]
+                 ladder_nominal_n=LADDER_NOMINAL.get(j["patch"]), status="pending") for j in jobs]
 
 
 def append_rows(rows):
@@ -215,7 +246,7 @@ def figure(df: pd.DataFrame):
                             label=f"{m} L={L} k={'1' if which == 'k1' else 'L'}")
     ax.axhline(sf, color="grey", ls=":", label="shot floor 1/(2*4096)")
     ax.set_yscale("log")
-    ax.set_xlabel("ladder n (placed n = 20, 39, 56, 71, 90)")
+    ax.set_xlabel("placed n (ladder 20 / 40 / 60 / 80 / 100)")
     ax.set_ylabel("Var[dC/dtheta]")
     ax.set_title("Deviation 15: PP predictions")
     ax.legend(fontsize=6, ncol=2)
@@ -268,12 +299,16 @@ def main():
     ap.add_argument("--n-cap", type=int, default=400_000)
     ap.add_argument("--time-limit", type=float, default=600.0, help="seconds per propagation")
     ap.add_argument("--workers", type=int, default=4)
-    ap.add_argument("--csv", default=str(noise.DEFAULT_CALIBRATION))
+    ap.add_argument("--csv", default=str(noise.DEFAULT_CALIBRATION), help="calibration for legacy placement (--placements none)")
+    ap.add_argument("--placements", default=str(PLACEMENTS), help="ladder_placements.json, or 'none' for place_patch")
+    ap.add_argument("--out", default=None, help="override the output CSV path")
     args = ap.parse_args()
+    global OUT_CSV
+    if args.out:
+        OUT_CSV = Path(args.out)
     if args.stage == "summary":
         df = pd.read_csv(OUT_CSV)
         df["status"] = [status_of(r.to_dict()) for _, r in df.iterrows()]          # recompute with the current rule
-        df["placement"] = "old placement (place_patch before the Deviation 26 CZ cut)"
         df.to_csv(OUT_CSV, index=False)
         v = verdicts(df)
         OUT_JSON.write_text(json.dumps(v, indent=2, default=float))
@@ -283,7 +318,8 @@ def main():
     gen = {"dev15": jobs_dev15, "gate1b": jobs_gate1b, "dial": jobs_dial}[args.stage]
     jobs = []
     for j in gen(args):
-        j.update(csv=args.csv, deltas=args.deltas, n_samples=args.n_samples, n_cap=args.n_cap, time_limit_s=args.time_limit)
+        j.update(csv=args.csv, placements=args.placements, deltas=args.deltas, n_samples=args.n_samples, n_cap=args.n_cap,
+                 time_limit_s=args.time_limit)
         jobs.append(j)
     t0 = time.time()
     append_rows(pending_rows(jobs))
