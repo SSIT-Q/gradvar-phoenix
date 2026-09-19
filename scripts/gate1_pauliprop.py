@@ -66,7 +66,8 @@ def status_of(r) -> str:
     'lower bound only (sampler time cap)': no sampled value, only the rigorous truncated lower bound;
     'not converged (truncation deficit >= 10%)': sampled value exists but the deterministic engine is far from it;
     'not converged (time cap)': the truncated engine hit its wall-clock limit; 'pending': planned, not yet computed."""
-    if r.get("pending", False) is True or (np.isnan(_f(r.get("var_k1_pp"))) and np.isnan(_f(r.get("var_mc"))) and "runtime_s" not in r):
+    if r.get("pending", False) is True or r.get("status") == "pending" or (
+            np.isnan(_f(r.get("var_k1_pp"))) and np.isnan(_f(r.get("var_mc"))) and np.isnan(_f(r.get("runtime_s")))):
         return "pending"
     mc, trunc = _f(r.get("var_mc")), _f(r.get("var_pp"))
     if r.get("pp_timed_out", False) is True and np.isnan(trunc):
