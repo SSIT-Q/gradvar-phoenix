@@ -177,38 +177,60 @@ verdict is given unless the grid is the pre-registered ladder; the demo grid rep
 Demo grid shipped here (4x3 and 4x4 after the cut, `L = 1, 2, 4`, `k in {1, L}`, `M = 200`, 32 trajectories where
 the cone exceeds 10 qubits, seed 2026):
 
-**Regeneration pending.** The corrected noise models changed every noisy number; the full demo grid (M = 200, 32
-trajectories) was still running when this commit was made, so `data/predictions/` and `figures/gate1_predictions.png`
-are not in this commit and will be added by `python scripts/gate1_predict.py`. Points completed so far (same command, seed 2026):
+| model | patch | n | L | k | cone | method | variance | 95% CI | hi/lo | eps_N (4096) | eps_N (16384) | s/point |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| noiseless | 4x3 | 12 | 1 | 1 | 2 | statevector | 2.421e-01 | [2.029e-01, 2.796e-01] | 1.38 | 3.82e-04 | 9.54e-05 | 0 |
+| nonunital | 4x3 | 12 | 1 | 1 | 2 | density_matrix | 2.274e-01 | [1.903e-01, 2.628e-01] | 1.38 | 4.14e-04 | 1.04e-04 | 0 |
+| unital | 4x3 | 12 | 1 | 1 | 2 | density_matrix | 2.286e-01 | [1.913e-01, 2.641e-01] | 1.38 | 4.11e-04 | 1.03e-04 | 2 |
+| noiseless | 4x3 | 12 | 2 | 1 | 12 | statevector | 7.897e-02 | [5.995e-02, 9.848e-02] | 1.64 | 1.40e-03 | 3.50e-04 | 2 |
+| nonunital | 4x3 | 12 | 2 | 1 | 12 | statevector x32 | 7.164e-02 | [5.452e-02, 8.944e-02] | 1.64 | 1.56e-03 | 3.89e-04 | 57 |
+| unital | 4x3 | 12 | 2 | 1 | 12 | statevector x32 | 7.165e-02 | [5.407e-02, 8.970e-02] | 1.66 | 1.56e-03 | 3.90e-04 | 25 |
+| noiseless | 4x3 | 12 | 2 | 2 | 12 | statevector | 1.175e-01 | [9.296e-02, 1.424e-01] | 1.53 | 9.17e-04 | 2.29e-04 | 3 |
+| nonunital | 4x3 | 12 | 2 | 2 | 12 | statevector x32 | 1.066e-01 | [8.432e-02, 1.294e-01] | 1.53 | 1.02e-03 | 2.56e-04 | 97 |
+| unital | 4x3 | 12 | 2 | 2 | 12 | statevector x32 | 1.055e-01 | [8.367e-02, 1.275e-01] | 1.52 | 1.03e-03 | 2.59e-04 | 27 |
+| noiseless | 4x3 | 12 | 4 | 1 | 12 | statevector | 1.046e-02 | [7.572e-03, 1.374e-02] | 1.82 | 1.15e-02 | 2.87e-03 | 6 |
+| nonunital | 4x3 | 12 | 4 | 1 | 12 | statevector x32 | 8.801e-03 | [6.368e-03, 1.159e-02] | 1.82 | 1.37e-02 | 3.42e-03 | 217 |
+| unital | 4x3 | 12 | 4 | 1 | 12 | statevector x32 | 8.731e-03 | [6.263e-03, 1.153e-02] | 1.84 | 1.38e-02 | 3.45e-03 | 96 |
+| noiseless | 4x3 | 12 | 4 | 4 | 12 | statevector | 2.408e-02 | [1.631e-02, 3.303e-02] | 2.03 | 4.95e-03 | 1.24e-03 | 5 |
+| nonunital | 4x3 | 12 | 4 | 4 | 12 | statevector x32 | 2.018e-02 | [1.381e-02, 2.753e-02] | 1.99 | 5.93e-03 | 1.48e-03 | 215 |
+| unital | 4x3 | 12 | 4 | 4 | 12 | statevector x32 | 1.946e-02 | [1.324e-02, 2.664e-02] | 2.01 | 6.15e-03 | 1.54e-03 | 87 |
+| noiseless | 4x4 | 16 | 1 | 1 | 2 | statevector | 2.421e-01 | [2.029e-01, 2.796e-01] | 1.38 | 3.82e-04 | 9.54e-05 | 0 |
+| nonunital | 4x4 | 16 | 1 | 1 | 2 | density_matrix | 2.232e-01 | [1.868e-01, 2.578e-01] | 1.38 | 4.24e-04 | 1.06e-04 | 1 |
+| unital | 4x4 | 16 | 1 | 1 | 2 | density_matrix | 2.245e-01 | [1.879e-01, 2.593e-01] | 1.38 | 4.21e-04 | 1.05e-04 | 1 |
+| noiseless | 4x4 | 16 | 2 | 1 | 16 | statevector | 8.908e-02 | [6.880e-02, 1.101e-01] | 1.60 | 1.23e-03 | 3.09e-04 | 10 |
+| nonunital | 4x4 | 16 | 2 | 1 | 16 | statevector x32 | 7.853e-02 | [6.044e-02, 9.703e-02] | 1.61 | 1.42e-03 | 3.55e-04 | 773 |
+| unital | 4x4 | 16 | 2 | 1 | 16 | statevector x32 | 7.677e-02 | [5.927e-02, 9.498e-02] | 1.60 | 1.45e-03 | 3.63e-04 | 336 |
+| noiseless | 4x4 | 16 | 2 | 2 | 16 | statevector | 9.555e-02 | [7.376e-02, 1.183e-01] | 1.60 | 1.16e-03 | 2.89e-04 | 6 |
+| nonunital | 4x4 | 16 | 2 | 2 | 16 | statevector x32 | 8.492e-02 | [6.522e-02, 1.054e-01] | 1.62 | 1.32e-03 | 3.29e-04 | 306 |
+| unital | 4x4 | 16 | 2 | 2 | 16 | statevector x32 | 8.304e-02 | [6.404e-02, 1.032e-01] | 1.61 | 1.35e-03 | 3.37e-04 | 186 |
+| noiseless | 4x4 | 16 | 4 | 1 | 16 | statevector | 8.912e-03 | [6.192e-03, 1.245e-02] | 2.01 | 1.35e-02 | 3.38e-03 | 10 |
+| nonunital | 4x4 | 16 | 4 | 1 | 16 | statevector x32 | 7.229e-03 | [5.072e-03, 9.923e-03] | 1.96 | 1.67e-02 | 4.18e-03 | 390 |
+| unital | 4x4 | 16 | 4 | 1 | 16 | statevector x32 | 6.769e-03 | [4.825e-03, 9.152e-03] | 1.90 | 1.79e-02 | 4.46e-03 | 291 |
+| noiseless | 4x4 | 16 | 4 | 4 | 16 | statevector | 1.779e-02 | [1.267e-02, 2.322e-02] | 1.83 | 6.74e-03 | 1.69e-03 | 7 |
+| nonunital | 4x4 | 16 | 4 | 4 | 16 | statevector x32 | 1.429e-02 | [1.013e-02, 1.878e-02] | 1.85 | 8.42e-03 | 2.10e-03 | 718 |
+| unital | 4x4 | 16 | 4 | 4 | 16 | statevector x32 | 1.429e-02 | [1.006e-02, 1.876e-02] | 1.87 | 8.42e-03 | 2.11e-03 | 180 |
 
-| model | patch | n | L | k | variance | 95% CI | hi/lo | eps_N (4096) | method | s/point |
-|---|---|---|---|---|---|---|---|---|---|---|
-| noiseless | 4x3 | 12 | 1 | 1 | 2.421e-01 | [2.029e-01, 2.796e-01] | 1.38 | 0.000382 | statevector (cone 2) | 0.4 |
-| unital | 4x3 | 12 | 1 | 1 | 2.286e-01 | [1.913e-01, 2.641e-01] | 1.38 | 0.000411 | density_matrix (cone 2) | 1.5 |
-| nonunital | 4x3 | 12 | 1 | 1 | 2.274e-01 | [1.903e-01, 2.628e-01] | 1.38 | 0.000414 | density_matrix (cone 2) | 0.4 |
-| noiseless | 4x3 | 12 | 2 | 1 | 7.897e-02 | [5.995e-02, 9.848e-02] | 1.64 | 0.0014 | statevector (cone 12) | 2.2 |
-| unital | 4x3 | 12 | 2 | 1 | 7.165e-02 | [5.407e-02, 8.970e-02] | 1.66 | 0.00156 | statevector (cone 12, 32 traj) | 24.6 |
-| nonunital | 4x3 | 12 | 2 | 1 | 7.164e-02 | [5.452e-02, 8.944e-02] | 1.64 | 0.00156 | statevector (cone 12, 32 traj) | 57.0 |
-| noiseless | 4x3 | 12 | 2 | 2 | 1.175e-01 | [9.296e-02, 1.424e-01] | 1.53 | 0.000917 | statevector (cone 12) | 2.5 |
-| unital | 4x3 | 12 | 2 | 2 | 1.055e-01 | [8.367e-02, 1.275e-01] | 1.52 | 0.00103 | statevector (cone 12, 32 traj) | 27.1 |
-| nonunital | 4x3 | 12 | 2 | 2 | 1.066e-01 | [8.432e-02, 1.294e-01] | 1.53 | 0.00102 | statevector (cone 12, 32 traj) | 97.3 |
-| noiseless | 4x3 | 12 | 4 | 1 | 1.046e-02 | [7.572e-03, 1.374e-02] | 1.82 | 0.0115 | statevector (cone 12) | 5.9 |
-| unital | 4x3 | 12 | 4 | 1 | 8.731e-03 | [6.263e-03, 1.153e-02] | 1.84 | 0.0138 | statevector (cone 12, 32 traj) | 95.7 |
-| nonunital | 4x3 | 12 | 4 | 1 | 8.801e-03 | [6.368e-03, 1.159e-02] | 1.82 | 0.0137 | statevector (cone 12, 32 traj) | 217.4 |
-| noiseless | 4x3 | 12 | 4 | 4 | 2.408e-02 | [1.631e-02, 3.303e-02] | 2.03 | 0.00495 | statevector (cone 12) | 4.7 |
-| unital | 4x3 | 12 | 4 | 4 | 1.946e-02 | [1.324e-02, 2.664e-02] | 2.01 | 0.00615 | statevector (cone 12, 32 traj) | 87.1 |
-| nonunital | 4x3 | 12 | 4 | 4 | 2.018e-02 | [1.381e-02, 2.753e-02] | 1.99 | 0.00593 | statevector (cone 12, 32 traj) | 215.2 |
-| noiseless | 4x4 | 16 | 1 | 1 | 2.421e-01 | [2.029e-01, 2.796e-01] | 1.38 | 0.000382 | statevector (cone 2) | 0.4 |
-| unital | 4x4 | 16 | 1 | 1 | 2.245e-01 | [1.879e-01, 2.593e-01] | 1.38 | 0.000421 | density_matrix (cone 2) | 0.6 |
-| nonunital | 4x4 | 16 | 1 | 1 | 2.232e-01 | [1.868e-01, 2.578e-01] | 1.38 | 0.000424 | density_matrix (cone 2) | 0.8 |
-| noiseless | 4x4 | 16 | 2 | 1 | 8.908e-02 | [6.880e-02, 1.101e-01] | 1.60 | 0.00123 | statevector (cone 16) | 9.7 |
-| unital | 4x4 | 16 | 2 | 1 | 7.677e-02 | [5.927e-02, 9.498e-02] | 1.60 | 0.00145 | statevector (cone 16, 32 traj) | 335.7 |
-| nonunital | 4x4 | 16 | 2 | 1 | 7.853e-02 | [6.044e-02, 9.703e-02] | 1.61 | 0.00142 | statevector (cone 16, 32 traj) | 772.8 |
-| noiseless | 4x4 | 16 | 2 | 2 | 9.555e-02 | [7.376e-02, 1.183e-01] | 1.60 | 0.00116 | statevector (cone 16) | 6.4 |
-| unital | 4x4 | 16 | 2 | 2 | 8.304e-02 | [6.404e-02, 1.032e-01] | 1.61 | 0.00135 | statevector (cone 16, 32 traj) | 185.9 |
-| nonunital | 4x4 | 16 | 2 | 2 | 8.492e-02 | [6.522e-02, 1.054e-01] | 1.62 | 0.00132 | statevector (cone 16, 32 traj) | 305.5 |
-| noiseless | 4x4 | 16 | 4 | 1 | 8.912e-03 | [6.192e-03, 1.245e-02] | 2.01 | 0.0135 | statevector (cone 16) | 10.0 |
-| unital | 4x4 | 16 | 4 | 1 | 6.769e-03 | [4.825e-03, 9.152e-03] | 1.90 | 0.0179 | statevector (cone 16, 32 traj) | 291.2 |
+Layer-index statistic per `(n, L)` (paired bootstrap, 95%): `r_m = Var_m(k=L)/Var_m(k=1)`, `R_m = r_m / r_noiseless`, `D = R_nonunital - R_unital`.
+
+| n | L | r noiseless | r unital | r non-unital | R unital [CI] | R non-unital [CI] | D [CI] | separated | Var_nu - Var_u at k=L |
+|---|---|---|---|---|---|---|---|---|---|
+| 12 | 2 | 1.488 | 1.473 | 1.488 | 0.990 [0.967, 1.015] | 1.000 [0.980, 1.019] | +0.010 [-0.021, +0.038] | False | +1.02e-03 |
+| 12 | 4 | 2.302 | 2.229 | 2.292 | 0.968 [0.937, 1.004] | 0.996 [0.957, 1.040] | +0.028 [-0.021, +0.079] | False | +7.12e-04 |
+| 16 | 2 | 1.073 | 1.082 | 1.081 | 1.009 [0.989, 1.028] | 1.008 [0.990, 1.027] | -0.000 [-0.027, +0.026] | False | +1.89e-03 |
+| 16 | 4 | 1.996 | 2.111 | 1.977 | 1.058 [1.006, 1.103] | 0.991 [0.934, 1.045] | -0.067 [-0.122, -0.003] | True | +1.00e-06 |
+
+Gate 1 criteria on this grid (`gate1_summary.json`):
+
+| criterion | status | result | note |
+|---|---|---|---|
+| (a) | implemented | not-evaluated | chain points present for n = 4..12 only; pre-registration requires 4..20 (missing [13, 14, 15, 16, 17, 18, 19, 20]); all present points pass |
+| (b) | implemented | fail | evaluated at M = 200; 24 of 30 points have hi/lo >= 1.5 |
+| (c) | implemented | not-evaluated |  |
+| (d) | not-implemented | not-evaluated | null control (parameter outside the light cone at L = 1) not simulated on this branch |
+| (e) | implemented | pass | evaluated at 4096 shots on every computed point of this grid; the pre-registered scope is 'every point to be claimed' |
+| (f) | not-implemented | not-evaluated | half-patch Renyi-2 entropy and L_s(n) not computed on this branch |
+
+Criterion (c) part 1 on the demo grid: 6 of 6 `(n, L)` points have `|Var_unital - Var_noiseless| > 6.1e-5` at k = 1 (the >= 6 count is defined on the 25-point ladder, so the result is not-evaluated); part 2 has no n = 40 / 100 point. Overall: not-evaluated: this grid is not the pre-registered ladder, so no overall Gate 1 verdict is given.
 
 ### Daily calibration snapshot (GitHub Action)
 
