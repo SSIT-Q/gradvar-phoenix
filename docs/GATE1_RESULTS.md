@@ -277,6 +277,28 @@ Caveats: (i) L_s(20) = 12 is at the sweep edge (L_max = 12) and S2(12) = 8.565 +
 
 Compute cut for time (recorded, not silently dropped): (i) the noisy 4x5 points at L = 4 (20-qubit cone, 38 s per circuit under the relaxation model at 32 trajectories, about 63 min per point even at M = 50) and the noisy 4x10 points at L = 2 (23-qubit cone, more than 150 s per circuit), cut before the run on measured cost; (ii) the 'not computed (time cap)' points above, which the second pass did not reach before its start deadline on the shared machine (the re-placed 6x10 / 8x10 L = 2 cones are 19 / 18 qubits, 4-8x the cost of the old 13-qubit cones). All are within the statevector limit; `python scripts/gate1_ladder.py` resumes from `data/predictions/ladder_points/` and finishes them given a few hours of a quiet 4-core machine (`--finalize` re-assembles the outputs).
 
+## Propagation rows (branch `gate1-pauli-prop`, merged) and the re-summary
+
+The L = 8 / 12 ladder points deferred above are predicted by second-moment Pauli propagation (`gradvar/pauliprop.py`,
+method, validation and tables in `docs/PAULIPROP.md`; rows in `data/predictions/pauliprop_predictions.csv`, verdict
+readings in `pauliprop_summary.json`). `python scripts/gate1_resummary.py` rebuilds `data/predictions/gate1_summary.json`
+from the exact points as `gate1_predict.py --summary-only` does and then adds the propagation rows where the
+pre-registration lets them enter (`gradvar/pauliprop_summary.py`): each Deviation 15 row becomes two points (k = 1 and
+k = L) with the sampled value as the variance and the one-sided interval [V_trunc, V_MC + 2 sigma], M = 0 (no draws, so
+the criterion (b) bound is not tested on them), method `pauli_propagation`. Effects: criterion (c) part 1 counts the
+L = 8 / 12 points at k = 1 (14 of 19 (n, L) points exceed 2 x floor(16384); all five L = 8 points do, no L = 12 point
+does, so part 1 is **pass** on the ladder n; part 2 is unresolvable at L = 12, every separation 3.5e-6 to 1.7e-5 being
+below 6.1e-5); part 2 gains point-estimate D values at every (n, L = 8 / 12) (`propagation_point_estimates`: |D| <= 0.02
+at L = 8 with propagated 2 sigma 0.06-0.09; no paired bootstrap, so they do not change the result field); criteria (b),
+(d) and (e) keep their exact-point evaluation, (d) because the "smallest signal to be claimed" is the Gate 2 booking
+decision. Findings recorded under `propagation.findings`, not as verdicts: every L = 12 predicted variance (4.4e-6 to
+6.6e-5) lies below the 4096-shot floor 1.22e-4; at L = 8 the 10x allowance of criterion (d) is 1.22e-3 at 4096 shots
+(above every L = 8 prediction) and 3.05e-4 at 16384 shots, below which the unital k = L rows at n = 53 / 70
+(2.9e-4 / 2.8e-4) and most noisy k = 1 rows lie; the shots per point at L >= 8 and whether the L = 12 rung is booked
+are Gate 2 decisions for the PI. The Deviation 15 hardware-only flags are listed (only 4x5 at L = 12). The remaining
+deferred points are the large-cone L = 4 groups of the 4x10 .. 10x10 patches (and the cut noisy 4x5 L = 4 / 4x10 L = 2
+groups), which the propagation module can supply in ~30 core-minutes but which were not part of this branch's task.
+
 ## Figures and data
 
 * `figures/gate1_noiseless.png`, `figures/gate1_noiseless.csv` - criterion (a) chain n = 4..20 and the 4x3 / 4x4 HEA noiseless points.
