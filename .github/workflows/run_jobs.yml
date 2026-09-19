@@ -1,0 +1,59 @@
+name: run hardware job list
+
+on:
+  workflow_dispatch:
+    inputs:
+      joblist:
+        description: "Job list path under data/joblists/ (e.g. data/joblists/example_smoke_test.json)"
+        required: true
+        type: string
+      dry_run:
+        description: "Build and transpile only; submit nothing"
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: hardware-jobs
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install package
+        run: pip install -e ".[aer]"
+      - name: Check the job list path
+        run: |
+          case "${{ inputs.joblist }}" in
+            data/joblists/*.json) test -f "${{ inputs.joblist }}" ;;
+            *) echo "job list must be a committed file under data/joblists/"; exit 1 ;;
+          esac
+      - name: Dry run (fake backend, nothing submitted)
+        if: ${{ inputs.dry_run }}
+        run: python -m gradvar.hardware --joblist "${{ inputs.joblist }}"
+      - name: Submit the job list
+        if: ${{ !inputs.dry_run }}
+        env:
+          QISKIT_IBM_TOKEN: ${{ secrets.QISKIT_IBM_TOKEN }}
+          QISKIT_IBM_INSTANCE: ${{ secrets.QISKIT_IBM_INSTANCE }}
+        run: python -m gradvar.hardware --joblist "${{ inputs.joblist }}" --yes-submit
+      - name: Commit logs and calibration snapshot
+        if: ${{ !inputs.dry_run }}
+        run: |
+          git config user.name "gradvar-hardware-bot"
+          git config user.email "gradvar-hardware-bot@users.noreply.github.com"
+          git add data/jobs/ data/calibrations/
+          if git diff --cached --quiet; then
+            echo "nothing to commit"
+          else
+            git commit -m "hardware run: ${{ inputs.joblist }} $(date -u +%Y-%m-%dT%H:%MZ)"
+            git push
+          fi

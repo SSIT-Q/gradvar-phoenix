@@ -23,10 +23,17 @@ gradvar/
   gradients.py    two-term parameter-shift rule (shift +/- pi/2) on one parameter (k, q); finite difference
   variance.py     gradient_variance(M, ...): mean, variance, 95% bootstrap CI (10,000 resamples), shot-noise variance
   sim.py          statevector (qiskit.quantum_info), Aer statevector/MPS, noisy density matrix from the calibration CSV
+  noise.py        unital (t = 0) and non-unital (T1/T2, t != 0) Aer NoiseModels from the calibration CSV; ||t|| estimate
+  predict.py      Gate 1 predictions: variance per model on a (n, L, k) grid, layer-index ratio, shot floors, eps_N, summary
   hardware.py     PUB builder, transpiler (fixed patch layout, fractional gates off), Batch/EstimatorV2 runner, CSV log, --dry-run
 scripts/
   gate1_noiseless.py    Gate 1: variance vs n, chain baseline + square HEA, figure with 2^-n line and shot floors
   hardware_dry_run.py   build + transpile n=20, L=1,2,4 against FakeNighthawk; prints depth and 2q counts
+  gate1_predict.py      Gate 1 predictions CLI (noiseless / unital / non-unital), figure + CSV + summary JSON
+  snapshot_calibration.py  save ibm_phoenix properties JSON + calibration CSV (used by the daily GitHub Action)
+.github/workflows/calibration_snapshot.yml   daily 03:00 UTC calibration snapshot committed by a bot identity
+data/predictions/gate1_predictions.csv (+ gate1_summary.json)   output of scripts/gate1_predict.py
+figures/gate1_predictions.png                  variance vs L per model with shot floors; layer-index ratio panel
 tests/                  pytest suite (see below)
 data/calibrations/ibm_phoenix_2026-09-19.csv   calibration snapshot used for the noise model
 figures/gate1_noiseless.png (+ .csv)           output of Gate 1
@@ -94,6 +101,111 @@ Result of the run shipped with this repository (seed 2026):
 
 Every chain point's 95% bootstrap interval contains 2^-n (e.g. n=8: 4.164e-03 measured vs 3.906e-03; n=12: 1.802e-04 vs 2.441e-04, interval [1.151e-04, 2.532e-04]).
 
+## Gate 1 (noise predictions)
+
+```bash
+python scripts/gate1_predict.py                                   # demo grid, ~3 min on 4 cores
+python scripts/gate1_predict.py --patches 4x5 4x10 --depths 1 2 4 8 12 --k 1 L --M 200 --traj 32   # towards the full grid (MPS above 22 qubits, slow)
+```
+
+`gradvar.noise` builds two Aer noise models from `data/calibrations/ibm_phoenix_2026-09-19.csv` for
+the physical qubits of a patch: **unital** (depolarizing on `sx`/`x` from the sx error column, per-edge
+depolarizing on `cz`, symmetric readout error; no relaxation, so the Bloch-translation vector of
+Mele et al. is `t = 0`) and **non-unital** (the same plus T1/T2 thermal relaxation with 40 ns 1q,
+68 ns cz and 1940 ns readout durations, `t != 0`). `gradvar.noise.bloch_translation` gives the
+per-layer estimate `||t|| ~ 1 - exp(-t_layer/T1)` with `t_layer = 2 x 40 + 4 x 68 = 352 ns`
+(Ry is two `sx` in the native basis, then four CZ sub-layers): median `2.0e-3` over the 4x3/4x4
+qubits (median T1 178 us), the value quoted in the pre-registration's H3.
+
+`gradvar.predict` computes, for each `(n, L, k)` (k 1-based, differentiated qubit = first qubit of
+the observable edge), the variance of the parameter-shift gradient over `M` uniform draws with a
+bootstrap interval under the three models, the analytic shot floors `1/(2N)` at N = 4096 and 16384,
+the Aghaei Saem ratio `eps_N = Var_shot / (N Var_theta)` (with `Var_shot` the single-shot gradient
+variance from the exact two-term form, so `Var_shot/N` is the N-shot variance; `eps_N < 1` means the
+point is resolvable), the layer-index ratio `Var(k = L) / Var(k = 1)` per model, and the runtime per
+point. Method: exact `density_matrix` for `n <= 10`; above that the noise is sampled as quantum
+trajectories (`--traj` per circuit) on Aer `statevector` up to 22 qubits and `matrix_product_state`
+beyond. Readout error is folded in analytically as `prod (1 - 2 p_q)` over the two observable qubits
+(exact for a symmetric confusion matrix); in the non-unital model the readout-window relaxation is
+applied as an explicit channel on those two qubits before the expectation value is taken.
+Outputs: `data/predictions/gate1_predictions.csv` (columns `model, n, L, k, M, var, ci_lo, ci_hi,
+shot_floor_4096, shot_floor_16384, eps_N_4096, eps_N_16384, runtime_s, ...`),
+`data/predictions/gate1_summary.json` (Gate 1 criteria (c) and (e) per `(n, L)`) and
+`figures/gate1_predictions.png`.
+
+Demo grid shipped here (4x3 and 4x4, `L = 1, 2, 4`, `k in {1, L}`, `M = 100`, 8 trajectories, seed 2026):
+
+| model | patch | n | L | k | M | variance | 95% CI | eps_N (4096) | eps_N (16384) | method | s/point |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| noiseless | 4x3 | 12 | 1 | 1 | 100 | 2.658e-01 | [2.150e-01, 3.146e-01] | 3.35e-04 | 8.38e-05 | statevector | 0 |
+| nonunital | 4x3 | 12 | 1 | 1 | 100 | 2.080e-01 | [1.654e-01, 2.476e-01] | 4.60e-04 | 1.15e-04 | statevector x8 | 3 |
+| unital | 4x3 | 12 | 1 | 1 | 100 | 2.327e-01 | [1.889e-01, 2.743e-01] | 4.00e-04 | 1.00e-04 | statevector x8 | 2 |
+| noiseless | 4x3 | 12 | 2 | 1 | 100 | 7.149e-02 | [4.633e-02, 9.796e-02] | 1.55e-03 | 3.88e-04 | statevector | 0 |
+| nonunital | 4x3 | 12 | 2 | 1 | 100 | 5.368e-02 | [3.351e-02, 7.514e-02] | 2.12e-03 | 5.29e-04 | statevector x8 | 6 |
+| unital | 4x3 | 12 | 2 | 1 | 100 | 5.727e-02 | [3.766e-02, 7.899e-02] | 1.97e-03 | 4.93e-04 | statevector x8 | 2 |
+| noiseless | 4x3 | 12 | 2 | 2 | 100 | 1.311e-01 | [9.370e-02, 1.718e-01] | 8.09e-04 | 2.02e-04 | statevector | 0 |
+| nonunital | 4x3 | 12 | 2 | 2 | 100 | 1.005e-01 | [6.999e-02, 1.324e-01] | 1.09e-03 | 2.72e-04 | statevector x8 | 5 |
+| unital | 4x3 | 12 | 2 | 2 | 100 | 1.120e-01 | [7.854e-02, 1.483e-01] | 9.68e-04 | 2.42e-04 | statevector x8 | 3 |
+| noiseless | 4x3 | 12 | 4 | 1 | 100 | 9.867e-03 | [5.682e-03, 1.486e-02] | 1.22e-02 | 3.04e-03 | statevector | 1 |
+| nonunital | 4x3 | 12 | 4 | 1 | 100 | 7.093e-03 | [3.932e-03, 1.095e-02] | 1.70e-02 | 4.25e-03 | statevector x8 | 9 |
+| unital | 4x3 | 12 | 4 | 1 | 100 | 8.166e-03 | [4.562e-03, 1.253e-02] | 1.47e-02 | 3.68e-03 | statevector x8 | 4 |
+| noiseless | 4x3 | 12 | 4 | 4 | 100 | 2.544e-02 | [1.440e-02, 3.998e-02] | 4.67e-03 | 1.17e-03 | statevector | 1 |
+| nonunital | 4x3 | 12 | 4 | 4 | 100 | 1.663e-02 | [1.006e-02, 2.485e-02] | 7.21e-03 | 1.80e-03 | statevector x8 | 9 |
+| unital | 4x3 | 12 | 4 | 4 | 100 | 1.902e-02 | [1.074e-02, 2.985e-02] | 6.29e-03 | 1.57e-03 | statevector x8 | 4 |
+| noiseless | 4x4 | 16 | 1 | 1 | 100 | 2.416e-01 | [1.854e-01, 2.953e-01] | 3.82e-04 | 9.54e-05 | statevector | 1 |
+| nonunital | 4x4 | 16 | 1 | 1 | 100 | 1.825e-01 | [1.408e-01, 2.227e-01] | 5.43e-04 | 1.36e-04 | statevector x8 | 18 |
+| unital | 4x4 | 16 | 1 | 1 | 100 | 2.111e-01 | [1.616e-01, 2.565e-01] | 4.54e-04 | 1.14e-04 | statevector x8 | 6 |
+| noiseless | 4x4 | 16 | 2 | 1 | 100 | 6.112e-02 | [4.015e-02, 8.524e-02] | 1.84e-03 | 4.61e-04 | statevector | 2 |
+| nonunital | 4x4 | 16 | 2 | 1 | 100 | 4.604e-02 | [3.028e-02, 6.346e-02] | 2.49e-03 | 6.23e-04 | statevector x8 | 27 |
+| unital | 4x4 | 16 | 2 | 1 | 100 | 4.965e-02 | [3.294e-02, 6.852e-02] | 2.30e-03 | 5.76e-04 | statevector x8 | 12 |
+| noiseless | 4x4 | 16 | 2 | 2 | 100 | 7.357e-02 | [5.136e-02, 9.679e-02] | 1.54e-03 | 3.85e-04 | statevector | 1 |
+| nonunital | 4x4 | 16 | 2 | 2 | 100 | 5.141e-02 | [3.655e-02, 6.676e-02] | 2.25e-03 | 5.62e-04 | statevector x8 | 37 |
+| unital | 4x4 | 16 | 2 | 2 | 100 | 6.216e-02 | [4.321e-02, 8.206e-02] | 1.84e-03 | 4.61e-04 | statevector x8 | 12 |
+| noiseless | 4x4 | 16 | 4 | 1 | 100 | 1.393e-02 | [7.402e-03, 2.221e-02] | 8.60e-03 | 2.15e-03 | statevector | 4 |
+| nonunital | 4x4 | 16 | 4 | 1 | 100 | 8.708e-03 | [4.845e-03, 1.329e-02] | 1.38e-02 | 3.46e-03 | statevector x8 | 51 |
+| unital | 4x4 | 16 | 4 | 1 | 100 | 1.042e-02 | [5.446e-03, 1.671e-02] | 1.15e-02 | 2.89e-03 | statevector x8 | 27 |
+| noiseless | 4x4 | 16 | 4 | 4 | 100 | 1.404e-02 | [9.120e-03, 1.974e-02] | 8.57e-03 | 2.14e-03 | statevector | 3 |
+| nonunital | 4x4 | 16 | 4 | 4 | 100 | 9.380e-03 | [5.887e-03, 1.329e-02] | 1.29e-02 | 3.22e-03 | statevector x8 | 52 |
+| unital | 4x4 | 16 | 4 | 4 | 100 | 1.051e-02 | [6.757e-03, 1.471e-02] | 1.15e-02 | 2.87e-03 | statevector x8 | 23 |
+
+Layer-index ratio `Var(k = L) / Var(k = 1)` and Gate 1 checks per `(n, L)` (floor(16384) = 3.05e-5, so 2 x floor = 6.1e-5):
+
+| n | L | ratio noiseless | ratio unital | ratio non-unital | unital - noiseless (k=1) | (c) > 2 floor | non-unital - unital at k=L | var_kL diff > 2 floor |
+|---|---|---|---|---|---|---|---|---|
+| 12 | 1 | 1.000 | 1.000 | 1.000 | -3.30e-02 | True | -2.47e-02 | True |
+| 12 | 2 | 1.834 | 1.955 | 1.872 | -1.42e-02 | True | -1.15e-02 | True |
+| 12 | 4 | 2.579 | 2.329 | 2.345 | -1.70e-03 | True | -2.39e-03 | True |
+| 16 | 1 | 1.000 | 1.000 | 1.000 | -3.05e-02 | True | -2.86e-02 | True |
+| 16 | 2 | 1.204 | 1.252 | 1.117 | -1.15e-02 | True | -1.07e-02 | True |
+| 16 | 4 | 1.008 | 1.009 | 1.077 | -3.51e-03 | True | -1.13e-03 | True |
+
+Criterion (c) passes at 6 of 6 demo `(n, L)` points (the pre-registered requirement is six on the full grid); all `eps_N(4096)` are below 1.
+
+Gate 1 criterion (c) asks for `|Var_unital - Var_noiseless| > 2 x floor(16384) = 6.1e-5` at six or
+more `(n, L)` points; criterion (e) compares the non-unital and unital layer-index ratios at
+`n = 40` or `100`, `L in {8, 12}`. The demo grid is a small-`n` pipeline check of both criteria and
+not the pre-registered test; the summary JSON reports the literal (dimensionless ratio vs floor)
+comparison as `ratio_diff_gt_2floor` and the variance-space version
+`|Var_nu(k=L) - Var_u(k=L)| > 2 floor` as `var_kL_diff_gt_2floor`.
+
+### Daily calibration snapshot (GitHub Action)
+
+`.github/workflows/calibration_snapshot.yml` runs every day at 03:00 UTC (and on manual dispatch),
+installs `qiskit-ibm-runtime`, runs `scripts/snapshot_calibration.py`, and commits
+`data/calibrations/ibm_phoenix_properties_<utc>.json` and `ibm_phoenix_<utc>.csv` to `main` as
+`gradvar-calibration-bot`. The script reads credentials only from the environment. To enable it, add
+two repository secrets (GitHub: *Settings -> Secrets and variables -> Actions -> New repository secret*):
+
+| secret | value |
+|---|---|
+| `QISKIT_IBM_TOKEN` | your IBM Quantum Platform API key |
+| `QISKIT_IBM_INSTANCE` | the instance CRN (or name) that has access to `ibm_phoenix` |
+
+Nothing is stored in the repository; rotating the key means updating the secret only. The workflow
+needs *Settings -> Actions -> General -> Workflow permissions -> Read and write* so the bot can push.
+`python scripts/snapshot_calibration.py --from-json <properties.json>` converts an existing
+properties file offline without credentials.
+
 ## Hardware dry run
 
 ```bash
@@ -116,7 +228,19 @@ Nothing is submitted. Measured on this machine:
 (31 = 4 rows x 4 horizontal + 3 x 5 vertical edges; the CZ count is exactly `L` times the number of
 patch edges because CZ is native and the layout is fixed, so no routing is inserted.)
 
-### Real hardware (not run)
+### Real hardware (not run): committed job lists through a GitHub Action
+
+Team rule (19 Sep 2026): IBM credentials live only as the GitHub repository secrets
+`QISKIT_IBM_TOKEN` and `QISKIT_IBM_INSTANCE`, never in Slack, in a container or in this repository,
+and every hardware job runs from a committed, reviewed JSON job list in `data/joblists/` (schema in
+`data/joblists/README.md`) through `.github/workflows/run_jobs.yml` (`workflow_dispatch` only, inputs
+`joblist` path and `dry_run`, default true). With `dry_run: false` the action runs
+`python -m gradvar.hardware --joblist <path> --yes-submit`, which refuses to submit unless the job
+list's `preflight_review` field holds the Slack permalink of the pre-flight sign-off, and then commits
+the log CSV to `data/jobs/` and the calibration snapshot to `data/calibrations/` as
+`gradvar-hardware-bot`. `python -m gradvar.hardware --joblist <path>` without `--yes-submit` builds
+against the fake backend and submits nothing. The ad-hoc command below still exists and still needs
+`--yes-submit`; it is not the sanctioned path.
 
 ```bash
 export QISKIT_IBM_TOKEN=...      # or QiskitRuntimeService.save_account(...) once
@@ -154,7 +278,11 @@ submitted, and the file name is written into every log row.
 
 ## Tests
 
-`pytest -q` covers: little-endian observable placement (label and expectation-value checks);
+`pytest -q` covers (`tests/test_noise_predict.py` adds the Gate 1 prediction checks: both noise models
+build from the CSV with the patch's qubits and every patch edge; the unital model contains only Pauli
+mixtures and no relaxation while the non-unital one does; the predicted noiseless chain variance at
+`n = 5`, `M = 3000` contains `2^-n`; `eps_N` on toy inputs; the Gate 1 summary on a toy frame; the
+snapshot CSV conversion; and the CLI on a 4x3 patch at `L = 1` in under a minute): little-endian observable placement (label and expectation-value checks);
 chain-baseline variance within the 95% bootstrap interval of `2^-n` for `n = 4, 6, 8` with `M = 4000`;
 parameter-shift gradient equals a central finite difference on a 4-qubit, 2-layer circuit for every
 parameter; the patch builder excludes the exclusion list and returns connected rectangles (and, for
@@ -171,6 +299,17 @@ thread / OSF entry; put its DOI or URL here before the first hardware submission
 Deviations below.
 
 ## Deviations
+
+* **Gate 1 prediction demo grid.** The pre-registered prediction grid is every planned hardware point
+  (`n = 20..100`, `L = 1..12`, `M = 200`). The CSV, JSON and figure committed here are the demo grid
+  4x3 and 4x4 (`n = 12, 16`), `L = 1, 2, 4`, `k in {1, L}`, `M = 100`, 8 noise trajectories per
+  circuit, because of the wall-clock budget of the container; the CLI flags reach the full grid.
+  Trajectory sampling adds a variance `~Var_traj / n_traj` to each gradient (an upward bias of the
+  noisy predictions, small next to the landscape variance at these depths); use `--traj 32` or more
+  for the Gate 1 report. Above 10 qubits the noisy expectation values use statevector trajectories
+  rather than MPS up to 22 qubits (identical model, much faster); MPS is used beyond.
+* **Readout error in predictions is analytic**, `prod (1 - 2 p_q)` on the two observable qubits,
+  rather than sampled through Aer's `ReadoutError` (which only acts on measured circuits).
 
 * **Reduced Gate 1 grid in the shipped figure.** The pre-registered noiseless grid is chain `n = 4..16`
   with `M = 2000` and HEA on 4x3/4x4/4x5 (`n = 12, 16, 20`) with `M = 500`. The figure and CSV

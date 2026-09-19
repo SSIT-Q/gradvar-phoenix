@@ -37,9 +37,13 @@ def get_service():
     """QiskitRuntimeService from QISKIT_IBM_TOKEN or the saved account. Never pass a token in code."""
     from qiskit_ibm_runtime import QiskitRuntimeService
     token = os.environ.get("QISKIT_IBM_TOKEN")
+    instance = os.environ.get("QISKIT_IBM_INSTANCE")
     if token:
-        return QiskitRuntimeService(channel="ibm_quantum_platform", token=token)
-    return QiskitRuntimeService()
+        kw = dict(channel="ibm_quantum_platform", token=token)
+        if instance:
+            kw["instance"] = instance
+        return QiskitRuntimeService(**kw)
+    return QiskitRuntimeService(instance=instance) if instance else QiskitRuntimeService()
 
 
 def get_backend(name: str = "ibm_phoenix", service=None):
@@ -157,14 +161,15 @@ def _append_rows(log_path: str, rows: List[dict]):
 
 
 def run_grid(points: Sequence[GridPoint], backend, shots: int = 4096, log_path: str = "logs/hardware_runs.csv",
-             calibration_csv: str | None = None, exclude=DEFAULT_EXCLUDE, submit: bool = True) -> List[dict]:
+             calibration_csv: str | None = None, exclude=DEFAULT_EXCLUDE, submit: bool = True,
+             shapes: dict | None = None) -> List[dict]:
     """Submit one EstimatorV2 job per resilience level inside a Batch and log one row per point.
 
     THIS FUNCTION IS THE ONLY PLACE THAT SUBMITS JOBS. It is never called by the dry run.
     """
     from qiskit_ibm_runtime import Batch, EstimatorV2
 
-    built = build_pubs(points, backend, exclude)
+    built = build_pubs(points, backend, exclude, shapes=shapes)
     snapshot = calibration_csv or snapshot_calibration(backend)
     rows: List[dict] = []
     by_level: dict = {}
@@ -218,8 +223,83 @@ def dry_run(ns: Sequence[int] = (20,), Ls: Sequence[int] = (1, 2, 4), k: int = 0
     return out
 
 
+JOBLIST_POINT_KEYS = {"n", "patch", "edge", "L", "k", "resilience", "shots", "M", "seed"}
+
+
+class JoblistError(ValueError):
+    pass
+
+
+def load_joblist(path: str) -> dict:
+    """Load and validate a JSON job list (schema: data/joblists/README.md). Never reads credentials."""
+    import json
+    jl = json.loads(Path(path).read_text())
+    for key in ("backend", "instance_alias", "points", "preflight_review"):
+        if key not in jl:
+            raise JoblistError(f"job list {path} is missing the required field {key!r}")
+    if not isinstance(jl["points"], list) or not jl["points"]:
+        raise JoblistError("job list has no points")
+    for i, pt in enumerate(jl["points"]):
+        missing = JOBLIST_POINT_KEYS - set(pt)
+        if missing:
+            raise JoblistError(f"point {i} is missing {sorted(missing)}")
+        if not (1 <= int(pt["k"]) <= int(pt["L"])):
+            raise JoblistError(f"point {i}: k must be in 1..L (1-based layer index)")
+        r, c = (int(x) for x in str(pt["patch"]).lower().split("x"))
+        if r * c != int(pt["n"]):
+            raise JoblistError(f"point {i}: patch {pt['patch']} has {r * c} qubits but n={pt['n']}")
+    return jl
+
+
+def joblist_submittable(jl: dict) -> bool:
+    """True only when preflight_review holds a Slack permalink (the pre-flight sign-off)."""
+    pr = str(jl.get("preflight_review") or "").strip()
+    return pr.startswith("https://") and "slack.com/archives/" in pr
+
+
+def joblist_points(jl: dict) -> Tuple[List[GridPoint], dict, int]:
+    """Expand the job list into GridPoints (one per draw: seed = seed + draw), a {n: shape} map and shots.
+    k in the job list is 1-based (pre-registration convention); GridPoint.k is 0-based."""
+    points, shapes, shots = [], {}, None
+    for pt in jl["points"]:
+        r, c = (int(x) for x in str(pt["patch"]).lower().split("x"))
+        patch = rect_patch(r, c)
+        shapes[int(pt["n"])] = (r, c)
+        _, edge = hea_observable(patch)
+        want = str(pt["edge"]).replace("-", "_")
+        if want and want != f"{edge[0]}_{edge[1]}":
+            raise JoblistError(f"point n={pt['n']}: job-list edge {want} differs from the interior edge {edge[0]}_{edge[1]}")
+        if shots is None:
+            shots = int(pt["shots"])
+        elif shots != int(pt["shots"]):
+            raise JoblistError("all points in one job list must share the same shot count (one Batch, one EstimatorV2 default)")
+        for d in range(int(pt["M"])):
+            points.append(GridPoint(n=int(pt["n"]), L=int(pt["L"]), k=int(pt["k"]) - 1, resilience_level=int(pt["resilience"]),
+                                    q=patch.local(edge[0]), seed=int(pt["seed"]) + d))
+    return points, shapes, shots
+
+
+def run_joblist(path: str, submit: bool, log_dir: str = "data/jobs") -> int:
+    jl = load_joblist(path)
+    points, shapes, shots = joblist_points(jl)
+    stem = Path(path).stem
+    if not submit:
+        print(f"job list {path}: {len(points)} circuits pairs across {len(jl['points'])} points, backend {jl['backend']}, "
+              f"instance alias {jl['instance_alias']}, preflight_review={'set' if joblist_submittable(jl) else 'EMPTY'}")
+        dry_run(sorted({p.n for p in points}), sorted({p.L for p in points}), 0, shapes=shapes)
+        return 0
+    if not joblist_submittable(jl):
+        raise SystemExit(f"refusing to submit: preflight_review in {path} is empty or not a Slack permalink")
+    backend = get_backend(jl["backend"])
+    log_path = str(Path(log_dir) / f"{stem}_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}.csv")
+    rows = run_grid(points, backend, shots=shots, log_path=log_path, shapes=shapes)
+    print(f"logged {len(rows)} rows to {log_path}")
+    return 0
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(description="gradvar hardware runner (EstimatorV2, Batch mode)")
+    p.add_argument("--joblist", default=None, help="JSON job list under data/joblists/ (see its README)")
     p.add_argument("--dry-run", action="store_true", help="transpile against a fake backend; submit nothing")
     p.add_argument("--n", type=int, nargs="+", default=[20])
     p.add_argument("--L", type=int, nargs="+", default=[1, 2, 4])
@@ -230,6 +310,10 @@ def main(argv=None):
     p.add_argument("--log", default="logs/hardware_runs.csv")
     p.add_argument("--yes-submit", action="store_true", help="required to actually submit to hardware")
     a = p.parse_args(argv)
+    if a.joblist:
+        if not a.yes_submit:
+            print("no --yes-submit: building the job list against a fake backend, submitting nothing")
+        return run_joblist(a.joblist, submit=a.yes_submit)
     if a.dry_run:
         dry_run(a.n, a.L, a.k)
         return 0

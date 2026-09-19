@@ -1,0 +1,12 @@
+{
+  "name": "example_smoke_test",
+  "backend": "ibm_phoenix",
+  "instance_alias": "flex-360",
+  "preflight_review": "",
+  "notes": "Template only. Tracker P1.2.2 smoke test: locked time per point, depth ceiling. Not reviewed, will not submit.",
+  "points": [
+    {"n": 20, "patch": "4x5", "edge": "12_22", "L": 1, "k": 1, "resilience": 0, "shots": 4096, "M": 5, "seed": 7},
+    {"n": 20, "patch": "4x5", "edge": "12_22", "L": 4, "k": 1, "resilience": 0, "shots": 4096, "M": 5, "seed": 7},
+    {"n": 20, "patch": "4x5", "edge": "12_22", "L": 4, "k": 4, "resilience": 1, "shots": 4096, "M": 5, "seed": 7}
+  ]
+}
