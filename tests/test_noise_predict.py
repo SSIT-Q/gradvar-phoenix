@@ -103,19 +103,45 @@ def test_unital_and_nonunital_have_matched_per_gate_infidelity():
 
 
 def test_light_cone_reduction_is_exact():
+    """Cone strictly smaller than the patch: 4x5 at L = 2 (16 of 20 qubits, noiseless) and 2x5 at L = 2 (8 of 10,
+    exact density matrix under both noise models)."""
+    from qiskit_aer import AerSimulator
+    from gradvar import noise as noise_mod
     from gradvar.predict import measured_zz
-    patch = rect_patch(4, 4)
+    from gradvar.sim import BASIS
+    from qiskit import transpile
+    patch = rect_patch(4, 5)
     obs, edge = hea_observable(patch)
     assert len(light_cone(patch, 1, edge)) == 2
-    for L in (2, 3):
-        cone = snake_order(light_cone(patch, L, edge))
-        m = len(cone)
-        rng = np.random.default_rng(L)
-        th = rng.uniform(0, 2 * np.pi, (L, patch.n))
-        full = statevector_expval(obs)(hea_square(patch, L, th.reshape(-1)))
-        thc = np.array([[th[k, patch.local(q)] for q in cone] for k in range(L)]).reshape(-1)
-        red = statevector_expval(measured_zz(m, cone.index(edge[0]), cone.index(edge[1])))(hea_on_qubits(patch, L, cone, thc, idle_delays=True))
-        assert np.isclose(full, red, atol=1e-10)
+    cone = snake_order(light_cone(patch, 2, edge))
+    m = len(cone)
+    assert 2 < m < patch.n
+    th = np.random.default_rng(2).uniform(0, 2 * np.pi, (2, patch.n))
+    full = statevector_expval(obs)(hea_square(patch, 2, th.reshape(-1)))
+    thc = np.array([[th[k, patch.local(q)] for q in cone] for k in range(2)]).reshape(-1)
+    red = statevector_expval(measured_zz(m, cone.index(edge[0]), cone.index(edge[1])))(hea_on_qubits(patch, 2, cone, thc, idle_delays=True))
+    assert np.isclose(full, red, atol=1e-10)
+    # noisy: exact density matrix on the full 2x5 patch (10 qubits) vs its 8-qubit cone, both noise models
+    patch = noise_mod.place_patch(2, 5, CAL)
+    obs, edge = hea_observable(patch)
+    cone = snake_order(light_cone(patch, 2, edge))
+    m = len(cone)
+    assert m < patch.n
+    th = np.random.default_rng(5).uniform(0, 2 * np.pi, (2, patch.n))
+    thc = np.array([[th[k, patch.local(q)] for q in cone] for k in range(2)]).reshape(-1)
+    for model in ("unital", "nonunital"):
+        idle = model == "nonunital"
+        ai, bi = noise_mod.readout_z_coefficients(CAL, edge[0])
+        aj, bj = noise_mod.readout_z_coefficients(CAL, edge[1])
+        vals = []
+        for qubits, params in ((list(patch.qubits), np.array([[th[k, patch.local(q)] for q in patch.qubits] for k in range(2)]).reshape(-1)), (cone, thc)):
+            qc = hea_on_qubits(patch, 2, qubits, params, idle_delays=idle)
+            nm = noise_mod.build_model(model, CAL, qubits)
+            o = measured_zz(len(qubits), qubits.index(edge[0]), qubits.index(edge[1]), (ai, aj), (bi, bj))
+            circ = transpile(qc, basis_gates=noise_mod.NOISE_BASIS, optimization_level=0)
+            circ.save_expectation_value(o, list(range(len(qubits))), label="ev")
+            vals.append(float(AerSimulator(method="density_matrix", noise_model=nm).run(circ).result().data(0)["ev"]))
+        assert np.isclose(vals[0], vals[1], atol=1e-9), (model, vals)
 
 
 def test_measured_zz_readout_folding():
@@ -170,6 +196,7 @@ def test_layer_index_statistic_and_summary_list_all_criteria():
     row = st.iloc[0]
     assert np.isclose(row.r_noiseless, 0.25) and np.isclose(row.R_unital, 1.0) and np.isclose(row.R_nonunital, (0.6 / 0.9) ** 2 / 0.25)
     assert np.isclose(row.D, row.R_nonunital - row.R_unital) and row.D_lo <= row.D <= row.D_hi
+    assert bool(row.separated) == (row.D_lo > 0) and "separated_two_sided" in st       # directional (Deviation 14)
     s = gate1_summary(res, noiseless_csv=None, ratio_stats=st)
     assert list(s["criteria"]) == list("abcdef")
     for letter, c in s["criteria"].items():
@@ -240,7 +267,7 @@ def test_joblist_loads_and_refuses_to_submit_without_preflight_review(tmp_path):
     assert not joblist_submittable(jl) and jl["instance"] == "flex"
     points, shapes, shots = joblist_points(jl, CAL)
     assert len(points) == 15 and shapes[20].origin == (8, 1) and shots == 4096
-    assert {p.k for p in points} == {0, 3} and {p.seed for p in points} == {7, 8, 9, 10, 11}
+    assert {p.k for p in points} == {0, 3} and {p.seed for p in points} == {7, 8, 9, 10, 11}   # GridPoint.k is 0-based
     with pytest.raises(SystemExit):
         run_joblist(str(src), submit=True)          # empty preflight_review: refused before any credential is read
     with pytest.raises(SystemExit):
@@ -312,3 +339,4 @@ def test_dry_run_writes_job_bundle_layout(tmp_path, monkeypatch):
     assert len(logs) == 1
     df = pd.read_csv(logs[0])
     assert list(df.columns) == LOG_COLUMNS and len(df) == 15 and set(df.job_id) == {d.name for d in bundles}
+    assert set(df.k) == {1, 4}                                                   # CSV k is 1-based like the job list

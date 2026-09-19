@@ -186,51 +186,6 @@ def _append_rows(log_path: str, rows: List[dict]):
             w.writerow({c: r.get(c, "") for c in LOG_COLUMNS})
 
 
-def run_grid(points: Sequence[GridPoint], backend, shots: int = 4096, log_path: str = "logs/hardware_runs.csv",
-             calibration_csv: str | None = None, exclude=DEFAULT_EXCLUDE, submit: bool = True,
-             shapes: dict | None = None) -> List[dict]:
-    """Submit one EstimatorV2 job per resilience level inside a Batch and log one row per point.
-
-    Legacy helper kept for reference; not reachable from the CLI. Submission goes through ``execute_joblist``.
-    """
-    from qiskit_ibm_runtime import Batch, EstimatorV2
-
-    built = build_pubs(points, backend, exclude, shapes=shapes)
-    snapshot = calibration_csv or snapshot_calibration(backend)
-    rows: List[dict] = []
-    by_level: dict = {}
-    for b in built:
-        by_level.setdefault(b.point.resilience_level, []).append(b)
-    if not submit:
-        raise RuntimeError("run_grid called with submit=False; use execute_joblist(submit=False) for a no-submit build")
-    with Batch(backend=backend) as batch:
-        jobs = []
-        for level, group in by_level.items():
-            est = EstimatorV2(mode=batch)
-            est.options.resilience_level = level
-            est.options.default_shots = shots
-            job = est.run([b.pub() for b in group])
-            jobs.append((level, group, job))
-        for level, group, job in jobs:
-            result = job.result()
-            for b, pr in zip(group, result):
-                evs = np.asarray(pr.data.evs).reshape(-1)
-                stds = np.asarray(pr.data.stds).reshape(-1)
-                rows.append({
-                    "backend": backend.name, "job_id": job.job_id(),
-                    "timestamp": datetime.now(timezone.utc).isoformat(), "calibration_snapshot": snapshot,
-                    "n": b.point.n, "patch_qubits": " ".join(map(str, b.patch.qubits)),
-                    "observable_edge": f"{b.edge[0]}_{b.edge[1]}", "L": b.point.L, "k": b.point.k,
-                    "resilience_level": level, "shots": shots, "seed": b.point.seed,
-                    "param_hash": param_hash(b.theta), "ev_plus": evs[0], "ev_minus": evs[1],
-                    "std_plus": stds[0], "std_minus": stds[1], "gradient": (evs[0] - evs[1]) / 2,
-                    "transpiled_depth": b.depth, "two_qubit_gates": b.two_qubit_gates,
-                    "fractional_gates": bool(getattr(backend.options, "use_fractional_gates", False)),
-                })
-    _append_rows(log_path, rows)
-    return rows
-
-
 def dry_run(ns: Sequence[int] = (20,), Ls: Sequence[int] = (1, 2, 4), k: int = 0, exclude=DEFAULT_EXCLUDE,
             shapes: dict | None = None) -> List[dict]:
     backend = fake_backend()
@@ -241,7 +196,7 @@ def dry_run(ns: Sequence[int] = (20,), Ls: Sequence[int] = (1, 2, 4), k: int = 0
     out = []
     for b in built:
         row = {"backend": backend.name, "n": b.point.n, "patch": f"{b.patch.n_rows}x{b.patch.n_cols}", "L": b.point.L,
-               "k": b.point.k, "edge": f"{b.edge[0]}_{b.edge[1]}", "depth": b.depth, "two_qubit_gates": b.two_qubit_gates,
+               "k": b.point.k + 1, "edge": f"{b.edge[0]}_{b.edge[1]}", "depth": b.depth, "two_qubit_gates": b.two_qubit_gates,
                "n_params": len(b.theta)}
         out.append(row)
         print(f"{row['n']:>4} {row['patch']:>7} {row['L']:>3} {row['k']:>3} {row['edge']:>9} {row['depth']:>6} "
@@ -453,7 +408,7 @@ def _point_rows(backend, job_id: str, snapshot: str, group: List[BuiltPub], leve
             "backend": getattr(backend, "name", str(backend)), "job_id": job_id,
             "timestamp": datetime.now(timezone.utc).isoformat(), "calibration_snapshot": snapshot,
             "n": b.point.n, "patch_qubits": " ".join(map(str, b.patch.qubits)),
-            "observable_edge": f"{b.edge[0]}_{b.edge[1]}", "L": b.point.L, "k": b.point.k,
+            "observable_edge": f"{b.edge[0]}_{b.edge[1]}", "L": b.point.L, "k": b.point.k + 1,   # 1-based, as in the job list
             "resilience_level": level, "shots": shots, "seed": b.point.seed,
             "param_hash": param_hash(b.theta), "ev_plus": evs[0], "ev_minus": evs[1],
             "std_plus": stds[0], "std_minus": stds[1], "gradient": (evs[0] - evs[1]) / 2,

@@ -267,7 +267,9 @@ def layer_index_statistics(results: Sequence[PointResult], n_boot: int = 10_000,
     """Pre-registered H3 statistic per (n, L): the layer-index ratio r_m = Var_m(k = L) / Var_m(k = 1), the
     noiseless-corrected ratio R_m = r_m / r_noiseless, and the discriminator D = R_nonunital - R_unital,
     each with a 95% paired bootstrap interval over the shared theta draws (all six gradient arrays of one
-    (n, L) come from the same parameter vectors). ``separated`` is True when D's interval excludes 0."""
+    (n, L) come from the same parameter vectors). ``separated`` follows Deviation 14 (approved): H3 predicts D > 0, so
+    ``separated`` is True only when D_lo > 0 (directional); the two-sided interval is kept in the output and
+    ``separated_two_sided`` records whether it excludes 0 in either direction."""
     by = {(r.model, r.n, r.L, r.k): r for r in results if r.gradients is not None}
     rows = []
     for (n, L) in sorted({(r.n, r.L) for r in results}):
@@ -299,7 +301,8 @@ def layer_index_statistics(results: Sequence[PointResult], n_boot: int = 10_000,
             row[f"R_{m}_lo"], row[f"R_{m}_hi"] = q(Rb[m])
         row["D"] = float(D0)
         row["D_lo"], row["D_hi"] = q(Db)
-        row["separated"] = bool(row["D_lo"] > 0 or row["D_hi"] < 0)
+        row["separated"] = bool(row["D_lo"] > 0)                       # directional (Deviation 14: H3 predicts D > 0)
+        row["separated_two_sided"] = bool(row["D_lo"] > 0 or row["D_hi"] < 0)
         vk = {m: float(G[(m, L)].var(ddof=1)) for m in ("unital", "nonunital")}
         row["var_kL_nonunital_minus_unital"] = vk["nonunital"] - vk["unital"]
         rows.append(row)
@@ -370,12 +373,12 @@ def gate1_summary(results: Sequence[PointResult], noiseless_csv: str | None = No
                    note=f"{n_c1} of {len(c1)} (n, L) points on this grid exceed 2 x floor; the >= 6 count is defined on the "
                         f"25-point pre-registered grid" + ("" if prereg_grid else ", which this is not")),
         part2=dict(statistic="D = R_nonunital - R_unital, R_m = [Var_m(k=L)/Var_m(k=1)] / [Var_noiseless(k=L)/Var_noiseless(k=1)], "
-                             "95% paired bootstrap over shared theta draws; 'differs' = interval excludes 0",
+                             "95% paired bootstrap over shared theta draws; 'differs' = D_lo > 0 (directional, H3 predicts D > 0; Deviation 14)",
                    points=c2, prereg_points=c2_prereg,
                    result=("pass" if c2_prereg and any(r["separated"] for r in c2_prereg) else "fail") if c2_prereg else "not-evaluated",
-                   note="the pre-registered 'twice the floor' threshold compares a dimensionless ratio with a variance; it is "
-                        "replaced here by the paired-bootstrap interval of H3's refutation clause. Flag to the PI before v1.0 "
-                        "is signed." + ("" if c2_prereg else " No n = 40 / 100, L = 8 / 12 point on this grid.")),
+                   note="the pre-registered 'twice the floor' threshold compares a dimensionless ratio with a variance; per "
+                        "Deviation 14 (approved by the PI, 19 Sep 2026) it is replaced by the directional paired-bootstrap test "
+                        "D_lo > 0." + ("" if c2_prereg else " No n = 40 / 100, L = 8 / 12 point on this grid.")),
     )
     crit["c"]["result"] = "not-evaluated" if not prereg_grid else (
         "pass" if crit["c"]["part1"]["result"] == "pass" and crit["c"]["part2"]["result"] == "pass" else "fail")

@@ -10,8 +10,9 @@ density matrix) and, through `gradvar.hardware`, on IBM hardware with `Estimator
 with every hardware point logged to CSV together with the calibration snapshot it was taken under.
 
 **No hardware job has been submitted by this repository.** The only code path that submits
-(`gradvar.hardware.run_grid`) requires `--yes-submit` on the command line; `--dry-run` transpiles
-against a fake backend and submits nothing.
+(`gradvar.hardware.execute_joblist`, reached through `--joblist ... --yes-submit` from a reviewed job list
+whose `preflight_review` is set) refuses otherwise; `--dry-run` and a job list without `--yes-submit`
+transpile against a fake backend and submit nothing.
 
 ## Layout
 
@@ -161,9 +162,10 @@ draws (the same theta for all models and both k at fixed (n, L)), 95% percentile
 (single-shot gradient variance from the exact two-term form; `eps_N < 1` is resolvable), runtime, method, cone
 size. **Layer-index statistic** (pre-registration H3 / Analysis): `r_m = Var_m(k=L)/Var_m(k=1)`, the
 noiseless-corrected `R_m = r_m / r_noiseless`, and the discriminator `D = R_nonunital - R_unital`, each with a
-95% *paired* bootstrap over the shared draws; the models are "separated" when D's interval excludes 0. The
-pre-registered "twice the floor" threshold on the ratio compares a dimensionless number with a variance and is
-not used; this is flagged to the PI in the summary JSON. The variance-space difference at k = L is reported
+95% *paired* bootstrap over the shared draws; per Deviation 14 (approved 19 Sep 2026) the test is directional,
+`separated = (D_lo > 0)` since H3 predicts D > 0, and the two-sided interval is kept in the output
+(`separated_two_sided`). The pre-registered "twice the floor" threshold on the ratio compares a dimensionless
+number with a variance and is not used (Deviation 14). The variance-space difference at k = L is reported
 alongside.
 
 **Summary JSON** (`data/predictions/gate1_summary.json`) lists all six pre-registered Gate 1 criteria (a)-(f)
@@ -316,7 +318,7 @@ submitted, and the file name is written into every log row.
 | patch_qubits | space-separated physical qubit indices (row-major) |
 | observable_edge | `i_j` physical qubits of `Z_i Z_j` |
 | L | number of ansatz layers |
-| k | layer of the differentiated parameter (local qubit = first qubit of the observable edge... see `GridPoint.q`) |
+| k | 1-based layer of the differentiated parameter, as in the job list and the pre-registration (local qubit = first qubit of the observable edge, `GridPoint.q`) |
 | resilience_level | EstimatorV2 `resilience_level` |
 | shots | shots per circuit |
 | seed | seed of the random parameter vector |
@@ -362,8 +364,13 @@ Deviations below.
   predictions at n <= 12; at 12 qubits and L = 4 one noisy circuit takes ~10 s in Aer's density-matrix method
   (400 circuits per point at M = 200, over an hour per point), so the n = 12, L >= 2 points use 32 trajectories.
   The measured trajectory bias (`scripts/trajectory_bias.py`, 2x5 patch, L = 4, k = 1, M = 100, exact density
-  matrix as reference) is: unital 8 trajectories var=1.4528e-02 bias=-1.84e-04; unital 32 trajectories var=1.4773e-02 bias=+6.08e-05; nonunital 8 trajectories var=1.5190e-02 bias=+4.54e-04; nonunital 32 trajectories var=1.5197e-02 bias=+4.61e-04. The bias is additive (~Var_traj/n_traj) and larger for the non-unital
-  model, so the non-unital curves are biased upwards by that amount at 32 trajectories.
+  matrix as reference) is: see scripts/trajectory_bias.py. These differences are Monte-Carlo scatter of the variance estimate,
+  not a bias: the per-draw trajectory error `mean((g_traj - g_exact)^2)` scales as 1/n_traj (2x4, L = 4:
+  2.6e-4 / 7.7e-5 / 2.2e-5 unital and 3.5e-4 / 8.6e-5 / 2.8e-5 non-unital at 8 / 32 / 128 trajectories, second
+  reviewer) with ~10% model asymmetry, so at 32 trajectories each noisy variance is inflated by ~8e-5 (above
+  the 6.1e-5 criterion-(c) threshold) and the layer-index D carries an unpaired Monte-Carlo width of ~0.05.
+  32-trajectory sampling therefore cannot resolve an H3 separation below ~1e-2; Pauli propagation
+  (Deviation 15) is the tool for that.
 * **Readout error in predictions is analytic** (asymmetric confusion folded into the observable) rather than
   sampled through Aer's `ReadoutError`, which only acts on measured circuits.
 * **Bootstrap.** Predictions use 10,000 resamples (`--n-boot`), as pre-registered; the paired bootstrap of the
@@ -373,9 +380,11 @@ Deviations below.
 * **Large patches are rectangles with holes.** With the default exclusion list (17, 55, 61, 62, 63,
   72, 73) no clean 6x10, 8x10 or 10x10 rectangle exists inside the 12x10 lattice, so
   `patch_for_n(60|80|100)` returns the rectangle with the fewest excluded qubits and removes them:
-  6x10 at origin (0,0) minus {17, 55} -> 58 qubits; 8x10 at origin (2,0) minus {55, 61, 62, 63, 72,
-  73} -> 74 qubits; 10x10 at origin (2,0) minus the same six -> 94 qubits. All remain connected.
-  `patch_for_n(n, strict=True)` raises instead. The 20 (4x5) and 40 (4x10) patches are clean.
+  with the fixed list alone `patch_for_n` gives 6x10 at (0,0) minus {17, 55} -> 58 qubits, 8x10 at (2,0)
+  minus {55, 61, 62, 63, 72, 73} -> 74 and 10x10 at (2,0) -> 94; with the full calibration cut (adds 24, 49,
+  77, 107) `noise.place_patch` gives 4x10 at (8,0) minus {107} -> **n = 39** (a 4x10 cannot be shifted off
+  qubit 107; a Deviation is needed for the n = 40 ladder point), 6x10 at (0,0) -> 56, 8x10 at (2,0) -> 71,
+  10x10 at (0,0) -> 90. All remain connected. `patch_for_n(n, strict=True)` raises instead. The 20 (4x5) and 40 (4x10) patches are clean.
 * **Gate 1 HEA expectation values above 14 qubits use Aer's statevector method** rather than
   `qiskit.quantum_info.Statevector` (identical numbers, ~10x faster). The chain baseline and all
   tests use `qiskit.quantum_info.Statevector`.
