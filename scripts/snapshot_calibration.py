@@ -1,8 +1,8 @@
 """Save an ibm_phoenix calibration snapshot: backend properties JSON plus the CSV used by gradvar.noise.
 
 Reads the IBM Quantum credentials only from the environment (QISKIT_IBM_TOKEN, QISKIT_IBM_INSTANCE);
-no token is ever written to disk or printed. Output files (UTC timestamp):
-    data/calibrations/<backend>_properties_<YYYYMMDDTHHMMSSZ>.json
+no token is ever written to disk or printed. Output files, stamped with the UTC time at which the IBM API response was received:
+    data/calibrations/<backend>_properties_<YYYYMMDDTHHMMSSZ>.json.gz   (raw backend.properties(), gzipped)
     data/calibrations/<backend>_<YYYY-MM-DD>T<HHMMSS>Z.csv
 The CSV has the same columns as data/calibrations/ibm_phoenix_2026-09-19.csv (the IBM Quantum
 Platform "download calibrations" layout) so ``gradvar.sim.load_calibration`` reads either.
@@ -13,6 +13,7 @@ Usage: python scripts/snapshot_calibration.py [--backend ibm_phoenix] [--out-dir
 from __future__ import annotations
 
 import argparse
+import gzip
 import json
 import os
 import sys
@@ -90,23 +91,37 @@ def fetch_properties(backend_name: str) -> Dict:
     return json.loads(json.dumps(d, default=str))
 
 
+def write_snapshot(props: Dict, backend: str, out_dir: str, received_at: datetime, write_properties: bool = True):
+    """Write the CSV and (optionally) the gzipped raw properties JSON, both stamped with ``received_at``."""
+    out = Path(out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    stamp = received_at.strftime("%Y%m%dT%H%M%SZ")
+    csv_path = out / f"{backend}_{received_at.strftime('%Y-%m-%dT%H%M%SZ')}.csv"
+    gz_path = out / f"{backend}_properties_{stamp}.json.gz"
+    properties_to_rows(props).to_csv(csv_path, index=False)
+    written = [csv_path]
+    if write_properties:
+        with gzip.open(gz_path, "wt", encoding="utf-8") as f:
+            json.dump(props, f, indent=1, default=str)
+        written.append(gz_path)
+    return written
+
+
 def main(argv=None):
     p = argparse.ArgumentParser()
     p.add_argument("--backend", default="ibm_phoenix")
     p.add_argument("--out-dir", default=str(ROOT / "data" / "calibrations"))
-    p.add_argument("--from-json", default=None, help="convert an existing properties JSON instead of fetching")
+    p.add_argument("--from-json", default=None, help="convert an existing properties JSON (plain or .gz) instead of fetching")
     a = p.parse_args(argv)
-    now = datetime.now(timezone.utc)
-    props = json.loads(Path(a.from_json).read_text()) if a.from_json else fetch_properties(a.backend)
-    out = Path(a.out_dir)
-    out.mkdir(parents=True, exist_ok=True)
-    stamp = now.strftime("%Y%m%dT%H%M%SZ")
-    json_path = out / f"{a.backend}_properties_{stamp}.json"
-    csv_path = out / f"{a.backend}_{now.strftime('%Y-%m-%dT%H%M%SZ')}.csv"
-    if not a.from_json:
-        json_path.write_text(json.dumps(props, indent=1, default=str))
-    properties_to_rows(props).to_csv(csv_path, index=False)
-    print(f"wrote {csv_path}" + ("" if a.from_json else f" and {json_path}"))
+    if a.from_json:
+        opener = gzip.open if a.from_json.endswith(".gz") else open
+        with opener(a.from_json, "rt", encoding="utf-8") as f:
+            props = json.load(f)
+    else:
+        props = fetch_properties(a.backend)
+    received_at = datetime.now(timezone.utc)   # time the API response was received (or the file was read)
+    written = write_snapshot(props, a.backend, a.out_dir, received_at, write_properties=not a.from_json)
+    print("wrote " + " and ".join(str(w) for w in written))
 
 
 if __name__ == "__main__":

@@ -238,8 +238,9 @@ Criterion (c) part 1 on the demo grid: 6 of 6 `(n, L)` points have `|Var_unital 
 
 `.github/workflows/calibration_snapshot.yml` runs every day at 03:00 UTC (and on manual dispatch),
 installs `qiskit-ibm-runtime`, runs `scripts/snapshot_calibration.py`, and commits
-`data/calibrations/ibm_phoenix_properties_<utc>.json` and `ibm_phoenix_<utc>.csv` to `main` as
-`gradvar-calibration-bot`. The script reads credentials only from the environment. To enable it, add
+`data/calibrations/ibm_phoenix_properties_<utc>.json.gz` (the raw `backend.properties()`, gzipped, ~100-200 KB)
+and `ibm_phoenix_<utc>.csv` to `main` as `gradvar-calibration-bot`; `<utc>` is the time the IBM API response
+was received. The script reads credentials only from the environment. To enable it, add
 two repository secrets (GitHub: *Settings -> Secrets and variables -> Actions -> New repository secret*):
 
 | secret | value |

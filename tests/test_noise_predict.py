@@ -235,6 +235,19 @@ def test_snapshot_csv_conversion_from_properties_dict():
     df = properties_to_rows(props)
     assert list(df.columns) == list(pd.read_csv(CAL, nrows=1).columns)
     assert df.loc[0, "CZ error"] == "1:0.002" and df.loc[1, "√x (sx) error"] == 3e-4 and df.loc[0, "T1 (us)"] == 150.0
+    # write_snapshot: CSV plus gzipped raw properties, both stamped with the response time
+    import gzip
+    import tempfile
+    from datetime import datetime, timezone
+    from snapshot_calibration import write_snapshot
+    with tempfile.TemporaryDirectory() as d:
+        t = datetime(2026, 9, 19, 15, 54, 34, tzinfo=timezone.utc)
+        written = write_snapshot(props, "ibm_test", d, t)
+        names = sorted(w.name for w in written)
+        assert names == ["ibm_test_2026-09-19T155434Z.csv", "ibm_test_properties_20260919T155434Z.json.gz"]
+        with gzip.open(written[1], "rt") as f:
+            assert json.load(f) == props
+        assert len(pd.read_csv(written[0])) == 2
 
 
 def test_cli_runs_4x3_L1_under_a_minute(tmp_path):

@@ -24,7 +24,7 @@ jobs:
           python-version: "3.11"
       - name: Install qiskit-ibm-runtime
         run: pip install "qiskit-ibm-runtime==0.49.0" "pandas==3.0.6"
-      - name: Snapshot ibm_phoenix calibration
+      - name: Snapshot ibm_phoenix calibration (CSV + gzipped raw properties, stamped with the API response time)
         env:
           QISKIT_IBM_TOKEN: ${{ secrets.QISKIT_IBM_TOKEN }}
           QISKIT_IBM_INSTANCE: ${{ secrets.QISKIT_IBM_INSTANCE }}

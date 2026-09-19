@@ -5,4 +5,3 @@ __pycache__/
 .env
 logs/*.csv
 data/jobs/*.json
-data/calibrations/*_properties_*.json
