@@ -1,7 +1,7 @@
 """Ansatz circuits: square-lattice hardware-efficient ansatz and the linear-chain baseline."""
 from __future__ import annotations
 
-from typing import Sequence, Tuple, Union
+from typing import List, Sequence, Tuple, Union
 
 import numpy as np
 from qiskit import QuantumCircuit
@@ -59,6 +59,78 @@ def hea_square(patch, L: int, params: ParamsLike = None) -> QuantumCircuit:
         for sub in sublayers:
             for (a, b) in sub:
                 qc.cz(patch.local(a), patch.local(b))
+        if k < L - 1:
+            qc.barrier()
+    return qc
+
+
+def light_cone(patch, L: int, edge: Tuple[int, int] | None = None) -> List[int]:
+    """Physical qubits in the backward light cone of Z_i Z_j on ``edge`` through L layers.
+
+    Heisenberg picture, reverse time: the last layer's CZs are diagonal and commute with Z_i Z_j, so the
+    support starts as {i, j} after the last Ry; each earlier layer's four CZ sub-layers (reverse order) add
+    the sub-layer neighbours of the current support. Gates whose support lies outside the cone commute
+    through the back-propagated observable at their time, so simulating only the cone is exact (also
+    under gate-local noise, since trace-preserving channels act trivially on operators they do not touch).
+    Returned in row-major patch order.
+    """
+    patch = _as_patch(patch)
+    if edge is None:
+        edge = interior_edge(patch)
+    support = {int(edge[0]), int(edge[1])}
+    sublayers = patch.edges_by_sublayer()
+    for _ in range(L - 1):
+        for sub in reversed(sublayers):
+            for a, b in sub:
+                if a in support or b in support:
+                    support.add(a)
+                    support.add(b)
+    return [q for q in patch.qubits if q in support]
+
+
+def snake_order(qubits: Sequence[int]) -> List[int]:
+    """Order qubits along the shorter side of their bounding box, alternating direction (MPS-friendly)."""
+    rc = {q: row_col(q) for q in qubits}
+    rows = sorted({r for r, _ in rc.values()})
+    cols = sorted({c for _, c in rc.values()})
+    if len(rows) <= len(cols):   # sweep column by column, snake through the (few) rows
+        key = lambda q: (rc[q][1], rc[q][0] if rc[q][1] % 2 == 0 else -rc[q][0])  # noqa: E731
+    else:
+        key = lambda q: (rc[q][0], rc[q][1] if rc[q][0] % 2 == 0 else -rc[q][1])  # noqa: E731
+    return sorted(qubits, key=key)
+
+
+def hea_on_qubits(patch, L: int, qubits: Sequence[int], params: ParamsLike = None,
+                  idle_delays: bool = False, delay_ns: float = 68.0) -> QuantumCircuit:
+    """The square-lattice HEA restricted to a qubit subset of ``patch`` (e.g. its light cone): Ry on every
+    listed qubit, CZ on every patch edge with both endpoints listed, same sub-layer order. Local qubit i is
+    ``qubits[i]``; parameter (k, i) has flat index k*len(qubits) + i. With ``idle_delays`` every listed qubit
+    not acted on in a CZ sub-layer receives ``delay(delay_ns)`` so idle relaxation can be attached to it.
+    """
+    patch = _as_patch(patch)
+    qubits = [int(q) for q in qubits]
+    m = len(qubits)
+    local = {q: i for i, q in enumerate(qubits)}
+    if params is None:
+        params = ParameterVector("theta", m * L)
+    elif not isinstance(params, ParameterVector):
+        params = np.asarray(params, dtype=float).reshape(-1)
+    if len(params) != m * L:
+        raise ValueError(f"expected {m * L} parameters, got {len(params)}")
+    qc = QuantumCircuit(m, name=f"hea_cone{m}_L{L}")
+    sublayers = [[(a, b) for (a, b) in sub if a in local and b in local] for sub in patch.edges_by_sublayer()]
+    for k in range(L):
+        for i in range(m):
+            qc.ry(params[k * m + i], i)
+        for sub in sublayers:
+            busy = set()
+            for (a, b) in sub:
+                qc.cz(local[a], local[b])
+                busy.update((local[a], local[b]))
+            if idle_delays:
+                for i in range(m):
+                    if i not in busy:
+                        qc.delay(delay_ns, i, unit="ns")
         if k < L - 1:
             qc.barrier()
     return qc

@@ -23,11 +23,12 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install qiskit-ibm-runtime
-        run: pip install "qiskit-ibm-runtime>=0.40" pandas
+        run: pip install "qiskit-ibm-runtime==0.49.0" "pandas==3.0.6"
       - name: Snapshot ibm_phoenix calibration
         env:
           QISKIT_IBM_TOKEN: ${{ secrets.QISKIT_IBM_TOKEN }}
           QISKIT_IBM_INSTANCE: ${{ secrets.QISKIT_IBM_INSTANCE }}
+          QISKIT_IBM_INSTANCE_OPEN: ${{ secrets.QISKIT_IBM_INSTANCE_OPEN }}
         run: python scripts/snapshot_calibration.py --backend ibm_phoenix --out-dir data/calibrations
       - name: Commit snapshot
         run: |
