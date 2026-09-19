@@ -1,8 +1,10 @@
 # Tracker: task lists and minute ledger
 
-Version 1, 19 September 2026; last updated 19 Sep 2026, 23:45 IST. Companion to [PLAN.md](PLAN.md). Statuses: done, in progress, todo, blocked. Owners: **O** = Mohammed Owais, **R** = Dr. Raviram V (PI), **C** = physics collaborator (anonymous for now), **Cl** = Claude.
+Version 12, 20 September 2026 (first version 19 September 2026); last updated 20 Sep 2026, 00:30 IST. Companion to [PLAN.md](PLAN.md). Statuses: done, in progress, todo, blocked. Live statuses are edited on the tracker artifact (db collection `status`, doc id = task id); this file mirrors the page's default statuses. Owners: **O** = Mohammed Owais, **R** = Dr. Raviram V (PI), **C** = physics collaborator (anonymous for now), **T** = college theorist (Paper 2 companion, to be named), **Cl** = Claude.
 
 ## 2. Paper 1 task list
+
+Pre-registered measurement of gradient variance on ibm_phoenix. Dates are due dates unless a range is given.
 
 ### P1.0 Setup (19 to 25 Sep 2026)
 
@@ -10,8 +12,8 @@ Version 1, 19 September 2026; last updated 19 Sep 2026, 23:45 IST. Companion to 
 |---|---|---|---|---|---|
 | P1.0.1 | Repository pushed | Cl | 19 Sep 2026 | done | Commit 2c5a743 on main |
 | P1.0.2 | Owais's first commit, and Dr. Raviram added as collaborator | O | 21 Sep 2026 | todo | Commit hash; collaborator visible on GitHub |
-| P1.0.3 | PI signature on pre-registration: v0.2 signed, then v0.3 with Deviations 14 and 15 approved; pre-registration closed | R | 22 Sep 2026 | done (19 Sep 2026) | Done 19 Sep 2026. v0.2 signed (confirmed 19:21 IST); v0.3 with Deviations 14 and 15 approved by Dr. Raviram, relayed by Owais 20:01 IST; pre-registration page Version 5 |
-| P1.0.4 | API key rotated and confirmed in the thread (unconfirmed since 19 Sep 2026) | O | 20 Sep 2026 | todo | Confirmation message in #mitacs |
+| P1.0.3 | PI signature on pre-registration: v0.2 signed, then v0.3 with Deviations 14 and 15 approved; pre-registration closed | R | 22 Sep 2026 | done | Done 19 Sep 2026. v0.2 signed (confirmed 19:21 IST); v0.3 with Deviations 14 and 15 approved by Dr. Raviram, relayed by Owais 20:01 IST; pre-registration page Version 5 |
+| P1.0.4 | Old IBM API key deleted (rotation confirmed) and the deletion confirmed in the thread | O | 20 Sep 2026 | todo | Confirmation message in #mitacs; unconfirmed as of 20 Sep 2026 |
 | P1.0.5 | Daily calibration snapshot job running and committing to data/calibrations | O | 22 Sep 2026 | todo | Two consecutive daily commits |
 | P1.0.6 | Collaborator decision: named author or acknowledgement | O, C | 30 Sep 2026 | todo | Decision recorded in the decision log |
 
@@ -19,29 +21,35 @@ Version 1, 19 September 2026; last updated 19 Sep 2026, 23:45 IST. Companion to 
 
 | ID | Task | Owner | Due | Status | Evidence |
 |---|---|---|---|---|---|
-| P1.1.1 | Full noiseless grid (n 20 to 100, L 1 to 12, M 200) with bootstrap intervals | O with Cl | 28 Sep 2026 | todo | Results file and figure committed |
+| P1.1.1 | Full noiseless grid (n 20 to 100, L 1 to 12, M 200) with bootstrap intervals | O with Cl | 28 Sep 2026 | in progress | In progress. Exact (state-vector) half of the grid on branch gate1-grid (038fba2): 37 points computed, criteria (b), (c) part 1, (d), (e) pass; (f) gives L_s ≈ 12–13; criterion (a) fails for n ≥ 13 because the estimator is heavy-tailed (Deviation 25 amendment under review) |
 | P1.1.2 | Unital-noise predictions from the calibration snapshot for every planned point, with 4096 and 16384 shot floors drawn | O | 1 Oct 2026 | todo | Prediction table and figure committed |
 | P1.1.3 | Non-unital (t not zero) predictions, and the layer-index ratio k = L versus k = 1 at n = 40 and n = 100 | O | 3 Oct 2026 | todo | Results file committed |
 | P1.1.4 | epsilon_N per point, and the half-patch Renyi-2 saturation depth L_s(n) | O | 3 Oct 2026 | todo | Table of epsilon_N and L_s(n) committed |
-| P1.1.5 | Gate 1 report against criteria (a) to (f), posted in the thread | O | 5 Oct 2026 | todo | Report link in #mitacs |
+| P1.1.5 | Gate 1 report against criteria (a) to (f), posted in the thread | O | 5 Oct 2026 | todo | Report link in #mitacs. Status 20 Sep 2026: exact half done on gate1-grid (038fba2), see P1.1.1; Pauli-propagation half in progress on gate1-pauli-prop (P1.1.11) |
 | P1.1.6 | Gate 1 decision | R | 6 Oct 2026 | todo | Decision log entry |
-| P1.1.7 | Owais sets the three repository secrets (QISKIT_IBM_TOKEN, QISKIT_IBM_INSTANCE, QISKIT_IBM_INSTANCE_OPEN) on GitHub; no key is posted in Slack or held by Claude | O | 5 Oct 2026 | done (19 Sep 2026) | Done 19 Sep 2026, 20:19 IST. Three secrets set on GitHub; Flex instance capped at 180 minutes, adjustable as stages pass |
-| P1.1.8 | Gate 1 code: fix review items B1 to B12, add two-instance support and full job-metadata capture | Cl | 22 Sep 2026 | done (19 Sep 2026) | Done 19 Sep 2026. Review items B1 to B12 fixed, two-instance support and per-job metadata bundles added; commits e572895, 9a35338, fad3e69 |
-| P1.1.9 | Second independent review of gate1-predictions, then merge to main | Cl | 22 Sep 2026 | done (19 Sep 2026) | Done 19 Sep 2026. Second independent review passed; merged to main as 807570c |
-| P1.1.10 | Calibration snapshot workflow first run on main | Cl | 22 Sep 2026 | done (19 Sep 2026) | Done 19 Sep 2026. Calibration snapshot workflow ran successfully on main (run 35453245766); snapshot CSV committed as 5892135; secrets verified working |
-| P1.1.11 | Pauli-propagation predictions for n = 40 and 100 at L = 8 and 12 with truncation error (Deviation 15) | Cl | 5 Oct 2026 | todo | Prediction table with truncation error committed |
-| P1.1.12 | Pre-registration Deviations 16–19 drafted as v0.4 (H3 reclassified to consistency check, confirmatory non-unital test moved to Paper 2; Gate 1 criterion (b) depth-dependent bound; ladder counts 20/39/56/71/90; anomaly protocol as pre-registered exploratory analysis); Dr. Raviram's signature pending | Cl | 26 Sep 2026 | in progress | Owais approved drafting 19 Sep 23:21 IST; page Version 6: https://claude.ai/artifact/C2RMiQMPq5qonMAYNaEqex |
+| P1.1.7 | Owais sets the three repository secrets (QISKIT_IBM_TOKEN, QISKIT_IBM_INSTANCE, QISKIT_IBM_INSTANCE_OPEN) on GitHub; no key is posted in Slack or held by Claude | O | 5 Oct 2026 | done | Done 19 Sep 2026, 20:19 IST. Three secrets set on GitHub; Flex instance capped at 180 minutes, adjustable as stages pass |
+| P1.1.8 | Gate 1 code: fix review items B1 to B12, add two-instance support and full job-metadata capture | Cl | 22 Sep 2026 | done | Done 19 Sep 2026. Review items B1 to B12 fixed, two-instance support and per-job metadata bundles added; commits e572895, 9a35338, fad3e69 |
+| P1.1.9 | Second independent review of gate1-predictions, then merge to main | Cl | 22 Sep 2026 | done | Done 19 Sep 2026. Second independent review passed; merged to main as 807570c |
+| P1.1.10 | Calibration snapshot workflow first run on main | Cl | 22 Sep 2026 | done | Done 19 Sep 2026. Calibration snapshot workflow ran successfully on main (run 35453245766); snapshot CSV committed as 5892135; secrets verified working |
+| P1.1.11 | Pauli-propagation predictions for n = 40 and 100 at L = 8 and 12 with truncation error (Deviation 15), and the Gate 1b pre-drawn curves for the reset-dial arm (Section 3b) | Cl | 5 Oct 2026 | in progress | In progress on branch gate1-pauli-prop; prediction table with truncation error to be committed |
+| P1.1.12 | Pre-registration Deviations 16–24: 16–19 (H3 reclassified; criterion (b) per-depth bound; ladder 20/39/56/71/90; anomaly protocol) and 20 (reset-dial arm as Section 3b) approved by Dr. Raviram; 21 (floor p⁴/9), 22 (extended exclusion rule from raw properties), 23 (rep_delay feasibility gate) and 24 (budget model with TREX term) adopted under delegated authority, PI countersignature on his return | Cl | On Dr. Raviram's return | in progress | v0.8 (page Version 13): https://claude.ai/artifact/C2RMiQMPq5qonMAYNaEqex. Deviations 16–20 approved 19 Sep 23:47/23:52 IST via Owais; 21–24 adopted 20 Sep 2026; countersignature pending |
 | P1.1.13 | Extend noiseless Gate 1 grid to n up to 20 and light-cone predictions at L up to 4 for n = 40 and 100; Pauli propagation with the non-unital rule for L = 8 and 12 (Deviation 15) | Cl | 5 Oct 2026 | todo | Results and prediction tables committed |
+| P1.1.14 | Deviation 22 exclusion rule in code (\|ZZ\| ≥ 1 MHz to an excluded or dead qubit, initialisation error ≥ 5e-4, both from the raw backend properties) and the ladder recount from the run-day snapshot | Cl | 26 Sep 2026 | todo | Exclusion function and tests on main; recounted ladder n posted in the thread and mirrored in the pre-registration |
+| P1.1.15 | Recompute the Section 3b and Section 2 minute tables under the Deviation 24 budget model (TREX learning circuits billed at resilience ≥ 1) | Cl | Before Gate 2, 10 Oct 2026 | todo | Tables in the pre-registration and the ledger below updated; numbers agree with the Marrakesh usage |
 
 ### P1.2 Dry run (6 to 10 Oct 2026)
 
 | ID | Task | Owner | Due | Status | Evidence |
 |---|---|---|---|---|---|
 | P1.2.0 | Pre-flight review of the dry run job list: exact jobs, shot counts, backend and instance signed off before any minute is spent | Cl reviews, R decides | 6 Oct 2026 | in progress | In progress. Code review stage complete (two passes, 19 Sep 2026); job-list sign-off still to come |
-| P1.2.1 | Pipeline checks on ibm_marrakesh under the open plan | O | 7 Oct 2026 | todo | Job IDs and results committed |
-| P1.2.2 | ibm_phoenix smoke test, about 5 Flex minutes: locked time per point, reset error and latency, depth ceiling | O | 9 Oct 2026 | todo | Smoke-test summary in the thread; raw results committed |
-| P1.2.3 | Minute budget re-based on measured locked time and posted | Cl | 10 Oct 2026 | todo | Ledger updated to version 2 |
+| P1.2.1 | Pipeline checks on ibm_marrakesh under the open plan (dry-run list 01) | Cl, O | 7 Oct 2026 | done | Done 19 Sep 2026. Run 35463314834 (https://github.com/SSIT-Q/gradvar-phoenix/actions/runs/35463314834): 3 jobs, 22 QPU s of the open 10 minutes; reset accepted natively by the backend and by EstimatorV2; all 12 CSV rows recomputed exactly from result.json. Post-run review: scratchpad/review/marrakesh_postrun_review.md |
+| P1.2.2 | ibm_phoenix smoke test, about 5 Flex minutes: locked time per point, reset error and latency, depth ceiling, and the rep_delay ladder (P1.2.8) | O | 9 Oct 2026 | todo | Smoke-test summary in the thread; raw results committed |
+| P1.2.3 | Minute budget re-based on measured locked time and posted | Cl | 10 Oct 2026 | todo | Ledger below updated to version 2 |
 | P1.2.4 | Gate 2 check | R, O | 10 Oct 2026 | todo | Decision log entry |
+| P1.2.5 | Dry-run job lists (lists 01–03) committed with tests | Cl | 6 Oct 2026 | done | Done 19 Sep 2026. On main as 0e9dd26; 52 tests passing |
+| P1.2.6 | Pipeline hardening: budget model with the TREX term (Deviation 24), automated layout re-check against the run-day properties, extra logging fields (rep_delay granted/default/range, arm, p, K, mask seed, reset duration, theta hash, notes) | Cl | 6 Oct 2026 | in progress | In progress 20 Sep 2026; items from the Marrakesh post-run review (D1–D6) |
+| P1.2.7 | Backend configuration snapshot (ibm_phoenix and open-plan backends): default rep_delay, range, dynamic reprate, Init/MEASURE columns | Cl | 22 Sep 2026 | done | Done 19 Sep 2026. Run 35464260397, commit 127337d: ibm_phoenix default rep_delay 1.0 µs, range 0–2000 µs (Deviation 23 criterion (a) met); ledger data/calibrations/backend_configurations.csv |
+| P1.2.8 | Smoke test of the rep_delay ladder 1 / 5 / 20 / 250 µs on ibm_phoenix: locked time and gradient agreement per setting, inside the P1.2.2 allowance | Cl, O | 9 Oct 2026 | todo | Ladder table in the thread; raw results committed; chosen rep_delay recorded in the pre-registration |
 
 ### P1.3 Hardware campaign (11 to 25 Oct 2026, no runs on 15 Oct)
 
@@ -54,6 +62,7 @@ Version 1, 19 September 2026; last updated 19 Sep 2026, 23:45 IST. Companion to 
 | P1.3.4 | Repeat day for drift, n = 40 ladder | O | 22 to 24 Oct 2026 | todo | Job results committed; drift comparison figure |
 | P1.3.5 | Raw job results and calibration snapshots committed after every session | O | Continuous, 11 to 25 Oct 2026 | todo | Commit per session in data/ |
 | P1.3.6 | Post-run review of campaign logs against the pre-registration and the job list, before analysis begins | Cl reviews, R decides | 26 Oct 2026 | todo | Review outcome posted in the thread and linked here |
+| P1.3.7 | Reset-dial arm (Section 3b, Deviation 20, pre-registered): p ∈ {0.25, 0.5} at n = 60, L = 8 and 12, k = 1 and k = L; n-ladder 40/60/100 at p = 0.25; delay-matched p = 0 and dephasing-dial controls; 3-minute reset characterisation. Core 45.6 min at 250 µs rep_delay, about 6.4–6.8 min at 1 µs | O with Cl | 11 to 25 Oct 2026, same days and patches as the ladder points | todo | Gated by Gate 1b: pre-drawn second-moment curves pending Pauli propagation (P1.1.11). Job results committed per session |
 
 ### P1.4 Analysis and paper (26 Oct 2026 onward)
 
@@ -70,39 +79,42 @@ Version 1, 19 September 2026; last updated 19 Sep 2026, 23:45 IST. Companion to 
 
 ## 3. Paper 2 task list
 
-### P2.0 Theory scoping (started 19 Sep 2026, in parallel with P1.1)
+Hybrid decided 19 Sep 2026, 23:39 IST (Owais; Dr. Raviram agreed to Deviation 20). Paper 2 is the 120-qubit reset and mid-circuit-measurement characterisation of ibm_phoenix, pre-registration v0.4 (RCTX4qqws9xiZRxMZd22Xh (https://claude.ai/artifact/RCTX4qqws9xiZRxMZd22Xh)), with a theory companion written with the college theorist. The reset-dial arm lives in Paper 1 (P1.3.7). No calendar deadline except the Flex expiry; dates below are working targets. Rows P2.0.2, P2.0.3, P2.3.1 and OP.3 carry the superseded reset-ansatz wording until the next revision.
+
+### P2.0 Theory scoping (Started 19 Sep 2026, in parallel with P1.1)
 
 | ID | Task | Owner | Due | Status | Evidence |
 |---|---|---|---|---|---|
-| P2.0.1 | Read arXiv:2507.02043 and arXiv:2411.05760 in full and write a two-page note: the ansatz (ancilla measure-and-reset every r layers, with or without feedforward), the claimed plateau-freedom, and exactly why the Pauli-propagation and surrogate results do not cover it | C with Cl | 19 Sep to 15 Oct 2026 | done (19 Sep 2026) | Done 19 Sep 2026. Memo reviewed and republished as Version 3: https://claude.ai/artifact/1PHEgZ5eAa4FhJWkQzbhxb. The reset-ansatz breakthrough does not survive (Mele Theorem 1 and Proposition 3 cover reset; Shirgure et al. arXiv:2606.23751; Angrisani et al. arXiv:2501.13101; simulations show no reset variant beats plain HEA) |
+| P2.0.1 | Read arXiv:2507.02043 and arXiv:2411.05760 in full and write a two-page note: the ansatz (ancilla measure-and-reset every r layers, with or without feedforward), the claimed plateau-freedom, and exactly why the Pauli-propagation and surrogate results do not cover it | C with Cl | 19 Sep to 15 Oct 2026 | done | Done 19 Sep 2026. Memo reviewed and republished as Version 3: https://claude.ai/artifact/1PHEgZ5eAa4FhJWkQzbhxb. The reset-ansatz breakthrough does not survive (Mele Theorem 1 and Proposition 3 cover reset; Shirgure et al. arXiv:2606.23751; Angrisani et al. arXiv:2501.13101; simulations show no reset variant beats plain HEA) |
 | P2.0.2 | Define the unitary-matched control ansatz with equal gate count | C | 15 Oct 2026 | todo | Circuit definition in the note and in code |
 | P2.0.3 | Reset error and latency from the smoke test folded into the noise model | O | 10 Oct 2026 | todo | Noise-model parameters committed |
-| P2.0.4 | Reviewer pass on the Paper 2 scoping memo before it is posted | Cl | After P2.0.1 | done (19 Sep 2026) | Done 19 Sep 2026. Reviewer pass complete; memo republished as Version 3 |
-| P2.0.5 | Ranked alternative directions memo (six candidates; recommends the non-unitality dial) reviewed independently and posted with a recommendation to Owais and Dr. Raviram | Cl, then O, R | After review, Sep 2026 | done (19 Sep 2026) | Done 19 Sep 2026. Alternatives memo reviewed twice and republished (Version 4): https://claude.ai/artifact/BmtKR4fjMkMYDub4nntSHY. Recommendation posted to Owais 21:35 IST: A = reset as a calibrated non-unitality dial (i.i.d. mixture channel, per-circuit random masks pooled K=64, p in {0.1, 0.25, 0.5}, n=60 first, 15 gradient points incl. L=12, RMS truncation arm at 16384 shots; 84–86 min at default rep_delay, 6–10 min at 1 µs; odds 20% PRX Quantum/Quantum, ~2% Nature-family); B = classical-surrogate stress test (needs tensor-network partner; 25% with, 10–15% without); C = A then B. Claude recommended C. |
-| P2.0.6 | Paper 2 direction decided and pre-registration drafted | O, R | 15 Oct 2026 | todo | Awaiting Owais's choice between 'hybrid' (Claude's updated recommendation) and 'A-ladder' (23:44 IST) |
-| P2.0.7 | Theory companion: second-moment calculation for the reset dial (i.i.d. mixture vs fixed mask; α(p) and floor; non-2-design correction; PP numerics to 60 qubits) with a theorist co-author | O/R + theorist | 31 Mar 2027 | todo | Theory note or draft (Quantum/PRA class) linked here; theorist co-author named. Source: theorist second opinion, https://claude.ai/artifact/7WLx5wkkAz1f8AYMXxsVJj |
+| P2.0.4 | Reviewer pass on the Paper 2 scoping memo before it is posted | Cl | After P2.0.1 | done | Done 19 Sep 2026. Reviewer pass complete; memo republished as Version 3 |
+| P2.0.5 | Ranked alternative directions memo (six candidates; recommends the non-unitality dial) reviewed independently and posted with a recommendation to Owais and Dr. Raviram | Cl, then O, R | After review, Sep 2026 | done | Done 19 Sep 2026. Alternatives memo reviewed twice and republished (Version 4): https://claude.ai/artifact/BmtKR4fjMkMYDub4nntSHY. Recommendation posted to Owais 21:35 IST: A = reset as a calibrated non-unitality dial (i.i.d. mixture channel, per-circuit random masks pooled K=64, p in {0.1, 0.25, 0.5}, n=60 first, 15 gradient points incl. L=12, RMS truncation arm at 16384 shots; 84–86 min at default rep_delay, 6–10 min at 1 µs; odds 20% PRX Quantum/Quantum, ~2% Nature-family); B = classical-surrogate stress test (needs tensor-network partner; 25% with, 10–15% without); C = A then B. Claude recommended C. |
+| P2.0.6 | Paper 2 direction decided: the hybrid | O, R | 15 Oct 2026 | done | Done 19 Sep 2026, 23:39 IST (Owais; Dr. Raviram agreed, 23:47/23:52 IST). Reset-dial non-unital arm folded into Paper 1 as Section 3b (Deviation 20); Paper 2 = 120-qubit reset/MCM characterisation of ibm_phoenix; theory companion with the college theorist. Inputs: three judges (decision log, 19 Sep), theorist second opinion (https://claude.ai/artifact/7WLx5wkkAz1f8AYMXxsVJj), Nighthawk r2 review (https://claude.ai/artifact/SY3awMeK3DWW65A7MHhXzp) |
+| P2.0.7 | Theory companion with the college theorist: second-moment calculation for the reset dial (i.i.d. mixture vs fixed mask; α(p) and the p⁴/9 floor; non-2-design correction; PP numerics to 60 qubits), the ZZ-during-reset model and the frame-tracked benchmark expectation | O/R + T | 31 Mar 2027 | todo | Theory note or draft (Quantum/PRA class) linked here; theorist co-author named. Source: theorist second opinion (https://claude.ai/artifact/7WLx5wkkAz1f8AYMXxsVJj), 19 Sep 2026 |
 
-### P2.1 Simulation (Nov 2026)
+### P2.1 Pre-registration, theory and job lists (Sep to Oct 2026)
 
 | ID | Task | Owner | Due | Status | Evidence |
 |---|---|---|---|---|---|
-| P2.1.1 | Density-matrix or trajectory simulation to 16 to 20 qubits, MPO beyond, of the reset ansatz versus the control: gradient variance versus n, L and r | O with Cl | 15 Nov 2026 | todo | Results and figures committed |
-| P2.1.2 | Classical-surrogate test: Pauli-propagation truncation sweep and MPS baseline on both arms. The claim needs the surrogate to degrade on the reset arm while the hardware-relevant signal stays above the shot floor | C, O | 25 Nov 2026 | todo | Surrogate comparison table committed |
-| P2.1.3 | Gate P2 decision: variance advantage above the shot floor at realistic reset error, and surrogate degradation shown | R | 28 Nov 2026 | todo | Decision log entry |
+| P2.1.1 | Paper 2 pre-registration v0.4 (reset and MCM characterisation, Q1–Q5, 45-minute cap, Deviations 1–2) | Cl, R | 20 Sep 2026 | done | Done 20 Sep 2026: https://claude.ai/artifact/RCTX4qqws9xiZRxMZd22Xh. v0.2 adopted for circulation under delegated authority after independent review (fixes 1–7); Deviations 1–2 adopted 20 Sep; PI and theorist signatures pending |
+| P2.1.2 | Theorist tasks: ZZ-during-reset model (per-edge, mask-dependent phase) and the frame-tracked reset cycle benchmark expectation; sign the pre-registration | T | 15 Oct 2026 | todo | Theory note committed; signature on the Paper 2 pre-registration |
+| P2.1.3 | Production job lists with SamplerV2 and init_qubits as pre-registered (Q1–Q5; one job per stage), replacing the EstimatorV2 estimate in Marrakesh list 03 | Cl | Before the smoke test, Oct 2026 | todo | Job lists and tests on main; pre-flight review link in each list |
+| P2.1.4 | Paper 2 smoke test on ibm_phoenix, about 40 circuits at 2,048 shots, about 0.4 min, in the October dry-run window | O with Cl | 6 to 10 Oct 2026 | todo | Smoke-test summary in the thread; raw results committed; reset accepted natively on phoenix confirmed |
 
 ### P2.2 Pre-registration for Paper 2
 
 | ID | Task | Owner | Due | Status | Evidence |
 |---|---|---|---|---|---|
-| P2.2 | Pre-registration document for Paper 2: Cl drafts, R signs | Cl, R | 5 Dec 2026 | todo | Signed document linked from the tracker |
+| P2.2 | Paper 2 pre-registration signed: PI countersignature and theorist signature on v0.4 | Cl, R | On Dr. Raviram's return | in progress | v0.4 adopted under delegated authority 20 Sep 2026; signed document linked from this page |
 
-### P2.3 Hardware (Dec 2026 to mid Jan 2027, hard stop before Flex expiry, exact day to confirm)
+### P2.3 Hardware (Oct 2026 (Q5 drift days alongside Paper 1) to mid Jan 2027, hard stop before Flex expiry (exact day to confirm))
 
 | ID | Task | Owner | Due | Status | Evidence |
 |---|---|---|---|---|---|
 | P2.3.0 | Pre-flight review of the Paper 2 job list: exact jobs, shot counts, backend and instance signed off before any minute is spent | Cl reviews, R decides | Before P2.3.1, Dec 2026 | todo | Review outcome posted in the thread and linked here |
 | P2.3.1 | Smoke test of reset circuits | O | 1 to 7 Dec 2026 | todo | Smoke-test summary in the thread |
-| P2.3.2 | Campaign, about 35 percent of minutes | O | Dec 2026 to 10 Jan 2027 | todo | Job results committed per session |
+| P2.3.2 | Campaign: Q1–Q5 of the Paper 2 pre-registration, 45-minute ledger line (estimate 35.4 min at 250 µs, about 2.7 min at 1 µs) | O | Dec 2026 to 10 Jan 2027 | todo | Job results committed per session |
 | P2.3.3 | Reserve spend only on referee-style checks | O, R | By Flex expiry, Jan 2027 | todo | Ledger reserve row |
 | P2.3.4 | Post-run review of Paper 2 logs against the Paper 2 pre-registration and the job list, before analysis begins | Cl reviews, R decides | After P2.3.2, by 15 Jan 2027 | todo | Review outcome posted in the thread and linked here |
 
@@ -116,23 +128,30 @@ Version 1, 19 September 2026; last updated 19 Sep 2026, 23:45 IST. Companion to 
 
 ## 3a. Open plan, Heron r2 (10 free minutes per month, separate instance from Flex)
 
-These minutes are tracked apart from the 360 Flex minutes and never count against them.
+10 free minutes per month on the open plan, a separate instance from the Flex allocation. These minutes are tracked apart from the 360 and never count against them.
+
+### OP Heron r2 tasks (Oct to Dec 2026)
 
 | ID | Task | Owner | Due | Status | Evidence |
 |---|---|---|---|---|---|
 | OP.0 | Pre-flight review of every open-plan run: exact jobs, shot counts, backend and instance signed off before each OP task runs | Cl reviews, R decides | Before each of OP.1 to OP.3 | todo | Review outcome posted in the thread and linked here |
-| OP.1 | October dry run on ibm_marrakesh: end-to-end pipeline with the real logging schema, calibration snapshot, resilience levels 0, 1 and 2, null control, small circuits; about 3 minutes. Same activity as P1.2.1 | O | 7 Oct 2026 | todo | Job IDs and results committed; P1.2.1 marked with it |
+| OP.1 | October dry run on ibm_marrakesh: end-to-end pipeline with the real logging schema, calibration snapshot, resilience levels 0, 1 and 2, null control, small circuits; about 3 minutes. Same activity as P1.2.1 | O | 7 Oct 2026 | in progress | List 01 ran 19 Sep 2026 (run 35463314834, 22 QPU s of the September 10 minutes, released by Owais 00:05 IST with Dr. Raviram's prior approval); lists 02–03 in October. P1.2.1 marked done with it |
 | OP.2 | November cross-architecture comparison for Paper 1: n = 20 ladder at L = 1, 2, 4, levels 0 and 1, about 50 draws, 2048 shots, about 5 minutes. Produces a discussion figure comparing heavy-hex Heron r2 with square-lattice phoenix | O | 15 Nov 2026 | todo | Results and comparison figure committed |
 | OP.3 | December Paper 2 comparator: reset ansatz on Heron r2 using measure-and-reset (no dedicated reset elements), to gauge how much phoenix's hardware reset matters | O | 15 Dec 2026 | todo | Results committed; comparison noted in the Paper 2 draft |
 
 ## 5. Minute ledger
 
-Flex allocation of 360 minutes. Planned shares are version 1 and will be re-based after the dry run (P1.2.3). Nothing spent as of 19 September 2026. The rounded shares in PLAN.md (55, 35, 10) treat the dry run as part of the reserve. Locked time, not wall time, is what the plan bills. Open-plan Heron r2 minutes (10 per month, separate instance) are tracked separately in section 3a and do not count against the 360.
+Flex allocation of 360 minutes, ledger of pre-registration v0.8, Section 6 (Deviation 24 budget model, 250 µs rep_delay). Re-based after the smoke test (P1.2.3). No Flex minute spent as of 20 September 2026; instance cap raised 180 → 220 minutes (Owais, 19 Sep 23:55 IST).
 
-| Bucket | Planned % | Planned min (of 360) | Spent | Remaining | Last updated |
-|---|---:|---:|---:|---:|---|
-| Dry run and smoke tests | about 3 | 10 | 0 | 10 | 19 Sep 2026 |
-| Paper 1 campaign | about 55 | 200 | 0 | 200 | 19 Sep 2026 |
-| Paper 2 campaign | about 35 | 125 | 0 | 125 | 19 Sep 2026 |
-| Reserve (referee-style checks only) | about 7 | 25 | 0 | 25 | 19 Sep 2026 |
-| **Total** | **100** | **360** | **0** | **360** | 19 Sep 2026 |
+| Bucket | Planned % | Planned min | Spent | Remaining | Last updated |
+|---|---|---|---|---|---|
+| Dry run and smoke tests (P1.2.2, P1.2.8, P2.1.4) | about 3 | 10 | 0 | 10 | 20 Sep 2026 |
+| Paper 1 main grid (about 80 at 1 µs) | about 56 | 200 | 0 | 200 | 20 Sep 2026 |
+| Reset-dial arm, Section 3b (about 7 at 1 µs) | about 12 | 45 | 0 | 45 | 20 Sep 2026 |
+| Paper 2 characterisation (about 2.7 at 1 µs) | about 12 | 45 | 0 | 45 | 20 Sep 2026 |
+| Reserve (20 for anomaly replications, the rest referee-style checks) | about 17 | 60 | 0 | 60 | 20 Sep 2026 |
+| Total | 100 | 360 | 0 | 360 | 20 Sep 2026 |
+
+Open-plan Heron r2 minutes (10 per month, separate instance) are tracked in section 3a and do not count against the 360. September: 22 QPU s spent on the Marrakesh pipeline check (run 35463314834).
+
+Planned minutes are at the 250 µs rep_delay of the budget model; ibm_phoenix's default is 1.0 µs (range 0–2000 µs, configuration snapshot 127337d), at which the same work is about 80 + 7 + 2.7 minutes. Surplus rule (v0.8 Section 6): unspent minutes go first to raising M (Deviation 17), then to the contingent dial points, never to new tests. Locked time, not wall time, is what the plan bills.
