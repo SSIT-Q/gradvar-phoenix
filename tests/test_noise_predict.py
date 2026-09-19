@@ -201,7 +201,7 @@ def test_layer_index_statistic_and_summary_list_all_criteria():
     assert list(s["criteria"]) == list("abcdef")
     for letter, c in s["criteria"].items():
         assert c["text"] == GATE1_CRITERIA[letter]
-        assert c["status"] in ("implemented", "not-implemented") and c["result"] in ("pass", "fail", "not-evaluated")
+        assert c["status"] in ("implemented", "not-implemented") and c["result"] in ("pass", "fail", "not-evaluated", "reported")
     assert s["criteria"]["d"]["status"] == "not-implemented" and s["criteria"]["f"]["status"] == "not-implemented"
     assert s["grid"]["is_preregistered_ladder"] is False and s["overall"].startswith("not-evaluated")
     assert s["criteria"]["c"]["result"] == "not-evaluated" and s["criteria"]["c"]["part1"]["n_exceeding"] == 1
