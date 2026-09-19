@@ -54,7 +54,24 @@ def run_point(job: dict) -> dict:
     return out
 
 
+def status_of(r) -> str:
+    """converged: sampled estimate present and the truncation sweep or the sampler converged; not converged (time cap):
+    a propagation hit its wall-clock limit; pending: planned, not yet computed."""
+    if r.get("pending", False) is True or (isinstance(r.get("var_k1_pp"), float) and np.isnan(r.get("var_k1_pp")) and r.get("stage") and "runtime_s" not in r):
+        return "pending"
+    mc = r.get("var_mc", np.nan)
+    if r.get("mc_timed_out", False) or (isinstance(mc, float) and np.isnan(mc)) or r.get("pp_timed_out", False):
+        return "not converged (time cap)"
+    return "converged" if (r.get("pp_converged", False) or np.isfinite(mc)) else "not converged"
+
+
+def pending_rows(jobs):
+    return [dict(stage=j["stage"], model=j["model"], patch=j["patch"], L=j["L"], dial=j.get("dial", ""), p=j.get("p", np.nan),
+                 ladder_n=LADDER.get(j["patch"]), status="pending") for j in jobs]
+
+
 def append_rows(rows):
+    rows = [dict(r, status=r.get("status") or status_of(r)) for r in rows]
     df = pd.DataFrame(rows)
     OUT_CSV.parent.mkdir(parents=True, exist_ok=True)
     if OUT_CSV.exists():
@@ -241,6 +258,7 @@ def main():
         j.update(csv=args.csv, deltas=args.deltas, n_samples=args.n_samples, n_cap=args.n_cap, time_limit_s=args.time_limit)
         jobs.append(j)
     t0 = time.time()
+    append_rows(pending_rows(jobs))
     rows = []
     with ProcessPoolExecutor(max_workers=args.workers) as ex:
         for out in ex.map(run_point, jobs):
