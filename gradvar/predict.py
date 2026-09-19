@@ -55,21 +55,38 @@ GATE1_CRITERIA = {
          "expected to collapse.",
 }
 PREREG_N = (20, 40, 60, 80, 100)
+PREREG_N_DEV18 = (20, 39, 56, 71, 90)   # Deviation 18: the ladder as placed under the 19 Sep 2026 readout cut
+PREREG_N_DEV26 = (20, 39, 53, 70, 87)   # Deviations 22 + 26: ZZ / init-error / coupler cuts on the 19:25Z snapshot
 PREREG_L = (1, 2, 4, 8, 12)
+DEFERRED = "requires Pauli propagation"
+
+
+def criterion_b_bound(L: int, M: int) -> float:
+    """Deviation 17 (approved 19 Sep 2026): hi/lo < 1.5 at L = 1, < 2.0 at L = 2, < 2.5 at L >= 4 with M = 200; where M is
+    raised to 400 at L = 2 or 700 at L >= 4 the original 1.5 applies."""
+    if L <= 1 or (L == 2 and M >= 400) or (L >= 3 and M >= 700):
+        return 1.5
+    return 2.0 if L <= 3 else 2.5   # Deviation 17 names L = 2 and L >= 4; L = 3 (not on the ladder) takes the L = 2 bound
 
 
 # --------------------------------------------------------------------------- helpers
 
 def choose_method(n_cone: int, model: str, bbox_rows: int, dm_max: int = 10, sv_max: int = 24,
-                  mps_rows: int = 4, mps_max: int = 40, L: int = 1, mps_max_L: int = 4) -> str:
+                  mps_rows: int = 4, mps_max: int = 40, L: int = 1, mps_max_L: int = 4,
+                  traj_max: int | None = None, max_exact_L: int | None = None) -> str:
     """'density_matrix' | 'statevector' | 'matrix_product_state' | 'not_implemented'.
 
     MPS is attempted only for a strip of at most ``mps_rows`` rows, at most ``mps_max`` cone qubits and depth
     <= ``mps_max_L``: beyond depth 4 the bond dimension of a 2D circuit is not controlled, so n >= 40 at
-    L >= 8 is declared infeasible rather than attempted."""
+    L >= 8 is declared infeasible rather than attempted. ``traj_max`` (default ``sv_max``) is the largest cone
+    simulated with noise trajectories on the statevector (each trajectory of the relaxation model applies a Kraus
+    channel to every idle qubit in every sub-layer, so noisy cones cost far more than noiseless ones); ``max_exact_L``
+    marks every deeper point as deferred to Pauli propagation (Deviation 15)."""
+    if max_exact_L is not None and L > max_exact_L:
+        return "not_implemented"
     if model != "noiseless" and n_cone <= dm_max:
         return "density_matrix"
-    if n_cone <= sv_max:
+    if n_cone <= (sv_max if model == "noiseless" or traj_max is None else min(sv_max, traj_max)):
         return "statevector"
     if bbox_rows <= mps_rows and n_cone <= mps_max and L <= mps_max_L:
         return "matrix_product_state"
@@ -196,7 +213,8 @@ def predict_variance(template: QuantumCircuit, index: int, M: int, runner: Expva
 
 def hea_point(patch: Patch, L: int, k: int, model: str, M: int, csv_path: str, n_traj: int = 32, seed: int = 2026,
               dm_max: int = 10, sv_max: int = 24, mps_rows: int = 4, mps_max: int = 40, n_boot: int = 10_000,
-              mps_bond: int | None = None, mps_max_L: int = 4) -> PointResult:
+              mps_bond: int | None = None, mps_max_L: int = 4, traj_max: int | None = None,
+              max_exact_L: int | None = None) -> PointResult:
     """One (n, L, k) point under one model on the light cone of the interior edge. k is 1-based.
     The parameter draws depend only on (seed, cone size, L), so the three models and both k share theta."""
     if not 1 <= k <= L:
@@ -204,15 +222,25 @@ def hea_point(patch: Patch, L: int, k: int, model: str, M: int, csv_path: str, n
     n = patch.n
     _, edge = hea_observable(patch)
     cone = snake_order(light_cone(patch, L, edge))
+    if L == 1 and model != "noiseless":
+        # the last layer's CZs commute with Z_i Z_j, but their noise channels do not: simulate the edge plus its patch
+        # neighbours (<= 8 qubits, exact density matrix) so every channel touching i or j is included
+        cone = snake_order(noisy_l1_register(patch, edge))
     m = len(cone)
-    method = choose_method(m, model, bbox_short_side(cone), dm_max, sv_max, mps_rows, mps_max, L, mps_max_L)
+    method = choose_method(m, model, bbox_short_side(cone), dm_max, sv_max, mps_rows, mps_max, L, mps_max_L, traj_max, max_exact_L)
     t0 = time.time()
     base = dict(model=model, n=n, L=L, k=k, M=M, shot_floor_4096=shot_floor(4096), shot_floor_16384=shot_floor(16384),
                 method=method, n_cone=m, patch=f"{patch.n_rows}x{patch.n_cols}", edge=f"{edge[0]}_{edge[1]}")
     if method == "not_implemented":
         nan = float("nan")
+        if max_exact_L is not None and L > max_exact_L:
+            why = f"deferred to Pauli propagation, Deviation 15 (L = {L} > {max_exact_L}, cone {m} qubits)"
+        elif model != "noiseless" and traj_max is not None and m > traj_max and m <= sv_max:
+            why = f"cone {m} qubits exceeds the {traj_max}-qubit noise-trajectory limit of this run (L = {L})"
+        else:
+            why = f"cone {m} qubits, L = {L}"
         return PointResult(var=nan, ci_lo=nan, ci_hi=nan, mean=nan, eps_N_4096=nan, eps_N_16384=nan, runtime_s=0.0,
-                           n_traj=0, hi_lo=nan, note=f"{NOT_IMPLEMENTED} (cone {m} qubits, L = {L})", **base)
+                           n_traj=0, hi_lo=nan, note=f"{NOT_IMPLEMENTED} ({why})", **base)
     i, j = cone.index(edge[0]), cone.index(edge[1])
     if model == "noiseless":
         obs = measured_zz(m, i, j)
@@ -231,9 +259,20 @@ def hea_point(patch: Patch, L: int, k: int, model: str, M: int, csv_path: str, n
                        hi_lo=hi / lo if lo > 0 else float("inf"), gradients=grads, **base)
 
 
-def parse_patch(spec: str, csv_path: str | None = None) -> Patch:
+def noisy_l1_register(patch: Patch, edge: Tuple[int, int]) -> List[int]:
+    """Edge qubits plus their patch neighbours: at L = 1 the Z-basis statistics of (i, j) depend on the Ry on i and j,
+    CZ(i, j) and the channels of every CZ touching i or j, all of which act inside this register."""
+    from .lattice import lattice_neighbours
+    qs = set(patch.qubits)
+    reg = {int(edge[0]), int(edge[1])}
+    for q in edge:
+        reg |= {nb for nb in lattice_neighbours(int(q)) if nb in qs}
+    return [q for q in patch.qubits if q in reg]
+
+
+def parse_patch(spec: str, csv_path: str | None = None, properties: str | None = None) -> Patch:
     r, c = (int(x) for x in spec.lower().split("x"))
-    return noise_mod.place_patch(r, c, csv_path, allow_holes=True)
+    return noise_mod.place_patch(r, c, csv_path, allow_holes=True, properties=properties)
 
 
 def run_grid(patches: Iterable[Patch], depths: Iterable[int], ks: Sequence, M: int, models: Iterable[str],
@@ -259,6 +298,22 @@ def run_grid(patches: Iterable[Patch], depths: Iterable[int], ks: Sequence, M: i
 
 def to_frame(results: Sequence[PointResult]) -> pd.DataFrame:
     return pd.DataFrame([r.row() for r in results])
+
+
+def load_results(csv_path: str, grads_path: str | None = None) -> List[PointResult]:
+    """Rebuild PointResults from save_outputs' CSV (and gradients .npz, needed for the paired layer-index bootstrap)."""
+    df = pd.read_csv(csv_path, keep_default_na=False, na_values=["nan", "NaN", ""])
+    grads = dict(np.load(grads_path)) if grads_path and Path(grads_path).exists() else {}
+    fields = {f for f in PointResult.__dataclass_fields__ if f != "gradients"}
+    out = []
+    for row in df.to_dict("records"):
+        d = {k: v for k, v in row.items() if k in fields}
+        for key in ("patch", "edge", "note"):
+            d[key] = "" if (key not in d or (isinstance(d[key], float) and np.isnan(d[key]))) else str(d[key])
+        for key in ("n", "L", "k", "M", "n_traj", "n_cone"):
+            d[key] = int(d[key])
+        out.append(PointResult(gradients=grads.get(f"{d['model']}_n{d['n']}_L{d['L']}_k{d['k']}"), **d))
+    return out
 
 
 # --------------------------------------------------------------------------- layer-index statistic
@@ -311,9 +366,29 @@ def layer_index_statistics(results: Sequence[PointResult], n_boot: int = 10_000,
 
 # --------------------------------------------------------------------------- Gate 1 summary
 
-def criterion_a(noiseless_csv: str | None) -> Dict:
-    """(a) from scripts/gate1_noiseless.py output: every chain point n = 4..20 has 2^-n inside its bootstrap CI."""
-    out = dict(text=GATE1_CRITERIA["a"], status="implemented", source=noiseless_csv)
+def chain_null_quantiles(n: int, M: int, n_rep: int = 10_000, seed: int = 25, alpha: float = 0.05) -> Tuple[float, float]:
+    """Deviation 25 (a-iii): central (1 - alpha) interval of the sample variance (ddof = 1) of M chain gradients under
+    the exact null Var = 2^-n, from n_rep Monte Carlo replicates of the closed form -sin(theta_0) prod cos(theta_i)
+    (a parametric bootstrap under the null; no normal approximation). Returned as multiples of 2^-n."""
+    rng = np.random.default_rng(seed + n)
+    v = np.empty(n_rep)
+    chunk = max(1, min(n_rep, int(2e7 // max(M * n, 1))))
+    for start in range(0, n_rep, chunk):
+        size = min(chunk, n_rep - start)
+        th = rng.uniform(0.0, 2.0 * np.pi, size=(size, M, n))
+        g = -np.sin(th[:, :, 0]) * np.prod(np.cos(th[:, :, 1:]), axis=2)
+        v[start:start + size] = g.var(axis=1, ddof=1)
+    lo, hi = np.quantile(v / 2.0 ** -n, [alpha / 2, 1 - alpha / 2])
+    return float(lo), float(hi)
+
+
+def criterion_a(noiseless_csv: str | None, identity_csv: str | None = None, n_rep: int = 10_000) -> Dict:
+    """(a) from scripts/gate1_noiseless.py output. As pre-registered: every chain point n = 4..20 has 2^-n inside its
+    percentile bootstrap interval. Under Deviation 25 (pending PI signature): (a-i) the per-draw closed-form identity
+    |g_sim - g_closed| < 1e-10 at every n (from ``identity_csv``, written by ``--identity-M``); (a-ii) n <= 12: the
+    pre-registered bootstrap check; (a-iii) n >= 13: the sample variance lies inside the central 95% interval of its
+    exact null sampling distribution at the same M (``chain_null_quantiles``)."""
+    out = dict(text=GATE1_CRITERIA["a"], status="implemented", source=noiseless_csv, identity_source=identity_csv)
     if not noiseless_csv or not Path(noiseless_csv).exists():
         out.update(result="not-evaluated", note="run scripts/gate1_noiseless.py --chain-max-n 20 and pass --noiseless-csv")
         return out
@@ -321,39 +396,119 @@ def criterion_a(noiseless_csv: str | None) -> Dict:
     ch = df[df.family == "chain"].sort_values("n")
     inside = {int(r.n): bool(r.ci_low <= 2.0 ** -r.n <= r.ci_high) for r in ch.itertuples()}
     missing = [n for n in range(4, 21) if n not in inside]
-    out.update(points=inside, n_missing=missing)
+    # The chain gradient is -sin(theta_0) prod_{i>0} cos(theta_i): E[g^4] / E[g^2]^2 = (3/2)^n exactly, so the relative
+    # standard error of the sample variance is sqrt(((3/2)^n - 1) / M) and the percentile bootstrap under-covers once
+    # that exceeds ~0.3 (Monte Carlo coverage 0.39 at n = 20, M = 300; 0.65 at M = 2000).
+    diag = []
+    for r in ch.itertuples():
+        n, M = int(r.n), int(getattr(r, "M", 0) or 0)
+        kurt = 1.5 ** n
+        var = float(getattr(r, "variance", float("nan")))
+        d = dict(n=n, M=M, variance=var, ci_low=float(r.ci_low), ci_high=float(r.ci_high), analytic=2.0 ** -n,
+                 ratio=var / 2.0 ** -n, inside_bootstrap=inside[n], kurtosis=kurt,
+                 rel_se_of_sample_variance=(float(np.sqrt((kurt - 1) / M)) if M else float("nan")),
+                 M_for_rel_se_0p3=int(np.ceil((kurt - 1) / 0.09)))
+        if n >= 13 and M and np.isfinite(var):
+            lo, hi = chain_null_quantiles(n, M, n_rep=n_rep)
+            d.update(null_q025_over_2pow=lo, null_q975_over_2pow=hi, inside_null_95=bool(lo <= var / 2.0 ** -n <= hi))
+        diag.append(d)
+    ident_ok, ident_note = None, "identity check not run (scripts/gate1_noiseless.py --identity-M 100)"
+    if identity_csv and Path(identity_csv).exists():
+        idf = pd.read_csv(identity_csv)
+        ident_missing = [n for n in range(4, 21) if n not in set(idf.n.astype(int))]
+        ident_ok = bool((idf.max_abs_error < 1e-10).all()) and not ident_missing
+        ident_note = (f"max |g_sim - g_closed| over n = {int(idf.n.min())}..{int(idf.n.max())}, M = {int(idf.M.iloc[0])}: "
+                      f"{idf.max_abs_error.max():.1e}" + (f"; missing n {ident_missing}" if ident_missing else ""))
+    # optional replicate runs (e.g. n = 20 with a second seed): figures/gate1_chain_replicates.csv with the chain_series columns + seed
+    reps = []
+    rep_csv = Path(noiseless_csv).with_name("gate1_chain_replicates.csv")
+    if rep_csv.exists():
+        for r in pd.read_csv(rep_csv).itertuples():
+            n, M = int(r.n), int(r.M)
+            lo, hi = chain_null_quantiles(n, M, n_rep=n_rep)
+            reps.append(dict(n=n, M=M, seed=int(getattr(r, "seed", -1)), variance=float(r.variance), ci_low=float(r.ci_low), ci_high=float(r.ci_high),
+                             ratio=float(r.variance / 2.0 ** -n), inside_bootstrap=bool(r.ci_low <= 2.0 ** -n <= r.ci_high),
+                             null_q025_over_2pow=lo, null_q975_over_2pow=hi, inside_null_95=bool(lo <= r.variance / 2.0 ** -n <= hi),
+                             max_abs_identity_error=float(getattr(r, "max_abs_identity_error", float("nan")))))
+    a_ii = {d["n"]: d["inside_bootstrap"] for d in diag if d["n"] <= 12}
+    a_iii = {d["n"]: d.get("inside_null_95") for d in diag if d["n"] >= 13}
+    dev25 = dict(
+        text="Deviation 25 (pending PI signature): (a-i) per-draw |g_sim - g_closed| < 1e-10 at n = 4..20, M = 100; (a-ii) n <= 12, "
+             "M = 1000, 2^-n inside the percentile bootstrap interval; (a-iii) n = 13..20, M = 300, sample variance inside the central "
+             "95% interval of its exact null sampling distribution (10^4 closed-form Monte Carlo replicates at the same M)",
+        a_i=dict(result=("pass" if ident_ok else "fail") if ident_ok is not None else "not-evaluated", note=ident_note),
+        a_ii=dict(points=a_ii, n_fail=sum(1 for v in a_ii.values() if not v),
+                  result=("pass" if a_ii and all(a_ii.values()) else "fail") if a_ii else "not-evaluated"),
+        a_iii=dict(points=a_iii, n_fail=sum(1 for v in a_iii.values() if v is False), n_missing=[n for n in range(13, 21) if n not in a_iii],
+                   result=("pass" if a_iii and all(a_iii.values()) and len(a_iii) == 8 else "fail") if a_iii else "not-evaluated",
+                   replicates=reps),
+    )
+    dev25["result"] = ("pass" if all(dev25[k]["result"] == "pass" for k in ("a_i", "a_ii", "a_iii")) else
+                       "not-evaluated" if any(dev25[k]["result"] == "not-evaluated" for k in ("a_i", "a_ii", "a_iii")) else "fail")
+    out.update(points=inside, n_missing=missing, diagnostics=diag, deviation_25=dev25,
+               heavy_tail_note="gradient kurtosis (3/2)^n makes the sample variance and its percentile bootstrap unreliable at the "
+                               "M used for n >= ~13 (relative SE sqrt(((3/2)^n - 1)/M) > 0.3); M_for_rel_se_0p3 is the draw count needed per n")
     if missing:
         out.update(result="not-evaluated", note=f"chain points present for n = {min(inside)}..{max(inside)} only; "
                                                 f"pre-registration requires 4..20 (missing {missing}); all present points "
                                                 f"{'pass' if all(inside.values()) else 'FAIL'}")
     else:
-        out["result"] = "pass" if all(inside.values()) else "fail"
+        fails = [n for n, ok in inside.items() if not ok]
+        out["result"] = "pass" if not fails else "fail"
+        out["result_as_registered"] = out["result"]
+        out["result_deviation_25"] = dev25["result"]
+        if fails:
+            out["note"] = (f"fails as registered (2^-n outside the bootstrap interval at n = {fails}); estimator artefact: kurtosis (3/2)^n, "
+                           f"relative SE of the sample variance " + ", ".join(f"{d['rel_se_of_sample_variance']:.2f} (n = {d['n']})" for d in diag if d['n'] in fails)
+                           + f"; Deviation 25: (a-i) {dev25['a_i']['result']} ({ident_note}), (a-ii) {dev25['a_ii']['result']} "
+                           f"({len(a_ii) - dev25['a_ii']['n_fail']}/{len(a_ii)}), (a-iii) {dev25['a_iii']['result']} "
+                           f"({len(a_iii) - dev25['a_iii']['n_fail']}/{len(a_iii)} inside the exact null 95% interval"
+                           + (", outside at n = " + ", ".join(str(n) for n, v in a_iii.items() if v is False) if dev25['a_iii']['n_fail'] else "") + ")"
+                           + ("; replicate(s): " + "; ".join(f"n = {q['n']} seed {q['seed']}: var/2^-n = {q['ratio']:.3f}, inside null 95% [{q['null_q025_over_2pow']:.3f}, {q['null_q975_over_2pow']:.3f}]: {q['inside_null_95']}" for q in reps) if reps else ""))
+        else:
+            out["note"] = "every chain point n = 4..20 has 2^-n inside its 95% bootstrap interval"
     return out
 
 
 def gate1_summary(results: Sequence[PointResult], noiseless_csv: str | None = None, k_main: int = 1,
-                  ratio_stats: pd.DataFrame | None = None) -> Dict:
+                  ratio_stats: pd.DataFrame | None = None, null_control: Dict | None = None,
+                  renyi: Dict | None = None, identity_csv: str | None = "auto") -> Dict:
     """All six pre-registered Gate 1 criteria, verbatim, each with status (implemented / not-implemented) and
-    result (pass / fail / not-evaluated). No overall verdict is given unless the grid is the pre-registered
-    ladder (n in {20, 40, 60, 80, 100}, L in {1, 2, 4, 8, 12}, M = 200)."""
+    result (pass / fail / not-evaluated; 'reported' for the design check (f)). No overall verdict is given unless
+    the grid is the pre-registered ladder (n in {20, 40, 60, 80, 100}, or the Deviation-18 counts {20, 39, 56, 71, 90},
+    L in {1, 2, 4, 8, 12}, M = 200) with every point computed. ``null_control`` is scripts/gate1_null_control.py's JSON
+    and ``renyi`` scripts/gate1_renyi.py's JSON; without them (d) and (f) are listed as not-implemented."""
     df = to_frame(results)
     done = df[df.method != "not_implemented"]
+    deferred = df[df.method == "not_implemented"]
     floor = shot_floor(16384)
-    ns, Ls, Ms = sorted(set(df.n)), sorted(set(df.L)), sorted(set(df.M))
-    prereg_grid = set(ns) == set(PREREG_N) and set(Ls) == set(PREREG_L) and Ms == [200]
+    ns, Ls = sorted(set(df.n)), sorted(set(df.L))
+    Ms = sorted(set(done.M)) if len(done) else sorted(set(df.M))
+    ladder_n = set(ns) in (set(PREREG_N), set(PREREG_N_DEV18), set(PREREG_N_DEV26))
+    prereg_grid = ladder_n and set(Ls) == set(PREREG_L) and Ms == [200] and deferred.empty
     if ratio_stats is None:
         ratio_stats = layer_index_statistics(results)
     crit: Dict[str, Dict] = {}
-    crit["a"] = criterion_a(noiseless_csv)
-    # (b)
+    if identity_csv == "auto":
+        identity_csv = str(Path(noiseless_csv).with_name("gate1_chain_identity.csv")) if noiseless_csv else None
+    crit["a"] = criterion_a(noiseless_csv, identity_csv)
+    # (b): depth-dependent bound of Deviation 17
     hl = done[["model", "n", "L", "k", "M", "hi_lo"]].copy()
-    b_pts = [dict(model=r.model, n=int(r.n), L=int(r.L), k=int(r.k), M=int(r.M), hi_lo=float(r.hi_lo), below_1p5=bool(r.hi_lo < 1.5))
+    b_pts = [dict(model=r.model, n=int(r.n), L=int(r.L), k=int(r.k), M=int(r.M), hi_lo=float(r.hi_lo), below_1p5=bool(r.hi_lo < 1.5),
+                  bound=criterion_b_bound(int(r.L), int(r.M)), below_bound=bool(r.hi_lo < criterion_b_bound(int(r.L), int(r.M))),
+                  in_test=bool(int(r.M) >= 200))   # Deviation 17 defines the bound at M = 200; reduced-M points are listed, not tested
              for r in hl.itertuples()]
-    n_fail = sum(1 for p in b_pts if not p["below_1p5"])
-    crit["b"] = dict(text=GATE1_CRITERIA["b"], status="implemented", points=b_pts, n_points=len(b_pts), n_above_1p5=n_fail,
+    n_fail = sum(1 for p in b_pts if p["in_test"] and not p["below_bound"])
+    n_excluded_m = sum(1 for p in b_pts if not p["in_test"])
+    n_above_1p5 = sum(1 for p in b_pts if not p["below_1p5"])
+    crit["b"] = dict(text=GATE1_CRITERIA["b"], status="implemented", points=b_pts, n_points=len(b_pts), n_above_1p5=n_above_1p5,
+                     n_above_bound=n_fail, bound="Deviation 17: hi/lo < 1.5 at L = 1, < 2.0 at L = 2, < 2.5 at L >= 4 with M = 200 "
+                                                 "(1.5 where M >= 400 at L = 2 or M >= 700 at L >= 4)",
                      result=("not-evaluated" if not b_pts else ("pass" if n_fail == 0 else "fail")),
                      note=("evaluated at M = " + ", ".join(map(str, Ms)) + ("" if Ms == [200] else " (pre-registration specifies M = 200)"))
-                     + f"; {n_fail} of {len(b_pts)} points have hi/lo >= 1.5")
+                     + f"; {n_fail} of {len(b_pts) - n_excluded_m} points at M >= 200 exceed the depth-dependent bound ({n_above_1p5} exceed the original 1.5)"
+                     + (f"; {n_excluded_m} point(s) at M < 200 listed but not tested" if n_excluded_m else "")
+                     + ("" if deferred.empty else f"; {len(deferred)} deferred point(s) not included"))
     # (c) part 1
     c1 = []
     for (n, L), g in done[done.k == k_main].groupby(["n", "L"]):
@@ -363,46 +518,126 @@ def gate1_summary(results: Sequence[PointResult], noiseless_csv: str | None = No
                            unital_minus_noiseless=v["unital"] - v["noiseless"],
                            exceeds_2floor=bool(abs(v["unital"] - v["noiseless"]) > 2 * floor)))
     n_c1 = sum(1 for p in c1 if p["exceeds_2floor"])
-    # (c) part 2: layer-index ratio at n = 40 or 100
+    c1_deferred = sorted({(int(r.n), int(r.L)) for r in deferred[deferred.k == k_main].itertuples()} - {(p["n"], p["L"]) for p in c1})
+    # part 1 is a count that can only grow as deferred points are added, so >= 6 on the exact points is decisive; below 6 it
+    # is decided only when every ladder point has been computed
+    if n_c1 >= 6 and ladder_n:
+        c1_result = "pass"
+    elif prereg_grid:
+        c1_result = "fail"
+    else:
+        c1_result = "not-evaluated"
+    # (c) part 2: layer-index ratio at n = 40 or 100 (39 / 90 under Deviation 18)
     c2 = [] if ratio_stats is None or ratio_stats.empty else ratio_stats.to_dict("records")
-    c2_prereg = [r for r in c2 if r.get("n") in (40, 100) and r.get("L") in (8, 12) and "D" in r]
+    big = (40, 100, 39, 90, 87)   # n = 40 / 100 as registered, 39 / 90 under Deviation 18, 39 / 87 under Deviations 22 + 26
+    c2_prereg = [r for r in c2 if r.get("n") in big and r.get("L") in (8, 12) and "D" in r]
+    c2_deferred = sorted({(int(r.n), int(r.L)) for r in deferred.itertuples() if int(r.n) in big and int(r.L) in (8, 12)})
     crit["c"] = dict(
         text=GATE1_CRITERIA["c"], status="implemented",
-        part1=dict(threshold_2x_floor_16384=2 * floor, points=c1, n_exceeding=n_c1, required=6,
-                   result=("pass" if n_c1 >= 6 else "fail") if prereg_grid else "not-evaluated",
-                   note=f"{n_c1} of {len(c1)} (n, L) points on this grid exceed 2 x floor; the >= 6 count is defined on the "
-                        f"25-point pre-registered grid" + ("" if prereg_grid else ", which this is not")),
+        part1=dict(threshold_2x_floor_16384=2 * floor, points=c1, n_exceeding=n_c1, required=6, result=c1_result,
+                   deferred_points=[dict(n=n, L=L, note=DEFERRED) for n, L in c1_deferred],
+                   note=f"{n_c1} of {len(c1)} exactly computed (n, L) points exceed 2 x floor = {2 * floor:.2e} at k = {k_main}"
+                        + (f"; the >= 6 count of the 25-point ladder is already met on the exact points" if c1_result == "pass" and not prereg_grid
+                           else "" if prereg_grid else "; the >= 6 count is defined on the 25-point pre-registered ladder")
+                        + (f"; {len(c1_deferred)} (n, L) point(s) {DEFERRED}" if c1_deferred else "")),
         part2=dict(statistic="D = R_nonunital - R_unital, R_m = [Var_m(k=L)/Var_m(k=1)] / [Var_noiseless(k=L)/Var_noiseless(k=1)], "
                              "95% paired bootstrap over shared theta draws; 'differs' = D_lo > 0 (directional, H3 predicts D > 0; Deviation 14)",
-                   points=c2, prereg_points=c2_prereg,
+                   points=c2, prereg_points=c2_prereg, deferred_points=[dict(n=n, L=L, note=DEFERRED) for n, L in c2_deferred],
                    result=("pass" if c2_prereg and any(r["separated"] for r in c2_prereg) else "fail") if c2_prereg else "not-evaluated",
                    note="the pre-registered 'twice the floor' threshold compares a dimensionless ratio with a variance; per "
                         "Deviation 14 (approved by the PI, 19 Sep 2026) it is replaced by the directional paired-bootstrap test "
-                        "D_lo > 0." + ("" if c2_prereg else " No n = 40 / 100, L = 8 / 12 point on this grid.")),
+                        "D_lo > 0." + ("" if c2_prereg else " No computed n = 40 / 100 (39 / 90, or 39 / 87 under Deviations 22 + 26), L = 8 / 12 point on this grid"
+                                        + (f"; {len(c2_deferred)} such point(s) {DEFERRED}." if c2_deferred else "."))),
     )
     crit["c"]["result"] = "not-evaluated" if not prereg_grid else (
         "pass" if crit["c"]["part1"]["result"] == "pass" and crit["c"]["part2"]["result"] == "pass" else "fail")
-    crit["d"] = dict(text=GATE1_CRITERIA["d"], status="not-implemented", result="not-evaluated",
-                     note="null control (parameter outside the light cone at L = 1) not simulated on this branch")
+    crit["d"] = criterion_d(null_control, done, deferred)
     e_pts = [dict(model=r.model, n=int(r.n), L=int(r.L), k=int(r.k), eps_N_4096=float(r.eps_N_4096), eps_N_16384=float(r.eps_N_16384))
              for r in done.itertuples()]
     e_fail = [p for p in e_pts if not p["eps_N_4096"] < 1]
     crit["e"] = dict(text=GATE1_CRITERIA["e"], status="implemented", points=e_pts, n_points=len(e_pts), n_at_or_above_1=len(e_fail),
                      result="not-evaluated" if not e_pts else ("pass" if not e_fail else "fail"),
                      note="evaluated at 4096 shots on every computed point of this grid; the pre-registered scope is 'every point to be claimed'")
-    crit["f"] = dict(text=GATE1_CRITERIA["f"], status="not-implemented", result="not-evaluated",
-                     note="half-patch Renyi-2 entropy and L_s(n) not computed on this branch")
-    skipped = [dict(model=r.model, n=int(r.n), L=int(r.L), k=int(r.k), note=r.note) for r in df[df.method == "not_implemented"].itertuples()]
+    crit["f"] = criterion_f(renyi)
+    skipped = [dict(model=r.model, n=int(r.n), L=int(r.L), k=int(r.k), n_cone=int(r.n_cone), note=r.note)
+               for r in deferred.itertuples()]
+    m_by_point = sorted({(int(r.n), int(r.L), int(r.M)) for r in done.itertuples()})
     return dict(
-        grid=dict(n=ns, L=Ls, M=Ms, models=sorted(set(df.model)), k=sorted(int(x) for x in set(df.k)), is_preregistered_ladder=prereg_grid),
-        overall=("see criteria" if prereg_grid else "not-evaluated: this grid is not the pre-registered ladder, so no overall Gate 1 verdict is given"),
+        grid=dict(n=ns, L=Ls, M=Ms, models=sorted(set(df.model)), k=sorted(int(x) for x in set(df.k)), is_preregistered_ladder=prereg_grid,
+                  ladder_n=ladder_n, n_points_computed=int(len(done)), n_points_deferred=int(len(deferred)),
+                  M_by_point=[dict(n=n, L=L, M=M) for n, L, M in m_by_point]),
+        overall=("see criteria" if prereg_grid else
+                 ("not-evaluated: the ladder points at L = 8 and 12 (and the large-cone L = 4 points) " + DEFERRED +
+                  ", so no overall Gate 1 verdict is given; criteria evaluated on the exactly computed points where the pre-registration allows"
+                  if ladder_n else "not-evaluated: this grid is not the pre-registered ladder, so no overall Gate 1 verdict is given")),
         criteria=crit, skipped_points=skipped,
         stop_rule="Failing (c) or (d) stops the hardware stage.",
     )
 
 
+def criterion_d(null_control: Dict | None, done: pd.DataFrame, deferred: pd.DataFrame, k_main: int = 1) -> Dict:
+    """(d) from scripts/gate1_null_control.py: the simulated null-control floor and its 10x hardware allowance against the
+    smallest noisy signal among the exactly computed points (min over models and k of Var at the deepest computed L per n)."""
+    if not null_control or not null_control.get("points"):
+        return dict(text=GATE1_CRITERIA["d"], status="not-implemented", result="not-evaluated",
+                    note="null control (parameter outside the light cone at L = 1) not simulated; run scripts/gate1_null_control.py "
+                         "and pass --null-json")
+    noisy = done[(done.model != "noiseless")]
+    smallest = None
+    if len(noisy):
+        r = noisy.loc[noisy["var"].idxmin()]
+        smallest = dict(model=str(r.model), n=int(r.n), L=int(r.L), k=int(r.k), var=float(r["var"]), ci_lo=float(r.ci_lo))
+    pts = []
+    for q in null_control["points"]:
+        allowance = 10.0 * q["floor_analytic_1_over_2N"]
+        d = dict(n=q["n"], shots=q["shots"], var_null=q["var_null"], ci_lo=q["ci_lo"], ci_hi=q["ci_hi"],
+                 floor_analytic_1_over_2N=q["floor_analytic_1_over_2N"], floor_two_term_mean=q["floor_two_term_mean"],
+                 ratio_var_null_to_analytic=q["ratio_var_to_analytic"], hardware_allowance_10x=allowance,
+                 mean_grad=q["mean_grad"], se_mean=q["se_mean"], null_parameter_qubit=q["null_parameter_qubit"])
+        if smallest:
+            d["smallest_exact_signal"] = smallest["var"]
+            d["allowance_below_smallest_exact_signal"] = bool(allowance < smallest["ci_lo"])
+            d["var_null_below_smallest_exact_signal"] = bool(q["ci_hi"] < smallest["ci_lo"])
+        pts.append(d)
+    ok = all(p.get("allowance_below_smallest_exact_signal", False) for p in pts) and bool(pts) and smallest is not None
+    deep = sorted({(int(r.n), int(r.L)) for r in deferred.itertuples()})
+    note = (f"null control simulated at n = {sorted({p['n'] for p in pts})} under the non-unital model with sampled shots; Var_null / (1/(2N)) = "
+            + ", ".join(f"{p['ratio_var_null_to_analytic']:.2f} (N = {p['shots']})" for p in pts)
+            + (f"; smallest exactly computed noisy signal Var = {smallest['var']:.2e} ({smallest['model']}, n = {smallest['n']}, L = {smallest['L']}, "
+               f"k = {smallest['k']}), CI low {smallest['ci_lo']:.2e}" if smallest else "; no noisy point computed")
+            + ("; the 10x allowance at both shot counts lies below it" if ok else "; the 10x allowance is NOT below it")
+            + (f"; PROVISIONAL: the smallest signal to be claimed is at L = 12, where the predictions {DEFERRED} "
+               f"({len(deep)} deferred (n, L) points); the stop rule is not cleared until those points exist" if deep else ""))
+    return dict(text=GATE1_CRITERIA["d"], status="implemented", points=pts, smallest_exact_signal=smallest,
+                deferred_points=[dict(n=n, L=L, note=DEFERRED) for n, L in deep],
+                result=(("provisional pass" if deep else "pass") if ok else "fail") if pts else "not-evaluated", note=note)
+
+
+def criterion_f(renyi: Dict | None) -> Dict:
+    """(f) from scripts/gate1_renyi.py: L_s(n) per patch and the straight-line fit; a design check, so the result is 'reported'."""
+    if not renyi or not renyi.get("points"):
+        return dict(text=GATE1_CRITERIA["f"], status="not-implemented", result="not-evaluated",
+                    note="half-patch Renyi-2 entropy and L_s(n) not computed; run scripts/gate1_renyi.py and pass --renyi-json")
+    pts = [dict(patch=p["patch"], n=p["n"], n_A=p["n_A"], draws=p["draws"], L_max=p["L_max"], page_bits=p["page_complex_bits"],
+                threshold_bits=p["threshold_bits"], L_s=p["L_s"], L_s_interpolated=p["L_s_interpolated"], S2_mean=p["S2_mean"])
+           for p in renyi["points"]]
+    fit = renyi.get("fit_Ls_vs_n", {})
+    note = ("L_s(n) at 95% of the Page value: " + ", ".join(f"n = {p['n']}: L_s = {p['L_s']} (interp. {p['L_s_interpolated']:.2f})"
+                                                           if p["L_s_interpolated"] is not None else f"n = {p['n']}: not reached by L = {p['L_max']}"
+                                                           for p in pts)
+            + (f"; fit L_s = {fit['L_s_interpolated']['intercept']:.2f} + {fit['L_s_interpolated']['slope_per_qubit']:.3f} n"
+               if "L_s_interpolated" in fit else "")
+            + "; design check on where the noiseless variance is expected to collapse, no pass/fail threshold pre-registered. Caveats: "
+              "L_s(20) = 12 sits at the sweep edge (L_max = 12) and S2(12) clears the threshold by ~0.5 SEM; the near n-independence is geometric "
+              "(all three patches are 4 rows cut into 2 + 2, so saturation is set by the fixed 2-row distance to the boundary) and the fit must not be "
+              "extrapolated to the 6x10-10x10 patches (n = 39..90 are beyond exact statevector simulation; a 2x10 vs 2x10 cut of the 4x10 patch "
+              "would be the relevant check for n = 39)")
+    return dict(text=GATE1_CRITERIA["f"], status="implemented", points=pts, fit=fit, result="reported", note=note)
+
+
 def save_outputs(results: Sequence[PointResult], csv_out: str, json_out: str, noiseless_csv: str | None = None,
-                 ratios_out: str | None = None, grads_out: str | None = None) -> Dict:
+                 ratios_out: str | None = None, grads_out: str | None = None, null_control: Dict | None = None,
+                 renyi: Dict | None = None) -> Dict:
     df = to_frame(results)
     cols = ["model", "n", "L", "k", "M", "var", "ci_lo", "ci_hi", "shot_floor_4096", "shot_floor_16384",
             "eps_N_4096", "eps_N_16384", "runtime_s", "mean", "hi_lo", "method", "n_traj", "n_cone", "patch", "edge", "note"]
@@ -413,6 +648,6 @@ def save_outputs(results: Sequence[PointResult], csv_out: str, json_out: str, no
         ratios.to_csv(ratios_out, index=False)
     if grads_out:
         np.savez_compressed(grads_out, **{f"{r.model}_n{r.n}_L{r.L}_k{r.k}": r.gradients for r in results if r.gradients is not None})
-    summary = gate1_summary(results, noiseless_csv, ratio_stats=ratios)
+    summary = gate1_summary(results, noiseless_csv, ratio_stats=ratios, null_control=null_control, renyi=renyi)
     Path(json_out).write_text(json.dumps(summary, indent=2, default=float))
     return summary

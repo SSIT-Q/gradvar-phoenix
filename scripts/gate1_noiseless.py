@@ -1,7 +1,8 @@
 """Gate 1 (noiseless): gradient variance vs n for the chain baseline and the square-lattice HEA at
-L=1,2,4. Defaults are the reduced grid shipped with the repo (chain n=4..12, M=1000; HEA on 4x3 and
-4x4, n=12,16, M=200); the pre-registered full grid is
-  python scripts/gate1_noiseless.py --chain-max-n 16 --chain-M 2000 --max-n 20 --hea-M 500
+L=1,2,4. Defaults are the grid shipped with the repo: chain n=4..20 (criterion (a); M=1000 up to n=12 and
+M=300 for n=13..20, see --chain-M-large / --chain-large-from) and HEA on 4x3 and 4x4 (n=12,16, M=200);
+the pre-registered full grid is
+  python scripts/gate1_noiseless.py --chain-M 2000 --chain-M-large 2000 --max-n 20 --hea-M 500
 Saves
 figures/gate1_noiseless.png and figures/gate1_noiseless.csv.
 """
@@ -24,16 +25,39 @@ from gradvar.sim import HAS_AER, best_noiseless_expval, statevector_expval  # no
 from gradvar.variance import gradient_variance, shot_floor  # noqa: E402
 
 
-def chain_series(ns, M, seed):
+def chain_series(ns, M, seed, M_large=None, large_from=13):
+    """M draws per n; from n = large_from upwards M_large draws (statevector cost grows as 2^n)."""
+    rows = []
+    for n in ns:
+        Mn = M if (M_large is None or n < large_from) else M_large
+        t0 = time.time()
+        _, obs = chain_baseline(n)
+        ev = statevector_expval(obs)
+        res = gradient_variance(Mn, lambda th: parameter_shift(lambda p: chain_baseline(n, p)[0], th, 0, ev), n, seed=seed)
+        rows.append(dict(family="chain", n=n, L=1, M=Mn, variance=res.variance, ci_low=res.ci_low, ci_high=res.ci_high,
+                         mean=res.mean, analytic=2.0 ** -n, seconds=time.time() - t0))
+        print(f"chain n={n:2d}: var={res.variance:.3e} [{res.ci_low:.3e}, {res.ci_high:.3e}]  2^-n={2.0**-n:.3e}  ({rows[-1]['seconds']:.1f}s)")
+    return rows
+
+
+def chain_closed_form(thetas):
+    """g = -sin(theta_0) prod_{i>0} cos(theta_i): the exact chain gradient (Var = 2^-n, kurtosis (3/2)^n)."""
+    thetas = np.asarray(thetas)
+    return -np.sin(thetas[:, 0]) * np.prod(np.cos(thetas[:, 1:]), axis=1)
+
+
+def chain_identity_series(ns, M, seed):
+    """Deviation 25 (a-i): per-draw |g_sim - g_closed| of the statevector parameter-shift gradient at M draws per n."""
     rows = []
     for n in ns:
         t0 = time.time()
         _, obs = chain_baseline(n)
-        ev = statevector_expval(obs)
-        res = gradient_variance(M, lambda th: parameter_shift(lambda p: chain_baseline(n, p)[0], th, 0, ev), n, seed=seed)
-        rows.append(dict(family="chain", n=n, L=1, M=M, variance=res.variance, ci_low=res.ci_low, ci_high=res.ci_high,
-                         mean=res.mean, analytic=2.0 ** -n, seconds=time.time() - t0))
-        print(f"chain n={n:2d}: var={res.variance:.3e} [{res.ci_low:.3e}, {res.ci_high:.3e}]  2^-n={2.0**-n:.3e}  ({rows[-1]['seconds']:.1f}s)")
+        ev = best_noiseless_expval(obs, n)   # quantum_info Statevector to 14 qubits, Aer statevector above (identical numbers, ~10x faster)
+        thetas = np.random.default_rng(seed + 7).uniform(0.0, 2.0 * np.pi, size=(M, n))
+        g_sim = np.array([parameter_shift(lambda p: chain_baseline(n, p)[0], th, 0, ev).gradient for th in thetas])
+        err = np.abs(g_sim - chain_closed_form(thetas))
+        rows.append(dict(n=n, M=M, max_abs_error=float(err.max()), mean_abs_error=float(err.mean()), seconds=time.time() - t0))
+        print(f"identity n={n:2d}: max|g_sim - g_closed| = {err.max():.2e} ({rows[-1]['seconds']:.1f}s)")
     return rows
 
 
@@ -66,7 +90,8 @@ def plot(df, out_png):
     ax.plot(ns, 2.0 ** -ns, color="#888888", ls="--", lw=1, label=r"$2^{-n}$")
     ch = df[df.family == "chain"]
     ax.errorbar(ch.n, ch.variance, yerr=[ch.variance - ch.ci_low, ch.ci_high - ch.variance], fmt="o", ms=4,
-                color="#1b3a5c", capsize=2, label=f"chain baseline (Ry + CX chain, Z last), M={int(ch.M.iloc[0])}")
+                color="#1b3a5c", capsize=2,
+                label="chain baseline (Ry + CX chain, Z last), M=" + "/".join(str(int(m)) for m in ch.M.unique()))
     colors = {1: "#d95f02", 2: "#7570b3", 4: "#1b9e77"}
     for L, g in df[df.family == "hea"].groupby("L"):
         ax.errorbar(g.n + 0.1 * (L - 2), g.variance, yerr=[g.variance - g.ci_low, g.ci_high - g.variance], fmt="s", ms=4,
@@ -86,15 +111,25 @@ def plot(df, out_png):
 
 def main(argv=None):
     p = argparse.ArgumentParser()
-    p.add_argument("--chain-M", type=int, default=1000)
-    p.add_argument("--chain-max-n", type=int, default=12)
+    p.add_argument("--chain-M", type=int, default=1000, help="chain draws per n below --chain-large-from")
+    p.add_argument("--chain-M-large", type=int, default=300, help="chain draws per n from --chain-large-from upwards")
+    p.add_argument("--chain-large-from", type=int, default=13)
+    p.add_argument("--chain-max-n", type=int, default=20)
     p.add_argument("--hea-M", type=int, default=200)
     p.add_argument("--max-n", type=int, default=16)
     p.add_argument("--seed", type=int, default=2026)
+    p.add_argument("--identity-M", type=int, default=100, help="Deviation 25 (a-i): draws per n for the closed-form identity check (0 to skip)")
+    p.add_argument("--identity-only", action="store_true", help="run only the (a-i) identity check and write figures/gate1_chain_identity.csv")
     p.add_argument("--out", default=str(ROOT / "figures" / "gate1_noiseless.png"))
     a = p.parse_args(argv)
     print(f"qiskit-aer available: {HAS_AER}")
-    rows = chain_series(range(4, a.chain_max_n + 1), a.chain_M, a.seed)
+    if a.identity_M:
+        ident = pd.DataFrame(chain_identity_series(range(4, a.chain_max_n + 1), a.identity_M, a.seed))
+        Path(a.out).parent.mkdir(parents=True, exist_ok=True)
+        ident.to_csv(Path(a.out).with_name("gate1_chain_identity.csv"), index=False)
+        if a.identity_only:
+            return
+    rows = chain_series(range(4, a.chain_max_n + 1), a.chain_M, a.seed, a.chain_M_large, a.chain_large_from)
     rows += hea_series(gate1_patches(), (1, 2, 4), a.hea_M, a.seed, a.max_n)
     df = pd.DataFrame(rows)
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
