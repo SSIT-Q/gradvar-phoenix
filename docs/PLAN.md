@@ -1,6 +1,6 @@
 # Programme plan and tracker: gradient concentration on ibm_phoenix
 
-Two papers, one allocation. Version 1, 19 September 2026. Weekly review every Monday in #mitacs.
+Two papers, one allocation. Version 1, 19 September 2026; last updated 19 Sep 2026, 20:25 IST. Weekly review every Monday in #mitacs.
 
 Owners: **O** = Mohammed Owais, **R** = Dr. Raviram V (PI), **C** = physics collaborator (anonymous for now), **Cl** = Claude.
 
@@ -17,7 +17,7 @@ Task lists and the minute ledger live in [TRACKER.md](TRACKER.md). The live page
 Links:
 
 - Decision memo: https://claude.ai/artifact/Y7bcM82SzoXtD7gyqpVgSH
-- Pre-registration v0.2: https://claude.ai/artifact/C2RMiQMPq5qonMAYNaEqex
+- Pre-registration v0.3: https://claude.ai/artifact/C2RMiQMPq5qonMAYNaEqex
 - Repository: https://github.com/SSIT-Q/gradvar-phoenix
 - Plan page: https://claude.ai/artifact/CJCBC4RDXr7GFEwhcBeohy
 
@@ -79,6 +79,10 @@ Paper 1's arXiv date now floats, so applications after mid-November 2026 may sti
 | 19 Sep 2026 | Independent review required after every major step and before and after any QPU usage. |
 | 19 Sep 2026 | IBM Quantum credentials live only as GitHub repository secrets (QISKIT_IBM_TOKEN, QISKIT_IBM_INSTANCE); hardware jobs run as a GitHub Action from a committed job list that carries a pre-flight review link; no key is ever posted in Slack or held by Claude. |
 | 19 Sep 2026 | Anonymous collaborator: authorship requires a name; an acknowledgement is the alternative. Decision due 30 Sep 2026 (P1.0.6). |
+| 19 Sep 2026 | Deviations 14 and 15 approved by Dr. Raviram (pre-registration v0.3, relayed 20:01 IST). Deviation 14: the H3 statistic is the noiseless-corrected layer-index ratio with a paired-bootstrap interval that must exclude 1. Deviation 15: deep points (n = 40 and 100 at L = 8 and 12) are predicted by truncated Pauli propagation with a stated truncation error; where that fails they are hardware-only and exploratory. |
+| 19 Sep 2026 | Paper 2 scoping brought forward from October to 19 Sep 2026 at Owais's request to prioritise the breakthrough. Paper 1 keeps its full grid; the minute split is re-based after the dry run. |
+| 19 Sep 2026 | Flex instance created with a 180-minute cap, to be raised as stages pass; the open-plan instance CRN is stored as a third repository secret (QISKIT_IBM_INSTANCE_OPEN). |
+| 19 Sep 2026 | Logging rule: every hardware job stores all IBM-returned data (job metadata, usage, full result and per-circuit metadata, options, backend calibration and target snapshot, transpiled circuits) in the repository for later analysis, on both the Flex and open-plan instances. The tracker is updated at every stage change. |
 
 ## 9. How to use this tracker
 

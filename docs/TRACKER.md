@@ -1,6 +1,6 @@
 # Tracker: task lists and minute ledger
 
-Version 1, 19 September 2026. Companion to [PLAN.md](PLAN.md). Statuses: done, in progress, todo, blocked. Owners: **O** = Mohammed Owais, **R** = Dr. Raviram V (PI), **C** = physics collaborator (anonymous for now), **Cl** = Claude.
+Version 1, 19 September 2026; last updated 19 Sep 2026, 20:25 IST. Companion to [PLAN.md](PLAN.md). Statuses: done, in progress, todo, blocked. Owners: **O** = Mohammed Owais, **R** = Dr. Raviram V (PI), **C** = physics collaborator (anonymous for now), **Cl** = Claude.
 
 ## 2. Paper 1 task list
 
@@ -10,7 +10,7 @@ Version 1, 19 September 2026. Companion to [PLAN.md](PLAN.md). Statuses: done, i
 |---|---|---|---|---|---|
 | P1.0.1 | Repository pushed | Cl | 19 Sep 2026 | done | Commit 2c5a743 on main |
 | P1.0.2 | Owais's first commit, and Dr. Raviram added as collaborator | O | 21 Sep 2026 | todo | Commit hash; collaborator visible on GitHub |
-| P1.0.3 | PI signature on pre-registration v0.2 (v0.1 signatures do not count) | R | 22 Sep 2026 | done (19 Sep 2026) | Owais confirmed in thread 19 Sep 2026, 19:21 IST |
+| P1.0.3 | PI signature on pre-registration: v0.2 signed, then v0.3 with Deviations 14 and 15 approved; pre-registration closed | R | 22 Sep 2026 | done (19 Sep 2026) | Done 19 Sep 2026. v0.2 signed (confirmed 19:21 IST); v0.3 with Deviations 14 and 15 approved by Dr. Raviram, relayed by Owais 20:01 IST; pre-registration page Version 5 |
 | P1.0.4 | API key rotated and confirmed in the thread (unconfirmed since 19 Sep 2026) | O | 20 Sep 2026 | todo | Confirmation message in #mitacs |
 | P1.0.5 | Daily calibration snapshot job running and committing to data/calibrations | O | 22 Sep 2026 | todo | Two consecutive daily commits |
 | P1.0.6 | Collaborator decision: named author or acknowledgement | O, C | 30 Sep 2026 | todo | Decision recorded in the decision log |
@@ -25,13 +25,17 @@ Version 1, 19 September 2026. Companion to [PLAN.md](PLAN.md). Statuses: done, i
 | P1.1.4 | epsilon_N per point, and the half-patch Renyi-2 saturation depth L_s(n) | O | 3 Oct 2026 | todo | Table of epsilon_N and L_s(n) committed |
 | P1.1.5 | Gate 1 report against criteria (a) to (f), posted in the thread | O | 5 Oct 2026 | todo | Report link in #mitacs |
 | P1.1.6 | Gate 1 decision | R | 6 Oct 2026 | todo | Decision log entry |
-| P1.1.7 | Owais sets the two repository secrets (QISKIT_IBM_TOKEN, QISKIT_IBM_INSTANCE) on GitHub; no key is posted in Slack or held by Claude | O | 5 Oct 2026 | todo | Secrets visible in repository settings; confirmation in the thread |
+| P1.1.7 | Owais sets the three repository secrets (QISKIT_IBM_TOKEN, QISKIT_IBM_INSTANCE, QISKIT_IBM_INSTANCE_OPEN) on GitHub; no key is posted in Slack or held by Claude | O | 5 Oct 2026 | done (19 Sep 2026) | Done 19 Sep 2026, 20:19 IST. Three secrets set on GitHub; Flex instance capped at 180 minutes, adjustable as stages pass |
+| P1.1.8 | Gate 1 code: fix review items B1 to B12, add two-instance support and full job-metadata capture | Cl | 22 Sep 2026 | in progress | Fix commits on gate1-predictions; review items closed one by one |
+| P1.1.9 | Second independent review of gate1-predictions, then merge to main | Cl | 22 Sep 2026 | todo | Review outcome posted in the thread; merge commit on main |
+| P1.1.10 | Calibration snapshot workflow first run on main | Cl | 22 Sep 2026 | todo | First snapshot committed to data/calibrations by the Action |
+| P1.1.11 | Pauli-propagation predictions for n = 40 and 100 at L = 8 and 12 with truncation error (Deviation 15) | Cl | 5 Oct 2026 | todo | Prediction table with truncation error committed |
 
 ### P1.2 Dry run (6 to 10 Oct 2026)
 
 | ID | Task | Owner | Due | Status | Evidence |
 |---|---|---|---|---|---|
-| P1.2.0 | Pre-flight review of the dry run job list: exact jobs, shot counts, backend and instance signed off before any minute is spent | Cl reviews, R decides | 6 Oct 2026 | todo | Review outcome posted in the thread and linked here |
+| P1.2.0 | Pre-flight review of the dry run job list: exact jobs, shot counts, backend and instance signed off before any minute is spent | Cl reviews, R decides | 6 Oct 2026 | in progress | In progress. Code-review stage: first independent review of gate1-predictions on 19 Sep 2026 found 2 blockers, 5 major, 5 minor; fixes in progress (P1.1.8); second review pending (P1.1.9); job-list sign-off still to come |
 | P1.2.1 | Pipeline checks on ibm_marrakesh under the open plan | O | 7 Oct 2026 | todo | Job IDs and results committed |
 | P1.2.2 | ibm_phoenix smoke test, about 5 Flex minutes: locked time per point, reset error and latency, depth ceiling | O | 9 Oct 2026 | todo | Smoke-test summary in the thread; raw results committed |
 | P1.2.3 | Minute budget re-based on measured locked time and posted | Cl | 10 Oct 2026 | todo | Ledger updated to version 2 |
@@ -63,13 +67,14 @@ Version 1, 19 September 2026. Companion to [PLAN.md](PLAN.md). Statuses: done, i
 
 ## 3. Paper 2 task list
 
-### P2.0 Theory scoping (Oct 2026, in parallel with P1.1)
+### P2.0 Theory scoping (started 19 Sep 2026, in parallel with P1.1)
 
 | ID | Task | Owner | Due | Status | Evidence |
 |---|---|---|---|---|---|
-| P2.0.1 | Read arXiv:2507.02043 and arXiv:2411.05760 in full and write a two-page note: the ansatz (ancilla measure-and-reset every r layers, with or without feedforward), the claimed plateau-freedom, and exactly why the Pauli-propagation and surrogate results do not cover it | C with Cl | 15 Oct 2026 | todo | Note committed to docs/ |
+| P2.0.1 | Read arXiv:2507.02043 and arXiv:2411.05760 in full and write a two-page note: the ansatz (ancilla measure-and-reset every r layers, with or without feedforward), the claimed plateau-freedom, and exactly why the Pauli-propagation and surrogate results do not cover it | C with Cl | 19 Sep to 15 Oct 2026 | in progress | Started 19 Sep 2026. Owais asked 19 Sep 20:01 IST to prioritise the breakthrough; scoping (literature check, ansatz families, small sims, memo) started same day; memo goes through a reviewer before posting. Note committed to docs/ |
 | P2.0.2 | Define the unitary-matched control ansatz with equal gate count | C | 15 Oct 2026 | todo | Circuit definition in the note and in code |
 | P2.0.3 | Reset error and latency from the smoke test folded into the noise model | O | 10 Oct 2026 | todo | Noise-model parameters committed |
+| P2.0.4 | Reviewer pass on the Paper 2 scoping memo before it is posted | Cl | After P2.0.1 | todo | Review outcome posted in the thread and linked here |
 
 ### P2.1 Simulation (Nov 2026)
 
