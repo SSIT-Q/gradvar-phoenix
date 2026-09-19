@@ -191,9 +191,15 @@ def verdicts(df: pd.DataFrame, K: int = K_MASKS) -> dict:
         if pts:
             v40 = [q for q in pts if q["patch"] == "4x10"]
             v100 = [q for q in pts if q["patch"] == "10x10"]
-            falls = bool(v40 and v100 and (v40[0]["var_p0"] - v100[0]["var_p0"]) > v100[0]["combined_floor"])
+            fall = (v40[0]["var_p0"] - v100[0]["var_p0"]) if (v40 and v100) else float("nan")
+            falls = bool(v40 and v100 and fall > v100[0]["combined_floor"])
             out[stage_name].append(dict(L=int(L), points=pts, all_separated_3x=all(q["separated_3x"] for q in pts),
+                                        p0_fall_40_to_100=fall, combined_floor=(v100[0]["combined_floor"] if v100 else float("nan")),
                                         p0_falls_40_to_100_by_more_than_floor=falls,
+                                        p0_falls_40_to_100_by_more_than_shot_floor=bool(v40 and v100 and fall > sf),
+                                        p0_series=[(q["n"], q["var_p0"]) for q in pts],
+                                        note="the p = 0 (delay-matched) points carry no reset lottery, so their own floor is the shot floor; the "
+                                             "pre-registered clause compares the fall with the combined shot + pattern floor of the p = 0.25 series",
                                         passes=bool(all(q["separated_3x"] for q in pts) and falls)))
     d = df[(df.stage == "dev15") & (df.get("status", "") != "pending") & df.n.notna()]
     for (spec, L), grp in d.groupby(["patch", "L"]):
