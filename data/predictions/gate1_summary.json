@@ -1,0 +1,778 @@
+{
+  "grid": {
+    "n": [
+      12,
+      16
+    ],
+    "L": [
+      1,
+      2,
+      4
+    ],
+    "M": [
+      200
+    ],
+    "models": [
+      "noiseless",
+      "nonunital",
+      "unital"
+    ],
+    "k": [
+      1,
+      2,
+      4
+    ],
+    "is_preregistered_ladder": false
+  },
+  "overall": "not-evaluated: this grid is not the pre-registered ladder, so no overall Gate 1 verdict is given",
+  "criteria": {
+    "a": {
+      "text": "The regression check reproduces 2^-n within bootstrap error for n = 4 to 20.",
+      "status": "implemented",
+      "source": "/workspace/gradvar-phoenix/figures/gate1_noiseless.csv",
+      "points": {
+        "4": true,
+        "5": true,
+        "6": true,
+        "7": true,
+        "8": true,
+        "9": true,
+        "10": true,
+        "11": true,
+        "12": true
+      },
+      "n_missing": [
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20
+      ],
+      "result": "not-evaluated",
+      "note": "chain points present for n = 4..12 only; pre-registration requires 4..20 (missing [13, 14, 15, 16, 17, 18, 19, 20]); all present points pass"
+    },
+    "b": {
+      "text": "At M = 200 the bootstrap interval ratio (upper over lower) on the variance is below 1.5.",
+      "status": "implemented",
+      "points": [
+        {
+          "model": "noiseless",
+          "n": 12,
+          "L": 1,
+          "k": 1,
+          "M": 200,
+          "hi_lo": 1.378231174610622,
+          "below_1p5": true
+        },
+        {
+          "model": "unital",
+          "n": 12,
+          "L": 1,
+          "k": 1,
+          "M": 200,
+          "hi_lo": 1.3807179328260182,
+          "below_1p5": true
+        },
+        {
+          "model": "nonunital",
+          "n": 12,
+          "L": 1,
+          "k": 1,
+          "M": 200,
+          "hi_lo": 1.3806166048524504,
+          "below_1p5": true
+        },
+        {
+          "model": "noiseless",
+          "n": 12,
+          "L": 2,
+          "k": 1,
+          "M": 200,
+          "hi_lo": 1.6427114415276418,
+          "below_1p5": false
+        },
+        {
+          "model": "unital",
+          "n": 12,
+          "L": 2,
+          "k": 1,
+          "M": 200,
+          "hi_lo": 1.6590170019192403,
+          "below_1p5": false
+        },
+        {
+          "model": "nonunital",
+          "n": 12,
+          "L": 2,
+          "k": 1,
+          "M": 200,
+          "hi_lo": 1.6404914128168222,
+          "below_1p5": false
+        },
+        {
+          "model": "noiseless",
+          "n": 12,
+          "L": 2,
+          "k": 2,
+          "M": 200,
+          "hi_lo": 1.531252584627354,
+          "below_1p5": false
+        },
+        {
+          "model": "unital",
+          "n": 12,
+          "L": 2,
+          "k": 2,
+          "M": 200,
+          "hi_lo": 1.5243949916037531,
+          "below_1p5": false
+        },
+        {
+          "model": "nonunital",
+          "n": 12,
+          "L": 2,
+          "k": 2,
+          "M": 200,
+          "hi_lo": 1.534651604827907,
+          "below_1p5": false
+        },
+        {
+          "model": "noiseless",
+          "n": 12,
+          "L": 4,
+          "k": 1,
+          "M": 200,
+          "hi_lo": 1.8150187988522593,
+          "below_1p5": false
+        },
+        {
+          "model": "unital",
+          "n": 12,
+          "L": 4,
+          "k": 1,
+          "M": 200,
+          "hi_lo": 1.8410071814747286,
+          "below_1p5": false
+        },
+        {
+          "model": "nonunital",
+          "n": 12,
+          "L": 4,
+          "k": 1,
+          "M": 200,
+          "hi_lo": 1.8201539709371908,
+          "below_1p5": false
+        },
+        {
+          "model": "noiseless",
+          "n": 12,
+          "L": 4,
+          "k": 4,
+          "M": 200,
+          "hi_lo": 2.0250772921293483,
+          "below_1p5": false
+        },
+        {
+          "model": "unital",
+          "n": 12,
+          "L": 4,
+          "k": 4,
+          "M": 200,
+          "hi_lo": 2.0119259478599694,
+          "below_1p5": false
+        },
+        {
+          "model": "nonunital",
+          "n": 12,
+          "L": 4,
+          "k": 4,
+          "M": 200,
+          "hi_lo": 1.9930110805815533,
+          "below_1p5": false
+        },
+        {
+          "model": "noiseless",
+          "n": 16,
+          "L": 1,
+          "k": 1,
+          "M": 200,
+          "hi_lo": 1.378231174610622,
+          "below_1p5": true
+        },
+        {
+          "model": "unital",
+          "n": 16,
+          "L": 1,
+          "k": 1,
+          "M": 200,
+          "hi_lo": 1.3801099983826834,
+          "below_1p5": true
+        },
+        {
+          "model": "nonunital",
+          "n": 16,
+          "L": 1,
+          "k": 1,
+          "M": 200,
+          "hi_lo": 1.3804474318616586,
+          "below_1p5": true
+        },
+        {
+          "model": "noiseless",
+          "n": 16,
+          "L": 2,
+          "k": 1,
+          "M": 200,
+          "hi_lo": 1.6002024931234404,
+          "below_1p5": false
+        },
+        {
+          "model": "unital",
+          "n": 16,
+          "L": 2,
+          "k": 1,
+          "M": 200,
+          "hi_lo": 1.6027029284557588,
+          "below_1p5": false
+        },
+        {
+          "model": "nonunital",
+          "n": 16,
+          "L": 2,
+          "k": 1,
+          "M": 200,
+          "hi_lo": 1.6053850205244202,
+          "below_1p5": false
+        },
+        {
+          "model": "noiseless",
+          "n": 16,
+          "L": 2,
+          "k": 2,
+          "M": 200,
+          "hi_lo": 1.603374427176852,
+          "below_1p5": false
+        },
+        {
+          "model": "unital",
+          "n": 16,
+          "L": 2,
+          "k": 2,
+          "M": 200,
+          "hi_lo": 1.6110351025384317,
+          "below_1p5": false
+        },
+        {
+          "model": "nonunital",
+          "n": 16,
+          "L": 2,
+          "k": 2,
+          "M": 200,
+          "hi_lo": 1.6156127998494292,
+          "below_1p5": false
+        },
+        {
+          "model": "noiseless",
+          "n": 16,
+          "L": 4,
+          "k": 1,
+          "M": 200,
+          "hi_lo": 2.0106214709392862,
+          "below_1p5": false
+        },
+        {
+          "model": "unital",
+          "n": 16,
+          "L": 4,
+          "k": 1,
+          "M": 200,
+          "hi_lo": 1.8966285343276794,
+          "below_1p5": false
+        },
+        {
+          "model": "nonunital",
+          "n": 16,
+          "L": 4,
+          "k": 1,
+          "M": 200,
+          "hi_lo": 1.9566379595522314,
+          "below_1p5": false
+        },
+        {
+          "model": "noiseless",
+          "n": 16,
+          "L": 4,
+          "k": 4,
+          "M": 200,
+          "hi_lo": 1.8325488216418522,
+          "below_1p5": false
+        },
+        {
+          "model": "unital",
+          "n": 16,
+          "L": 4,
+          "k": 4,
+          "M": 200,
+          "hi_lo": 1.8657898041481051,
+          "below_1p5": false
+        },
+        {
+          "model": "nonunital",
+          "n": 16,
+          "L": 4,
+          "k": 4,
+          "M": 200,
+          "hi_lo": 1.8534803223438823,
+          "below_1p5": false
+        }
+      ],
+      "n_points": 30,
+      "n_above_1p5": 24,
+      "result": "fail",
+      "note": "evaluated at M = 200; 24 of 30 points have hi/lo >= 1.5"
+    },
+    "c": {
+      "text": "The unital-noise and noiseless predictions, computed with the ibm_phoenix calibration snapshot, differ by more than twice the 16384-shot floor at six or more (n, L) points, and the layer-index ratio (k = L versus k = 1) predicted by the non-unital model differs from the unital-only model by more than twice the floor at n = 40 or 100.",
+      "status": "implemented",
+      "part1": {
+        "threshold_2x_floor_16384": 6.103515625e-05,
+        "points": [
+          {
+            "n": 12,
+            "L": 1,
+            "var_noiseless": 0.24209755534847655,
+            "var_unital": 0.22855100451478005,
+            "var_nonunital": 0.22742026165661156,
+            "unital_minus_noiseless": -0.013546550833696491,
+            "exceeds_2floor": true
+          },
+          {
+            "n": 12,
+            "L": 2,
+            "var_noiseless": 0.07896634853614821,
+            "var_unital": 0.07165162793217617,
+            "var_nonunital": 0.07163919790869493,
+            "unital_minus_noiseless": -0.00731472060397205,
+            "exceeds_2floor": true
+          },
+          {
+            "n": 12,
+            "L": 4,
+            "var_noiseless": 0.010460630647931745,
+            "var_unital": 0.008731466885028393,
+            "var_nonunital": 0.008800842400848592,
+            "unital_minus_noiseless": -0.0017291637629033522,
+            "exceeds_2floor": true
+          },
+          {
+            "n": 16,
+            "L": 1,
+            "var_noiseless": 0.24209755534847655,
+            "var_unital": 0.22446689956434968,
+            "var_nonunital": 0.2231837856378714,
+            "unital_minus_noiseless": -0.01763065578412687,
+            "exceeds_2floor": true
+          },
+          {
+            "n": 16,
+            "L": 2,
+            "var_noiseless": 0.089079467821875,
+            "var_unital": 0.07676572890779919,
+            "var_nonunital": 0.07853223343171091,
+            "unital_minus_noiseless": -0.012313738914075806,
+            "exceeds_2floor": true
+          },
+          {
+            "n": 16,
+            "L": 4,
+            "var_noiseless": 0.00891171575254333,
+            "var_unital": 0.006769159188761446,
+            "var_nonunital": 0.007228542528118333,
+            "unital_minus_noiseless": -0.0021425565637818843,
+            "exceeds_2floor": true
+          }
+        ],
+        "n_exceeding": 6,
+        "required": 6,
+        "result": "not-evaluated",
+        "note": "6 of 6 (n, L) points on this grid exceed 2 x floor; the >= 6 count is defined on the 25-point pre-registered grid, which this is not"
+      },
+      "part2": {
+        "statistic": "D = R_nonunital - R_unital, R_m = [Var_m(k=L)/Var_m(k=1)] / [Var_noiseless(k=L)/Var_noiseless(k=1)], 95% paired bootstrap over shared theta draws; 'differs' = interval excludes 0",
+        "points": [
+          {
+            "n": 12,
+            "L": 2,
+            "M": 200,
+            "r_noiseless": 1.4881829598951348,
+            "r_noiseless_lo": 1.0936650377034853,
+            "r_noiseless_hi": 2.0561970199800625,
+            "r_unital": 1.4730290581861853,
+            "r_unital_lo": 1.0791754197162788,
+            "r_unital_hi": 2.0390359144031676,
+            "r_nonunital": 1.4875538980446155,
+            "r_nonunital_lo": 1.0945735281294335,
+            "r_nonunital_hi": 2.053574681277203,
+            "R_unital": 0.9898171783192455,
+            "R_unital_lo": 0.9673245832329354,
+            "R_unital_hi": 1.0146976842669135,
+            "R_nonunital": 0.999577295354488,
+            "R_nonunital_lo": 0.9799976820048814,
+            "R_nonunital_hi": 1.0190653782235721,
+            "D": 0.009760117035242488,
+            "D_lo": -0.021416177681733786,
+            "D_hi": 0.03815014169182813,
+            "separated": false,
+            "var_kL_nonunital_minus_unital": 0.0010222380914283596
+          },
+          {
+            "n": 12,
+            "L": 4,
+            "M": 200,
+            "r_noiseless": 2.3020371006742986,
+            "r_noiseless_lo": 1.458224849489169,
+            "r_noiseless_hi": 3.616752411911489,
+            "r_unital": 2.2290817621572354,
+            "r_unital_lo": 1.4175349207760708,
+            "r_unital_hi": 3.516944285539951,
+            "r_nonunital": 2.292424854256983,
+            "r_nonunital_lo": 1.4534295485893525,
+            "r_nonunital_hi": 3.5964173909998327,
+            "R_unital": 0.9683083567611949,
+            "R_unital_lo": 0.9370534866338026,
+            "R_unital_hi": 1.0040405335856297,
+            "R_nonunital": 0.9958244606854946,
+            "R_nonunital_lo": 0.9565314118607698,
+            "R_nonunital_hi": 1.0401740113608942,
+            "D": 0.027516103924299706,
+            "D_lo": -0.02104241371152593,
+            "D_hi": 0.07853572185401302,
+            "separated": false,
+            "var_kL_nonunital_minus_unital": 0.0007121162678073722
+          },
+          {
+            "n": 16,
+            "L": 2,
+            "M": 200,
+            "r_noiseless": 1.0725864801670386,
+            "r_noiseless_lo": 0.826474075908018,
+            "r_noiseless_hi": 1.3959005678592702,
+            "r_unital": 1.0817130919317768,
+            "r_unital_lo": 0.8297385284208116,
+            "r_unital_hi": 1.4111671123444571,
+            "r_nonunital": 1.0813935792351423,
+            "r_nonunital_lo": 0.8320447242777923,
+            "r_nonunital_hi": 1.4119411614095416,
+            "R_unital": 1.0085089752047935,
+            "R_unital_lo": 0.9890271769625906,
+            "R_unital_hi": 1.0276430591152246,
+            "R_nonunital": 1.0082110852886492,
+            "R_nonunital_lo": 0.9898823891850654,
+            "R_nonunital_hi": 1.0271242906810212,
+            "D": -0.0002978899161443227,
+            "D_lo": -0.02654431006222326,
+            "D_hi": 0.0263646886908653,
+            "separated": false,
+            "var_kL_nonunital_minus_unital": 0.0018857590247955275
+          },
+          {
+            "n": 16,
+            "L": 4,
+            "M": 200,
+            "r_noiseless": 1.9956951503166391,
+            "r_noiseless_lo": 1.3440541835044637,
+            "r_noiseless_hi": 3.0026605089832867,
+            "r_unital": 2.110896437308993,
+            "r_unital_lo": 1.4223669191414865,
+            "r_unital_hi": 3.1550320640616953,
+            "r_nonunital": 1.9768847445102546,
+            "r_nonunital_lo": 1.3289409610355296,
+            "r_nonunital_hi": 2.9914941475027033,
+            "R_unital": 1.0577248919876745,
+            "R_unital_lo": 1.0060699276333114,
+            "R_unital_hi": 1.102601859066504,
+            "R_nonunital": 0.9905745094367745,
+            "R_nonunital_lo": 0.93387133791025,
+            "R_nonunital_hi": 1.0449152813011615,
+            "D": -0.0671503825509,
+            "D_lo": -0.12198308586303547,
+            "D_hi": -0.002995690324047389,
+            "separated": true,
+            "var_kL_nonunital_minus_unital": 1.0014337467525308e-06
+          }
+        ],
+        "prereg_points": [],
+        "result": "not-evaluated",
+        "note": "the pre-registered 'twice the floor' threshold compares a dimensionless ratio with a variance; it is replaced here by the paired-bootstrap interval of H3's refutation clause. Flag to the PI before v1.0 is signed. No n = 40 / 100, L = 8 / 12 point on this grid."
+      },
+      "result": "not-evaluated"
+    },
+    "d": {
+      "text": "The noise-floor control predicts a floor below the smallest signal to be claimed, allowing for a hardware floor up to 10x the analytic shot floor (Mari, Bromley and Killoran, Fig. 2b).",
+      "status": "not-implemented",
+      "result": "not-evaluated",
+      "note": "null control (parameter outside the light cone at L = 1) not simulated on this branch"
+    },
+    "e": {
+      "text": "eps_N below 1 at every point to be claimed.",
+      "status": "implemented",
+      "points": [
+        {
+          "model": "noiseless",
+          "n": 12,
+          "L": 1,
+          "k": 1,
+          "eps_N_4096": 0.00038162505216425053,
+          "eps_N_16384": 9.540626304106263e-05
+        },
+        {
+          "model": "unital",
+          "n": 12,
+          "L": 1,
+          "k": 1,
+          "eps_N_4096": 0.00041146321175103857,
+          "eps_N_16384": 0.00010286580293775964
+        },
+        {
+          "model": "nonunital",
+          "n": 12,
+          "L": 1,
+          "k": 1,
+          "eps_N_4096": 0.0004141049502524793,
+          "eps_N_16384": 0.00010352623756311982
+        },
+        {
+          "model": "noiseless",
+          "n": 12,
+          "L": 2,
+          "k": 1,
+          "eps_N_4096": 0.0014001253301223458,
+          "eps_N_16384": 0.00035003133253058645
+        },
+        {
+          "model": "unital",
+          "n": 12,
+          "L": 2,
+          "k": 1,
+          "eps_N_4096": 0.0015581693127986148,
+          "eps_N_16384": 0.0003895423281996537
+        },
+        {
+          "model": "nonunital",
+          "n": 12,
+          "L": 2,
+          "k": 1,
+          "eps_N_4096": 0.0015574466876931152,
+          "eps_N_16384": 0.0003893616719232788
+        },
+        {
+          "model": "noiseless",
+          "n": 12,
+          "L": 2,
+          "k": 2,
+          "eps_N_4096": 0.0009167747521073002,
+          "eps_N_16384": 0.00022919368802682506
+        },
+        {
+          "model": "unital",
+          "n": 12,
+          "L": 2,
+          "k": 2,
+          "eps_N_4096": 0.0010344570554299034,
+          "eps_N_16384": 0.00025861426385747585
+        },
+        {
+          "model": "nonunital",
+          "n": 12,
+          "L": 2,
+          "k": 2,
+          "eps_N_4096": 0.0010233284927881946,
+          "eps_N_16384": 0.00025583212319704865
+        },
+        {
+          "model": "noiseless",
+          "n": 12,
+          "L": 4,
+          "k": 1,
+          "eps_N_4096": 0.011485644317821172,
+          "eps_N_16384": 0.002871411079455293
+        },
+        {
+          "model": "unital",
+          "n": 12,
+          "L": 4,
+          "k": 1,
+          "eps_N_4096": 0.013796295101318024,
+          "eps_N_16384": 0.003449073775329506
+        },
+        {
+          "model": "nonunital",
+          "n": 12,
+          "L": 4,
+          "k": 1,
+          "eps_N_4096": 0.013686884610668007,
+          "eps_N_16384": 0.003421721152667002
+        },
+        {
+          "model": "noiseless",
+          "n": 12,
+          "L": 4,
+          "k": 4,
+          "eps_N_4096": 0.004945927235156084,
+          "eps_N_16384": 0.001236481808789021
+        },
+        {
+          "model": "unital",
+          "n": 12,
+          "L": 4,
+          "k": 4,
+          "eps_N_4096": 0.006148084372322852,
+          "eps_N_16384": 0.001537021093080713
+        },
+        {
+          "model": "nonunital",
+          "n": 12,
+          "L": 4,
+          "k": 4,
+          "eps_N_4096": 0.005926740152316539,
+          "eps_N_16384": 0.0014816850380791348
+        },
+        {
+          "model": "noiseless",
+          "n": 16,
+          "L": 1,
+          "k": 1,
+          "eps_N_4096": 0.00038162505216425053,
+          "eps_N_16384": 9.540626304106263e-05
+        },
+        {
+          "model": "unital",
+          "n": 16,
+          "L": 1,
+          "k": 1,
+          "eps_N_4096": 0.0004211140779810992,
+          "eps_N_16384": 0.0001052785194952748
+        },
+        {
+          "model": "nonunital",
+          "n": 16,
+          "L": 1,
+          "k": 1,
+          "eps_N_4096": 0.0004242182786242628,
+          "eps_N_16384": 0.0001060545696560657
+        },
+        {
+          "model": "noiseless",
+          "n": 16,
+          "L": 2,
+          "k": 1,
+          "eps_N_4096": 0.0012340887015324378,
+          "eps_N_16384": 0.00030852217538310944
+        },
+        {
+          "model": "unital",
+          "n": 16,
+          "L": 2,
+          "k": 1,
+          "eps_N_4096": 0.0014536064089619516,
+          "eps_N_16384": 0.0003634016022404879
+        },
+        {
+          "model": "nonunital",
+          "n": 16,
+          "L": 2,
+          "k": 1,
+          "eps_N_4096": 0.0014180665386516,
+          "eps_N_16384": 0.0003545166346629
+        },
+        {
+          "model": "noiseless",
+          "n": 16,
+          "L": 2,
+          "k": 2,
+          "eps_N_4096": 0.0011560908628698945,
+          "eps_N_16384": 0.0002890227157174736
+        },
+        {
+          "model": "unital",
+          "n": 16,
+          "L": 2,
+          "k": 2,
+          "eps_N_4096": 0.0013482284087179247,
+          "eps_N_16384": 0.00033705710217948117
+        },
+        {
+          "model": "nonunital",
+          "n": 16,
+          "L": 2,
+          "k": 2,
+          "eps_N_4096": 0.0013155591713139732,
+          "eps_N_16384": 0.0003288897928284933
+        },
+        {
+          "model": "noiseless",
+          "n": 16,
+          "L": 4,
+          "k": 1,
+          "eps_N_4096": 0.013523602136141294,
+          "eps_N_16384": 0.0033809005340353234
+        },
+        {
+          "model": "unital",
+          "n": 16,
+          "L": 4,
+          "k": 1,
+          "eps_N_4096": 0.017859677363812044,
+          "eps_N_16384": 0.004464919340953011
+        },
+        {
+          "model": "nonunital",
+          "n": 16,
+          "L": 4,
+          "k": 1,
+          "eps_N_4096": 0.016713827043575685,
+          "eps_N_16384": 0.004178456760893921
+        },
+        {
+          "model": "noiseless",
+          "n": 16,
+          "L": 4,
+          "k": 4,
+          "eps_N_4096": 0.006742038706582455,
+          "eps_N_16384": 0.0016855096766456139
+        },
+        {
+          "model": "unital",
+          "n": 16,
+          "L": 4,
+          "k": 4,
+          "eps_N_4096": 0.008420809533701178,
+          "eps_N_16384": 0.0021052023834252946
+        },
+        {
+          "model": "nonunital",
+          "n": 16,
+          "L": 4,
+          "k": 4,
+          "eps_N_4096": 0.00841976065861592,
+          "eps_N_16384": 0.00210494016465398
+        }
+      ],
+      "n_points": 30,
+      "n_at_or_above_1": 0,
+      "result": "pass",
+      "note": "evaluated at 4096 shots on every computed point of this grid; the pre-registered scope is 'every point to be claimed'"
+    },
+    "f": {
+      "text": "Half-patch Renyi-2 entanglement entropy versus L, simulated for each patch, reported as the saturation depth L_s(n) (Kim and Oz, J. Stat. Mech. 2022, 073101) as a design check on where the noiseless variance is expected to collapse.",
+      "status": "not-implemented",
+      "result": "not-evaluated",
+      "note": "half-patch Renyi-2 entropy and L_s(n) not computed on this branch"
+    }
+  },
+  "skipped_points": [],
+  "stop_rule": "Failing (c) or (d) stops the hardware stage."
+}

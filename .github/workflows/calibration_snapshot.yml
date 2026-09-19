@@ -1,0 +1,43 @@
+name: calibration snapshot
+
+on:
+  schedule:
+    - cron: "0 3 * * *"   # daily 03:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: calibration-snapshot
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install qiskit-ibm-runtime
+        run: pip install "qiskit-ibm-runtime==0.49.0" "pandas==3.0.6"
+      - name: Snapshot ibm_phoenix calibration
+        env:
+          QISKIT_IBM_TOKEN: ${{ secrets.QISKIT_IBM_TOKEN }}
+          QISKIT_IBM_INSTANCE: ${{ secrets.QISKIT_IBM_INSTANCE }}
+          QISKIT_IBM_INSTANCE_OPEN: ${{ secrets.QISKIT_IBM_INSTANCE_OPEN }}
+        run: python scripts/snapshot_calibration.py --backend ibm_phoenix --out-dir data/calibrations
+      - name: Commit snapshot
+        run: |
+          git config user.name "gradvar-calibration-bot"
+          git config user.email "gradvar-calibration-bot@users.noreply.github.com"
+          git add data/calibrations/
+          if git diff --cached --quiet; then
+            echo "no new snapshot"
+          else
+            git commit -m "calibration snapshot: ibm_phoenix $(date -u +%Y-%m-%dT%H:%MZ)"
+            git push
+          fi
