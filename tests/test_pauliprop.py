@@ -116,9 +116,10 @@ def test_channels_match_aer_ptms():
 
 
 def test_against_gate1_predictions_csv():
-    """PP (exact theta-average) against the M = 200 sample estimates of data/predictions/gate1_predictions.csv:
+    """PP (exact theta-average) against the M = 200 exact-simulation estimates frozen in
+    data/predictions/pauliprop_reference_exact.csv (the n = 12 / 16 rows of gate1_predictions.csv at commit ca2b93b):
     inside the 95% bootstrap interval at >= 90% of the points and never further outside than 5% of its width."""
-    ref = pd.read_csv(predict.Path(__file__).resolve().parents[1] / "data" / "predictions" / "gate1_predictions.csv")
+    ref = pd.read_csv(predict.Path(__file__).resolve().parents[1] / "data" / "predictions" / "pauliprop_reference_exact.csv")
     hits, n = 0, 0
     for spec in ("4x3", "4x4"):
         patch = predict.parse_patch(spec, CSV)

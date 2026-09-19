@@ -1,6 +1,7 @@
 """Validate Pauli propagation against exact simulation.
 
-(1) n = 12, 16 (L <= 4): the M = 200 sample estimates in data/predictions/gate1_predictions.csv (95% bootstrap CI).
+(1) n = 12, 16 (L <= 4): the M = 200 exact-simulation estimates frozen in data/predictions/pauliprop_reference_exact.csv
+    (the n = 12 / 16 rows of gate1_predictions.csv at commit ca2b93b; 95% bootstrap CI).
 (2) fresh exact density-matrix runs at n <= 10 (M draws, 10,000 bootstrap resamples) for the non-unital model and
     the reset / dephasing dial rules (Aer mixture channel on a `delay` after every layer, `pauliprop.aer_dial_model`).
 Writes data/predictions/pauliprop_validation.csv and prints a Markdown table.
@@ -46,7 +47,7 @@ def main():
     ap.add_argument("--n-samples", type=int, default=200_000)
     args = ap.parse_args()
     rows = []
-    ref = pd.read_csv(ROOT / "data" / "predictions" / "gate1_predictions.csv")
+    ref = pd.read_csv(ROOT / "data" / "predictions" / "pauliprop_reference_exact.csv")
     for spec in ("4x3", "4x4"):
         patch = predict.parse_patch(spec, CSV)
         for L in (1, 2, 4):
@@ -57,7 +58,7 @@ def main():
                 s = pp.propagate_sampled(prog, args.n_samples, seed=1)
                 for k, vpp, vmc, se in ((1, r.var_k1, s.var_k1, s.se_k1), (L, r.var_kL, s.var_kL, s.se_kL)):
                     row = ref[(ref.model == model) & (ref.n == patch.n) & (ref.L == L) & (ref.k == k)].iloc[0]
-                    rows.append(dict(source="gate1_predictions.csv (M=200)", model=model, dial="", p=np.nan, patch=spec, n=patch.n, L=L, k=k,
+                    rows.append(dict(source="reference exact rows, M=200 (gate1_predictions.csv @ ca2b93b)", model=model, dial="", p=np.nan, patch=spec, n=patch.n, L=L, k=k,
                                      exact=row["var"], ci_lo=row.ci_lo, ci_hi=row.ci_hi, pp=vpp, pp_discarded=r.discarded, mc=vmc, mc_se=se,
                                      inside_ci=bool(row.ci_lo <= vpp <= row.ci_hi), runtime_s=time.time() - t0))
     # fresh exact runs

@@ -252,9 +252,10 @@ transpiled noisy circuit (`rz sx rz(pi+theta) sx rz`, error after every `sx`/`cz
 with every channel read from the Pauli-transfer matrices of the `gradvar.noise` models, so the result reproduces the
 density-matrix reference exactly (tests: 3-point angle grid on a 2x2 patch, exact to 1e-6 for the noiseless,
 non-unital and reset-dial rules). Two engines: truncation by coefficient (and optionally Pauli weight) with the
-discarded weight recorded (a rigorous lower bound and a usually loose upper bound), and an unbiased Pauli-path
-sampler with standard errors, which is the estimate used where truncation does not converge (the plateau regime at
-L >= 8). Rules: unital depolarizing factors, T1/T2 relaxation (`Z -> (1-gamma) Z + gamma I`, `X, Y -> e^{-t/T2}`),
+discarded weight recorded (a rigorous lower bound), and an unbiased Pauli-path sampler with standard errors; the
+prediction is `V_MC +/- 2 sigma`, the truncation error is the deficit `V_MC - V_trunc` (3-5% at L = 8), and the
+Deviation 15 error is `max(2 sigma, V_MC - V_trunc)`. Not modelled: the ZZ phase during the 400 ns dial idle and T1
+on the idle branch (see `docs/PAULIPROP.md`). Rules: unital depolarizing factors, T1/T2 relaxation (`Z -> (1-gamma) Z + gamma I`, `X, Y -> e^{-t/T2}`),
 reset dial `N_p = p Reset + (1-p) Idle(400 ns)` (`D = (1-p)`, `t_z = p`), delay-matched `p = 0`, dephasing dial.
 Pattern-noise floor `Var_mask[C]/(2K)` from a sampled propagation with a fresh reset mask per path. Method,
 validation table, results and runtimes: `docs/PAULIPROP.md`; numbers: `data/predictions/pauliprop_predictions.csv`.

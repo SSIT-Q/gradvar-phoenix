@@ -32,7 +32,11 @@ Gate model. The circuit is the transpiled one the noisy Aer predictions run: ry(
 sx rz(3pi) in the {rz, sx, x, cz} basis, with the calibration error after every sx and cz and the 68 ns idle
 relaxation (`delay`) during every CZ sub-layer for the non-unital model, read from the very NoiseModel objects
 of `gradvar.noise` (Pauli-transfer matrices), so the propagation reproduces the density-matrix reference
-exactly. Noise rules: unital = depolarizing factors; non-unital = thermal relaxation D = (e^{-t/T2},
+exactly. Known residual: two Z -> I relaxation branches on one qubit that are separated by a CZ (no rotation in between) are
+treated as distinct paths although they carry the same theta dependence; the missed cross term 2 d_z t1 t2 ~ 2 gamma^2
+per pair (gamma(68 ns) ~ 4e-4) is a positive systematic below 1e-3 relative at n = 90, L = 12, and does not affect
+the lower-bound property. Not modelled in the dial channel: the ZZ phase between neighbours during the 400 ns idle and
+T1 on the idle branch (pure T2 dephasing is used there). Noise rules: unital = depolarizing factors; non-unital = thermal relaxation D = (e^{-t/T2},
 e^{-t/T2}, e^{-t/T1}), t_z = 1 - e^{-t/T1} (pure amplitude damping is the T2 = 2 T1 case: X, Y -> sqrt(1-gamma),
 Z -> (1-gamma) Z + gamma I); reset dial N_p = p Reset + (1-p) Idle(400 ns): D = (1-p)(e^{-400/T2}, e^{-400/T2}, 1),
 t_z = p; delay-matched control p = 0 (D = (e^{-400/T2}, e^{-400/T2}, 1)); dephasing dial (Z with probability
@@ -40,8 +44,10 @@ p/2 + 400 ns idle): D = ((1-p) e^{-400/T2}, (1-p) e^{-400/T2}, 1), t = 0.
 
 Two engines share one op program. `propagate_truncated` keeps every distinct string with weight above
 `delta` (and Pauli weight <= `max_weight`), merging duplicates after each branching op; the discarded weight is
-recorded. Total weight never increases under any op, so the result is a lower bound on the variance and
-result + discarded is an upper bound (usually loose). `propagate_sampled` draws N independent Pauli paths from
+recorded. Total weight never increases under any op and every final factor is non-negative, so the truncated result
+is a rigorous lower bound on the variance; the discarded mass is recorded but is not a useful bound on the deficit
+(dropped high-weight strings carry exponentially small final factors), so the truncation error is quoted as
+V_sampled - V_truncated. `propagate_sampled` draws N independent Pauli paths from
 the same chain (unbiased Monte Carlo of the same sums, standard error reported), with the last layer's
 single-qubit block integrated exactly. Both give k = 1 (projection in the last block), k = L (marking at the
 first rotation on the observable qubit) and Var[<O>] from one propagation.

@@ -54,15 +54,28 @@ def run_point(job: dict) -> dict:
     return out
 
 
+def _f(x):
+    try:
+        return float(x)
+    except (TypeError, ValueError):
+        return float("nan")
+
+
 def status_of(r) -> str:
-    """converged: sampled estimate present and the truncation sweep or the sampler converged; not converged (time cap):
-    a propagation hit its wall-clock limit; pending: planned, not yet computed."""
-    if r.get("pending", False) is True or (isinstance(r.get("var_k1_pp"), float) and np.isnan(r.get("var_k1_pp")) and r.get("stage") and "runtime_s" not in r):
+    """'converged': a sampled (unbiased) value exists and the truncation deficit (V_MC - V_trunc) / V_MC is below 10%;
+    'lower bound only (sampler time cap)': no sampled value, only the rigorous truncated lower bound;
+    'not converged (truncation deficit >= 10%)': sampled value exists but the deterministic engine is far from it;
+    'not converged (time cap)': the truncated engine hit its wall-clock limit; 'pending': planned, not yet computed."""
+    if r.get("pending", False) is True or (np.isnan(_f(r.get("var_k1_pp"))) and np.isnan(_f(r.get("var_mc"))) and "runtime_s" not in r):
         return "pending"
-    mc = r.get("var_mc", np.nan)
-    if r.get("mc_timed_out", False) or (isinstance(mc, float) and np.isnan(mc)) or r.get("pp_timed_out", False):
+    mc, trunc = _f(r.get("var_mc")), _f(r.get("var_pp"))
+    if r.get("pp_timed_out", False) is True and np.isnan(trunc):
         return "not converged (time cap)"
-    return "converged" if (r.get("pp_converged", False) or np.isfinite(mc)) else "not converged"
+    if np.isnan(mc):
+        return "lower bound only (sampler time cap)"
+    if not np.isnan(trunc) and mc > 0 and (mc - trunc) / mc < 0.10:
+        return "converged"
+    return "not converged (truncation deficit >= 10%)"
 
 
 def pending_rows(jobs):
@@ -163,11 +176,22 @@ def best(r, which="k"):
 
 
 def err(r, which="k"):
-    """Error assigned to the prediction: 2 sigma of the sampled estimate combined with the truncation change."""
-    se = r.get(f"se_{which}_mc" if which != "k" else "se_mc", np.nan)
-    ch = abs(r.get("var_pp", np.nan) - r.get("var_pp_coarse", np.nan))
-    parts = [2 * float(se) if np.isfinite(se) else 0.0, float(ch) if np.isfinite(ch) else 0.0]
-    return float(np.hypot(*parts))
+    """Deviation 15 error: max(2 sigma_MC, V_MC - V_trunc). 2 sigma is the statistical error of the unbiased Pauli-path
+    sampler; V_MC - V_trunc (truncated value is a rigorous lower bound) is the truncation error. Without a sampled value
+    the row is a lower bound only and the error is nan."""
+    se = _f(r.get(f"se_{which}_mc" if which != "k" else "se_mc"))
+    mc = _f(r.get(f"var_{which}_mc" if which != "k" else "var_mc"))
+    trunc = _f(r.get(f"var_{which}_pp" if which != "k" else "var_pp"))
+    if np.isnan(mc):
+        return float("nan")
+    deficit = mc - trunc if not np.isnan(trunc) else 0.0
+    return float(max(2 * se if not np.isnan(se) else 0.0, deficit))
+
+
+def deficit(r, which="k"):
+    mc = _f(r.get(f"var_{which}_mc" if which != "k" else "var_mc"))
+    trunc = _f(r.get(f"var_{which}_pp" if which != "k" else "var_pp"))
+    return float(mc - trunc)
 
 
 def figure(df: pd.DataFrame):
@@ -223,7 +247,7 @@ def figure(df: pd.DataFrame):
         ax.plot(h.L, [best(r, "cost") for _, r in h.iterrows()], color=c, marker="^", ls=":", label=f"{dial} p={p} Var[C]")
     ax.axhline(sf, color="grey", ls=":")
     for p, c in ((0.25, "C1"), (0.5, "C3")):
-        ax.axhline(p ** 4 / 3, color=c, ls="-.", lw=0.8, label=f"(1/3) p^4, p={p}")
+        ax.axhline(p ** 4 / 9, color=c, ls="-.", lw=0.8, label=f"p^4/9 (Cor. 6, |P|=2), p={p}")
     ax.set_yscale("log")
     ax.set_xlabel("L")
     ax.set_title("Dial grid at n = 60 (56)")
@@ -247,6 +271,9 @@ def main():
     args = ap.parse_args()
     if args.stage == "summary":
         df = pd.read_csv(OUT_CSV)
+        df["status"] = [status_of(r.to_dict()) for _, r in df.iterrows()]          # recompute with the current rule
+        df["placement"] = "old placement (place_patch before the Deviation 26 CZ cut)"
+        df.to_csv(OUT_CSV, index=False)
         v = verdicts(df)
         OUT_JSON.write_text(json.dumps(v, indent=2, default=float))
         figure(df)

@@ -48,10 +48,12 @@ observable is propagated (exact, `circuits.light_cone`).
 **Two engines, one op program.**
 * `propagate_truncated(delta, max_weight)`: every distinct string with weight `>= delta` (and Pauli weight
   `<= max_weight`, off by default) is kept; duplicates are merged after each branching op (hash + verification,
-  lexsort fallback); the discarded weight is accumulated. Total weight never grows under any op, so the result is a
-  **lower bound** on the variance and `result + discarded` an **upper bound** (loose once the weight has spread over
-  many tiny strings, i.e. in the plateau regime). Two thresholds (`--deltas 1e-7 1e-8`) give the convergence estimate
-  `|Var(1e-8) - Var(1e-7)|`; `pp_converged` = relative change below 5%.
+  lexsort fallback); the discarded weight is accumulated. Total weight never grows under any op and every final
+  factor is non-negative, so the result is a **rigorous lower bound** `V_trunc <= V`. The recorded discarded mass
+  (0.3-0.9 of the total at L >= 8) is *not* a useful bound on the deficit, because the dropped high-weight strings
+  carry exponentially small final factors (85% of the mass is 3-5% of the variance); it is kept only as a diagnostic.
+  Two thresholds (`--deltas 1e-6 1e-7`, cap 4e5 strings) are run; `pp_converged` (relative change < 5%) is a
+  diagnostic only.
 * `propagate_sampled(n_samples)`: unbiased Monte Carlo over independent Pauli paths of the same chain (branch choices
   drawn with their weights, mass factors carried per path), with the last layer's single-qubit block integrated exactly
   (per-qubit tables); standard error reported. It does not suffer from the plateau problem of truncation, at the cost
@@ -62,9 +64,29 @@ observable is propagated (exact, `circuits.light_cone`).
   first term by a sampled propagation with a fresh reset mask per path and layer (deterministic reset: `Z -> I`,
   `X, Y -> 0`), the second with the mixture channel; floor on the gradient `= Var_mask[C] / (2 K)`, `K = 64`.
 
-**Prediction and error used in the verdicts** (`scripts/gate1_pauliprop.py`): the sampled estimate (unbiased) with
-error `hypot(2 sigma_MC, |Var(1e-8) - Var(1e-7)|)`; the truncated values and the rigorous bracket are in the CSV
-alongside (`var_*_pp`, `discarded`).
+**Prediction and error statement** (`scripts/gate1_pauliprop.py`, review item 8): `Var = V_MC +/- 2 sigma` (unbiased
+Pauli-path sampling, N = 2e6). The deterministic truncation (delta = 1e-7, cap 4e5 strings) is a rigorous lower bound
+`V_trunc <= V`; its deficit `V_MC - V_trunc` (3-5% at L = 8) is the truncation error. The error used for the
+Deviation 15 hardware-only rule is `max(2 sigma, V_MC - V_trunc)`. Rows without a sampled value are lower bounds only
+(`status = "lower bound only (sampler time cap)"`); `status = "converged"` requires a sampled value and a deficit
+below 10%. Systematic: two Z -> I relaxation branches on one qubit separated by a CZ are treated as distinct paths
+(the same theta dependence, so the cross term `2 d_z t_1 t_2 ~ 2 gamma^2` per pair, `gamma(68 ns) ~ 4e-4`, is
+missed); relative size `< n L 4 (2 gamma^2) ~ 1e-3` at n = 90, L = 12, positive (true >= computed), absolute
+`< 3e-7`, below the sampler's 2 sigma; the lower-bound property is unaffected.
+
+**Model gaps (dial channel).** The pre-registration (Section 3b) mentions a mask-dependent ZZ phase between
+neighbours during the 400 ns idle and per-edge ZZ values in the simulation; this module models the idle as pure T2
+dephasing on the non-reset branch and does **not** include the ZZ phase (a two-qubit unital rotation that would mix
+`XI <-> YZ` etc. with angle `J tau ~ 2 pi x (tens of kHz) x 0.4 us ~ 1e-2 rad`, i.e. a `~1e-4` weight effect per pair
+per layer) nor T1 relaxation on the idle branch (`t_z ~ 2e-3` per layer, two orders below the dial's `t_z = p`). Both
+are stated here so the decision to add them (or to record the gap as a deviation) can be taken before booking.
+
+**Placement.** All ladder rows were computed on the patches returned by `noise.place_patch` before Deviation 26
+(no CZ cut): the 4x10 (n = 39) cone contains CZ (95, 96) at 4.9e-2 and (100, 101) at 5.9e-2 depolarizing (median
+2.4e-3), qubit 95 being an observable qubit, which is why its unital variance sits a factor ~2 below the 6x10 / 8x10 /
+10x10 points (review item 7: with (95, 96) at the median the L = 4 unital/noiseless ratio moves from 0.55 to 0.79).
+The CSV marks these rows `placement = "old placement ..."`; they must be recomputed on the re-placed patches once
+`place_patch` carries the CZ < 5e-3 cut.
 
 ## Validation
 
