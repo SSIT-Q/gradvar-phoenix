@@ -95,7 +95,8 @@ def _f(x):
 
 
 def status_of(r) -> str:
-    """'converged': a sampled (unbiased) value exists and the truncation deficit (V_MC - V_trunc) / V_MC is below 10%;
+    """'converged': a sampled (unbiased) value exists, the truncation deficit (V_MC - V_trunc) / V_MC is below 10% and the
+    sampler's 2 sigma is below 5%; 'sampled, trunc. deficit < 10%': the same with 2 sigma above 5% (interval quoted one-sided);
     'lower bound only (sampler time cap)': no sampled value, only the rigorous truncated lower bound;
     'not converged (truncation deficit >= 10%)': sampled value exists but the deterministic engine is far from it;
     'not converged (time cap)': the truncated engine hit its wall-clock limit; 'pending': planned, not yet computed."""
@@ -108,6 +109,9 @@ def status_of(r) -> str:
     if np.isnan(mc):
         return "lower bound only (sampler time cap)"
     if not np.isnan(trunc) and mc > 0 and (mc - trunc) / mc < 0.10:
+        se = _f(r.get("se_mc"))
+        if not np.isnan(se) and 2 * se / mc > 0.05:
+            return "sampled, trunc. deficit < 10%"      # 2 sigma above 5%: quote one-sided [V_trunc, V_MC + 2 sigma]
         return "converged"
     return "not converged (truncation deficit >= 10%)"
 
@@ -300,6 +304,11 @@ def verdicts(df: pd.DataFrame, K: int = K_MASKS, kurtosis: float = KURTOSIS_DEV1
         rung = dict(patch=q["patch"], n=q["n"], var_p0_L8=v8, var_p0_L12=q["var_p0_L12"], var_p0_L8_over_shot_floor=v8 / sf, fall=fall,
                     fall_over_3sf=fall / (3 * sf), draw_2sigma_L8_M250=ts, fall_over_2sigma=(fall / ts if ts > 0 else float("nan")),
                     L12_row_present=q["L12_row_present"])
+        rung["min_M_for_2sigma"] = min_M_for(fall, v8, kappa29)            # includes the (1 - V12/V8) factor
+        ts350 = draw_two_sigma(v8, 350, kappa29)
+        rung["M350"] = dict(draw_2sigma_L8=ts350, fall_over_2sigma=(fall / ts350 if ts350 > 0 else float("nan")),
+                            kurtosis_upper_bound_for_2x=float((350 - 3) / (350 - 1) + 350 * (fall / v8) ** 2 / 16) if v8 > 0 else float("nan"),
+                            passes=bool(np.isfinite(fall) and fall > 3 * sf and fall >= 2 * ts350))
         if unres:
             rung.update(status="unresolvable at 4096 shots (L = 8 reference below 3 shot floors); not counted", counted=False, passes=None)
         else:
@@ -309,6 +318,10 @@ def verdicts(df: pd.DataFrame, K: int = K_MASKS, kurtosis: float = KURTOSIS_DEV1
     dev30["n_counted"], dev30["n_passing"] = len(counted), sum(1 for r in counted if r["passes"])
     dev30["all_present"] = bool(len(dev30["rungs"]) == 3 and all(r["L12_row_present"] for r in dev30["rungs"]))
     dev30["passes"] = bool(dev30["all_present"] and dev30["n_passing"] >= 2)
+    dev30["M350_reading"] = dict(note="the pre-registration books the p = 0 points at M = 350; ratio = (1 - V12/V8) / (2 sqrt((kappa - (M-3)/(M-1)) / M)), "
+                                      "so M >= ~17.5 (kappa - 1) at (1 - V12/V8) ~ 0.96 and M = 350 covers kappa <= ~21",
+                                 n_passing=sum(1 for r in counted if r["M350"]["passes"]), n_counted=len(counted),
+                                 passes=bool(dev30["all_present"] and sum(1 for r in counted if r["M350"]["passes"]) >= 2))
     out["deviation_30"] = dev30
     sep_ok = {blk["L"]: bool(blk["all_separated_3x"] and all(q["pattern_floor_below_half_sep"] for q in blk["points"])) for blk in out["gate1b"]}
     out["gate1b_booked_reading"] = dict(clauses="(a) PP predictions at every ladder point; (b-sep) separation >= 3 x (shot + Var_mask/(2 K)) at K = 256 "

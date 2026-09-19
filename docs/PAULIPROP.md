@@ -145,38 +145,40 @@ All rows below are on the re-placed ladder of `data/predictions/ladder_placement
 
 ### (a) Deviation 15 points (k = 1 and k = L; prediction +/- max(2 sigma, V_MC - V_trunc))
 
-| patch | n | L | model | Var k=1 | Var k=L | Var[C] | truncated k=L (lower bound) | deficit k=L | status |
-|---|---|---|---|---|---|---|---|---|---|
-| 4x5 | 20.0 | 8 | noiseless | 3.160e-04 +/- 1.1e-05 | 4.980e-04 +/- 1.8e-05 | 4.980e-04 +/- 1.8e-05 | 4.798e-04 | 1.8e-05 | converged |
-| 4x5 | 20.0 | 8 | nonunital | 2.156e-04 +/- 8.7e-06 | 3.284e-04 +/- 1.6e-05 | 3.298e-04 +/- 1.5e-05 | 3.127e-04 | 1.6e-05 | converged |
-| 4x5 | 20.0 | 8 | unital | 2.014e-04 +/- 7.2e-06 | 3.109e-04 +/- 7.6e-06 | 3.130e-04 +/- 7.7e-06 | 3.037e-04 | 7.2e-06 | converged |
-| 4x10 | 39.0 | 8 | noiseless | 6.986e-04 +/- 1.7e-05 | 1.197e-03 +/- 1.9e-05 | 1.197e-03 +/- 1.9e-05 | 1.199e-03 | -2.0e-06 | converged |
-| 4x10 | 39.0 | 8 | nonunital | 4.864e-04 +/- 1.2e-05 | 8.280e-04 +/- 1.4e-05 | 8.289e-04 +/- 1.4e-05 | 8.325e-04 | -4.5e-06 | converged |
-| 4x10 | 39.0 | 8 | unital | 4.940e-04 +/- 1.2e-05 | 8.245e-04 +/- 1.4e-05 | 8.250e-04 +/- 1.4e-05 | 8.152e-04 | 9.3e-06 | converged |
-| 6x10 | 53.0 | 8 | noiseless | 3.060e-04 +/- 1.1e-05 | 4.383e-04 +/- 1.2e-05 | 4.383e-04 +/- 1.2e-05 | 4.316e-04 | 6.7e-06 | converged |
-| 6x10 | 53.0 | 8 | nonunital | 2.135e-04 +/- 7.9e-06 | 3.011e-04 +/- 8.2e-06 | 3.023e-04 +/- 8.2e-06 | 2.967e-04 | 4.5e-06 | converged |
-| 6x10 | 53.0 | 8 | unital | 2.079e-04 +/- 7.6e-06 | 2.941e-04 +/- 7.9e-06 | 2.955e-04 +/- 8.0e-06 | 2.886e-04 | 5.6e-06 | converged |
-| 8x10 | 70.0 | 8 | noiseless | 3.086e-04 +/- 1.1e-05 | 4.359e-04 +/- 1.2e-05 | 4.359e-04 +/- 1.2e-05 | 4.234e-04 | 1.2e-05 | converged |
-| 8x10 | 70.0 | 8 | nonunital | 2.093e-04 +/- 7.8e-06 | 2.940e-04 +/- 8.1e-06 | 2.960e-04 +/- 8.2e-06 | 2.921e-04 | 1.9e-06 | converged |
-| 8x10 | 70.0 | 8 | unital | 1.990e-04 +/- 7.5e-06 | 2.823e-04 +/- 7.8e-06 | 2.833e-04 +/- 7.8e-06 | 2.839e-04 | -1.6e-06 | converged |
-| 10x10 | 87.0 | 8 | noiseless | 4.171e-04 +/- 1.2e-05 | 6.169e-04 +/- 1.3e-05 | 6.169e-04 +/- 1.3e-05 | 6.114e-04 | 5.5e-06 | converged |
-| 10x10 | 87.0 | 8 | nonunital | 2.904e-04 +/- 8.6e-06 | 4.227e-04 +/- 9.0e-06 | 4.238e-04 +/- 9.1e-06 | 4.241e-04 | -1.4e-06 | converged |
-| 10x10 | 87.0 | 8 | unital | 2.906e-04 +/- 8.5e-06 | 4.231e-04 +/- 8.9e-06 | 4.238e-04 +/- 9.0e-06 | 4.165e-04 | 6.6e-06 | converged |
-| 4x5 | 20.0 | 12 | noiseless | 1.428e-05 +/- 4.9e-06 | 2.555e-05 +/- 1.0e-05 | 2.555e-05 +/- 1.0e-05 | 1.531e-05 | 1.0e-05 | not converged (truncation deficit >= 10%) |
-| 4x5 | 20.0 | 12 | nonunital | 5.240e-06 +/- 9.9e-07 | 1.033e-05 +/- 3.1e-06 | 1.053e-05 +/- 3.2e-06 | 7.184e-06 | 3.1e-06 | not converged (truncation deficit >= 10%) |
-| 4x5 | 20.0 | 12 | unital | 6.729e-06 +/- 2.1e-06 | 1.139e-05 +/- 4.6e-06 | 1.140e-05 +/- 4.5e-06 | 6.819e-06 | 4.6e-06 | not converged (truncation deficit >= 10%) |
-| 4x10 | 39.0 | 12 | noiseless | 3.871e-05 +/- 3.9e-06 | 6.603e-05 +/- 5.4e-06 | 6.603e-05 +/- 5.4e-06 | 6.067e-05 | 5.4e-06 | converged |
-| 4x10 | 39.0 | 12 | nonunital | 2.072e-05 +/- 2.3e-06 | 3.651e-05 +/- 2.6e-06 | 3.651e-05 +/- 2.6e-06 | 3.499e-05 | 1.5e-06 | converged |
-| 4x10 | 39.0 | 12 | unital | 2.188e-05 +/- 2.3e-06 | 3.669e-05 +/- 2.8e-06 | 3.670e-05 +/- 2.8e-06 | 3.394e-05 | 2.8e-06 | converged |
-| 6x10 | 53.0 | 12 | noiseless | 8.162e-06 +/- 1.8e-06 | 1.269e-05 +/- 1.9e-06 | 1.269e-05 +/- 1.9e-06 | 1.162e-05 | 1.1e-06 | converged |
-| 6x10 | 53.0 | 12 | nonunital | 4.360e-06 +/- 1.1e-06 | 6.701e-06 +/- 1.1e-06 | 6.713e-06 +/- 1.1e-06 | 6.528e-06 | 1.7e-07 | converged |
-| 6x10 | 53.0 | 12 | unital | 4.642e-06 +/- 1.0e-06 | 6.870e-06 +/- 1.1e-06 | 7.291e-06 +/- 1.2e-06 | 6.276e-06 | 5.9e-07 | converged |
-| 8x10 | 70.0 | 12 | noiseless | 8.511e-06 +/- 1.8e-06 | 1.232e-05 +/- 1.9e-06 | 1.232e-05 +/- 1.9e-06 | 1.126e-05 | 1.1e-06 | converged |
-| 8x10 | 70.0 | 12 | nonunital | 5.440e-06 +/- 1.2e-06 | 7.611e-06 +/- 1.2e-06 | 7.824e-06 +/- 1.4e-06 | 6.375e-06 | 1.2e-06 | not converged (truncation deficit >= 10%) |
-| 8x10 | 70.0 | 12 | unital | 4.739e-06 +/- 1.0e-06 | 6.727e-06 +/- 1.1e-06 | 6.752e-06 +/- 1.1e-06 | 6.105e-06 | 6.2e-07 | converged |
-| 10x10 | 87.0 | 12 | noiseless | 1.822e-05 +/- 2.4e-06 | 2.779e-05 +/- 4.5e-06 | 2.779e-05 +/- 4.5e-06 | 2.332e-05 | 4.5e-06 | not converged (truncation deficit >= 10%) |
-| 10x10 | 87.0 | 12 | nonunital | 1.044e-05 +/- 1.6e-06 | 1.532e-05 +/- 2.8e-06 | 1.533e-05 +/- 2.7e-06 | 1.255e-05 | 2.8e-06 | not converged (truncation deficit >= 10%) |
-| 10x10 | 87.0 | 12 | unital | 1.021e-05 +/- 1.6e-06 | 1.524e-05 +/- 2.9e-06 | 1.524e-05 +/- 2.9e-06 | 1.231e-05 | 2.9e-06 | not converged (truncation deficit >= 10%) |
+| patch | n | L | model | Var k=1 | Var k=L | Var[C] | truncated k=L (lower bound) | deficit k=L | one-sided k=L interval [V_trunc, V_MC + 2 sigma] | status |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 4x5 | 20 | 8 | noiseless | 3.160e-04 +/- 1.1e-05 | 4.980e-04 +/- 1.8e-05 | 4.980e-04 +/- 1.8e-05 | 4.798e-04 | 1.8e-05 | [4.80e-04, 5.10e-04] | converged |
+| 4x5 | 20 | 8 | nonunital | 2.156e-04 +/- 8.7e-06 | 3.284e-04 +/- 1.6e-05 | 3.298e-04 +/- 1.5e-05 | 3.127e-04 | 1.6e-05 | [3.13e-04, 3.36e-04] | converged |
+| 4x5 | 20 | 8 | unital | 2.014e-04 +/- 7.2e-06 | 3.109e-04 +/- 7.6e-06 | 3.130e-04 +/- 7.7e-06 | 3.037e-04 | 7.2e-06 | [3.04e-04, 3.18e-04] | converged |
+| 4x10 | 39 | 8 | noiseless | 6.986e-04 +/- 1.7e-05 | 1.197e-03 +/- 1.9e-05 | 1.197e-03 +/- 1.9e-05 | 1.199e-03 | -2.0e-06 | [1.20e-03, 1.22e-03] | converged |
+| 4x10 | 39 | 8 | nonunital | 4.864e-04 +/- 1.2e-05 | 8.280e-04 +/- 1.4e-05 | 8.289e-04 +/- 1.4e-05 | 8.325e-04 | -4.5e-06 | [8.32e-04, 8.42e-04] | converged |
+| 4x10 | 39 | 8 | unital | 4.940e-04 +/- 1.2e-05 | 8.245e-04 +/- 1.4e-05 | 8.250e-04 +/- 1.4e-05 | 8.152e-04 | 9.3e-06 | [8.15e-04, 8.38e-04] | converged |
+| 6x10 | 53 | 8 | noiseless | 3.060e-04 +/- 1.1e-05 | 4.383e-04 +/- 1.2e-05 | 4.383e-04 +/- 1.2e-05 | 4.316e-04 | 6.7e-06 | [4.32e-04, 4.50e-04] | converged |
+| 6x10 | 53 | 8 | nonunital | 2.135e-04 +/- 7.9e-06 | 3.011e-04 +/- 8.2e-06 | 3.023e-04 +/- 8.2e-06 | 2.967e-04 | 4.5e-06 | [2.97e-04, 3.09e-04] | converged |
+| 6x10 | 53 | 8 | unital | 2.079e-04 +/- 7.6e-06 | 2.941e-04 +/- 7.9e-06 | 2.955e-04 +/- 8.0e-06 | 2.886e-04 | 5.6e-06 | [2.89e-04, 3.02e-04] | converged |
+| 8x10 | 70 | 8 | noiseless | 3.086e-04 +/- 1.1e-05 | 4.359e-04 +/- 1.2e-05 | 4.359e-04 +/- 1.2e-05 | 4.234e-04 | 1.2e-05 | [4.23e-04, 4.47e-04] | converged |
+| 8x10 | 70 | 8 | nonunital | 2.093e-04 +/- 7.8e-06 | 2.940e-04 +/- 8.1e-06 | 2.960e-04 +/- 8.2e-06 | 2.921e-04 | 1.9e-06 | [2.92e-04, 3.02e-04] | converged |
+| 8x10 | 70 | 8 | unital | 1.990e-04 +/- 7.5e-06 | 2.823e-04 +/- 7.8e-06 | 2.833e-04 +/- 7.8e-06 | 2.839e-04 | -1.6e-06 | [2.84e-04, 2.90e-04] | converged |
+| 10x10 | 87 | 8 | noiseless | 4.171e-04 +/- 1.2e-05 | 6.169e-04 +/- 1.3e-05 | 6.169e-04 +/- 1.3e-05 | 6.114e-04 | 5.5e-06 | [6.11e-04, 6.30e-04] | converged |
+| 10x10 | 87 | 8 | nonunital | 2.904e-04 +/- 8.6e-06 | 4.227e-04 +/- 9.0e-06 | 4.238e-04 +/- 9.1e-06 | 4.241e-04 | -1.4e-06 | [4.24e-04, 4.32e-04] | converged |
+| 10x10 | 87 | 8 | unital | 2.906e-04 +/- 8.5e-06 | 4.231e-04 +/- 8.9e-06 | 4.238e-04 +/- 9.0e-06 | 4.165e-04 | 6.6e-06 | [4.17e-04, 4.32e-04] | converged |
+| 4x5 | 20 | 12 | noiseless | 1.428e-05 +/- 4.9e-06 | 2.555e-05 +/- 1.0e-05 | 2.555e-05 +/- 1.0e-05 | 1.531e-05 | 1.0e-05 | [1.53e-05, 2.78e-05] | not converged (truncation deficit >= 10%) |
+| 4x5 | 20 | 12 | nonunital | 5.240e-06 +/- 9.9e-07 | 1.033e-05 +/- 3.1e-06 | 1.053e-05 +/- 3.2e-06 | 7.184e-06 | 3.1e-06 | [7.18e-06, 1.14e-05] | not converged (truncation deficit >= 10%) |
+| 4x5 | 20 | 12 | unital | 6.729e-06 +/- 2.1e-06 | 1.139e-05 +/- 4.6e-06 | 1.140e-05 +/- 4.5e-06 | 6.819e-06 | 4.6e-06 | [6.82e-06, 1.26e-05] | not converged (truncation deficit >= 10%) |
+| 4x10 | 39 | 12 | noiseless | 3.871e-05 +/- 3.9e-06 | 6.603e-05 +/- 5.4e-06 | 6.603e-05 +/- 5.4e-06 | 6.067e-05 | 5.4e-06 | [6.07e-05, 7.05e-05] | sampled, trunc. deficit < 10% |
+| 4x10 | 39 | 12 | nonunital | 2.072e-05 +/- 2.3e-06 | 3.651e-05 +/- 2.6e-06 | 3.651e-05 +/- 2.6e-06 | 3.499e-05 | 1.5e-06 | [3.50e-05, 3.91e-05] | sampled, trunc. deficit < 10% |
+| 4x10 | 39 | 12 | unital | 2.188e-05 +/- 2.3e-06 | 3.669e-05 +/- 2.8e-06 | 3.670e-05 +/- 2.8e-06 | 3.394e-05 | 2.8e-06 | [3.39e-05, 3.93e-05] | sampled, trunc. deficit < 10% |
+| 6x10 | 53 | 12 | noiseless | 8.162e-06 +/- 1.8e-06 | 1.269e-05 +/- 1.9e-06 | 1.269e-05 +/- 1.9e-06 | 1.162e-05 | 1.1e-06 | [1.16e-05, 1.45e-05] | sampled, trunc. deficit < 10% |
+| 6x10 | 53 | 12 | nonunital | 4.360e-06 +/- 1.1e-06 | 6.701e-06 +/- 1.1e-06 | 6.713e-06 +/- 1.1e-06 | 6.528e-06 | 1.7e-07 | [6.53e-06, 7.81e-06] | sampled, trunc. deficit < 10% |
+| 6x10 | 53 | 12 | unital | 4.642e-06 +/- 1.0e-06 | 6.870e-06 +/- 1.1e-06 | 7.291e-06 +/- 1.2e-06 | 6.276e-06 | 5.9e-07 | [6.28e-06, 7.95e-06] | sampled, trunc. deficit < 10% |
+| 8x10 | 70 | 12 | noiseless | 8.511e-06 +/- 1.8e-06 | 1.232e-05 +/- 1.9e-06 | 1.232e-05 +/- 1.9e-06 | 1.126e-05 | 1.1e-06 | [1.13e-05, 1.42e-05] | sampled, trunc. deficit < 10% |
+| 8x10 | 70 | 12 | nonunital | 5.440e-06 +/- 1.2e-06 | 7.611e-06 +/- 1.2e-06 | 7.824e-06 +/- 1.4e-06 | 6.375e-06 | 1.2e-06 | [6.38e-06, 8.83e-06] | not converged (truncation deficit >= 10%) |
+| 8x10 | 70 | 12 | unital | 4.739e-06 +/- 1.0e-06 | 6.727e-06 +/- 1.1e-06 | 6.752e-06 +/- 1.1e-06 | 6.105e-06 | 6.2e-07 | [6.10e-06, 7.82e-06] | sampled, trunc. deficit < 10% |
+| 10x10 | 87 | 12 | noiseless | 1.822e-05 +/- 2.4e-06 | 2.779e-05 +/- 4.5e-06 | 2.779e-05 +/- 4.5e-06 | 2.332e-05 | 4.5e-06 | [2.33e-05, 3.03e-05] | not converged (truncation deficit >= 10%) |
+| 10x10 | 87 | 12 | nonunital | 1.044e-05 +/- 1.6e-06 | 1.532e-05 +/- 2.8e-06 | 1.533e-05 +/- 2.7e-06 | 1.255e-05 | 2.8e-06 | [1.26e-05, 1.69e-05] | not converged (truncation deficit >= 10%) |
+| 10x10 | 87 | 12 | unital | 1.021e-05 +/- 1.6e-06 | 1.524e-05 +/- 2.9e-06 | 1.524e-05 +/- 2.9e-06 | 1.231e-05 | 2.9e-06 | [1.23e-05, 1.67e-05] | not converged (truncation deficit >= 10%) |
+
+Status: 'converged' = sampled value with truncation deficit < 10% and 2 sigma < 5%; 'sampled, trunc. deficit < 10%' = deficit < 10% but 2 sigma above 5% (all L = 12 rows: quote the one-sided interval); 'not converged (truncation deficit >= 10%)' = the deterministic engine at the 4e5-string cap is more than 10% below the unbiased sampled value (4x5 at L = 12 and several L = 12 rows: the sampled value with its 2 sigma is the prediction, the truncated value its rigorous lower bound).
 
 Deviation 15 rule per (n, L): unital - noiseless at k = 1, the assigned error and whether the point is hardware-only (error > half the separation):
 
@@ -192,6 +194,8 @@ Deviation 15 rule per (n, L): unital - noiseless at k = 1, the assigned error an
 | 6x10 | 53 | 12 | -3.520e-06 | 1.8e-06 | False | False |
 | 8x10 | 70 | 12 | -3.771e-06 | 1.8e-06 | False | False |
 | 10x10 | 87 | 12 | -8.014e-06 | 2.4e-06 | False | False |
+
+At L = 12 every unital - noiseless separation (3.5e-06 to 1.7e-05) is below 2 x floor(16384) = 6.1e-05, so criterion (c) part 2 is **unresolvable at L = 12** whatever the truncation (the whole L = 12 variance is 10-100x below the 4096-shot floor); the hardware-only column is the Deviation 15 rule applied literally and does not make those points confirmatory.
 
 ### (b) Gate 1b: k = L, p = 0.25 reset dial vs delay-matched p = 0 (snapshot unital noise + dial), K = 256 masks per (draw, shift) (Deviation 27)
 
@@ -267,11 +271,13 @@ Deviation 29 clause: **FAIL**. Gate 1b as booked (Deviations 27 + 29): separatio
 
 ### Gate 1b clause (b) as booked (Deviation 30, frozen): per rung, depth fall of the p = 0 reference at M = 250, kurtosis 14.2; rungs with the L = 8 reference below 3 shot floors are unresolvable and not counted; pass with >= 2 of 3 rungs
 
-| rung | n | Var p=0 L=8 (/ shot floor) | Var p=0 L=12 | fall | fall / (3 shot floors) | L=8 draw 2 sigma (M=250) | fall / 2 sigma | status | passes |
-|---|---|---|---|---|---|---|---|---|---|
-| 4x10 | 39 | 7.840e-04 (6.4) | 3.439e-05 | 7.496e-04 | 2.05 | 3.61e-04 | 2.08 | counted | True |
-| 6x10 | 53 | 2.821e-04 (2.3) | 6.404e-06 | 2.756e-04 | 0.75 | 1.30e-04 | 2.12 | unresolvable at 4096 shots (L = 8 reference below 3 shot floors); not counted | None |
-| 10x10 | 87 | 3.994e-04 (3.3) | 1.376e-05 | 3.856e-04 | 1.05 | 1.84e-04 | 2.10 | counted | True |
+| rung | n | Var p=0 L=8 (/ shot floor) | Var p=0 L=12 | fall | fall / (3 shot floors) | L=8 draw 2 sigma (M=250) | fall / 2 sigma (M=250) | min M for 2x | fall / 2 sigma (M=350) | kappa covered at M=350 | status | passes (M=250) | passes (M=350) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 4x10 | 39 | 7.840e-04 (6.4) | 3.439e-05 | 7.496e-04 | 2.05 | 3.61e-04 | 2.08 | 232 | 2.46 | <= 21.0 | counted | True | True |
+| 6x10 | 53 | 2.821e-04 (2.3) | 6.404e-06 | 2.756e-04 | 0.75 | 1.30e-04 | 2.12 | 222 | 2.51 | <= 21.9 | unresolvable at 4096 shots (L = 8 reference below 3 shot floors); not counted | None | None |
+| 10x10 | 87 | 3.994e-04 (3.3) | 1.376e-05 | 3.856e-04 | 1.05 | 1.84e-04 | 2.10 | 228 | 2.48 | <= 21.4 | counted | True | True |
+
+Minimum M for the 2x test includes the (1 - V12/V8) factor: M >= 17.5 (kappa - 1) -> 232 / 222 / 228 at kappa 14.2. The pre-registration books the p = 0 points at M = 350, which covers kappa <= ~21 on the counted rungs (2 of 2 pass at M = 350).
 
 Deviation 30 clause: 2 of 2 counted rungs pass -> **PASS**. Gate 1b as booked (Deviations 27 + 30): separation clause L = 8 True, L = 12 True; fall clause True; **overall PASS**. Earlier readings (literal clause, Deviation 28 at M = 200 / 500, Deviation 29 at M = 200) are kept above and in the JSON for the record.
 
@@ -295,15 +301,15 @@ Exact check of the floor and of its 1/K scaling (`scripts/pauliprop_pattern_chec
 | L | dial | p | Var k=1 | Var k=L | Var[C] | E[C] | pattern floor | status |
 |---|---|---|---|---|---|---|---|---|
 | 8 | delay | 0.0 | 2.016e-04 +/- 7.4e-06 | 2.821e-04 +/- 7.7e-06 | 2.843e-04 +/- 7.8e-06 | 1.03e-04 |  | converged |
-| 8 | dephase | 0.5 | 1.589e-05 +/- 2.1e-06 | 1.705e-05 +/- 2.1e-06 | 1.836e-05 +/- 2.4e-06 | 1.03e-04 |  | converged |
+| 8 | dephase | 0.5 | 1.589e-05 +/- 2.1e-06 | 1.705e-05 +/- 2.1e-06 | 1.836e-05 +/- 2.4e-06 | 1.03e-04 |  | sampled, trunc. deficit < 10% |
 | 8 | reset | 0.25 | 3.461e-06 +/- 1.8e-07 | 1.993e-03 +/- 2.6e-05 | 3.563e-03 +/- 3.6e-05 | 6.58e-02 | 2.81e-04 | converged |
 | 8 | reset | 0.5 | 1.500e-08 +/- 1.5e-08 | 9.515e-03 +/- 3.6e-05 | 1.821e-02 +/- 4.7e-05 | 2.52e-01 | 6.71e-04 | converged |
-| 12 | delay | 0.0 | 4.378e-06 +/- 9.9e-07 | 6.404e-06 +/- 1.0e-06 | 6.822e-06 +/- 1.2e-06 | 1.03e-04 |  | converged |
-| 12 | dephase | 0.5 | 2.284e-08 +/- 1.9e-08 | 3.146e-08 +/- 2.3e-08 | 2.437e-07 +/- 4.0e-07 | 1.03e-04 |  | converged |
+| 12 | delay | 0.0 | 4.378e-06 +/- 9.9e-07 | 6.404e-06 +/- 1.0e-06 | 6.822e-06 +/- 1.2e-06 | 1.03e-04 |  | sampled, trunc. deficit < 10% |
+| 12 | dephase | 0.5 | 2.284e-08 +/- 1.9e-08 | 3.146e-08 +/- 2.3e-08 | 2.437e-07 +/- 4.0e-07 | 1.03e-04 |  | sampled, trunc. deficit < 10% |
 | 12 | reset | 0.25 | 1.856e-08 +/- 1.9e-08 | 1.989e-03 +/- 2.6e-05 | 3.557e-03 +/- 3.6e-05 | 6.58e-02 | 2.81e-04 | converged |
 | 12 | reset | 0.5 | 1.902e-11 +/- 3.6e-11 | 9.515e-03 +/- 3.6e-05 | 1.821e-02 +/- 4.7e-05 | 2.52e-01 | 6.71e-04 | converged |
 
-Reference lines: p^4/9 (Corollary 6 lower-bound form for |P| = 2, as read by the review: 4.3e-4 at p = 0.25, 6.9e-3 at p = 0.5); the pre-registration text quotes (1/3) p^4 = 1.3e-3 / 2.1e-2. Errors in this section are max(2 sigma, V_MC - V_trunc); rows without a sampled value are lower bounds only.
+Reference lines: p^4/9 (Corollary 6 lower-bound form for |P| = 2: 4.3e-4 at p = 0.25, 6.9e-3 at p = 0.5); the pre-registration (Deviation 21) quotes the same p^4/9. E[C] = a_i a_j p^2 + (a_i b_j + a_j b_i) p + b_i b_j is the readout-folded p^2 (0.066 / 0.252). Errors in this section are max(2 sigma, V_MC - V_trunc); rows without a sampled value are lower bounds only.
 
 Figure: `figures/pauliprop_predictions.png`; verdicts: `data/predictions/pauliprop_summary.json`.
 

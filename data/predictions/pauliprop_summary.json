@@ -703,6 +703,13 @@
         "draw_2sigma_L8_M250": 0.00036099174760527246,
         "fall_over_2sigma": 2.076581969740703,
         "L12_row_present": true,
+        "min_M_for_2sigma": 232,
+        "M350": {
+          "draw_2sigma_L8": 0.00030506721352032275,
+          "fall_over_2sigma": 2.4572583387508375,
+          "kurtosis_upper_bound_for_2x": 20.992070630097093,
+          "passes": true
+        },
         "status": "counted",
         "counted": true,
         "passes": true
@@ -718,6 +725,13 @@
         "draw_2sigma_L8_M250": 0.00012986628522884905,
         "fall_over_2sigma": 2.1225474359114327,
         "L12_row_present": true,
+        "min_M_for_2sigma": 222,
+        "M350": {
+          "draw_2sigma_L8": 0.0001097475109273711,
+          "fall_over_2sigma": 2.5116501357944667,
+          "kurtosis_upper_bound_for_2x": 21.88717776418499,
+          "passes": false
+        },
         "status": "unresolvable at 4096 shots (L = 8 reference below 3 shot floors); not counted",
         "counted": false,
         "passes": null
@@ -733,6 +747,13 @@
         "draw_2sigma_L8_M250": 0.00018389798493544137,
         "fall_over_2sigma": 2.097042399612964,
         "L12_row_present": true,
+        "min_M_for_2sigma": 228,
+        "M350": {
+          "draw_2sigma_L8": 0.0001554086657338258,
+          "fall_over_2sigma": 2.4814695486383616,
+          "kurtosis_upper_bound_for_2x": 21.388086148255752,
+          "passes": true
+        },
         "status": "counted",
         "counted": true,
         "passes": true
@@ -741,7 +762,13 @@
     "n_counted": 2,
     "n_passing": 2,
     "all_present": true,
-    "passes": true
+    "passes": true,
+    "M350_reading": {
+      "note": "the pre-registration books the p = 0 points at M = 350; ratio = (1 - V12/V8) / (2 sqrt((kappa - (M-3)/(M-1)) / M)), so M >= ~17.5 (kappa - 1) at (1 - V12/V8) ~ 0.96 and M = 350 covers kappa <= ~21",
+      "n_passing": 2,
+      "n_counted": 2,
+      "passes": true
+    }
   },
   "gate1b_booked_reading": {
     "clauses": "(a) PP predictions at every ladder point; (b-sep) separation >= 3 x (shot + Var_mask/(2 K)) at K = 256 (Deviation 27) and pattern floor < separation / 2 at L = 8; (b-fall) Deviation 30: depth fall of the p = 0 reference (M = 250) on >= 2 of 3 resolvable rungs",
