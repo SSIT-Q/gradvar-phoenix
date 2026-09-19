@@ -288,7 +288,8 @@ def verdicts(df: pd.DataFrame, K: int = K_MASKS, kurtosis: float = KURTOSIS_DEV1
         ts = draw_two_sigma(v8, 200, kappa29)
         dev29["points"].append(dict(patch=spec, n=int(r8.iloc[0].n), var_p0_L8=v8, var_p0_L12=v12, fall=fall, three_shot_floors=3 * sf,
                                     fall_over_3sf=fall / (3 * sf), draw_2sigma_L8_M200=ts, fall_over_2sigma=(fall / ts if ts > 0 else float("nan")),
-                                    L12_row_present=bool(not r12.empty),
+                                    L12_row_present=bool(not r12.empty), min_M_for_2sigma=min_M_for(fall, v8, kappa29),
+                                    fall_over_2sigma_at_kurtosis_8p4=(fall / draw_two_sigma(v8, 200, KURTOSIS_DEV17)),
                                     passes=bool(np.isfinite(fall) and fall > 3 * sf and fall >= 2 * ts)))
     pts29 = dev29["points"]
     dev29["all_present"] = bool(pts29 and all(q["L12_row_present"] for q in pts29) and len(pts29) == 3)
