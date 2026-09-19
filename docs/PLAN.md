@@ -1,6 +1,6 @@
 # Programme plan and tracker: gradient concentration on ibm_phoenix
 
-Two papers, one allocation. Version 1, 19 September 2026; last updated 19 Sep 2026, 23:30 IST. Weekly review every Monday in #mitacs.
+Two papers, one allocation. Version 1, 19 September 2026; last updated 19 Sep 2026, 23:45 IST. Weekly review every Monday in #mitacs.
 
 Owners: **O** = Mohammed Owais, **R** = Dr. Raviram V (PI), **C** = physics collaborator (anonymous for now), **Cl** = Claude.
 
@@ -93,6 +93,7 @@ Paper 1's arXiv date now floats, so applications after mid-November 2026 may sti
 | 19 Sep 2026 | Paper 2 redirect memo (six directions, two rankings) reviewed and posted; recommendation A/C as above; decision pending. The dial’s p=0.1 point doubles as the rescue for Paper 1’s H3 (Deviation 16 proposal). |
 | 19 Sep 2026 | Theorist second opinion (https://claude.ai/artifact/7WLx5wkkAz1f8AYMXxsVJj): co-author A with an n-ladder (40/60/100 at p=0.25, L=8, k=L); drop B without a tensor-network partner; frame as second-moment prediction for this ansatz, truncation arm as headline; Paper 1: drop H3, add the ladder at p=0 and 0.25; trainable-but-hard question not open as posed; Nature 1–2%. Coordinator's recommendation moved to 'A-ladder'; Owais's decision pending. |
 | 19 Sep 2026 | Deviations 16–19 drafted as pre-registration v0.4 after Owais's yes (23:21 IST): H3 reclassified; criterion (b) per-depth bound (1.5 / 2.0 / 2.5 at L = 1 / 2 / ≥4 with M = 200, or M raised to 400/700); ladder n = 20/39/56/71/90; anomaly protocol (3σ single point or 3-point monotone trend; replication on another day and patch from the 60-minute reserve; noisy simulation must fail to reproduce; unreplicated = exploratory). Signature pending. |
+| 19 Sep 2026 | Three independent judges (experimentalist, PRX Quantum referee, contrarian) on 'is A-ladder the best shot': all rate stand-alone A-ladder below Claude's 20% (10–15% PRXQ); referee and theorist: fold the dial into Paper 1; experimentalist: native 400 ns reset with ~1e-4 error makes measure+X risk moot but matched controls (delay-matched p=0, unital dephasing dial) are required, drop p=0.1; contrarian: Paper 2 should be a 120-qubit reset/MCM characterisation (~45 min, 60–65% PRA/QST, first on Nighthawk r2). Claude's recommendation moved to the hybrid (Paper 1 + dial arm with controls; Paper 2 = reset characterisation). Owais to choose 'hybrid' or 'A-ladder'. |
 
 ## 9. How to use this tracker
 
