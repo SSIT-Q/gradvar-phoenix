@@ -70,7 +70,52 @@ alongside (`var_*_pp`, `discarded`).
 
 See `data/predictions/pauliprop_validation.csv` (table below is written by `scripts/pauliprop_validate.py`).
 
-VALIDATION_TABLE
+40 of 42 PP values lie inside the 95% bootstrap interval of the exact (M = 200) estimate; the two outside (4x3 L=2 k=2 unital, 4x4 L=4 k=1 unital) miss by < 5% of the interval width, i.e. the M = 200 sample scatter, not the propagation. PP is the exact theta-average (delta = 1e-9 / 1e-10, discarded weight < 5e-6), 'sampled' the Pauli-path Monte Carlo (2e5 paths). The 2x2 patch, L = 2 exactness test (3-point angle grid, exact uniform average) is in `tests/test_pauliprop.py`: 1e-6 relative for noiseless and the reset dial, 3e-5 for the non-unital model.
+
+| source | model | dial | patch | n | L | k | exact | 95% CI | PP | discarded | sampled | inside |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| gate1_predictions.csv (M=200) | noiseless |  | 4x3 | 12 | 1 | 1 | 2.4210e-01 | [2.029e-01, 2.796e-01] | 2.5000e-01 | 0.0e+00 | 2.5000e-01 +/- 0.0e+00 | True |
+| gate1_predictions.csv (M=200) | unital |  | 4x3 | 12 | 1 | 1 | 2.2855e-01 | [1.913e-01, 2.641e-01] | 2.3722e-01 | 0.0e+00 | 2.3723e-01 +/- 8.0e-06 | True |
+| gate1_predictions.csv (M=200) | nonunital |  | 4x3 | 12 | 1 | 1 | 2.2742e-01 | [1.903e-01, 2.628e-01] | 2.3620e-01 | 0.0e+00 | 2.3621e-01 +/- 8.3e-06 | True |
+| gate1_predictions.csv (M=200) | noiseless |  | 4x3 | 12 | 2 | 1 | 7.8966e-02 | [5.995e-02, 9.848e-02] | 7.8125e-02 | 0.0e+00 | 7.8266e-02 +/- 2.3e-04 | True |
+| gate1_predictions.csv (M=200) | noiseless |  | 4x3 | 12 | 2 | 2 | 1.1752e-01 | [9.296e-02, 1.424e-01] | 9.3750e-02 | 0.0e+00 | 9.3800e-02 +/- 2.1e-04 | True |
+| gate1_predictions.csv (M=200) | unital |  | 4x3 | 12 | 2 | 1 | 7.1652e-02 | [5.407e-02, 8.970e-02] | 6.9570e-02 | 8.6e-34 | 6.9699e-02 +/- 2.0e-04 | True |
+| gate1_predictions.csv (M=200) | unital |  | 4x3 | 12 | 2 | 2 | 1.0554e-01 | [8.367e-02, 1.275e-01] | 8.3523e-02 | 8.6e-34 | 8.3571e-02 +/- 1.9e-04 | False |
+| gate1_predictions.csv (M=200) | nonunital |  | 4x3 | 12 | 2 | 1 | 7.1639e-02 | [5.452e-02, 8.944e-02] | 7.0345e-02 | 2.7e-10 | 7.0350e-02 +/- 2.1e-04 | True |
+| gate1_predictions.csv (M=200) | nonunital |  | 4x3 | 12 | 2 | 2 | 1.0657e-01 | [8.432e-02, 1.294e-01] | 8.4423e-02 | 2.7e-10 | 8.4435e-02 +/- 1.9e-04 | True |
+| gate1_predictions.csv (M=200) | noiseless |  | 4x3 | 12 | 4 | 1 | 1.0461e-02 | [7.572e-03, 1.374e-02] | 1.2262e-02 | 0.0e+00 | 1.2219e-02 +/- 1.1e-04 | True |
+| gate1_predictions.csv (M=200) | noiseless |  | 4x3 | 12 | 4 | 4 | 2.4081e-02 | [1.631e-02, 3.303e-02] | 1.8176e-02 | 0.0e+00 | 1.8116e-02 +/- 1.1e-04 | True |
+| gate1_predictions.csv (M=200) | unital |  | 4x3 | 12 | 4 | 1 | 8.7315e-03 | [6.263e-03, 1.153e-02] | 9.9962e-03 | 1.0e-06 | 1.0049e-02 +/- 8.7e-05 | True |
+| gate1_predictions.csv (M=200) | unital |  | 4x3 | 12 | 4 | 4 | 1.9463e-02 | [1.324e-02, 2.664e-02] | 1.4765e-02 | 1.0e-06 | 1.4820e-02 +/- 9.0e-05 | True |
+| gate1_predictions.csv (M=200) | nonunital |  | 4x3 | 12 | 4 | 1 | 8.8008e-03 | [6.368e-03, 1.159e-02] | 1.0180e-02 | 3.7e-06 | 1.0301e-02 +/- 8.9e-05 | True |
+| gate1_predictions.csv (M=200) | nonunital |  | 4x3 | 12 | 4 | 4 | 2.0175e-02 | [1.381e-02, 2.753e-02] | 1.5007e-02 | 3.7e-06 | 1.5081e-02 +/- 9.2e-05 | True |
+| gate1_predictions.csv (M=200) | noiseless |  | 4x4 | 16 | 1 | 1 | 2.4210e-01 | [2.029e-01, 2.796e-01] | 2.5000e-01 | 0.0e+00 | 2.5000e-01 +/- 0.0e+00 | True |
+| gate1_predictions.csv (M=200) | unital |  | 4x4 | 16 | 1 | 1 | 2.2447e-01 | [1.879e-01, 2.593e-01] | 2.3260e-01 | 0.0e+00 | 2.3260e-01 +/- 1.1e-05 | True |
+| gate1_predictions.csv (M=200) | nonunital |  | 4x4 | 16 | 1 | 1 | 2.2318e-01 | [1.868e-01, 2.578e-01] | 2.3146e-01 | 0.0e+00 | 2.3147e-01 +/- 1.2e-05 | True |
+| gate1_predictions.csv (M=200) | noiseless |  | 4x4 | 16 | 2 | 1 | 8.9079e-02 | [6.880e-02, 1.101e-01] | 7.8125e-02 | 0.0e+00 | 7.8142e-02 +/- 2.3e-04 | True |
+| gate1_predictions.csv (M=200) | noiseless |  | 4x4 | 16 | 2 | 2 | 9.5545e-02 | [7.376e-02, 1.183e-01] | 9.3750e-02 | 0.0e+00 | 9.3680e-02 +/- 2.1e-04 | True |
+| gate1_predictions.csv (M=200) | unital |  | 4x4 | 16 | 2 | 1 | 7.6766e-02 | [5.927e-02, 9.498e-02] | 6.7578e-02 | 1.7e-33 | 6.7598e-02 +/- 2.0e-04 | True |
+| gate1_predictions.csv (M=200) | unital |  | 4x4 | 16 | 2 | 2 | 8.3038e-02 | [6.404e-02, 1.032e-01] | 8.0819e-02 | 1.7e-33 | 8.0766e-02 +/- 1.8e-04 | True |
+| gate1_predictions.csv (M=200) | nonunital |  | 4x4 | 16 | 2 | 1 | 7.8532e-02 | [6.044e-02, 9.703e-02] | 6.8283e-02 | 4.7e-10 | 6.8318e-02 +/- 2.0e-04 | True |
+| gate1_predictions.csv (M=200) | nonunital |  | 4x4 | 16 | 2 | 2 | 8.4924e-02 | [6.522e-02, 1.054e-01] | 8.1660e-02 | 4.7e-10 | 8.1675e-02 +/- 1.8e-04 | True |
+| gate1_predictions.csv (M=200) | noiseless |  | 4x4 | 16 | 4 | 1 | 8.9117e-03 | [6.192e-03, 1.245e-02] | 1.1700e-02 | 0.0e+00 | 1.1685e-02 +/- 1.1e-04 | True |
+| gate1_predictions.csv (M=200) | noiseless |  | 4x4 | 16 | 4 | 4 | 1.7785e-02 | [1.267e-02, 2.322e-02] | 1.6265e-02 | 0.0e+00 | 1.6212e-02 +/- 1.1e-04 | True |
+| gate1_predictions.csv (M=200) | unital |  | 4x4 | 16 | 4 | 1 | 6.7692e-03 | [4.825e-03, 9.152e-03] | 9.1937e-03 | 1.7e-06 | 9.3318e-03 +/- 8.4e-05 | False |
+| gate1_predictions.csv (M=200) | unital |  | 4x4 | 16 | 4 | 4 | 1.4289e-02 | [1.006e-02, 1.876e-02] | 1.2649e-02 | 1.7e-06 | 1.2756e-02 +/- 8.6e-05 | True |
+| gate1_predictions.csv (M=200) | nonunital |  | 4x4 | 16 | 4 | 1 | 7.2285e-03 | [5.072e-03, 9.923e-03] | 9.3640e-03 | 4.4e-06 | 9.4565e-03 +/- 8.5e-05 | True |
+| gate1_predictions.csv (M=200) | nonunital |  | 4x4 | 16 | 4 | 4 | 1.4290e-02 | [1.013e-02, 1.878e-02] | 1.2880e-02 | 4.4e-06 | 1.3001e-02 +/- 8.7e-05 | True |
+| exact density matrix (M=200) | nonunital |  | 2x4 | 8 | 4 | 1 | 1.9468e-02 | [1.495e-02, 2.447e-02] | 2.3640e-02 | 3.2e-08 | 2.3777e-02 +/- 1.3e-04 | True |
+| exact density matrix (M=200) | nonunital |  | 2x4 | 8 | 4 | 4 | 3.5886e-02 | [2.783e-02, 4.437e-02] | 4.3479e-02 | 3.2e-08 | 4.3532e-02 +/- 1.6e-04 | True |
+| exact density matrix (M=200) | nonunital |  | 2x5 | 10 | 4 | 1 | 1.6531e-02 | [1.146e-02, 2.256e-02] | 2.0373e-02 | 4.1e-07 | 2.0375e-02 +/- 1.2e-04 | True |
+| exact density matrix (M=200) | nonunital |  | 2x5 | 10 | 4 | 4 | 2.9820e-02 | [2.315e-02, 3.669e-02] | 3.1117e-02 | 4.1e-07 | 3.1174e-02 +/- 1.3e-04 | True |
+| exact density matrix (M=200) | unital | reset p=0.25 | 2x4 | 8 | 4 | 1 | 7.3834e-04 | [5.561e-04, 9.293e-04] | 8.5663e-04 | 9.9e-08 | 8.4614e-04 +/- 1.0e-05 | True |
+| exact density matrix (M=200) | unital | reset p=0.25 | 2x4 | 8 | 4 | 4 | 3.8568e-03 | [2.651e-03, 5.256e-03] | 3.2014e-03 | 9.9e-08 | 3.2527e-03 +/- 4.5e-05 | True |
+| exact density matrix (M=200) | unital | reset p=0.5 | 2x5 | 10 | 3 | 1 | 6.0375e-04 | [4.550e-04, 7.622e-04] | 6.7320e-04 | 8.9e-36 | 6.7563e-04 +/- 7.2e-06 | True |
+| exact density matrix (M=200) | unital | reset p=0.5 | 2x5 | 10 | 3 | 3 | 1.1944e-02 | [9.406e-03, 1.470e-02] | 1.0306e-02 | 8.9e-36 | 1.0367e-02 +/- 5.8e-05 | True |
+| exact density matrix (M=200) | unital | dephase p=0.5 | 2x4 | 8 | 4 | 1 | 4.6267e-03 | [2.718e-03, 6.962e-03] | 4.6873e-03 | 1.2e-08 | 4.6760e-03 +/- 6.1e-05 | True |
+| exact density matrix (M=200) | unital | dephase p=0.5 | 2x4 | 8 | 4 | 4 | 4.4673e-03 | [2.834e-03, 6.479e-03] | 5.8253e-03 | 1.2e-08 | 5.8216e-03 +/- 6.1e-05 | True |
+| exact density matrix (M=200) | unital | delay p=0.0 | 2x4 | 8 | 4 | 1 | 1.9342e-02 | [1.473e-02, 2.414e-02] | 2.3222e-02 | 1.5e-33 | 2.3019e-02 +/- 1.3e-04 | True |
+| exact density matrix (M=200) | unital | delay p=0.0 | 2x4 | 8 | 4 | 4 | 3.9053e-02 | [3.105e-02, 4.736e-02] | 4.2689e-02 | 1.5e-33 | 4.2461e-02 +/- 1.6e-04 | True |
 
 ## Results
 
