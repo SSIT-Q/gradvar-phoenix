@@ -1,0 +1,111 @@
+[
+ {
+  "index": 0,
+  "n": 10,
+  "L": 2,
+  "k_1based": 2,
+  "probe_id": "reset_midcircuit_probe",
+  "depth": 14,
+  "two_qubit_gates": 18,
+  "num_qubits": 156,
+  "isa_instruction_names": [
+   "cz",
+   "reset",
+   "rz",
+   "sx"
+  ],
+  "ops": {
+   "sx": 40,
+   "rz": 40,
+   "cz": 18,
+   "reset": 11,
+   "barrier": 1
+  },
+  "mid_circuit_measures": 0,
+  "reset_count": 11,
+  "delay_count": 0,
+  "delays": [],
+  "target_durations_s": {
+   "reset": {
+    "5": 2.72e-06,
+    "6": 2.72e-06,
+    "7": 2.72e-06,
+    "8": 2.72e-06,
+    "11": 2.72e-06,
+    "12": 2.72e-06,
+    "14": 2.72e-06
+   }
+  }
+ },
+ {
+  "index": 1,
+  "n": 10,
+  "L": 2,
+  "k_1based": 2,
+  "probe_id": "delay_midcircuit_control",
+  "depth": 14,
+  "two_qubit_gates": 18,
+  "num_qubits": 156,
+  "isa_instruction_names": [
+   "cz",
+   "delay",
+   "rz",
+   "sx"
+  ],
+  "ops": {
+   "sx": 40,
+   "rz": 40,
+   "cz": 18,
+   "delay": 11,
+   "barrier": 1
+  },
+  "mid_circuit_measures": 0,
+  "reset_count": 0,
+  "delay_count": 11,
+  "delays": [
+   {
+    "duration": 100,
+    "unit": "dt"
+   },
+   {
+    "duration": 100,
+    "unit": "dt"
+   },
+   {
+    "duration": 100,
+    "unit": "dt"
+   },
+   {
+    "duration": 100,
+    "unit": "dt"
+   },
+   {
+    "duration": 100,
+    "unit": "dt"
+   },
+   {
+    "duration": 100,
+    "unit": "dt"
+   },
+   {
+    "duration": 100,
+    "unit": "dt"
+   },
+   {
+    "duration": 100,
+    "unit": "dt"
+   }
+  ],
+  "target_durations_s": {
+   "delay": {
+    "5": null,
+    "6": null,
+    "7": null,
+    "8": null,
+    "11": null,
+    "12": null,
+    "14": null
+   }
+  }
+ }
+]

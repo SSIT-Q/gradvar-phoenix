@@ -64,6 +64,39 @@ def hea_square(patch, L: int, params: ParamsLike = None) -> QuantumCircuit:
     return qc
 
 
+def hea_square_dial(patch, L: int, mask, dial, params: ParamsLike = None) -> QuantumCircuit:
+    """``hea_square`` with a non-unital "dial" layer after each layer's CZ sub-layers (pre-registration Section 3b).
+
+    ``mask`` has shape (L, n); after layer k, ``dial(qc, q)`` is applied to every local qubit q with ``mask[k, q]``
+    true (e.g. Bernoulli(p) draws). ``dial`` is a callable such as ``lambda qc, q: qc.reset(q)`` or
+    ``lambda qc, q: qc.delay(400, q, unit="ns")``; the delay-matched control uses the same mask with the delay dial.
+    Layer, qubit and parameter conventions are those of ``hea_square``.
+    """
+    patch = _as_patch(patch)
+    n = patch.n
+    mask = np.asarray(mask, dtype=bool).reshape(L, n)
+    if params is None:
+        params = ParameterVector("theta", n * L)
+    elif not isinstance(params, ParameterVector):
+        params = np.asarray(params, dtype=float).reshape(-1)
+    if len(params) != n * L:
+        raise ValueError(f"expected {n * L} parameters, got {len(params)}")
+    qc = QuantumCircuit(n, name=f"hea_dial_{patch.n_rows}x{patch.n_cols}_L{L}")
+    sublayers = patch.edges_by_sublayer()
+    for k in range(L):
+        for q in range(n):
+            qc.ry(params[param_index(k, q, n)], q)
+        for sub in sublayers:
+            for (a, b) in sub:
+                qc.cz(patch.local(a), patch.local(b))
+        for q in range(n):
+            if mask[k, q]:
+                dial(qc, q)
+        if k < L - 1:
+            qc.barrier()
+    return qc
+
+
 def light_cone(patch, L: int, edge: Tuple[int, int] | None = None) -> List[int]:
     """Physical qubits in the backward light cone of Z_i Z_j on ``edge`` through L layers.
 
