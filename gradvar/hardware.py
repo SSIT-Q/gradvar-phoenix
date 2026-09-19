@@ -79,6 +79,28 @@ def get_backend(name: str = "ibm_phoenix", service=None, instance_alias: str | N
     return service.backend(name, use_fractional_gates=False)
 
 
+def verify_instance_plan(service, alias: str) -> str:
+    """Look the resolved CRN of ``alias`` up in ``service.instances()`` and return its plan name. Refuses (SystemExit)
+    when the CRN is not among the account's instances, when alias 'open' does not resolve to plan 'open', or when
+    alias 'flex' resolves to plan 'open' (a mis-set secret would otherwise spend the wrong allocation). Only the plan
+    name is returned and logged; the CRN is compared in memory and never printed."""
+    crn = resolve_instance(alias)
+    try:
+        instances = list(service.instances())
+    except Exception as e:  # pragma: no cover - network / account errors
+        raise SystemExit(f"refusing to submit: could not list the account's instances to verify alias {alias!r}: {type(e).__name__}")
+    match = [i for i in instances if str(i.get("crn", "")).strip() == crn]
+    if not match:
+        raise SystemExit(f"refusing to submit: the CRN in {instance_env_for(alias)} is not among the {len(instances)} instances of this account")
+    plan = str(match[0].get("plan", "")).strip().lower()
+    if alias == "open" and plan != "open":
+        raise SystemExit(f"refusing to submit: alias 'open' resolves to an instance on plan {plan!r}, not 'open'")
+    if alias == "flex" and plan == "open":
+        raise SystemExit("refusing to submit: alias 'flex' resolves to an instance on the open plan")
+    print(f"instance alias {alias!r} verified: plan {plan!r} (name {match[0].get('name', '?')!r})")
+    return plan
+
+
 def fake_backend(name: str | None = None):
     """Fake backend for dry runs: FakeMarrakesh for an ``ibm_marrakesh`` job list (Heron r2, open plan), otherwise
     FakeNighthawk (120-qubit square lattice) if available, else FakeTorino."""
@@ -183,6 +205,7 @@ class BuiltProbe:
     seed: int
     mask_hash: str = ""
     synthetic_target_instructions: List[str] = field(default_factory=list)
+    layout: Tuple[int, ...] | None = None
 
     def pub(self):
         if self.param_values is None:
@@ -190,16 +213,30 @@ class BuiltProbe:
         return (self.isa_circuit, self.isa_observable, self.param_values)
 
 
-def _probe_patch(pr: dict, shapes: dict, calibration_csv: str | None) -> Patch:
+def _placed_patch(entry: dict, calibration_csv: str | None, label: str) -> Tuple[Patch, Tuple[int, ...] | None]:
+    """The Patch of a job-list entry and its optional explicit ``layout``. Without a layout the rectangle is placed by
+    ``gradvar.noise.place_patch`` under the calibration cut; with one, the Patch is the plain rectangle at lattice
+    origin (0, 0) (a coordinate frame for the sub-layer structure) and ``layout[i]`` is the physical qubit of local i."""
     from .noise import latest_calibration_csv, place_patch
-    n = int(pr["n"])
-    if n in shapes:
-        return shapes[n]
-    r, c = (int(x) for x in str(pr["patch"]).lower().split("x"))
-    patch = place_patch(r, c, calibration_csv or latest_calibration_csv(), allow_holes=True)
+    n = int(entry["n"])
+    r, c = (int(x) for x in str(entry["patch"]).lower().split("x"))
+    layout = parse_layout(entry, n, label)
+    if layout is not None:
+        patch = rect_patch(r, c, exclude=(), origin=(0, 0))
+    else:
+        patch = place_patch(r, c, calibration_csv or latest_calibration_csv(), allow_holes=True)
     if patch.n != n:
-        raise JoblistError(f"probe {pr.get('id')}: {pr['patch']} placed under the calibration cut has {patch.n} qubits, not n={n}")
-    return patch
+        raise JoblistError(f"{label}: {entry['patch']} placed under the calibration cut has {patch.n} qubits "
+                           f"(origin {patch.origin}, holes {list(patch.holes)}); set n={patch.n}")
+    return patch, layout
+
+
+def _probe_patch(pr: dict, shapes: dict, calibration_csv: str | None) -> Tuple[Patch, Tuple[int, ...] | None]:
+    n = int(pr["n"])
+    layout = parse_layout(pr, n, f"probe {pr.get('id')}")
+    if layout is None and n in shapes:
+        return shapes[n], None
+    return _placed_patch(pr, calibration_csv, f"probe {pr.get('id')}")
 
 
 def build_probes(jl: dict, backend, shapes: dict, calibration_csv: str | None = None,
@@ -217,34 +254,36 @@ def build_probes(jl: dict, backend, shapes: dict, calibration_csv: str | None = 
         kind, rk = str(pr["kind"]), str(pr.get("reset_kind", "reset"))
         level, shots, seed = int(pr.get("resilience", 0)), int(pr["shots"]), int(pr.get("seed", 0))
         if kind == "reset_dial":
-            patch = _probe_patch(pr, shapes, calibration_csv)
+            patch, layout = _probe_patch(pr, shapes, calibration_csv)
             obs, edge = hea_observable(patch)
+            phys, phys_edge = physical_qubits(patch, layout, edge)
             want = str(pr.get("edge", "")).replace("-", "_")
-            if want and want != f"{edge[0]}_{edge[1]}":
-                raise JoblistError(f"probe {pr.get('id')}: edge {want} differs from the interior edge {edge[0]}_{edge[1]}")
+            if want and want != f"{phys_edge[0]}_{phys_edge[1]}":
+                raise JoblistError(f"probe {pr.get('id')}: edge {want} differs from the interior edge {phys_edge[0]}_{phys_edge[1]}")
             L, p = int(pr["L"]), float(pr["p"])
             k = int(pr.get("k", L))
             if not (1 <= k <= L):
                 raise JoblistError(f"probe {pr.get('id')}: k must be in 1..L")
-            dial, synthetic = dial_operation(rk, backend, patch.qubits)
+            dial, synthetic = dial_operation(rk, backend, phys)
             theta = np.random.default_rng(seed).uniform(0, 2 * np.pi, size=patch.n * L)
             plus, minus = shifted_params(theta, param_index(k - 1, patch.local(edge[0]), patch.n))
             for m in range(int(pr.get("masks", 1))):
                 mask = np.random.default_rng(seed + 1 + m).random((L, patch.n)) < p
                 qc = hea_square_dial(patch, L, mask, dial)
                 pm = generate_preset_pass_manager(optimization_level=optimization_level, backend=backend,
-                                                  initial_layout=list(patch.qubits), seed_transpiler=seed)
+                                                  initial_layout=list(phys), seed_transpiler=seed)
                 isa = pm.run(qc)
-                built.append(BuiltProbe(dict(pr, mask_index=m), patch, tuple(patch.qubits), edge, isa, obs.apply_layout(isa.layout),
+                built.append(BuiltProbe(dict(pr, mask_index=m), patch, phys, edge, isa, obs.apply_layout(isa.layout),
                                         np.stack([plus, minus]), theta, isa.depth(), two_qubit_count(isa), level, shots, seed,
                                         mask_hash=hashlib.sha256(np.ascontiguousarray(mask).tobytes()).hexdigest()[:16],
-                                        synthetic_target_instructions=[rk] if synthetic else []))
+                                        synthetic_target_instructions=[rk] if synthetic else [], layout=layout))
         elif kind == "reset_error":
+            layout = None
             if "qubits" in pr:
                 qubits, patch = tuple(int(q) for q in pr["qubits"]), None
             else:
-                patch = _probe_patch(pr, shapes, calibration_csv)
-                qubits = tuple(patch.qubits)
+                patch, layout = _probe_patch(pr, shapes, calibration_csv)
+                qubits, _ = physical_qubits(patch, layout, None)
             if len(set(qubits)) != len(qubits):
                 raise JoblistError(f"probe {pr.get('id')}: repeated qubit in {qubits}")
             dial, synthetic = dial_operation(rk, backend, qubits)
@@ -259,39 +298,62 @@ def build_probes(jl: dict, backend, shapes: dict, calibration_csv: str | None = 
             obs = [SparsePauliOp.from_sparse_list([("Z", [i], 1.0)], num_qubits=len(qubits)).apply_layout(isa.layout)
                    for i in range(len(qubits))]
             built.append(BuiltProbe(dict(pr), patch, qubits, None, isa, obs, None, np.zeros(0), isa.depth(), two_qubit_count(isa),
-                                    level, shots, seed, synthetic_target_instructions=[rk] if synthetic else []))
+                                    level, shots, seed, synthetic_target_instructions=[rk] if synthetic else [], layout=layout))
         else:  # pragma: no cover - load_joblist rejects unknown kinds
             raise JoblistError(f"unknown probe kind {kind!r}")
     return built
 
 
-def _probe_length_us(pr: dict) -> float:
+def dial_durations_us(backend=None, qubits: Sequence[int] | None = None) -> Dict[str, float]:
+    """Dial-layer durations for the budget: the backend target's instruction durations (median over ``qubits``, or over
+    all qubits) where the target reports them, else the ibm_phoenix figures in ``DIAL_US``."""
+    out = dict(DIAL_US)
+    t = getattr(backend, "target", None)
+    if t is None:
+        return out
+    for kind in ("reset", "measure_reset", "measure_reset_2"):
+        if kind not in t.operation_names or not t[kind]:
+            continue
+        props = t[kind]
+        keys = [(int(q),) for q in qubits if (int(q),) in props] if qubits else list(props)
+        vals = [props[k].duration for k in keys if props[k] is not None and getattr(props[k], "duration", None)]
+        if vals:
+            out[kind] = float(np.median(vals)) * 1e6
+    return out
+
+
+def _probe_length_us(pr: dict, dial_us: Dict[str, float]) -> float:
     rk = str(pr.get("reset_kind", "reset"))
     if pr["kind"] == "reset_dial":
-        return int(pr["L"]) * (LAYER_US + DIAL_US[rk]) + READOUT_US
-    return X_US + DIAL_US[rk] + READOUT_US
+        return int(pr["L"]) * (LAYER_US + dial_us[rk]) + READOUT_US
+    return X_US + dial_us[rk] + READOUT_US
 
 
 def _probe_circuits(pr: dict) -> int:
     return 2 * int(pr.get("masks", 1)) if pr["kind"] == "reset_dial" else 1
 
 
-def estimate_budget(jl: dict, rep_delays_us: Sequence[float] = BUDGET_REP_DELAYS_US) -> dict:
+def estimate_budget(jl: dict, rep_delays_us: Sequence[float] = BUDGET_REP_DELAYS_US, backend=None) -> dict:
     """Locked-time estimate of a job list with the pre-registration formula: 2 s per job plus
     (rep_delay + circuit length) x executions, circuit length L x 0.71 us + 1.94 us readout (dial layers add the
-    target durations). One job per resilience level of the gradient points plus one per (level, shots) of the probes.
-    Resilience 2 (ZNE) multiplies its circuits by the noise factors; that is reported separately as an upper bound."""
+    dial durations: the ibm_phoenix figures, or the target's when ``backend`` is given). One job per resilience level
+    of the gradient points plus one per (level, shots) of the probes. Resilience 2 (ZNE) multiplies its circuits by the
+    noise factors; that is reported separately as an upper bound. Resilience-1 measurement-noise learning (TREX)
+    circuits and compile latency are not in the formula."""
+    dial_us = dial_durations_us(backend)
     items = []   # (circuits, shots, length_us, level)
     for pt in jl.get("points", []) or []:
         items.append((2 * int(pt["M"]), int(pt["shots"]), int(pt["L"]) * LAYER_US + READOUT_US, int(pt["resilience"])))
     for pr in jl.get("probes", []) or []:
-        items.append((_probe_circuits(pr), int(pr["shots"]), _probe_length_us(pr), int(pr.get("resilience", 0))))
+        items.append((_probe_circuits(pr), int(pr["shots"]), _probe_length_us(pr, dial_us), int(pr.get("resilience", 0))))
     jobs = len({int(pt["resilience"]) for pt in jl.get("points", []) or []}) + \
         len({(int(pr.get("resilience", 0)), int(pr["shots"])) for pr in jl.get("probes", []) or []})
     circuits = sum(c for c, _, _, _ in items)
     executions = sum(c * s for c, s, _, _ in items)
     zne_executions = sum(c * s * (ZNE_NOISE_FACTORS if lvl == 2 else 1) for c, s, _, lvl in items)
     out = dict(formula="2 s per job + (rep_delay + L x 0.71 us + 1.94 us readout [+ dial durations]) x executions",
+               dial_durations_us={k: round(v, 3) for k, v in dial_us.items()},
+               dial_durations_source=getattr(backend, "name", None) if backend is not None else "ibm_phoenix target (2026-09-19)",
                jobs=jobs, circuits=circuits, executions=executions,
                executions_upper_bound_with_zne=zne_executions, zne_noise_factors=ZNE_NOISE_FACTORS)
     for rd in rep_delays_us:
@@ -305,9 +367,12 @@ def estimate_budget(jl: dict, rep_delays_us: Sequence[float] = BUDGET_REP_DELAYS
 
 
 def check_budget(jl: dict, tolerance: float = 0.05) -> List[str]:
-    """Differences between the job list's stored ``budget`` and ``estimate_budget(jl)`` beyond ``tolerance``."""
+    """Differences between the job list's stored ``budget`` and ``estimate_budget(jl)`` beyond ``tolerance``; a missing
+    or empty ``budget`` is itself a difference (the field is required for submission)."""
     stored = jl.get("budget") or {}
     fresh = estimate_budget(jl)
+    if not stored:
+        return ["budget field missing or empty: fill it with `python -m gradvar.hardware --joblist <file> --budget`"]
     diffs = []
     for key in ("executions", "jobs") + tuple(k for k in fresh if k.startswith("minutes_at_")):
         if key in stored:
@@ -356,6 +421,7 @@ class GridPoint:
     resilience_level: int
     q: int = 0            # local qubit of the differentiated parameter
     seed: int = 0         # seed for the random parameter vector
+    layout: Tuple[int, ...] | None = None   # explicit physical qubits (job-list ``layout``); the Patch stays in lattice coordinates
 
 
 @dataclass
@@ -369,9 +435,31 @@ class BuiltPub:
     theta: np.ndarray
     depth: int
     two_qubit_gates: int
+    layout: Tuple[int, ...] | None = None
 
     def pub(self):
         return (self.isa_circuit, self.isa_observable, self.param_values)
+
+
+def physical_qubits(patch: Patch | None, layout: Sequence[int] | None, edge: Tuple[int, int] | None):
+    """(physical qubit tuple, physical edge) of a pub: the Patch's lattice qubits unless a ``layout`` maps local index
+    i to ``layout[i]`` (heavy-hex devices, where the Phoenix lattice coordinates are only a bookkeeping frame)."""
+    if patch is None:
+        return tuple(int(q) for q in (layout or ())), None
+    if layout is None:
+        return tuple(patch.qubits), edge
+    lay = tuple(int(q) for q in layout)
+    return lay, (None if edge is None else (lay[patch.local(edge[0])], lay[patch.local(edge[1])]))
+
+
+def parse_layout(entry: dict, n: int, label: str) -> Tuple[int, ...] | None:
+    lay = entry.get("layout")
+    if lay is None:
+        return None
+    lay = tuple(int(q) for q in lay)
+    if len(lay) != n or len(set(lay)) != n:
+        raise JoblistError(f"{label}: layout must list n={n} distinct physical qubits, got {list(lay)}")
+    return lay
 
 
 def patch_for(n: int, exclude=DEFAULT_EXCLUDE, shape: Tuple[int, int] | None = None) -> Patch:
@@ -396,7 +484,7 @@ def build_pubs(points: Iterable[GridPoint], backend, exclude=DEFAULT_EXCLUDE, op
         obs, edge = hea_observable(patch)
         qc = hea_square(patch, pt.L)  # parametrised
         pm = generate_preset_pass_manager(optimization_level=optimization_level, backend=backend,
-                                          initial_layout=list(patch.qubits), seed_transpiler=pt.seed)
+                                          initial_layout=list(pt.layout or patch.qubits), seed_transpiler=pt.seed)
         isa = pm.run(qc)
         isa_obs = obs.apply_layout(isa.layout)
         rng = np.random.default_rng(pt.seed)
@@ -404,7 +492,7 @@ def build_pubs(points: Iterable[GridPoint], backend, exclude=DEFAULT_EXCLUDE, op
         idx = param_index(pt.k, pt.q, pt.n)
         plus, minus = shifted_params(theta, idx)
         built.append(BuiltPub(pt, patch, edge, isa, isa_obs, np.stack([plus, minus]), theta,
-                              isa.depth(), two_qubit_count(isa)))
+                              isa.depth(), two_qubit_count(isa), layout=pt.layout))
     return built
 
 
@@ -493,6 +581,10 @@ def load_joblist(path: str) -> dict:
         r, c = (int(x) for x in str(pt["patch"]).lower().split("x"))
         if r * c < int(pt["n"]):
             raise JoblistError(f"point {i}: patch {pt['patch']} has only {r * c} qubits but n={pt['n']}")
+        parse_layout(pt, int(pt["n"]), f"point {i}")
+    for pr in probes:
+        if "n" in pr:
+            parse_layout(pr, int(pr["n"]), f"probe {pr.get('id')}")
     return jl
 
 
@@ -512,23 +604,20 @@ def joblist_points(jl: dict, calibration_csv: str | None = None) -> Tuple[List[G
     csv = calibration_csv or latest_calibration_csv()
     points, shapes, shots = [], {}, None
     for pt in jl["points"]:
-        r, c = (int(x) for x in str(pt["patch"]).lower().split("x"))
-        patch = place_patch(r, c, csv, allow_holes=True)
-        if patch.n != int(pt["n"]):
-            raise JoblistError(f"point n={pt['n']}: {pt['patch']} placed under the {Path(csv).name} cut has {patch.n} qubits "
-                               f"(origin {patch.origin}, holes {list(patch.holes)}); set n={patch.n}")
+        patch, layout = _placed_patch(pt, csv, f"point n={pt['n']}")
         shapes[int(pt["n"])] = patch
         _, edge = hea_observable(patch)
+        _, phys_edge = physical_qubits(patch, layout, edge)
         want = str(pt["edge"]).replace("-", "_")
-        if want and want != f"{edge[0]}_{edge[1]}":
-            raise JoblistError(f"point n={pt['n']}: job-list edge {want} differs from the interior edge {edge[0]}_{edge[1]}")
+        if want and want != f"{phys_edge[0]}_{phys_edge[1]}":
+            raise JoblistError(f"point n={pt['n']}: job-list edge {want} differs from the interior edge {phys_edge[0]}_{phys_edge[1]}")
         if shots is None:
             shots = int(pt["shots"])
         elif shots != int(pt["shots"]):
             raise JoblistError("all points in one job list must share the same shot count (one Batch, one EstimatorV2 default)")
         for d in range(int(pt["M"])):
             points.append(GridPoint(n=int(pt["n"]), L=int(pt["L"]), k=int(pt["k"]) - 1, resilience_level=int(pt["resilience"]),
-                                    q=patch.local(edge[0]), seed=int(pt["seed"]) + d))
+                                    q=patch.local(edge[0]), seed=int(pt["seed"]) + d, layout=layout))
     return points, shapes, shots
 
 
@@ -611,30 +700,47 @@ def circuit_summary(isa, backend) -> dict:
 
 
 def _describe(b) -> dict:
-    """Per-pub description for job.json (BuiltPub or BuiltProbe)."""
+    """Per-pub description for job.json (BuiltPub or BuiltProbe). ``patch_qubits`` / ``qubits`` and ``edge`` are the
+    physical qubits actually used (the ``layout`` when one is given); ``lattice_qubits`` / ``lattice_edge`` keep the
+    Patch's lattice-frame coordinates."""
     if isinstance(b, BuiltProbe):
+        phys, phys_edge = (b.qubits, None) if b.patch is None else physical_qubits(b.patch, b.layout, b.edge)
         d = dict(probe_id=b.probe.get("id"), kind=b.probe.get("kind"), reset_kind=b.probe.get("reset_kind", "reset"),
                  mask_index=b.probe.get("mask_index"), mask_hash=b.mask_hash, n=len(b.qubits), L=b.probe.get("L"),
                  k_1based=b.probe.get("k", b.probe.get("L")), p=b.probe.get("p"), prep=b.probe.get("prep", "1"), seed=b.seed,
-                 qubits=list(b.qubits), edge=None if b.edge is None else f"{b.edge[0]}_{b.edge[1]}",
+                 qubits=list(phys), edge=None if phys_edge is None else f"{phys_edge[0]}_{phys_edge[1]}",
+                 layout=None if b.layout is None else list(b.layout),
                  param_hash=param_hash(b.theta) if b.theta.size else None,
                  synthetic_target_instructions=list(b.synthetic_target_instructions))
         if b.patch is not None:
-            d.update(patch=f"{b.patch.n_rows}x{b.patch.n_cols}", origin=list(b.patch.origin), holes=list(b.patch.holes))
+            d.update(patch=f"{b.patch.n_rows}x{b.patch.n_cols}", origin=list(b.patch.origin), holes=list(b.patch.holes),
+                     lattice_qubits=list(b.patch.qubits), lattice_edge=None if b.edge is None else f"{b.edge[0]}_{b.edge[1]}")
         return d
+    phys, phys_edge = physical_qubits(b.patch, b.layout, b.edge)
     return dict(n=b.point.n, L=b.point.L, k_0based=b.point.k, k_1based=b.point.k + 1, q=b.point.q, seed=b.point.seed,
                 patch=f"{b.patch.n_rows}x{b.patch.n_cols}", origin=list(b.patch.origin), holes=list(b.patch.holes),
-                patch_qubits=list(b.patch.qubits), edge=f"{b.edge[0]}_{b.edge[1]}", param_hash=param_hash(b.theta))
+                patch_qubits=list(phys), edge=f"{phys_edge[0]}_{phys_edge[1]}", layout=None if b.layout is None else list(b.layout),
+                lattice_qubits=list(b.patch.qubits), lattice_edge=f"{b.edge[0]}_{b.edge[1]}", param_hash=param_hash(b.theta))
+
+
+def _pub_payload(b) -> dict:
+    """What was sent for one pub: the observable(s) as (label, coeff) lists and the bound parameter values."""
+    obs = b.isa_observable
+    obs_list = obs if isinstance(obs, (list, tuple)) else [obs]
+    return dict(observables=[[[str(lbl), complex(c).real] for lbl, c in o.to_list()] for o in obs_list],
+                param_values=None if b.param_values is None else np.asarray(b.param_values).tolist())
 
 
 def write_job_bundle(run_root: Path, job_id: str, group: List[BuiltPub], backend, options, level: int, shots: int, jl: dict,
-                     result=None, job=None, timestamps: dict | None = None, dry: bool = False) -> Path:
+                     result=None, job=None, timestamps: dict | None = None, dry: bool = False, error: str | None = None,
+                     extra: dict | None = None) -> Path:
     """data/runs/<date>/<job_id>/: everything IBM Quantum returns for one job, plus what was sent.
 
-    Files: job.json (ids, timestamps, usage, metrics, instance alias, backend, git commit, job-list entries, preflight link),
+    Files: job.json (ids, timestamps, usage, metrics, instance alias and plan, backend, rep_delay, git commit, job-list
+    entries, preflight link, per-pub observables and parameter values, ``error`` / ``error_message`` for a failed job),
     result.json (PrimitiveResult via RuntimeEncoder), metadata.json (result + per-pub metadata), options.json,
-    properties.json, target.json, circuits.qpy (ISA circuits) and circuits.json (per-circuit depth / 2q counts).
-    No secret and no CRN is ever written: the instance appears only as its alias ('flex' / 'open').
+    properties.json, target.json, circuits.qpy (ISA circuits) and circuits.json (per-circuit depth / 2q counts / ISA ops).
+    No secret and no CRN is ever written: the instance appears only as its alias ('flex' / 'open') and plan name.
     """
     from qiskit import qpy
     try:
@@ -644,18 +750,21 @@ def write_job_bundle(run_root: Path, job_id: str, group: List[BuiltPub], backend
     day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     d = run_root / day / job_id
     d.mkdir(parents=True, exist_ok=True)
-    usage = metrics = None
+    usage = metrics = error_message = None
+    job_errors: Dict[str, str] = {}
     if job is not None:
-        for name, target in (("usage", "usage"), ("metrics", "metrics")):
+        for name in ("usage", "metrics", "error_message"):
             try:
                 val = getattr(job, name)()
-                if name == "usage":
-                    usage = val
-                else:
-                    metrics = val
-            except Exception as e:  # pragma: no cover
-                (usage_err := f"{name} unavailable: {e}")
-                metrics = metrics if name != "metrics" else usage_err
+            except Exception as e:
+                job_errors[name] = f"{type(e).__name__}: {e}"
+                continue
+            if name == "usage":
+                usage = val
+            elif name == "metrics":
+                metrics = val
+            else:
+                error_message = val
     ts = dict(timestamps or {})
     if metrics and isinstance(metrics, dict) and "timestamps" in metrics:
         ts.update(metrics["timestamps"])
@@ -667,8 +776,9 @@ def write_job_bundle(run_root: Path, job_id: str, group: List[BuiltPub], backend
         entries = [e for e in jl.get("points", []) if int(e.get("resilience", -1)) == level]
     summaries = [circuit_summary(b.isa_circuit, backend) for b in group]
     _dump(d / "job.json", dict(
-        job_id=job_id, dry_run=dry, job_kind="probes" if is_probe_job else "gradient_points", timestamps=ts,
-        usage_qpu_seconds=usage, metrics=metrics,
+        job_id=job_id, dry_run=dry, job_kind="probes" if is_probe_job else "gradient_points",
+        status="failed" if error else ("dry-run" if dry else "completed"), error=error, error_message=error_message,
+        job_errors=job_errors or None, timestamps=ts, usage_qpu_seconds=usage, metrics=metrics,
         backend_name=getattr(backend, "name", str(backend)), backend_version=str(getattr(backend, "backend_version", "")),
         instance=jl.get("instance"), joblist_name=jl.get("name"), preflight_review=jl.get("preflight_review", ""),
         resilience_level=level, shots=shots, runner_git_commit=git_commit_hash(),
@@ -676,10 +786,17 @@ def write_job_bundle(run_root: Path, job_id: str, group: List[BuiltPub], backend
         rep_delay=rep_delay_info(backend), rep_delay_probe=bool(jl.get("rep_delay_probe", False)),
         isa_instruction_names=sorted({n for s in summaries for n in s["isa_instruction_names"]}),
         joblist_entries=entries,
-        points=[_describe(b) for b in group],
+        points=[dict(_describe(b), **_pub_payload(b)) for b in group],
+        **(extra or {}),
     ))
     if result is not None and RuntimeEncoder is not None:
-        (d / "result.json").write_text(json.dumps(result, cls=RuntimeEncoder, indent=1))
+        try:
+            (d / "result.json").write_text(json.dumps(result, cls=RuntimeEncoder, indent=1))
+        except Exception as e:  # never lose the rest of the bundle over a serialisation error
+            (d / "result.json").write_text(json.dumps(dict(error=f"could not serialise PrimitiveResult: {type(e).__name__}: {e}",
+                                                           repr=repr(result)[:20000]), indent=1))
+    elif error:
+        (d / "result.json").write_text(json.dumps(dict(note="job failed: no PrimitiveResult", error=error), indent=1))
     else:
         (d / "result.json").write_text(json.dumps(dict(note="dry run: no PrimitiveResult", dry_run=dry), indent=1))
     pub_meta = []
@@ -731,7 +848,7 @@ def _point_rows(backend, job_id: str, snapshot: str, group: List[BuiltPub], leve
         rows.append({
             "backend": getattr(backend, "name", str(backend)), "job_id": job_id,
             "timestamp": datetime.now(timezone.utc).isoformat(), "calibration_snapshot": snapshot,
-            "n": desc["n"], "patch_qubits": " ".join(map(str, b.qubits if probe else b.patch.qubits)),
+            "n": desc["n"], "patch_qubits": " ".join(map(str, desc["qubits"] if probe else desc["patch_qubits"])),
             "observable_edge": f"probe:{desc['probe_id']}" if probe else desc["edge"],
             "L": desc["L"], "k": desc["k_1based"],   # 1-based, as in the job list
             "resilience_level": level, "shots": shots, "seed": desc["seed"],
@@ -744,10 +861,15 @@ def _point_rows(backend, job_id: str, snapshot: str, group: List[BuiltPub], leve
 
 
 def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int, backend, submit: bool,
-                    run_root: str = "data/runs", log_path: str | None = None, calibration_csv: str | None = None) -> List[dict]:
+                    run_root: str = "data/runs", log_path: str | None = None, calibration_csv: str | None = None,
+                    instance_plan: str | None = None) -> List[dict]:
     """Build the PUBs, run one EstimatorV2 job per resilience level (inside a Batch when submitting), write one bundle
     per job under ``run_root`` and append one row per point to ``log_path``. With ``submit=False`` the same layout is
     written against the given (fake) backend with job_id 'dryrun-<utc>-L<level>' and no PrimitiveResult.
+
+    A job whose ``result()`` raises (for example the Estimator refusing a mid-circuit reset, kill rule (d)) gets a
+    bundle with ``error`` and ``job.error_message()`` and does not stop the others: rows of the succeeded jobs are
+    appended to ``log_path`` and a ``SystemExit`` naming the failed jobs is raised at the end (non-zero exit).
 
     THIS FUNCTION IS THE ONLY PLACE THAT SUBMITS JOBS, and only when ``submit`` is True.
     """
@@ -769,9 +891,14 @@ def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int,
     if jl.get("rep_delay_probe"):
         print(f"rep_delay probe: {getattr(backend, 'name', backend)} default_rep_delay={rd['default_rep_delay_s']} s, "
               f"rep_delay_range={rd['rep_delay_range_s']} s (source: {rd['source']})")
+    budget_target = estimate_budget(jl, backend=backend)
+    print(f"budget with {getattr(backend, 'name', 'backend')} target durations: {budget_target['minutes_at_250us']} min at 250 us "
+          f"(dial durations us: {budget_target['dial_durations_us']})")
+    extra = dict(instance_plan=instance_plan, budget=jl.get("budget"), budget_estimate_with_target_durations=budget_target)
     root = Path(run_root)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     rows: List[dict] = []
+    failures: List[str] = []
     if not submit:
         snapshot = calibration_csv or "dry-run: no snapshot"
         for tag, level, gshots, group in groups:
@@ -780,7 +907,7 @@ def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int,
             est.options.default_shots = gshots
             job_id = f"dryrun-{stamp}-{tag}"
             d = write_job_bundle(root, job_id, group, backend, est.options, level, gshots, jl, dry=True,
-                                 timestamps=dict(created=datetime.now(timezone.utc).isoformat()))
+                                 timestamps=dict(created=datetime.now(timezone.utc).isoformat()), extra=extra)
             rows += _point_rows(backend, job_id, snapshot, group, level, gshots)
             names = sorted({n for b in group for n in circuit_summary(b.isa_circuit, backend)["isa_instruction_names"]})
             print(f"dry run: wrote {d} ({len(group)} pubs, resilience {level}, shots {gshots}, ISA ops {names}); nothing submitted")
@@ -795,17 +922,31 @@ def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int,
                 est.options.default_shots = gshots
                 created = datetime.now(timezone.utc).isoformat()
                 job = est.run([b.pub() for b in group])
-                jobs.append((level, gshots, group, job, est.options, created))
+                jobs.append((tag, level, gshots, group, job, est.options, created))
                 print(f"submitted job {job.job_id()} ({tag}: resilience {level}, {len(group)} pubs, shots {gshots})")
-            for level, gshots, group, job, options, created in jobs:
-                result = job.result()
+            for tag, level, gshots, group, job, options, created in jobs:
+                job_id = job.job_id()
+                try:
+                    result = job.result()
+                except Exception as e:
+                    err = f"{type(e).__name__}: {e}"
+                    failures.append(f"{job_id} ({tag}): {err}")
+                    d = write_job_bundle(root, job_id, group, backend, options, level, gshots, jl, job=job, error=err,
+                                         timestamps=dict(submitted_local=created, failed_local=datetime.now(timezone.utc).isoformat()),
+                                         extra=extra)
+                    print(f"job {job_id} ({tag}) FAILED: {err}; wrote {d}; continuing with the remaining jobs", file=sys.stderr)
+                    continue
                 completed = datetime.now(timezone.utc).isoformat()
-                d = write_job_bundle(root, job.job_id(), group, backend, options, level, gshots, jl, result=result, job=job,
-                                     timestamps=dict(submitted_local=created, result_received_local=completed))
-                rows += _point_rows(backend, job.job_id(), snapshot, group, level, gshots, result)
+                d = write_job_bundle(root, job_id, group, backend, options, level, gshots, jl, result=result, job=job,
+                                     timestamps=dict(submitted_local=created, result_received_local=completed), extra=extra)
+                rows += _point_rows(backend, job_id, snapshot, group, level, gshots, result)
                 print(f"wrote {d}")
     if log_path:
         _append_rows(log_path, rows)
+        print(f"logged {len(rows)} rows to {log_path}")
+    if failures:
+        raise SystemExit(f"{len(failures)} of {len(groups)} jobs failed (bundles written, rows of the succeeded jobs logged):\n  "
+                         + "\n  ".join(failures))
     return rows
 
 
@@ -834,13 +975,14 @@ def run_joblist(path: str, submit: bool, log_dir: str = "data/jobs", run_root: s
         raise SystemExit(f"refusing to submit: {path} carries dry_run: true; set it to false after the pre-flight review")
     if not joblist_submittable(jl):
         raise SystemExit(f"refusing to submit: preflight_review in {path} is empty or not a Slack permalink")
+    resolve_instance(jl["instance"])   # refuse before touching the network if the named secret is missing
     for diff in check_budget(jl):
         raise SystemExit(f"refusing to submit: {diff}; regenerate the budget field with gradvar.hardware.estimate_budget")
-    resolve_instance(jl["instance"])   # refuse before touching the network if the named secret is missing
-    backend = get_backend(jl["backend"], instance_alias=jl["instance"])
+    service = get_service(jl["instance"])
+    plan = verify_instance_plan(service, jl["instance"])   # refuse if the secret's plan does not match the alias
+    backend = get_backend(jl["backend"], service=service)
     log_path = str(Path(log_dir) / f"{stem}_{stamp}.csv")
-    rows = execute_joblist(jl, points, shapes, shots, backend, submit=True, run_root=run_root, log_path=log_path)
-    print(f"logged {len(rows)} rows to {log_path}")
+    execute_joblist(jl, points, shapes, shots, backend, submit=True, run_root=run_root, log_path=log_path, instance_plan=plan)
     return 0
 
 

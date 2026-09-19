@@ -4,6 +4,28 @@
   "instance": "flex",
   "preflight_review": "",
   "notes": "Template only. Tracker P1.2.2 smoke test: locked time per point, depth ceiling. Not reviewed, will not submit. Patch 4x5 is placed by gradvar.noise.place_patch under the snapshot's readout > 3e-2 cut (2026-09-19 snapshot: origin (8,1), qubits 81-85, 91-95, 101-105, 111-115, edge 93_103).",
+  "budget": {
+    "formula": "2 s per job + (rep_delay + L x 0.71 us + 1.94 us readout [+ dial durations]) x executions",
+    "dial_durations_us": {
+      "reset": 0.4,
+      "delay": 0.4,
+      "measure_reset": 1.94,
+      "measure_reset_2": 1.14,
+      "none": 0.0
+    },
+    "dial_durations_source": "ibm_phoenix target (2026-09-19)",
+    "jobs": 2,
+    "circuits": 30,
+    "executions": 122880,
+    "executions_upper_bound_with_zne": 122880,
+    "zne_noise_factors": 3,
+    "seconds_at_250us": 35.22,
+    "minutes_at_250us": 0.587,
+    "minutes_upper_bound_with_zne_at_250us": 0.587,
+    "seconds_at_1us": 4.62,
+    "minutes_at_1us": 0.077,
+    "minutes_upper_bound_with_zne_at_1us": 0.077
+  },
   "points": [
     {
       "n": 20,

@@ -82,8 +82,21 @@ def test_marrakesh_list_dry_runs_on_fake_marrakesh(tmp_path):
     assert by_id["delay_midcircuit_control"]["delay_count"] == by_id["reset_midcircuit_probe"]["reset_count"]
     assert by_id["delay_midcircuit_control"]["delays"][0]["unit"] == "dt"       # delay(400 ns) scheduled in dt units
     assert "reset" in by_id["reset_midcircuit_probe"]["target_durations_s"]
+    # MAJOR-3: 1x10 path on layout 5..14 embeds in the heavy hex without routing: depth 12, 18 CZ = L x 9 path edges
+    grid = json.loads((bundles[0] / "circuits.json").read_text())
+    assert all(c["depth"] == 12 and c["two_qubit_gates"] == 18 for c in grid)
+    assert all(c["depth"] == 14 and c["two_qubit_gates"] == 18 for c in circs)     # dial variants: no routing either
+    grid_job = json.loads((bundles[0] / "job.json").read_text())
+    p0 = grid_job["points"][0]
+    assert p0["patch_qubits"] == [5, 6, 7, 8, 9, 10, 11, 12, 13, 14] and p0["edge"] == "9_10" and p0["layout"] == p0["patch_qubits"]
+    assert p0["lattice_qubits"] == list(range(10)) and p0["lattice_edge"] == "4_5"
+    assert np.asarray(p0["param_values"]).shape == (2, 20) and p0["observables"][0][0][0].count("Z") == 2
+    assert grid_job["budget"]["minutes_at_250us"] == pytest.approx(0.204, abs=0.002)
+    assert grid_job["budget_estimate_with_target_durations"]["dial_durations_us"]["reset"] == pytest.approx(2.72)   # MINOR-5
+    assert grid_job["status"] == "dry-run" and grid_job["error"] is None and grid_job["instance_plan"] is None
     rows = pd.read_csv(next((tmp_path / "jobs").glob("*.csv")))
-    assert len(rows) == 12 and set(rows.observable_edge) == {"93_103", "probe:reset_midcircuit_probe", "probe:delay_midcircuit_control"}
+    assert len(rows) == 12 and set(rows.observable_edge) == {"9_10", "probe:reset_midcircuit_probe", "probe:delay_midcircuit_control"}
+    assert set(rows.patch_qubits) == {"5 6 7 8 9 10 11 12 13 14"}
 
 
 def test_phoenix_smoke_dry_run_bundles_probes_separately(tmp_path):
@@ -145,3 +158,168 @@ def test_probe_schema_validation(tmp_path):
     (tmp_path / "f.json").write_text(json.dumps(dict(base, dry_run="yes")))
     with pytest.raises(JoblistError, match="dry_run"):
         load_joblist(str(tmp_path / "f.json"))
+
+
+def test_layout_validation(tmp_path):
+    from gradvar.hardware import JoblistError, joblist_points, load_joblist
+    base = json.loads((DRYRUN / LISTS[0]).read_text())
+    for bad in (dict(layout=list(range(9))), dict(layout=[5, 5, 6, 7, 8, 9, 10, 11, 12, 13])):
+        (tmp_path / "l.json").write_text(json.dumps(dict(base, points=[dict(base["points"][0], **bad)])))
+        with pytest.raises(JoblistError, match="layout"):
+            load_joblist(str(tmp_path / "l.json"))
+    (tmp_path / "e.json").write_text(json.dumps(dict(base, points=[dict(base["points"][0], edge="4_5")])))   # frame edge, not physical
+    with pytest.raises(JoblistError, match="edge"):
+        joblist_points(load_joblist(str(tmp_path / "e.json")), CAL)
+
+
+def test_check_budget_requires_the_field():
+    from gradvar.hardware import check_budget, load_joblist
+    jl = load_joblist(str(DRYRUN / LISTS[0]))
+    assert check_budget(jl) == []
+    assert check_budget(dict(jl, budget={}))[0].startswith("budget field missing")   # MINOR-4
+    assert check_budget({k: v for k, v in jl.items() if k != "budget"})[0].startswith("budget field missing")
+
+
+def test_dial_durations_from_target():
+    from gradvar.hardware import DIAL_US, dial_durations_us, estimate_budget, fake_backend, load_joblist
+    assert dial_durations_us(None) == DIAL_US
+    d = dial_durations_us(fake_backend("ibm_marrakesh"), qubits=[5, 6, 7])
+    assert d["reset"] == pytest.approx(2.72) and d["delay"] == 0.4 and d["measure_reset"] == DIAL_US["measure_reset"]
+    jl = load_joblist(str(DRYRUN / LISTS[0]))
+    assert estimate_budget(jl, backend=fake_backend("ibm_marrakesh"))["seconds_at_250us"] > estimate_budget(jl)["seconds_at_250us"]
+
+
+def test_dry_run_false_with_placeholder_review_is_refused(tmp_path, monkeypatch):
+    from gradvar.hardware import run_joblist
+    monkeypatch.setenv("QISKIT_IBM_INSTANCE_OPEN", "crn:fake-open")
+    jl = json.loads((DRYRUN / LISTS[0]).read_text())
+    (tmp_path / "p.json").write_text(json.dumps(dict(jl, dry_run=False)))          # placeholder still in place
+    with pytest.raises(SystemExit, match="preflight_review"):
+        run_joblist(str(tmp_path / "p.json"), submit=True, run_root=str(tmp_path / "r"), log_dir=str(tmp_path / "j"), calibration_csv=CAL)
+
+
+class _Service:
+    def __init__(self, entries):
+        self.entries = entries
+
+    def instances(self):
+        return self.entries
+
+
+def test_verify_instance_plan(monkeypatch):
+    from gradvar.hardware import verify_instance_plan
+    monkeypatch.setenv("QISKIT_IBM_INSTANCE_OPEN", "crn:v1:open-instance")
+    monkeypatch.setenv("QISKIT_IBM_INSTANCE", "crn:v1:flex-instance")
+    good = _Service([{"crn": "crn:v1:open-instance", "plan": "Open", "name": "open"},
+                     {"crn": "crn:v1:flex-instance", "plan": "flex", "name": "flex-360"}])
+    assert verify_instance_plan(good, "open") == "open" and verify_instance_plan(good, "flex") == "flex"
+    swapped = _Service([{"crn": "crn:v1:open-instance", "plan": "premium", "name": "x"},
+                        {"crn": "crn:v1:flex-instance", "plan": "open", "name": "y"}])
+    with pytest.raises(SystemExit, match="plan 'premium'"):
+        verify_instance_plan(swapped, "open")
+    with pytest.raises(SystemExit, match="open plan"):
+        verify_instance_plan(swapped, "flex")
+    with pytest.raises(SystemExit, match="not among"):
+        verify_instance_plan(_Service([]), "open")
+
+
+def test_valid_list_reaches_get_backend_under_mock(tmp_path, monkeypatch):
+    import gradvar.hardware as hw
+
+    class StopHere(Exception):
+        pass
+
+    seen = {}
+
+    def fake_get_backend(name, service=None, instance_alias=None):
+        seen.update(name=name, service=service)
+        raise StopHere
+
+    monkeypatch.setenv("QISKIT_IBM_INSTANCE_OPEN", "crn:v1:open-instance")
+    svc = _Service([{"crn": "crn:v1:open-instance", "plan": "open", "name": "open"}])
+    monkeypatch.setattr(hw, "get_service", lambda alias=None: svc)
+    monkeypatch.setattr(hw, "get_backend", fake_get_backend)
+    jl = json.loads((DRYRUN / LISTS[0]).read_text())
+    (tmp_path / "ok.json").write_text(json.dumps(dict(jl, dry_run=False, preflight_review="https://x.slack.com/archives/C1/p1")))
+    with pytest.raises(StopHere):
+        hw.run_joblist(str(tmp_path / "ok.json"), submit=True, run_root=str(tmp_path / "r"), log_dir=str(tmp_path / "j"), calibration_csv=CAL)
+    assert seen == dict(name="ibm_marrakesh", service=svc)
+
+
+def test_failed_job_does_not_lose_the_other_bundles(tmp_path, monkeypatch):
+    """MAJOR-1: the probe job's result() raises (the Estimator refusing a mid-circuit reset); the grid jobs are still
+    bundled and logged, the failed job gets a bundle with the error, and the runner exits non-zero."""
+    import qiskit_ibm_runtime as rt
+    from types import SimpleNamespace
+    from qiskit.primitives import DataBin, PrimitiveResult, PubResult
+    import gradvar.hardware as hw
+
+    class FakeJob:
+        counter = 0
+
+        def __init__(self, pubs):
+            FakeJob.counter += 1
+            self._id = f"fakejob{FakeJob.counter}"
+            self.pubs = pubs
+            self.fail = any("reset" in p[0].count_ops() for p in pubs)
+
+        def job_id(self):
+            return self._id
+
+        def result(self):
+            if self.fail:
+                raise RuntimeError("Estimator refused a mid-circuit reset at this resilience level")
+            return PrimitiveResult([PubResult(DataBin(evs=np.array([0.3, -0.1]), stds=np.array([0.01, 0.01])), metadata={"shots": 1024})
+                                    for _ in self.pubs], metadata={"version": 2})
+
+        def usage(self):
+            return 1.5
+
+        def metrics(self):
+            if self.fail:
+                raise RuntimeError("metrics unavailable")
+            return {"timestamps": {"created": "t0", "running": "t1", "finished": "t2"}}
+
+        def error_message(self):
+            return "refused" if self.fail else None
+
+    class FakeEstimator:
+        def __init__(self, mode=None):
+            self.options = SimpleNamespace(resilience_level=0, default_shots=0)
+
+        def run(self, pubs):
+            return FakeJob(pubs)
+
+    class FakeBatch:
+        def __init__(self, backend=None):
+            self.backend = backend
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    monkeypatch.setattr(rt, "EstimatorV2", FakeEstimator)
+    monkeypatch.setattr(rt, "Batch", FakeBatch)
+    jl = hw.load_joblist(str(DRYRUN / LISTS[0]))
+    points, shapes, shots = hw.joblist_points(jl, CAL)
+    backend = hw.fake_backend("ibm_marrakesh")
+    log = tmp_path / "jobs" / "log.csv"
+    with pytest.raises(SystemExit, match="1 of 3 jobs failed") as ex:
+        hw.execute_joblist(jl, points, shapes, shots, backend, submit=True, run_root=str(tmp_path / "runs"), log_path=str(log),
+                           calibration_csv=CAL, instance_plan="open")
+    assert "fakejob3" in str(ex.value)
+    bundles = {d.name: d for d in (tmp_path / "runs").glob("*/fakejob*")}
+    assert set(bundles) == {"fakejob1", "fakejob2", "fakejob3"}
+    failed = json.loads((bundles["fakejob3"] / "job.json").read_text())
+    assert failed["status"] == "failed" and "refused a mid-circuit reset" in failed["error"] and failed["error_message"] == "refused"
+    assert failed["job_errors"] == {"metrics": "RuntimeError: metrics unavailable"} and failed["usage_qpu_seconds"] == 1.5
+    assert failed["instance_plan"] == "open" and failed["timestamps"]["failed_local"]
+    assert json.loads((bundles["fakejob3"] / "result.json").read_text())["note"].startswith("job failed")
+    ok = json.loads((bundles["fakejob1"] / "job.json").read_text())
+    assert ok["status"] == "completed" and ok["error"] is None and ok["timestamps"]["finished"] == "t2"
+    res = json.loads((bundles["fakejob1"] / "result.json").read_text())
+    assert res and "error" not in res                                        # PrimitiveResult serialised via RuntimeEncoder
+    rows = pd.read_csv(log)
+    assert len(rows) == 10 and set(rows.job_id) == {"fakejob1", "fakejob2"} and np.allclose(rows.gradient, 0.2)

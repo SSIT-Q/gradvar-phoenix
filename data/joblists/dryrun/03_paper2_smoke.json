@@ -227,6 +227,14 @@
   ],
   "budget": {
     "formula": "2 s per job + (rep_delay + L x 0.71 us + 1.94 us readout [+ dial durations]) x executions",
+    "dial_durations_us": {
+      "reset": 0.4,
+      "delay": 0.4,
+      "measure_reset": 1.94,
+      "measure_reset_2": 1.14,
+      "none": 0.0
+    },
+    "dial_durations_source": "ibm_phoenix target (2026-09-19)",
     "jobs": 1,
     "circuits": 9,
     "executions": 9216,
