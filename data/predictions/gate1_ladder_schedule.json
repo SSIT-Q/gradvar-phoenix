@@ -1,0 +1,1335 @@
+{
+  "calibration": "ibm_phoenix_2026-09-19T192510Z.csv",
+  "properties": "ibm_phoenix_properties_20260919T192510Z.json.gz",
+  "excluded": [
+    8,
+    11,
+    17,
+    18,
+    22,
+    24,
+    27,
+    49,
+    55,
+    59,
+    61,
+    62,
+    63,
+    72,
+    73,
+    77,
+    107
+  ],
+  "patches": {
+    "4x5": {
+      "n": 20,
+      "origin": [
+        8,
+        1
+      ],
+      "holes": [],
+      "broken_edges": [],
+      "edge": [
+        93,
+        103
+      ]
+    },
+    "4x10": {
+      "n": 39,
+      "origin": [
+        8,
+        0
+      ],
+      "holes": [
+        107
+      ],
+      "broken_edges": [
+        [
+          86,
+          87
+        ],
+        [
+          100,
+          101
+        ],
+        [
+          95,
+          96
+        ],
+        [
+          87,
+          97
+        ],
+        [
+          100,
+          110
+        ]
+      ],
+      "edge": [
+        94,
+        95
+      ]
+    },
+    "6x10": {
+      "n": 53,
+      "origin": [
+        6,
+        0
+      ],
+      "holes": [
+        61,
+        62,
+        63,
+        72,
+        73,
+        77,
+        107
+      ],
+      "broken_edges": [
+        [
+          86,
+          87
+        ],
+        [
+          100,
+          101
+        ],
+        [
+          95,
+          96
+        ],
+        [
+          87,
+          97
+        ],
+        [
+          100,
+          110
+        ]
+      ],
+      "edge": [
+        84,
+        85
+      ]
+    },
+    "8x10": {
+      "n": 70,
+      "origin": [
+        4,
+        0
+      ],
+      "holes": [
+        49,
+        55,
+        59,
+        61,
+        62,
+        63,
+        72,
+        73,
+        77,
+        107
+      ],
+      "broken_edges": [
+        [
+          86,
+          87
+        ],
+        [
+          100,
+          101
+        ],
+        [
+          95,
+          96
+        ],
+        [
+          87,
+          97
+        ],
+        [
+          100,
+          110
+        ],
+        [
+          57,
+          67
+        ]
+      ],
+      "edge": [
+        84,
+        85
+      ]
+    },
+    "10x10": {
+      "n": 87,
+      "origin": [
+        2,
+        0
+      ],
+      "holes": [
+        22,
+        24,
+        27,
+        49,
+        55,
+        59,
+        61,
+        62,
+        63,
+        72,
+        73,
+        77,
+        107
+      ],
+      "broken_edges": [
+        [
+          86,
+          87
+        ],
+        [
+          100,
+          101
+        ],
+        [
+          31,
+          32
+        ],
+        [
+          95,
+          96
+        ],
+        [
+          87,
+          97
+        ],
+        [
+          100,
+          110
+        ],
+        [
+          57,
+          67
+        ]
+      ],
+      "edge": [
+        75,
+        85
+      ]
+    }
+  },
+  "traj_max": 24,
+  "max_exact_L": 4,
+  "n_traj": 32,
+  "deadline_min": 55.0,
+  "cones": {
+    "4x5 L=1": 2,
+    "4x5 L=2": 16,
+    "4x5 L=4": 20,
+    "4x5 L=8": 20,
+    "4x5 L=12": 20,
+    "4x10 L=1": 2,
+    "4x10 L=2": 20,
+    "4x10 L=4": 36,
+    "4x10 L=8": 39,
+    "4x10 L=12": 39,
+    "6x10 L=1": 2,
+    "6x10 L=2": 16,
+    "6x10 L=4": 48,
+    "6x10 L=8": 53,
+    "6x10 L=12": 53,
+    "8x10 L=1": 2,
+    "8x10 L=2": 16,
+    "8x10 L=4": 65,
+    "8x10 L=8": 70,
+    "8x10 L=12": 70,
+    "10x10 L=1": 2,
+    "10x10 L=2": 12,
+    "10x10 L=4": 72,
+    "10x10 L=8": 87,
+    "10x10 L=12": 87
+  },
+  "points": [
+    {
+      "key": "4x5_L1_k1_noiseless",
+      "n": 20,
+      "M": 200,
+      "action": "computed",
+      "method": "statevector",
+      "seconds": 0.3083536624908447
+    },
+    {
+      "key": "4x5_L1_k1_unital",
+      "n": 20,
+      "M": 200,
+      "action": "computed",
+      "method": "density_matrix",
+      "seconds": 15.09321904182434
+    },
+    {
+      "key": "4x5_L1_k1_nonunital",
+      "n": 20,
+      "M": 200,
+      "action": "computed",
+      "method": "density_matrix",
+      "seconds": 18.75087285041809
+    },
+    {
+      "key": "4x5_L2_k1_noiseless",
+      "n": 20,
+      "M": 200,
+      "action": "computed",
+      "method": "statevector",
+      "seconds": 16.301231145858765
+    },
+    {
+      "key": "4x5_L2_k1_unital",
+      "n": 20,
+      "M": 200,
+      "action": "computed",
+      "method": "statevector",
+      "seconds": 213.24465250968933
+    },
+    {
+      "key": "4x5_L2_k1_nonunital",
+      "n": 20,
+      "M": 200,
+      "action": "carried",
+      "method": "statevector",
+      "seconds": 617.0
+    },
+    {
+      "key": "4x5_L2_k2_noiseless",
+      "n": 20,
+      "M": 200,
+      "action": "computed",
+      "method": "statevector",
+      "seconds": 17.14919137954712
+    },
+    {
+      "key": "4x5_L2_k2_unital",
+      "n": 20,
+      "M": 200,
+      "action": "timecap",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "4x5_L2_k2_nonunital",
+      "n": 20,
+      "M": 200,
+      "action": "timecap",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "4x5_L4_k1_noiseless",
+      "n": 20,
+      "M": 200,
+      "action": "computed",
+      "method": "statevector",
+      "seconds": 345.9517798423767
+    },
+    {
+      "key": "4x5_L4_k1_unital",
+      "n": 20,
+      "M": 200,
+      "action": "cut",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "4x5_L4_k1_nonunital",
+      "n": 20,
+      "M": 200,
+      "action": "cut",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "4x5_L4_k4_noiseless",
+      "n": 20,
+      "M": 200,
+      "action": "computed",
+      "method": "statevector",
+      "seconds": 264.6498920917511
+    },
+    {
+      "key": "4x5_L4_k4_unital",
+      "n": 20,
+      "M": 200,
+      "action": "cut",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "4x5_L4_k4_nonunital",
+      "n": 20,
+      "M": 200,
+      "action": "cut",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "4x5_L8_k1_noiseless",
+      "n": 20,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "4x5_L8_k1_unital",
+      "n": 20,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "4x5_L8_k1_nonunital",
+      "n": 20,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "4x5_L8_k8_noiseless",
+      "n": 20,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "4x5_L8_k8_unital",
+      "n": 20,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "4x5_L8_k8_nonunital",
+      "n": 20,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "4x5_L12_k1_noiseless",
+      "n": 20,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "4x5_L12_k1_unital",
+      "n": 20,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "4x5_L12_k1_nonunital",
+      "n": 20,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "4x5_L12_k12_noiseless",
+      "n": 20,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "4x5_L12_k12_unital",
+      "n": 20,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "4x5_L12_k12_nonunital",
+      "n": 20,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "4x10_L1_k1_noiseless",
+      "n": 39,
+      "M": 200,
+      "action": "computed",
+      "method": "statevector",
+      "seconds": 0.6476070880889893
+    },
+    {
+      "key": "4x10_L1_k1_unital",
+      "n": 39,
+      "M": 200,
+      "action": "computed",
+      "method": "density_matrix",
+      "seconds": 13.226706266403198
+    },
+    {
+      "key": "4x10_L1_k1_nonunital",
+      "n": 39,
+      "M": 200,
+      "action": "computed",
+      "method": "density_matrix",
+      "seconds": 12.535446166992188
+    },
+    {
+      "key": "4x10_L2_k1_noiseless",
+      "n": 39,
+      "M": 100,
+      "action": "timecap",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "4x10_L2_k1_unital",
+      "n": 39,
+      "M": 200,
+      "action": "cut",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "4x10_L2_k1_nonunital",
+      "n": 39,
+      "M": 200,
+      "action": "cut",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "4x10_L2_k2_noiseless",
+      "n": 39,
+      "M": 100,
+      "action": "timecap",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "4x10_L2_k2_unital",
+      "n": 39,
+      "M": 200,
+      "action": "cut",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "4x10_L2_k2_nonunital",
+      "n": 39,
+      "M": 200,
+      "action": "cut",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "4x10_L4_k1_noiseless",
+      "n": 39,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "4x10_L4_k1_unital",
+      "n": 39,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "4x10_L4_k1_nonunital",
+      "n": 39,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "4x10_L4_k4_noiseless",
+      "n": 39,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "4x10_L4_k4_unital",
+      "n": 39,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "4x10_L4_k4_nonunital",
+      "n": 39,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "4x10_L8_k1_noiseless",
+      "n": 39,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "4x10_L8_k1_unital",
+      "n": 39,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "4x10_L8_k1_nonunital",
+      "n": 39,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "4x10_L8_k8_noiseless",
+      "n": 39,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "4x10_L8_k8_unital",
+      "n": 39,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "4x10_L8_k8_nonunital",
+      "n": 39,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "4x10_L12_k1_noiseless",
+      "n": 39,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "4x10_L12_k1_unital",
+      "n": 39,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "4x10_L12_k1_nonunital",
+      "n": 39,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "4x10_L12_k12_noiseless",
+      "n": 39,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "4x10_L12_k12_unital",
+      "n": 39,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "4x10_L12_k12_nonunital",
+      "n": 39,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "6x10_L1_k1_noiseless",
+      "n": 53,
+      "M": 200,
+      "action": "computed",
+      "method": "statevector",
+      "seconds": 0.2797508239746094
+    },
+    {
+      "key": "6x10_L1_k1_unital",
+      "n": 53,
+      "M": 200,
+      "action": "computed",
+      "method": "density_matrix",
+      "seconds": 11.882461309432983
+    },
+    {
+      "key": "6x10_L1_k1_nonunital",
+      "n": 53,
+      "M": 200,
+      "action": "computed",
+      "method": "density_matrix",
+      "seconds": 13.352901458740234
+    },
+    {
+      "key": "6x10_L2_k1_noiseless",
+      "n": 53,
+      "M": 200,
+      "action": "computed",
+      "method": "statevector",
+      "seconds": 13.235210180282593
+    },
+    {
+      "key": "6x10_L2_k1_unital",
+      "n": 53,
+      "M": 200,
+      "action": "timecap",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "6x10_L2_k1_nonunital",
+      "n": 53,
+      "M": 200,
+      "action": "timecap",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "6x10_L2_k2_noiseless",
+      "n": 53,
+      "M": 200,
+      "action": "computed",
+      "method": "statevector",
+      "seconds": 12.699090480804443
+    },
+    {
+      "key": "6x10_L2_k2_unital",
+      "n": 53,
+      "M": 200,
+      "action": "timecap",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "6x10_L2_k2_nonunital",
+      "n": 53,
+      "M": 200,
+      "action": "timecap",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "6x10_L4_k1_noiseless",
+      "n": 53,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "6x10_L4_k1_unital",
+      "n": 53,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "6x10_L4_k1_nonunital",
+      "n": 53,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "6x10_L4_k4_noiseless",
+      "n": 53,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "6x10_L4_k4_unital",
+      "n": 53,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "6x10_L4_k4_nonunital",
+      "n": 53,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "6x10_L8_k1_noiseless",
+      "n": 53,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "6x10_L8_k1_unital",
+      "n": 53,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "6x10_L8_k1_nonunital",
+      "n": 53,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "6x10_L8_k8_noiseless",
+      "n": 53,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "6x10_L8_k8_unital",
+      "n": 53,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "6x10_L8_k8_nonunital",
+      "n": 53,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "6x10_L12_k1_noiseless",
+      "n": 53,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "6x10_L12_k1_unital",
+      "n": 53,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "6x10_L12_k1_nonunital",
+      "n": 53,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "6x10_L12_k12_noiseless",
+      "n": 53,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "6x10_L12_k12_unital",
+      "n": 53,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "6x10_L12_k12_nonunital",
+      "n": 53,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "8x10_L1_k1_noiseless",
+      "n": 70,
+      "M": 200,
+      "action": "computed",
+      "method": "statevector",
+      "seconds": 0.28005337715148926
+    },
+    {
+      "key": "8x10_L1_k1_unital",
+      "n": 70,
+      "M": 200,
+      "action": "computed",
+      "method": "density_matrix",
+      "seconds": 12.150237798690796
+    },
+    {
+      "key": "8x10_L1_k1_nonunital",
+      "n": 70,
+      "M": 200,
+      "action": "computed",
+      "method": "density_matrix",
+      "seconds": 12.349654197692871
+    },
+    {
+      "key": "8x10_L2_k1_noiseless",
+      "n": 70,
+      "M": 200,
+      "action": "computed",
+      "method": "statevector",
+      "seconds": 13.02928352355957
+    },
+    {
+      "key": "8x10_L2_k1_unital",
+      "n": 70,
+      "M": 200,
+      "action": "timecap",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "8x10_L2_k1_nonunital",
+      "n": 70,
+      "M": 200,
+      "action": "timecap",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "8x10_L2_k2_noiseless",
+      "n": 70,
+      "M": 200,
+      "action": "computed",
+      "method": "statevector",
+      "seconds": 12.98953366279602
+    },
+    {
+      "key": "8x10_L2_k2_unital",
+      "n": 70,
+      "M": 200,
+      "action": "timecap",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "8x10_L2_k2_nonunital",
+      "n": 70,
+      "M": 200,
+      "action": "timecap",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "8x10_L4_k1_noiseless",
+      "n": 70,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "8x10_L4_k1_unital",
+      "n": 70,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "8x10_L4_k1_nonunital",
+      "n": 70,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "8x10_L4_k4_noiseless",
+      "n": 70,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "8x10_L4_k4_unital",
+      "n": 70,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "8x10_L4_k4_nonunital",
+      "n": 70,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "8x10_L8_k1_noiseless",
+      "n": 70,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "8x10_L8_k1_unital",
+      "n": 70,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "8x10_L8_k1_nonunital",
+      "n": 70,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "8x10_L8_k8_noiseless",
+      "n": 70,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "8x10_L8_k8_unital",
+      "n": 70,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "8x10_L8_k8_nonunital",
+      "n": 70,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "8x10_L12_k1_noiseless",
+      "n": 70,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "8x10_L12_k1_unital",
+      "n": 70,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "8x10_L12_k1_nonunital",
+      "n": 70,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "8x10_L12_k12_noiseless",
+      "n": 70,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "8x10_L12_k12_unital",
+      "n": 70,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "8x10_L12_k12_nonunital",
+      "n": 70,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "10x10_L1_k1_noiseless",
+      "n": 87,
+      "M": 200,
+      "action": "computed",
+      "method": "statevector",
+      "seconds": 0.24211907386779785
+    },
+    {
+      "key": "10x10_L1_k1_unital",
+      "n": 87,
+      "M": 200,
+      "action": "computed",
+      "method": "density_matrix",
+      "seconds": 12.842166900634766
+    },
+    {
+      "key": "10x10_L1_k1_nonunital",
+      "n": 87,
+      "M": 200,
+      "action": "computed",
+      "method": "density_matrix",
+      "seconds": 15.060512065887451
+    },
+    {
+      "key": "10x10_L2_k1_noiseless",
+      "n": 87,
+      "M": 200,
+      "action": "computed",
+      "method": "statevector",
+      "seconds": 3.9618637561798096
+    },
+    {
+      "key": "10x10_L2_k1_unital",
+      "n": 87,
+      "M": 200,
+      "action": "computed",
+      "method": "statevector",
+      "seconds": 34.49003767967224
+    },
+    {
+      "key": "10x10_L2_k1_nonunital",
+      "n": 87,
+      "M": 200,
+      "action": "computed",
+      "method": "statevector",
+      "seconds": 82.3033287525177
+    },
+    {
+      "key": "10x10_L2_k2_noiseless",
+      "n": 87,
+      "M": 200,
+      "action": "computed",
+      "method": "statevector",
+      "seconds": 3.3427016735076904
+    },
+    {
+      "key": "10x10_L2_k2_unital",
+      "n": 87,
+      "M": 200,
+      "action": "computed",
+      "method": "statevector",
+      "seconds": 34.375754833221436
+    },
+    {
+      "key": "10x10_L2_k2_nonunital",
+      "n": 87,
+      "M": 200,
+      "action": "computed",
+      "method": "statevector",
+      "seconds": 73.5672070980072
+    },
+    {
+      "key": "10x10_L4_k1_noiseless",
+      "n": 87,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "10x10_L4_k1_unital",
+      "n": 87,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "10x10_L4_k1_nonunital",
+      "n": 87,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "10x10_L4_k4_noiseless",
+      "n": 87,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "10x10_L4_k4_unital",
+      "n": 87,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "10x10_L4_k4_nonunital",
+      "n": 87,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "10x10_L8_k1_noiseless",
+      "n": 87,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "10x10_L8_k1_unital",
+      "n": 87,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "10x10_L8_k1_nonunital",
+      "n": 87,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "10x10_L8_k8_noiseless",
+      "n": 87,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "10x10_L8_k8_unital",
+      "n": 87,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "10x10_L8_k8_nonunital",
+      "n": 87,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "10x10_L12_k1_noiseless",
+      "n": 87,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "10x10_L12_k1_unital",
+      "n": 87,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "10x10_L12_k1_nonunital",
+      "n": 87,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "10x10_L12_k12_noiseless",
+      "n": 87,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "10x10_L12_k12_unital",
+      "n": 87,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    },
+    {
+      "key": "10x10_L12_k12_nonunital",
+      "n": 87,
+      "M": 200,
+      "action": "defer",
+      "method": "not_implemented",
+      "seconds": 0.0
+    }
+  ],
+  "total_minutes": 0.31527392864227294
+}

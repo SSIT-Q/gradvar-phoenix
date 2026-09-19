@@ -985,12 +985,12 @@ def _describe(b) -> dict:
                  dial_delay_ns=DIAL_DELAY_NS if str(b.probe.get("reset_kind", "reset")) == "delay" else None,
                  synthetic_target_instructions=list(b.synthetic_target_instructions))
         if b.patch is not None:
-            d.update(patch=f"{b.patch.n_rows}x{b.patch.n_cols}", origin=list(b.patch.origin), holes=list(b.patch.holes),
+            d.update(patch=f"{b.patch.n_rows}x{b.patch.n_cols}", origin=list(b.patch.origin), holes=list(b.patch.holes), broken_edges=[list(e) for e in b.patch.broken_edges],
                      lattice_qubits=list(b.patch.qubits), lattice_edge=None if b.edge is None else f"{b.edge[0]}_{b.edge[1]}")
         return d
     phys, phys_edge = physical_qubits(b.patch, b.layout, b.edge)
     return dict(n=b.point.n, L=b.point.L, k_0based=b.point.k, k_1based=b.point.k + 1, q=b.point.q, seed=b.point.seed,
-                patch=f"{b.patch.n_rows}x{b.patch.n_cols}", origin=list(b.patch.origin), holes=list(b.patch.holes),
+                patch=f"{b.patch.n_rows}x{b.patch.n_cols}", origin=list(b.patch.origin), holes=list(b.patch.holes), broken_edges=[list(e) for e in b.patch.broken_edges],
                 patch_qubits=list(phys), edge=f"{phys_edge[0]}_{phys_edge[1]}", layout=None if b.layout is None else list(b.layout),
                 lattice_qubits=list(b.patch.qubits), lattice_edge=f"{b.edge[0]}_{b.edge[1]}", param_hash=param_hash(b.theta))
 

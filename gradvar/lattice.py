@@ -58,6 +58,7 @@ class Patch:
     n_cols: int
     origin: Tuple[int, int] = (0, 0)   # (row, col) of the rectangle's top-left corner
     holes: Tuple[int, ...] = ()        # excluded qubits removed from the rectangle (large patches only)
+    broken_edges: Tuple[Tuple[int, int], ...] = ()   # couplers above the CZ-error cut (Deviation 26): no CZ is applied on them
 
     @property
     def n(self) -> int:
@@ -80,12 +81,13 @@ class Patch:
         relative to the patch origin, so every sub-layer is a set of disjoint edges.
         """
         qs = set(self.qubits)
+        broken = {(min(a, b), max(a, b)) for a, b in self.broken_edges}
         h_even, h_odd, v_even, v_odd = [], [], [], []
         for q in self.qubits:
             r, c = self.position(q)
-            if q + 1 in qs and c < self.n_cols - 1:
+            if q + 1 in qs and c < self.n_cols - 1 and (q, q + 1) not in broken:
                 (h_even if c % 2 == 0 else h_odd).append((q, q + 1))
-            if q + N_COLS in qs and r < self.n_rows - 1:
+            if q + N_COLS in qs and r < self.n_rows - 1 and (q, q + N_COLS) not in broken:
                 (v_even if r % 2 == 0 else v_odd).append((q, q + N_COLS))
         return [h_even, h_odd, v_even, v_odd]
 
