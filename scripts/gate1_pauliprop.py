@@ -269,6 +269,38 @@ def verdicts(df: pd.DataFrame, K: int = K_MASKS, kurtosis: float = KURTOSIS_DEV1
                                              "pre-registered clause compares the fall with the combined shot + pattern floor of the p = 0.25 series",
                                         passes=bool(all(q["separated_3x"] for q in pts) and falls),
                                         passes_deviation_28=bool(all(q["separated_3x"] for q in pts) and all(q["pattern_floor_below_half_sep"] for q in pts) and dev28)))
+    # Deviation 29: clause (b) as the depth fall of the delay-matched p = 0 reference at fixed n, L = 8 -> 12, per patch
+    mk = measured_kurtosis()
+    kappa29 = float(mk["kurtosis"]) if mk else kurtosis
+    g = df[(df.stage == "gate1b") & (df.get("status", "") != "pending") & df.n.notna() & (df.dial == "delay")]
+    dev29 = dict(rule="per ladder patch: Var_p0(L = 8) - Var_p0(L = 12) > 3 x shot floor AND > 2 x the L = 8 point's M = 200 draw 2 sigma "
+                      "(measured kurtosis); the n-ladder p = 0 points are reported at M = 200 but do not gate",
+                 kurtosis=kappa29, kurtosis_source=("measured noiseless (n=20, L=8)" if mk else "assumed (Deviation 17)"), M=200,
+                 shot_floor_4096=sf, points=[])
+    for spec in ("4x10", "6x10", "10x10"):
+        r8 = g[(g.patch == spec) & (g.L == 8)]
+        r12 = g[(g.patch == spec) & (g.L == 12)]
+        if r8.empty:
+            continue
+        v8 = best(r8.iloc[0])
+        v12 = best(r12.iloc[0]) if not r12.empty else float("nan")
+        fall = v8 - v12
+        ts = draw_two_sigma(v8, 200, kappa29)
+        dev29["points"].append(dict(patch=spec, n=int(r8.iloc[0].n), var_p0_L8=v8, var_p0_L12=v12, fall=fall, three_shot_floors=3 * sf,
+                                    fall_over_3sf=fall / (3 * sf), draw_2sigma_L8_M200=ts, fall_over_2sigma=(fall / ts if ts > 0 else float("nan")),
+                                    L12_row_present=bool(not r12.empty),
+                                    passes=bool(np.isfinite(fall) and fall > 3 * sf and fall >= 2 * ts)))
+    pts29 = dev29["points"]
+    dev29["all_present"] = bool(pts29 and all(q["L12_row_present"] for q in pts29) and len(pts29) == 3)
+    dev29["passes"] = bool(dev29["all_present"] and all(q["passes"] for q in pts29))
+    out["deviation_29"] = dev29
+    sep_ok = {blk["L"]: bool(blk["all_separated_3x"] and all(q["pattern_floor_below_half_sep"] for q in blk["points"])) for blk in out["gate1b"]}
+    out["gate1b_booked_reading"] = dict(clauses="(a) PP predictions at every ladder point; (b-sep) separation >= 3 x (shot + Var_mask/(2 K)) at K = 256 "
+                                                "(Deviation 27) and pattern floor < separation / 2 at L = 8; (b-fall) Deviation 29 depth fall of the p = 0 "
+                                                "reference on every ladder patch",
+                                        separation_clause_L8=sep_ok.get(8), separation_clause_L12=sep_ok.get(12),
+                                        fall_clause_deviation_29=dev29["passes"],
+                                        passes=bool(sep_ok.get(8) and dev29["passes"]))
     d = df[(df.stage == "dev15") & (df.get("status", "") != "pending") & df.n.notna()]
     for (spec, L), grp in d.groupby(["patch", "L"]):
         rec = dict(patch=spec, n=int(grp.n.iloc[0]), L=int(L))
