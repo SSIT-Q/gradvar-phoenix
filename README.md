@@ -292,6 +292,32 @@ Gate 1 criteria on this grid (`gate1_summary.json`):
 
 Criterion (c) part 1 on the demo grid: 6 of 6 `(n, L)` points have `|Var_unital - Var_noiseless| > 6.1e-5` at k = 1 (the >= 6 count is defined on the 25-point ladder, so the result is not-evaluated); part 2 has no n = 40 / 100 point. Overall: not-evaluated: this grid is not the pre-registered ladder, so no overall Gate 1 verdict is given.
 
+### Pauli propagation (Deviation 15, Gate 1b, reset dial)
+
+```bash
+python scripts/gate1_pauliprop.py --stage dev15 --depths 8 12   # ladder patches, L = 8 / 12, k = 1 and L, three models
+python scripts/gate1_pauliprop.py --stage gate1b                 # p = 0 (delay-matched) vs p = 0.25 at n = 39 / 56 / 90
+python scripts/gate1_pauliprop.py --stage dial                   # dial grid at n = 56 + controls
+python scripts/gate1_pauliprop.py --stage summary                # verdicts JSON + figures/pauliprop_predictions.png
+python scripts/pauliprop_validate.py                             # PP vs exact (CSV at n = 12, 16; fresh density matrix at n <= 10)
+```
+
+`gradvar/pauliprop.py` computes `Var_theta[d<O>/d theta]` and `Var_theta[<O>]` for uniform angles by second-moment
+Pauli propagation in the Heisenberg picture: each Ry splits a non-commuting Pauli into two with `cos` / `sin`, and
+because `E[cos^2] = E[sin^2] = 1/2` while all cross terms average to zero, the variance is a positive linear map on
+squared coefficients over Pauli strings (formula and references in the module docstring). The gate model is the
+transpiled noisy circuit (`rz sx rz(pi+theta) sx rz`, error after every `sx`/`cz`, idle relaxation per CZ sub-layer),
+with every channel read from the Pauli-transfer matrices of the `gradvar.noise` models, so the result reproduces the
+density-matrix reference exactly (tests: 3-point angle grid on a 2x2 patch, exact to 1e-6 for the noiseless,
+non-unital and reset-dial rules). Two engines: truncation by coefficient (and optionally Pauli weight) with the
+discarded weight recorded (a rigorous lower bound), and an unbiased Pauli-path sampler with standard errors; the
+prediction is `V_MC +/- 2 sigma`, the truncation error is the deficit `V_MC - V_trunc` (3-5% at L = 8), and the
+Deviation 15 error is `max(2 sigma, V_MC - V_trunc)`. Not modelled: the ZZ phase during the 400 ns dial idle and T1
+on the idle branch (see `docs/PAULIPROP.md`). Rules: unital depolarizing factors, T1/T2 relaxation (`Z -> (1-gamma) Z + gamma I`, `X, Y -> e^{-t/T2}`),
+reset dial `N_p = p Reset + (1-p) Idle(400 ns)` (`D = (1-p)`, `t_z = p`), delay-matched `p = 0`, dephasing dial.
+Pattern-noise floor `Var_mask[C]/(2K)` from a sampled propagation with a fresh reset mask per path. Method,
+validation table, results and runtimes: `docs/PAULIPROP.md`; numbers: `data/predictions/pauliprop_predictions.csv`.
+
 ### Daily calibration snapshot (GitHub Action)
 
 `.github/workflows/calibration_snapshot.yml` runs every day at 03:00 UTC (and on manual dispatch),
