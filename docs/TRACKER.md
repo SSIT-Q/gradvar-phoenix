@@ -1,6 +1,6 @@
 # Tracker: task lists and minute ledger
 
-Version 1, 19 September 2026; last updated 19 Sep 2026, 21:45 IST. Companion to [PLAN.md](PLAN.md). Statuses: done, in progress, todo, blocked. Owners: **O** = Mohammed Owais, **R** = Dr. Raviram V (PI), **C** = physics collaborator (anonymous for now), **Cl** = Claude.
+Version 1, 19 September 2026; last updated 19 Sep 2026, 22:50 IST. Companion to [PLAN.md](PLAN.md). Statuses: done, in progress, todo, blocked. Owners: **O** = Mohammed Owais, **R** = Dr. Raviram V (PI), **C** = physics collaborator (anonymous for now), **Cl** = Claude.
 
 ## 2. Paper 1 task list
 
@@ -79,6 +79,7 @@ Version 1, 19 September 2026; last updated 19 Sep 2026, 21:45 IST. Companion to 
 | P2.0.4 | Reviewer pass on the Paper 2 scoping memo before it is posted | Cl | After P2.0.1 | done (19 Sep 2026) | Done 19 Sep 2026. Reviewer pass complete; memo republished as Version 3 |
 | P2.0.5 | Ranked alternative directions memo (six candidates; recommends the non-unitality dial) reviewed independently and posted with a recommendation to Owais and Dr. Raviram | Cl, then O, R | After review, Sep 2026 | done (19 Sep 2026) | Done 19 Sep 2026. Alternatives memo reviewed twice and republished (Version 4): https://claude.ai/artifact/BmtKR4fjMkMYDub4nntSHY. Recommendation posted to Owais 21:35 IST: A = reset as a calibrated non-unitality dial (i.i.d. mixture channel, per-circuit random masks pooled K=64, p in {0.1, 0.25, 0.5}, n=60 first, 15 gradient points incl. L=12, RMS truncation arm at 16384 shots; 84–86 min at default rep_delay, 6–10 min at 1 µs; odds 20% PRX Quantum/Quantum, ~2% Nature-family); B = classical-surrogate stress test (needs tensor-network partner; 25% with, 10–15% without); C = A then B. Claude recommended C. |
 | P2.0.6 | Paper 2 direction decided and pre-registration drafted | O, R | 15 Oct 2026 | todo | Awaiting Owais and Dr. Raviram’s choice of A/B/C (see P2.0.5); then decision log entry and draft pre-registration linked from this page |
+| P2.0.7 | Theory companion: second-moment calculation for the reset dial (i.i.d. mixture vs fixed mask; α(p) and floor; non-2-design correction; PP numerics to 60 qubits) with a theorist co-author | O/R + theorist | 31 Mar 2027 | todo | Theory note or draft (Quantum/PRA class) linked here; theorist co-author named. Source: theorist second opinion, https://claude.ai/artifact/7WLx5wkkAz1f8AYMXxsVJj |
 
 ### P2.1 Simulation (Nov 2026)
 
