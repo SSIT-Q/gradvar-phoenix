@@ -295,13 +295,37 @@ def verdicts(df: pd.DataFrame, K: int = K_MASKS, kurtosis: float = KURTOSIS_DEV1
     dev29["all_present"] = bool(pts29 and all(q["L12_row_present"] for q in pts29) and len(pts29) == 3)
     dev29["passes"] = bool(dev29["all_present"] and all(q["passes"] for q in pts29))
     out["deviation_29"] = dev29
+    # Deviation 30 (frozen rule): p = 0 reference at M = 250; per rung: pass if depth fall > 3 x shot floor and > 2 x the L = 8
+    # draw 2 sigma (M = 250, measured kurtosis); a rung whose L = 8 reference is below 3 shot floors is "unresolvable at 4096
+    # shots" and not counted; clause (b) passes with >= 2 of 3 rungs.
+    dev30 = dict(rule="p = 0 reference at M = 250; per rung: depth fall (L = 8 -> 12) > 3 x shot floor AND > 2 x the L = 8 point's M = 250 draw "
+                      "2 sigma (kurtosis 14.2 measured); a rung whose L = 8 reference is < 3 shot floors is 'unresolvable at 4096 shots' and not "
+                      "counted; clause (b) passes with >= 2 of 3 rungs",
+                 kurtosis=kappa29, kurtosis_source=dev29["kurtosis_source"], M=250, shot_floor_4096=sf, rungs=[])
+    for q in pts29:
+        v8, fall = q["var_p0_L8"], q["fall"]
+        ts = draw_two_sigma(v8, 250, kappa29)
+        unres = bool(v8 < 3 * sf)
+        rung = dict(patch=q["patch"], n=q["n"], var_p0_L8=v8, var_p0_L12=q["var_p0_L12"], var_p0_L8_over_shot_floor=v8 / sf, fall=fall,
+                    fall_over_3sf=fall / (3 * sf), draw_2sigma_L8_M250=ts, fall_over_2sigma=(fall / ts if ts > 0 else float("nan")),
+                    L12_row_present=q["L12_row_present"])
+        if unres:
+            rung.update(status="unresolvable at 4096 shots (L = 8 reference below 3 shot floors); not counted", counted=False, passes=None)
+        else:
+            rung.update(status="counted", counted=True, passes=bool(np.isfinite(fall) and fall > 3 * sf and fall >= 2 * ts))
+        dev30["rungs"].append(rung)
+    counted = [r for r in dev30["rungs"] if r["counted"]]
+    dev30["n_counted"], dev30["n_passing"] = len(counted), sum(1 for r in counted if r["passes"])
+    dev30["all_present"] = bool(len(dev30["rungs"]) == 3 and all(r["L12_row_present"] for r in dev30["rungs"]))
+    dev30["passes"] = bool(dev30["all_present"] and dev30["n_passing"] >= 2)
+    out["deviation_30"] = dev30
     sep_ok = {blk["L"]: bool(blk["all_separated_3x"] and all(q["pattern_floor_below_half_sep"] for q in blk["points"])) for blk in out["gate1b"]}
     out["gate1b_booked_reading"] = dict(clauses="(a) PP predictions at every ladder point; (b-sep) separation >= 3 x (shot + Var_mask/(2 K)) at K = 256 "
-                                                "(Deviation 27) and pattern floor < separation / 2 at L = 8; (b-fall) Deviation 29 depth fall of the p = 0 "
-                                                "reference on every ladder patch",
+                                                "(Deviation 27) and pattern floor < separation / 2 at L = 8; (b-fall) Deviation 30: depth fall of the "
+                                                "p = 0 reference (M = 250) on >= 2 of 3 resolvable rungs",
                                         separation_clause_L8=sep_ok.get(8), separation_clause_L12=sep_ok.get(12),
-                                        fall_clause_deviation_29=dev29["passes"],
-                                        passes=bool(sep_ok.get(8) and dev29["passes"]))
+                                        fall_clause_deviation_30=dev30["passes"], fall_clause_deviation_29_for_record=dev29["passes"],
+                                        passes=bool(sep_ok.get(8) and dev30["passes"]))
     d = df[(df.stage == "dev15") & (df.get("status", "") != "pending") & df.n.notna()]
     for (spec, L), grp in d.groupby(["patch", "L"]):
         rec = dict(patch=spec, n=int(grp.n.iloc[0]), L=int(L))
