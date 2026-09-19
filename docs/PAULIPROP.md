@@ -92,7 +92,7 @@ The CSV marks these rows `placement = "old placement ..."`; they must be recompu
 
 See `data/predictions/pauliprop_validation.csv` (table below is written by `scripts/pauliprop_validate.py`).
 
-40 of 42 PP values lie inside the 95% bootstrap interval of the exact (M = 200) estimate; the two outside (4x3 L=2 k=2 unital, 4x4 L=4 k=1 unital) miss by < 5% of the interval width, i.e. the M = 200 sample scatter, not the propagation. PP is the exact theta-average (delta = 1e-9 / 1e-10, discarded weight < 5e-6), 'sampled' the Pauli-path Monte Carlo (2e5 paths). The 2x2 patch, L = 2 exactness test (3-point angle grid, exact uniform average) is in `tests/test_pauliprop.py`: 1e-6 relative for noiseless and the reset dial, 3e-5 for the non-unital model.
+46 of 48 rows of `pauliprop_validation.csv` (40 of 42 distinct points; the L = 1 rows appear twice, once per k) lie inside the 95% bootstrap interval of the exact (M = 200) estimate; the two outside (4x3 L=2 k=2 unital, 4x4 L=4 k=1 unital) miss by < 5% of the interval width, i.e. the M = 200 sample scatter, not the propagation. PP is the exact theta-average (delta = 1e-9 / 1e-10, discarded weight < 5e-6), 'sampled' the Pauli-path Monte Carlo (2e5 paths). The 2x2 patch, L = 2 exactness test (3-point angle grid, exact uniform average) is in `tests/test_pauliprop.py`: 1e-6 relative for noiseless and the reset dial, 3e-5 for the non-unital model.
 
 | source | model | dial | patch | n | L | k | exact | 95% CI | PP | discarded | sampled | inside |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
