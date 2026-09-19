@@ -1,0 +1,76 @@
+{
+ "result_metadata": {
+  "dynamical_decoupling": {
+   "enable": false,
+   "sequence_type": "XX",
+   "extra_slack_distribution": "middle",
+   "scheduling_method": "alap"
+  },
+  "twirling": {
+   "enable_gates": false,
+   "enable_measure": true,
+   "num_randomizations": "auto",
+   "shots_per_randomization": "auto",
+   "interleave_randomizations": true,
+   "strategy": "active-accum"
+  },
+  "resilience": {
+   "measure_mitigation": true,
+   "zne_mitigation": false,
+   "pec_mitigation": false
+  },
+  "version": 2
+ },
+ "pubs": [
+  {
+   "pub_index": 0,
+   "metadata": {
+    "shots": 1024,
+    "target_precision": 0.03125,
+    "circuit_metadata": {},
+    "resilience": {},
+    "num_randomizations": 16
+   }
+  },
+  {
+   "pub_index": 1,
+   "metadata": {
+    "shots": 1024,
+    "target_precision": 0.03125,
+    "circuit_metadata": {},
+    "resilience": {},
+    "num_randomizations": 16
+   }
+  },
+  {
+   "pub_index": 2,
+   "metadata": {
+    "shots": 1024,
+    "target_precision": 0.03125,
+    "circuit_metadata": {},
+    "resilience": {},
+    "num_randomizations": 16
+   }
+  },
+  {
+   "pub_index": 3,
+   "metadata": {
+    "shots": 1024,
+    "target_precision": 0.03125,
+    "circuit_metadata": {},
+    "resilience": {},
+    "num_randomizations": 16
+   }
+  },
+  {
+   "pub_index": 4,
+   "metadata": {
+    "shots": 1024,
+    "target_precision": 0.03125,
+    "circuit_metadata": {},
+    "resilience": {},
+    "num_randomizations": 16
+   }
+  }
+ ]
+}

@@ -34,8 +34,10 @@ scripts/
   hardware_dry_run.py   build + transpile n=20, L=1,2,4 against FakeNighthawk; prints depth and 2q counts
   gate1_predict.py      Gate 1 predictions CLI (noiseless / unital / non-unital), figure + CSV + summary JSON
   trajectory_bias.py    measures the trajectory-sampling bias of the noisy predictions against the exact density matrix
-  snapshot_calibration.py  save ibm_phoenix properties JSON + calibration CSV (used by the daily GitHub Action)
-.github/workflows/calibration_snapshot.yml   daily 03:00 UTC calibration snapshot committed by a bot identity
+  snapshot_calibration.py  save ibm_phoenix properties JSON + calibration CSV, plus backend configuration JSON and a
+                           one-row-per-backend ledger (data/calibrations/backend_configurations.csv) for ibm_phoenix and
+                           the open-plan backends; no QPU time (used by the daily GitHub Action)
+.github/workflows/calibration_snapshot.yml   daily 03:00 UTC (or on demand) calibration + configuration snapshot committed by a bot identity
 data/predictions/gate1_predictions.csv (+ gate1_layer_index.csv, gate1_gradients.npz, gate1_summary.json)   output of scripts/gate1_predict.py
 data/joblists/                                 reviewed JSON job lists (schema in data/joblists/README.md); the only route to hardware
 requirements.lock                              exact versions the tests and workflows run with
@@ -339,7 +341,8 @@ submitted, and the file name is written into every log row.
 |---|---|
 | backend | backend name |
 | job_id | runtime job id (one job per resilience level inside the Batch) |
-| timestamp | UTC ISO time the row was written |
+| timestamp | UTC ISO time the row was written (result receipt) |
+| job_submit_time | UTC ISO time the job was submitted (`timestamps.submitted_local` in `job.json`) |
 | calibration_snapshot | path of the `snapshot_calibration` JSON (or the CSV passed in) |
 | n | number of qubits in the patch |
 | patch_qubits | space-separated physical qubit indices (row-major) |
@@ -349,9 +352,13 @@ submitted, and the file name is written into every log row.
 | resilience_level | EstimatorV2 `resilience_level` |
 | shots | shots per circuit |
 | seed | seed of the random parameter vector |
-| param_hash | first 16 hex chars of sha256 of the float64 parameter vector |
+| param_hash | full SHA-256 (64 hex chars) of the float64 parameter vector (rows before 2026-09-19 carry its first 16 chars) |
+| arm | `grid` for a gradient point; the probe's reset kind (`reset`, `delay`, `measure_reset`, `measure_reset_2`, `none`) for a probe row |
+| p, K, mask_seed | dial probes: reset probability, number of masks, and the seed of this circuit's mask (`seed + 1 + mask_index`); empty for grid rows |
+| rep_delay_granted | the `rep_delay` the job was submitted with, in seconds, or `default` when the runner left it to the backend (`rep_delay.default_rep_delay_s` in `job.json`) |
 | ev_plus, ev_minus | `<O>` at `theta +/- pi/2 e_(k,q)` |
-| std_plus, std_minus | EstimatorV2 standard errors of the two expectation values |
+| std_plus, std_minus | EstimatorV2 `stds` of the two expectation values (at resilience >= 1 the spread over the twirled randomisations, the conservative figure) |
+| ensemble_se_plus, ensemble_se_minus | EstimatorV2 `ensemble_standard_error` (the binomial figure; equals `stds` at resilience 0, up to 26 percent below it at resilience 1 on the Marrakesh run) |
 | gradient | `(ev_plus - ev_minus)/2` |
 | transpiled_depth | depth of the ISA circuit |
 | two_qubit_gates | number of two-qubit gates in the ISA circuit |

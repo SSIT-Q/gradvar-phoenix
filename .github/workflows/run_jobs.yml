@@ -51,8 +51,8 @@ jobs:
           QISKIT_IBM_INSTANCE: ${{ secrets.QISKIT_IBM_INSTANCE }}
           QISKIT_IBM_INSTANCE_OPEN: ${{ secrets.QISKIT_IBM_INSTANCE_OPEN }}
         run: python -m gradvar.hardware --joblist "$JOBLIST" --yes-submit
-      - name: Commit logs and calibration snapshot
-        if: ${{ !inputs.dry_run }}
+      - name: Commit logs and calibration snapshot (also after a failed job, so the bundles of the succeeded jobs are kept)
+        if: ${{ always() && !inputs.dry_run }}
         env:
           JOBLIST: ${{ inputs.joblist }}
         run: |
