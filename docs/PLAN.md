@@ -1,6 +1,6 @@
 # Programme plan and tracker: gradient concentration on ibm_phoenix
 
-Two papers, one allocation. Version 1, 19 September 2026; last updated 19 Sep 2026, 20:25 IST. Weekly review every Monday in #mitacs.
+Two papers, one allocation. Version 1, 19 September 2026; last updated 19 Sep 2026, 21:35 IST. Weekly review every Monday in #mitacs.
 
 Owners: **O** = Mohammed Owais, **R** = Dr. Raviram V (PI), **C** = physics collaborator (anonymous for now), **Cl** = Claude.
 
@@ -83,6 +83,12 @@ Paper 1's arXiv date now floats, so applications after mid-November 2026 may sti
 | 19 Sep 2026 | Paper 2 scoping brought forward from October to 19 Sep 2026 at Owais's request to prioritise the breakthrough. Paper 1 keeps its full grid; the minute split is re-based after the dry run. |
 | 19 Sep 2026 | Flex instance created with a 180-minute cap, to be raised as stages pass; the open-plan instance CRN is stored as a third repository secret (QISKIT_IBM_INSTANCE_OPEN). |
 | 19 Sep 2026 | Logging rule: every hardware job stores all IBM-returned data (job metadata, usage, full result and per-circuit metadata, options, backend calibration and target snapshot, transpiled circuits) in the repository for later analysis, on both the Flex and open-plan instances. The tracker is updated at every stage change. |
+| 19 Sep 2026 | Gate 1 code merged to main (807570c) after two independent reviews. The corrected noise models show unital and non-unital predictions indistinguishable at L up to 4 at matched infidelity. |
+| 19 Sep 2026 | Programme finding: the H3 layer-index test is untestable on ibm_phoenix as pre-registered (predicted |D| of order 1e-2 or less at L = 8 to 12 against about 0.3 measurement uncertainty; Mele's mechanism needs L times the damping norm of order 1, that is hundreds of layers). Options put to the PI: keep H3 as a consistency prediction, move it to Paper 2 with engineered reset noise, or drop it. |
+| 19 Sep 2026 | Criterion (b) will fail at L of 2 or more with M = 200 (heavy-tailed gradients, kurtosis 4 to 8). Options: M of about 400 or 700, or a per-depth bound. |
+| 19 Sep 2026 | The 4x10 ladder patch is n = 39: qubit 107 fails the readout cut. |
+| 19 Sep 2026 | Paper 2 reset-ansatz breakthrough killed by the literature and by simulation. Ranked alternatives memo drafted; recommendation pending independent review. |
+| 19 Sep 2026 | Repository secrets verified by the successful calibration snapshot run (35453245766). Raw properties JSON to be retained gzipped, per Owais's logging rule. |
 
 ## 9. How to use this tracker
 

@@ -1,6 +1,6 @@
 # Tracker: task lists and minute ledger
 
-Version 1, 19 September 2026; last updated 19 Sep 2026, 20:25 IST. Companion to [PLAN.md](PLAN.md). Statuses: done, in progress, todo, blocked. Owners: **O** = Mohammed Owais, **R** = Dr. Raviram V (PI), **C** = physics collaborator (anonymous for now), **Cl** = Claude.
+Version 1, 19 September 2026; last updated 19 Sep 2026, 21:35 IST. Companion to [PLAN.md](PLAN.md). Statuses: done, in progress, todo, blocked. Owners: **O** = Mohammed Owais, **R** = Dr. Raviram V (PI), **C** = physics collaborator (anonymous for now), **Cl** = Claude.
 
 ## 2. Paper 1 task list
 
@@ -26,16 +26,18 @@ Version 1, 19 September 2026; last updated 19 Sep 2026, 20:25 IST. Companion to 
 | P1.1.5 | Gate 1 report against criteria (a) to (f), posted in the thread | O | 5 Oct 2026 | todo | Report link in #mitacs |
 | P1.1.6 | Gate 1 decision | R | 6 Oct 2026 | todo | Decision log entry |
 | P1.1.7 | Owais sets the three repository secrets (QISKIT_IBM_TOKEN, QISKIT_IBM_INSTANCE, QISKIT_IBM_INSTANCE_OPEN) on GitHub; no key is posted in Slack or held by Claude | O | 5 Oct 2026 | done (19 Sep 2026) | Done 19 Sep 2026, 20:19 IST. Three secrets set on GitHub; Flex instance capped at 180 minutes, adjustable as stages pass |
-| P1.1.8 | Gate 1 code: fix review items B1 to B12, add two-instance support and full job-metadata capture | Cl | 22 Sep 2026 | in progress | Fix commits on gate1-predictions; review items closed one by one |
-| P1.1.9 | Second independent review of gate1-predictions, then merge to main | Cl | 22 Sep 2026 | todo | Review outcome posted in the thread; merge commit on main |
-| P1.1.10 | Calibration snapshot workflow first run on main | Cl | 22 Sep 2026 | todo | First snapshot committed to data/calibrations by the Action |
+| P1.1.8 | Gate 1 code: fix review items B1 to B12, add two-instance support and full job-metadata capture | Cl | 22 Sep 2026 | done (19 Sep 2026) | Done 19 Sep 2026. Review items B1 to B12 fixed, two-instance support and per-job metadata bundles added; commits e572895, 9a35338, fad3e69 |
+| P1.1.9 | Second independent review of gate1-predictions, then merge to main | Cl | 22 Sep 2026 | done (19 Sep 2026) | Done 19 Sep 2026. Second independent review passed; merged to main as 807570c |
+| P1.1.10 | Calibration snapshot workflow first run on main | Cl | 22 Sep 2026 | done (19 Sep 2026) | Done 19 Sep 2026. Calibration snapshot workflow ran successfully on main (run 35453245766); snapshot CSV committed as 5892135; secrets verified working |
 | P1.1.11 | Pauli-propagation predictions for n = 40 and 100 at L = 8 and 12 with truncation error (Deviation 15) | Cl | 5 Oct 2026 | todo | Prediction table with truncation error committed |
+| P1.1.12 | Pre-registration Deviations 16 to 18 (H3 as consistency prediction; criterion (b) per-depth bound or more draws; 4x10 ladder point is n = 39): draft, PI signature | Cl | 26 Sep 2026 | todo | Blocked on Owais's yes, then Dr. Raviram's signature; pre-registration republished as v0.4 |
+| P1.1.13 | Extend noiseless Gate 1 grid to n up to 20 and light-cone predictions at L up to 4 for n = 40 and 100; Pauli propagation with the non-unital rule for L = 8 and 12 (Deviation 15) | Cl | 5 Oct 2026 | todo | Results and prediction tables committed |
 
 ### P1.2 Dry run (6 to 10 Oct 2026)
 
 | ID | Task | Owner | Due | Status | Evidence |
 |---|---|---|---|---|---|
-| P1.2.0 | Pre-flight review of the dry run job list: exact jobs, shot counts, backend and instance signed off before any minute is spent | Cl reviews, R decides | 6 Oct 2026 | in progress | In progress. Code-review stage: first independent review of gate1-predictions on 19 Sep 2026 found 2 blockers, 5 major, 5 minor; fixes in progress (P1.1.8); second review pending (P1.1.9); job-list sign-off still to come |
+| P1.2.0 | Pre-flight review of the dry run job list: exact jobs, shot counts, backend and instance signed off before any minute is spent | Cl reviews, R decides | 6 Oct 2026 | in progress | In progress. Code review stage complete (two passes, 19 Sep 2026); job-list sign-off still to come |
 | P1.2.1 | Pipeline checks on ibm_marrakesh under the open plan | O | 7 Oct 2026 | todo | Job IDs and results committed |
 | P1.2.2 | ibm_phoenix smoke test, about 5 Flex minutes: locked time per point, reset error and latency, depth ceiling | O | 9 Oct 2026 | todo | Smoke-test summary in the thread; raw results committed |
 | P1.2.3 | Minute budget re-based on measured locked time and posted | Cl | 10 Oct 2026 | todo | Ledger updated to version 2 |
@@ -71,10 +73,12 @@ Version 1, 19 September 2026; last updated 19 Sep 2026, 20:25 IST. Companion to 
 
 | ID | Task | Owner | Due | Status | Evidence |
 |---|---|---|---|---|---|
-| P2.0.1 | Read arXiv:2507.02043 and arXiv:2411.05760 in full and write a two-page note: the ansatz (ancilla measure-and-reset every r layers, with or without feedforward), the claimed plateau-freedom, and exactly why the Pauli-propagation and surrogate results do not cover it | C with Cl | 19 Sep to 15 Oct 2026 | in progress | Started 19 Sep 2026. Owais asked 19 Sep 20:01 IST to prioritise the breakthrough; scoping (literature check, ansatz families, small sims, memo) started same day; memo goes through a reviewer before posting. Note committed to docs/ |
+| P2.0.1 | Read arXiv:2507.02043 and arXiv:2411.05760 in full and write a two-page note: the ansatz (ancilla measure-and-reset every r layers, with or without feedforward), the claimed plateau-freedom, and exactly why the Pauli-propagation and surrogate results do not cover it | C with Cl | 19 Sep to 15 Oct 2026 | done (19 Sep 2026) | Done 19 Sep 2026. Memo reviewed and republished as Version 3: https://claude.ai/artifact/1PHEgZ5eAa4FhJWkQzbhxb. The reset-ansatz breakthrough does not survive (Mele Theorem 1 and Proposition 3 cover reset; Shirgure et al. arXiv:2606.23751; Angrisani et al. arXiv:2501.13101; simulations show no reset variant beats plain HEA) |
 | P2.0.2 | Define the unitary-matched control ansatz with equal gate count | C | 15 Oct 2026 | todo | Circuit definition in the note and in code |
 | P2.0.3 | Reset error and latency from the smoke test folded into the noise model | O | 10 Oct 2026 | todo | Noise-model parameters committed |
-| P2.0.4 | Reviewer pass on the Paper 2 scoping memo before it is posted | Cl | After P2.0.1 | todo | Review outcome posted in the thread and linked here |
+| P2.0.4 | Reviewer pass on the Paper 2 scoping memo before it is posted | Cl | After P2.0.1 | done (19 Sep 2026) | Done 19 Sep 2026. Reviewer pass complete; memo republished as Version 3 |
+| P2.0.5 | Ranked alternative directions memo (six candidates; recommends the non-unitality dial) under independent review, then decision by Owais and Dr. Raviram | Cl, then O, R | After review, Sep 2026 | in progress | In progress 19 Sep 2026. Memo drafted; independent review under way; decision follows |
+| P2.0.6 | Paper 2 direction decided and pre-registration drafted | O, R | 15 Oct 2026 | todo | Decision log entry; draft pre-registration linked from this page |
 
 ### P2.1 Simulation (Nov 2026)
 
