@@ -294,9 +294,9 @@
       "key": "4x5_L2_k1_nonunital",
       "n": 20,
       "M": 200,
-      "action": "carried",
+      "action": "computed",
       "method": "statevector",
-      "seconds": 617.0
+      "seconds": 389.9218533039093
     },
     {
       "key": "4x5_L2_k2_noiseless",
@@ -310,17 +310,17 @@
       "key": "4x5_L2_k2_unital",
       "n": 20,
       "M": 200,
-      "action": "timecap",
-      "method": "not_implemented",
-      "seconds": 0.0
+      "action": "computed",
+      "method": "statevector",
+      "seconds": 256.04891061782837
     },
     {
       "key": "4x5_L2_k2_nonunital",
       "n": 20,
       "M": 200,
-      "action": "timecap",
-      "method": "not_implemented",
-      "seconds": 0.0
+      "action": "computed",
+      "method": "statevector",
+      "seconds": 516.1803457736969
     },
     {
       "key": "4x5_L4_k1_noiseless",
@@ -494,9 +494,9 @@
       "key": "4x10_L2_k1_noiseless",
       "n": 39,
       "M": 100,
-      "action": "timecap",
-      "method": "not_implemented",
-      "seconds": 0.0
+      "action": "computed",
+      "method": "statevector",
+      "seconds": 80.2303376197815
     },
     {
       "key": "4x10_L2_k1_unital",
@@ -518,9 +518,9 @@
       "key": "4x10_L2_k2_noiseless",
       "n": 39,
       "M": 100,
-      "action": "timecap",
-      "method": "not_implemented",
-      "seconds": 0.0
+      "action": "computed",
+      "method": "statevector",
+      "seconds": 80.95332789421082
     },
     {
       "key": "4x10_L2_k2_unital",
@@ -718,17 +718,17 @@
       "key": "6x10_L2_k1_unital",
       "n": 53,
       "M": 200,
-      "action": "timecap",
-      "method": "not_implemented",
-      "seconds": 0.0
+      "action": "computed",
+      "method": "statevector",
+      "seconds": 178.60914206504822
     },
     {
       "key": "6x10_L2_k1_nonunital",
       "n": 53,
       "M": 200,
-      "action": "timecap",
-      "method": "not_implemented",
-      "seconds": 0.0
+      "action": "computed",
+      "method": "statevector",
+      "seconds": 299.47026443481445
     },
     {
       "key": "6x10_L2_k2_noiseless",
@@ -742,17 +742,17 @@
       "key": "6x10_L2_k2_unital",
       "n": 53,
       "M": 200,
-      "action": "timecap",
-      "method": "not_implemented",
-      "seconds": 0.0
+      "action": "computed",
+      "method": "statevector",
+      "seconds": 168.94399785995483
     },
     {
       "key": "6x10_L2_k2_nonunital",
       "n": 53,
       "M": 200,
-      "action": "timecap",
-      "method": "not_implemented",
-      "seconds": 0.0
+      "action": "computed",
+      "method": "statevector",
+      "seconds": 265.11373114585876
     },
     {
       "key": "6x10_L4_k1_noiseless",
@@ -934,17 +934,17 @@
       "key": "8x10_L2_k1_unital",
       "n": 70,
       "M": 200,
-      "action": "timecap",
-      "method": "not_implemented",
-      "seconds": 0.0
+      "action": "computed",
+      "method": "statevector",
+      "seconds": 112.27661538124084
     },
     {
       "key": "8x10_L2_k1_nonunital",
       "n": 70,
       "M": 200,
-      "action": "timecap",
-      "method": "not_implemented",
-      "seconds": 0.0
+      "action": "computed",
+      "method": "statevector",
+      "seconds": 342.90855860710144
     },
     {
       "key": "8x10_L2_k2_noiseless",
@@ -958,17 +958,17 @@
       "key": "8x10_L2_k2_unital",
       "n": 70,
       "M": 200,
-      "action": "timecap",
-      "method": "not_implemented",
-      "seconds": 0.0
+      "action": "computed",
+      "method": "statevector",
+      "seconds": 172.20902156829834
     },
     {
       "key": "8x10_L2_k2_nonunital",
       "n": 70,
       "M": 200,
-      "action": "timecap",
-      "method": "not_implemented",
-      "seconds": 0.0
+      "action": "computed",
+      "method": "statevector",
+      "seconds": 405.95737862586975
     },
     {
       "key": "8x10_L4_k1_noiseless",
@@ -1331,5 +1331,5 @@
       "seconds": 0.0
     }
   ],
-  "total_minutes": 0.31527392864227294
+  "total_minutes": 0.3711638212203979
 }
