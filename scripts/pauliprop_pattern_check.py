@@ -112,7 +112,9 @@ def main():
         if d % 10 == 0:
             print(f"draw {d}/{args.M} ({time.time() - t0:.0f}s)", flush=True)
     # exact per-draw mask variance (population over the Kmax masks, unbiased)
-    var_mask_exact = float(np.mean(cm.var(axis=2, ddof=1)))
+    per = cm.var(axis=2, ddof=1).reshape(-1)              # one sample variance per (draw, shift)
+    var_mask_exact = float(per.mean())
+    var_mask_exact_se = float(per.std(ddof=1) / np.sqrt(per.size))
     # PP value
     dial = pp.dial_bloch_by_qubit(CSV, patch.qubits, "reset", args.p)
     prog = pp.make_program(patch, args.L, args.L, "unital", CSV, dial=dial)
@@ -124,12 +126,13 @@ def main():
         se = float(np.std((gK - g_mix) ** 2, ddof=1) / np.sqrt(args.M))
         rows.append(dict(patch=args.patch, n=patch.n, L=args.L, p=args.p, M=args.M, K=K, excess_var_exact=excess, excess_var_se=se,
                          floor_from_exact_varmask=var_mask_exact / (2 * K), floor_from_pp_varmask=pv["var_mask"] / (2 * K),
-                         var_mask_exact=var_mask_exact, var_mask_pp=pv["var_mask"], var_mask_pp_se=pv["se"], runtime_s=time.time() - t0))
+                         var_mask_exact=var_mask_exact, var_mask_exact_se=var_mask_exact_se, var_mask_pp=pv["var_mask"], var_mask_pp_se=pv["se"],
+                         runtime_s=time.time() - t0))
     df = pd.DataFrame(rows)
     out = ROOT / "data" / "predictions" / "pauliprop_pattern_check.csv"
     df.to_csv(out, index=False)
     print(df.to_string())
-    print(f"Var_mask exact {var_mask_exact:.4f} vs PP {pv['var_mask']:.4f} +/- {pv['se']:.4f}; ratio of excess variances K=64/K=256: "
+    print(f"Var_mask exact {var_mask_exact:.4f} +/- {var_mask_exact_se:.4f} vs PP {pv['var_mask']:.4f} +/- {pv['se']:.4f}; ratio of excess variances K=64/K=256: "
           f"{rows[0]['excess_var_exact'] / rows[-1]['excess_var_exact']:.2f} (expected {rows[-1]['K'] / rows[0]['K']:.0f}) -> {out}")
 
 
