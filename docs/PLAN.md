@@ -1,6 +1,6 @@
 # Programme plan and tracker: gradient concentration on ibm_phoenix
 
-Two papers, one allocation. Version 1, 19 September 2026; last updated 19 Sep 2026, 21:35 IST. Weekly review every Monday in #mitacs.
+Two papers, one allocation. Version 1, 19 September 2026; last updated 19 Sep 2026, 21:45 IST. Weekly review every Monday in #mitacs.
 
 Owners: **O** = Mohammed Owais, **R** = Dr. Raviram V (PI), **C** = physics collaborator (anonymous for now), **Cl** = Claude.
 
@@ -89,6 +89,8 @@ Paper 1's arXiv date now floats, so applications after mid-November 2026 may sti
 | 19 Sep 2026 | The 4x10 ladder patch is n = 39: qubit 107 fails the readout cut. |
 | 19 Sep 2026 | Paper 2 reset-ansatz breakthrough killed by the literature and by simulation. Ranked alternatives memo drafted; recommendation pending independent review. |
 | 19 Sep 2026 | Repository secrets verified by the successful calibration snapshot run (35453245766). Raw properties JSON to be retained gzipped, per Owais's logging rule. |
+| 19 Sep 2026 | Programme finding: the H3 layer-index test is untestable on ibm_phoenix as pre-registered (predicted \|D\| of order 1e-2 or less at L = 8 to 12 against about 0.3 measurement uncertainty; Mele's mechanism needs L times the damping norm of order 1, that is hundreds of layers). Options put to the PI: keep H3 as a consistency prediction, move it to Paper 2 with engineered reset noise, or drop it. |
+| 19 Sep 2026 | Paper 2 redirect memo (six directions, two rankings) reviewed and posted; recommendation A/C as above; decision pending. The dial’s p=0.1 point doubles as the rescue for Paper 1’s H3 (Deviation 16 proposal). |
 
 ## 9. How to use this tracker
 
