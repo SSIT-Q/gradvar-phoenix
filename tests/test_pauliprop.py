@@ -110,7 +110,7 @@ def test_channels_match_aer_ptms():
         assert b.dx == pytest.approx(np.exp(-0.068 / t2), rel=1e-9)
         assert b.tz == pytest.approx(1 - np.exp(-0.068 / t1), rel=1e-6)
     chu = pp.channels_from_models("unital", CSV, list(patch.qubits), patch.edges())
-    assert all(b.tz == 0 and b.dx == b.dz for b in chu.sx.values())
+    assert all(b.tz == 0 and abs(b.dx - b.dz) < 1e-12 for b in chu.sx.values())
     for e, f in chu.cz_factor.items():
         assert f < 1
 
