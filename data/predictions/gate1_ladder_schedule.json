@@ -294,9 +294,9 @@
       "key": "4x5_L2_k1_nonunital",
       "n": 20,
       "M": 200,
-      "action": "carried",
+      "action": "computed",
       "method": "statevector",
-      "seconds": 617.0
+      "seconds": 389.9218533039093
     },
     {
       "key": "4x5_L2_k2_noiseless",
@@ -310,17 +310,17 @@
       "key": "4x5_L2_k2_unital",
       "n": 20,
       "M": 200,
-      "action": "timecap",
-      "method": "not_implemented",
-      "seconds": 0.0
+      "action": "computed",
+      "method": "statevector",
+      "seconds": 256.04891061782837
     },
     {
       "key": "4x5_L2_k2_nonunital",
       "n": 20,
       "M": 200,
-      "action": "timecap",
-      "method": "not_implemented",
-      "seconds": 0.0
+      "action": "computed",
+      "method": "statevector",
+      "seconds": 516.1803457736969
     },
     {
       "key": "4x5_L4_k1_noiseless",
@@ -718,17 +718,17 @@
       "key": "6x10_L2_k1_unital",
       "n": 53,
       "M": 200,
-      "action": "timecap",
-      "method": "not_implemented",
-      "seconds": 0.0
+      "action": "computed",
+      "method": "statevector",
+      "seconds": 178.60914206504822
     },
     {
       "key": "6x10_L2_k1_nonunital",
       "n": 53,
       "M": 200,
-      "action": "timecap",
-      "method": "not_implemented",
-      "seconds": 0.0
+      "action": "computed",
+      "method": "statevector",
+      "seconds": 299.47026443481445
     },
     {
       "key": "6x10_L2_k2_noiseless",
@@ -742,9 +742,9 @@
       "key": "6x10_L2_k2_unital",
       "n": 53,
       "M": 200,
-      "action": "timecap",
-      "method": "not_implemented",
-      "seconds": 0.0
+      "action": "computed",
+      "method": "statevector",
+      "seconds": 168.94399785995483
     },
     {
       "key": "6x10_L2_k2_nonunital",
@@ -1331,5 +1331,5 @@
       "seconds": 0.0
     }
   ],
-  "total_minutes": 0.3463352799415588
+  "total_minutes": 0.34674423933029175
 }

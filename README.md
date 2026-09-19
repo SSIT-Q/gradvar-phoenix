@@ -224,9 +224,9 @@ cut are in **`docs/GATE1_RESULTS.md`**. Criteria on this run:
 | criterion | status | result | note |
 |---|---|---|---|
 | (a) | implemented | **fail** | fails as registered (2^-n outside the bootstrap interval at n = [13, 14, 15, 16, 17, 18, 19, 20]); estimator artefact: kurtosis (3/2)^n, relative SE of the sample variance 0.80 (n = 13), 0.98 (n = 14), 1.21 (n = 15), 1.48 (n = 16), 1.81 (n = 17), 2.22 (n = 18), 2.72 (n = 19), 3.33 (n = 20); Deviation 25: (a-i) pass (max /g_sim -... |
-| (b) | implemented | **pass** | evaluated at M = 200; 0 of 31 points at M >= 200 exceed the depth-dependent bound (16 exceed the original 1.5); 104 deferred point(s) not included |
+| (b) | implemented | **pass** | evaluated at M = 200; 0 of 36 points at M >= 200 exceed the depth-dependent bound (21 exceed the original 1.5); 99 deferred point(s) not included |
 | (c) | implemented | **not-evaluated** |  |
-| (d) | implemented | **provisional pass** | null control simulated at n = [20, 39] under the non-unital model with sampled shots; Var_null / (1/(2N)) = 0.74 (N = 4096), 0.66 (N = 16384), 0.85 (N = 4096), 0.80 (N = 16384); smallest exactly computed noisy signal Var = 7.27e-02 (unital, n = 20, L = 2, k = 1), CI low 5.70e-02; the 10x allowance at both shot counts lies below ... |
+| (d) | implemented | **provisional pass** | null control simulated at n = [20, 39] under the non-unital model with sampled shots; Var_null / (1/(2N)) = 0.74 (N = 4096), 0.66 (N = 16384), 0.85 (N = 4096), 0.80 (N = 16384); smallest exactly computed noisy signal Var = 7.25e-02 (nonunital, n = 20, L = 2, k = 1), CI low 5.69e-02; the 10x allowance at both shot counts lies bel... |
 | (e) | implemented | **pass** | evaluated at 4096 shots on every computed point of this grid; the pre-registered scope is 'every point to be claimed' |
 | (f) | implemented | **reported** | L_s(n) at 95% of the Page value: n = 12: L_s = 14 (interp. 13.18), n = 16: L_s = 13 (interp. 12.49), n = 20: L_s = 12 (interp. 11.93); fit L_s = 15.03 + -0.156 n; design check on where the noiseless variance is expected to collapse, no pass/fail threshold pre-registered. Caveats: L_s(20) = 12 sits at the sweep edge (L_max = 12) ... |
 
