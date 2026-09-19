@@ -170,7 +170,7 @@ def verdicts(df: pd.DataFrame, K: int = K_MASKS) -> dict:
     sf = shot_floor(4096)
     out = {"shot_floor_4096": sf, "K_masks": int(K), "gate1b": [], "dev15": []}
     for stage_name in ("gate1b", "gate1b_exempt"):
-      g = df[df.stage == stage_name]
+      g = df[(df.stage == stage_name) & (df.get("status", "") != "pending") & df.n.notna()]
       out.setdefault(stage_name, [])
       for L in sorted(g.L.unique()):
         pts = []
@@ -195,7 +195,7 @@ def verdicts(df: pd.DataFrame, K: int = K_MASKS) -> dict:
             out[stage_name].append(dict(L=int(L), points=pts, all_separated_3x=all(q["separated_3x"] for q in pts),
                                         p0_falls_40_to_100_by_more_than_floor=falls,
                                         passes=bool(all(q["separated_3x"] for q in pts) and falls)))
-    d = df[df.stage == "dev15"]
+    d = df[(df.stage == "dev15") & (df.get("status", "") != "pending") & df.n.notna()]
     for (spec, L), grp in d.groupby(["patch", "L"]):
         rec = dict(patch=spec, n=int(grp.n.iloc[0]), L=int(L))
         for m in ("noiseless", "unital", "nonunital"):
