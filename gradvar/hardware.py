@@ -574,8 +574,13 @@ def patch_for(n: int, exclude=DEFAULT_EXCLUDE, shape: Tuple[int, int] | None = N
 
 
 # ------------------------------------------------------------------------------------------------ layout re-check (D2)
-CZ_CUT = 1e-2          # coupler cut of the runner's layout re-check: 5x the ibm_phoenix median CZ error (1.9e-3, 19 Sep 2026)
-INIT_ERROR_CUT = 5e-4  # logged only (pre-registration v0.4 Deviation 22 cut; not enforced by the re-check)
+# Pre-registration v0.9.1, Deviation 26: the pre-submission layout re-check against the live properties fails a qubit of
+# the placed patch on readout error >= 3e-2, not operational, or init error >= 5e-4, and a coupler on CZ error >= 5e-3;
+# an override is never accepted for a failing qubit on the observable edge or in its L = 2 light cone. (The Deviation 22
+# |ZZ| >= 1 MHz rule to an excluded qubit is applied at placement, in gradvar.noise, not here.)
+CZ_CUT = 5e-3
+INIT_ERROR_CUT = 5e-4
+CONE_LAYERS = 2        # layers of the protected light cone around the observable edge
 
 
 def pub_couplers(b) -> List[Tuple[int, int]]:
@@ -593,13 +598,15 @@ def pub_couplers(b) -> List[Tuple[int, int]]:
 def layout_check(backend, qubits: Iterable[int], couplers: Iterable[Tuple[int, int]] = (),
                  readout_cut: float | None = None, cz_cut: float = CZ_CUT) -> dict:
     """Re-check a layout against ``backend.properties()`` (the live calibration at submission, not the snapshot the
-    list was built from): per-qubit readout assignment error, operational flag and init error, per-coupler CZ error,
-    and the verdict of the pre-registered readout cut (``gradvar.noise.READOUT_CUT``, 3e-2) and the coupler cut
-    ``cz_cut``. A qubit fails when its readout error exceeds the cut, it is not operational, or it has no readout figure;
-    a coupler fails when its CZ error exceeds the cut or the pair has no calibrated CZ. ``verdict`` is ``pass``, ``fail``
-    or ``unavailable`` (no properties: fake Target-only backends). Logged in every job.json as ``layout_check``; the
-    submitting path refuses on anything but ``pass`` unless the job list carries ``layout_check: "override"`` with a
-    ``layout_check_reason`` (review defect D2: Q11 at 8.4 percent readout sat in the Marrakesh patch unnoticed)."""
+    list was built from), pre-registration Deviation 26: per-qubit readout assignment error, operational flag and init
+    error, per-coupler CZ error, and the verdict of the cuts (readout ``gradvar.noise.READOUT_CUT`` 3e-2, init error
+    ``INIT_ERROR_CUT`` 5e-4, CZ ``cz_cut`` 5e-3). A qubit fails when its readout error exceeds the cut, it is not
+    operational, its init error is at or above the cut, or it has no readout figure; a coupler fails when its CZ error
+    exceeds the cut or the pair has no calibrated CZ. ``verdict`` is ``pass``, ``fail`` or ``unavailable`` (no
+    properties: fake Target-only backends). Logged in every job.json as ``layout_check``; the submitting path refuses on
+    anything but ``pass`` unless the job list carries ``layout_check: "override"`` with a ``layout_check_reason``, and
+    never accepts the override for a failing qubit on the observable edge or in its L = 2 light cone
+    (``layout_check_for``). Review defect D2: Q11 at 8.4 percent readout sat in the Marrakesh patch unnoticed."""
     from .noise import READOUT_CUT
     cut = READOUT_CUT if readout_cut is None else float(readout_cut)
     qs = sorted({int(q) for q in qubits})
@@ -639,7 +646,7 @@ def layout_check(backend, qubits: Iterable[int], couplers: Iterable[Tuple[int, i
         if rec["operational"] is False:
             rec["fails"].append("not operational")
         if rec["init_error"] is not None and rec["init_error"] >= INIT_ERROR_CUT:
-            rec["init_error_above_prereg_cut"] = True      # logged, not enforced (Deviation 22 is applied at placement)
+            rec["fails"].append(f"init error {rec['init_error']:.2e} >= {INIT_ERROR_CUT:g}")
         out["qubits"][str(q)] = rec
         if rec["fails"]:
             out["failing_qubits"].append(q)
@@ -657,21 +664,48 @@ def layout_check(backend, qubits: Iterable[int], couplers: Iterable[Tuple[int, i
     return out
 
 
+def edge_cone_qubits(built: Sequence, layers: int = CONE_LAYERS) -> List[int]:
+    """Physical qubits on the observable edge or in its ``layers``-layer backward light cone (``circuits.light_cone``),
+    over every built pub that has a patch and an edge (bare ``reset_error`` qubit lists have neither). These are the
+    qubits for which Deviation 26 forbids a layout-check override."""
+    from .circuits import light_cone
+    out = set()
+    for b in built:
+        patch, edge = getattr(b, "patch", None), getattr(b, "edge", None)
+        if patch is None or edge is None:
+            continue
+        cone = light_cone(patch, layers, edge)
+        lay = getattr(b, "layout", None)
+        out.update(int(q) if lay is None else int(lay[patch.local(q)]) for q in cone)
+    return sorted(out)
+
+
 def layout_check_for(jl: dict, built: Sequence, backend, enforce: bool) -> dict:
     """``layout_check`` over the union of qubits and couplers of every built pub, plus how the runner acted on it:
     ``enforced`` (True only on the submitting path), ``override`` (the job list's ``layout_check_reason`` when it carries
-    ``layout_check: "override"``), and ``action`` (``submit`` / ``refuse`` / ``logged``)."""
+    ``layout_check: "override"``), ``edge_cone_qubits`` (observable edge plus its L = 2 cone, where no override is
+    accepted: Deviation 26), ``failing_protected_qubits``, ``override_denied`` and ``action`` (``submit`` /
+    ``submit-with-override`` / ``refuse`` / ``logged``)."""
     qubits = sorted({int(q) for b in built for q in (b.qubits if isinstance(b, BuiltProbe) else physical_qubits(b.patch, b.layout, b.edge)[0])})
     couplers = sorted({tuple(c) for b in built for c in pub_couplers(b)})
     chk = layout_check(backend, qubits, couplers)
     override = str(jl.get("layout_check_reason", "")).strip() if str(jl.get("layout_check", "")).lower() == "override" else None
-    chk.update(enforced=bool(enforce), override=override, layout_qubits=qubits, layout_couplers=[list(c) for c in couplers])
+    cone = edge_cone_qubits(built)
+    protected_failing = [q for q in chk["failing_qubits"] if q in cone]
+    denied = None
+    if override and protected_failing:
+        denied = (f"override not accepted for failing qubit(s) {protected_failing} on the observable edge or in its "
+                  f"L = {CONE_LAYERS} light cone (pre-registration Deviation 26)")
+    chk.update(enforced=bool(enforce), override=override, layout_qubits=qubits, layout_couplers=[list(c) for c in couplers],
+               edge_cone_qubits=cone, failing_protected_qubits=protected_failing, override_denied=denied)
     if not enforce:
         chk["action"] = "logged"
     elif chk["verdict"] == "pass":
         chk["action"] = "submit"
+    elif override and not denied:
+        chk["action"] = "submit-with-override"
     else:
-        chk["action"] = "submit-with-override" if override else "refuse"
+        chk["action"] = "refuse"
     return chk
 
 
@@ -680,8 +714,11 @@ def _layout_check_message(chk: dict) -> str:
     bad_c = ", ".join(f"{a}-{c} ({'; '.join(chk['couplers'][f'{a}_{c}']['fails'])})" for a, c in chk["failing_couplers"])
     parts = [p for p in (f"qubits: {bad_q}" if bad_q else "", f"couplers: {bad_c}" if bad_c else "") if p]
     ok = f"all {len(chk['qubits'])} qubits and {len(chk['couplers'])} couplers within the cuts"
-    return f"layout check {chk['verdict']} (readout cut {chk['readout_cut']:g}, CZ cut {chk['cz_cut']:g}; properties " \
-           f"{chk.get('properties_last_update')}): " + ("; ".join(parts) or chk.get("reason") or ok)
+    msg = f"layout check {chk['verdict']} (readout cut {chk['readout_cut']:g}, init error cut {chk['init_error_cut']:g}, " \
+          f"CZ cut {chk['cz_cut']:g}; properties {chk.get('properties_last_update')}): " + ("; ".join(parts) or chk.get("reason") or ok)
+    if chk.get("override_denied"):
+        msg += f"; {chk['override_denied']}"
+    return msg
 
 
 def build_pubs(points: Iterable[GridPoint], backend, exclude=DEFAULT_EXCLUDE, optimization_level: int = 1,
@@ -1159,8 +1196,9 @@ def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int,
     chk = layout_check_for(jl, [b for _, _, _, g in groups for b in g], backend, enforce=submit)
     print(_layout_check_message(chk) + (f" [override: {chk['override']}]" if chk["override"] else ""))
     if submit and chk["action"] == "refuse":
-        raise SystemExit(f"refusing to submit: {_layout_check_message(chk)}; move the patch / layout, or set "
-                         f"layout_check: \"override\" with a layout_check_reason in the job list")
+        remedy = "move the patch / layout" if chk.get("override_denied") else \
+            "move the patch / layout, or set layout_check: \"override\" with a layout_check_reason in the job list"
+        raise SystemExit(f"refusing to submit: {_layout_check_message(chk)}; {remedy}")
     extra = dict(instance_plan=instance_plan, budget=jl.get("budget"), budget_estimate_with_target_durations=budget_target,
                  layout_check=chk)
     root = Path(run_root)

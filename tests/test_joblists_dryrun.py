@@ -158,6 +158,9 @@ def test_marrakesh_list_dry_runs_on_fake_marrakesh(tmp_path):
     assert probe_job["layout_check"]["verdict"] == "pass" and probe_job["layout_check"]["enforced"] is False           # D2, logged only
     assert probe_job["layout_check"]["action"] == "logged" and probe_job["layout_check"]["layout_qubits"] == list(range(5, 15))
     assert len(probe_job["layout_check"]["couplers"]) == 9 and probe_job["layout_check"]["readout_cut"] == 3e-2
+    assert probe_job["layout_check"]["cz_cut"] == 5e-3 and probe_job["layout_check"]["init_error_cut"] == 5e-4          # Deviation 26
+    assert probe_job["layout_check"]["edge_cone_qubits"] == [7, 8, 9, 10, 11, 12]                                       # edge 9_10 + L = 2 cone
+    assert probe_job["layout_check"]["override_denied"] is None
     # MAJOR-3: 1x10 path on layout 5..14 embeds in the heavy hex without routing: depth 12, 18 CZ = L x 9 path edges
     grid = json.loads((bundles[0] / "circuits.json").read_text())
     assert all(c["depth"] == 12 and c["two_qubit_gates"] == 18 for c in grid)
@@ -428,9 +431,9 @@ def test_failed_job_does_not_lose_the_other_bundles(tmp_path, monkeypatch):
 
 class _Props:
     """Stand-in for BackendProperties: readout errors and CZ errors by pair."""
-    def __init__(self, readout, cz, dead=()):
+    def __init__(self, readout, cz, dead=(), init=None):
         from types import SimpleNamespace
-        self._ro, self._dead = readout, set(dead)
+        self._ro, self._dead, self._init = readout, set(dead), dict(init or {})
         self.last_update_date = "2026-10-09T09:00:00Z"
         self.gates = [SimpleNamespace(gate="cz", qubits=list(pair), parameters=[SimpleNamespace(name="gate_error", value=err)])
                       for pair, err in cz.items()]
@@ -442,37 +445,42 @@ class _Props:
         return q not in self._dead
 
     def qubit_property(self, q, name):
-        return (1e-4, None)
+        return (self._init.get(q, 1e-4), None)
 
 
 def test_layout_check_applies_the_cuts(monkeypatch):
-    """D2: the live readout cut (3e-2) and CZ cut on the layout's qubits and couplers, with per-qubit numbers logged."""
+    """D2 / Deviation 26: readout cut 3e-2, init error cut 5e-4 and CZ cut 5e-3 on the layout's qubits and couplers, with
+    per-qubit numbers logged."""
     import gradvar.hardware as hw
     from types import SimpleNamespace
     live = hw.layout_check(hw.fake_backend("ibm_marrakesh"), range(5, 15), [(q, q + 1) for q in range(5, 14)])
     assert live["verdict"] == "pass" and set(live["qubits"]) == {str(q) for q in range(5, 15)} and len(live["couplers"]) == 9
     assert all(0 < v["readout_error"] < 3e-2 and v["operational"] is True for v in live["qubits"].values())
     assert all(v["cz_error"] is not None for v in live["couplers"].values())
-    # the 19 Sep Marrakesh figures: Q11 at 0.084 fails, Q7 at 0.028 passes; a 0.02 CZ coupler fails; a dead qubit fails
+    # the 19 Sep Marrakesh figures: Q11 at 0.084 readout and 1.07e-3 init error fails, Q7 at 0.028 passes; a 6e-3 CZ
+    # coupler fails (cut 5e-3), a 4e-3 one passes; a dead qubit fails; an init error of exactly 5e-4 fails
     ro = {q: 0.005 for q in range(5, 15)}
     ro[11], ro[7] = 0.0837, 0.0283
     cz = {(q, q + 1): 0.002 for q in range(5, 14)}
-    cz[(8, 9)] = 0.02
-    backend = SimpleNamespace(name="stub", properties=lambda: _Props(ro, cz, dead=[13]))
+    cz[(8, 9)], cz[(12, 13)] = 0.006, 0.004
+    backend = SimpleNamespace(name="stub", properties=lambda: _Props(ro, cz, dead=[13], init={11: 1.07e-3, 6: 5e-4}))
     chk = hw.layout_check(backend, range(5, 15), [(q, q + 1) for q in range(5, 14)])
-    assert chk["verdict"] == "fail" and chk["failing_qubits"] == [11, 13] and chk["failing_couplers"] == [[8, 9]]
-    assert chk["qubits"]["11"]["fails"] == ["readout error 0.0837 > 0.03"] and chk["qubits"]["13"]["fails"] == ["not operational"]
-    assert chk["qubits"]["7"]["fails"] == [] and chk["couplers"]["8_9"]["fails"] == ["CZ error 0.0200 > 0.01"]
+    assert chk["verdict"] == "fail" and chk["failing_qubits"] == [6, 11, 13] and chk["failing_couplers"] == [[8, 9]]
+    assert chk["qubits"]["11"]["fails"] == ["readout error 0.0837 > 0.03", "init error 1.07e-03 >= 0.0005"]
+    assert chk["qubits"]["13"]["fails"] == ["not operational"] and chk["qubits"]["6"]["fails"] == ["init error 5.00e-04 >= 0.0005"]
+    assert chk["qubits"]["7"]["fails"] == [] and chk["couplers"]["8_9"]["fails"] == ["CZ error 0.0060 > 0.005"]
+    assert chk["couplers"]["12_13"]["fails"] == [] and chk["cz_cut"] == 5e-3 and chk["init_error_cut"] == 5e-4
     assert "Q11" in hw._layout_check_message(chk) and "8-9" in hw._layout_check_message(chk)
-    assert hw.layout_check(backend, [5, 6], [(5, 6)])["verdict"] == "pass"                       # only the layout's qubits count
-    assert hw.layout_check(backend, [5, 6], [(5, 7)])["failing_couplers"] == [[5, 7]]            # uncalibrated pair fails
+    assert hw.layout_check(backend, [7, 8], [(7, 8)])["verdict"] == "pass"                       # only the layout's qubits count
+    assert hw.layout_check(backend, [7, 8], [(7, 9)])["failing_couplers"] == [[7, 9]]            # uncalibrated pair fails
     none = hw.layout_check(SimpleNamespace(name="bare", properties=lambda: None), [0], [])
     assert none["verdict"] == "unavailable" and none["reason"]
 
 
 def test_submit_path_refuses_a_failed_layout_check_unless_overridden(tmp_path, monkeypatch):
-    """D2: with the live properties putting a layout qubit above the readout cut, execute_joblist(submit=True) refuses before
-    any job is created; ``layout_check: "override"`` with a reason submits and logs the override in every job.json."""
+    """D2 / Deviation 26: with the live properties putting a layout qubit above the readout cut, execute_joblist(submit=True)
+    refuses before any job is created. An override is denied when the failing qubit is on the observable edge or in its
+    L = 2 cone (Q11 = local 6 of the 5-14 path, cone 7-12); it is accepted for an end qubit (Q5) and logged in every job.json."""
     import qiskit_ibm_runtime as rt
     from types import SimpleNamespace
     from qiskit.primitives import DataBin, PrimitiveResult, PubResult
@@ -532,13 +540,21 @@ def test_submit_path_refuses_a_failed_layout_check_unless_overridden(tmp_path, m
                            log_path=str(tmp_path / "log.csv"), calibration_csv=CAL, instance_plan="open")
     assert created == [] and not (tmp_path / "log.csv").exists()
     over = dict(jl, layout_check="override", layout_check_reason="Q11 is not read out by the ZZ observable on 9_10")
+    with pytest.raises(SystemExit, match=r"override not accepted for failing qubit\(s\) \[11\] on the observable edge or in its L = 2 light cone"):
+        hw.execute_joblist(over, points, shapes, shots, backend, submit=True, run_root=str(tmp_path / "runs"),
+                           log_path=str(tmp_path / "log.csv"), calibration_csv=CAL, instance_plan="open")
+    assert created == []
+    ro[11], ro[5] = 0.005, 0.0837                                             # the failing qubit is now the path's end, outside the cone
+    over = dict(jl, layout_check="override", layout_check_reason="Q5 is the end of the path, outside the L = 2 cone of 9_10")
     rows = hw.execute_joblist(over, points, shapes, shots, backend, submit=True, run_root=str(tmp_path / "runs"),
                               log_path=str(tmp_path / "log.csv"), calibration_csv=CAL, instance_plan="open")
     assert len(created) == 3 and len(rows) == 12
     for d in (tmp_path / "runs").glob("*/job*"):
         job = json.loads((d / "job.json").read_text())
-        assert job["layout_check"]["verdict"] == "fail" and job["layout_check"]["failing_qubits"] == [11]
-        assert job["layout_check"]["override"].startswith("Q11") and job["layout_check"]["action"] == "submit-with-override"
+        assert job["layout_check"]["verdict"] == "fail" and job["layout_check"]["failing_qubits"] == [5]
+        assert job["layout_check"]["override"].startswith("Q5") and job["layout_check"]["action"] == "submit-with-override"
+        assert job["layout_check"]["edge_cone_qubits"] == [7, 8, 9, 10, 11, 12] and job["layout_check"]["failing_protected_qubits"] == []
+        assert job["layout_check"]["override_denied"] is None
         assert job["layout_check"]["enforced"] is True and job["rep_delay_granted_s"] == 1e-6
     csv_rows = pd.read_csv(tmp_path / "log.csv")
     assert set(csv_rows.rep_delay_granted.astype(float)) == {1e-6}                     # a runner-set rep_delay is logged in seconds
@@ -546,3 +562,20 @@ def test_submit_path_refuses_a_failed_layout_check_unless_overridden(tmp_path, m
     hw.execute_joblist(jl, points, shapes, shots, backend, submit=False, run_root=str(tmp_path / "dry"), calibration_csv=CAL)
     dry = json.loads(next((tmp_path / "dry").glob("*/dryrun-*L0")).joinpath("job.json").read_text())
     assert dry["layout_check"]["verdict"] == "fail" and dry["layout_check"]["enforced"] is False and dry["layout_check"]["action"] == "logged"
+
+
+def test_edge_cone_qubits_follow_the_layout():
+    """Deviation 26: the protected set is the observable edge plus its L = 2 backward light cone, in physical qubits."""
+    import gradvar.hardware as hw
+    from gradvar.lattice import rect_patch
+    jl = hw.load_joblist(str(DRYRUN / LISTS[0]))
+    points, shapes, shots = hw.joblist_points(jl, CAL)
+    backend = hw.fake_backend("ibm_marrakesh")
+    built = hw.build_pubs(points, backend, shapes=shapes) + hw.build_probes(jl, backend, shapes, CAL)
+    assert hw.edge_cone_qubits(built) == [7, 8, 9, 10, 11, 12]                 # locals 2..7 of the 1x10 path through layout 5..14
+    assert hw.edge_cone_qubits(built, layers=1) == [9, 10]
+    p = rect_patch(4, 5, exclude=(), origin=(8, 1))
+    from types import SimpleNamespace
+    fake_pub = SimpleNamespace(patch=p, edge=(93, 103), layout=None)
+    assert hw.edge_cone_qubits([fake_pub]) == [81, 82, 83, 84, 91, 92, 93, 94, 101, 102, 103, 104, 111, 112, 113, 114]
+    assert hw.edge_cone_qubits([SimpleNamespace(patch=None, edge=None, layout=(1, 2))]) == []   # bare reset_error qubit list
