@@ -94,8 +94,8 @@ class Bloch:
         """Follow (in circuit time) by a depolarizing/Pauli factor f on non-identity Paulis: identity untouched."""
         return Bloch(self.dx * f, self.dy * f, self.dz * f, self.tz)
 
-    def is_trivial(self) -> bool:
-        return self.dx == 1.0 and self.dy == 1.0 and self.dz == 1.0 and self.tz == 0.0
+    def is_trivial(self, atol: float = 1e-12) -> bool:
+        return abs(self.dx - 1.0) < atol and abs(self.dy - 1.0) < atol and abs(self.dz - 1.0) < atol and abs(self.tz) < atol
 
 
 def bloch_from_ptm(R: np.ndarray, atol: float = 1e-9) -> Bloch:
@@ -295,18 +295,19 @@ def compose_bloch(first: Bloch, then: Bloch) -> Bloch:
 
 
 def _merge_adjacent_bloch(ops: List[tuple]) -> List[tuple]:
-    """Compose consecutive single-qubit Bloch ops ('n1' / 'dial') on the same qubit when no other op touches that
-    qubit in between (exact: the two Z -> I branches of consecutive splits carry the same theta dependence, so
-    they must be added coherently, which the composed channel does)."""
+    """Compose consecutive single-qubit noise ops ('n1') on the same qubit when no other op touches that qubit in
+    between (exact: the two Z -> I branches of consecutive splits carry the same theta dependence, so they must be
+    added coherently, which the composed channel does). 'dial' ops are never merged: the fixed-mask sampler
+    (pattern-noise floor) needs them as separate, tagged ops."""
     out: List[tuple] = []
     last = {}   # qubit -> index in out of the last op touching it
     for op in ops:
         kind = op[0]
         qs = (op[1], op[2]) if kind in ("cz", "dep2") else (op[1],)
-        if kind in ("n1", "dial"):
+        if kind == "n1":
             q = op[1]
             t = last.get(q)
-            if t is not None and out[t][0] in ("n1", "dial"):
+            if t is not None and out[t][0] == "n1":
                 out[t] = ("n1", q, compose_bloch(out[t][2], op[2]))
                 continue
         out.append(op)

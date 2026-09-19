@@ -292,7 +292,7 @@ def figure(df: pd.DataFrame):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--stage", choices=["dev15", "gate1b", "dial", "summary"], required=True)
-    ap.add_argument("--patches", nargs="+", default=list(LADDER))
+    ap.add_argument("--patches", nargs="+", default=list(LADDER_NOMINAL))
     ap.add_argument("--depths", nargs="+", type=int, default=[8, 12])
     ap.add_argument("--deltas", nargs="+", type=float, default=[1e-6, 1e-7])
     ap.add_argument("--n-samples", type=int, default=200_000)
