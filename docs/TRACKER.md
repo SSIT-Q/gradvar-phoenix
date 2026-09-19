@@ -97,9 +97,19 @@ Version 1, 19 September 2026. Companion to [PLAN.md](PLAN.md). Statuses: done, i
 | P2.4.2 | Draft with an explicit statement of what is and is not shown about classical hardness | Cl drafts, C reviews | Feb to Mar 2027 | todo | Draft shared in the thread |
 | P2.4.3 | arXiv and journal submission | R | Mar 2027 | todo | arXiv identifier; submission confirmation |
 
+## 3a. Open plan, Heron r2 (10 free minutes per month, separate instance from Flex)
+
+These minutes are tracked apart from the 360 Flex minutes and never count against them.
+
+| ID | Task | Owner | Due | Status | Evidence |
+|---|---|---|---|---|---|
+| OP.1 | October dry run on ibm_marrakesh: end-to-end pipeline with the real logging schema, calibration snapshot, resilience levels 0, 1 and 2, null control, small circuits; about 3 minutes. Same activity as P1.2.1 | O | 7 Oct 2026 | todo | Job IDs and results committed; P1.2.1 marked with it |
+| OP.2 | November cross-architecture comparison for Paper 1: n = 20 ladder at L = 1, 2, 4, levels 0 and 1, about 50 draws, 2048 shots, about 5 minutes. Produces a discussion figure comparing heavy-hex Heron r2 with square-lattice phoenix | O | 15 Nov 2026 | todo | Results and comparison figure committed |
+| OP.3 | December Paper 2 comparator: reset ansatz on Heron r2 using measure-and-reset (no dedicated reset elements), to gauge how much phoenix's hardware reset matters | O | 15 Dec 2026 | todo | Results committed; comparison noted in the Paper 2 draft |
+
 ## 5. Minute ledger
 
-Flex allocation of 360 minutes. Planned shares are version 1 and will be re-based after the dry run (P1.2.3). Nothing spent as of 19 September 2026. The rounded shares in PLAN.md (55, 35, 10) treat the dry run as part of the reserve. Locked time, not wall time, is what the plan bills.
+Flex allocation of 360 minutes. Planned shares are version 1 and will be re-based after the dry run (P1.2.3). Nothing spent as of 19 September 2026. The rounded shares in PLAN.md (55, 35, 10) treat the dry run as part of the reserve. Locked time, not wall time, is what the plan bills. Open-plan Heron r2 minutes (10 per month, separate instance) are tracked separately in section 3a and do not count against the 360.
 
 | Bucket | Planned % | Planned min (of 360) | Spent | Remaining | Last updated |
 |---|---:|---:|---:|---:|---|

@@ -69,6 +69,7 @@ Paper 1's arXiv date now floats, so applications after mid-November 2026 may sti
 | 19 Sep 2026 | Calendar deadlines relaxed. The only fixed date is the Flex expiry in January 2027. |
 | 19 Sep 2026 | Disorder arm (former Question 2) dropped after Li and Yin. |
 | 19 Sep 2026 | Ancilla-reset dissipative ansatz chosen as Paper 2. |
+| 19 Sep 2026 | Open-plan Heron r2 minutes assigned to dry run, cross-architecture comparison and Paper 2 comparator. |
 | 19 Sep 2026 | Anonymous collaborator: authorship requires a name; an acknowledgement is the alternative. Decision due 30 Sep 2026 (P1.0.6). |
 
 ## 9. How to use this tracker
