@@ -788,7 +788,7 @@ class BuiltSampler:
         return d
 
     def payload(self) -> dict:
-        return dict(observables=None, param_values=None, registers={k: len(v) for k, v in self.desc["registers"].items()})
+        return dict(observables=None, param_values=None, register_sizes={k: len(v) for k, v in self.desc["registers"].items()})
 
 
 def scheduled_ns(isa, backend) -> float | None:
