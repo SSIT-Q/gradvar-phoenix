@@ -179,7 +179,7 @@ def submitted_rep_delay_us(options) -> float | str:
 # ------------------------------------------------------------------------------------------------ probes and budget
 # Probe circuits ride in their own EstimatorV2 jobs (one per (resilience level, shots)), so a primitive that refuses a
 # mid-circuit reset (pre-registration Section 3b, kill rule (d)) fails a probe job, never a gradient-grid job.
-PROBE_KINDS = {"reset_dial", "reset_error"}
+PROBE_KINDS = {"reset_dial", "reset_error", "null_control"}   # null_control: pre-registration Section 2 control (a), candidate Deviation 43
 RESET_KINDS = {"reset", "delay", "measure_reset", "measure_reset_2", "none"}
 DIAL_DELAY_NS = 400.0
 # Minute-budget model, version 2 (post-run review of the Marrakesh pipeline check, 2026-09-19, defect D1). Per job:
@@ -349,6 +349,28 @@ def build_probes(jl: dict, backend, shapes: dict, calibration_csv: str | None = 
                                         np.stack([plus, minus]), theta, isa.depth(), two_qubit_count(isa), level, shots, seed,
                                         mask_hash=hashlib.sha256(np.ascontiguousarray(mask).tobytes()).hexdigest()[:16],
                                         synthetic_target_instructions=[rk] if synthetic else [], layout=layout))
+        elif kind == "null_control":
+            # Section 2 control (a): the same HEA with the differentiated parameter outside the observable's light cone (ideal
+            # gradient exactly zero), giving the empirical noise floor including hardware noise (Deviation 37 claimability bar;
+            # Gate 2 (a)). One pub per draw d (seed + d), the pair shifted at layer k on the null qubit (candidate Deviation 43).
+            patch, layout = _probe_patch(pr, shapes, calibration_csv)
+            obs, edge = hea_observable(patch)
+            phys, phys_edge = physical_qubits(patch, layout, edge)
+            want = str(pr.get("edge", "")).replace("-", "_")
+            if want and want != f"{phys_edge[0]}_{phys_edge[1]}":
+                raise JoblistError(f"probe {pr.get('id')}: edge {want} differs from the interior edge {phys_edge[0]}_{phys_edge[1]}")
+            L = int(pr.get("L", 1))
+            k = int(pr.get("k", 1))
+            null_q = null_control_qubit(patch, edge, L, pr.get("null_qubit"), layout)
+            pm = generate_preset_pass_manager(optimization_level=optimization_level, backend=backend, initial_layout=list(phys), seed_transpiler=seed)
+            isa = pm.run(hea_square(patch, L))
+            isa_obs = obs.apply_layout(isa.layout)
+            phys_null = null_q if layout is None else layout[patch.local(null_q)]
+            for d in range(int(pr.get("M", 1))):
+                theta = np.random.default_rng(seed + d).uniform(0, 2 * np.pi, size=patch.n * L)
+                plus, minus = shifted_params(theta, param_index(k - 1, patch.local(null_q), patch.n))
+                built.append(BuiltProbe(dict(pr, draw=d, null_qubit=int(phys_null), lattice_null_qubit=int(null_q), reset_kind="none"), patch, phys, edge, isa,
+                                        isa_obs, np.stack([plus, minus]), theta, isa.depth(), two_qubit_count(isa), level, shots, seed + d, layout=layout))
         elif kind == "reset_error":
             layout = None
             if "qubits" in pr:
@@ -374,6 +396,30 @@ def build_probes(jl: dict, backend, shapes: dict, calibration_csv: str | None = 
         else:  # pragma: no cover - load_joblist rejects unknown kinds
             raise JoblistError(f"unknown probe kind {kind!r}")
     return built
+
+
+def null_control_qubit(patch: Patch, edge: Tuple[int, int], L: int, requested=None, layout: Sequence[int] | None = None) -> int:
+    """The lattice qubit carrying the null-control parameter: ``requested`` (a physical qubit, mapped through ``layout``)
+    checked to lie outside the observable's L-layer light cone, else the patch qubit farthest from the edge outside it."""
+    from .circuits import light_cone
+    from .lattice import row_col
+    cone = set(light_cone(patch, L, edge))
+    if requested is not None:
+        q = int(requested)
+        if layout is not None:
+            lay = [int(x) for x in layout]
+            if q not in lay:
+                raise JoblistError(f"null_qubit {q} is not in the layout")
+            q = patch.qubits[lay.index(q)]
+        if q not in patch.qubits or q in cone:
+            raise JoblistError(f"null_qubit {requested} must be a patch qubit outside the L = {L} light cone of the edge {edge[0]}_{edge[1]}")
+        return q
+    ri, ci = row_col(edge[0])
+    rj, cj = row_col(edge[1])
+    outside = [q for q in patch.qubits if q not in cone]
+    if not outside:
+        raise JoblistError(f"no patch qubit lies outside the L = {L} light cone of the edge {edge[0]}_{edge[1]}")
+    return max(outside, key=lambda q: (min(abs(row_col(q)[0] - ri) + abs(row_col(q)[1] - ci), abs(row_col(q)[0] - rj) + abs(row_col(q)[1] - cj)), -q))
 
 
 def dial_durations_us(backend=None, qubits: Sequence[int] | None = None) -> Dict[str, float]:
@@ -414,11 +460,17 @@ def _probe_length_us(pr: dict, dial_us: Dict[str, float]) -> float:
     rk = str(pr.get("reset_kind", "reset"))
     if pr["kind"] == "reset_dial":
         return int(pr["L"]) * (LAYER_US + dial_us[rk])
+    if pr["kind"] == "null_control":
+        return int(pr.get("L", 1)) * LAYER_US
     return X_US + dial_us[rk]
 
 
 def _probe_circuits(pr: dict) -> int:
-    return 2 * int(pr.get("masks", 1)) if pr["kind"] == "reset_dial" else 1
+    if pr["kind"] == "reset_dial":
+        return 2 * int(pr.get("masks", 1))
+    if pr["kind"] == "null_control":
+        return 2 * int(pr.get("M", 1))
+    return 1
 
 
 def probe_rep_delay_us(pr: dict) -> float | None:
@@ -436,7 +488,7 @@ def probe_job_tag(level: int, shots: int, rep_delay_us: float | None) -> str:
 
 def _probe_basis(pr: dict) -> str:
     """Key of the measurement basis a probe's observables need (TREX learns one set of calibration circuits per basis)."""
-    if pr["kind"] == "reset_dial":
+    if pr["kind"] in ("reset_dial", "null_control"):
         return f"ZZ:{pr.get('edge', pr.get('layout', pr.get('patch')))}"
     return f"Z:{pr.get('qubits', pr.get('layout', pr.get('patch')))}"
 
@@ -888,6 +940,10 @@ def load_joblist(path: str) -> dict:
         need = {"n", "patch", "L", "p"} if pr["kind"] == "reset_dial" else set()
         if pr["kind"] == "reset_error" and "qubits" not in pr:
             need = {"n", "patch"}
+        if pr["kind"] == "null_control":
+            need = {"n", "patch", "M"}
+            if not (1 <= int(pr.get("k", 1)) <= int(pr.get("L", 1))):
+                raise JoblistError(f"probe {pr.get('id')}: k must be in 1..L")
         missing = need - set(pr)
         if missing:
             raise JoblistError(f"probe {pr.get('id')}: missing {sorted(missing)}")
@@ -1049,7 +1105,8 @@ def _describe(b) -> dict:
         return b.describe()
     if isinstance(b, BuiltProbe):
         phys, phys_edge = (b.qubits, None) if b.patch is None else physical_qubits(b.patch, b.layout, b.edge)
-        d = dict(probe_id=b.probe.get("id"), kind=b.probe.get("kind"), reset_kind=b.probe.get("reset_kind", "reset"),
+        d = dict(probe_id=b.probe.get("id"), kind=b.probe.get("kind"), reset_kind=b.probe.get("reset_kind", "none" if b.probe.get("kind") == "null_control" else "reset"),
+                 null_qubit=b.probe.get("null_qubit"), lattice_null_qubit=b.probe.get("lattice_null_qubit"), draw=b.probe.get("draw"),
                  mask_index=b.probe.get("mask_index"), mask_hash=b.mask_hash, n=len(b.qubits), L=b.probe.get("L"),
                  k_1based=b.probe.get("k", b.probe.get("L")), p=b.probe.get("p"), prep=b.probe.get("prep", "1"), seed=b.seed,
                  qubits=list(phys), edge=None if phys_edge is None else f"{phys_edge[0]}_{phys_edge[1]}",
@@ -1274,7 +1331,7 @@ def _point_rows(backend, job_id: str, snapshot: str, group: List[BuiltPub], leve
             "L": desc["L"], "k": desc["k_1based"],   # 1-based, as in the job list
             "resilience_level": level, "shots": shots, "seed": desc["seed"],
             "param_hash": desc["param_hash"],
-            "arm": desc["reset_kind"] if probe else "grid",
+            "arm": ("null_control" if desc.get("kind") == "null_control" else desc["reset_kind"]) if probe else "grid",
             "p": desc.get("p", "") if probe else "", "K": desc.get("masks") if probe and desc.get("masks") is not None else "",
             "mask_seed": desc.get("mask_seed") if probe and desc.get("mask_seed") is not None else "",
             "rep_delay_submitted": submitted_rep_delay(options), "rep_delay_submitted_us": submitted_rep_delay_us(options),
