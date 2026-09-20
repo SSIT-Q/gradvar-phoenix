@@ -282,19 +282,20 @@ def _placed_patch(entry: dict, calibration_csv: str | None, label: str) -> Tuple
 
 def properties_for_csv(csv_path: str) -> str | None:
     """The raw ``<backend>_properties_<stamp>.json[.gz]`` of the same snapshot as ``csv_path`` (same UTC stamp, same
-    directory), else the newest one in that directory, else None. Passed to ``place_patch`` so the build-time cut applies
-    the Deviation 22 rule (init error >= 5e-4, |ZZ| >= 1 MHz to an excluded qubit) and the Deviation 26 coupler cut
-    exactly as the live ``layout_check`` does (run-day finding of 20 Sep 2026: Q91 at init error 1.05e-3 sat in the
-    CSV-only placement)."""
-    from .noise import latest_properties_file
+    directory), or None when the CSV carries no stamp (the unstamped development CSV ``ibm_phoenix_2026-09-19.csv``) or
+    no matching file exists: the placement then uses the CSV cut alone and stays reproducible, never a newer day's
+    properties. Passed to ``place_patch`` so the build-time cut applies the Deviation 22 rule (init error >= 5e-4,
+    |ZZ| >= 1 MHz to an excluded qubit) and the Deviation 26 coupler cut exactly as the live ``layout_check`` does
+    (run-day finding of 20 Sep 2026: Q91 at init error 1.05e-3 sat in the CSV-only placement)."""
     path = Path(csv_path)
     m = re.search(r"(\d{4})-(\d{2})-(\d{2})T(\d{6})Z", path.stem)
-    if m:
-        stamp = f"{m.group(1)}{m.group(2)}{m.group(3)}T{m.group(4)}Z"
-        for cand in (path.parent / f"ibm_phoenix_properties_{stamp}.json.gz", path.parent / f"ibm_phoenix_properties_{stamp}.json"):
-            if cand.exists():
-                return str(cand)
-    return latest_properties_file(path.parent)
+    if not m:
+        return None
+    stamp = f"{m.group(1)}{m.group(2)}{m.group(3)}T{m.group(4)}Z"
+    for cand in (path.parent / f"ibm_phoenix_properties_{stamp}.json.gz", path.parent / f"ibm_phoenix_properties_{stamp}.json"):
+        if cand.exists():
+            return str(cand)
+    return None
 
 
 def _probe_patch(pr: dict, shapes: dict, calibration_csv: str | None) -> Tuple[Patch, Tuple[int, ...] | None]:

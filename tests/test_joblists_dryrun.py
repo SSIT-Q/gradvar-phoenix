@@ -574,7 +574,8 @@ def test_properties_for_csv_matches_the_snapshot_stamp():
     from gradvar.hardware import properties_for_csv
     assert properties_for_csv(CAL).endswith("ibm_phoenix_properties_20260919T155931Z.json.gz")
     assert properties_for_csv(CAL02).endswith("ibm_phoenix_properties_20260920T030546Z.json.gz")
-    assert properties_for_csv(str(ROOT / "data" / "calibrations" / "ibm_phoenix_2026-09-19.csv")).endswith(".json.gz")   # no stamp: newest
+    assert properties_for_csv(str(ROOT / "data" / "calibrations" / "ibm_phoenix_2026-09-19.csv")) is None    # unstamped dev CSV: cut from the CSV alone
+    assert properties_for_csv(str(ROOT / "data" / "calibrations" / "ibm_phoenix_2030-01-01T000000Z.csv")) is None   # no matching properties file
 
 
 def test_build_time_placement_agrees_with_the_live_layout_check_on_the_committed_snapshot():

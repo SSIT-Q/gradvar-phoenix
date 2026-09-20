@@ -284,7 +284,7 @@ def test_joblist_loads_and_refuses_to_submit_without_preflight_review(tmp_path):
     assert len(points) == 15 and shapes[20].origin == (8, 1) and shots == 4096
     assert {p.k for p in points} == {0, 3} and {p.seed for p in points} == {7, 8, 9, 10, 11}   # GridPoint.k is 0-based
     with pytest.raises(SystemExit):
-        run_joblist(str(src), submit=True)          # empty preflight_review: refused before any credential is read
+        run_joblist(str(src), submit=True, calibration_csv=CAL)          # empty preflight_review: refused before any credential is read
     with pytest.raises(SystemExit):
         main(["--yes-submit"])                      # ad-hoc submission path removed
     jl["preflight_review"] = "https://example.slack.com/archives/C0C29EYR0GZ/p1789669318385169"
@@ -321,7 +321,7 @@ def test_instance_alias_mapping_and_refusals(tmp_path, monkeypatch):
     # reviewed job list on 'flex' with the flex secret missing: refused before any network call
     (tmp_path / "flex.json").write_text(_json.dumps(dict(jl, preflight_review="https://x.slack.com/archives/C1/p1")))
     with pytest.raises(SystemExit, match="QISKIT_IBM_INSTANCE"):
-        run_joblist(str(tmp_path / "flex.json"), submit=True, run_root=str(tmp_path / "runs"), log_dir=str(tmp_path / "jobs"))
+        run_joblist(str(tmp_path / "flex.json"), submit=True, run_root=str(tmp_path / "runs"), log_dir=str(tmp_path / "jobs"), calibration_csv=CAL)
 
 
 def test_dry_run_writes_job_bundle_layout(tmp_path, monkeypatch):
@@ -395,7 +395,7 @@ def test_deviation_22_extended_exclusion_from_synthetic_properties(tmp_path):
 def test_deviation_22_on_the_19_sep_1925_snapshot():
     from gradvar.noise import exclusion_from_calibration, latest_properties_file, place_patch
     csv = str(ROOT / "data" / "calibrations" / "ibm_phoenix_2026-09-19T192510Z.csv")
-    props = latest_properties_file()
+    props = str(ROOT / "data" / "calibrations" / "ibm_phoenix_properties_20260919T192510Z.json.gz")   # the snapshot this test is about, not the newest file
     assert props and props.endswith("ibm_phoenix_properties_20260919T192510Z.json.gz")
     ex = set(exclusion_from_calibration(csv, properties=props))
     assert {18, 27} <= ex and {8, 11, 22, 59} <= ex          # ZZ to dead qubit 17; initialisation error >= 5e-4
