@@ -23,8 +23,16 @@ LOCKED_MINUTES_PER_POINT_KILL = 7.0    # kill rule (b), Deviation 41: including 
 DIAL_LAYER_US_KILL = 1.0               # kill rule (c)
 PAPER1_LAYER_US = 0.35                 # Deviation 42 (vi): the 0.35 us Paper 1 layer plus the target's reset duration
 DIAL_POINT_EXECUTIONS = 100 * 2 * 4096  # one dial gradient point: M = 100 draws x 2 shifts x 4096 shots (Section 3b footnote (b))
-DIAL_POINT_JOBS = 171                    # 51,200 circuits at max_experiments 300 (Deviation 27)
-JOB_OVERHEAD_S = 2.0                     # Deviation 24 per-job charge (default; the smoke test measures it)
+DIAL_POINT = dict(kind="reset_dial", reset_kind="reset", n=50, L=8, k=8, p=0.25, masks=256, M=100, shots=16, resilience=0)   # the booked n = 60 rung point
+JOB_OVERHEAD_S = 3.0                     # Deviation 47 per-job constant at resilience 0 (default; the run's own jobs measure it)
+
+
+def dial_point_jobs(point: dict = DIAL_POINT) -> int:
+    """Jobs one dial gradient point occupies under the runner's packing (Deviation 48: one pub per mask carrying the draws as
+    parameter rows, at most ``max_experiments`` pubs and ``MAX_JOB_PARAM_MB`` of parameter values per job); 171 under the
+    Deviation 27 structure of 51,200 one-row circuits, on which kill rule (b) fired."""
+    from gradvar.hardware import DIAL_US, budget_jobs
+    return len(budget_jobs(dict(backend="ibm_phoenix", points=[], probes=[dict(point, id="kill_b_point", seed=0)]), DIAL_US))
 MAIN_GRID_LINE_MIN = 200.0             # Section 6
 GRID_LEVEL = 1                         # resilience level used on the Paper 1 grid (kill rule (d))
 READOUT_DRIFT_FACTOR = 1.5             # Gate 2 (e)
@@ -47,7 +55,7 @@ def _timed_seconds(job: dict) -> tuple:
     m = job.get("metrics") or {}
     if isinstance(m, dict) and m.get("circuits_execution_time_ns") is not None:
         return float(m["circuits_execution_time_ns"]) * 1e-9, "metrics.circuits_execution_time_ns"
-    return max(float(job.get("usage_qpu_seconds") or 0.0) - JOB_OVERHEAD_S, 0.0), "usage_qpu_seconds - 2 s"
+    return max(float(job.get("usage_qpu_seconds") or 0.0) - JOB_OVERHEAD_S, 0.0), "usage_qpu_seconds - 3 s"
 
 
 def measured_job_overhead(run: RunData) -> Dict:
@@ -61,14 +69,14 @@ def measured_job_overhead(run: RunData) -> Dict:
         timed, src = _timed_seconds(j)
         if src.startswith("metrics"):
             vals.append(float(j["usage_qpu_seconds"]) - timed)
-    return dict(seconds=float(np.mean(vals)) if vals else JOB_OVERHEAD_S, n_jobs=len(vals), source="measured (usage - timed circuits)" if vals else "Deviation 24 default 2 s")
+    return dict(seconds=float(np.mean(vals)) if vals else JOB_OVERHEAD_S, n_jobs=len(vals), source="measured (usage - timed circuits)" if vals else "Deviation 47 default 3 s")
 
 
 def _executions(job: dict) -> int:
     pts = job.get("points", []) or []
     shots = int(job.get("shots", 0))
     zne = 3 if int(job.get("resilience_level", 0)) == 2 else 1
-    per_pub = [2 if (p.get("kind") in ("reset_dial", "null_control") or p.get("kind") is None) else 1 for p in pts]
+    per_pub = [(2 if (p.get("kind") in ("reset_dial", "null_control") or p.get("kind") is None) else 1) * int(p.get("draws") or 1) for p in pts]
     return sum(per_pub) * shots * zne
 
 
@@ -93,15 +101,16 @@ def kill_rule_a(run: RunData) -> Dict:
 def kill_rule_b(run: RunData) -> Dict:
     """(b) Deviation 41: QPU-locked time per dial gradient point including job overhead at the submitted rep_delay above
     7.0 minutes kills the arm. The point is extrapolated from the reset-dial probe jobs: 819,200 executions at the
-    measured seconds per execution (``metrics.circuits_execution_time_ns`` / executions, execution-weighted) plus
-    171 jobs at the measured per-job constant; the circuit-execution-only time is reported beside it."""
+    measured seconds per execution (``metrics.circuits_execution_time_ns`` / executions, execution-weighted) plus the
+    point's jobs under the runner's packing (``dial_point_jobs``; Deviation 48, 171 under Deviation 27) at the measured
+    per-job constant; the circuit-execution-only time is reported beside it."""
     text = "Kill rule (b), Deviation 41: QPU-locked time per dial gradient point including job overhead at the submitted rep_delay <= 7.0 min"
     jobs = []
     for jid, b in run.bundles.items():
         pts = b.job.get("points", []) or []
         if b.job.get("job_kind") != "probes" or not any(p.get("kind") == "reset_dial" for p in pts) or b.job.get("status") != "completed":
             continue
-        execs = sum(2 * int(b.job.get("shots", 0)) for p in pts if p.get("kind") == "reset_dial")
+        execs = sum((1 if p.get("unshifted") else 2) * int(p.get("draws") or 1) * int(b.job.get("shots", 0)) for p in pts if p.get("kind") == "reset_dial")
         if execs <= 0 or b.job.get("usage_qpu_seconds") is None:
             continue
         timed, src = _timed_seconds(b.job)
@@ -113,12 +122,16 @@ def kill_rule_b(run: RunData) -> Dict:
     per_exec = float(np.sum(w * np.array([j["seconds_per_execution"] for j in jobs])) / w.sum())
     overhead = measured_job_overhead(run)
     circuit_min = DIAL_POINT_EXECUTIONS * per_exec / 60.0
-    total_min = circuit_min + DIAL_POINT_JOBS * overhead["seconds"] / 60.0
+    n_jobs = dial_point_jobs()
+    total_min = circuit_min + n_jobs * overhead["seconds"] / 60.0
+    dev27_min = circuit_min + 171 * overhead["seconds"] / 60.0
     return verdict("kill_b", text, "fail" if total_min > LOCKED_MINUTES_PER_POINT_KILL else "pass", value=float(total_min), threshold=LOCKED_MINUTES_PER_POINT_KILL,
-                   comparison="819,200 executions x measured s/execution + 171 jobs x measured per-job seconds, in minutes, <= 7.0",
+                   comparison=f"819,200 executions x measured s/execution + {n_jobs} jobs (Deviation 48 packing) x measured per-job seconds, in minutes, <= 7.0",
                    note=f"circuit-execution-only time {circuit_min:.2f} min ({per_exec * 1e6:.1f} us per execution); per-job constant {overhead['seconds']:.2f} s "
-                        f"({overhead['source']}, {overhead['n_jobs']} jobs); the pre-registration footnote gives 5.95 min at 1 us",
-                   minutes_circuits_only=float(circuit_min), seconds_per_execution=per_exec, job_overhead=overhead, jobs=jobs)
+                        f"({overhead['source']}, {overhead['n_jobs']} jobs); {dev27_min:.2f} min under the Deviation 27 structure of 171 jobs; "
+                        "the pre-registration footnote (d) gives 0.29 min at 1 us under model v3",
+                   minutes_circuits_only=float(circuit_min), seconds_per_execution=per_exec, job_overhead=overhead, jobs_per_point=n_jobs,
+                   minutes_under_deviation_27=float(dev27_min), jobs=jobs)
 
 
 def kill_rule_c(run: RunData) -> Dict:
@@ -258,8 +271,10 @@ def preregistered_main_grid(shots: int = 4096, headline_shots: int = 16384, M: i
 
 
 def main_grid_constants(rep_delay_us: float = 1.0) -> Dict:
-    """Jobs and executions of the Section 2 grid from ``preregistered_main_grid`` through the Deviation 24 budget model
-    (Gate 2 (b) and (d) share them; N5)."""
+    """Jobs and executions of the Section 2 grid from ``preregistered_main_grid`` through the budget model in force
+    (``gradvar.hardware.BUDGET_MODEL_VERSION``: v3, Deviation 47, with the Deviation 48 pub packing; Gate 2 (b) and (d)
+    share them; N5). The pre-registration's own arithmetic (228 jobs, 62 min under v3, 73.1 under v2) counts two jobs per
+    point; the runner packs consecutive 200-pub points into 300-pub jobs."""
     est = hw.estimate_budget(preregistered_main_grid(), rep_delays_us=(rep_delay_us,))
     return dict(jobs=int(est["jobs"]), executions=int(est["executions"]), executions_with_zne=int(est["executions_with_zne"]), trex_executions=int(est["trex_executions"]),
                 minutes=float(est[f"minutes_at_{rep_delay_us:g}us"]), rep_delay_us=rep_delay_us)

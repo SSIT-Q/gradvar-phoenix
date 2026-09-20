@@ -28,7 +28,7 @@ def test_dryrun_lists_validate_and_refuse_to_submit(name, tmp_path, monkeypatch)
     assert jl["dry_run"] is True and jl["rep_delay_probe"] is True
     assert jl["preflight_review"] == "TBD: pre-flight review permalink" and not joblist_submittable(jl)
     assert "pre-registration" in jl["notes"].lower() or "pre-registration" in jl["notes"]
-    assert check_budget(jl) == []                                        # stored budget matches estimate_budget
+    assert check_budget(jl) == []                                        # stored budget matches estimate_budget (the Sampler model's own version)
     for key in ("executions", "jobs", "minutes_at_250us", "minutes_at_1us"):
         assert key in jl["budget"]
     monkeypatch.setenv("QISKIT_IBM_INSTANCE", "crn:fake")
@@ -49,7 +49,8 @@ def test_marrakesh_list_is_enabled_with_review_permalink(tmp_path, monkeypatch):
     jl = load_joblist(str(DRYRUN / LISTS[0]))
     assert jl["dry_run"] is False and jl["rep_delay_probe"] is True and jl["backend"] == "ibm_marrakesh" and jl["instance"] == "open"
     assert re.fullmatch(r"https://[a-z0-9-]+\.slack\.com/archives/C[A-Z0-9]+/p\d+(\?.*)?", jl["preflight_review"]), jl["preflight_review"]
-    assert joblist_submittable(jl) and check_budget(jl) == []
+    assert joblist_submittable(jl)
+    assert check_budget(jl, model_version=2) == [] and check_budget(jl) == ["budget.model_version: job list says 2, runner computes 3"]   # a v2 record (19 Sep run)
     assert "pre-registration" in jl["notes"].lower()
     monkeypatch.setenv("QISKIT_IBM_INSTANCE_OPEN", "crn:fake-open")
     stale = dict(jl, budget=dict(jl["budget"], executions=1))
@@ -59,10 +60,14 @@ def test_marrakesh_list_is_enabled_with_review_permalink(tmp_path, monkeypatch):
 
 
 def test_budget_targets_and_formula():
-    """Budget model v2 (review D1): TREX learning, ZNE factor, t_meas per backend and the 10 us overhead."""
-    from gradvar.hardware import BUDGET_MODEL_VERSION, estimate_budget, load_joblist
+    """Budget model v2 (review D1): TREX learning, ZNE factor, t_meas per backend and the 10 us overhead. Lists 01-03 keep their v2
+    budgets as the record of what was predicted when they ran; ``estimate_budget(..., model_version=2)`` reproduces them."""
+    from gradvar.hardware import BUDGET_MODEL_VERSION, check_budget, estimate_budget, load_joblist
     b1, b2, b3 = (load_joblist(str(DRYRUN / n))["budget"] for n in LISTS)
-    assert BUDGET_MODEL_VERSION == 2 and all(b["model_version"] == 2 for b in (b1, b2, b3))
+    assert BUDGET_MODEL_VERSION == 3 and all(b["model_version"] == 2 for b in (b1, b2, b3))
+    for n in LISTS[:2]:
+        jl = load_joblist(str(DRYRUN / n))
+        assert check_budget(jl, model_version=2) == [] and estimate_budget(jl, model_version=2)["minutes_at_1us"] == jl["budget"]["minutes_at_1us"]
     assert b1["minutes_at_250us"] <= 3.0 and b1["jobs"] == 3 and b1["executions"] == 2 * 5 * 2 * 1024 + 2 * 2 * 1024
     assert b1["trex_executions"] == 32 * 1024 and b1["readout_us"] == pytest.approx(2.684)          # Marrakesh t_meas
     assert b1["seconds_at_250us"] == pytest.approx(21.1, abs=0.1)
@@ -89,7 +94,7 @@ def test_budget_targets_and_formula():
                 points=[dict(n=20, patch="4x5", edge="93_103", L=2, k=1, resilience=1, shots=100, M=1, seed=7)],
                 probes=[dict(id="d", kind="reset_dial", reset_kind="reset", n=20, patch="4x5", edge="93_103", L=2, p=0.5, masks=1,
                              shots=10, resilience=2)])
-    b = estimate_budget(tiny)
+    b = estimate_budget(tiny, model_version=2)
     assert b["jobs"] == 2 and b["circuits"] == 4 and b["executions"] == 220 and b["executions_with_zne"] == 200 + 3 * 20
     assert b["trex_executions"] == 32 * 100 + 32 * 10
     expect = 2 * 2 + 200 * (250 + 2 * 0.71 + 1.94 + 10) * 1e-6 + 3200 * (250 + 1.94 + 10) * 1e-6 \
@@ -97,6 +102,29 @@ def test_budget_targets_and_formula():
     assert b["seconds_at_250us"] == pytest.approx(expect, abs=0.01)
     assert [e["tag"] for e in b["per_job"]] == ["L1", "L2-probes-s10"] and b["per_job"][1]["zne_factor"] == 3
     assert b["minutes_at_1us"] < b["minutes_at_250us"]
+
+
+def test_budget_model_v3_constants_and_back_prediction():
+    """Deviation 47 (model v3, the default): 3.0 s per job, +2.7 s at resilience >= 1, 5 us per execution, max(shots, 64) executed at
+    resilience >= 1, gate time x 3 at resilience 2, no TREX term at >= 1024 shots. It back-predicts the 20 Sep smoke test (list 02,
+    52 QPU s charged) to within 4 percent where v2 predicted 39.6 s."""
+    from gradvar.hardware import BUDGET_MODELS, estimate_budget, load_joblist
+    jl = load_joblist(str(DRYRUN / LISTS[1]))
+    b = estimate_budget(jl, rep_delays_us=(1.0,))
+    assert b["model_version"] == 3 and b["job_seconds"] == 3.0 and b["mitigation_seconds"] == 2.7 and b["exec_overhead_us"] == 5.0
+    assert b["min_mitigated_shots"] == 64 and b["trex_shots_cutoff"] == 1024 and b["zne_gate_factor"] == 3.0
+    assert 50.0 <= b["seconds_at_1us"] <= 54.0                                   # 52 s charged; v2 said 39.6
+    tags = {e["tag"]: e for e in b["per_job"]}
+    assert tags["L0"]["seconds_at_1us"] == pytest.approx(3.0 + 163840 * (1 + 0.5 * (2 + 8) * 0.71 + 1.94 + 5) * 1e-6, abs=0.01)   # 5 s charged
+    assert tags["L1"]["seconds_at_1us"] == pytest.approx(tags["L0"]["seconds_at_1us"] + 2.7, abs=0.01) and tags["L1"]["trex_executions"] == 0   # 8 s charged
+    assert tags["L2"]["seconds_at_1us"] == pytest.approx(5.7 + 3 * 163840 * (1 + 3 * 0.5 * (2 + 8) * 0.71 + 1.94 + 5) * 1e-6, abs=0.01)   # 15 s charged
+    assert tags["L1-probes-s16"]["shots_executed"] == 64 and tags["L1-probes-s16"]["executions"] == 4 * tags["L0-probes-s16"]["executions"]   # 16 requested, 64 run
+    assert tags["L1-probes-s16"]["trex_executions"] == 32 * 64 * 1 and tags["L0-probes-s16"]["seconds_at_1us"] == pytest.approx(3.0, abs=0.05)
+    tiny = dict(backend="ibm_phoenix", points=[], probes=[dict(id="n", kind="null_control", n=20, patch="4x5", edge="94_104", M=200, shots=4096, resilience=0, seed=11)])
+    assert estimate_budget(tiny, rep_delays_us=(1.0,))["seconds_at_1us"] == pytest.approx(3.0 + 1638400 * 7.94e-6, abs=0.01)    # Deviation 43 point under v3: 16.0 s, one job
+    assert set(BUDGET_MODELS) == {2, 3}
+    with pytest.raises(ValueError):
+        estimate_budget(tiny, model_version=1)
 
 
 def test_budget_model_v2_back_predicts_the_marrakesh_run():
@@ -109,7 +137,7 @@ def test_budget_model_v2_back_predicts_the_marrakesh_run():
     charged = sum(b["usage_qpu_seconds"] for b in bundles.values())
     assert charged == 22
     jl = load_joblist(str(DRYRUN / LISTS[0]))
-    est = estimate_budget(jl)                                      # no backend: t_meas from the Marrakesh fallback (2.684 us)
+    est = estimate_budget(jl, model_version=2)                     # no backend: t_meas from the Marrakesh fallback (2.684 us); the model the run was budgeted under
     assert est["seconds_at_250us"] == pytest.approx(21.1, abs=0.1)
     assert abs(est["seconds_at_250us"] - charged) / charged < 0.06  # model v1 said 12.23 s (1.8x off)
     measured = {}
@@ -126,12 +154,16 @@ def test_budget_model_v2_back_predicts_the_marrakesh_run():
 
 
 def test_check_budget_flags_an_old_model_version():
-    from gradvar.hardware import check_budget, load_joblist
+    from gradvar.hardware import check_budget, estimate_budget, load_joblist
     jl = load_joblist(str(DRYRUN / LISTS[1]))
-    assert check_budget(jl) == []
+    assert check_budget(jl) == ["budget.model_version: job list says 2, runner computes 3"]      # a v2 record: the version line alone
+    assert check_budget(jl, model_version=2) == []
     old = dict(jl, budget={k: v for k, v in jl["budget"].items() if k != "model_version"})
     assert any(d.startswith("budget.model_version") for d in check_budget(old))
     assert any(d.startswith("budget.model_version") for d in check_budget(dict(jl, budget=dict(jl["budget"], model_version=1))))
+    fresh = dict(jl, budget=estimate_budget(jl))
+    assert check_budget(fresh) == []
+    assert any(d.startswith("budget.executions") for d in check_budget(dict(jl, budget=dict(fresh["budget"], executions=1))))
 
 
 def test_hea_square_dial_applies_dial_on_mask_only():
@@ -332,7 +364,7 @@ def test_layout_validation(tmp_path):
 def test_check_budget_requires_the_field():
     from gradvar.hardware import check_budget, load_joblist
     jl = load_joblist(str(DRYRUN / LISTS[0]))
-    assert check_budget(jl) == []
+    assert check_budget(jl, model_version=2) == []
     assert check_budget(dict(jl, budget={}))[0].startswith("budget field missing")   # MINOR-4
     assert check_budget({k: v for k, v in jl.items() if k != "budget"})[0].startswith("budget field missing")
 
@@ -397,7 +429,10 @@ def test_valid_list_reaches_get_backend_under_mock(tmp_path, monkeypatch):
     monkeypatch.setattr(hw, "get_service", lambda alias=None: svc)
     monkeypatch.setattr(hw, "get_backend", fake_get_backend)
     jl = json.loads((DRYRUN / LISTS[0]).read_text())
-    (tmp_path / "ok.json").write_text(json.dumps(dict(jl, dry_run=False, preflight_review="https://x.slack.com/archives/C1/p1")))
+    (tmp_path / "old.json").write_text(json.dumps(dict(jl, dry_run=False, preflight_review="https://x.slack.com/archives/C1/p1")))
+    with pytest.raises(SystemExit, match="model_version"):        # the list's stored budget is a v2 record: re-budget before submitting (Deviation 47 guard)
+        hw.run_joblist(str(tmp_path / "old.json"), submit=True, run_root=str(tmp_path / "r"), log_dir=str(tmp_path / "j"), calibration_csv=CAL)
+    (tmp_path / "ok.json").write_text(json.dumps(dict(jl, dry_run=False, preflight_review="https://x.slack.com/archives/C1/p1", budget=hw.estimate_budget(jl))))
     with pytest.raises(StopHere):
         hw.run_joblist(str(tmp_path / "ok.json"), submit=True, run_root=str(tmp_path / "r"), log_dir=str(tmp_path / "j"), calibration_csv=CAL)
     assert seen == dict(name="ibm_marrakesh", service=svc)

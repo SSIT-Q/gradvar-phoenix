@@ -161,16 +161,20 @@ def _enrich_from_bundle(rows: pd.DataFrame, b: Bundle) -> pd.DataFrame:
     rows["rep_delay_submitted_job"] = [job_rep_delay(j)] * len(rows)     # main writes rep_delay_submitted_s (older bundles: rep_delay_granted_s)
     rows["properties_file"] = str(b.path / "properties.json") if (b.path / "properties.json").exists() else ""
     rows["bundle_dir"] = str(b.path)
-    if len(pts) != len(rows):
-        rows["bundle_note"] = f"{len(pts)} pubs in job.json vs {len(rows)} CSV rows"
+    # a Deviation 48 mask pub carries M draws as parameter rows and logs one CSV row per draw (``draws``, ``param_hashes``,
+    # ``theta_seeds`` in job.json); every other pub logs one row
+    expanded = [(i, pt, d if int(pt.get("draws") or 1) > 1 else None) for i, pt in enumerate(pts) for d in range(int(pt.get("draws") or 1))]
+    if len(expanded) != len(rows):
+        rows["bundle_note"] = f"{len(pts)} pubs ({len(expanded)} rows) in job.json vs {len(rows)} CSV rows"
         return rows
     for col in ("probe_id", "reset_kind", "mask_index", "patch", "edge", "dial_delay_ns", "mask_seed_bundle", "p_bundle", "K_bundle", "rep_delay_us", "null_qubit", "draw_bundle"):
         rows[col] = None
     rows = rows.reset_index(drop=True)
-    for i, pt in enumerate(pts):
-        h_csv, h_b = str(rows.at[i, "param_hash"]), str(pt.get("param_hash") or "")
+    for i, (pub_index, pt, d) in enumerate(expanded):
+        h_b = str(pt.get("param_hash") or "") if d is None else str((pt.get("param_hashes") or [None] * (d + 1))[d] or "")
+        h_csv = str(rows.at[i, "param_hash"])
         if h_b and h_csv and not (h_csv.startswith(h_b) or h_b.startswith(h_csv)):
-            rows.at[i, "bundle_note"] = f"param_hash mismatch with job.json pub {i}"
+            rows.at[i, "bundle_note"] = f"param_hash mismatch with job.json pub {pub_index}" + ("" if d is None else f" draw {d}")
         rows.at[i, "probe_id"] = pt.get("probe_id")
         rows.at[i, "reset_kind"] = pt.get("reset_kind") if pt.get("probe_id") else None
         rows.at[i, "mask_index"] = pt.get("mask_index")
@@ -182,7 +186,7 @@ def _enrich_from_bundle(rows: pd.DataFrame, b: Bundle) -> pd.DataFrame:
         rows.at[i, "K_bundle"] = pt.get("masks")
         rows.at[i, "rep_delay_us"] = pt.get("rep_delay_us")
         rows.at[i, "null_qubit"] = pt.get("null_qubit")
-        rows.at[i, "draw_bundle"] = pt.get("draw")
+        rows.at[i, "draw_bundle"] = pt.get("draw") if d is None else d
         rows.at[i, "kind"] = pt.get("kind") or "grid"
     return rows
 

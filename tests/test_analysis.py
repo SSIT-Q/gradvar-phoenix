@@ -39,10 +39,12 @@ def test_runtime_ndarray_roundtrip():
 
 
 def test_loader_on_committed_marrakesh_run():
-    """The 2026-09-19 Marrakesh pipeline check (3 live bundles, 12 CSV rows in the pre-D3b format with rep_delay_granted_s)."""
+    """The 2026-09-19 Marrakesh pipeline check (3 live bundles, 12 CSV rows in the pre-D3b format with rep_delay_granted_s), read
+    from the committed data tree beside the 20 Sep ibm_phoenix smoke test (10 retrieved bundles, 133 rows; acea0cb)."""
     run = load_run(ROOT / "data")
-    r = run.rows
-    assert list(r.columns[:len(TIDY_COLUMNS)]) == TIDY_COLUMNS and len(r) == 12 and len(run.bundles) == 3
+    assert list(run.rows.columns[:len(TIDY_COLUMNS)]) == TIDY_COLUMNS and len(run.rows) == 12 + 133 and len(run.bundles) == 3 + 10
+    r = run.rows[run.rows.backend == "ibm_marrakesh"]
+    assert len(r) == 12 and sum(b.job.get("backend_name") == "ibm_marrakesh" for b in run.bundles.values()) == 3
     assert set(r.status) == {"completed"} and np.isfinite(r.gradient).all() and not run.is_dry_run
     assert np.allclose(r.gradient, (r.ev_plus - r.ev_minus) / 2)
     assert set(r.point_id) == {"grid n10 L2 k1 r0 s1024", "grid n10 L2 k1 r1 s1024", "reset p0.5 n10 L2 k2 r0", "delay p0.5 n10 L2 k2 r0"}
@@ -100,18 +102,20 @@ def test_loader_on_phoenix_smoke_dry_run_main_format(tmp_path):
 @pytest.mark.skipif(not HAS_AER, reason="qiskit-aer not installed")
 def test_null_control_probe_kind_dry_run(tmp_path):
     """Deviation 43: the booked ``null_control`` probe is the L = 0 SPAM-only pair (no Ry / CZ layer, no parameter, k absent
-    or 0), one pub per draw, 2 jobs of <= 300 circuits and 0.42 min per rung at 1 us; L >= 1 shifts the pair on a qubit
-    outside the light cone."""
+    or 0), one pub per draw: 200 pubs in one job of <= 300 pubs (Deviation 48 counts pubs) and 0.27 min per rung at 1 us under
+    model v3 (Deviation 47; 0.42 min in 2 jobs under v2's circuit count); L >= 1 shifts the pair on a qubit outside the light cone."""
     from gradvar.hardware import JoblistError, estimate_budget, load_joblist, run_joblist
     base = json.loads((DRYRUN / "02_phoenix_smoke_test.json").read_text())
     probe = dict(id="null_L0", kind="null_control", n=20, patch="4x5", edge="94_104", M=200, shots=4096, resilience=0, seed=11)
     jl = dict(base, points=[], probes=[probe])
     jl["budget"] = b = estimate_budget(jl, rep_delays_us=(1.0, 250.0))
-    assert b["jobs"] == 2 and b["circuits"] == 400 and b["executions"] == 200 * 2 * 4096 and b["max_experiments"] == 300
-    assert b["seconds_at_1us"] == pytest.approx(25.2, abs=0.05) and b["minutes_at_1us"] == pytest.approx(0.42, abs=0.005)     # Deviation 43: 21.2 s + 2 x 2 s
-    assert [e["tag"] for e in b["per_job"]] == ["L0-probes-s4096", "L0-probes-s4096-c2"] and [e["circuits"] for e in b["per_job"]] == [300, 100]
+    assert b["jobs"] == 1 and b["pubs"] == 200 and b["circuits"] == 400 and b["executions"] == 200 * 2 * 4096 and b["max_experiments"] == 300
+    assert b["seconds_at_1us"] == pytest.approx(16.0, abs=0.05) and b["minutes_at_1us"] == pytest.approx(0.267, abs=0.005)    # v3: 13.0 s of SPAM executions + 3.0 s
+    assert [e["tag"] for e in b["per_job"]] == ["L0-probes-s4096"] and [e["circuits"] for e in b["per_job"]] == [400]
+    v2 = estimate_budget(jl, rep_delays_us=(1.0, 250.0), model_version=2)
+    assert v2["jobs"] == 1 and v2["seconds_at_1us"] == pytest.approx(23.2, abs=0.05)                     # Deviation 43's 21.2 s + one 2 s job under v2's constants
     lvl1 = estimate_budget(dict(jl, probes=[dict(probe, resilience=1)]), rep_delays_us=(1.0,))
-    assert lvl1["minutes_at_1us"] == pytest.approx(0.48, abs=0.01)                                        # the n = 20 level-1 check with its TREX term
+    assert lvl1["minutes_at_1us"] == pytest.approx(0.312, abs=0.005) and lvl1["trex_executions"] == 0    # the n = 20 level-1 check: +2.7 s, no TREX term at 4096 shots
     (tmp_path / "null.json").write_text(json.dumps(dict(jl, probes=[dict(probe, M=3)], budget=estimate_budget(dict(jl, probes=[dict(probe, M=3)])))))
     assert load_joblist(str(tmp_path / "null.json"))["probes"][0]["kind"] == "null_control"
     run_joblist(str(tmp_path / "null.json"), submit=False, run_root=str(tmp_path / "runs"), log_dir=str(tmp_path / "jobs"), calibration_csv=CAL02)
@@ -142,18 +146,27 @@ def test_null_control_probe_kind_dry_run(tmp_path):
 
 
 def test_budget_and_grouping_chunk_at_max_experiments(tmp_path, monkeypatch):
-    """S3: a level group or probe group with more circuits than max_experiments is split into consecutive jobs (tags L0,
-    L0-c2, ...) in the budget and in the runner's grouping; TREX learning is paid per job."""
+    """S3 / Deviation 48: a level group or probe group with more pubs than max_experiments (a pub counts once whatever its
+    parameter rows), or more bound parameter values than MAX_JOB_PARAM_MB, is split into consecutive jobs (tags L0, L0-c2,
+    ...) in the budget and in the runner's grouping; the job constants are paid per job."""
     import gradvar.hardware as hw
     jl = dict(backend="ibm_phoenix", points=[dict(n=20, patch="4x5", edge="93_103", L=2, k=1, resilience=1, shots=4096, M=200, seed=7),
-                                             dict(n=20, patch="4x5", edge="93_103", L=8, k=1, resilience=1, shots=4096, M=100, seed=7)], probes=[])
+                                             dict(n=20, patch="4x5", edge="93_103", L=8, k=1, resilience=1, shots=4096, M=110, seed=7)], probes=[])
     b = hw.estimate_budget(jl, rep_delays_us=(1.0,))
-    assert b["jobs"] == 2 and [e["tag"] for e in b["per_job"]] == ["L1", "L1-c2"] and [e["circuits"] for e in b["per_job"]] == [300, 300]
-    assert b["trex_executions"] == 2 * 32 * 4096 and b["executions"] == 600 * 4096
+    assert b["jobs"] == 2 and [e["tag"] for e in b["per_job"]] == ["L1", "L1-c2"] and [e["pubs"] for e in b["per_job"]] == [300, 10]
+    assert [e["circuits"] for e in b["per_job"]] == [600, 20] and b["trex_executions"] == 0 and b["executions"] == 620 * 4096   # no TREX term at 4096 shots (v3)
     assert hw.estimate_budget(jl, rep_delays_us=(1.0,))["jobs"] == len(hw.budget_jobs(jl, hw.DIAL_US, 300))
     assert [e["tag"] for e in hw.estimate_budget(dict(jl, backend="unknown_backend"), rep_delays_us=(1.0,))["per_job"]] == ["L1", "L1-c2"]   # ledger miss: default 300
-    assert len(hw.budget_jobs(jl, hw.DIAL_US, 250)) == 3 and hw.chunk_tags("X", 3) == ["X", "X-c2", "X-c3"]
+    assert len(hw.budget_jobs(jl, hw.DIAL_US, 250)) == 2 and len(hw.budget_jobs(jl, hw.DIAL_US, 100)) == 4 and hw.chunk_tags("X", 3) == ["X", "X-c2", "X-c3"]
     assert hw.chunk_pubs(list(range(7)), 3) == [[0, 1, 2], [3, 4, 5], [6]]
+    assert hw.chunk_pubs(list(range(6)), 10, sizes=[4, 4, 4, 9, 1, 1], max_bytes=8) == [[0, 1], [2], [3], [4, 5]]     # the parameter-payload cap
+    # a Deviation 48 dial point: 256 mask pubs of 100 draws x 2 shifts x n L values, split at MAX_JOB_PARAM_MB (12 MB) into about 15 jobs
+    dial = dict(backend="ibm_phoenix", points=[], probes=[dict(id="d", kind="reset_dial", reset_kind="reset", n=50, patch="6x10", edge="43_44", L=8, k=8, p=0.25,
+                                                               masks=256, M=100, shots=16, resilience=0, seed=1)])
+    db = hw.estimate_budget(dial, rep_delays_us=(1.0,))
+    assert db["pubs"] == 256 and db["circuits"] == 51200 and db["executions"] == 819200 and 2 <= db["jobs"] <= 20 and db["jobs"] < 171
+    assert all(e["pubs"] <= 300 and e["param_mb"] <= hw.MAX_JOB_PARAM_MB for e in db["per_job"]) and db["minutes_at_1us"] < 7.0   # kill rule (b) line
+    assert len(hw.budget_jobs(dial, hw.DIAL_US, 300, max_param_bytes=10**12)) == 1                                              # without the payload cap: one job
     # runner grouping: force max_experiments = 4 on list 01 (5 pubs per level, 2 probe pubs) -> L0, L0-c2, L1, L1-c2, probes
     monkeypatch.setattr(hw, "max_experiments", lambda name=None, backend=None, ledger=None: 4)
     from gradvar.hardware import run_joblist
@@ -354,7 +367,8 @@ def test_synthetic_passing_run_verdicts(passing):
     assert dh["H7"]["result"] == "not-evaluable"
     k = passing["kill_rules"]
     assert {v["result"] for v in k.values()} == {"pass"}
-    assert k["a"]["value"] < 2e-2 and 5 < k["b"]["value"] < 7 and k["b"]["minutes_circuits_only"] < 1 and k["b"]["job_overhead"]["source"].startswith("measured")
+    assert k["a"]["value"] < 2e-2 and k["b"]["value"] < 2 and k["b"]["minutes_circuits_only"] < 1 and k["b"]["job_overhead"]["source"].startswith("measured")
+    assert 5 < k["b"]["minutes_under_deviation_27"] < 7 and k["b"]["jobs_per_point"] == gates.dial_point_jobs() < 171   # Deviation 48 packing against the 171-job structure
     assert k["c"]["value"] == dict(mid_circuit_measures=0, dial_layer_us=pytest.approx(0.75)) and k["d"]["note"].startswith("levels probed: [0, 1]")
     g = passing["gate2"]
     assert {v["result"] for v in g.values()} == {"pass"}, {kk: (v["result"], v.get("note")) for kk, v in g.items()}
@@ -453,4 +467,6 @@ def test_preregistered_main_grid_budget():
     assert est["minutes_at_1us"] < 200 < est["minutes_at_250us"]
     c = gates.main_grid_constants(1.0)
     assert c["jobs"] == est["jobs"] and c["executions"] == est["executions"] and c["minutes"] == pytest.approx(est["minutes_at_1us"])
-    assert c["jobs"] == 228 and c["minutes"] == pytest.approx(73.1, abs=0.2)     # 114 points at <= 300 circuits per job (S3 chunking), 1 us
+    assert c["jobs"] == 77 and c["minutes"] == pytest.approx(51.4, abs=0.2)     # 114 points of 200 pubs packed at 300 pubs per job, model v3 (Deviation 47), 1 us
+    v2 = estimate_budget(jl, rep_delays_us=(1.0,), model_version=2)
+    assert v2["jobs"] == 77 and v2["minutes_at_1us"] == pytest.approx(62.4, abs=0.2)   # the pre-registration's own arithmetic: 228 jobs (2 per point), 73.1 min under v2, 62 under v3

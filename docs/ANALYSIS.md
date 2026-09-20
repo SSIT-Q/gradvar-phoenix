@@ -45,7 +45,7 @@ writes a run in the live format whose planted variances are the predictions plus
 | `estimators.paired_ratio`, `delay_matched_comparison` | Section 3b "Pairing" and matched control (a) |
 | `predictions` | join to `gate1_predictions.csv` (exact grid, M = 200 bootstrap interval), `pauliprop_predictions.csv` (Deviation 15 rows, error max(2σ, truncation deficit); Gate 1b / dial rows keyed by reset kind and p), `gate1_layer_index.csv`, `gate1_null_control.json`, **keyed by (patch, edge, L, k)** (Deviations 34 / 36: regenerated CSVs hold the n = 39 rows on edge (93, 103) beside the old (94, 95) rows; an unmatched edge falls back to n and is flagged `edge_matched = False`; converged rows preferred, last written wins); z = (measured − predicted)/σ with σ² = (bootstrap half-width/1.96)² + shot_floor² + σ_pred²; Deviation 19 anomaly protocol: (i) |z| > 3, (ii) ≥ 3 adjacent points in n or L with same-sign monotone deviation; the flag names the replication action (another day, another patch, ≤ 20 reserve minutes) |
 | `hypotheses` | H1–H4 (below) |
-| `gates` | kill rules (a)–(d) (Deviation 41 for (b)), Gate 2 (a)–(e), `gate1b_clause_b` (Deviations 35 / 39 flags on the measured references), `preregistered_main_grid` / `main_grid_constants` (the Section 2 grid through the Deviation 24 model, shared by Gate 2 (b) and (d)) |
+| `gates` | kill rules (a)–(d) (Deviation 41 for (b)), Gate 2 (a)–(e), `gate1b_clause_b` (Deviations 35 / 39 flags on the measured references), `preregistered_main_grid` / `main_grid_constants` (the Section 2 grid through the budget model in force, v3 since Deviation 47, shared by Gate 2 (b) and (d)) |
 | `figures` | the four pre-registered panels, log scale, shot floor and null-control floor on every panel |
 | `report` | the CLI |
 | `synthetic` | fake runs in the live format (main since 56de033: `rep_delay_submitted_s`, ladder rungs with `rep_delay_us`, run-day `properties.json` with confusion and gate errors; level-2 points run twice; shared or independent dial masks; null controls) |
@@ -98,8 +98,9 @@ half its predicted fall → M = 600 on that rung) is listed per rung.
 **Kill rules (Section 3b)**: (a) max P(1) after |1> → reset → measure over the dial-patch qubits against 2e-2 (failing
 qubits listed; swap-out decided at placement, Deviation 42 (vii)); (b) **Deviation 41**: QPU-locked time per dial gradient
 point *including job overhead* at the submitted rep_delay against 7.0 minutes (819,200 executions at the measured seconds
-per execution from the reset probe jobs' `metrics.circuits_execution_time_ns`, plus 171 jobs at the measured per-job
-constant, usage minus timed circuits averaged over the run's jobs), circuit-execution-only time beside it; (c) mid-circuit
+per execution from the reset probe jobs' `metrics.circuits_execution_time_ns`, plus the point's jobs under the runner's
+Deviation 48 packing (`dial_point_jobs`, 15 at n = 50, L = 8; 171 under Deviation 27, reported beside it) at the measured
+per-job constant, usage minus timed circuits averaged over the run's jobs), circuit-execution-only time beside it; (c) mid-circuit
 measure count > 0 in any reset circuit, or dial layer (0.35 µs + the target's reset duration, Deviation 42 (vi)) above
 1 µs, read from the run's `circuits.json` / `target.json`; (d) any executed native-reset probe job with status `failed`,
 noting whether the grid level (1) was probed. **Gate 2 (Section 5)**: (a) at n = 20, level 0, the deepest L > 1 whose Gate 1
@@ -148,8 +149,12 @@ implements exactly these readings.
 Later deviations: **Deviation 44** (L = 8 references at 16384 shots) is read by the clause (b) evaluator through the
 points' own shot counts; **Deviation 45** (fall bar = 3 × the larger of the two references' shot floors) is implemented as
 specified by the coordinator while its text is being written, with the alternative bars reported. Job budgets and the
-runner now split any group above `max_experiments` (300 on ibm_phoenix, from the configuration ledger) into jobs tagged
-`L0`, `L0-c2`, ...; the Section 2 grid is 228 jobs / 73.1 min at 1 µs under that rule.
+runner now split any group above `max_experiments` (300 pubs on ibm_phoenix, from the configuration ledger; Deviation 48
+counts pubs) or above `MAX_JOB_PARAM_MB` of bound parameter values into jobs tagged `L0`, `L0-c2`, ...; the Section 2 grid is
+77 jobs / 51.4 min at 1 µs under that packing and budget model v3 (Deviation 47; the pre-registration's own arithmetic of two
+jobs per point gives 228 jobs, 62 min). Kill rule (b) is extrapolated with the runner's jobs per dial point (`dial_point_jobs`,
+Deviation 48) and reports the Deviation 27 figure (171 jobs) beside it; the loader expands a Deviation 48 mask pub into its
+per-draw rows (`draws`, `param_hashes`, `theta_seeds` in job.json).
 
 Open items for the PI (not resolved by the code): Gate 1b clause (b) on the day is reported as flags only (Gate 1b is
 decided on the predictions before booking); the H4 part 2 "grows with cone size" clause is read on point estimates while

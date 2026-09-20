@@ -242,8 +242,9 @@ def test_retrieve_flags_a_cancelled_job_and_a_stored_pub_mismatch(tmp_path, monk
 
 
 def test_smoke_02_ids_file_matches_the_job_list():
-    """The hand-written ids file of run 35489912431: ten jobs with the tags, levels, shots and pub counts of list 02, all ids
-    null with a discovery window covering the killed Action's submit step (04:45:26Z to 10:45:06Z)."""
+    """The ids file of run 35489912431: ten jobs with the tags, levels, shots and pub counts of list 02, hand-written with every id
+    null and a discovery window covering the killed Action's submit step (04:45:26Z to 10:45:06Z), then filled by the retrieval
+    (acea0cb: every job discovered by signature, ``discovered: true``)."""
     import gradvar.hardware as hw
     ids = hw.load_ids_file(IDS02)
     jl = hw.load_joblist(str(LIST02))
@@ -253,10 +254,11 @@ def test_smoke_02_ids_file_matches_the_job_list():
     assert [j["tag"] for j in ids["jobs"]] == list(per_job) and len(ids["jobs"]) == 10
     for j in ids["jobs"]:
         e = per_job[j["tag"]]
-        assert j["job_id"] is None and j["level"] == e["resilience_level"] and j["shots"] == e["shots"] and j["rep_delay_us"] == e["rep_delay_us"]
+        assert (j["job_id"] is None) or (isinstance(j["job_id"], str) and j["job_id"] and j.get("discovered") is True)
+        assert j["level"] == e["resilience_level"] and j["shots"] == e["shots"] and j["rep_delay_us"] == e["rep_delay_us"]
         paired = j["tag"] in ("L0", "L1", "L2", "L0-probes-s16", "L1-probes-s16")           # grid and dial pubs are shifted pairs; reset_error pubs are single circuits
         assert e["circuits"] == j["pubs"] * (2 if paired else 1)
-    assert sum(j["pubs"] for j in ids["jobs"]) == 133
+    assert sum(j["pubs"] for j in ids["jobs"]) == 133 and len({j["job_id"] for j in ids["jobs"] if j["job_id"]}) in (0, 10)
     disc = ids["discovery"]
     assert hw._parse_utc(disc["created_after"]) < datetime(2026, 9, 20, 4, 45, 26, tzinfo=timezone.utc)
     assert hw._parse_utc(disc["created_before"]) > datetime(2026, 9, 20, 10, 45, 6, tzinfo=timezone.utc)
@@ -281,8 +283,8 @@ def test_ids_file_validation(tmp_path):
     check(lambda d: d["jobs"][0].update(level="0"), "non-negative integer")
     check(lambda d: d["jobs"][0].update(rep_delay_us=0), "positive number")
     check(lambda d: d["jobs"][1].update(tag="L0"), "unique")
-    check(lambda d: d.pop("discovery"), "discovery.created_after")
-    check(lambda d: d["discovery"].update(created_before=d["discovery"]["created_after"]), "must precede")
+    check(lambda d: (d["jobs"][0].update(job_id=None), d.pop("discovery")), "discovery.created_after")   # a null id needs the window
+    check(lambda d: (d["jobs"][0].update(job_id=None), d["discovery"].update(created_before=d["discovery"]["created_after"])), "must precede")
     check(lambda d: d["jobs"][0].update(job_id=""), "non-empty string or null")
     d = json.loads(json.dumps(good))
     for j in d["jobs"]:
