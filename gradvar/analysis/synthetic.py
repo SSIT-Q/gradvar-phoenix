@@ -45,9 +45,10 @@ def grid_point(n: int, L: int, k: int, resilience: int, var: float, M: int = 200
     return dict(kind="grid", n=n, L=L, k=k, resilience=resilience, var=var, M=M, shots=shots, seed=seed, repeats=repeats, zne_inflation=zne_inflation)
 
 
-def null_control_point(n: int, var_excess: float = 0.0, L: int = 1, k: int = 1, resilience: int = 0, M: int = 200, shots: int = 4096, seed: int = 907,
+def null_control_point(n: int, var_excess: float = 0.0, L: int = 0, k: int = 0, resilience: int = 0, M: int = 200, shots: int = 4096, seed: int = 907,
                        probe_id: str = "null_control") -> dict:
-    """Section 2 control (a): ideal gradient 0; ``var_excess`` is the planted hardware floor above shot noise."""
+    """Section 2 control (a) / Deviation 43: ideal gradient 0 (L = 0: the SPAM-only pair); ``var_excess`` is the planted
+    hardware floor above shot noise."""
     return dict(kind="null_control", n=n, L=L, k=k, resilience=resilience, var=var_excess, M=M, shots=shots, seed=seed, probe_id=probe_id)
 
 
@@ -167,10 +168,10 @@ class SyntheticRun:
             evm, sdm = _sample_ev(self.rng, c - g, shots)
             desc = dict(probe_id=spec["probe_id"], kind="null_control", reset_kind="none", mask_index=None, mask_hash="", n=n, L=L, k_1based=k, p=None, prep="1", seed=seed,
                         qubits=qubits, edge=edge, layout=None, param_hash=hashlib.sha256(theta.tobytes()).hexdigest(), masks=None, mask_seed=None, dial_delay_ns=None,
-                        null_qubit=qubits[0], draw=d, synthetic_target_instructions=[], patch=patch, origin=[0, 0], holes=[], broken_edges=[], lattice_qubits=qubits,
+                        null_qubit=qubits[0] if L else None, draw=d, synthetic_target_instructions=[], patch=patch, origin=[0, 0], holes=[], broken_edges=[], lattice_qubits=qubits,
                         lattice_edge=edge, observables=[[["ZZ", 1.0]]], param_values=None)
             job["points"].append(desc)
-            job["circuits"].append(self._circuit(n, L, k, spec["probe_id"]))
+            job["circuits"].append(self._circuit(n, L, k, spec["probe_id"], depth=8 * L, two_qubit_gates=2 * n * L))
             job["gate_us"].append(L * LAYER_US)
             job["pubs"].append((np.array([evp, evm]), np.array([sdp, sdm])))
             self._row(job, desc, evp, evm, sdp, sdm, n, L, k, seed, "null_control", None, None, None, depth=8 * L, cz=2 * n * L)

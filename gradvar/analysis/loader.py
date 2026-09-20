@@ -164,7 +164,7 @@ def _enrich_from_bundle(rows: pd.DataFrame, b: Bundle) -> pd.DataFrame:
     if len(pts) != len(rows):
         rows["bundle_note"] = f"{len(pts)} pubs in job.json vs {len(rows)} CSV rows"
         return rows
-    for col in ("probe_id", "reset_kind", "mask_index", "patch", "edge", "dial_delay_ns", "mask_seed_bundle", "p_bundle", "K_bundle", "rep_delay_us", "null_qubit"):
+    for col in ("probe_id", "reset_kind", "mask_index", "patch", "edge", "dial_delay_ns", "mask_seed_bundle", "p_bundle", "K_bundle", "rep_delay_us", "null_qubit", "draw_bundle"):
         rows[col] = None
     rows = rows.reset_index(drop=True)
     for i, pt in enumerate(pts):
@@ -182,6 +182,7 @@ def _enrich_from_bundle(rows: pd.DataFrame, b: Bundle) -> pd.DataFrame:
         rows.at[i, "K_bundle"] = pt.get("masks")
         rows.at[i, "rep_delay_us"] = pt.get("rep_delay_us")
         rows.at[i, "null_qubit"] = pt.get("null_qubit")
+        rows.at[i, "draw_bundle"] = pt.get("draw")
         rows.at[i, "kind"] = pt.get("kind") or "grid"
     return rows
 
@@ -199,11 +200,15 @@ def _repeat_index(df: pd.DataFrame) -> pd.Series:
 
 
 def _draw_index(df: pd.DataFrame) -> pd.Series:
-    """Draw index within a point: grid points draw d uses seed base + d (order of seed); dial probes share one theta
-    per ``param_hash`` (masks are pubs of the same draw)."""
+    """Draw index within a point: the bundle's per-pub ``draw`` when every row of the point has one (null controls); else
+    grid points draw d uses seed base + d (order of seed) and probes share one theta per (seed, param_hash) (the masks of
+    a dial draw are pubs of the same draw; an L = 0 null control has an empty theta, so the seed tells the draws apart)."""
     out = pd.Series(0, index=df.index, dtype=int)
     for _, g in df.groupby("point_id", sort=False):
-        key = g["seed"] if (g["kind"] == "grid").all() else g["param_hash"]
+        if "draw_bundle" in g.columns and g["draw_bundle"].notna().all() and (g["kind"] != "grid").all():
+            out.loc[g.index] = pd.to_numeric(g["draw_bundle"]).astype(int)
+            continue
+        key = g["seed"].astype(str) if (g["kind"] == "grid").all() else g["seed"].astype(str) + ":" + g["param_hash"].astype(str)
         codes = {v: i for i, v in enumerate(pd.unique(key))}
         out.loc[g.index] = key.map(codes).astype(int)
     return out

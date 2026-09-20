@@ -1,6 +1,6 @@
 # Paper 1 hardware analysis (`gradvar/analysis`)
 
-The pre-registered analysis of pre-registration `preregistration_q1.html` v0.11.1 (Deviations 33–42 implemented; 43 pending),
+The pre-registered analysis of pre-registration `preregistration_q1.html` v0.11.3 (Deviations 33–43 implemented; 44 read in Gate 1b clause (b); 45, the fall bar, implemented as specified while its text is written),
 built before the October data so that it runs unchanged on them. It reads a run's bundles and CSV log, forms the Section 3 / 3b estimates, joins them to the
 pre-drawn predictions in `data/predictions/`, and prints every pre-registered verdict (H1–H7, Section 3b kill rules
 (a)–(d), Gate 2 (a)–(e), Gate 1b clause (b) on the day, the Deviation 19 anomaly flag) as pass / fail / not-evaluable with the number and the
@@ -38,7 +38,7 @@ writes a run in the live format whose planted variances are the predictions plus
 | `estimators.dial_point` | Section 3b estimator C_mix with K masks x s shots (Deviation 27: 256 x 16) under **Deviation 38**: both shift circuits of a mask ride in one pub (shared masks), the per-mask gradient g_m = (ev+_m − ev−_m)/2, the pattern floor on the gradient is [Var_m(g_m) − mean_m sv_m]/K with sv_m the per-mask shot variance of g_m ((1 − ev²)/(s − 1) at resilience 0, reported std² at resilience 1), the shot floor mean_m(sv_m)/K, a bootstrap over masks within draws for the pattern term's uncertainty, both subtracted with the uncertainty propagated; Var_mask[C]/(2K) from the per-shift mask means is kept as the logged independent-mask upper bound (`pattern_floor_upper_bound`). Var[C_mix] over the 2M shift values with a bootstrap over draws (H5) and E[C_mix] against p² (pipeline check). K = 1 (delay-matched p = 0 reference) carries no pattern term (Deviation 28) |
 | `floors` | **Deviation 33**: a_q = 1 − p01 − p10, b_q = p10 − p01 from the run-day readout confusion (the bundle's `properties.json`, else `--snapshot-csv`; raw at resilience 0, a = 1, b = 0 at resilience 1), c_i = a_i(1 − p)(a_j p + b_j), g_i = (1 − 2ε_sx)² Π_{CZ on i}(1 − 4ε_CZ/3) over the patch couplers on i below the Deviation 26 cut; floors ½c_i²g_i²p² on the k = L gradient and ½p²(c_i²g_i² + c_j²g_j²) on C_mix; p⁴/9 kept as the reference line. Reproduces the pre-registered 0.1859 / 0.2445, 0.9914, 1.06e-3 / 7.35e-3, 2.20e-3 / 1.50e-2 on the 19 Sep snapshot |
 | `dial_hypotheses` | H5–H7 (below) with the headline statistic measured k = L variance / floor |
-| `gates.null_floors`, `hypotheses.mark_claimable` | **Deviation 37** claimability bar: measured null-control floor (probe kind `null_control`, candidate Deviation 43) + 3 bootstrap σ at the point's shots, else the simulated floor of criterion (d) labelled; `claimable` also needs eps_N < 1; `exploratory` marks grid L = 12 rows and dial k = 1 rows |
+| `gates.null_floors`, `hypotheses.mark_claimable` | **Deviation 37** claimability bar: measured null-control floor (probe kind `null_control`, Deviation 43: the L = 0 SPAM-only pair, 2 jobs / 0.42 min per rung at 1 µs) + 3 bootstrap σ at the point's shots, else the simulated floor of criterion (d) labelled; `claimable` also needs eps_N < 1; `exploratory` marks grid L = 12 rows (Deviation 37, 43 (b)) and **all dial k = 1 rows** (Deviations 37 + 40: predicted below the shot floor, upper bounds, no ratio with a k = 1 denominator) |
 | `estimators.layer_index_ratio` | Deviation 14: R_hw = [Var_hw(k = L)/Var_hw(k = 1)] / [Var_nl(k = L)/Var_nl(k = 1)] on the shared draws (paired bootstrap, shot variance subtracted inside every resample) and R_hw / R_unital with the prediction uncertainty added on the log scale; **Deviation 40** scope gate `k1_above_shot_floor` (bootstrap lower bound of the k = 1 variance above its shot floor), no ratio otherwise |
 | `estimators.null_variance_interval` | Deviation 25 (a-iii): the central 95 percent interval of the sample variance at the same M under the predicted value, by Monte Carlo replicates of a reference gradient distribution rescaled to the prediction (the predicted gradient sample where the exact grid has one, else the measured gradients); no normal approximation |
 | `estimators.fit_exponential_vs_powerlaw` | Section 3 "Fits": weighted least squares on log Var, AIC comparison |
@@ -84,10 +84,14 @@ RMS of C_mix − C_mix[L − ℓ, L] with the residual pattern noise of the dele
 the evaluator runs on rows of kind `truncation` with an `ell` column, a probe kind not yet in the job-list schema, so it
 is not-evaluable on today's runs.
 
-**Gate 1b clause (b) on the day** (Deviations 35, 39; flags, not a gate decision): per rung, the delay-matched p = 0
-k = L reference at L = 8 is counted only if its measured, floor-subtracted variance exceeds 3 shot floors at its shot
-count; a counted rung passes if the measured depth fall V(8) − V(12) exceeds 3 shot floors and 2 × the L = 8 bootstrap
-2σ and the p = 0.25 separation is ≥ 3 × the reset point's combined floor; the clause passes only with ≥ 2 counted rungs all
+**Gate 1b clause (b) on the day** (Deviations 35, 39, 44, 45; flags, not a gate decision): per rung, the delay-matched
+p = 0 k = L reference at L = 8 (16384 shots under Deviation 44) is counted only if its measured, floor-subtracted variance
+exceeds 3 shot floors at its shot count; a counted rung passes if the measured depth fall V(8) − V(12) exceeds the
+**governing fall bar (Deviation 45): 3 × the larger of the two reference points' shot floors 1/(2N)**, 9.2e-5 with both
+references at 16384 shots and 3.66e-4 with the L = 12 reference at 4096, and 2 × the measured bootstrap 2σ of the L = 8
+reference (the clause's "predicted draw 2σ" evaluated on the data), and the p = 0.25 separation is ≥ 3 × the reset
+point's combined floor; the L = 8 point's own 3-shot-floor bar and the frozen clause's literal 3/(2·4096) are reported
+beside it (`fall_passes_own_floor`, `fall_passes_frozen_4096`); the clause passes only with ≥ 2 counted rungs all
 passing and is inconclusive (not-evaluable) with fewer; the Deviation 39 trigger (measured 2σ of the L = 8 reference above
 half its predicted fall → M = 600 on that rung) is listed per rung.
 
@@ -130,8 +134,9 @@ implements exactly these readings.
    Deviation 40 scope. The coordinator's brief asked for the consistency reading as `result`; the pre-registration text
    (Deviation 42 (iii)) names the Section 1 clause, so the code follows the text and reports both.
 5. Gate 2 (c) floor on a probability: **settled by Deviation 42 (iv)**, 2 × 1/(2√N) = 1.56e-2 at N = 4096.
-6. Gate 2 (a) null-control floor: **settled by Deviation 42 (v) and candidate Deviation 43**: the `null_control` probe kind
-   is in the runner and the loader (read when present); the simulated floor is the labelled fallback.
+6. Gate 2 (a) null-control floor: **settled by Deviation 42 (v) and Deviation 43**: the `null_control` probe kind (L = 0
+   SPAM-only pair, `M` draws × 2 executions, 2 jobs of ≤ 300 circuits, 0.42 min per rung at 1 µs; L ≥ 1 variant with the
+   shifted pair on a qubit outside the cone) is in the runner and the loader; the simulated floor is the labelled fallback.
 7. Kill rule (c) dial-layer duration: **Deviation 42 (vi)**, 0.35 µs + the target's reset duration.
 8. Kill rule (a) swap-out: **Deviation 42 (vii)**, any qubit above 2e-2 fails and is listed; swap-out at placement.
 9. Deviation 19 (ii): **Deviation 42 (viii)**, applied literally on signed z-scores, min |z| of the run reported.
@@ -139,6 +144,12 @@ implements exactly these readings.
     gradients (propagation points), labelled approximate.
 11. Claimability in fits / H4: **Deviation 42 (x)** (eps_N ≥ 1 excluded and listed), sharpened by **Deviation 37** (the
     null-control-floor + 3σ bar).
+
+Later deviations: **Deviation 44** (L = 8 references at 16384 shots) is read by the clause (b) evaluator through the
+points' own shot counts; **Deviation 45** (fall bar = 3 × the larger of the two references' shot floors) is implemented as
+specified by the coordinator while its text is being written, with the alternative bars reported. Job budgets and the
+runner now split any group above `max_experiments` (300 on ibm_phoenix, from the configuration ledger) into jobs tagged
+`L0`, `L0-c2`, ...; the Section 2 grid is 228 jobs / 73.1 min at 1 µs under that rule.
 
 Open items for the PI (not resolved by the code): Gate 1b clause (b) on the day is reported as flags only (Gate 1b is
 decided on the predictions before booking); the H4 part 2 "grows with cone size" clause is read on point estimates while

@@ -13,6 +13,7 @@ import pandas as pd
 
 from .. import hardware as hw
 from . import predictions as P
+from ..variance import shot_floor
 from .estimators import Z95, paired_ratio
 from .hypotheses import verdict
 from .loader import RunData, job_rep_delay
@@ -454,13 +455,17 @@ def gate2(run: RunData, points: pd.DataFrame, preds: Dict, snapshot_csv=None, re
 def gate1b_clause_b(points: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict:
     """Gate 1b clause (b) read on the measured references (Deviation 35): per rung (patch), the delay-matched p = 0 k = L
     reference at L = 8 is counted only if its measured, floor-subtracted variance exceeds 3 shot floors at its shot
-    count; a counted rung passes if the measured depth fall V(8) - V(12) exceeds 3 shot floors and 2 x the L = 8 point's
-    bootstrap 2 sigma, and the p = 0.25 to p = 0 separation at L = 8 is at least 3 x the reset point's combined floor;
+    count; a counted rung passes if the measured depth fall V(8) - V(12) exceeds the fall bar and 2 x the measured
+    bootstrap 2 sigma of the L = 8 reference, and the p = 0.25 to p = 0 separation at L = 8 is at least 3 x the reset
+    point's combined floor. Fall bars (Deviation 44 put the L = 8 references at 16384 shots while L = 12 stays at 4096):
+    the governing bar (Deviation 45) is 3 x the larger of the two reference points' shot floors 1/(2N) (9.2e-5 with
+    both at 16384, 3.66e-4 with a 4096-shot L = 12 point); the L = 8 point's own 3-shot-floor bar and the frozen
+    clause's literal 3 / (2 x 4096) = 3.66e-4 are reported beside it (``fall_passes_own_floor``, ``fall_passes_frozen_4096``);
     the clause passes if at least two rungs are counted and all counted rungs pass, is inconclusive with fewer than two
     counted (Deviation 35 (ii)). Deviation 39 flag per rung: measured bootstrap 2 sigma of the L = 8 reference above
     half its predicted depth fall raises M to 600 on that rung. Reported as flags; Gate 1b itself is decided on the
     predictions before booking."""
-    text = "Gate 1b clause (b) on the measured references (Deviation 35 per-rung counting; Deviation 39 M = 600 trigger)"
+    text = "Gate 1b clause (b) on the measured references (Deviation 35 per-rung counting; Deviation 45 fall bar, own-floor and frozen-4096 bars beside it; Deviation 39 M = 600 trigger)"
     d = points[points.kind == "reset_dial"] if len(points) else points
     rungs = []
     for n, g in d[(d.arm == "delay") & (d.k == d.L)].groupby("n"):
@@ -468,9 +473,10 @@ def gate1b_clause_b(points: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> 
         if r8.empty:
             continue
         a = r8.iloc[0]
-        floor8 = float(a.shot_floor)
+        floor8 = shot_floor(int(a.shots))               # the clause's shot floor is the analytic 1/(2N) at the point's shot count
         two_sigma = float((a.signal_ci_hi - a.signal_ci_lo) / 2)
-        rung = dict(n=int(n), patch=a.patch, ref8=float(a.signal_variance), ref8_ci=[float(a.signal_ci_lo), float(a.signal_ci_hi)], shot_floor=floor8, shots=int(a.shots),
+        rung = dict(n=int(n), patch=a.patch, ref8=float(a.signal_variance), ref8_ci=[float(a.signal_ci_lo), float(a.signal_ci_hi)], shot_floor=floor8,
+                    shot_floor_measured=float(a.shot_floor), shots=int(a.shots),
                     ref8_over_shot_floor=float(a.signal_variance / floor8) if floor8 else None, counted=bool(a.signal_variance > 3 * floor8), M=int(a.M), two_sigma_8=two_sigma)
         pr8 = P.predicted_point(preds, int(n), 8, 8, "delay", 0.0, patch=a.patch, edge=a.edge)
         pr12 = P.predicted_point(preds, int(n), 12, 12, "delay", 0.0, patch=a.patch, edge=a.edge)
@@ -480,10 +486,19 @@ def gate1b_clause_b(points: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> 
         if not r12.empty:
             b = r12.iloc[0]
             fall = float(a.signal_variance - b.signal_variance)
+            floor12 = shot_floor(int(b.shots))
+            bar_gov, bar_own, bar_frozen = 3 * max(floor8, floor12), 3 * floor8, 3 * shot_floor(4096)
             pr = paired_ratio(a.gradients, b.gradients, n_boot, sub_a=a.shot_vars, sub_b=b.shot_vars)
-            rung.update(ref12=float(b.signal_variance), fall=fall, fall_over_3_shot_floors=fall / (3 * floor8) if floor8 else None, fall_over_2x_2sigma=fall / (2 * two_sigma) if two_sigma > 0 else None,
+            rung.update(ref12=float(b.signal_variance), shots_12=int(b.shots), shot_floor_12=floor12, fall=fall,
+                        fall_bar_governing=bar_gov, fall_bar_own_floor=bar_own, fall_bar_frozen_4096=bar_frozen,
+                        fall_bar_rule="Deviation 45: 3 x the larger of the two reference points' shot floors 1/(2N); own = 3 x the L = 8 floor; frozen = 3 / (2 x 4096)",
+                        fall_over_governing_bar=fall / bar_gov if bar_gov else None, fall_over_3_shot_floors=fall / bar_own if bar_own else None,
+                        two_sigma_8_label="measured bootstrap 2 sigma of the L = 8 reference (the clause's 'predicted draw 2 sigma' evaluated on the data)",
+                        fall_over_2x_2sigma=fall / (2 * two_sigma) if two_sigma > 0 else None,
                         depth_ratio_8_over_12=pr["ratio"], depth_ratio_lo=pr["lo"], depth_ratio_hi=pr["hi"], unital_reference_falls=bool(pr["lo"] > 1.0),
-                        fall_passes=bool(fall > 3 * floor8 and fall > 2 * two_sigma))
+                        fall_passes=bool(fall > bar_gov and fall > 2 * two_sigma),
+                        fall_passes_own_floor=bool(fall > bar_own and fall > 2 * two_sigma),
+                        fall_passes_frozen_4096=bool(fall > bar_frozen and fall > 2 * two_sigma))
         reset8 = d[(d.arm == "reset") & (d.n == n) & (d.L == 8) & (d.k == 8) & np.isclose(d.p.astype(float), 0.25)]
         if not reset8.empty:
             c = reset8.iloc[0]

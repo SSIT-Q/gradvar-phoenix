@@ -99,27 +99,71 @@ def test_loader_on_phoenix_smoke_dry_run_main_format(tmp_path):
 
 @pytest.mark.skipif(not HAS_AER, reason="qiskit-aer not installed")
 def test_null_control_probe_kind_dry_run(tmp_path):
-    """Candidate Deviation 43: a ``null_control`` probe builds the HEA with the shifted pair on a qubit outside the light cone,
-    one pub per draw, and loads as kind null_control."""
-    from gradvar.hardware import estimate_budget, load_joblist, run_joblist
+    """Deviation 43: the booked ``null_control`` probe is the L = 0 SPAM-only pair (no Ry / CZ layer, no parameter, k absent
+    or 0), one pub per draw, 2 jobs of <= 300 circuits and 0.42 min per rung at 1 us; L >= 1 shifts the pair on a qubit
+    outside the light cone."""
+    from gradvar.hardware import JoblistError, estimate_budget, load_joblist, run_joblist
     base = json.loads((DRYRUN / "02_phoenix_smoke_test.json").read_text())
-    jl = dict(base, points=[], probes=[dict(id="null_L1", kind="null_control", n=20, patch="4x5", edge="94_104", L=1, k=1, M=3, shots=4096, resilience=0, seed=11)])
-    jl["budget"] = estimate_budget(jl)
-    (tmp_path / "null.json").write_text(json.dumps(jl))
+    probe = dict(id="null_L0", kind="null_control", n=20, patch="4x5", edge="94_104", M=200, shots=4096, resilience=0, seed=11)
+    jl = dict(base, points=[], probes=[probe])
+    jl["budget"] = b = estimate_budget(jl, rep_delays_us=(1.0, 250.0))
+    assert b["jobs"] == 2 and b["circuits"] == 400 and b["executions"] == 200 * 2 * 4096 and b["max_experiments"] == 300
+    assert b["seconds_at_1us"] == pytest.approx(25.2, abs=0.05) and b["minutes_at_1us"] == pytest.approx(0.42, abs=0.005)     # Deviation 43: 21.2 s + 2 x 2 s
+    assert [e["tag"] for e in b["per_job"]] == ["L0-probes-s4096", "L0-probes-s4096-c2"] and [e["circuits"] for e in b["per_job"]] == [300, 100]
+    lvl1 = estimate_budget(dict(jl, probes=[dict(probe, resilience=1)]), rep_delays_us=(1.0,))
+    assert lvl1["minutes_at_1us"] == pytest.approx(0.48, abs=0.01)                                        # the n = 20 level-1 check with its TREX term
+    (tmp_path / "null.json").write_text(json.dumps(dict(jl, probes=[dict(probe, M=3)], budget=estimate_budget(dict(jl, probes=[dict(probe, M=3)])))))
     assert load_joblist(str(tmp_path / "null.json"))["probes"][0]["kind"] == "null_control"
     run_joblist(str(tmp_path / "null.json"), submit=False, run_root=str(tmp_path / "runs"), log_dir=str(tmp_path / "jobs"), calibration_csv=CAL02)
     run = load_run(tmp_path)
     r = run.rows
-    assert len(r) == 3 and set(r.kind) == {"null_control"} and set(r.arm) == {"null_control"} and set(r.point_id) == {"null n20 L1 k1 r0 s4096"}
-    assert sorted(r.draw) == [0, 1, 2] and set(r.edge) == {"94_104"} and r.null_qubit.nunique() == 1
+    assert len(r) == 3 and set(r.kind) == {"null_control"} and set(r.arm) == {"null_control"} and set(r.point_id) == {"null n20 L0 k0 r0 s4096"}
+    assert sorted(r.draw) == [0, 1, 2] and set(r.edge) == {"94_104"} and r.null_qubit.isna().all()
     job = next(iter(run.bundles.values())).job
+    assert len(job["points"]) == 3 and job["points"][0]["kind"] == "null_control" and job["points"][0]["null_qubit"] is None and job["points"][0]["L"] == 0
+    assert np.asarray(job["points"][0]["param_values"]).shape == (2, 0)                                   # two executions of the same SPAM circuit
+    circ = json.loads((next(iter(run.bundles.values())).path / "circuits.json").read_text())[0]
+    assert circ["two_qubit_gates"] == 0 and circ["ops"] == {}
+    for bad in (dict(probe, k=1), dict(probe, L=-1), dict(probe, L=2, k=3)):
+        (tmp_path / "bad.json").write_text(json.dumps(dict(jl, probes=[bad])))
+        with pytest.raises(JoblistError):
+            load_joblist(str(tmp_path / "bad.json"))
+    l1 = dict(probe, id="null_L1", L=1, k=1, M=3)
+    (tmp_path / "l1.json").write_text(json.dumps(dict(jl, probes=[l1], budget=estimate_budget(dict(jl, probes=[l1])))))
+    run_joblist(str(tmp_path / "l1.json"), submit=False, run_root=str(tmp_path / "runs1"), log_dir=str(tmp_path / "jobs1"), calibration_csv=CAL02)
+    from gradvar.analysis.loader import find_run_files, read_bundle
+    _, bdirs = find_run_files(tmp_path / "runs1")
+    job1 = read_bundle(bdirs[0]).job
     cone = {94, 104, 84, 93, 95, 103, 105, 114}
-    assert job["points"][0]["null_qubit"] not in cone and job["points"][0]["kind"] == "null_control" and len(job["points"]) == 3
-    assert len({p["param_hash"] for p in job["points"]}) == 3
+    assert job1["points"][0]["null_qubit"] not in cone and len({p["param_hash"] for p in job1["points"]}) == 3 and job1["points"][0]["L"] == 1
     with pytest.raises(Exception, match="null_qubit"):
-        bad = dict(jl, probes=[dict(jl["probes"][0], null_qubit=94)])
-        (tmp_path / "bad.json").write_text(json.dumps(bad))
-        run_joblist(str(tmp_path / "bad.json"), submit=False, run_root=str(tmp_path / "r2"), log_dir=str(tmp_path / "j2"), calibration_csv=CAL02)
+        (tmp_path / "badq.json").write_text(json.dumps(dict(jl, probes=[dict(l1, null_qubit=94)])))
+        run_joblist(str(tmp_path / "badq.json"), submit=False, run_root=str(tmp_path / "r2"), log_dir=str(tmp_path / "j2"), calibration_csv=CAL02)
+
+
+def test_budget_and_grouping_chunk_at_max_experiments(tmp_path, monkeypatch):
+    """S3: a level group or probe group with more circuits than max_experiments is split into consecutive jobs (tags L0,
+    L0-c2, ...) in the budget and in the runner's grouping; TREX learning is paid per job."""
+    import gradvar.hardware as hw
+    jl = dict(backend="ibm_phoenix", points=[dict(n=20, patch="4x5", edge="93_103", L=2, k=1, resilience=1, shots=4096, M=200, seed=7),
+                                             dict(n=20, patch="4x5", edge="93_103", L=8, k=1, resilience=1, shots=4096, M=100, seed=7)], probes=[])
+    b = hw.estimate_budget(jl, rep_delays_us=(1.0,))
+    assert b["jobs"] == 2 and [e["tag"] for e in b["per_job"]] == ["L1", "L1-c2"] and [e["circuits"] for e in b["per_job"]] == [300, 300]
+    assert b["trex_executions"] == 2 * 32 * 4096 and b["executions"] == 600 * 4096
+    assert hw.estimate_budget(jl, rep_delays_us=(1.0,))["jobs"] == len(hw.budget_jobs(jl, hw.DIAL_US, 300))
+    assert [e["tag"] for e in hw.estimate_budget(dict(jl, backend="unknown_backend"), rep_delays_us=(1.0,))["per_job"]] == ["L1", "L1-c2"]   # ledger miss: default 300
+    assert len(hw.budget_jobs(jl, hw.DIAL_US, 250)) == 3 and hw.chunk_tags("X", 3) == ["X", "X-c2", "X-c3"]
+    assert hw.chunk_pubs(list(range(7)), 3) == [[0, 1, 2], [3, 4, 5], [6]]
+    # runner grouping: force max_experiments = 4 on list 01 (5 pubs per level, 2 probe pubs) -> L0, L0-c2, L1, L1-c2, probes
+    monkeypatch.setattr(hw, "max_experiments", lambda name=None, backend=None, ledger=None: 4)
+    from gradvar.hardware import run_joblist
+    run_joblist(str(DRYRUN / "01_marrakesh_pipeline_check.json"), submit=False, run_root=str(tmp_path / "runs"), log_dir=str(tmp_path / "jobs"), calibration_csv=CAL)
+    tags = sorted(d.name.split("-", 2)[2] for d in (tmp_path / "runs").glob("*/dryrun-*"))
+    assert tags == ["L0", "L0-c2", "L0-probes-s1024", "L1", "L1-c2"]
+    run = load_run(tmp_path)
+    assert len(run.rows) == 12 and run.rows.groupby("job_id").size().to_dict() == {j: (4 if j.endswith(("L0", "L1")) else (1 if j.endswith("c2") else 2)) for j in run.rows.job_id.unique()}
+    assert set(run.rows[run.rows.kind == "grid"].point_id) == {"grid n10 L2 k1 r0 s1024", "grid n10 L2 k1 r1 s1024"}    # a point spans its two jobs
+    assert sorted(run.rows[run.rows.point_id == "grid n10 L2 k1 r0 s1024"].draw) == [0, 1, 2, 3, 4]
 
 
 # ------------------------------------------------------------------------------------------------ estimators
@@ -225,7 +269,8 @@ def test_predictions_keyed_by_patch_and_edge(tmp_path):
 # ------------------------------------------------------------------------------------------------ synthetic runs
 
 def _pass_specs(preds):
-    specs = S.specs_from_predictions(preds, M=120, M_dial=60, M_level2=200, K=32, shots=4096, grid=((20, 1), (20, 2), (20, 4), (20, 8), (39, 8), (87, 8), (39, 12), (87, 12)))
+    # K = 128 x 32 shots: at K = 32 the C_mix pattern floor Var_mask / K (4.4e-3) exceeds the planted Var[C_mix] (3.6e-3) and H5 has no power at M = 60
+    specs = S.specs_from_predictions(preds, M=120, M_dial=100, M_level2=200, K=128, shots=4096, grid=((20, 1), (20, 2), (20, 4), (20, 8), (39, 8), (87, 8), (39, 12), (87, 12)))
     specs += [S.ladder_probe(rd, prep, bias) for rd in (250, 20, 5, 1) for prep, bias in (("0", 0.004), ("1", 0.012))]
     specs += [S.dial_point("reset", 0.25, 20, 8, 8, 2e-3, var_mask=0.14, mean_c=0.066, M=1, K=4, shots=64, resilience=1)]
     return specs
@@ -270,7 +315,7 @@ def test_synthetic_pipeline_recovers_planted_variances(passing):
     assert len(dial) == 4 and (dial.z.abs() < 3).all()
     pts = passing["points"]
     d = pts[(pts.arm == "reset") & (pts.n == 53)]
-    assert (d.K == 32).all() and (d.pattern_floor_upper_bound > 0).all() and (d.pattern_floor.abs() < d.pattern_floor_upper_bound).all()   # shared masks (Deviation 38)
+    assert (d.K == 128).all() and (d.pattern_floor_upper_bound > 0).all() and (d.pattern_floor.abs() < d.pattern_floor_upper_bound).all()   # shared masks (Deviation 38)
     assert (np.abs(d.mean_cmix - d.p ** 2) < 0.05).all()                                          # E[C_mix] ~ p^2 (pipeline check)
     assert np.isfinite(d.floor_grad).all() and (d.headline_ratio > 1).all() and (d.floor_grad > d.mele_floor).all()     # Deviation 33 headline
     assert set(d.floor_source.str.contains("properties.json")) == {True}                          # run-day properties, not the snapshot
@@ -283,6 +328,7 @@ def test_synthetic_pipeline_recovers_planted_variances(passing):
     assert d25.inside_null_95.mean() >= 0.8 and set(d25.reference) >= {"predicted gradients"}
     null = [f for f in passing["null_floors"] if f["source"].startswith("measured")]
     assert len(null) == 1 and null[0]["n"] == 20 and null[0]["var_null"] == pytest.approx(1 / 8192 + 2e-5, rel=0.3)
+    assert set(pts[pts.kind == "null_control"].point_id) == {"null n20 L0 k0 r0 s4096"}                          # Deviation 43: the L = 0 SPAM-only pair
     assert pts[(pts.kind == "grid") & (pts.L <= 8) & (pts.k == 1) & (pts.resilience_level <= 1)].claimable.all() and (pts[(pts.kind == "grid") & (pts.L == 12)].exploratory).all()
     assert not pts[(pts.kind == "grid") & (pts.L == 8) & (pts.n == 87) & (pts.resilience_level == 2)].claimable.any()     # ZNE shot variance x 4: eps_N >= 1 at L = 8
     assert set(pts[pts.kind == "grid"].claim_bar_source) == {"measured null control"}
@@ -317,8 +363,11 @@ def test_synthetic_passing_run_verdicts(passing):
     assert g["c"]["value"] < g["c"]["threshold"] and g["c"]["logging_complete"] and g["d"]["value"] < 200
     assert g["e"]["value"]["readout_ratio_max"] == pytest.approx(1.0) and g["e"]["value"]["reset_error_max"] < 2e-2
     b = passing["gate1b_clause_b"]
-    assert b["result"] == "not-evaluable" and len(b["rungs"]) == 1 and b["rungs"][0]["counted"] and b["rungs"][0]["fall_passes"]   # one rung (n = 53): inconclusive (Deviation 35)
-    assert b["rungs"][0]["deviation_39_trigger_M600"] is False and b["rungs"][0]["separation_passes"]
+    r = b["rungs"][0]
+    assert b["result"] == "not-evaluable" and len(b["rungs"]) == 1 and r["counted"] and r["separation_passes"]    # one rung (n = 53): inconclusive (Deviation 35)
+    assert r["shots"] == 16384 and r["shots_12"] == 4096 and r["fall_bar_own_floor"] == pytest.approx(3 / (2 * 16384)) and r["fall_bar_governing"] == pytest.approx(3 / (2 * 4096))
+    assert r["fall_passes_own_floor"] and not r["fall_passes"] and not r["fall_passes_frozen_4096"]               # predicted fall 2.76e-4: above 9.2e-5, below 3.66e-4 (S1)
+    assert r["deviation_39_trigger_M600"] is False and "measured bootstrap 2 sigma" in r["two_sigma_8_label"]
 
 
 def test_synthetic_failing_run_verdicts(failing):
@@ -337,6 +386,21 @@ def test_synthetic_failing_run_verdicts(failing):
     assert failing["anomaly_protocol"]["flagged"]
     single = {p["point_id"] for p in failing["anomaly_protocol"]["single_point"]}
     assert "grid n20 L4 k1 r0 s4096" in single and all(abs(p["z"]) > 3 for p in failing["anomaly_protocol"]["single_point"])
+
+
+def test_gate1b_fall_bars_distinguished(tmp_path, preds):
+    """S1: the same planted fall (2.0e-4) passes the L = 8 point's own 3-shot-floor bar at 16384 shots (9.2e-5) and fails the
+    Deviation 45 governing bar when the L = 12 reference is at 4096 shots (3.66e-4); with both references at 16384 shots
+    the governing bar is 9.2e-5 and the rung passes on every bar."""
+    for shots12, expect_gov in ((4096, False), (16384, True)):
+        out = tmp_path / f"s{shots12}"
+        specs = [S.dial_point("delay", 0.0, 53, 8, 8, 2.5e-4, M=350, K=1, shots=16384), S.dial_point("delay", 0.0, 53, 12, 12, 0.5e-4, M=350, K=1, shots=shots12)]
+        S.SyntheticRun(out, name="bars", seed=21, snapshot_csv=SNAP).add(specs).write()
+        pts = E.point_table(load_run(out).rows, n_boot=N_BOOT)
+        r = gates.gate1b_clause_b(pts, preds, n_boot=N_BOOT)["rungs"][0]
+        assert r["counted"] and abs(r["fall"] - 2.0e-4) < 4e-5 and r["fall"] > 2 * r["two_sigma_8"]
+        assert r["fall_bar_own_floor"] == pytest.approx(3 / (2 * 16384)) and r["fall_bar_governing"] == pytest.approx(3 / (2 * shots12)) and r["fall_bar_frozen_4096"] == pytest.approx(3 / 8192)
+        assert r["fall_passes_own_floor"] and r["fall_passes"] is expect_gov and r["fall_passes_frozen_4096"] is False
 
 
 def test_gate2_e_reset_drift_reference(passing):
@@ -389,3 +453,4 @@ def test_preregistered_main_grid_budget():
     assert est["minutes_at_1us"] < 200 < est["minutes_at_250us"]
     c = gates.main_grid_constants(1.0)
     assert c["jobs"] == est["jobs"] and c["executions"] == est["executions"] and c["minutes"] == pytest.approx(est["minutes_at_1us"])
+    assert c["jobs"] == 228 and c["minutes"] == pytest.approx(73.1, abs=0.2)     # 114 points at <= 300 circuits per job (S3 chunking), 1 us
