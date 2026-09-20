@@ -1,0 +1,143 @@
+{
+ "schema": "gradvar.hardware job ids v1",
+ "joblist": "data/joblists/paper1/day1_null_grid_n20.json",
+ "joblist_name": "paper1_day1_null_grid_n20",
+ "backend": "ibm_phoenix",
+ "instance": "flex",
+ "submission_run": 35526189360,
+ "runner_git_commit": "c9377b126cee8cb17426d54c3d55c46fd80394e4",
+ "batch_id": "5a446846-6024-4b48-aeb7-0e9ecb7f0a9c",
+ "calibration_csv": null,
+ "calibration_snapshot": "data/calibrations/ibm_phoenix_properties_2026-09-20T173317Z.json",
+ "written_utc": "2026-09-20T17:33:43.344079+00:00",
+ "notes": "written by execute_joblist right after submission (--submit-only: results not awaited)",
+ "discovery": null,
+ "jobs": [
+  {
+   "job_id": "dao1hnv8gn2s739n8v8g",
+   "tag": "L0",
+   "level": 0,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T17:33:18.376351+00:00"
+  },
+  {
+   "job_id": "dao1holr85ps73feltg0",
+   "tag": "L0-c2",
+   "level": 0,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T17:33:20.039614+00:00"
+  },
+  {
+   "job_id": "dao1hp82fm4c73f4r33g",
+   "tag": "L0-c3",
+   "level": 0,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T17:33:22.623297+00:00"
+  },
+  {
+   "job_id": "dao1hptr85ps73feltig",
+   "tag": "L0-c4",
+   "level": 0,
+   "shots": 4096,
+   "pubs": 100,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T17:33:26.141334+00:00"
+  },
+  {
+   "job_id": "dao1hqf8gn2s739n8vbg",
+   "tag": "L1",
+   "level": 1,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T17:33:27.868718+00:00"
+  },
+  {
+   "job_id": "dao1hqn8gn2s739n8vd0",
+   "tag": "L1-c2",
+   "level": 1,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T17:33:29.195194+00:00"
+  },
+  {
+   "job_id": "dao1hrg2fm4c73f4r36g",
+   "tag": "L1-c3",
+   "level": 1,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T17:33:31.147978+00:00"
+  },
+  {
+   "job_id": "dao1hsdr85ps73feltm0",
+   "tag": "L1-c4",
+   "level": 1,
+   "shots": 4096,
+   "pubs": 100,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T17:33:35.333225+00:00"
+  },
+  {
+   "job_id": "dao1hsf8gn2s739n8vgg",
+   "tag": "L0-probes-s4096",
+   "level": 0,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T17:33:37.194618+00:00"
+  },
+  {
+   "job_id": "dao1hsg2fm4c73f4r380",
+   "tag": "L0-probes-s4096-c2",
+   "level": 0,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T17:33:38.127031+00:00"
+  },
+  {
+   "job_id": "dao1hsv8gn2s739n8vi0",
+   "tag": "L0-probes-s4096-c3",
+   "level": 0,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T17:33:39.115065+00:00"
+  },
+  {
+   "job_id": "dao1htdr85ps73feltn0",
+   "tag": "L0-probes-s4096-c4",
+   "level": 0,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T17:33:40.020380+00:00"
+  },
+  {
+   "job_id": "dao1htlr85ps73felto0",
+   "tag": "L1-probes-s4096",
+   "level": 1,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T17:33:41.209929+00:00"
+  },
+  {
+   "job_id": "dao1httr85ps73feltpg",
+   "tag": "L1-probes-s4096-c2",
+   "level": 1,
+   "shots": 4096,
+   "pubs": 100,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T17:33:42.478215+00:00"
+  }
+ ]
+}
