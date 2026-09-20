@@ -264,7 +264,6 @@
    "delay": 0.4,
    "measure_reset": 1.94,
    "measure_reset_2": 1.14,
-   "dephase": 0.4,
    "none": 0.0
   },
   "dial_durations_source": "ibm_phoenix target (2026-09-19)",

@@ -199,7 +199,7 @@ LAYER_US, READOUT_US, X_US = 0.71, 1.94, 0.04
 READOUT_US_BY_BACKEND = {"ibm_phoenix": 1.94, "ibm_marrakesh": 2.684}   # backend.properties() readout_length, 2026-09-19
 EXEC_OVERHEAD_US = 10.0
 TREX_RANDOMIZATIONS = 32       # EstimatorV2 default resilience.measure_noise_learning.num_randomizations
-DIAL_US = {"reset": 0.40, "delay": 0.40, "measure_reset": 1.94, "measure_reset_2": 1.14, "dephase": 0.40, "none": 0.0}
+DIAL_US = {"reset": 0.40, "delay": 0.40, "measure_reset": 1.94, "measure_reset_2": 1.14, "none": 0.0}   # dephase: timed as delay (virtual Z has no duration)
 BUDGET_REP_DELAYS_US = (250.0, 1.0)
 ZNE_NOISE_FACTORS = 3          # resilience 2 runs each circuit at 3 noise factors (default noise_factors (1, 3, 5))
 _SYNTHETIC_INSTRUCTIONS: Dict[int, set] = {}   # id(backend) -> reset kinds added to a fake target by dial_operation
@@ -346,7 +346,7 @@ def _probe_patch(pr: dict, shapes: dict, calibration_csv: str | None) -> Tuple[P
 
 
 def build_probes(jl: dict, backend, shapes: dict, calibration_csv: str | None = None,
-                 optimization_level: int = 1) -> List[BuiltProbe]:
+                 optimization_level: int = 1, max_pubs_per_probe: int | None = None) -> List[BuiltProbe]:
     """Build and transpile the job list's ``probes`` (schema: data/joblists/README.md).
 
     ``reset_dial``: the HEA on the patch with a dial layer after every layer (``hea_square_dial``); mask m of a probe is
@@ -354,9 +354,12 @@ def build_probes(jl: dict, backend, shapes: dict, calibration_csv: str | None = 
     from ``seed``, observable Z_i Z_j on the interior edge, shifted pair at layer ``k`` (default L).
     ``reset_error``: prep (|1> by default, or |0>) -> reset kind -> Z on each listed qubit (``qubits``, or the placed
     patch), one pub with one Z observable per qubit; P(1) = (1 - <Z>) / 2 at resilience 0.
+    ``max_pubs_per_probe`` (the dry-run sample) stops building a probe's pubs after that many, in build order.
     """
     built: List[BuiltProbe] = []
+    limit = None if max_pubs_per_probe is None else int(max_pubs_per_probe)
     for pr in jl.get("probes", []) or []:
+        n_before = len(built)
         kind, rk = str(pr["kind"]), str(pr.get("reset_kind", "reset"))
         level, shots, seed = int(pr.get("resilience", 0)), int(pr["shots"]), int(pr.get("seed", 0))
         if kind == "reset_dial":
@@ -389,7 +392,11 @@ def build_probes(jl: dict, backend, shapes: dict, calibration_csv: str | None = 
                 dseed = seed + d
                 theta = np.random.default_rng(dseed).uniform(0, 2 * np.pi, size=patch.n * L)
                 plus, minus = shifted_params(theta, param_index(k - 1, patch.local(edge[0]), patch.n))
+                if limit is not None and len(built) - n_before >= limit:
+                    break
                 for m in range(int(pr.get("masks", 1))):
+                    if limit is not None and len(built) - n_before >= limit:
+                        break
                     mask = np.random.default_rng(dseed + 1 + m).random((L, patch.n)) < mask_p
                     if unshifted:
                         qc = hea_square_dial(patch, l_keep, mask[L - l_keep:], dial, params=theta[drop:])
@@ -421,7 +428,7 @@ def build_probes(jl: dict, backend, shapes: dict, calibration_csv: str | None = 
                     raise JoblistError(f"probe {pr.get('id')}: L = 0 null_control has no parameter: drop k and null_qubit")
                 isa = pm.run(QuantumCircuit(patch.n, name=f"null_control_L0_{patch.n_rows}x{patch.n_cols}"))
                 isa_obs = obs.apply_layout(isa.layout)
-                for d in range(int(pr.get("M", 1))):
+                for d in range(int(pr.get("M", 1)) if limit is None else min(limit, int(pr.get("M", 1)))):
                     built.append(BuiltProbe(dict(pr, draw=d, null_qubit=None, lattice_null_qubit=None, reset_kind="none", k=None), patch, phys, edge, isa,
                                             isa_obs, np.zeros((2, 0)), np.zeros(0), isa.depth(), two_qubit_count(isa), level, shots, seed + d, layout=layout))
                 continue
@@ -430,7 +437,7 @@ def build_probes(jl: dict, backend, shapes: dict, calibration_csv: str | None = 
             isa = pm.run(hea_square(patch, L))
             isa_obs = obs.apply_layout(isa.layout)
             phys_null = null_q if layout is None else layout[patch.local(null_q)]
-            for d in range(int(pr.get("M", 1))):
+            for d in range(int(pr.get("M", 1)) if limit is None else min(limit, int(pr.get("M", 1)))):
                 theta = np.random.default_rng(seed + d).uniform(0, 2 * np.pi, size=patch.n * L)
                 plus, minus = shifted_params(theta, param_index(k - 1, patch.local(null_q), patch.n))
                 built.append(BuiltProbe(dict(pr, draw=d, null_qubit=int(phys_null), lattice_null_qubit=int(null_q), reset_kind="none"), patch, phys, edge, isa,
@@ -522,6 +529,7 @@ def readout_us(backend=None, backend_name: str | None = None) -> Tuple[float, st
 def _probe_length_us(pr: dict, dial_us: Dict[str, float]) -> float:
     """Gate time of a probe circuit (without readout): the dial layers of ``reset_dial``, or X + reset kind."""
     rk = str(pr.get("reset_kind", "reset"))
+    rk = "delay" if rk == "dephase" else rk        # the dephasing dial is a zero-duration virtual Z plus the 400 ns idle
     if pr["kind"] == "reset_dial":
         layers = int(pr["L"]) if pr.get("truncate_to") is None else int(pr["truncate_to"])
         return layers * (LAYER_US + dial_us[rk])
@@ -1490,6 +1498,23 @@ def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int,
     THIS FUNCTION IS THE ONLY PLACE THAT SUBMITS JOBS, and only when ``submit`` is True.
     """
     from qiskit_ibm_runtime import EstimatorV2
+    sampled = None
+    if dry_run_sample is not None and not submit:
+        # dry-run only: build the first ``dry_run_sample`` pubs of every job group (a build / transpile / bundle check of lists whose full
+        # circuit count is too large to build here), recorded in every job.json as ``dry_run_sample``. Never applies to a submission.
+        lim = int(dry_run_sample)
+        full = {f"L{lvl}": sum(1 for p in points if p.resilience_level == lvl) for lvl in sorted({p.resilience_level for p in points})}
+        for pr in jl.get("probes", []) or []:
+            tag = probe_job_tag(int(pr.get("resilience", 0)), int(pr["shots"]), probe_rep_delay_us(pr))
+            full[tag] = full.get(tag, 0) + _probe_pubs(pr)[0]
+        sampled = dict(pubs_per_group=lim, full_pubs=full)
+        kept, per_level = [], {}
+        for p in points:
+            if per_level.get(p.resilience_level, 0) < lim:
+                kept.append(p)
+                per_level[p.resilience_level] = per_level.get(p.resilience_level, 0) + 1
+        points = kept
+        print(f"dry-run sample: building the first {lim} pubs of each group ({full} pubs in full); budget figures below are for the full list")
     built = build_pubs(points, backend, shapes=shapes)
     # one job per resilience level for the gradient points, then one per (level, shots) for the probes
     groups: List[Tuple[str, int, int, list]] = []          # (job tag, level, shots, pubs)
@@ -1501,19 +1526,13 @@ def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int,
     # probes: one job per (level, shots, rep_delay_us); a rep_delay ladder rung (Section 6, Deviation 23) is its own job
     # submitted with options.execution.rep_delay set and logged per job (rep_delay_submitted_s); a refused value fails that job only
     by_probe: Dict[Tuple[int, int, float], List[BuiltProbe]] = {}
-    for b in build_probes(jl, backend, shapes, calibration_csv):
+    for b in build_probes(jl, backend, shapes, calibration_csv, max_pubs_per_probe=None if sampled is None else sampled["pubs_per_group"]):
         rd = probe_rep_delay_us(b.probe)
         by_probe.setdefault((b.resilience_level, b.shots, -1.0 if rd is None else rd), []).append(b)
     for (level, pshots, _), group in sorted(by_probe.items()):
         groups.append((probe_job_tag(level, pshots, probe_rep_delay_us(group[0].probe)), level, pshots, group))
-    sampled = None
-    if dry_run_sample is not None and not submit:
-        # dry-run only: keep the first ``dry_run_sample`` pubs of every group (a build / transpile / bundle check of lists whose full
-        # circuit count is too large to build here); recorded in every job.json as ``dry_run_sample``. Never applies to a submission.
-        sampled = dict(pubs_per_group=int(dry_run_sample), full_pubs={tag: len(g) for tag, _, _, g in groups})
-        groups = [(tag, level, gshots, group[: int(dry_run_sample)]) for tag, level, gshots, group in groups]
-        print(f"dry-run sample: building the first {dry_run_sample} pubs of each group ({sampled['full_pubs']} pubs in full); "
-              f"budget figures below are for the full list")
+    if sampled is not None:                                  # the groups hold at most the sample per probe; cap each group at the sample
+        groups = [(tag, level, gshots, group[: sampled["pubs_per_group"]]) for tag, level, gshots, group in groups]
     # max_experiments (300 circuits per job): split each group into consecutive jobs, tags <tag>, <tag>-j2, ... (same
     # packing as budget_jobs, so the budget's job count and 2 s overheads are the ones charged)
     split: List[Tuple[str, int, int, list]] = []
