@@ -1,0 +1,247 @@
+% Paper 1 manuscript skeleton, gradvar-phoenix programme (SSIT Tumakuru).
+% Status: SKELETON. No hardware minute has been spent. Every quantity marked [RESULT], [TBD] or \placeholder{}
+% is a placeholder to be filled from the logged data after the post-run review; nothing here is a measured result.
+% Pre-registration: preregistration_q1.html v0.9.9 (19-20 Sep 2026). Analysis follows Sections 3 and 3b exactly as registered.
+% Build: latexmk -pdf main.tex (see ../Makefile). Class: REVTeX 4.2, PRX Quantum / QST style.
+\documentclass[aps,prxquantum,reprint,superscriptaddress,nofootinbib,longbibliography,amsmath,amssymb]{revtex4-2}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true,linkcolor=blue!60!black,citecolor=blue!60!black,urlcolor=blue!60!black}
+
+% --- placeholder macros: every result field goes through one of these so a grep for RESULT finds them all
+\newcommand{\placeholder}[1]{\textcolor{red!70!black}{[RESULT: #1]}}
+\newcommand{\tbd}[1]{\textcolor{orange!80!black}{[TBD: #1]}}
+\newcommand{\figstub}[2]{\fbox{\parbox[c][0.28\textheight][c]{0.95\linewidth}{\centering\textcolor{gray}{Figure stub: \texttt{#1}\\[1ex]#2}}}}
+\newcommand{\Var}{\mathrm{Var}}
+\newcommand{\Cmix}{C_{\mathrm{mix}}}
+\newcommand{\Np}{\mathcal{N}_p}
+\newcommand{\eN}{\varepsilon_N}
+
+\begin{document}
+
+\title{Pre-registered measurement of parameter-shift gradient variance on a 120-qubit superconducting processor with a controlled non-unital reset dial}
+
+\author{\tbd{Author 1}}
+\affiliation{Department of Computer Science and Engineering, SSIT Tumakuru, India}
+\author{\tbd{Author 2}}
+\affiliation{Department of Computer Science and Engineering, SSIT Tumakuru, India}
+\author{\tbd{Physics co-author, if named at submission}}
+\affiliation{\tbd{affiliation}}
+
+\date{\today}
+
+\begin{abstract}
+Barren-plateau theory predicts how the variance of a parameter-shift gradient of a local observable scales with qubit count $n$ and depth $L$ for a hardware-efficient ansatz, under noiseless, unital and non-unital noise. We report a pre-registered hardware test of these predictions on \texttt{ibm\_phoenix} (IBM Nighthawk r2, 120 qubits on a $12\times10$ square lattice): a Ry/CZ ansatz on rectangular patches of $n = $ \placeholder{actual $n$ ladder, e.g.\ 20/39/53/70/87} qubits at $L \in \{1, 2, 4, 8, 12\}$, with $M = 200$ uniform parameter draws per point, $4096$ shots per shifted circuit and a two-term shift rule, every hypothesis, threshold and kill rule fixed before the first allocation minute. Predictions for every point were drawn before data by exact light-cone simulation and, at $L \geq 8$, by second-moment Pauli propagation with a rigorous truncation lower bound. A reset applied to each qubit with probability $p$ after every layer realises the non-unital mixture channel $\Np(\rho) = (1-p)\rho + p|0\rangle\langle 0|$ and turns the device's native reset into a dial on the non-unital strength, tested at $p \in \{0.25, 0.5\}$ against delay-matched and unital-dephasing controls. We find that the depth dependence at fixed $n$ is \placeholder{exponential/power-law fit verdict and exponent with 95\% bootstrap interval}, the $n$ dependence at fixed $L$ is \placeholder{verdict per $L$}, the noiseless-normalised layer-index ratio is \placeholder{value and interval against the unital and non-unital simulations}, and under the reset dial the last-layer gradient variance and the cost variance \placeholder{follow / do not follow} the pre-drawn second-moment curves, with a floor of \placeholder{value} against the proven two-design bound $p^4/9$. All raw counts, calibration snapshots and the pre-registration with its Deviations table are public.
+\end{abstract}
+
+\maketitle
+
+\section{Introduction}\label{sec:intro}
+
+\paragraph{Barren plateaus.} For random parameterised circuits that form approximate 2-designs, the variance of a cost gradient over the parameter distribution is exponentially small in the qubit count~\cite{McClean2018}; for shallow circuits with local observables the decay with $n$ is polynomial up to a depth that grows logarithmically in $n$ in one dimension~\cite{Cerezo2021}. For deep hardware-efficient circuits the variance is set by the dimension of the circuit's dynamical Lie algebra once the circuit forms a 2-design over that algebra~\cite{Ragone2024,Fontana2024,Larocca2025}; for shallower circuits the Lie-algebraic formula does not hold and the variance can only be bounded~\cite{Larocca2025}. Local Pauli noise induces a plateau of its own: Wang et al.~\cite{Wang2021} bound the derivative itself for all parameters by $\sqrt{8\ln 2}\,N_O\|\omega\|_\infty\|\eta\|_1\,\sqrt{n}\,q^{cL+1}$ with $c = 1/(2\ln 2)$, and Mele et al.~\cite{Mele2026} (Proposition 10) give $\Var[\partial C] \leq e^{-\Omega(|P|+L)}$ for any unital non-unitary noise with no $n$ prefactor. Under any local non-unital noise acting after every layer, on average over circuits whose two-qubit gates form local 2-designs, the same authors prove that local-observable costs keep a $\Theta(1)$ variance in $n$ with lower bound $(\|t\|_2^2/3)^{|P|}$ (Corollary 6), where $t$ is the Bloch-translation vector of the per-layer channel, and that only parameters in the last $\Theta(\log n)$ layers have non-vanishing gradient variance, $\Var[\partial_k C] = \exp(-\Theta(L-k))$ (Theorem 8)~\cite{Mele2026}; Singkanipa and Lidar~\cite{Singkanipa2025} treat the same non-unital regime and give a noisy parameter-shift rule for Hilbert--Schmidt-contractive channels. The absence of a plateau in this regime is not by itself good news: it arises because the circuit becomes effectively shallow~\cite{Mele2026}, and average-case classical simulation of such noisy circuits by Pauli propagation has a proven guarantee~\cite{Angrisani2026}. The review of Larocca et al.~\cite{Larocca2025} lists the relationship among noise, measurement and concentration as open, and its only methodological guidance on measuring plateaus (the ``Methods for analysing variance'' paragraph and Box~2) gives no sample counts or reporting standards.
+
+\paragraph{The gap.} \tbd{Two sentences, to be checked against the final literature sweep before submission:} no hardware barren-plateau study has reported the variance of a parameter-shift gradient over random parameters with confidence intervals on more than a handful of physical qubits (the only published hardware parameter-shift error measurement is the five-qubit mean-squared-error test of Mari et al.~\cite{Mari2021}, whose hardware floor sat an order of magnitude above the analytic shot floor), and none has pre-registered its hypotheses, thresholds and kill rules before data. The non-unital predictions in particular have not been tested where they are resolvable: at the native $T_1$ of a superconducting device the per-layer translation norm is $\|t\|_2 \approx 2\times10^{-3}$ and the proven floor for a weight-2 observable is of order $10^{-12}$, below any shot floor.
+
+\paragraph{This work.} We measure $\Var_\theta[\partial C]$ for one parameter-shift gradient of $Z_iZ_j$ under a Ry/CZ ansatz on \texttt{ibm\_phoenix} across a ladder in $n$ and $L$, with pre-drawn predictions from three noise models, and add a controlled non-unital arm in which the device's native 400\,ns reset, applied with probability $p$ per qubit per layer and pooled over random masks, realises $\Np$ at $p \in \{0.25, 0.5\}$. Section~\ref{sec:methods} gives the device, ansatz, estimator, pre-registration and gates; Section~\ref{sec:prereg} restates the pre-registered hypotheses and refutation conditions verbatim; Section~\ref{sec:results} reports every registered statistic in tables keyed to the job-list point identifiers; Section~\ref{sec:discussion} interprets each outcome branch with text written before data, as the pre-registration allows.
+
+\section{Methods}\label{sec:methods}
+
+\subsection{Device}\label{sec:device}
+\texttt{ibm\_phoenix} is an IBM Nighthawk r2 processor with 120 qubits on a $12\times10$ square lattice (218 couplers, CZ native). On the planning snapshot of 19 September 2026 the median CZ error was $1.9\times10^{-3}$, the median readout error $8.2\times10^{-3}$, $T_1$ about 178\,$\mu$s, the CZ duration 68\,ns (208\,ns maximum), single-qubit gates 40\,ns, measurement 1.94\,$\mu$s and the native reset 400\,ns on 119 qubits (2140\,ns on qubit 79). The device default repetition delay is 1.0\,$\mu$s (read from \texttt{backend.configuration()} on 20 September 2026, Deviation 23). Run-day values: \placeholder{table of run-day medians per hardware day from \texttt{data/calibrations/}}.
+
+\subsection{Ansatz, observable and patches}\label{sec:ansatz}
+One layer is $R_y(\theta)$ on every qubit of the patch followed by CZ on every lattice edge of the patch in four sub-layers (horizontal even, horizontal odd, vertical even, vertical odd); $L$ layers give $nL$ parameters, drawn uniformly from $[0, 2\pi)$. Uniform draws characterise the landscape and are not a training recommendation~\cite{Larocca2025}. The observable is $Z_iZ_j$ on one interior edge of the patch, fixed from the snapshot for the whole campaign. Patches are rectangles $4\times5$, $4\times10$, $6\times10$, $8\times10$, $10\times10$ placed inside the clean component by the exclusion rules of Section~\ref{sec:exclusion}; couplers with CZ error $\geq 5\times10^{-3}$ are treated as broken lattice edges carrying no CZ (Deviation 26). On the 19 September snapshot the ladder is $n = 20/39/53/70/87$ with observable edges 93\_103, 94\_95, 84\_85, 84\_85, 75\_85 (Deviation 18); the run-day placements are \placeholder{table: patch, origin, holes, broken couplers, edge, $n$ per hardware day, from \texttt{layout\_check}}.
+
+\paragraph{Light cone versus patch.} The Heisenberg support of $Z_iZ_j$ grows by graph distance one per layer, so the causal cone at depth $L$ is the radius-$(L-1)$ neighbourhood of the edge, about $2L^2$ qubits: contained in every patch at $L = 1, 2$; contained at $L = 4$ only by patches of at least $7\times7$ (the $8\times10$ and $10\times10$ rungs); truncated by every patch at $L = 8, 12$. Where the cone is contained the noiseless variance is exactly $n$-independent~\cite{Uvarov2021}; where it is truncated the $n$ dependence is a boundary effect, and the 4-row patches sit systematically above the larger ones at $L \geq 3$ for geometric reasons. Broken couplers reduce the number of CZs in the cone, so the pre-drawn curves are computed on the same broken geometry the hardware uses (Gate 1 report, Section 3).
+
+\subsection{Gradient estimator}\label{sec:estimator}
+The two-term parameter-shift rule with shifts $\pm\pi/2$ is exact for any gate with an involutory generator, so for $R_y$~\cite{Mari2021}; it is exact for the noisy expectation value provided the noise channels do not depend on $\theta$, which holds for virtual $R_z$~\cite{Banchi2026}. The differentiated parameter is $\theta_{(k,q)}$ with $q$ one of the observable's qubits (the cone centre) and $k$ the layer index; the main grid uses $k = 1$. Per draw we run three circuits ($\theta \pm \pi/2$, $\theta$) at 4096 shots (16384 at the $n = 100$, $L = 8$ headline points); the unshifted circuit gives $C(\theta)$, and at 5 draws per point a fourth circuit at $\theta + \pi$ tests the rotation-survival identity $f(\theta+\pi) = f(\theta+\pi/2) + f(\theta-\pi/2) - f(\theta)$~\cite{Mari2021}, which holds only if $\theta$ enters a single rotation after transpilation (logged as \texttt{param\_expr}). The estimator is unscaled and unbiased, so $\mathbb{E}[\hat g^2] = \Var_\theta[g] + \mathbb{E}[\text{shot variance}]$, and rescaling would not improve distinguishability~\cite{AghaeiSaem2026}. The shot-noise variance of one gradient estimate is $[\sigma_0^2(\theta+\pi/2)+\sigma_0^2(\theta-\pi/2)]/(4N) \approx \sigma_0^2/(2N)$ with $\sigma_0^2 \leq 1$ the single-shot variance of $Z_iZ_j$ and $N$ the shots per shifted circuit~\cite{Mari2021}; we use the exact two-term form with the measured spreads. Floors: $1/(2\cdot4096) = 1.22\times10^{-4}$ and $1/(2\cdot16384) = 3.05\times10^{-5}$.
+
+\paragraph{Deviation 25 estimator (simulation regression).} The pre-registered regression check, $\Var = 2^{-n}$ for the one-layer chain with observable $Z^{\otimes n}$ inside a percentile-bootstrap interval, cannot be met at $n \geq 13$ at any affordable $M$ because the chain gradient $g = -\sin\theta_0\prod_{i>0}\cos\theta_i$ has kurtosis $(3/2)^n$. The amended check (Deviation 25) is (a-i) a per-draw closed-form identity $|g_{\mathrm{sim}} - g_{\mathrm{closed}}| < 10^{-10}$ at $n = 4..20$, (a-ii) bootstrap coverage at $n \leq 12$ with $M = 1000$, (a-iii) the sample variance inside the central 95\% of its exact null sampling distribution at $n = 13..20$ with $M = 300$, with a seed-2027 replicate rule. Status before data: (a-i) max $1.8\times10^{-14}$, (a-ii) 9/9, (a-iii) 8/8 with the replicate (Gate 1 report, Section 2). The Arrasmith et al.\ closed forms $(1/8)(3/8)^{n-1}$ and $1/(8n^2)$~\cite{Arrasmith2022} are the second regression reference.
+
+\subsection{Pre-registration, gates and review rule}\label{sec:gates}
+The pre-registration (v0.1 signed 19 September 2026; v0.9.9 the version at booking) fixes hypotheses H1--H7, the grid, the analysis plan and the kill rules before any allocation minute. Four gates are decided in order before the corresponding minutes are booked: Gate 1 (simulation: criteria (a)--(f) on the pre-drawn predictions), Gate 1b (pre-booking resolvability of the dial arm's ladder by Pauli propagation), the smoke test and Gate 2 (hardware: variance above the null-control floor at $n = 20$, budget, readout and reset error within $1.5\times$ of planning). An independent reviewer signs off the exact job list before every submission and audits the logged rows against the pre-registration before any fit is run. Every change after signature is a numbered Deviation with date, reason and approver (Appendix~\ref{app:deviations}); Deviations 14--31 were all recorded before any hardware datum, and Gate 1b clause (b) was amended three times before data (Deviations 28--30), a history we state plainly. Gate outcomes: \placeholder{Gate 1 verdict and date; Gate 1b; Gate 2 with the smoke-test numbers}.
+
+\subsection{Budget model and execution}\label{sec:budget}
+Locked QPU time per job is modelled (Deviation 24) as $T = 2\,\mathrm{s} + (\tau_{\mathrm{rep}} + L\times0.71\,\mu\mathrm{s} + t_{\mathrm{meas}} + 10\,\mu\mathrm{s}\,[+\text{dial durations}])\,N_{\mathrm{exec}}\,(3\text{ at resilience 2}) + [\text{resilience}\geq1]\,32\,\text{shots}\,n_{\mathrm{bases}}\,(\tau_{\mathrm{rep}} + t_{\mathrm{meas}} + 10\,\mu\mathrm{s})$, fitted on an \texttt{ibm\_marrakesh} pipeline check (21.1\,s predicted against 22\,s charged). At the booked $\tau_{\mathrm{rep}} = 1\,\mu$s the Paper 1 grid (about $2.85\times10^{8}$ executions, 188 jobs) is about 90\,min against a 200-minute line; the dial core is 57.8\,min against 65; the programme ledger is $200 + 65 + 45 + 50 = 360$ Flex minutes. Measured: \placeholder{locked time per point and per job from \texttt{qpu\_seconds}, against the model}. Execution used EstimatorV2 at resilience 0 and 1 on the full grid and 2 (linear ZNE from gains 1 and 3, $c = (3/2, -1/2)$, $\|c\|_1 = 2$) on the reduced grid; fractional gates disabled; the granted $\tau_{\mathrm{rep}}$ and \texttt{dynamic\_reprate\_enabled} logged per job.
+
+\subsection{Exclusion and layout rules}\label{sec:exclusion}
+Qubits are excluded if dead (qubit 17), in the high-error CZ cluster (55, 61, 62, 63, 72, 73 on the snapshot; the 19 September instance of the coupler cut), readout error $> 3\times10^{-2}$ on the day, $|ZZ| \geq 1$\,MHz to an excluded or dead qubit, or initialisation error $\geq 5\times10^{-4}$ (the last two from the raw backend properties, Deviation 22). Before every submission the runner re-checks the placed patch against the live properties (readout, CZ $< 5\times10^{-3}$ per coupler, initialisation, ZZ) and logs the verdict, any one-column patch shift and any override (never on the observable edge or its $L = 2$ cone) in \texttt{layout\_check} (Deviation 26). Run-day verdicts: \placeholder{count of pass/shift/override per job}.
+
+\subsection{Pre-drawn predictions}\label{sec:predictions}
+Classical baselines beside every hardware point: exact statevector or density-matrix simulation on the light cone up to 24 cone qubits with 32 noise trajectories; second-moment Pauli propagation at $L \geq 8$ and for the large-cone $L = 4$ points (Deviation 15); noisy models with the snapshot's per-edge CZ error, per-qubit 1Q error, $T_1$, $T_2$, readout confusion and (for the dial) the per-edge ZZ idle phase. The unital model sets the Bloch translation $t = 0$; the non-unital model carries thermal relaxation per CZ sub-layer. Pauli propagation runs two engines on one op program: a deterministic truncation by coefficient whose result is a rigorous lower bound $V_{\mathrm{trunc}} \leq V$, and an unbiased Pauli-path Monte Carlo with a standard error; the prediction is $V_{\mathrm{MC}} \pm 2\sigma$ and the Deviation 15 error is $\max(2\sigma, V_{\mathrm{MC}} - V_{\mathrm{trunc}})$ (Appendix~\ref{app:pauliprop}). Validation: 46 of 48 rows inside the 95\% interval of exact $M = 200$ estimates, the two misses within 5\% of the interval width. Pre-drawn values are quoted from \texttt{data/predictions/} at the commit recorded in Table~\ref{tab:provenance}.
+
+\subsection{Non-unital arm: reset dial}\label{sec:dial}
+A reset applied with probability $p$ to each qubit after each layer, averaged over the reset lottery, is the mixture channel $\Np(\rho) = (1-p)\rho + p|0\rangle\langle0|$: Bloch form $r \mapsto Dr + t$ with $D = (1-p)\mathbb{1}$, $t = (0, 0, p)$, contraction parameter $c = (\|D\|_F^2 + \|t\|^2)/3 = (1-p)^2 + p^2/3$ (0.583 at $p = 0.25$, 0.333 at $p = 0.5$). A fresh mask is drawn per layer and per circuit, the observable's qubits in the lottery like every other qubit; $K = 256$ masks $\times$ 16 shots per (draw, shift) (Deviation 27); estimator $\Cmix(\theta) = K^{-1}\sum_i C_{\mathrm{mask}\,i}(\theta)$, whose expectation is the cost of the circuit with $\Np$ after every layer. Floors: shot floor $1/(2\cdot4096)$ on the gradient and $1/4096$ on $\Var[\Cmix]$; pattern-noise floor $\Var_{\mathrm{mask}}[C]/(2K)$ and $\Var_{\mathrm{mask}}[C]/K$, estimated per draw from the 256 per-mask means minus their per-mask shot variance, uncertainty propagated by bootstrap over masks within draws. The proven Corollary 6 floor (Mele et al.~\cite{Mele2026}, corrected by Deviation 21) is $(\|t\|_2^2/3)^{|P|} = p^4/9$ for $|P| = 2$: $4.3\times10^{-4}$ at $p = 0.25$ and $6.9\times10^{-3}$ at $p = 0.5$; it carries the constants of a 2-design ensemble, which Ry/CZ is not~\cite{Uvarov2021}, so it is drawn as a reference line and is not a refutation threshold. Matched controls at $n = 60$, $L = 8$: delay-matched $p = 0$ (every reset replaced by \texttt{delay(400\,ns)}) and a unital dephasing dial ($Z$ with probability $p/2$ per qubit per layer, $t = 0$). Truncation arm at $p = 0.5$: the full circuit and the circuit with its first $L - \ell$ layers deleted, $\ell \in \{2, 4\}$, on shared $\theta$ and masks. Kill rules (a)--(d) of Section 3b apply. Characterisation: \placeholder{reset error per dial qubit, X-basis residual, transpiled measure count, rotation-survival pass count}. The same channel lies inside the HS-contractive class of Singkanipa and Lidar~\cite{Singkanipa2025} and inside the noise class of Angrisani et al.~\cite{Angrisani2026}; that is the point of the arm, not a caveat to it.
+
+\section{Pre-registered analysis}\label{sec:prereg}
+The text of this section restates the hypotheses and refutation conditions of pre-registration v0.9.9 Sections 1 and 3b; wording changes from the signed v0.1 are Deviations 14, 16, 20 and 21 (Appendix~\ref{app:deviations}).
+
+\subsection{Estimands and fits}
+Variance of the gradient across the $M$ draws with a 95\% bootstrap interval (10\,000 resamples); the shot-noise contribution subtracted and reported separately. Fits: exponential in $L$ at fixed $n$; exponential in $n$ at fixed $L$; exponential in $L - k$ for the layer-index sweep; a power law fitted alongside each exponential and the better model reported by AIC. The sample mean of $\partial C$ over draws is a null test (exactly zero for uniform draws under $\theta$-independent noise~\cite{Arrasmith2022}). $\Var[C]$ and $\Var[C(\theta_+) - C(\theta_-)]$ are secondary estimands beside $\Var[\partial C]$; the equivalence between plateaus and cost concentration holds up to a factor $m^2L^2$~\cite{Arrasmith2022}, so this classifies exponential against polynomial without giving the exponent. The resolvability ratio $\eN = \Var_{\mathrm{shot}}/(N\Var_\theta)$~\cite{AghaeiSaem2026} is required below 1 for any point to be claimed. The distribution of $\partial C$ (max $|\partial C|$, kurtosis) is reported per point. All plots log scale with the null-control floor and the analytic shot floor on every panel.
+
+\subsection{H1: noiseless structure}
+For $Z_iZ_j$ on the square lattice the noiseless gradient variance is independent of $n$ at fixed $L$ while the patch contains the cone, so exactly $n$-independent at $L = 1, 2$ on every rung; the Uvarov--Biamonte lower bound $3^{-|C|}$ holds for 2-design blocks, which Ry/CZ blocks are not~\cite{Uvarov2021}; on a 2D lattice it is polynomial in $n$ only for $L$ of order $\sqrt{\log n}$~\cite{Cerezo2021}. Once the cone covers the patch and the circuit approaches a 2-design the variance decays exponentially in $n$. \emph{Refuted if} the noiseless simulation at $L = 4$ on patches of at least $7\times7$ shows a variance changing by more than a factor of 2 between $n = 80$ and $n = 100$ outside the bootstrap interval, or if the $L = 12$ curve does not fit an exponential in $n$ better than a power law. The $L = 1, 2$ comparisons are a pipeline check only.
+
+\subsection{H2: noise, Pauli type}
+Under local Pauli gate noise the measured variance decays exponentially with $L$ at fixed $n$ for every $k$. The Wang et al.\ bound~\cite{Wang2021} is about 23 at $n = 100$, $q = 1 - 2\times10^{-3}$ for every $L \leq 12$ and is uninformative here; the tighter analytic reference is Proposition 10 of Mele et al.~\cite{Mele2026}; the quantitative curve is our unital simulation ($t = 0$) with the global-depolarising sanity model $\Var \propto p^{2L}$ drawn beside it~\cite{KimOz2022}. \emph{Refuted if} the variance at fixed $n$ does not fall with $L$ once the shot floor is subtracted, or the $k = L$ points at $L = 8$ and $L = 12$ sit at the same level within their intervals.
+
+\subsection{H3: noise, non-unital (consistency check, Deviation 16)}
+Under local non-unital noise after every layer, on average over local 2-design circuits, $\Var[\partial_k C] = \exp(-\Theta(L-k))$ (Theorem 8) and the local cost variance is $\Theta(1)$ with floor $(\|t\|_2^2/3)^{|P|}$ (Corollary 6)~\cite{Mele2026}; on \texttt{ibm\_phoenix} $\|t\|_2 \approx 1.7\times10^{-3}$ and the floor is about $10^{-12}$, below any shot floor. Statistic (Deviation 14): $R_m = [\Var_m(k{=}L)/\Var_m(k{=}1)]/[\text{same, noiseless}]$ on shared draws, $D = R_{\mathrm{nonunital}} - R_{\mathrm{unital}}$. \emph{Refuted if} at fixed $L \in \{8, 12\}$ the noiseless-corrected ratio does not exceed the unital-only prediction by more than the bootstrap interval; since Deviation 16 the prediction is $D = 0$ within the interval and H3 is a consistency check.
+
+\subsection{H4: mitigation}
+Readout mitigation (level 1) rescales landscape and shot variance alike, about $(1 - 2p_{\mathrm{ro}})^{-4} \approx 1.07$, and leaves their ratio unchanged~\cite{AghaeiSaem2026}. ZNE (level 2) with coefficients $c$ inflates the gradient's shot variance by $\|c\|_1^2 = 4$ at equal shots per circuit~\cite{Banchi2026}; worst-case bounds~\cite{Quek2024} do not apply to a shallow local circuit; inflation is predicted to grow with the cone's gate count~\cite{Quek2024,Kim2023}. Fallback: if the gain-3 expectation value is within two standard errors of zero the point is reported unmitigated and flagged; the extrapolator is never switched per point. \emph{Refuted if} level 1 shifts the landscape-to-shot variance ratio by more than its bootstrap interval at any main-grid point, or the level-2 inflation at $n = 40, 100$ and $L = 2, 8$ differs from 4 by more than its interval, or does not grow with cone size from $L = 2$ to $L = 8$.
+
+\subsection{H5--H7: the reset dial}
+\textbf{H5.} $\Var_\theta[\Cmix]$ at $n = 60$ follows the pre-drawn second-moment curve at each $p$: nearly $L$-independent between $L = 8$ and 12 and above $p^4/9$ after floor subtraction. \emph{Refuted if} the paired-bootstrap interval of $\Var[\Cmix](L{=}12)/\Var[\Cmix](L{=}8)$ misses the pre-drawn ratio by more than the combined bootstrap-plus-truncation interval at either $p$, or the floor-subtracted value misses the pre-drawn value at either $L$ and $p$. A value below $p^4/9$ with the curve matched is a finding about the ansatz, not a refutation.
+\textbf{H6.} At $p \in \{0.25, 0.5\}$ the $k = L$ gradient variance follows its pre-drawn near-flat curve in $L$ and in $n$ ($n = 40, 60, 100$ at $p = 0.25$) while $k = 1$ decays with $L - k$; the unital references (delay-matched $p = 0$, dephasing dial) fall. \emph{Refuted if} the $L = 12/8$ ratio at $k = L$ misses the pre-drawn ratio at either $p$, or the ladder ratio $\Var(n{=}100)/\Var(n{=}40)$ at $p = 0.25$ misses its pre-drawn value, or the reset dial's $k = L$ variance at $n = 60$, $L = 8$ does not exceed the dephasing dial's by the pre-drawn factor, or the $k = 1$ series does not fall with $L$. A flat unital reference on the day makes the ladder comparison inconclusive rather than refuting.
+\textbf{H7.} At $p = 0.5$, $n = 60$, $L = 8$ the RMS over draws of $\Cmix - \Cmix[L-\ell, L]$ falls with $\ell$ as $c^{\ell/2}\,\mathrm{std}_\theta(\Cmix)$ up to an order-one constant from the pre-drawn curve; $\ell = 2$ is resolved at $2.5\sigma$ at the bound, $\ell = 4$ is an upper-bound point unless the measured $\mathrm{std}(\Cmix) > 0.1$. \emph{Refuted if} the $\ell = 2$ RMS misses the pre-drawn prediction by more than the combined interval, or, when $\mathrm{std}(\Cmix) > 0.1$, the $\ell = 4$ RMS is not below the $\ell = 2$ RMS by more than the paired interval.
+
+\subsection{Kill rules and anomaly protocol}
+Gate 2 pause rule: failing any Gate 2 criterion pauses the campaign until the cause is logged and the PI signs a Deviation. Dial kill rule: the arm is not run if the measured reset error exceeds $2\times10^{-2}$ on any dial-patch qubit that cannot be swapped, locked time exceeds 5\,min per gradient point, the transpiler maps reset to measure-plus-conditional-$X$, or the Estimator refuses a mid-circuit reset at the grid's resilience level. Anomalies (Deviation 19): a single point $> 3\sigma$ from its Gate 1 prediction or a same-sign monotone deviation over three adjacent points; confirmation requires re-measurement on another day and patch and failure of the calibrated simulations to reproduce it; unreplicated anomalies are labelled exploratory.
+
+\section{Results}\label{sec:results}
+All tables are keyed to the job-list point identifier (\texttt{patch}, $n$, \texttt{edge}, $L$, $k$, resilience, shots, $M$), the fields of \texttt{points[]} in \texttt{data/joblists/}; job tags follow \texttt{L\{resilience\}}. No value in this section exists yet.
+
+\begin{table}[t]
+\caption{Provenance. \label{tab:provenance}}
+\begin{ruledtabular}
+\begin{tabular}{ll}
+Pre-registration version at booking & v0.9.9 (Deviations 14--31) \\
+Predictions commit (\texttt{data/predictions/}) & \placeholder{sha} \\
+Hardware job lists and pre-flight review links & \placeholder{list} \\
+Hardware days and calibration snapshots & \placeholder{dates, files} \\
+Post-run review record & \placeholder{link} \\
+Analysis code commit & \placeholder{sha} \\
+\end{tabular}
+\end{ruledtabular}
+\end{table}
+
+\subsection{Main grid: variance versus $n$ and $L$}
+\begin{table*}[t]
+\caption{Main grid, $k = 1$, resilience 0 and 1. One row per job-list point. Floors: analytic two-term shot floor from the measured spreads; null-control floor from control (a). Predictions from \texttt{gate1\_predictions.csv} and \texttt{pauliprop\_predictions.csv} (Deviation 15 status shown). \label{tab:maingrid}}
+\begin{ruledtabular}
+\begin{tabular}{llllllllllll}
+patch & $n$ & edge & $L$ & res. & $M$ & $\Var[\partial C]$ [95\% CI] & shot floor & null floor & $\eN$ & pred.\ noiseless / unital / non-unital & Dev.\ 15 \\
+\hline
+4x5 & 20 & 93\_103 & 1 & 0 & 200 & \placeholder{} & \placeholder{} & \placeholder{} & \placeholder{} & 2.421e-1 / 2.252e-1 / 2.260e-1 & exact \\
+4x5 & 20 & 93\_103 & 2 & 0 & 200 & \placeholder{} & \placeholder{} & \placeholder{} & \placeholder{} & 8.268e-2 / 7.269e-2 / 7.246e-2 & exact \\
+4x5 & 20 & 93\_103 & 4 & 0 & 200 & \placeholder{} & \placeholder{} & \placeholder{} & \placeholder{} & 1.322e-2 / \tbd{} / \tbd{} & exact / deferred \\
+4x5 & 20 & 93\_103 & 8 & 0 & 200 & \placeholder{} & \placeholder{} & \placeholder{} & \placeholder{} & 3.160e-4 / 2.014e-4 / 2.156e-4 & converged \\
+4x5 & 20 & 93\_103 & 12 & 0 & 200 & \placeholder{} & \placeholder{} & \placeholder{} & \placeholder{} & 1.428e-5 / 6.729e-6 / 5.240e-6 & hardware-only \\
+\multicolumn{12}{l}{\tbd{rows for $n = 39, 53, 70, 87$ at $L = 1, 2, 4, 8, 12$ and resilience 1, generated from the job lists; predictions copied from the CSVs at the provenance commit}} \\
+\end{tabular}
+\end{ruledtabular}
+\end{table*}
+
+\begin{figure}[t]
+\figstub{figures/variance\_vs\_n\_per\_L.pdf}{$\Var[\partial C]$ against $n$, one panel per $L$; hardware (resilience 0 and 1), noiseless, unital and non-unital predictions with truncation bands; shot floor and null-control floor on every panel; log scale.}
+\caption{Gradient variance against qubit count at fixed depth. \placeholder{caption from data}}\label{fig:var_n}
+\end{figure}
+
+\begin{figure}[t]
+\figstub{figures/variance\_vs\_L\_per\_n.pdf}{$\Var[\partial C]$ against $L$, one panel per $n$; exponential and power-law fits with AIC; $\Var \propto p^{2L}$ sanity line; floors.}
+\caption{Gradient variance against depth at fixed qubit count. \placeholder{caption from data}}\label{fig:var_L}
+\end{figure}
+
+\subsection{Layer-index sweep}
+\begin{table}[t]
+\caption{Layer-index sweep at $L \in \{8, 12\}$, $n \in \{40, 100\}$ nominal, $k \in \{1, L/2, L-1, L\}$, resilience 1. $R_m$ per Deviation 14; $D$ with paired-bootstrap interval. Pre-drawn point estimates of $D$ at $L = 8$ are $|D| \leq 0.02$ with independent $2\sigma$ 0.06--0.09 (Gate 1 report, Section 6.3). \label{tab:layer}}
+\begin{ruledtabular}
+\begin{tabular}{lllllll}
+$n$ & $L$ & $k$ & $\Var[\partial C]$ [CI] & noiseless pred. & $R_{\mathrm{hardware}}$ [CI] & $D$ [CI] \\
+\hline
+\multicolumn{7}{l}{\placeholder{16 rows}} \\
+\end{tabular}
+\end{ruledtabular}
+\end{table}
+
+\subsection{Controls and mitigation}
+Null control (a): \placeholder{$\Var_{\mathrm{null}}$ per $n$ against $1/(2N)$; pre-drawn ratios 0.66--0.85}. Rotation-survival identity: \placeholder{pass count over 5 draws per point}. Mean null test: \placeholder{points with $|\bar{g}| > 2$\,s.e.}. Day-2 repeat of the $n = 40$ ladder: \placeholder{drift table}. Level 1 ratio shift: \placeholder{}. Level 2 inflation at $(n, L) \in \{40, 100\}\times\{2, 8\}$: \placeholder{measured factor against 4, against cone gate count}.
+
+\subsection{Reset dial}
+\begin{table*}[t]
+\caption{Dial arm. Pre-drawn values from \texttt{pauliprop\_predictions.csv} (\texttt{stage = dial}, \texttt{gate1b}) at the $6\times10$ patch, provisional until the ZZ idle phase is in the model (Deviation 30 correction). Floors: shot, pattern ($K = 256$), combined. \label{tab:dial}}
+\begin{ruledtabular}
+\begin{tabular}{lllllllll}
+arm & $p$ & $n$ & $L$ & $k$ & measured $\Var$ [CI] & floors (shot / pattern) & pre-drawn $\pm$ error & $\Var[\Cmix]$ meas.\ / pre-drawn \\
+\hline
+dial & 0.25 & 53 & 8 & 8 & \placeholder{} & 1.22e-4 / 2.81e-4 & 1.993e-3 $\pm$ 2.6e-5 & \placeholder{} / 3.563e-3 \\
+dial & 0.25 & 53 & 12 & 12 & \placeholder{} & 1.22e-4 / 2.81e-4 & 1.989e-3 $\pm$ 2.6e-5 & \placeholder{} / 3.557e-3 \\
+dial & 0.5 & 53 & 8 & 8 & \placeholder{} & 1.22e-4 / 6.71e-4 & 9.515e-3 $\pm$ 3.6e-5 & \placeholder{} / 1.821e-2 \\
+dial & 0.5 & 53 & 12 & 12 & \placeholder{} & 1.22e-4 / 6.71e-4 & 9.515e-3 $\pm$ 3.6e-5 & \placeholder{} / 1.821e-2 \\
+delay-matched & 0 & 53 & 8 & 8 & \placeholder{} & 1.22e-4 / -- & 2.821e-4 $\pm$ 7.7e-6 & \placeholder{} / 2.843e-4 \\
+delay-matched & 0 & 53 & 12 & 12 & \placeholder{} & 1.22e-4 / -- & 6.404e-6 $\pm$ 1.0e-6 & \placeholder{} / 6.822e-6 \\
+dephasing & 0.5 & 53 & 8 & 8 & \placeholder{} & 1.22e-4 / -- & 1.705e-5 $\pm$ 2.1e-6 & \placeholder{} / 1.836e-5 \\
+ladder & 0.25 & 39 & 8 & 8 & \placeholder{} & 1.22e-4 / 2.88e-4 & 2.094e-3 $\pm$ 2.7e-5 & \placeholder{} / \tbd{} \\
+ladder & 0.25 & 87 & 8 & 8 & \placeholder{} & 1.22e-4 / 2.83e-4 & 2.028e-3 $\pm$ 2.6e-5 & \placeholder{} / \tbd{} \\
+\multicolumn{9}{l}{\tbd{$k = 1$ contingent points, $p = 0$ ladder references at $M = 350$ (n = 39/53/87, $L = 8$ and 12), truncation arm $\ell = 2, 4$}} \\
+\end{tabular}
+\end{ruledtabular}
+\end{table*}
+
+\begin{figure}[t]
+\figstub{figures/dial\_variance\_vs\_p.pdf}{$k = L$ gradient variance and $\Var[\Cmix]$ against $p \in \{0, 0.25, 0.5\}$ at $n = 60$, $L = 8$ and 12, with the delay-matched and dephasing controls, the pre-drawn second-moment curves with truncation bands, the $p^4/9$ reference line, and the shot and pattern floors.}
+\caption{Reset dial. \placeholder{caption from data}}\label{fig:dial}
+\end{figure}
+
+\begin{figure}[t]
+\figstub{figures/prediction\_vs\_measured.pdf}{Measured against pre-drawn variance for every point of the grid, the sweep and the dial, coloured by model; identity line; Deviation 15 hardware-only points open symbols; anomalies (Deviation 19) marked.}
+\caption{Prediction against measurement. \placeholder{caption from data}}\label{fig:pred_meas}
+\end{figure}
+
+Truncation arm (H7): \placeholder{RMS at $\ell = 2, 4$ after residual-pattern subtraction, against $c^{\ell/2}\,\mathrm{std}(\Cmix)$}. Fitted exponent $\alpha(p)$ at $p \in \{0.25, 0.5\}$ against $\log(1/c(p))$: \placeholder{}. Free pipeline check $\mathbb{E}_\theta[\Cmix] = p^2$ folded through readout (0.066 and 0.252 predicted at the $6\times10$ patch): \placeholder{}.
+
+\subsection{Anomalies and exploratory points}
+\placeholder{List under Deviation 19: point, deviation in $\sigma$, replication attempt, simulation reproduction; or ``none''.} Points designated hardware-only (Deviation 15) or inconclusive (Gate 1b branch) are labelled in every table.
+
+\section{Discussion}\label{sec:discussion}
+The pre-registration permits pre-written interpretation for each outcome branch; the paragraphs below were drafted before data and only the branch that occurred is kept at submission, the others moved to the Supplement with a note.
+
+\paragraph{H1 and H2 pass.} \tbd{Branch text.} The depth curve is set by unital gate noise at the snapshot error rates, as the calibrated simulation predicted; the $n$ dependence at $L \leq 4$ is geometric (cone versus patch) and at $L \geq 8$ the truncated cone and broken couplers, not concentration in $n$, dominate. The measurement then adds to the literature a hardware variance curve with intervals against a curve pre-drawn from calibration, and nothing about trainability beyond what the simulation already implied.
+
+\paragraph{H2 fails (variance does not fall with $L$ above the floor).} \tbd{Branch text.} Either the hardware floor exceeds the analytic floor by more than the criterion (d) allowance (checked against the null control), or the noise model misses a channel; the Deviation 19 protocol applies before any claim, and the result is reported as a discrepancy between hardware and the calibrated model, not as evidence against the theorems, which concern ensembles the ansatz does not realise.
+
+\paragraph{H3 consistency.} $D = 0$ within the interval is the prediction; a paired interval excluding zero at native noise would be an anomaly under Deviation 19 and would need replication before interpretation.
+
+\paragraph{H5--H6 pass.} \tbd{Branch text.} A controlled non-unital channel raises the cost-variance floor and the late-layer gradient variance while the early-layer gradient collapses: trainability of the last layers and classical simulability rise together, and average-case simulability of this noise class is proven~\cite{Angrisani2026}. Simulability is the conclusion of this section, not a caveat. A residual between hardware and the truncated classical baseline is a noise-model or truncation discrepancy, not evidence of hardness.
+
+\paragraph{H5--H6 fail or inconclusive.} \tbd{Branch text.} If the delay-matched reference is flat on the day, the ladder comparison is inconclusive and is reported as such; if the $k = L$ series falls where the pre-drawn curve is flat, the candidates are an unmodelled channel (ZZ idle phase, idle-branch $T_1$), a reset that does not realise $\Np$ (Paper 2, Q4), or a pattern-noise estimate in error; the order in which these are checked is fixed here.
+
+\paragraph{H7.} \tbd{Branch text for resolved / upper-bound $\ell = 4$.}
+
+\paragraph{H4.} \tbd{Branch text: level-1 ratio unchanged as algebra predicts; level-2 inflation against $\|c\|_1^2 = 4$ and cone size; this is the first average-case hardware test of a worst-case bound, framed as such~\cite{Larocca2025,Quek2024}.}
+
+\paragraph{Limits.} One differentiated parameter per point; loss-first diagnosis is served by $\Var[C]$~\cite{Larocca2025,Arrasmith2022}. Two values of $p$ do not test monotonicity of $\alpha(p)$ in $\log(1/c)$. Ry/CZ is not a local 2-design, so no constant of the theorems is tested, only functional forms against ansatz-specific second-moment curves. Gate 1b clause (b) was amended three times before data. The $L = 12$ rung is below the 4096-shot floor in every prediction; its treatment is \placeholder{Gate 2 decision}.
+
+\section*{Data availability}
+Repository: \url{https://github.com/SSIT-Q/gradvar-phoenix} (Apache 2.0): code, job lists with pre-flight review links, one metadata bundle per job (job metadata, usage, full result, options, backend calibration and target snapshot, transpiled circuits), the calibration snapshots in \texttt{data/calibrations/}, the predictions in \texttt{data/predictions/}, the pre-registration with its Deviations table, and the review notes. Zenodo DOI: \tbd{minted at submission}. The IBM API key is read only from repository secrets and never appears in the repository.
+
+\section*{Author contributions}
+\tbd{Name}: design, code, runs, analysis, first draft. \tbd{Name}: PI, supervision, arXiv endorsement. \tbd{Name or acknowledgement}: theory comparison, review of the analysis plan. Independent code and pre-flight reviews: \tbd{as recorded in the repository}.
+
+\section*{Acknowledgements}
+\tbd{Internal referee (anonymity honoured); IBM Quantum Flex plan; college.}
+
+\appendix
+
+\section{Deviations from the signed pre-registration}\label{app:deviations}
+Table~\ref{tab:deviations} is generated from \texttt{docs/manuscripts/deviations.yaml} by \texttt{scripts/build\_deviations\_table.py}; rows 1--13 of the pre-registration (citation corrections between v0.1 and v0.2) are summarised in the pre-registration itself. \tbd{Any Deviation recorded after v0.9.9 is appended to the YAML, never to this file.}
+\input{deviations_table}
+
+\section{Second-moment Pauli propagation}\label{app:pauliprop}
+Summary of \texttt{docs/PAULIPROP.md}; the full derivation is the theory companion's first task. Back-propagating $O = Z_iZ_j$ (readout-folded) through the transpiled circuit ($R_y(\theta) = R_z\,\sqrt{X}\,R_z(\pi+\theta)\,\sqrt{X}\,R_z$ in the $\{R_z, \sqrt{X}, X, \mathrm{CZ}\}$ basis, calibration error after every $\sqrt{X}$ and CZ) writes $\langle O\rangle(\theta) = \sum_{\mathrm{paths}} c_{\mathrm{path}}(\theta)$ with $c_{\mathrm{path}} = \mathrm{const}\times\prod_g f_g(\theta_g)$, $f_g \in \{1, \cos, \sin\}$ per rotation. For uniform angles $\mathbb{E}[\cos] = \mathbb{E}[\sin] = \mathbb{E}[\cos\sin] = 0$ and $\mathbb{E}[\cos^2] = \mathbb{E}[\sin^2] = 1/2$; two distinct paths differ in factor type at some gate and have zero covariance, so
+\[
+\mathbb{E}[\langle O\rangle^2] = \sum_{\mathrm{paths}} 2^{-\#\mathrm{branchings}}\,(\text{noise factors})^2\,[P_{\mathrm{final}} \in \{I, Z\}^{\otimes n}],
+\]
+and the derivative keeps only paths whose Pauli fails to commute with the generator at gate $(k, q)$, with weight $1/2$; $\mathbb{E}[\partial\langle O\rangle] = 0$. The second moment is therefore a positive linear map on weights over Pauli strings: rotation about axis $A$ sends $P \notin \{I, A\}$ to $1/2$ on each of the two other non-identity Paulis; Cliffords permute; a single-qubit channel $r \mapsto Dr + t$ with diagonal $D$ sends $P_a \mapsto D_a^2 P_a$ and $t_a^2$ to $I$; a Pauli channel multiplies non-identity strings by $(1-\lambda)^2$. The only $\theta$-independent segment is the prefix before the first rotation (the last layer's CZ-block noise and, for the dial, the last $\Np$), propagated at the coefficient level with signs and squared afterwards. Channel rules: unital = depolarising factors $(1 - 2\epsilon)$ per $\sqrt X$ and $(1 - 4\epsilon/3)$ per CZ; non-unital = thermal relaxation $D = (e^{-t/T_2}, e^{-t/T_2}, e^{-t/T_1})$, $t_z = 1 - e^{-t/T_1}$; reset dial $D = (1-p)(e^{-400/T_2}, e^{-400/T_2}, 1)$, $t_z = p$; dephasing dial $t = 0$. Two engines: deterministic truncation by coefficient (rigorous lower bound; the discarded mass is a diagnostic, not an error bound) and unbiased Pauli-path Monte Carlo ($N = 2\times10^6$ paths). Pattern-noise floor: $\mathbb{E}_\theta\Var_{\mathrm{mask}}[C] = \mathbb{E}_{\mathrm{mask},\theta}[C_{\mathrm{mask}}^2] - \mathbb{E}_\theta[\Cmix^2]$ by a sampled propagation with a fresh reset mask per path and layer. Known gaps: two $Z \to I$ relaxation branches separated by a CZ are treated as distinct paths (relative $< 10^{-3}$, positive); the ZZ idle phase and idle-branch $T_1$ of the dial were \tbd{added before Gate 2 / recorded as a Deviation}.
+
+\section{Job-list identifiers and logging schema}\label{app:schema}
+One row per executed circuit pair with the fields of pre-registration Section 7: \texttt{backend, job\_id, timestamp, calib\_file, n, patch\_qubits, obs\_edge, L, k, arm, p, K, mask\_seed, reset\_dur\_ns, mask\_means, mask\_se, resilience, rep\_delay, dynamic\_reprate\_enabled, layout\_check, shots, seed, theta\_hash, param\_expr, exp\_plus, exp\_minus, exp\_zero, se\_plus, se\_minus, se\_zero, zne\_gains, noise\_model\_id, gradient, depth\_t, cz\_count, fractional, notes}.
+
+\bibliography{references}
+
+\end{document}
