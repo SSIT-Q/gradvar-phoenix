@@ -1,6 +1,7 @@
 """Bring the Pauli-propagation predictions (data/predictions/pauliprop_predictions.csv) into the Gate 1 summary.
 
-`load_pp_results` turns every Deviation 15 row (stage 'dev15', models noiseless / unital / nonunital) into two
+`load_pp_results` turns every Deviation 15 row (stage 'dev15', models noiseless / unital / nonunital; L = 8 / 12 and the
+deferred L = 4 / L = 2 groups) into two
 `predict.PointResult`s (k = 1 and k = L) with the sampled value as `var`, the one-sided interval
 [V_trunc, V_MC + 2 sigma] as (ci_lo, ci_hi), M = 0 (no parameter draws: the criterion (b) bound is not tested on these
 rows), method 'pauli_propagation' and no gradient arrays (so the paired layer-index bootstrap skips them; the
@@ -27,6 +28,8 @@ PP_JSON = ROOT / "data" / "predictions" / "pauliprop_summary.json"
 def _rows(csv_path=PP_CSV) -> pd.DataFrame:
     df = pd.read_csv(csv_path)
     df = df[(df.stage == "dev15") & df.model.isin(MODEL_NAMES) & (df.status != "pending") & df.var_k1_mc.notna()]
+    if "zz_idle" in df:      # the Deviation 15 rows carry no dial layer; the flag is 'off' on all of them
+        df = df[df.zz_idle.fillna("off") == "off"]
     return df.copy()
 
 

@@ -1,0 +1,181 @@
+# Deviations recorded in the two pre-registrations, one row per Deviation.
+# Source: Paper 1 pre-registration v0.11.1 Section 9 (rows 14-42) and Paper 2 pre-registration v0.4.3 Section 8 (rows 1-5).
+# Rendered by scripts/build_deviations_table.py into paper1/deviations_table.tex and paper2/deviations_table.tex.
+# Every row carries: number, date adopted, short title, one-line content, approval status as recorded in the pre-registration.
+# Rows are copied from the pre-registration; do not edit numbers or wording here without a matching Deviation there.
+paper1:
+  source: 'preregistration_q1.html v0.11.1 (19-20 Sep 2026), Section 9'
+  rows:
+    - number: 14
+      date: 2026-09-19
+      title: 'H3 test statistic'
+      content: 'The dimensionally inconsistent ratio-versus-variance comparison is replaced by the noiseless-corrected layer-index ratio $R_m = [\mathrm{Var}_m(k{=}L)/\mathrm{Var}_m(k{=}1)] / [\text{same, noiseless}]$ on shared draws; H3 supported if the paired-bootstrap 95% interval of $R_{\mathrm{hardware}}/R_{\mathrm{unital}}$ excludes 1 in the Mele direction.'
+      approval: 'Approved: Dr. Raviram V, 19 Sep 2026'
+    - number: 15
+      date: 2026-09-19
+      title: 'Gate 1 predictions at n = 40 and 100 for L = 8 and 12'
+      content: 'Exact noisy simulation infeasible at those points; predictions come from truncated Pauli propagation with a reported truncation error; a point whose error exceeds half the unital-vs-noiseless separation is hardware-only and its result exploratory.'
+      approval: 'Approved: Dr. Raviram V, 19 Sep 2026'
+    - number: 16
+      date: 2026-09-19
+      title: 'H3 reclassified'
+      content: 'At native damping ($\|t\| \approx 2\times10^{-3}$ per layer) the predicted $|D| \lesssim 10^{-2}$ is unresolvable against ~0.3 measurement uncertainty at M = 200; H3 becomes a consistency check with prediction D = 0; the layer-index sweep is retained as a check of the unital k-dependence (H2).'
+      approval: 'Approved: Dr. Raviram V, 19 Sep 2026'
+    - number: 17
+      date: 2026-09-19
+      title: 'Gate 1 criterion (b) bound'
+      content: 'Bootstrap hi/lo bound made depth-dependent for heavy-tailed gradients (kurtosis 2.3 / 4.2 / 8.4 at $L = 1 / 2 / 4$): $< 1.5$ at $L = 1$, $< 2.0$ at $L = 2$, $< 2.5$ at $L \geq 4$ with $M = 200$; M raised to 400 (L = 2) and 700 (L >= 4) where shots allow, with the original 1.5 bound.'
+      approval: 'Approved: Dr. Raviram V, 19 Sep 2026'
+    - number: 18
+      date: 2026-09-19
+      title: 'Ladder qubit counts'
+      content: 'Readout cut excludes qubit 107, so the 4x10 point is n = 39; ladder recorded as 20 / 39 / 56 / 71 / 90 on the 19 Sep snapshot, re-derived on the run day; recorded 20 Sep under Deviations 22 and 26 as 20 / 39 / 53 / 70 / 87 (6x10 at origin (6,0), 8x10 at (4,0), 10x10 at (2,0); edges 84_85, 84_85, 75_85).'
+      approval: 'Approved 19 Sep; recount countersigned Dr. Raviram V, 20 Sep 2026'
+    - number: 19
+      date: 2026-09-19
+      title: 'Anomaly protocol'
+      content: 'An anomaly is a $> 3\sigma$ single-point deviation from its Gate 1 prediction or a same-sign monotone deviation over three adjacent points; confirmation needs re-measurement on another day and patch ($\leq 20$ reserve minutes) and failure of the calibrated simulations to reproduce it; unreplicated anomalies are reported as exploratory.'
+      approval: 'Approved: Dr. Raviram V, 19 Sep 2026'
+    - number: 20
+      date: 2026-09-19
+      title: 'Non-unital arm added (hybrid plan)'
+      content: 'Section 3b added: a controlled reset dial realising $N_p(\rho) = (1-p)\rho + p\,|0\rangle\langle 0|$ through the native 400 ns reset with fresh random masks per layer and circuit, estimator $C_{\mathrm{mix}}$, hypotheses H5-H7 as second-moment predictions for this ansatz, Gate 1b, matched controls, truncation arm, kill criteria; simulability stated as the conclusion.'
+      approval: 'Approved: Dr. Raviram V, 19 Sep 2026'
+    - number: 21
+      date: 2026-09-19
+      title: 'Corollary 6 floor corrected to $p^4/9$'
+      content: 'The Mele et al. cost-variance lower bound is $(\|t\|_2^2/3)^{|P|} = p^4/9$ for $|P| = 2$ (4.3e-4 at p = 0.25, 6.9e-3 at p = 0.5), not $(1/3)\|t\|_2^{2|P|}$; H5 refutes against the pre-drawn ansatz curve with the 2-design bound as a reference line; H7 bounds and the Section 3b review items updated.'
+      approval: 'Adopted under delegated authority; countersigned Dr. Raviram V, 20 Sep 2026'
+    - number: 22
+      date: 2026-09-20
+      title: 'Exclusion list extended from raw properties'
+      content: 'Exclusion rule gains $|ZZ| \geq 1$ MHz to an excluded or dead qubit and initialisation error $\geq 5\times10^{-4}$, both from the raw backend properties; on the 19 Sep snapshot this excludes 18, 27 (ZZ) and 8, 11, 22, 59 (init error); per-edge ZZ values enter the idle-phase simulation model.'
+      approval: 'Adopted under delegated authority; countersigned Dr. Raviram V, 20 Sep 2026'
+    - number: 23
+      date: 2026-09-20
+      title: 'Repetition-delay feasibility gate'
+      content: 'Gate 2 gains a rep_delay criterion: default_rep_delay, rep_delay_range and dynamic_reprate_enabled read from backend.configuration(); grid booked at a named floor (1 us or the smallest bias-free value on the smoke-test ladder); pre-registered cut order if the grid exceeds 200 min; ibm_phoenix default measured at 1.0 us on 20 Sep 2026.'
+      approval: 'Adopted under delegated authority; countersigned Dr. Raviram V, 20 Sep 2026'
+    - number: 24
+      date: 2026-09-20
+      title: 'Budget model corrected from the Marrakesh pipeline check'
+      content: 'Per-job model $T = 2\,\mathrm{s} + (\tau_{\mathrm{rep}} + L\times0.71\,\mu\mathrm{s} + t_{\mathrm{meas}} + 10\,\mu\mathrm{s}\,[+\text{dial}])\,N_{\mathrm{exec}}\,(3\text{ at resilience 2}) + [\text{resilience}\geq1]\,32\,\text{shots}\,n_{\mathrm{bases}}\,(\tau_{\mathrm{rep}} + t_{\mathrm{meas}} + 10\,\mu\mathrm{s})$; back-predicts 21.1 s against 22 s measured; tables recomputed (Paper 1 grid ~90 min at 1 us; dial core 57.8 min, full 85.3 min); runner layout re-check added.'
+      approval: 'Adopted under delegated authority; countersigned Dr. Raviram V, 20 Sep 2026'
+    - number: 25
+      date: 2026-09-20
+      title: 'Criterion (a) estimator amendment'
+      content: 'The chain regression check cannot be met at $n \geq 13$ by a percentile bootstrap (kurtosis $(3/2)^n$); amended to (a-i) per-draw closed-form identity $< 10^{-10}$ at $n = 4..20$, (a-ii) bootstrap coverage at $n \leq 12$ ($M = 1000$), (a-iii) exact null sampling distribution at $n = 13..20$ ($M = 300$), with a seed-2027 replicate rule.'
+      approval: 'Adopted under delegated authority; countersigned Dr. Raviram V, 20 Sep 2026'
+    - number: 26
+      date: 2026-09-20
+      title: 'Pre-submission layout re-check'
+      content: 'Before every submission the runner checks the placed patch against the day''s properties: readout $< 3\times10^{-2}$, CZ error $< 5\times10^{-3}$ per coupler (couplers above the cut are broken edges carrying no CZ; the observable edge must be intact), init error $< 5\times10^{-4}$, the Deviation 22 ZZ rule; verdict logged (layout_check); override never used on the observable edge or its L = 2 cone.'
+      approval: 'Adopted under delegated authority; countersigned Dr. Raviram V, 20 Sep 2026'
+    - number: 27
+      date: 2026-09-20
+      title: 'Mixture-estimator mask count'
+      content: 'K = 256 masks x 16 shots per (draw, shift) replaces K = 64 x 64: the pattern-noise floor $\mathrm{Var}_{\mathrm{mask}}[C]/(2K)$ falls from $\approx1.1\times10^{-3}$ to $\approx2.8\times10^{-4}$ so Gate 1b(b) and (d) pass; 51,200 circuits and 171 jobs per gradient point; dial line re-booked from 45 to 60 min.'
+      approval: 'Adopted under delegated authority; countersigned Dr. Raviram V, 20 Sep 2026'
+    - number: 28
+      date: 2026-09-20
+      title: 'Gate 1b clause (b): per-series floors and M = 500 for the p = 0 ladder'
+      content: 'The delay-matched p = 0 points carry no mask lottery, so their floor is the shot floor alone; clause (b) amended to a 3x-shot-floor and 2x-draw-2sigma test on the n-ladder fall; p = 0 ladder points booked at M = 500; dial line 65 min. Superseded in part by Deviation 29 the same day.'
+      approval: 'Adopted under delegated authority; countersigned Dr. Raviram V, 20 Sep 2026'
+    - number: 29
+      date: 2026-09-20
+      title: 'Gate 1b clause (b): unital reference resolvability as a depth fall'
+      content: 'With the measured kurtosis 14.2 the n-ladder fall is unresolvable at any affordable M and non-monotone in n (broken couplers); clause (b) becomes the L = 8 -> 12 fall of the delay-matched p = 0 k = L variance on each patch, $> 3\times$ shot floor and $> 2\times$ the $L = 8$ draw $2\sigma$; three p = 0 L = 12 points added; M = 500 reverts to 200.'
+      approval: 'Adopted under delegated authority; specifically countersigned Dr. Raviram V, 20 Sep 2026'
+    - number: 30
+      date: 2026-09-20
+      title: 'Gate 1b clause (b): draw count from the measured kurtosis; per-rung evaluation'
+      content: 'Clause (b) evaluated per rung, passing if $\geq 2$ of 3 rungs pass, a rung below 3 shot floors at L = 8 being ''reference unresolvable''; p = 0 reference points booked at M = 350 by the rule $M = 17.5(1.3\kappa - 1)$ (second-review correction); ZZ idle phase to be added to the propagation model before Gate 2; clause (b) frozen.'
+      approval: 'Adopted under delegated authority; specifically countersigned Dr. Raviram V, 20 Sep 2026'
+    - number: 31
+      date: 2026-09-20
+      title: 'Schedule brought forward'
+      content: 'Hardware window moved from 11-25 Oct to 27 Sep-12 Oct 2026: Gate 1 decision 23-26 Sep, ibm_phoenix smoke test 27-29 Sep (~5 Flex min), Gate 2 the same week, main grid, dial arm and Paper 2 characterisation 1-12 Oct; no hypothesis, threshold, grid point, shot count or budget line changes; gates decided in order.'
+      approval: 'Adopted under standing delegated authority; countersignature on the PI''s next review'
+    - number: 32
+      date: 2026-09-20
+      title: 'Smoke test brought forward to 20 Sep 2026'
+      content: 'Job list 02 (six grid points at $n = 20$, $L = 2$ and 8 at resilience 0, 1, 2; dial and delay-matched probes; reset-error sequence; rep_delay ladder 1 / 5 / 20 / 250 $\mu$s) runs on 20 Sep 2026, about 0.7 Flex min at 1 $\mu$s from the dry-run line; its data feed Gate 2 criteria (a)-(e) and the Section 3b kill rules only, never Gate 1 or any hypothesis; 27-29 Sep held for a re-run.'
+      approval: 'Adopted under standing delegated authority at the co-author''s request; countersignature on the PI''s next review'
+    - number: 33
+      date: 2026-09-20
+      title: 'Ansatz-specific variance floor'
+      content: 'The 2-design bound $p^4/9$ is replaced as the H5/H6 refutation threshold by floors proven for this ansatz and channel from uniform angles alone: $\mathrm{Var}[\partial_{k=L}C] \geq \tfrac12 c_i^2 g_i^2 p^2$ and $\mathrm{Var}[C] \geq \tfrac12 p^2(c_i^2 g_i^2 + c_j^2 g_j^2)$, $L$- and $n$-independent, pre-drawn per patch and estimator (at $n = 53$: 1.06e-3 / 7.35e-3 for $k = L$, 2.20e-3 / 1.50e-2 for $C$ at $p = 0.25$ / 0.5; predictions clear them by 1.88 / 1.30 and 1.62 / 1.22); measured $k = L$ variance over this floor is the Section 3b headline; the arm is a variance-level benchmark of a first-principles noise model, not a test of Theorem 8 nor a demonstration of simulability; $p^4/9$ kept as a historical line.'
+      approval: 'Adopted under delegated authority (theorist role delegated 20 Sep 08:10 IST); theorist and PI countersignature on return'
+    - number: 34
+      date: 2026-09-20
+      title: 'Whole-layer static ZZ in both propagation models'
+      content: 'Both the main-grid unital model and the dial model carry, for every lattice pair with a reported coupling, $e^{-i\zeta\tau Z_aZ_b/4}$ per layer over the scheduled layer time outside calibrated CZs (up to 0.35 $\mu$s Paper 1, 0.71 $\mu$s dial layer), propagated by the incoherent rule moving weight $\sin^2(\zeta\tau/2)$ per pair per layer (8.8e-4 to 3.6e-3 at the 27 kHz median); convention $\zeta = 2\pi\times$ the reported coupling, conditional phase $\zeta\tau$; validated on a 2x4 density-matrix check; readout folding assumes uncorrelated confusion, checked against Paper 2 Q1 (d).'
+      approval: 'Adopted under delegated authority (theorist role delegated 20 Sep 08:10 IST); theorist and PI countersignature on return'
+    - number: 35
+      date: 2026-09-20
+      title: 'Gate 1b clause (b) clarification, pre-data'
+      content: 'A rung''s $L = 8$, $p = 0$ reference is judged resolvable on the measured, floor-subtracted value at its shot count, never on the prediction; clause (b) passes only if at least two rungs are counted and all counted rungs pass, and is inconclusive if fewer than two are counted; the $n = 53$, $L = 8$, $p = 0$ reference runs at 16384 shots (floor 3.05e-5; predicted 9.2 floors, fall 9.0 floors) so all three rungs can count, +2.7 min at 1 $\mu$s from the reserve; no change of direction or power.'
+      approval: 'Adopted under delegated authority; marked for the PI''s specific countersignature on return'
+    - number: 36
+      date: 2026-09-20
+      title: '4x10 observable edge and cone-graph statement'
+      content: 'The 4x10 observable edge moves from (94, 95) to (93, 103) because the broken coupler (95, 96) sat on an observable qubit inside every cone from $L = 2$; the light-cone statement becomes cone-graph independence (exactly $n$-independent at $L = 1$; at $L \geq 2$ only between rungs with isomorphic cone graphs after holes and broken couplers: 4x5 and 4x10 at $L = 2$, 6x10 and 8x10 at $L = 2$; the 10x10 edge (75, 85) matches no rung; the earlier claim that 87 matches at $L \leq 4$ is withdrawn); a same-geometry curve tests the noise model on that graph, not $n$-dependence; the $n = 39$ Gate 1 and Gate 1b rows are recomputed on the new edge before the Gate 1 decision.'
+      approval: 'Adopted under delegated authority (theorist role delegated 20 Sep 08:10 IST); theorist and PI countersignature on return'
+    - number: 37
+      date: 2026-09-20
+      title: 'L = 12 rows exploratory; criterion (d) allowance'
+      content: 'At $M = 350$ the variance-estimate $2\sigma$ (1.8e-5) exceeds every $L = 12$ unital prediction, and 32768-65536 shots would be needed: the main-grid $L = 12$ rows and the dial $k = 1$ rows at $L = 12$ are exploratory and enter no confirmatory statistic (not-converged propagation rows labelled and in no ratio); dial $k = L$ and $p = 0$ references at $L = 12$ keep their roles; Gate 1 criterion (d)''s fixed 10x allowance is replaced by: the smallest signal to be claimed lies above the measured null-control floor plus 3 bootstrap $\sigma$; $L = 8$ keeps 4096 shots, rows below the bar reported as upper bounds; the 4096-vs-16384 resolvability table is computed before Gate 2 (candidate Deviation 44).'
+      approval: 'Adopted under delegated authority (theorist role delegated 20 Sep 08:10 IST); theorist and PI countersignature on return'
+    - number: 38
+      date: 2026-09-20
+      title: 'Dial masks: shared or independent between shift circuits'
+      content: 'The two shift circuits of a draw may share their mask sequence or draw independent ones, fixed per point before submission and logged (mask_seed); with shared masks the gradient pattern floor falls below $\mathrm{Var}_{\mathrm{mask}}[C]/(2K)$, which becomes the independent-mask upper bound; in both cases the gradient pattern floor is estimated directly from the $K$ per-mask gradient differences (variance over masks minus shot variance, divided by $K$); $\mathrm{Var}_\theta[C_{\mathrm{mix}}] = \mathrm{Var}_\theta[C_{\Phi_{\mathrm{mix}}}] + \mathbb{E}_\theta\mathrm{Var}_{\mathrm{mask}}[C]/K$ exactly.'
+      approval: 'Adopted under delegated authority (theorist role delegated 20 Sep 08:10 IST); theorist and PI countersignature on return'
+    - number: 39
+      date: 2026-09-20
+      title: 'On-day M rule for the p = 0 references'
+      content: 'If the measured bootstrap $2\sigma$ of the $L = 8$, $p = 0$ reference on a rung exceeds half its predicted depth fall, $M$ rises from 350 to 600 on that rung at both depths (about 1.5 min per rung at 1 $\mu$s, up to 4.5 min itemised in the reserve); estimand unchanged, no log-variance or trimmed estimator substituted; a trigger on the sample kurtosis itself is rejected (20-30 percent error).'
+      approval: 'Adopted under delegated authority (theorist role delegated 20 Sep 08:10 IST); theorist and PI countersignature on return'
+    - number: 40
+      date: 2026-09-20
+      title: 'Deviation 14 ratio scope; H6 statistic'
+      content: 'The Deviation 14 ratio $R_{\mathrm{hardware}}/R_{\mathrm{unital}}$ is reported only where the $k = 1$ denominator lies above the shot floor (predicted 0.98-1.05 with $2\sigma$ 0.04-0.42 at native noise: a consistency check with no power); under the dial the $k = 1$ variance is below the shot floor by prediction, so those rows are upper bounds and no dial ratio with a $k = 1$ denominator is formed; the H6 statistic is the $k = L$ depth ratio $V(12)/V(8)$ (predicted 1.00 for the dial against 0.023-0.044 for the unital references) together with the absolute $k = L$ separation from the unital references.'
+      approval: 'Adopted under delegated authority (theorist role delegated 20 Sep 08:10 IST); theorist and PI countersignature on return'
+    - number: 41
+      date: 2026-09-20
+      title: 'Kill rule 3b (b) made consistent with Deviation 27'
+      content: 'The kill line becomes 7.0 min of QPU-locked time per dial gradient point including job overhead at the submitted rep_delay (the Deviation 27 budget of 5.95 min with 18 percent headroom, matching the 65-min dial line), replacing the 5-min line that the booked design would have exceeded at any execution speed; the circuit-execution-only time (15.3 s per point at 1 $\mu$s) is reported beside it and both are extrapolated from the smoke test''s per-execution and per-job constants; rules (a), (c), (d) unchanged.'
+      approval: 'Adopted under delegated authority (theorist role delegated 20 Sep 08:10 IST); theorist and PI countersignature on return'
+    - number: 42
+      date: 2026-09-20
+      title: 'Pre-data analysis clarifications'
+      content: 'Ten readings the analysis code implements: (i) H1 part 2 refers to the measured $L = 12$ curve, reported not decided; (ii) H2 refuted by any evaluable series or $k = L$ pair, all listed; (iii) H3 refutation is the Deviation 14 clause, Deviation 16 reading alongside, Deviation 40 scope; (iv) Gate 2 (c) probability floor $2\times1/(2\sqrt N) = 1.56\times10^{-2}$; (v) Gate 2 (a) uses the simulated null floor until a null-control point type exists (candidate Deviation 43); (vi) kill rule 3b (c) dial-layer duration = 0.35 $\mu$s layer + the target''s reset duration; (vii) kill rule 3b (a) lists every dial-patch qubit above 2e-2, swappability decided at placement; (viii) Deviation 19 (ii) applied literally on signed $z$-scores of adjacent points, minimum $|z|$ reported; (ix) Deviation 25 on hardware: approximate null by resampling, intervals labelled approximate; (x) H4 and the fits exclude unclaimable points ($\varepsilon_N \geq 1$), listed. Renumbering: the $L = 8$ shot-resolvability table becomes candidate Deviation 44.'
+      approval: 'Adopted under delegated authority (theorist role delegated 20 Sep 08:10 IST); theorist and PI countersignature on return'
+paper2:
+  source: 'preregistration_p2.html v0.4.3 (20 Sep 2026), Section 8'
+  rows:
+    - number: 1
+      date: 2026-09-20
+      title: 'rep_delay follows Paper 1''s granted value'
+      content: 'Execution rep_delay follows Paper 1''s granted value once its Deviation 23 gate has passed; budgets quoted at 250 us (35.4 min) and 1 us (2.7 min); shot counts unchanged; rep_delay logged per job so Q1 and Q2 can be compared across delays.'
+      approval: 'Adopted under delegated authority; countersigned Dr. Raviram V, 20 Sep 2026'
+    - number: 2
+      date: 2026-09-20
+      title: 'Budget formula gains the TREX term'
+      content: '$T_{\mathrm{job}} = 2\,\mathrm{s} + (\tau_{\mathrm{rep}} + \text{circuit length} + t_{\mathrm{meas}} + 10\,\mu\mathrm{s})\,N_{\mathrm{exec}} + [\text{resilience}\geq1]\,32\,\text{shots}\,n_{\mathrm{bases}}\,(\tau_{\mathrm{rep}} + t_{\mathrm{meas}} + 10\,\mu\mathrm{s})$, $t_{\mathrm{meas}} = 1.94\,\mu$s; all Paper 2 stages at resilience 0 so the TREX term is zero; total 34.2 -> 35.4 min at 250 us; overrun tolerance to the cap 1.27x.'
+      approval: 'Adopted under delegated authority; countersigned Dr. Raviram V, 20 Sep 2026'
+    - number: 3
+      date: 2026-09-20
+      title: 'Schedule brought forward'
+      content: 'Aligned with Paper 1 Deviation 31: smoke test 27-29 Sep 2026 (shared), Gate P2-2 the same week, Q1 and Q4 from 1 Oct, Q2 and Q3 by 8 Oct, Q5 on four Paper 1 days within 1-12 Oct; no protocol, bound, shot count, mask, seed or budget line changes; theorist review of Q2/Q3 delegated, countersignature on return.'
+      approval: 'Adopted under standing delegated authority; countersignature on the PI''s next review'
+    - number: 4
+      date: 2026-09-20
+      title: 'Q2 backaction: fitted effective emptying time'
+      content: 'The fixed $0.9375 = 375/400$ coefficient, which presumed a 25 ns emptying time, is withdrawn: the target-$|1\rangle$-arm excess phase is regressed on the per-pair $\zeta$ from the delay arms (conditional phase $\zeta\times400$ ns), the slope is $\tau_{\mathrm{eff}} - 400$ ns and becomes a deliverable with its interval, and the residual about the fit is tested against the 5 mrad bound; $\zeta$ convention shared with Paper 1 Deviation 34 ($\zeta = 2\pi\times$ coupling in Hz, interaction $e^{-i\zeta\tau ZZ/4}$, conditional phase $\zeta\tau$); Gate P2-1 table row updated.'
+      approval: 'Adopted under delegated authority (theorist role delegated 20 Sep 08:10 IST); theorist and PI countersignature on return'
+    - number: 5
+      date: 2026-09-20
+      title: 'Q3 crosstalk: ZZ common-mode prediction and echo rule'
+      content: 'The frame twirl converts static ZZ into a Pauli channel but does not remove it: the common-mode per-cycle spectator error $\sin^2(\zeta\tau/4)$ per neighbour (2.9e-4 at 27 kHz over the 400 ns idle) and the dense-minus-sparse residual (about 4e-5 at the median, 1.4e-4 at 50 kHz, against the 1.0e-4 floor) are predicted per qubit from the Q2 $\zeta$ map before the run and reported beside H3; a mid-cycle spectator echo is added only if the predicted residual exceeds half the floor (5e-5); the 1e-3 bound is unchanged.'
+      approval: 'Adopted under delegated authority (theorist role delegated 20 Sep 08:10 IST); theorist and PI countersignature on return'

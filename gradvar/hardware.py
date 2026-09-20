@@ -9,12 +9,17 @@ a CRN is ever written to disk or printed. Submission is possible only from a rev
 
 `--dry-run` builds and transpiles against a fake backend (FakeNighthawk if available, else
 FakeTorino) and prints depth and two-qubit gate counts without submitting anything.
+
+A job list with ``primitive: "sampler"`` (Paper 2, reset / MCM characterisation) takes the SamplerV2 path in
+``gradvar.paper2`` (per-shot register capture, ``init_qubits``, resilience 0); the refusals, bundle layout and budget
+model are shared. The default primitive is the Estimator.
 """
 from __future__ import annotations
 
 import argparse
 import csv
 import hashlib
+import io
 import json
 import os
 import re
@@ -523,6 +528,9 @@ def estimate_budget(jl: dict, rep_delays_us: Sequence[float] = BUDGET_REP_DELAYS
     The ``seconds_at_<rd>`` figures sweep the backend-default rep_delay over ``rep_delays_us`` for the jobs that run at the
     default; a probe job with its own ``rep_delay_us`` (the Section 6 rep_delay ladder) is timed at that value in every
     column (``per_job[].rep_delay_us``). Compile latency and queueing are not in the formula."""
+    if str(jl.get("primitive", "estimator")) == "sampler":      # Paper 2 lists: gradvar.paper2 (no TREX at resilience 0)
+        from .paper2 import estimate_budget_sampler
+        return estimate_budget_sampler(jl, rep_delays_us, backend)
     dial_us = dial_durations_us(backend)
     t_meas, t_meas_source = readout_us(backend, jl.get("backend"))
     jobs = budget_jobs(jl, dial_us)
@@ -904,7 +912,18 @@ def load_joblist(path: str) -> dict:
     probes = jl.get("probes", []) or []
     if not isinstance(jl["points"], list) or not isinstance(probes, list):
         raise JoblistError("points and probes must be lists")
-    if not jl["points"] and not probes:
+    primitive = str(jl.get("primitive", "estimator"))
+    if primitive not in ("estimator", "sampler"):
+        raise JoblistError(f'primitive must be "estimator" (default) or "sampler", got {primitive!r}')
+    if primitive == "sampler":                      # Paper 2 lists: sampler_jobs replace points / probes (gradvar.paper2)
+        from .paper2 import Paper2Error, validate_sampler_joblist
+        try:
+            validate_sampler_joblist(jl)
+        except Paper2Error as e:
+            raise JoblistError(str(e)) from e
+    elif "sampler_jobs" in jl:
+        raise JoblistError('sampler_jobs needs primitive: "sampler"')
+    if not jl["points"] and not probes and primitive != "sampler":
         raise JoblistError("job list has no points and no probes")
     ids = [str(pr.get("id", "")) for pr in probes]
     if len(set(ids)) != len(ids) or "" in ids:
@@ -1082,6 +1101,8 @@ def _describe(b) -> dict:
     """Per-pub description for job.json (BuiltPub or BuiltProbe). ``patch_qubits`` / ``qubits`` and ``edge`` are the
     physical qubits actually used (the ``layout`` when one is given); ``lattice_qubits`` / ``lattice_edge`` keep the
     Patch's lattice-frame coordinates."""
+    if hasattr(b, "describe"):           # gradvar.paper2.BuiltSampler
+        return b.describe()
     if isinstance(b, BuiltProbe):
         phys, phys_edge = (b.qubits, None) if b.patch is None else physical_qubits(b.patch, b.layout, b.edge)
         d = dict(probe_id=b.probe.get("id"), kind=b.probe.get("kind"), reset_kind=b.probe.get("reset_kind", "none" if b.probe.get("kind") == "null_control" else "reset"),
@@ -1109,6 +1130,8 @@ def _describe(b) -> dict:
 
 def _pub_payload(b) -> dict:
     """What was sent for one pub: the observable(s) as (label, coeff) lists and the bound parameter values."""
+    if hasattr(b, "payload"):            # gradvar.paper2.BuiltSampler: registers instead of observables
+        return b.payload()
     obs = b.isa_observable
     obs_list = obs if isinstance(obs, (list, tuple)) else [obs]
     return dict(observables=[[[str(lbl), complex(c).real] for lbl, c in o.to_list()] for o in obs_list],
@@ -1160,15 +1183,19 @@ def write_job_bundle(run_root: Path, job_id: str, group: List[BuiltPub], backend
     if metrics and isinstance(metrics, dict) and "timestamps" in metrics:
         ts.update(metrics["timestamps"])
     is_probe_job = bool(group) and all(isinstance(b, BuiltProbe) for b in group)
-    if is_probe_job:
+    custom_kind = getattr(group[0], "job_kind", None) if group else None    # gradvar.paper2.BuiltSampler names its own kind
+    if custom_kind:
+        entries = [group[0].joblist_entry]
+    elif is_probe_job:
         probe_ids = {b.probe.get("id") for b in group}
         entries = [e for e in jl.get("probes", []) or [] if e.get("id") in probe_ids]
     else:
         entries = [e for e in jl.get("points", []) if int(e.get("resilience", -1)) == level]
     summaries = [circuit_summary(b.isa_circuit, backend) for b in group]
     rd_info = rep_delay_info(backend)
+    qpy_policy = _qpy_policy(root=run_root, day=day, job_id=job_id, bundle_dir=d, group=group, sampler=custom_kind == "sampler")
     _dump(d / "job.json", dict(
-        job_id=job_id, dry_run=dry, job_kind="probes" if is_probe_job else "gradient_points",
+        job_id=job_id, dry_run=dry, job_kind=custom_kind or ("probes" if is_probe_job else "gradient_points"),
         status="failed" if error else ("dry-run" if dry else "completed"), error=error, error_message=error_message,
         job_errors=job_errors or None, timestamps=ts, usage_qpu_seconds=usage, metrics=metrics, **job_attrs,
         backend_name=getattr(backend, "name", str(backend)), backend_version=str(getattr(backend, "backend_version", "")),
@@ -1180,6 +1207,7 @@ def write_job_bundle(run_root: Path, job_id: str, group: List[BuiltPub], backend
         rep_delay_probe=bool(jl.get("rep_delay_probe", False)),
         isa_instruction_names=sorted({n for s in summaries for n in s["isa_instruction_names"]}),
         joblist_entries=entries,
+        circuits_qpy=qpy_policy,
         points=[dict(_describe(b), **_pub_payload(b)) for b in group],
         **(extra or {}),
     ))
@@ -1210,13 +1238,60 @@ def write_job_bundle(run_root: Path, job_id: str, group: List[BuiltPub], backend
         props = dict(error=str(e))
     _dump(d / "properties.json", props)
     _dump(d / "target.json", target_summary(backend))
-    with open(d / "circuits.qpy", "wb") as f:
-        qpy.dump([b.isa_circuit for b in group], f)
     _dump(d / "circuits.json", [dict(index=i, n=_describe(b)["n"], L=_describe(b)["L"], k_1based=_describe(b)["k_1based"],
-                                     probe_id=b.probe.get("id") if isinstance(b, BuiltProbe) else None,
+                                     probe_id=b.probe.get("id") if isinstance(b, BuiltProbe) else _describe(b).get("probe_id"),
                                      depth=b.depth, two_qubit_gates=b.two_qubit_gates, num_qubits=b.isa_circuit.num_qubits, **s)
                                 for i, (b, s) in enumerate(zip(group, summaries))])
     return d
+
+
+QPY_ARTIFACT_DIR = "artifacts"       # <run_root>/../artifacts/<date>/<job_id>/circuits.qpy: uploaded by the Action, never committed
+LFS_DIR = "lfs"                      # <run_root>/../lfs/<date>/<job_id>/: files above BITARRAYS_COMMIT_LIMIT_MB go here (Git LFS)
+BITARRAYS_COMMIT_LIMIT_MB = 20.0
+
+
+def _qpy_policy(root: Path, day: str, job_id: str, bundle_dir: Path, group, sampler: bool) -> dict:
+    """Serialise the ISA circuits with qpy and place them by the data policy: Estimator bundles keep ``circuits.qpy`` in
+    the committed bundle (as before); Sampler bundles (Paper 2 Deviation 7 (vii)) write it under
+    ``<run_root>/../artifacts/<date>/<job_id>/`` for the Action's upload-artifact step and record only its SHA-256, size
+    and the qiskit / qiskit-ibm-runtime versions in job.json (one Q3 m = 64 circuit is 1.3 MB of qpy; the job would be
+    about 84 MB). The circuits are deterministic from the job list, the snapshot, the seed and the qiskit version."""
+    from qiskit import qpy
+    import qiskit
+    buf = io.BytesIO()
+    qpy.dump([b.isa_circuit for b in group], buf)
+    data = buf.getvalue()
+    info = dict(sha256=hashlib.sha256(data).hexdigest(), bytes=len(data), circuits=len(group), qiskit_version=qiskit.__version__,
+                qiskit_ibm_runtime_version=_runtime_version(), qpy_version=getattr(qpy, "QPY_VERSION", None))
+    if sampler:
+        art = Path(root).parent / QPY_ARTIFACT_DIR / day / job_id
+        art.mkdir(parents=True, exist_ok=True)
+        (art / "circuits.qpy").write_bytes(data)
+        info.update(committed=False, path=str(art / "circuits.qpy"),
+                    policy="Paper 2 Deviation 7 (vii): ISA circuits are not committed for Sampler jobs; kept as an Action artefact")
+        print(f"  circuits.qpy ({len(data) / 1e6:.1f} MB) written to {art} (Action artefact, not committed); sha256 {info['sha256'][:16]}")
+    else:
+        (bundle_dir / "circuits.qpy").write_bytes(data)
+        info.update(committed=True, path=str(bundle_dir / "circuits.qpy"))
+    return info
+
+
+def place_large_file(bundle_dir: Path, name: str, data: bytes, limit_mb: float = BITARRAYS_COMMIT_LIMIT_MB) -> dict:
+    """Write ``data`` as ``name`` into the bundle when it is under ``limit_mb``, else under ``<run_root>/../lfs/<date>/<job_id>/``
+    (to be tracked with Git LFS before committing); returns path, size, SHA-256 and whether it sits in the bundle
+    (Paper 2 Deviation 7 (vii): per-shot bit arrays committed under 20 MB)."""
+    size_mb = len(data) / 1e6
+    if size_mb < limit_mb:
+        path = bundle_dir / name
+        in_bundle = True
+    else:
+        run_root = bundle_dir.parents[1]
+        path = run_root.parent / LFS_DIR / bundle_dir.parent.name / bundle_dir.name / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        in_bundle = False
+        print(f"  {name} is {size_mb:.1f} MB (limit {limit_mb:g} MB): written to {path} for Git LFS, not in the bundle")
+    path.write_bytes(data)
+    return dict(path=str(path), bytes=len(data), sha256=hashlib.sha256(data).hexdigest(), in_bundle=in_bundle, limit_mb=limit_mb)
 
 
 def _runtime_version() -> str:
@@ -1397,23 +1472,34 @@ def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int,
 
 
 def run_joblist(path: str, submit: bool, log_dir: str = "data/jobs", run_root: str = "data/runs",
-                calibration_csv: str | None = None) -> int:
+                calibration_csv: str | None = None, simulate: bool = False, simulate_shots: int | None = None) -> int:
     jl = load_joblist(path)
-    points, shapes, shots = joblist_points(jl, calibration_csv)
+    sampler = str(jl.get("primitive", "estimator")) == "sampler"
+    points, shapes, shots = ([], {}, None) if sampler else joblist_points(jl, calibration_csv)
     stem = Path(path).stem
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     budget = estimate_budget(jl)
     if not submit:
-        print(f"job list {path}: {len(points)} circuit pairs across {len(jl['points'])} points and "
-              f"{len(jl.get('probes', []) or [])} probes, backend {jl['backend']}, "
-              f"instance {jl['instance']} ({instance_env_for(jl['instance'])}), dry_run={jl.get('dry_run', False)}, "
-              f"preflight_review={'set' if joblist_submittable(jl) else 'EMPTY'}")
+        if sampler:
+            print(f"job list {path}: SamplerV2, {len(jl['sampler_jobs'])} job(s), protocol {jl.get('protocol', 'smoke')}, "
+                  f"backend {jl['backend']}, instance {jl['instance']} ({instance_env_for(jl['instance'])}), "
+                  f"dry_run={jl.get('dry_run', False)}, preflight_review={'set' if joblist_submittable(jl) else 'EMPTY'}")
+        else:
+            print(f"job list {path}: {len(points)} circuit pairs across {len(jl['points'])} points and "
+                  f"{len(jl.get('probes', []) or [])} probes, backend {jl['backend']}, "
+                  f"instance {jl['instance']} ({instance_env_for(jl['instance'])}), dry_run={jl.get('dry_run', False)}, "
+                  f"preflight_review={'set' if joblist_submittable(jl) else 'EMPTY'}")
         print(f"budget (model v{budget['model_version']}): {budget['jobs']} jobs, {budget['circuits']} circuits, "
               f"{budget['executions']} circuit executions ({budget['executions_with_zne']} with ZNE) + {budget['trex_executions']} TREX; "
               f"{budget['minutes_at_250us']} min at 250 us, {budget['minutes_at_1us']} min at 1 us rep_delay")
         for diff in check_budget(jl):
             print(f"WARNING {diff}")
         backend = fake_backend(str(jl["backend"]))
+        if sampler:
+            from .paper2 import execute_sampler_joblist
+            execute_sampler_joblist(jl, backend, submit=False, run_root=run_root, log_path=str(Path(log_dir) / f"{stem}_dryrun_{stamp}.csv"),
+                                    calibration_csv=calibration_csv, simulate=simulate, simulate_shots=simulate_shots)
+            return 0
         execute_joblist(jl, points, shapes, shots, backend, submit=False, run_root=run_root,
                         log_path=str(Path(log_dir) / f"{stem}_dryrun_{stamp}.csv"), calibration_csv=calibration_csv)
         return 0
@@ -1428,6 +1514,10 @@ def run_joblist(path: str, submit: bool, log_dir: str = "data/jobs", run_root: s
     plan = verify_instance_plan(service, jl["instance"])   # refuse if the secret's plan does not match the alias
     backend = get_backend(jl["backend"], service=service)
     log_path = str(Path(log_dir) / f"{stem}_{stamp}.csv")
+    if sampler:
+        from .paper2 import execute_sampler_joblist
+        execute_sampler_joblist(jl, backend, submit=True, run_root=run_root, log_path=log_path, instance_plan=plan)
+        return 0
     execute_joblist(jl, points, shapes, shots, backend, submit=True, run_root=run_root, log_path=log_path, instance_plan=plan)
     return 0
 
@@ -1445,6 +1535,9 @@ def main(argv=None):
     p.add_argument("--run-root", default="data/runs", help="per-job bundle directory root")
     p.add_argument("--log-dir", default="data/jobs")
     p.add_argument("--budget", action="store_true", help="with --joblist: print estimate_budget(job list) as JSON and exit")
+    p.add_argument("--simulate", action="store_true", help="dry run of a Sampler list: also execute on the Aer stabilizer simulator "
+                                                            "and write bitarrays.npz / counts.json (nothing submitted)")
+    p.add_argument("--simulate-shots", type=int, default=None, help="shots for --simulate (default: the job's shots)")
     a = p.parse_args(argv)
     if a.joblist and a.budget:
         print(json.dumps(estimate_budget(load_joblist(a.joblist)), indent=1))
@@ -1452,7 +1545,7 @@ def main(argv=None):
     if a.joblist:
         if not a.yes_submit:
             print("no --yes-submit: building the job list against a fake backend, submitting nothing")
-        return run_joblist(a.joblist, submit=a.yes_submit, log_dir=a.log_dir, run_root=a.run_root)
+        return run_joblist(a.joblist, submit=a.yes_submit, log_dir=a.log_dir, run_root=a.run_root, simulate=a.simulate, simulate_shots=a.simulate_shots)
     if a.yes_submit:
         p.error("ad-hoc submission is disabled: hardware jobs run only from a reviewed job list (--joblist)")
     dry_run(a.n, a.L, a.k)

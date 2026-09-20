@@ -160,3 +160,205 @@ def test_pattern_variance_is_nonnegative_and_small_at_p0():
     prog0 = pp.make_program(patch, 3, 3, "unital", CSV, dial=dial0)
     pv0 = pp.pattern_variance(prog0, 20_000, seed=2)
     assert abs(pv0["var_mask"]) < 3 * pv0["se"] + 1e-9
+
+
+# --------------------------------------------------------------------------- ZZ idle phase of the dial layer
+
+PROPS = str(predict.Path(__file__).resolve().parents[1] / "data" / "calibrations" / "ibm_phoenix_properties_20260919T192510Z.json.gz")
+
+
+def _zz_setup(L=2):
+    patch = rect_patch(2, 2, exclude=(), origin=(8, 1))
+    _, edge = hea_observable(patch)
+    cone = light_cone(patch, L, edge)
+    zz = pp.zz_phases(PROPS, pp.cone_couplers(patch, cone))
+    assert len(zz) == 4 and all(0 < abs(v) < 0.5 for v in zz.values())
+    return patch, cone, edge, zz
+
+
+@pytest.mark.parametrize("kind,p", [("delay", 0.0), ("reset", 0.3), ("dephase", 0.5)])
+def test_zz_idle_layer_matches_doubled_space_exact(kind, p):
+    """2x2 patch (one plaquette, so closed ZZ cycles occur), L = 2: the second-moment rule with the ZZ idle phase equals the
+    brute-force doubled-space theta average (`pauliprop_exact.exact_moments`) to 1e-9 relative, and switching ZZ on
+    changes the numbers (the rule is not a no-op)."""
+    from gradvar.pauliprop_exact import exact_moments
+    patch, cone, edge, zz = _zz_setup()
+    dial = pp.dial_bloch_by_qubit(CSV, cone, kind, p)
+    vals = {}
+    for use in (False, True):
+        prog = pp.make_program(patch, 2, 2, "unital", CSV, dial=dial, zz=(zz if use else None))
+        r = pp.propagate_truncated(prog, delta=0.0)
+        ex = exact_moments(prog)
+        assert r.var_cost == pytest.approx(ex["var_cost"], rel=1e-9)
+        assert r.var_k1 == pytest.approx(ex["var_k1"], rel=1e-9)
+        assert r.var_kL == pytest.approx(ex["var_kL"], rel=1e-9)
+        assert r.mean_cost == pytest.approx(ex["mean_cost"], rel=1e-9, abs=1e-15)
+        vals[use] = r.var_kL
+        s = pp.propagate_sampled(prog, 50_000, seed=3)
+        assert abs(s.var_kL - r.var_kL) < 4 * s.se_kL + 1e-9
+    assert abs(vals[True] / vals[False] - 1) > 1e-3
+
+
+def _kraus_reference(prog, zz_edges_local, thetas_grid, k_index, obs):
+    """Independent Kraus-level density-matrix evaluation (computational basis) of the program's circuit at every theta of
+    the grid, with the dial layer's mixture channel enumerated over reset masks and rzz(phi) on couplers whose both ends
+    idle. Returns f(theta), f(theta + pi/2 e_k), f(theta - pi/2 e_k) as arrays over the grid."""
+    m = prog.m
+    d = 2 ** m
+    I2 = np.eye(2, dtype=complex)
+    X = np.array([[0, 1], [1, 0]], dtype=complex)
+    Y = np.array([[0, -1j], [1j, 0]], dtype=complex)
+    Zm = np.array([[1, 0], [0, -1]], dtype=complex)
+    SX = np.array([[1 + 1j, 1 - 1j], [1 - 1j, 1 + 1j]]) / 2
+
+    def embed(op, qs):
+        # qiskit little-endian: local qubit q is bit q of the basis index (as in SparsePauliOp.to_matrix())
+        if len(qs) == 1:
+            mats = [I2] * m
+            mats[m - 1 - qs[0]] = op
+            full = mats[0]
+            for t in mats[1:]:
+                full = np.kron(full, t)
+            return full
+        a, b = qs
+        op4 = op.reshape(2, 2, 2, 2)
+        full = np.zeros((d, d), dtype=complex)
+        for s in range(d):
+            sa, sb = (s >> a) & 1, (s >> b) & 1
+            for ta in (0, 1):
+                for tb in (0, 1):
+                    t = (s & ~(1 << a) & ~(1 << b)) | (ta << a) | (tb << b)
+                    full[t, s] = op4[ta, tb, sa, sb]
+        return full
+
+    def superop(kraus):
+        S = np.zeros((d * d, d * d), dtype=complex)
+        for K in kraus:
+            S += np.kron(K, K.conj())
+        return S
+
+    def bloch_kraus(b, q):
+        # unital only (tz = 0, dx = dy = dz = f): depolarizing with lambda = 1 - f
+        assert b.tz == 0 and abs(b.dx - b.dz) < 1e-12
+        lam = 1 - b.dx
+        return [np.sqrt(1 - 3 * lam / 4) * embed(I2, [q])] + [np.sqrt(lam / 4) * embed(P, [q]) for P in (X, Y, Zm)]
+
+    ops = list(reversed(prog.ops))       # circuit order
+    layer_super = {}
+    rot_positions = []                   # (op index in circuit order, qubit)
+    static = []                          # list of ('S', superop) or ('rot', q)
+    for op in ops:
+        kind = op[0]
+        if kind == "rot":
+            static.append(("rot", op[1]))
+        elif kind in ("mark", "proj"):
+            continue
+        elif kind == "sx":
+            static.append(("S", superop([embed(SX, [op[1]])])))
+        elif kind == "n1":
+            static.append(("S", superop(bloch_kraus(op[2], op[1]))))
+        elif kind == "cz":
+            static.append(("S", superop([embed(np.diag([1, 1, 1, -1]).astype(complex), [op[1], op[2]])])))
+        elif kind == "dep2":
+            lam = 1 - op[3]
+            paulis = [I2, X, Y, Zm]
+            ks = []
+            for P in paulis:
+                for Q in paulis:
+                    w = 1 - 15 * lam / 16 if (P is I2 and Q is I2) else lam / 16
+                    ks.append(np.sqrt(w) * embed(np.kron(P, Q), [op[1], op[2]]))
+            static.append(("S", superop(ks)))
+        elif kind == "dial_zz":
+            blochs, edges = op[1], op[2]
+            S = np.zeros((d * d, d * d), dtype=complex)
+            import itertools as it
+            for mask in it.product((0, 1), repeat=m):
+                pr = 1.0
+                kraus_sets = []
+                for q in range(m):
+                    b = blochs[q] if blochs[q] is not None else pp.Bloch()
+                    pz = b.tz
+                    pr *= pz if mask[q] else (1 - pz)
+                    if mask[q]:
+                        kraus_sets.append([embed(np.array([[1, 0], [0, 0]], dtype=complex), [q]), embed(np.array([[0, 1], [0, 0]], dtype=complex), [q])])
+                    else:
+                        dd = b.dx / (1 - pz) if pz < 1 else 1.0
+                        kraus_sets.append([np.sqrt((1 + dd) / 2) * embed(I2, [q]), np.sqrt((1 - dd) / 2) * embed(Zm, [q])])
+                if pr == 0:
+                    continue
+                U = np.eye(d, dtype=complex)
+                for a, b_, phi in edges:
+                    if mask[a] == 0 and mask[b_] == 0:
+                        U = U @ embed(np.diag(np.exp(-1j * phi / 2 * np.array([1, -1, -1, 1]))), [a, b_])
+                Sm = superop([U])
+                for ks in kraus_sets:
+                    Sm = superop(ks) @ Sm
+                S += pr * Sm
+            static.append(("S", S))
+        elif kind == "dial":
+            b = op[2]
+            q = op[1]
+            pz = b.tz
+            dd = b.dx / (1 - pz) if pz < 1 else 1.0
+            idle = superop([np.sqrt((1 + dd) / 2) * embed(I2, [q]), np.sqrt((1 - dd) / 2) * embed(Zm, [q])])
+            reset = superop([embed(np.array([[1, 0], [0, 0]], dtype=complex), [q]), embed(np.array([[0, 1], [0, 0]], dtype=complex), [q])])
+            static.append(("S", (1 - pz) * idle + pz * reset))
+        else:
+            raise RuntimeError(kind)
+    rot_count = sum(1 for s in static if s[0] == "rot")
+    assert rot_count == m * prog.L
+    rho0 = np.zeros((d, d), dtype=complex)
+    rho0[0, 0] = 1.0
+    O = obs.to_matrix()
+
+    def evaluate(theta_matrix):      # theta_matrix: (n_grid, m*L) angles in gate order (circuit order of the rotations)
+        n = theta_matrix.shape[0]
+        R = np.tile(rho0.reshape(-1, 1), (1, n))
+        t = 0
+        for s in static:
+            if s[0] == "S":
+                R = s[1] @ R
+            else:
+                q = s[1]
+                th = theta_matrix[:, t]
+                for val in np.unique(th):
+                    cols = np.nonzero(th == val)[0]
+                    Rz = embed(np.diag([np.exp(-1j * (np.pi + val) / 2), np.exp(1j * (np.pi + val) / 2)]), [q])
+                    R[:, cols] = superop([Rz]) @ R[:, cols]
+                t += 1
+        return np.real(np.einsum("ab,bac->c", O, R.reshape(d, d, n)))
+
+    f = evaluate(thetas_grid)
+    plus, minus = thetas_grid.copy(), thetas_grid.copy()
+    plus[:, k_index] += np.pi / 2
+    minus[:, k_index] -= np.pi / 2
+    return f, evaluate(plus), evaluate(minus)
+
+
+def test_zz_idle_layer_matches_kraus_grid_2x2():
+    """Fully independent check in the computational basis: 2x2, L = 2, reset dial p = 0.3 with the ZZ idle phase; every
+    channel as Kraus operators, the dial layer as the explicit mask mixture with rzz on idle-idle couplers, the uniform
+    theta average by the exact 3-point grid (8 angles). PP (delta = 0) must agree to 1e-6 relative."""
+    patch, cone, edge, zz = _zz_setup()
+    L = 2
+    m, i, j = len(cone), cone.index(edge[0]), cone.index(edge[1])
+    dial = pp.dial_bloch_by_qubit(CSV, cone, "reset", 0.3)
+    prog = pp.make_program(patch, L, L, "unital", CSV, dial=dial, zz=zz)
+    ai, bi = noise.readout_z_coefficients(CSV, edge[0])
+    aj, bj = noise.readout_z_coefficients(CSV, edge[1])
+    obs = predict.measured_zz(m, i, j, (ai, aj), (bi, bj))
+    grid = np.array([0.0, 2 * np.pi / 3, 4 * np.pi / 3])
+    thetas = np.array(list(itertools.product(grid, repeat=m * L)))
+    # rotation order in circuit time: the reversed op list visits layer 1 first, qubits in order 0..m-1 within a layer
+    rot_qubits = [op[1] for op in reversed(prog.ops) if op[0] == "rot"]
+    def index_of(layer, q):
+        return [t for t, qq in enumerate(rot_qubits) if qq == q][layer - 1]
+    r = pp.propagate_truncated(prog, delta=0.0)
+    f, fp, fm = _kraus_reference(prog, None, thetas, index_of(1, i), obs)
+    g1 = ((fp - fm) / 2) ** 2
+    assert f.var() == pytest.approx(r.var_cost, rel=1e-6)
+    assert f.mean() == pytest.approx(r.mean_cost, rel=1e-6)
+    assert g1.mean() == pytest.approx(r.var_k1, rel=1e-6)
+    _, fp, fm = _kraus_reference(prog, None, thetas, index_of(L, i), obs)
+    gL = ((fp - fm) / 2) ** 2
+    assert gL.mean() == pytest.approx(r.var_kL, rel=1e-6)

@@ -37,6 +37,7 @@ the repository secrets `QISKIT_IBM_TOKEN`, `QISKIT_IBM_INSTANCE` (Flex) and `QIS
 |---|---|
 | `backend` | IBM backend name, normally `ibm_phoenix` (Heron r2 open-plan runs name `ibm_marrakesh`) |
 | `instance` | `"flex"` (the 360-minute Flex instance, secret `QISKIT_IBM_INSTANCE`) or `"open"` (the open-plan Heron r2 instance, secret `QISKIT_IBM_INSTANCE_OPEN`). The runner refuses to submit when the named secret is missing, and refuses `ibm_phoenix` with `"open"`. Before submitting it looks the secret's CRN up in `service.instances()` and refuses unless the plan is `open` for alias `open` and not `open` for alias `flex` (a mis-set secret cannot spend the wrong allocation); only the plan name is logged (`instance_plan` in `job.json`). The CRN itself never appears in the repository |
+| `primitive` | optional: `"estimator"` (default, the Paper 1 path) or `"sampler"` (Paper 2: `sampler_jobs`, `protocol`, `init_qubits`, `qubit_set`, `q4_patches`, `randomness`; see "Paper 2 Sampler lists" below and `docs/PAPER2_RUNNER.md`) |
 | `dry_run` | optional boolean. `true` marks a list that is not to be submitted yet: `--yes-submit` refuses it before reading any credential. Set it to `false` in the same commit that fills `preflight_review`. The action's own `dry_run` input is separate (it decides whether `--yes-submit` is passed at all) |
 | `preflight_review` | Slack permalink (`https://<ws>.slack.com/archives/...`) of the posted pre-flight sign-off. **Must be non-empty before the action will submit; `python -m gradvar.hardware --joblist ... --yes-submit` refuses otherwise.** Leave `""` or `"TBD: pre-flight review permalink"` while the list is under review |
 | `notes` | free text naming the pre-registration section (and tracker task) the list implements, the patch placement and the expected locked minutes |
@@ -99,17 +100,37 @@ succeeded jobs, and exits non-zero naming the failed jobs (the Action commits th
 |---|---|---|---|
 | `dryrun/01_marrakesh_pipeline_check.json` | open, `ibm_marrakesh` | Q1 pre-registration Section 6 (pipeline checks on Marrakesh at no Flex cost), Paper 2 Gate P2-1 (c): 1x10 path with `layout` 5-14 (heavy-hex row 0; runner-up 0-9), edge 9_10, L = 2, M = 5, 1024 shots, resilience 0/1, plus a mid-circuit `reset` pair and its `delay(400 ns)` control. FakeMarrakesh: depth 12, 18 CZ, no routing; dial variants depth 14. **Executed 2026-09-19 19:07Z** (`data/runs/2026-09-19/`): 22 open-plan seconds charged (5 + 14 + 3) | 24,576 circuit executions + 32,768 TREX, 3 jobs: 21.1 s = 0.35 / 0.11 min (as submitted under model v1: 0.20 / 0.10 min) |
 | `dryrun/02_phoenix_smoke_test.json` | flex, `ibm_phoenix` | Q1 pre-registration v0.10.0 Section 6 smoke test (about 5 Flex minutes allowed, about 0.7 used at the 1 us default), Gate 2, tracker P1.2.2; runs 20 Sep 2026 under Deviation 32 (brought forward from 27-29 Sep, Deviation 31; charged to the 10-minute dry-run line; feeds Gate 2 and the Section 3b kill rules only, never Gate 1). Grid: 4x5 patch (n = 20, origin (8,2), qubits 82-86 / 92-96 / 102-106 / 112-116, edge 94_104 on the 2026-09-20T030546Z snapshot; coupler 95-96 at CZ 3.1e-2 is a broken edge, no CZ; shifted one column from the 19 Sep placement (8,1) / 93_103 because Q91's init error rose to 1.05e-3 on 20 Sep) at L = 2 and 8, k = 1, M = 10, 4096 shots, resilience 0 / 1 / 2 (3 jobs). Section 3b probes: reset dial at n = 20, L = 8, p = 0.25 in the Deviation 27 design scaled to 16 masks x 16 shots, with its delay-matched control, at resilience 0 and at resilience 1 (kill rule (d) at the Paper 1 grid level; 2 jobs); reset-error mini-sequence on the 20 patch qubits (1 job). Deviation 23 (b) rep_delay ladder: prepare-\|0> and prepare-\|1> then measure on the patch qubits, 4096 shots, at `execution.rep_delay` 1 us (the ibm_phoenix default, set explicitly) / 5 / 20 / 250 us, one job per rung with the submitted value and `dynamic_reprate_enabled` logged (4 jobs). `layout_check: "enforce"` (Deviation 26). FakeNighthawk: grid depth 16 / 60 CZ (L = 2) and 64 / 240 CZ (L = 8, 30 live couplers), dial circuits depth 70-72 / 240 CZ, 0 mid-circuit measures; the layout check logs (`enforced: false`) against the fake's stale calibration | 527,360 circuit executions (855,040 with ZNE) + 262,656 TREX, 257 circuits, 10 jobs: 0.66 min at 1 us (the default; target <= 5) / 5.16 min at 250 us (over by 10 s; pre-registered remedy: drop the L = 8 resilience-2 point's M from 10 to 5, about -33 s) |
-| `dryrun/03_paper2_smoke.json` | flex, `ibm_phoenix` | Paper 2 pre-registration v0.4.1 Section 3 "Order of runs" item 1 and Gate P2-2: native `reset` vs `measure_reset` vs `measure_reset_2` from \|1> and \|0>, delay and readout references, 12 qubits x 1024 shots; EstimatorV2 <Z> (see below), `layout_check: "enforce"` on the 12 bare qubits | 9,216 executions, 1 job: 0.07 / 0.04 min |
+| `dryrun/03_paper2_smoke.json` | flex, `ibm_phoenix` | Paper 2 pre-registration v0.4.4 Section 3 "Order of runs" item 1, Deviation 7 (iii) and Gate P2-2, **SamplerV2** (`primitive: "sampler"`, `docs/PAPER2_RUNNER.md`): the full Q1 arm set on the 118 parallel qubits (native `reset`, `measure_reset`, `measure_reset_2`, delay and readout references, \|+> arm; qubit 79 isolated under Deviation 6) plus Q2 / Q3 / Q4 slices, 40 circuits x 2048 shots in two jobs (`init_qubits` True and False), snapshot 2026-09-20T030813Z | 81,920 executions, 2 jobs: 0.43 / 0.09 min |
 
 Lists 02 and 03 carry `dry_run: true` and the placeholder `preflight_review`; nothing submits until both change after
 review. List 01 carries `dry_run: false` and the permalink of its pre-flight review (it was run once; re-running it is
 a deliberate act of the workflow dispatcher).
 
-Paper 2 primitive (recorded deviation): its pre-registration (v0.4.1, Section 3 "Execution") specifies SamplerV2 with `init_qubits`
-for the reset-error map and records that list 03 estimates P(1) = (1 - <Z>) / 2 with EstimatorV2 through the shared runner path,
-with a Deviation to be entered in the Paper 2 ledger before the production Q1-Q5 lists. The runner has no SamplerV2 path
-(checked 20 Sep 2026: EstimatorV2 only), so list 03 stays on EstimatorV2 for the smoke test; SamplerV2 with `init_qubits` and raw
-counts per job is a runner follow-up before Q1.
+### Paper 2 Sampler lists (`paper2/`)
+
+Paper 2 (reset / MCM characterisation of ibm_phoenix, pre-registration v0.4.4, Deviations 1-7) runs SamplerV2 at
+resilience 0 with `init_qubits` logged per job. A job list with `primitive: "sampler"` replaces `points` / `probes` by `sampler_jobs`
+(one SamplerV2 job per stage, each a list of compact circuit specs expanded by `gradvar.paper2`), and carries
+`protocol`, `init_qubits`, the snapshot-derived `qubit_set` (118 parallel qubits plus qubit 79 `separate`, Deviation 6) and
+`q4_patches` (Deviation 7 (i) rule), and `randomness`. Format, builders, the Paper 2 layout-check policy, the Sampler
+budget and the data policy (Deviation 7 (vii): no `circuits.qpy` in a Sampler bundle, SHA-256 and versions in job.json and
+the file under `data/artifacts/` for the Action artefact; `bitarrays.npz` with the per-shot bits of every classical
+register in the bundle under 20 MB else under `data/lfs/`; `counts.json`, job.json and the Section 5 CSV always) are
+documented in `docs/PAPER2_RUNNER.md`; the lists are generated by `scripts/make_paper2_joblists.py` from snapshot
+`ibm_phoenix_2026-09-20T030813Z.csv` and must equal its output (tested).
+
+| list | implements | budget model v2, Sampler (250 us / 1 us) |
+|---|---|---|
+| `paper2/Q1.json` | Q1 reset-error map over the 118 parallel qubits, 17 circuits at 65,536 shots in two jobs (`init_qubits` True: 14; False: arm (b), 3), plus the Deviation 6 job `Q1-q79` (qubit 79's native arms (a), (b), (f), 3 circuits) | 1,114,112 + 196,608 executions: 4.95 + 0.90 / 0.33 + 0.08 min |
+| `paper2/Q2.json` | Q2 spectator backaction, 5 masks x r {1, 4, 16} x 3 axes x 2 target preps x {reset, delay} = 180 circuits at 16,384 (422 directed pairs, M0 with 22 acting targets) | 2,949,120: 13.05 / 0.81 min |
+| `paper2/Q3.json` | Q3 frame-tracked reset cycle benchmark, 13 masks x 4 frames x m {1, 16, 64} = 156 circuits at 12,288 (480 ns cycle idle; `echo` off) | 1,916,928: 8.82 / 0.86 min |
+| `paper2/Q4.json` | Q4 reset-as-channel on 12 row edges (0-1, 15-16, 20-21, 38-39, 42-43, 57-58, 64-65, 70-71, 85-86, 92-93, 108-109, 115-116), 2 p x 16 stratified masks x 4 inputs x 3 axes = 384 circuits at 2,048 | 786,432: 3.47 / 0.21 min |
+| `paper2/Q5.json` | Q5 stability, native-reset Q1 subset over the 118 parallel qubits, 8 circuits at 32,768, one day (dispatch on each of four days) | 262,144 per day: 1.18 / 0.09 min (x 4) |
+
+Campaign total with the smoke list and four Q5 days: 8,093,696 executions, 36.34 min at 250 us (cap 45), 2.75 min at 1 us
+(v0.4.4 Section 3 table: 8,093,696 / 36.3 / 2.7; the 1 us column of the table omits the 2 s job charge of the smoke test and
+the qubit-79 job). The former note about recording the EstimatorV2 estimate of list 03 as a deviation is closed by the
+conversion.
 
 ## Per-job bundle (`data/runs/<date>/<job_id>/`)
 
