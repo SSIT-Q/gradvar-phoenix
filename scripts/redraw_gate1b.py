@@ -476,12 +476,41 @@ def h5_h6(df: pd.DataFrame, floors: dict) -> list:
 MAIN_GRID_PP_DEPTHS = {"4x5": (4, 8, 12), "4x10": (2, 4, 8, 12), "6x10": (4, 8, 12), "8x10": (4, 8, 12), "10x10": (4, 8, 12)}   # propagation rows of the complete grid
 
 
-def main_grid_plan(record: dict, runday: dict) -> list:
-    """The Deviation 15 propagation rows (noiseless / unital / nonunital, k = 1 and k = L in one propagation) whose cone graph changed,
-    with the frozen row's runtime as the cost estimate; exact rows (L <= 2, small L = 4 cones) are listed for ``scripts/gate1_ladder.py``."""
+FROZEN_EXACT_CSV = PRED / "gate1_predictions.csv"
+EXACT_SEED, EXACT_M, EXACT_TRAJ = 2026, 200, 32          # scripts/gate1_ladder.py defaults of the frozen exact rows
+
+
+def frozen_exact_rows() -> pd.DataFrame:
+    """The exactly simulated rows of the frozen grid (``gate1_predictions.csv``; method statevector / density_matrix, not the
+    'not_implemented' placeholders), keyed by (patch, L, k, model)."""
+    df = pd.read_csv(FROZEN_EXACT_CSV)
+    return df[df.method != "not_implemented"].copy()
+
+
+def joblist_ks(rung: str) -> dict | None:
+    """{L: sorted k values} the production job list of ``rung`` measures (data/joblists/paper1/grid_<rung>.json), or None."""
+    path = ROOT / "data" / "joblists" / "paper1" / f"grid_{rung}.json"
+    if not path.exists():
+        return None
+    d = json.loads(path.read_text())
+    out = {}
+    for pt in d.get("points", []):
+        out.setdefault(int(pt["L"]), set()).add(int(pt["k"]))
+    return {L: sorted(ks) for L, ks in out.items()} or None
+
+
+def main_grid_plan(record: dict, runday: dict, rungs=None) -> list:
+    """The frozen main-grid rows whose cone graph changed: the Deviation 15 propagation rows (noiseless / unital / nonunital, k = 1 and
+    k = L in one propagation; the frozen row's runtime and path count as the cost) and the exactly simulated rows (``gate1_predictions.csv``,
+    per (L, k, model); rerun with ``predict.hea_point`` at the frozen seed / M / trajectories). Where the rung's production job list exists,
+    the exact rows are restricted to the k values it measures."""
     fdf = g1pp.with_zz_column(pd.read_csv(FROZEN_CSV))
+    ex = frozen_exact_rows()
     plan = []
     for rung, spec in SPEC_OF.items():
+        if rungs and rung not in rungs:
+            continue
+        ks_measured = joblist_ks(rung)
         prec, prun = rung_patch(record["rungs"][rung]), rung_patch(runday["rungs"][rung])
         for L in (1, 2, 4, 8, 12):
             k_rec, k_run = cone_key(prec, rung_edge(record["rungs"][rung]), L), cone_key(prun, rung_edge(runday["rungs"][rung]), L)
@@ -490,21 +519,100 @@ def main_grid_plan(record: dict, runday: dict) -> list:
             for model in ("noiseless", "unital", "nonunital"):
                 h = fdf[(fdf.stage == "dev15") & (fdf.patch == spec) & (fdf.L == L) & (fdf.model == model) & (fdf.zz_layer == "off") & (fdf.status != "pending")]
                 if L in MAIN_GRID_PP_DEPTHS[spec] and not h.empty:
-                    plan.append(dict(rung=rung, patch=spec, L=L, model=model, method="pauli_propagation", cone=len(k_run["cone"]),
+                    plan.append(dict(rung=rung, patch=spec, L=L, k="1,L", model=model, method="pauli_propagation", cone=len(k_run["cone"]),
                                      frozen_runtime_s=float(h.iloc[0].runtime_s), frozen_mc_samples=float(h.iloc[0].mc_samples)))
-                elif L in MAIN_GRID_PP_DEPTHS[spec] and h.empty and model == "noiseless" and spec == "4x5" and L == 4:
-                    plan.append(dict(rung=rung, patch=spec, L=L, model=model, method="exact (gate1_ladder.py)", cone=len(k_run["cone"])))
-                else:
-                    plan.append(dict(rung=rung, patch=spec, L=L, model=model, method="exact (gate1_ladder.py)", cone=len(k_run["cone"])))
+                e = ex[(ex.patch == spec) & (ex.L == L) & (ex.model == model)]
+                for _, r in e.iterrows():
+                    if ks_measured is not None and int(r.k) not in ks_measured.get(L, []):
+                        continue
+                    plan.append(dict(rung=rung, patch=spec, L=L, k=int(r.k), model=model, method="exact", cone=len(k_run["cone"]),
+                                     frozen_runtime_s=float(r.runtime_s), frozen_method=str(r.method), frozen_M=int(r.M)))
     return plan
+
+
+def _run_exact_job(job: dict) -> dict:
+    """One exactly simulated main-grid row on the run-day placement with the frozen ``gate1_ladder.py`` settings (seed 2026, M = 200, 32
+    trajectories, density matrix <= 10 qubits, statevector <= 24). ``predict.hea_point`` takes the observable from ``interior_edge``, which
+    is the run-day edge for every rung but the 4x10 (cone-graph rule); a mismatch is recorded, not simulated."""
+    from gradvar import predict
+    from gradvar.circuits import hea_observable
+    patch = rung_patch(job["rung"])
+    _, e = hea_observable(patch)
+    if tuple(e) != rung_edge(job["rung"]):
+        return dict(stage="exact", patch=job["spec"], n=patch.n, L=job["L"], k=job["k"], model=job["model"], status="skipped: interior_edge differs from the run-day edge",
+                    edge=job["rung"]["edge"], rung=job["rung_name"], snapshot_stamp=job["stamp"])
+    t0 = time.time()
+    r = predict.hea_point(patch, job["L"], job["k"], job["model"], EXACT_M, job["csv"], n_traj=EXACT_TRAJ, seed=EXACT_SEED, traj_max=24, max_exact_L=4, mps_max=0)
+    out = dict(r.row())
+    out.update(stage="exact", status=("computed" if r.method != "not_implemented" else r.note), placement=job["placement_label"], snapshot_stamp=job["stamp"],
+               cone_key_sha=job["cone_sha"], rung=job["rung_name"], calibration=Path(job["csv"]).name, runtime_s=time.time() - t0, zz_layer="off", zz_idle="off")
+    return out
 
 
 def _run_main_grid_job(job: dict) -> dict:
     patch = rung_patch(job["rung"])
     out = predict_at_edge(patch, job["spec"], job["L"], rung_edge(job["rung"]), job["csv"], job["props"], model=job["model"], dial_kind=None,
-                          n_samples=job["n_samples"], pattern=False, time_limit_s=job["time_limit_s"], n_cap=job["n_cap"])
-    out.update(stage="dev15", placement=job["placement_label"], snapshot_stamp=job["stamp"], cone_key_sha=job["cone_sha"], rung=job["rung_name"])
+                          n_samples=job["n_samples"], pattern=False, time_limit_s=job["time_limit_s"], n_cap=job["n_cap"], zz_layer_on=job.get("zz_layer_on", True))
+    out.update(stage="dev15", placement=job["placement_label"], snapshot_stamp=job["stamp"], cone_key_sha=job["cone_sha"], rung=job["rung_name"], p=float("nan"), dial="")
     return out
+
+
+def main_grid_comparison(rows: list, exact_rows: list) -> list:
+    """Frozen vs redraw per (patch, L, k, model): the frozen value (exact row's ``var`` where one exists, else the frozen ZZ-off
+    propagation row's sampled value) against the re-drawn one (exact where rerun exactly, else the propagation row's k = 1 / k = L value)."""
+    fdf = g1pp.with_zz_column(pd.read_csv(FROZEN_CSV))
+    fdf = fdf[(fdf.stage == "dev15") & (fdf.zz_layer == "off") & (fdf.status != "pending")]
+    ex = frozen_exact_rows()
+    out = []
+    for r in exact_rows:
+        if r.get("status") != "computed":
+            out.append(dict(patch=r["patch"], L=r["L"], k=r["k"], model=r["model"], method_redraw="exact", var_redraw=float("nan"), note=r.get("status")))
+            continue
+        e = ex[(ex.patch == r["patch"]) & (ex.L == r["L"]) & (ex.k == r["k"]) & (ex.model == r["model"])]
+        vf = float(e.iloc[0]["var"]) if not e.empty else float("nan")
+        out.append(dict(patch=r["patch"], n_frozen=(int(e.iloc[0].n) if not e.empty else None), n_redraw=int(r["n"]), L=int(r["L"]), k=int(r["k"]), model=r["model"],
+                        method_frozen=(str(e.iloc[0].method) if not e.empty else "-"), method_redraw=str(r["method"]), var_frozen=vf, ci_lo_frozen=(float(e.iloc[0].ci_lo) if not e.empty else float("nan")),
+                        ci_hi_frozen=(float(e.iloc[0].ci_hi) if not e.empty else float("nan")), var_redraw=float(r["var"]), ci_lo_redraw=float(r["ci_lo"]), ci_hi_redraw=float(r["ci_hi"]),
+                        rel_change=(float(r["var"]) / vf - 1.0 if np.isfinite(vf) and vf else float("nan")), zz="off / off", edge_frozen=(str(e.iloc[0].edge) if not e.empty else "-"), edge_redraw=str(r["edge"])))
+    for r in rows:
+        f = fdf[(fdf.patch == r["patch"]) & (fdf.L == r["L"]) & (fdf.model == r["model"])]
+        f = f.iloc[0] if not f.empty else None
+        for which, k in (("k1", 1), ("kL", int(r["L"]))):
+            if which == "kL" and k == 1:
+                continue
+            vf = g1pp.best(f, which) if f is not None else float("nan")
+            vr = g1pp.best(r, which)
+            out.append(dict(patch=r["patch"], n_frozen=(int(f.n) if f is not None else None), n_redraw=int(r["n"]), L=int(r["L"]), k=k, model=r["model"],
+                            method_frozen="pauli_propagation", method_redraw="pauli_propagation", var_frozen=vf, err_frozen=(g1pp.err(f, which) if f is not None else float("nan")),
+                            var_redraw=vr, err_redraw=g1pp.err(r, which), rel_change=(vr / vf - 1.0 if np.isfinite(vf) and vf else float("nan")),
+                            zz=f"off / {r.get('zz_layer', 'off')}", edge_frozen=(str(f.edge) if f is not None else "-"), edge_redraw=str(r["edge"]), status_redraw=r.get("status")))
+    return out
+
+
+def main_grid_markdown(res: dict) -> str:
+    L = []
+    mg = res["main_grid"]
+    L.append(f"### Deviation 46 re-draw of the main-grid rows: run-day snapshot {res['snapshot']['stamp']} vs the frozen rows\n")
+    L.append(f"Rungs {mg.get('rungs')}; {mg['n_recomputed']} propagation rows (Deviation 34 layer model on the noisy rows, ZZ off on the noiseless ones; frozen path counts) and "
+             f"{mg.get('n_exact_recomputed', 0)} exact rows (seed {EXACT_SEED}, M = {EXACT_M}, {EXACT_TRAJ} trajectories, the frozen `gate1_ladder.py` settings) recomputed on the run-day "
+             f"placement; {mg['core_minutes']:.0f} core-min. The frozen propagation rows are ZZ off, so their shift mixes the placement and the Deviation 34 static ZZ (<= 10% expected at L = 8). "
+             f"Frozen exact rows: `gate1_predictions.csv`; frozen propagation rows: `pauliprop_predictions.csv` (stage dev15).\n")
+    L.append("| rung | n frozen -> redraw | L | k | model | method frozen -> redraw | var frozen | var redraw | rel. change | ZZ frozen / redraw | edge frozen -> redraw |")
+    L.append("|---|---|---|---|---|---|---|---|---|---|---|")
+    for r in sorted(mg["comparison"], key=lambda r: (r["patch"], r["L"], r["k"], r["model"])):
+        if not np.isfinite(r.get("var_redraw", float("nan"))):
+            L.append(f"| {r['patch']} | - | {r['L']} | {r['k']} | {r['model']} | {r.get('method_redraw', '-')} | - | - | - | - | {r.get('note', '')} |")
+            continue
+        vf = f"{fmt(r['var_frozen'])}" + (f" [{fmt(r['ci_lo_frozen'])}, {fmt(r['ci_hi_frozen'])}]" if "ci_lo_frozen" in r else f" +/- {fmt(r.get('err_frozen'), '{:.1e}')}")
+        vr = f"{fmt(r['var_redraw'])}" + (f" [{fmt(r['ci_lo_redraw'])}, {fmt(r['ci_hi_redraw'])}]" if "ci_lo_redraw" in r else f" +/- {fmt(r.get('err_redraw'), '{:.1e}')}")
+        L.append(f"| {r['patch']} | {r.get('n_frozen')} -> {r['n_redraw']} | {r['L']} | {r['k']} | {r['model']} | {r['method_frozen']} -> {r['method_redraw']} | {vf} | {vr} | "
+                 f"{fmt(r['rel_change'], '{:+.1%}')} | {r['zz']} | {r['edge_frozen']} -> {r['edge_redraw']} |")
+    fin = [r for r in mg["comparison"] if np.isfinite(r.get("rel_change", float("nan")))]
+    if fin:
+        w = max(fin, key=lambda r: abs(r["rel_change"]))
+        L.append(f"\nLargest relative change: {w['patch']} L = {w['L']} k = {w['k']} {w['model']}: {fmt(w['rel_change'], '{:+.1%}')} ({fmt(w['var_frozen'])} -> {fmt(w['var_redraw'])}).")
+    L.append("")
+    return "\n".join(L)
 
 
 # --------------------------------------------------------------------------- output
@@ -587,8 +695,9 @@ def markdown_block(res: dict) -> str:
     if res.get("main_grid"):
         mg = res["main_grid"]
         L.append(f"Main-grid rows whose cone graph changed on this snapshot: {mg['n_rows']} ({mg['n_pp_rows']} propagation rows, frozen cost "
-                 f"{mg['frozen_core_minutes']:.0f} core-min at the frozen sample counts; {mg['n_exact_rows']} exact rows for `scripts/gate1_ladder.py`); "
-                 + (f"{mg['n_recomputed']} recomputed here (`--main-grid`)." if mg.get("n_recomputed") else "not recomputed in this run (`--main-grid` runs them); the 19 Sep rows stand as the record."))
+                 f"{mg['frozen_core_minutes']:.0f} core-min at the frozen sample counts; {mg['n_exact_rows']} exact rows, `gate1_ladder.py` settings); "
+                 + (f"{mg['n_recomputed']} propagation and {mg.get('n_exact_recomputed', 0)} exact rows recomputed here (`--main-grid`, main_grid_redraw_<date>.*)." if (mg.get("n_recomputed") or mg.get("n_exact_recomputed"))
+                    else "not recomputed in this run (`--main-grid [--exact] [--rungs ..]` runs them); the 19 Sep rows stand as the record."))
         L.append("")
     return "\n".join(L)
 
@@ -665,7 +774,18 @@ def main(argv=None) -> int:
     ap.add_argument("--force", action="store_true", help="re-draw every Gate 1b row even where the cone graph is unchanged")
     ap.add_argument("--main-grid", action="store_true", help="also recompute the main-grid propagation rows whose cone graph changed (ZZ layer model on the noisy rows)")
     ap.add_argument("--plan", action="store_true", help="print the placement and the rows that would run; no simulation")
+    ap.add_argument("--rungs", nargs="*", default=None, help="restrict --main-grid to these rungs (20 40 60 80 100 or n20 ..)")
+    ap.add_argument("--no-gate1b", action="store_true", help="skip the Gate 1b rows (main-grid only run)")
+    ap.add_argument("--frozen-samples", action="store_true", help="main grid: the frozen row's Pauli-path count per row instead of --n-samples")
+    ap.add_argument("--exact", action="store_true", help="main grid: also rerun the exactly simulated frozen rows (gate1_ladder.py settings) on the run-day placement")
+    ap.add_argument("--main-grid-tag", default=None, help="file tag of the main-grid outputs (default: main_grid_redraw_<snapshot date>)")
     args = ap.parse_args(argv)
+    rungs = None
+    if args.rungs:
+        rungs = {r if r.startswith("n") else f"n{r}" for r in args.rungs}
+        unknown = rungs - set(SHAPES)
+        if unknown:
+            raise SystemExit(f"unknown rung(s) {sorted(unknown)}; choose from {list(SHAPES)}")
 
     snapshot = args.snapshot or newest_snapshot()
     props = properties_for_csv(snapshot)
@@ -699,15 +819,23 @@ def main(argv=None) -> int:
     print(f"frozen-reading regression vs pauliprop_summary.json: max rel diff {frozen_check['max_rel_diff']:.1e} -> {'PASS' if frozen_check['passes'] else 'FAIL'}")
 
     jobs, stand = plan_rows(record, runday, fdf, force=args.force)
+    if args.no_gate1b:
+        jobs, stand = [], []
     for j in jobs:
         j.update(csv=snapshot, props=props, stamp=stamp, n_samples=args.n_samples, pattern_samples=args.pattern_samples, time_limit_s=args.time_limit,
                  n_cap=args.n_cap, placement_label=f"Deviation 46 run-day placement ({Path(snapshot).name}, Deviations 22/26/36)")
-    mg_plan = main_grid_plan(record, runday)
+    mg_plan = main_grid_plan(record, runday, rungs)
     mg_pp = [m for m in mg_plan if m["method"] == "pauli_propagation"]
-    print(f"Gate 1b rows to re-draw: {len(jobs)}; frozen rows standing: {len(stand)}")
+    mg_ex = [m for m in mg_plan if m["method"] == "exact"]
+    print(f"Gate 1b rows to re-draw: {len(jobs)}; frozen rows standing: {len(stand)}" + (" (skipped: --no-gate1b)" if args.no_gate1b else ""))
     for j in jobs:
         print(f"  {j['spec']:6} L={j['L']:2} {j['dial']:5} p={j['p']:<5} n={j['rung']['n']} edge={j['rung']['edge']} cone={j['cone_sha']}  {j['reason']}")
-    print(f"main-grid rows with a changed cone graph: {len(mg_plan)} ({len(mg_pp)} propagation rows, frozen cost {sum(m['frozen_runtime_s'] for m in mg_pp) / 60:.0f} core-min)")
+    print(f"main-grid rows with a changed cone graph{' on rungs ' + str(sorted(rungs)) if rungs else ''}: {len(mg_plan)} ({len(mg_pp)} propagation rows, frozen cost "
+          f"{sum(m['frozen_runtime_s'] for m in mg_pp) / 60:.0f} core-min ZZ off; {len(mg_ex)} exact rows, frozen cost {sum(m['frozen_runtime_s'] for m in mg_ex) / 60:.0f} core-min)")
+    if args.plan or args.main_grid:
+        for m in mg_plan:
+            print(f"  {m['patch']:6} L={m['L']:2} k={m['k']!s:4} {m['model']:10} {m['method']:18} cone={m['cone']:3} frozen {m['frozen_runtime_s']:.0f}s"
+                  + (f" {m['frozen_mc_samples']:.0e} paths" if m['method'] == 'pauli_propagation' else f" {m.get('frozen_method')}"))
     if args.plan:
         return 0
 
@@ -720,17 +848,55 @@ def main(argv=None) -> int:
                 print(f"  {out['patch']:6} n={out['n']} L={out['L']:2} {out['dial']:5} p={out['p']:<5}: kL mc={out.get('var_kL_mc', float('nan')):.4e}"
                       f"+/-{2 * out.get('se_kL_mc', float('nan')):.1e} pp={out['var_kL_pp']:.4e} C={out.get('var_cost_mc', float('nan')):.3e} "
                       f"pat={out.get('pattern_floor', float('nan')):.2e} {out['status']} ({out['runtime_s']:.0f}s + pat {out.get('pattern_runtime_s', 0):.0f}s)", flush=True)
-    mg_rows = []
-    if args.main_grid and mg_pp:
+    mg_rows, mg_exact_rows = [], []
+    label = f"Deviation 46 run-day placement ({Path(snapshot).name}, Deviations 22/26/36)"
+    if args.main_grid and (mg_pp or (args.exact and mg_ex)):
+        def _sha(m):
+            return cone_key(rung_patch(runday["rungs"][m["rung"]]), rung_edge(runday["rungs"][m["rung"]]), m["L"])["sha"]
         mjobs = [dict(rung_name=m["rung"], rung=runday["rungs"][m["rung"]], spec=m["patch"], L=m["L"], model=m["model"], csv=snapshot, props=props, stamp=stamp,
-                      n_samples=args.n_samples, time_limit_s=args.time_limit, n_cap=args.n_cap, placement_label=jobs[0]["placement_label"] if jobs else "",
-                      cone_sha=cone_key(rung_patch(runday["rungs"][m["rung"]]), rung_edge(runday["rungs"][m["rung"]]), m["L"])["sha"]) for m in mg_pp]
+                      n_samples=(int(m["frozen_mc_samples"]) if args.frozen_samples and np.isfinite(m["frozen_mc_samples"]) else args.n_samples),
+                      time_limit_s=args.time_limit, n_cap=args.n_cap, placement_label=label, cone_sha=_sha(m)) for m in mg_pp]
+        ejobs = [dict(rung_name=m["rung"], rung=runday["rungs"][m["rung"]], spec=m["patch"], L=m["L"], k=m["k"], model=m["model"], csv=snapshot, stamp=stamp,
+                      placement_label=label, cone_sha=_sha(m)) for m in mg_ex] if args.exact else []
+        # slowest first so the pool stays full: the exact noisy L = 2 rows and the L = 12 propagations
+        mjobs.sort(key=lambda j: -j["L"])
+        ejobs.sort(key=lambda j: (j["model"] == "noiseless", -j["L"]))
         with ProcessPoolExecutor(max_workers=args.workers) as ex:
-            for out in ex.map(_run_main_grid_job, mjobs):
-                mg_rows.append(out)
-                print(f"  main grid {out['patch']:6} L={out['L']:2} {out['model']:10}: k1={out.get('var_k1_mc', float('nan')):.3e} kL={out.get('var_kL_mc', float('nan')):.3e} {out['status']}", flush=True)
+            futs = [(ex.submit(_run_exact_job, j), "exact") for j in ejobs] + [(ex.submit(_run_main_grid_job, j), "pp") for j in mjobs]
+            for fut, kind in futs:
+                out = fut.result()
+                if kind == "pp":
+                    mg_rows.append(out)
+                    print(f"  main grid {out['patch']:6} L={out['L']:2} {out['model']:10}: k1={out.get('var_k1_mc', float('nan')):.3e}+/-{2 * out.get('se_k1_mc', float('nan')):.1e} "
+                          f"kL={out.get('var_kL_mc', float('nan')):.3e} {out['status']} ({out['runtime_s']:.0f}s, {out.get('mc_samples', 0):.0e} paths)", flush=True)
+                else:
+                    mg_exact_rows.append(out)
+                    print(f"  exact     {out['patch']:6} L={out['L']:2} k={out['k']} {out['model']:10}: var={out.get('var', float('nan')):.3e} [{out.get('ci_lo', float('nan')):.3e}, "
+                          f"{out.get('ci_hi', float('nan')):.3e}] {out.get('method', '')} cone {out.get('n_cone', '')} {out['status']} ({out.get('runtime_s', 0):.0f}s)", flush=True)
     wall = time.time() - t0
-    core_s = sum(r["runtime_s"] + r.get("pattern_runtime_s", 0.0) for r in rows + mg_rows)
+    core_s = sum(r["runtime_s"] + r.get("pattern_runtime_s", 0.0) for r in rows + mg_rows + mg_exact_rows)
+    mg_res = dict(rungs=sorted(rungs) if rungs else "all", n_rows=len(mg_plan), n_pp_rows=len(mg_pp), n_exact_rows=len(mg_ex),
+                  frozen_core_minutes=sum(m["frozen_runtime_s"] for m in mg_pp) / 60, plan=mg_plan, n_recomputed=len(mg_rows), n_exact_recomputed=len(mg_exact_rows),
+                  rows=mg_rows, exact_rows=mg_exact_rows, core_minutes=sum(r["runtime_s"] for r in mg_rows + mg_exact_rows) / 60,
+                  comparison=(main_grid_comparison(mg_rows, mg_exact_rows) if (mg_rows or mg_exact_rows) else []))
+    out_dir = Path(args.out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    if mg_rows or mg_exact_rows:
+        mtag = args.main_grid_tag or f"main_grid_redraw_{tag}"
+        mres = dict(deviation="46", generated_utc=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                    snapshot=dict(csv=Path(snapshot).name, properties=Path(props).name, stamp=stamp, excluded=runday["excluded"]),
+                    placement_source=PLACEMENT_SOURCE + "; " + PLACEMENT_SOURCE_PROPERTIES, placement=ptable, runday_placement=runday, record_placement=record,
+                    settings=dict(frozen_samples=args.frozen_samples, n_samples=args.n_samples, n_cap=args.n_cap, time_limit_s=args.time_limit, seed=SEED, exact=args.exact,
+                                  exact_seed=EXACT_SEED, exact_M=EXACT_M, exact_traj=EXACT_TRAJ, zz_angle_scale=pp.ZZ_ANGLE_SCALE, layer_timing=str(LAYER_TIMING.relative_to(ROOT))),
+                    main_grid=mg_res, runtime_s=wall)
+        (out_dir / f"{mtag}.json").write_text(json.dumps(mres, indent=1, default=_json_default))
+        pd.DataFrame(mg_rows + mg_exact_rows).to_csv(out_dir / f"{mtag}.csv", index=False)
+        (out_dir / f"{mtag}.md").write_text(main_grid_markdown(mres))
+        print(main_grid_markdown(mres))
+        print(f"wrote {mtag}.json / .csv / .md in {out_dir.relative_to(ROOT) if out_dir.is_relative_to(ROOT) else out_dir}; {mg_res['core_minutes']:.0f} core-min")
+    if args.no_gate1b:
+        print(f"wall {wall / 60:.1f} min, {core_s / 60:.0f} core-min, total {(time.time() - t_start) / 60:.1f} min")
+        return 0
 
     all_rows = rows + stand
     rdf = g1pp.with_zz_column(pd.DataFrame(all_rows)) if all_rows else fdf.iloc[0:0]
@@ -748,14 +914,10 @@ def main(argv=None) -> int:
                              zz_convention=pp.ZZ_CONVENTIONS[pp.ZZ_ANGLE_SCALE], layer_timing=str(LAYER_TIMING.relative_to(ROOT)), force=args.force),
                kurtosis=kappa, frozen_check=frozen_check, n_rows_redrawn=len(rows), n_rows_frozen_stand=len(stand), runtime_s=wall, core_minutes=core_s / 60,
                rows=all_rows, frozen=fr, redraw=rr, comparison=build_comparison(fdf, rdf, fr, rr), dev33_floors=floors, dev33_floors_frozen=floors_frozen,
-               main_grid=dict(n_rows=len(mg_plan), n_pp_rows=len(mg_pp), n_exact_rows=len(mg_plan) - len(mg_pp),
-                              frozen_core_minutes=sum(m["frozen_runtime_s"] for m in mg_pp) / 60, plan=mg_plan, n_recomputed=len(mg_rows), rows=mg_rows))
-    out_dir = Path(args.out_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
+               main_grid={k: v for k, v in mg_res.items() if k not in ("rows", "exact_rows", "comparison")})
     jpath, cpath, mpath = out_dir / f"gate1b_redraw_{tag}.json", out_dir / f"gate1b_redraw_{tag}.csv", out_dir / f"gate1b_redraw_{tag}.md"
     jpath.write_text(json.dumps(res, indent=1, default=_json_default))
-    csv_rows = all_rows + mg_rows
-    pd.DataFrame(csv_rows).to_csv(cpath, index=False)
+    pd.DataFrame(all_rows).to_csv(cpath, index=False)
     mpath.write_text(markdown_block(res))
     print(markdown_block(res))
     print(f"wrote {jpath.relative_to(ROOT)}, {cpath.relative_to(ROOT)}, {mpath.relative_to(ROOT)}; wall {wall / 60:.1f} min, {core_s / 60:.0f} core-min, total {(time.time() - t_start) / 60:.1f} min")
