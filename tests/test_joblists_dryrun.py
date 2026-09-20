@@ -21,7 +21,7 @@ LISTS = ["01_marrakesh_pipeline_check.json", "02_phoenix_smoke_test.json", "03_p
 pytestmark = pytest.mark.skipif(not HAS_AER, reason="qiskit-aer not installed")
 
 
-@pytest.mark.parametrize("name", LISTS[1:])   # 02 and 03 are still dry_run: true; 01 was enabled after its pre-flight review
+@pytest.mark.parametrize("name", LISTS[2:])   # 03 is still dry_run: true; 01 (19 Sep) and 02 (20 Sep, Deviation 32) are armed after their pre-flight reviews
 def test_dryrun_lists_validate_and_refuse_to_submit(name, tmp_path, monkeypatch):
     from gradvar.hardware import check_budget, joblist_submittable, load_joblist, run_joblist
     jl = load_joblist(str(DRYRUN / name))
@@ -351,8 +351,8 @@ def test_dial_durations_from_target():
 def test_dry_run_false_with_placeholder_review_is_refused(tmp_path, monkeypatch):
     from gradvar.hardware import run_joblist
     monkeypatch.setenv("QISKIT_IBM_INSTANCE_OPEN", "crn:fake-open")
-    jl = json.loads((DRYRUN / LISTS[1]).read_text())                                  # 02 still carries the placeholder
-    (tmp_path / "p.json").write_text(json.dumps(dict(jl, dry_run=False)))          # placeholder still in place
+    jl = json.loads((DRYRUN / LISTS[1]).read_text())
+    (tmp_path / "p.json").write_text(json.dumps(dict(jl, dry_run=False, preflight_review="TBD: pre-flight review permalink")))   # placeholder in place
     with pytest.raises(SystemExit, match="preflight_review"):
         run_joblist(str(tmp_path / "p.json"), submit=True, run_root=str(tmp_path / "r"), log_dir=str(tmp_path / "j"), calibration_csv=CAL02)
 
