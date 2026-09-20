@@ -1,0 +1,1334 @@
+{
+ "job_id": "danm9t8pqrnc7398v6r0",
+ "dry_run": false,
+ "job_kind": "probes",
+ "status": "completed",
+ "error": null,
+ "error_message": null,
+ "job_errors": null,
+ "timestamps": {
+  "submitted_local": "2026-09-20T04:45:41.601266+00:00",
+  "retrieved_local": "2026-09-20T14:17:45.808280+00:00",
+  "created": "2026-09-20T04:45:41.601266Z",
+  "finished": "2026-09-20T11:14:21.951888Z",
+  "running": "2026-09-20T11:14:12.087698Z"
+ },
+ "usage_qpu_seconds": 5,
+ "metrics": {
+  "caller": "qiskit_ibm_runtime~estimator.py",
+  "qiskit_version": "qiskit_ibm_runtime-0.49.0,qiskit-2.5.2*,qiskit_aer-0.17.2*",
+  "timestamps": {
+   "created": "2026-09-20T04:45:41.601266Z",
+   "finished": "2026-09-20T11:14:21.951888Z",
+   "running": "2026-09-20T11:14:12.087698Z"
+  },
+  "usage": {
+   "qpu_charge_time_seconds": 5,
+   "status": "complete"
+  },
+  "circuits_execution_time_ns": 2113933312
+ },
+ "usage_estimation": {
+  "quantum_seconds": 10.203418849
+ },
+ "session_id": "0f97a859-7b54-455d-abab-74fe22ec8f42",
+ "creation_date": "2026-09-20 04:45:41.601266+00:00",
+ "backend_name": "ibm_phoenix",
+ "backend_version": "1.0.0",
+ "instance": "flex",
+ "joblist_name": "dryrun_02_phoenix_smoke_test",
+ "preflight_review": "https://ssitcrew.slack.com/archives/C0C29EYR0GZ/p1789874970224149?thread_ts=1789669318.385169&cid=C0C29EYR0GZ",
+ "resilience_level": 0,
+ "shots": 4096,
+ "runner_git_commit": "59d312a56b81b58cf9362c0b3778ce988b3524c7",
+ "qiskit_ibm_runtime_version": "0.49.0",
+ "python": "3.11.16",
+ "rep_delay": {
+  "default_rep_delay_s": 1e-06,
+  "rep_delay_range_s": [
+   0.0,
+   0.002
+  ],
+  "dynamic_reprate_enabled": true,
+  "source": "backend"
+ },
+ "rep_delay_submitted_s": 0.00025,
+ "rep_delay_submitted_us": 250.0,
+ "dynamic_reprate_enabled": true,
+ "rep_delay_probe": true,
+ "isa_instruction_names": [
+  "x"
+ ],
+ "joblist_entries": [
+  {
+   "id": "ladder_rd250us_prep0",
+   "kind": "reset_error",
+   "reset_kind": "none",
+   "prep": "0",
+   "n": 20,
+   "patch": "4x5",
+   "shots": 4096,
+   "resilience": 0,
+   "seed": 20260919,
+   "rep_delay_us": 250,
+   "purpose": "rep_delay ladder (Section 6, Deviation 23 b, Gate 2 c): prepare |0> -> measure Z on the 20 patch qubits at execution.rep_delay = 250 us (the Heron default, slow reference); P(1) = (1 - <Z>)/2 is the state-preparation bias"
+  },
+  {
+   "id": "ladder_rd250us_prep1",
+   "kind": "reset_error",
+   "reset_kind": "none",
+   "prep": "1",
+   "n": 20,
+   "patch": "4x5",
+   "shots": 4096,
+   "resilience": 0,
+   "seed": 20260919,
+   "rep_delay_us": 250,
+   "purpose": "rep_delay ladder (Section 6, Deviation 23 b, Gate 2 c): prepare |1> -> measure Z on the 20 patch qubits at execution.rep_delay = 250 us (the Heron default, slow reference); P(1) = (1 - <Z>)/2 is the state-preparation bias"
+  }
+ ],
+ "circuits_qpy": {
+  "sha256": "4f14f7df4ce3da53866cc5ea2d077f375bd0052af2de1117d2e6f19571d51778",
+  "bytes": 9336,
+  "circuits": 2,
+  "qiskit_version": "2.5.2",
+  "qiskit_ibm_runtime_version": "0.49.0",
+  "qpy_version": 17,
+  "committed": true,
+  "path": "data/runs/2026-09-20/danm9t8pqrnc7398v6r0/circuits.qpy"
+ },
+ "points": [
+  {
+   "probe_id": "ladder_rd250us_prep0",
+   "kind": "reset_error",
+   "reset_kind": "none",
+   "null_qubit": null,
+   "lattice_null_qubit": null,
+   "draw": null,
+   "mask_index": null,
+   "mask_hash": "",
+   "n": 20,
+   "L": null,
+   "k_1based": null,
+   "p": null,
+   "prep": "0",
+   "seed": 20260919,
+   "qubits": [
+    82,
+    83,
+    84,
+    85,
+    86,
+    92,
+    93,
+    94,
+    95,
+    96,
+    102,
+    103,
+    104,
+    105,
+    106,
+    112,
+    113,
+    114,
+    115,
+    116
+   ],
+   "edge": null,
+   "layout": null,
+   "param_hash": null,
+   "masks": null,
+   "mask_seed": null,
+   "dial_delay_ns": null,
+   "rep_delay_us": 250.0,
+   "synthetic_target_instructions": [],
+   "patch": "4x5",
+   "origin": [
+    8,
+    2
+   ],
+   "holes": [],
+   "broken_edges": [
+    [
+     95,
+     96
+    ]
+   ],
+   "lattice_qubits": [
+    82,
+    83,
+    84,
+    85,
+    86,
+    92,
+    93,
+    94,
+    95,
+    96,
+    102,
+    103,
+    104,
+    105,
+    106,
+    112,
+    113,
+    114,
+    115,
+    116
+   ],
+   "lattice_edge": null,
+   "observables": [
+    [
+     [
+      "IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIZIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII",
+      1.0
+     ]
+    ],
+    [
+     [
+      "IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIZIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII",
+      1.0
+     ]
+    ],
+    [
+     [
+      "IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIZIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII",
+      1.0
+     ]
+    ],
+    [
+     [
+      "IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIZIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII",
+      1.0
+     ]
+    ],
+    [
+     [
+      "IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIZIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII",
+      1.0
+     ]
+    ],
+    [
+     [
+      "IIIIIIIIIIIIIIIIIIIIIIIIIIIZIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII",
+      1.0
+     ]
+    ],
+    [
+     [
+      "IIIIIIIIIIIIIIIIIIIIIIIIIIZIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII",
+      1.0
+     ]
+    ],
+    [
+     [
+      "IIIIIIIIIIIIIIIIIIIIIIIIIZIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII",
+      1.0
+     ]
+    ],
+    [
+     [
+      "IIIIIIIIIIIIIIIIIIIIIIIIZIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII",
+      1.0
+     ]
+    ],
+    [
+     [
+      "IIIIIIIIIIIIIIIIIIIIIIIZIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII",
+      1.0
+     ]
+    ],
+    [
+     [
+      "IIIIIIIIIIIIIIIIIZIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII",
+      1.0
+     ]
+    ],
+    [
+     [
+      "IIIIIIIIIIIIIIIIZIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII",
+      1.0
+     ]
+    ],
+    [
+     [
+      "IIIIIIIIIIIIIIIZIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII",
+      1.0
+     ]
+    ],
+    [
+     [
+      "IIIIIIIIIIIIIIZIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII",
+      1.0
+     ]
+    ],
+    [
+     [
+      "IIIIIIIIIIIIIZIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII",
+      1.0
+     ]
+    ],
+    [
+     [
+      "IIIIIIIZIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII",
+      1.0
+     ]
+    ],
+    [
+     [
+      "IIIIIIZIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII",
+      1.0
+     ]
+    ],
+    [
+     [
+      "IIIIIZIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII",
+      1.0
+     ]
+    ],
+    [
+     [
+      "IIIIZIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII",
+      1.0
+     ]
+    ],
+    [
+     [
+      "IIIZIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII",
+      1.0
+     ]
+    ]
+   ],
+   "param_values": null
+  },
+  {
+   "probe_id": "ladder_rd250us_prep1",
+   "kind": "reset_error",
+   "reset_kind": "none",
+   "null_qubit": null,
+   "lattice_null_qubit": null,
+   "draw": null,
+   "mask_index": null,
+   "mask_hash": "",
+   "n": 20,
+   "L": null,
+   "k_1based": null,
+   "p": null,
+   "prep": "1",
+   "seed": 20260919,
+   "qubits": [
+    82,
+    83,
+    84,
+    85,
+    86,
+    92,
+    93,
+    94,
+    95,
+    96,
+    102,
+    103,
+    104,
+    105,
+    106,
+    112,
+    113,
+    114,
+    115,
+    116
+   ],
+   "edge": null,
+   "layout": null,
+   "param_hash": null,
+   "masks": null,
+   "mask_seed": null,
+   "dial_delay_ns": null,
+   "rep_delay_us": 250.0,
+   "synthetic_target_instructions": [],
+   "patch": "4x5",
+   "origin": [
+    8,
+    2
+   ],
+   "holes": [],
+   "broken_edges": [
+    [
+     95,
+     96
+    ]
+   ],
+   "lattice_qubits": [
+    82,
+    83,
+    84,
+    85,
+    86,
+    92,
+    93,
+    94,
+    95,
+    96,
+    102,
+    103,
+    104,
+    105,
+    106,
+    112,
+    113,
+    114,
+    115,
+    116
+   ],
+   "lattice_edge": null,
+   "observables": [
+    [
+     [
+      "IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIZIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII",
+      1.0
+     ]
+    ],
+    [
+     [
+      "IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIZIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII",
+      1.0
+     ]
+    ],
+    [
+     [
+      "IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIZIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII",
+      1.0
+     ]
+    ],
+    [
+     [
+      "IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIZIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII",
+      1.0
+     ]
+    ],
+    [
+     [
+      "IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIZIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII",
+      1.0
+     ]
+    ],
+    [
+     [
+      "IIIIIIIIIIIIIIIIIIIIIIIIIIIZIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII",
+      1.0
+     ]
+    ],
+    [
+     [
+      "IIIIIIIIIIIIIIIIIIIIIIIIIIZIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII",
+      1.0
+     ]
+    ],
+    [
+     [
+      "IIIIIIIIIIIIIIIIIIIIIIIIIZIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII",
+      1.0
+     ]
+    ],
+    [
+     [
+      "IIIIIIIIIIIIIIIIIIIIIIIIZIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII",
+      1.0
+     ]
+    ],
+    [
+     [
+      "IIIIIIIIIIIIIIIIIIIIIIIZIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII",
+      1.0
+     ]
+    ],
+    [
+     [
+      "IIIIIIIIIIIIIIIIIZIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII",
+      1.0
+     ]
+    ],
+    [
+     [
+      "IIIIIIIIIIIIIIIIZIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII",
+      1.0
+     ]
+    ],
+    [
+     [
+      "IIIIIIIIIIIIIIIZIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII",
+      1.0
+     ]
+    ],
+    [
+     [
+      "IIIIIIIIIIIIIIZIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII",
+      1.0
+     ]
+    ],
+    [
+     [
+      "IIIIIIIIIIIIIZIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII",
+      1.0
+     ]
+    ],
+    [
+     [
+      "IIIIIIIZIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII",
+      1.0
+     ]
+    ],
+    [
+     [
+      "IIIIIIZIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII",
+      1.0
+     ]
+    ],
+    [
+     [
+      "IIIIIZIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII",
+      1.0
+     ]
+    ],
+    [
+     [
+      "IIIIZIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII",
+      1.0
+     ]
+    ],
+    [
+     [
+      "IIIZIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII",
+      1.0
+     ]
+    ]
+   ],
+   "param_values": null
+  }
+ ],
+ "instance_plan": "flex",
+ "budget": {
+  "model_version": 2,
+  "formula": "2 s per job + (rep_delay + L x 0.71 us + t_meas + 10 us [+ dial durations]) x executions x (3 if resilience 2) + [resilience >= 1] x 32 x shots x n_bases x (rep_delay + t_meas + 10 us)",
+  "readout_us": 1.94,
+  "readout_source": "ibm_phoenix properties readout_length (2026-09-19)",
+  "exec_overhead_us": 10.0,
+  "trex_randomizations": 32,
+  "zne_noise_factors": 3,
+  "dial_durations_us": {
+   "reset": 0.4,
+   "delay": 0.4,
+   "measure_reset": 1.94,
+   "measure_reset_2": 1.14,
+   "none": 0.0
+  },
+  "dial_durations_source": "ibm_phoenix target (2026-09-19)",
+  "jobs": 10,
+  "circuits": 257,
+  "executions": 527360,
+  "executions_with_zne": 855040,
+  "trex_executions": 262656,
+  "seconds_at_250us": 309.77,
+  "minutes_at_250us": 5.163,
+  "seconds_at_1us": 39.62,
+  "minutes_at_1us": 0.66,
+  "per_job": [
+   {
+    "tag": "L0",
+    "resilience_level": 0,
+    "shots": 4096,
+    "rep_delay_us": null,
+    "circuits": 40,
+    "executions": 163840,
+    "zne_factor": 1,
+    "n_bases": 1,
+    "trex_executions": 0,
+    "circuit_seconds_at_250us": 43.498,
+    "trex_seconds_at_250us": 0.0,
+    "seconds_at_250us": 45.498,
+    "circuit_seconds_at_1us": 2.702,
+    "trex_seconds_at_1us": 0.0,
+    "seconds_at_1us": 4.702
+   },
+   {
+    "tag": "L1",
+    "resilience_level": 1,
+    "shots": 4096,
+    "rep_delay_us": null,
+    "circuits": 40,
+    "executions": 163840,
+    "zne_factor": 1,
+    "n_bases": 1,
+    "trex_executions": 131072,
+    "circuit_seconds_at_250us": 43.498,
+    "trex_seconds_at_250us": 34.333,
+    "seconds_at_250us": 79.831,
+    "circuit_seconds_at_1us": 2.702,
+    "trex_seconds_at_1us": 1.696,
+    "seconds_at_1us": 6.398
+   },
+   {
+    "tag": "L2",
+    "resilience_level": 2,
+    "shots": 4096,
+    "rep_delay_us": null,
+    "circuits": 40,
+    "executions": 163840,
+    "zne_factor": 3,
+    "n_bases": 1,
+    "trex_executions": 131072,
+    "circuit_seconds_at_250us": 130.494,
+    "trex_seconds_at_250us": 34.333,
+    "seconds_at_250us": 166.827,
+    "circuit_seconds_at_1us": 8.105,
+    "trex_seconds_at_1us": 1.696,
+    "seconds_at_1us": 11.801
+   },
+   {
+    "tag": "L0-probes-s16",
+    "resilience_level": 0,
+    "shots": 16,
+    "rep_delay_us": null,
+    "circuits": 64,
+    "executions": 1024,
+    "zne_factor": 1,
+    "n_bases": 1,
+    "trex_executions": 0,
+    "circuit_seconds_at_250us": 0.277,
+    "trex_seconds_at_250us": 0.0,
+    "seconds_at_250us": 2.277,
+    "circuit_seconds_at_1us": 0.022,
+    "trex_seconds_at_1us": 0.0,
+    "seconds_at_1us": 2.022
+   },
+   {
+    "tag": "L0-probes-s1024",
+    "resilience_level": 0,
+    "shots": 1024,
+    "rep_delay_us": null,
+    "circuits": 1,
+    "executions": 1024,
+    "zne_factor": 1,
+    "n_bases": 1,
+    "trex_executions": 0,
+    "circuit_seconds_at_250us": 0.269,
+    "trex_seconds_at_250us": 0.0,
+    "seconds_at_250us": 2.269,
+    "circuit_seconds_at_1us": 0.014,
+    "trex_seconds_at_1us": 0.0,
+    "seconds_at_1us": 2.014
+   },
+   {
+    "tag": "L0-probes-s4096-rd1us",
+    "resilience_level": 0,
+    "shots": 4096,
+    "rep_delay_us": 1.0,
+    "circuits": 2,
+    "executions": 8192,
+    "zne_factor": 1,
+    "n_bases": 1,
+    "trex_executions": 0,
+    "circuit_seconds_at_250us": 0.106,
+    "trex_seconds_at_250us": 0.0,
+    "seconds_at_250us": 2.106,
+    "circuit_seconds_at_1us": 0.106,
+    "trex_seconds_at_1us": 0.0,
+    "seconds_at_1us": 2.106
+   },
+   {
+    "tag": "L0-probes-s4096-rd5us",
+    "resilience_level": 0,
+    "shots": 4096,
+    "rep_delay_us": 5.0,
+    "circuits": 2,
+    "executions": 8192,
+    "zne_factor": 1,
+    "n_bases": 1,
+    "trex_executions": 0,
+    "circuit_seconds_at_250us": 0.139,
+    "trex_seconds_at_250us": 0.0,
+    "seconds_at_250us": 2.139,
+    "circuit_seconds_at_1us": 0.139,
+    "trex_seconds_at_1us": 0.0,
+    "seconds_at_1us": 2.139
+   },
+   {
+    "tag": "L0-probes-s4096-rd20us",
+    "resilience_level": 0,
+    "shots": 4096,
+    "rep_delay_us": 20.0,
+    "circuits": 2,
+    "executions": 8192,
+    "zne_factor": 1,
+    "n_bases": 1,
+    "trex_executions": 0,
+    "circuit_seconds_at_250us": 0.262,
+    "trex_seconds_at_250us": 0.0,
+    "seconds_at_250us": 2.262,
+    "circuit_seconds_at_1us": 0.262,
+    "trex_seconds_at_1us": 0.0,
+    "seconds_at_1us": 2.262
+   },
+   {
+    "tag": "L0-probes-s4096-rd250us",
+    "resilience_level": 0,
+    "shots": 4096,
+    "rep_delay_us": 250.0,
+    "circuits": 2,
+    "executions": 8192,
+    "zne_factor": 1,
+    "n_bases": 1,
+    "trex_executions": 0,
+    "circuit_seconds_at_250us": 2.146,
+    "trex_seconds_at_250us": 0.0,
+    "seconds_at_250us": 4.146,
+    "circuit_seconds_at_1us": 2.146,
+    "trex_seconds_at_1us": 0.0,
+    "seconds_at_1us": 4.146
+   },
+   {
+    "tag": "L1-probes-s16",
+    "resilience_level": 1,
+    "shots": 16,
+    "rep_delay_us": null,
+    "circuits": 64,
+    "executions": 1024,
+    "zne_factor": 1,
+    "n_bases": 1,
+    "trex_executions": 512,
+    "circuit_seconds_at_250us": 0.277,
+    "trex_seconds_at_250us": 0.134,
+    "seconds_at_250us": 2.411,
+    "circuit_seconds_at_1us": 0.022,
+    "trex_seconds_at_1us": 0.007,
+    "seconds_at_1us": 2.029
+   }
+  ]
+ },
+ "budget_estimate_with_target_durations": {
+  "model_version": 2,
+  "formula": "2 s per job + (rep_delay + L x 0.71 us + t_meas + 10 us [+ dial durations]) x executions x (3 if resilience 2) + [resilience >= 1] x 32 x shots x n_bases x (rep_delay + t_meas + 10 us)",
+  "readout_us": 1.94,
+  "readout_source": "ibm_phoenix target",
+  "exec_overhead_us": 10.0,
+  "trex_randomizations": 32,
+  "zne_noise_factors": 3,
+  "dial_durations_us": {
+   "reset": 0.4,
+   "delay": 0.4,
+   "measure_reset": 1.94,
+   "measure_reset_2": 1.14,
+   "none": 0.0
+  },
+  "dial_durations_source": "ibm_phoenix",
+  "max_experiments": 300,
+  "jobs": 10,
+  "circuits": 257,
+  "executions": 527360,
+  "executions_with_zne": 855040,
+  "trex_executions": 262656,
+  "seconds_at_250us": 309.77,
+  "minutes_at_250us": 5.163,
+  "seconds_at_1us": 39.62,
+  "minutes_at_1us": 0.66,
+  "per_job": [
+   {
+    "tag": "L0",
+    "resilience_level": 0,
+    "shots": 4096,
+    "rep_delay_us": null,
+    "circuits": 40,
+    "executions": 163840,
+    "zne_factor": 1,
+    "n_bases": 1,
+    "trex_executions": 0,
+    "circuit_seconds_at_250us": 43.498,
+    "trex_seconds_at_250us": 0.0,
+    "seconds_at_250us": 45.498,
+    "circuit_seconds_at_1us": 2.702,
+    "trex_seconds_at_1us": 0.0,
+    "seconds_at_1us": 4.702
+   },
+   {
+    "tag": "L1",
+    "resilience_level": 1,
+    "shots": 4096,
+    "rep_delay_us": null,
+    "circuits": 40,
+    "executions": 163840,
+    "zne_factor": 1,
+    "n_bases": 1,
+    "trex_executions": 131072,
+    "circuit_seconds_at_250us": 43.498,
+    "trex_seconds_at_250us": 34.333,
+    "seconds_at_250us": 79.831,
+    "circuit_seconds_at_1us": 2.702,
+    "trex_seconds_at_1us": 1.696,
+    "seconds_at_1us": 6.398
+   },
+   {
+    "tag": "L2",
+    "resilience_level": 2,
+    "shots": 4096,
+    "rep_delay_us": null,
+    "circuits": 40,
+    "executions": 163840,
+    "zne_factor": 3,
+    "n_bases": 1,
+    "trex_executions": 131072,
+    "circuit_seconds_at_250us": 130.494,
+    "trex_seconds_at_250us": 34.333,
+    "seconds_at_250us": 166.827,
+    "circuit_seconds_at_1us": 8.105,
+    "trex_seconds_at_1us": 1.696,
+    "seconds_at_1us": 11.801
+   },
+   {
+    "tag": "L0-probes-s16",
+    "resilience_level": 0,
+    "shots": 16,
+    "rep_delay_us": null,
+    "circuits": 64,
+    "executions": 1024,
+    "zne_factor": 1,
+    "n_bases": 1,
+    "trex_executions": 0,
+    "circuit_seconds_at_250us": 0.277,
+    "trex_seconds_at_250us": 0.0,
+    "seconds_at_250us": 2.277,
+    "circuit_seconds_at_1us": 0.022,
+    "trex_seconds_at_1us": 0.0,
+    "seconds_at_1us": 2.022
+   },
+   {
+    "tag": "L0-probes-s1024",
+    "resilience_level": 0,
+    "shots": 1024,
+    "rep_delay_us": null,
+    "circuits": 1,
+    "executions": 1024,
+    "zne_factor": 1,
+    "n_bases": 1,
+    "trex_executions": 0,
+    "circuit_seconds_at_250us": 0.269,
+    "trex_seconds_at_250us": 0.0,
+    "seconds_at_250us": 2.269,
+    "circuit_seconds_at_1us": 0.014,
+    "trex_seconds_at_1us": 0.0,
+    "seconds_at_1us": 2.014
+   },
+   {
+    "tag": "L0-probes-s4096-rd1us",
+    "resilience_level": 0,
+    "shots": 4096,
+    "rep_delay_us": 1.0,
+    "circuits": 2,
+    "executions": 8192,
+    "zne_factor": 1,
+    "n_bases": 1,
+    "trex_executions": 0,
+    "circuit_seconds_at_250us": 0.106,
+    "trex_seconds_at_250us": 0.0,
+    "seconds_at_250us": 2.106,
+    "circuit_seconds_at_1us": 0.106,
+    "trex_seconds_at_1us": 0.0,
+    "seconds_at_1us": 2.106
+   },
+   {
+    "tag": "L0-probes-s4096-rd5us",
+    "resilience_level": 0,
+    "shots": 4096,
+    "rep_delay_us": 5.0,
+    "circuits": 2,
+    "executions": 8192,
+    "zne_factor": 1,
+    "n_bases": 1,
+    "trex_executions": 0,
+    "circuit_seconds_at_250us": 0.139,
+    "trex_seconds_at_250us": 0.0,
+    "seconds_at_250us": 2.139,
+    "circuit_seconds_at_1us": 0.139,
+    "trex_seconds_at_1us": 0.0,
+    "seconds_at_1us": 2.139
+   },
+   {
+    "tag": "L0-probes-s4096-rd20us",
+    "resilience_level": 0,
+    "shots": 4096,
+    "rep_delay_us": 20.0,
+    "circuits": 2,
+    "executions": 8192,
+    "zne_factor": 1,
+    "n_bases": 1,
+    "trex_executions": 0,
+    "circuit_seconds_at_250us": 0.262,
+    "trex_seconds_at_250us": 0.0,
+    "seconds_at_250us": 2.262,
+    "circuit_seconds_at_1us": 0.262,
+    "trex_seconds_at_1us": 0.0,
+    "seconds_at_1us": 2.262
+   },
+   {
+    "tag": "L0-probes-s4096-rd250us",
+    "resilience_level": 0,
+    "shots": 4096,
+    "rep_delay_us": 250.0,
+    "circuits": 2,
+    "executions": 8192,
+    "zne_factor": 1,
+    "n_bases": 1,
+    "trex_executions": 0,
+    "circuit_seconds_at_250us": 2.146,
+    "trex_seconds_at_250us": 0.0,
+    "seconds_at_250us": 4.146,
+    "circuit_seconds_at_1us": 2.146,
+    "trex_seconds_at_1us": 0.0,
+    "seconds_at_1us": 4.146
+   },
+   {
+    "tag": "L1-probes-s16",
+    "resilience_level": 1,
+    "shots": 16,
+    "rep_delay_us": null,
+    "circuits": 64,
+    "executions": 1024,
+    "zne_factor": 1,
+    "n_bases": 1,
+    "trex_executions": 512,
+    "circuit_seconds_at_250us": 0.277,
+    "trex_seconds_at_250us": 0.134,
+    "seconds_at_250us": 2.411,
+    "circuit_seconds_at_1us": 0.022,
+    "trex_seconds_at_1us": 0.007,
+    "seconds_at_1us": 2.029
+   }
+  ]
+ },
+ "layout_check": {
+  "readout_cut": 0.03,
+  "cz_cut": 0.005,
+  "init_error_cut": 0.0005,
+  "source": "retrieved: backend.properties(datetime=2026-09-20T04:45:41.601266+00:00)",
+  "properties_last_update": "2026-09-20 03:49:45+00:00",
+  "qubits": {
+   "82": {
+    "readout_error": 0.0093994140625,
+    "operational": true,
+    "init_error": 1e-05,
+    "fails": []
+   },
+   "83": {
+    "readout_error": 0.0047607421875,
+    "operational": true,
+    "init_error": 1e-05,
+    "fails": []
+   },
+   "84": {
+    "readout_error": 0.0089111328125,
+    "operational": true,
+    "init_error": 3.835112686390023e-05,
+    "fails": []
+   },
+   "85": {
+    "readout_error": 0.006591796875,
+    "operational": true,
+    "init_error": 1.933421718071076e-05,
+    "fails": []
+   },
+   "86": {
+    "readout_error": 0.0059814453125,
+    "operational": true,
+    "init_error": 1e-05,
+    "fails": []
+   },
+   "92": {
+    "readout_error": 0.005615234375,
+    "operational": true,
+    "init_error": 1e-05,
+    "fails": []
+   },
+   "93": {
+    "readout_error": 0.028076171875,
+    "operational": true,
+    "init_error": 0.00014223934464855135,
+    "fails": []
+   },
+   "94": {
+    "readout_error": 0.0040283203125,
+    "operational": true,
+    "init_error": 2.0390370630411977e-05,
+    "fails": []
+   },
+   "95": {
+    "readout_error": 0.0078125,
+    "operational": true,
+    "init_error": 1.811801021175245e-05,
+    "fails": []
+   },
+   "96": {
+    "readout_error": 0.0054931640625,
+    "operational": true,
+    "init_error": 4.405362531700576e-05,
+    "fails": []
+   },
+   "102": {
+    "readout_error": 0.0045166015625,
+    "operational": true,
+    "init_error": 1e-05,
+    "fails": []
+   },
+   "103": {
+    "readout_error": 0.0081787109375,
+    "operational": true,
+    "init_error": 4.0869816530873593e-05,
+    "fails": []
+   },
+   "104": {
+    "readout_error": 0.007568359375,
+    "operational": true,
+    "init_error": 0.00019216190068743842,
+    "fails": []
+   },
+   "105": {
+    "readout_error": 0.0054931640625,
+    "operational": true,
+    "init_error": 0.00010501995875795442,
+    "fails": []
+   },
+   "106": {
+    "readout_error": 0.006591796875,
+    "operational": true,
+    "init_error": 4.3371666593747555e-05,
+    "fails": []
+   },
+   "112": {
+    "readout_error": 0.0078125,
+    "operational": true,
+    "init_error": 3.083210270619164e-05,
+    "fails": []
+   },
+   "113": {
+    "readout_error": 0.007568359375,
+    "operational": true,
+    "init_error": 1e-05,
+    "fails": []
+   },
+   "114": {
+    "readout_error": 0.009521484375,
+    "operational": true,
+    "init_error": 1.0039256888622016e-05,
+    "fails": []
+   },
+   "115": {
+    "readout_error": 0.005615234375,
+    "operational": true,
+    "init_error": 2.3884037938456593e-05,
+    "fails": []
+   },
+   "116": {
+    "readout_error": 0.0032958984375,
+    "operational": true,
+    "init_error": 1.242006225199281e-05,
+    "fails": []
+   }
+  },
+  "couplers": {
+   "82_83": {
+    "cz_error": 0.002509479629753647,
+    "fails": []
+   },
+   "82_92": {
+    "cz_error": 0.0025912807258894888,
+    "fails": []
+   },
+   "83_84": {
+    "cz_error": 0.0016571466117427935,
+    "fails": []
+   },
+   "83_93": {
+    "cz_error": 0.0012936915496234436,
+    "fails": []
+   },
+   "84_85": {
+    "cz_error": 0.0010076150091983538,
+    "fails": []
+   },
+   "84_94": {
+    "cz_error": 0.001841321335169177,
+    "fails": []
+   },
+   "85_86": {
+    "cz_error": 0.0008664711029601202,
+    "fails": []
+   },
+   "85_95": {
+    "cz_error": 0.0010865576302131752,
+    "fails": []
+   },
+   "86_96": {
+    "cz_error": 0.0010332980198135833,
+    "fails": []
+   },
+   "92_93": {
+    "cz_error": 0.001577596130768688,
+    "fails": []
+   },
+   "92_102": {
+    "cz_error": 0.001215881987273848,
+    "fails": []
+   },
+   "93_94": {
+    "cz_error": 0.0012475716768221567,
+    "fails": []
+   },
+   "93_103": {
+    "cz_error": 0.001446618301280539,
+    "fails": []
+   },
+   "94_95": {
+    "cz_error": 0.0031389288576894048,
+    "fails": []
+   },
+   "94_104": {
+    "cz_error": 0.0017528170855031777,
+    "fails": []
+   },
+   "95_105": {
+    "cz_error": 0.0013539148539113144,
+    "fails": []
+   },
+   "96_106": {
+    "cz_error": 0.0022761974231975957,
+    "fails": []
+   },
+   "102_103": {
+    "cz_error": 0.0012318382977689057,
+    "fails": []
+   },
+   "102_112": {
+    "cz_error": 0.001865020211470142,
+    "fails": []
+   },
+   "103_104": {
+    "cz_error": 0.0015580286010153377,
+    "fails": []
+   },
+   "103_113": {
+    "cz_error": 0.0016160409479059612,
+    "fails": []
+   },
+   "104_105": {
+    "cz_error": 0.002070258670223063,
+    "fails": []
+   },
+   "104_114": {
+    "cz_error": 0.002430215237108735,
+    "fails": []
+   },
+   "105_106": {
+    "cz_error": 0.0014353497677234428,
+    "fails": []
+   },
+   "105_115": {
+    "cz_error": 0.0017815606506143278,
+    "fails": []
+   },
+   "106_116": {
+    "cz_error": 0.00364378898511053,
+    "fails": []
+   },
+   "112_113": {
+    "cz_error": 0.0015702751057752873,
+    "fails": []
+   },
+   "113_114": {
+    "cz_error": 0.0024192524506515267,
+    "fails": []
+   },
+   "114_115": {
+    "cz_error": 0.0025711909875236194,
+    "fails": []
+   },
+   "115_116": {
+    "cz_error": 0.0010493076722839778,
+    "fails": []
+   }
+  },
+  "failing_qubits": [],
+  "failing_couplers": [],
+  "verdict": "pass",
+  "enforced": false,
+  "override": null,
+  "layout_qubits": [
+   82,
+   83,
+   84,
+   85,
+   86,
+   92,
+   93,
+   94,
+   95,
+   96,
+   102,
+   103,
+   104,
+   105,
+   106,
+   112,
+   113,
+   114,
+   115,
+   116
+  ],
+  "layout_couplers": [
+   [
+    82,
+    83
+   ],
+   [
+    82,
+    92
+   ],
+   [
+    83,
+    84
+   ],
+   [
+    83,
+    93
+   ],
+   [
+    84,
+    85
+   ],
+   [
+    84,
+    94
+   ],
+   [
+    85,
+    86
+   ],
+   [
+    85,
+    95
+   ],
+   [
+    86,
+    96
+   ],
+   [
+    92,
+    93
+   ],
+   [
+    92,
+    102
+   ],
+   [
+    93,
+    94
+   ],
+   [
+    93,
+    103
+   ],
+   [
+    94,
+    95
+   ],
+   [
+    94,
+    104
+   ],
+   [
+    95,
+    105
+   ],
+   [
+    96,
+    106
+   ],
+   [
+    102,
+    103
+   ],
+   [
+    102,
+    112
+   ],
+   [
+    103,
+    104
+   ],
+   [
+    103,
+    113
+   ],
+   [
+    104,
+    105
+   ],
+   [
+    104,
+    114
+   ],
+   [
+    105,
+    106
+   ],
+   [
+    105,
+    115
+   ],
+   [
+    106,
+    116
+   ],
+   [
+    112,
+    113
+   ],
+   [
+    113,
+    114
+   ],
+   [
+    114,
+    115
+   ],
+   [
+    115,
+    116
+   ]
+  ],
+  "edge_cone_qubits": [],
+  "failing_protected_qubits": [],
+  "override_denied": null,
+  "action": "logged"
+ },
+ "job_tag": "L0-probes-s4096-rd250us",
+ "retrieved": true,
+ "submission_run": 35489912431,
+ "retrieval": {
+  "ids_file": "data/runs/2026-09-20/smoke_02_job_ids.json",
+  "retrieval_run": 35515999640,
+  "retrieved_utc": "2026-09-20T14:17:45.808280+00:00",
+  "job_status": "DONE",
+  "submitted_utc": "2026-09-20T04:45:41.601266+00:00",
+  "properties_source": "retrieved: backend.properties(datetime=2026-09-20T04:45:41.601266+00:00)",
+  "calibration_csv": "data/calibrations/ibm_phoenix_2026-09-20T030813Z.csv",
+  "calibration_snapshot": "data/calibrations/ibm_phoenix_properties_2026-09-20T044534Z.json",
+  "calibration_snapshot_at_retrieval": "data/calibrations/ibm_phoenix_properties_2026-09-20T141736Z.json",
+  "inputs_verification": {
+   "pubs_stored": 2,
+   "pubs_rebuilt": 2,
+   "decoded": false,
+   "match": true,
+   "mismatches": [],
+   "error": "could not decode the stored pubs: TypeError: Object of type QuantumCircuit is not JSON serializable"
+  }
+ }
+}

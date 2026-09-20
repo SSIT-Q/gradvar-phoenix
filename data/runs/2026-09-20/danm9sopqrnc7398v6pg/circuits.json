@@ -1,0 +1,50 @@
+[
+ {
+  "index": 0,
+  "n": 20,
+  "L": null,
+  "k_1based": null,
+  "probe_id": "reset_error_patch20",
+  "depth": 2,
+  "two_qubit_gates": 0,
+  "num_qubits": 120,
+  "isa_instruction_names": [
+   "reset",
+   "x"
+  ],
+  "ops": {
+   "x": 20,
+   "reset": 20
+  },
+  "mid_circuit_measures": 0,
+  "reset_count": 20,
+  "delay_count": 0,
+  "delays": [],
+  "delay_durations_ns": [],
+  "dt_s": 4e-09,
+  "target_durations_s": {
+   "reset": {
+    "82": 4e-07,
+    "83": 4e-07,
+    "84": 4e-07,
+    "85": 4e-07,
+    "86": 4e-07,
+    "92": 4e-07,
+    "93": 4e-07,
+    "94": 4e-07,
+    "95": 4e-07,
+    "96": 4e-07,
+    "102": 4e-07,
+    "103": 4e-07,
+    "104": 4e-07,
+    "105": 4e-07,
+    "106": 4e-07,
+    "112": 4e-07,
+    "113": 4e-07,
+    "114": 4e-07,
+    "115": 4e-07,
+    "116": 4e-07
+   }
+  }
+ }
+]

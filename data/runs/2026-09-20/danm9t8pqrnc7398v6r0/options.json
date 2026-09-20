@@ -1,0 +1,8 @@
+{
+ "default_shots": 4096,
+ "execution": {
+  "rep_delay": 0.00025
+ },
+ "resilience_level": 0,
+ "options_source": "job.inputs read back from IBM Quantum (retrieved)"
+}

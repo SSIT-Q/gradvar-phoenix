@@ -1,0 +1,44 @@
+[
+ {
+  "index": 0,
+  "n": 20,
+  "L": null,
+  "k_1based": null,
+  "probe_id": "ladder_rd250us_prep0",
+  "depth": 0,
+  "two_qubit_gates": 0,
+  "num_qubits": 120,
+  "isa_instruction_names": [],
+  "ops": {},
+  "mid_circuit_measures": 0,
+  "reset_count": 0,
+  "delay_count": 0,
+  "delays": [],
+  "delay_durations_ns": [],
+  "dt_s": 4e-09,
+  "target_durations_s": {}
+ },
+ {
+  "index": 1,
+  "n": 20,
+  "L": null,
+  "k_1based": null,
+  "probe_id": "ladder_rd250us_prep1",
+  "depth": 1,
+  "two_qubit_gates": 0,
+  "num_qubits": 120,
+  "isa_instruction_names": [
+   "x"
+  ],
+  "ops": {
+   "x": 20
+  },
+  "mid_circuit_measures": 0,
+  "reset_count": 0,
+  "delay_count": 0,
+  "delays": [],
+  "delay_durations_ns": [],
+  "dt_s": 4e-09,
+  "target_durations_s": {}
+ }
+]

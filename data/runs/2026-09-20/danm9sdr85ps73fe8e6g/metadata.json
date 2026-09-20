@@ -1,0 +1,226 @@
+{
+ "result_metadata": {
+  "dynamical_decoupling": {
+   "enable": false,
+   "sequence_type": "XX",
+   "extra_slack_distribution": "middle",
+   "scheduling_method": "alap"
+  },
+  "twirling": {
+   "enable_gates": false,
+   "enable_measure": true,
+   "num_randomizations": "auto",
+   "shots_per_randomization": "auto",
+   "interleave_randomizations": true,
+   "strategy": "active-accum"
+  },
+  "resilience": {
+   "measure_mitigation": true,
+   "zne_mitigation": false,
+   "pec_mitigation": false
+  },
+  "version": 2
+ },
+ "pubs": [
+  {
+   "pub_index": 0,
+   "metadata": {
+    "shots": 4096,
+    "target_precision": 0.015625,
+    "circuit_metadata": {},
+    "resilience": {},
+    "num_randomizations": 32
+   }
+  },
+  {
+   "pub_index": 1,
+   "metadata": {
+    "shots": 4096,
+    "target_precision": 0.015625,
+    "circuit_metadata": {},
+    "resilience": {},
+    "num_randomizations": 32
+   }
+  },
+  {
+   "pub_index": 2,
+   "metadata": {
+    "shots": 4096,
+    "target_precision": 0.015625,
+    "circuit_metadata": {},
+    "resilience": {},
+    "num_randomizations": 32
+   }
+  },
+  {
+   "pub_index": 3,
+   "metadata": {
+    "shots": 4096,
+    "target_precision": 0.015625,
+    "circuit_metadata": {},
+    "resilience": {},
+    "num_randomizations": 32
+   }
+  },
+  {
+   "pub_index": 4,
+   "metadata": {
+    "shots": 4096,
+    "target_precision": 0.015625,
+    "circuit_metadata": {},
+    "resilience": {},
+    "num_randomizations": 32
+   }
+  },
+  {
+   "pub_index": 5,
+   "metadata": {
+    "shots": 4096,
+    "target_precision": 0.015625,
+    "circuit_metadata": {},
+    "resilience": {},
+    "num_randomizations": 32
+   }
+  },
+  {
+   "pub_index": 6,
+   "metadata": {
+    "shots": 4096,
+    "target_precision": 0.015625,
+    "circuit_metadata": {},
+    "resilience": {},
+    "num_randomizations": 32
+   }
+  },
+  {
+   "pub_index": 7,
+   "metadata": {
+    "shots": 4096,
+    "target_precision": 0.015625,
+    "circuit_metadata": {},
+    "resilience": {},
+    "num_randomizations": 32
+   }
+  },
+  {
+   "pub_index": 8,
+   "metadata": {
+    "shots": 4096,
+    "target_precision": 0.015625,
+    "circuit_metadata": {},
+    "resilience": {},
+    "num_randomizations": 32
+   }
+  },
+  {
+   "pub_index": 9,
+   "metadata": {
+    "shots": 4096,
+    "target_precision": 0.015625,
+    "circuit_metadata": {},
+    "resilience": {},
+    "num_randomizations": 32
+   }
+  },
+  {
+   "pub_index": 10,
+   "metadata": {
+    "shots": 4096,
+    "target_precision": 0.015625,
+    "circuit_metadata": {},
+    "resilience": {},
+    "num_randomizations": 32
+   }
+  },
+  {
+   "pub_index": 11,
+   "metadata": {
+    "shots": 4096,
+    "target_precision": 0.015625,
+    "circuit_metadata": {},
+    "resilience": {},
+    "num_randomizations": 32
+   }
+  },
+  {
+   "pub_index": 12,
+   "metadata": {
+    "shots": 4096,
+    "target_precision": 0.015625,
+    "circuit_metadata": {},
+    "resilience": {},
+    "num_randomizations": 32
+   }
+  },
+  {
+   "pub_index": 13,
+   "metadata": {
+    "shots": 4096,
+    "target_precision": 0.015625,
+    "circuit_metadata": {},
+    "resilience": {},
+    "num_randomizations": 32
+   }
+  },
+  {
+   "pub_index": 14,
+   "metadata": {
+    "shots": 4096,
+    "target_precision": 0.015625,
+    "circuit_metadata": {},
+    "resilience": {},
+    "num_randomizations": 32
+   }
+  },
+  {
+   "pub_index": 15,
+   "metadata": {
+    "shots": 4096,
+    "target_precision": 0.015625,
+    "circuit_metadata": {},
+    "resilience": {},
+    "num_randomizations": 32
+   }
+  },
+  {
+   "pub_index": 16,
+   "metadata": {
+    "shots": 4096,
+    "target_precision": 0.015625,
+    "circuit_metadata": {},
+    "resilience": {},
+    "num_randomizations": 32
+   }
+  },
+  {
+   "pub_index": 17,
+   "metadata": {
+    "shots": 4096,
+    "target_precision": 0.015625,
+    "circuit_metadata": {},
+    "resilience": {},
+    "num_randomizations": 32
+   }
+  },
+  {
+   "pub_index": 18,
+   "metadata": {
+    "shots": 4096,
+    "target_precision": 0.015625,
+    "circuit_metadata": {},
+    "resilience": {},
+    "num_randomizations": 32
+   }
+  },
+  {
+   "pub_index": 19,
+   "metadata": {
+    "shots": 4096,
+    "target_precision": 0.015625,
+    "circuit_metadata": {},
+    "resilience": {},
+    "num_randomizations": 32
+   }
+  }
+ ]
+}

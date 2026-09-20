@@ -7,7 +7,7 @@
  "submission_run": 35489912431,
  "submission_run_url": "https://github.com/SSIT-Q/gradvar-phoenix/actions/runs/35489912431",
  "runner_git_commit": "8bd7e8bcc55c7b21ddde7cd635bc94f432c575e0",
- "batch_id": null,
+ "batch_id": "0f97a859-7b54-455d-abab-74fe22ec8f42",
  "calibration_csv": "data/calibrations/ibm_phoenix_2026-09-20T030813Z.csv",
  "calibration_snapshot": "data/calibrations/ibm_phoenix_properties_2026-09-20T044534Z.json",
  "written_utc": "2026-09-20T13:30:00+00:00",
@@ -16,98 +16,110 @@
   "backend_name": "ibm_phoenix",
   "created_after": "2026-09-20T04:45:00Z",
   "created_before": "2026-09-20T10:46:00Z",
-  "limit": 100
+  "limit": 100,
+  "candidates": 10,
+  "discovered_utc": "2026-09-20T14:17:36.036538+00:00"
  },
  "jobs": [
   {
-   "job_id": null,
+   "job_id": "danm9s5r85ps73fe8e5g",
    "tag": "L0",
    "level": 0,
    "shots": 4096,
    "pubs": 20,
    "rep_delay_us": null,
-   "submitted_utc": null
+   "submitted_utc": "2026-09-20T04:45:36.093850+00:00",
+   "discovered": true
   },
   {
-   "job_id": null,
+   "job_id": "danm9sdr85ps73fe8e6g",
    "tag": "L1",
    "level": 1,
    "shots": 4096,
    "pubs": 20,
    "rep_delay_us": null,
-   "submitted_utc": null
+   "submitted_utc": "2026-09-20T04:45:37.233835+00:00",
+   "discovered": true
   },
   {
-   "job_id": null,
+   "job_id": "danm9sg2fm4c73f4dkd0",
    "tag": "L2",
    "level": 2,
    "shots": 4096,
    "pubs": 20,
    "rep_delay_us": null,
-   "submitted_utc": null
+   "submitted_utc": "2026-09-20T04:45:38.181429+00:00",
+   "discovered": true
   },
   {
-   "job_id": null,
+   "job_id": "danm9so2fm4c73f4dkdg",
    "tag": "L0-probes-s16",
    "level": 0,
    "shots": 16,
    "pubs": 32,
    "rep_delay_us": null,
-   "submitted_utc": null
+   "submitted_utc": "2026-09-20T04:45:39.093611+00:00",
+   "discovered": true
   },
   {
-   "job_id": null,
+   "job_id": "danm9sopqrnc7398v6pg",
    "tag": "L0-probes-s1024",
    "level": 0,
    "shots": 1024,
    "pubs": 1,
    "rep_delay_us": null,
-   "submitted_utc": null
+   "submitted_utc": "2026-09-20T04:45:39.596786+00:00",
+   "discovered": true
   },
   {
-   "job_id": null,
+   "job_id": "danm9t5r85ps73fe8e80",
    "tag": "L0-probes-s4096-rd1us",
    "level": 0,
    "shots": 4096,
    "pubs": 2,
    "rep_delay_us": 1.0,
-   "submitted_utc": null
+   "submitted_utc": "2026-09-20T04:45:40.163964+00:00",
+   "discovered": true
   },
   {
-   "job_id": null,
+   "job_id": "danm9t5r85ps73fe8e8g",
    "tag": "L0-probes-s4096-rd5us",
    "level": 0,
    "shots": 4096,
    "pubs": 2,
    "rep_delay_us": 5.0,
-   "submitted_utc": null
+   "submitted_utc": "2026-09-20T04:45:40.632208+00:00",
+   "discovered": true
   },
   {
-   "job_id": null,
+   "job_id": "danm9tdr85ps73fe8e9g",
    "tag": "L0-probes-s4096-rd20us",
    "level": 0,
    "shots": 4096,
    "pubs": 2,
    "rep_delay_us": 20.0,
-   "submitted_utc": null
+   "submitted_utc": "2026-09-20T04:45:41.092661+00:00",
+   "discovered": true
   },
   {
-   "job_id": null,
+   "job_id": "danm9t8pqrnc7398v6r0",
    "tag": "L0-probes-s4096-rd250us",
    "level": 0,
    "shots": 4096,
    "pubs": 2,
    "rep_delay_us": 250.0,
-   "submitted_utc": null
+   "submitted_utc": "2026-09-20T04:45:41.601266+00:00",
+   "discovered": true
   },
   {
-   "job_id": null,
+   "job_id": "danm9tn8gn2s739mrf80",
    "tag": "L1-probes-s16",
    "level": 1,
    "shots": 16,
    "pubs": 32,
    "rep_delay_us": null,
-   "submitted_utc": null
+   "submitted_utc": "2026-09-20T04:45:42.453079+00:00",
+   "discovered": true
   }
  ]
 }
