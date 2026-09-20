@@ -214,6 +214,13 @@ def draw_two_sigma(var: float, M: int = M_P0, kurtosis: float = KURTOSIS_DEV17) 
 
 
 KURTOSIS_FILE = ROOT / "data" / "predictions" / "pauliprop_kurtosis.json"
+DEV35_SHOTS = {"4x10": 4096, "6x10": 16384, "10x10": 4096}    # Deviation 35: the n = 53 L = 8 p = 0 reference at 16384 shots
+SHOT_TABLE = ROOT / "data" / "predictions" / "gate1b_shot_table.csv"
+ZZ_CONVENTION = dict(zz_convention="rzz(zeta*tau)",
+                     label="idle-ZZ, angle 2x Deviation 34 convention (upper bound)",
+                     note="the idle rule rotates each idle-idle coupler by rzz(2 pi J tau) = rzz(zeta tau), zeta = 2 pi J; Deviation 34 fixes the pair "
+                          "unitary as exp(-i zeta tau/4 ZZ) = rzz(zeta tau/2), weight sin^2(zeta tau/2), so these rows carry twice the angle "
+                          "(about 4x the rerouted weight per pair and layer) and every ZZ-on shift is an upper bound")
 
 
 def measured_kurtosis() -> dict | None:
@@ -371,13 +378,39 @@ def verdicts(df: pd.DataFrame, K: int = K_MASKS, kurtosis: float = KURTOSIS_DEV1
                                  n_passing=sum(1 for r in counted if r["M350"]["passes"]), n_counted=len(counted),
                                  passes=bool(dev30["all_present"] and sum(1 for r in counted if r["M350"]["passes"]) >= 2))
     out["deviation_30"] = dev30
+    # Deviation 35 (adopted 20 Sep 2026, before the ZZ-on numbers): the n = 53, L = 8 p = 0 reference is booked at 16384 shots
+    # (floor 3.05e-5), the other rungs at 4096; a rung is counted when its L = 8 reference is >= 3 x its own shot floor
+    # ("measured-reference rule") and passes when the depth fall exceeds 3 x that floor and 2 x the L = 8 draw 2 sigma (M = 350).
+    dev35 = dict(rule="per rung with its booked shot count (4x10: 4096, 6x10: 16384, 10x10: 4096): counted if the L = 8 p = 0 reference is "
+                      ">= 3 x its own shot floor; passes if the depth fall (L = 8 -> 12) exceeds 3 x that floor and 2 x the L = 8 draw 2 sigma "
+                      "at M = 350 (kurtosis 14.2 measured); clause (b) passes with >= 2 of 3 counted rungs",
+                 shots_by_rung=dict(DEV35_SHOTS), kurtosis=kappa29, M=350, rungs=[])
+    for q in pts29:
+        shots = DEV35_SHOTS.get(q["patch"], 4096)
+        sfq = shot_floor(shots)
+        v8, fall = q["var_p0_L8"], q["fall"]
+        ts = draw_two_sigma(v8, 350, kappa29)
+        counted = bool(v8 >= 3 * sfq)
+        rung = dict(patch=q["patch"], n=q["n"], shots=int(shots), shot_floor=sfq, var_p0_L8=v8, var_p0_L12=q["var_p0_L12"],
+                    var_p0_L8_over_shot_floor=v8 / sfq, fall=fall, fall_over_3sf=fall / (3 * sfq), draw_2sigma_L8_M350=ts,
+                    fall_over_2sigma=(fall / ts if ts > 0 else float("nan")), counted=counted,
+                    status=("counted" if counted else f"unresolvable at {shots} shots (L = 8 reference below 3 shot floors); not counted"),
+                    passes=(bool(np.isfinite(fall) and fall > 3 * sfq and fall >= 2 * ts) if counted else None))
+        dev35["rungs"].append(rung)
+    c35 = [r for r in dev35["rungs"] if r["counted"]]
+    dev35["n_counted"], dev35["n_passing"] = len(c35), sum(1 for r in c35 if r["passes"])
+    dev35["all_present"] = bool(len(dev35["rungs"]) == 3 and all(q["L12_row_present"] for q in pts29))
+    dev35["passes"] = bool(dev35["all_present"] and dev35["n_passing"] >= 2)
+    out["deviation_35"] = dev35
     sep_ok = {blk["L"]: bool(blk["all_separated_3x"] and all(q["pattern_floor_below_half_sep"] for q in blk["points"])) for blk in out["gate1b"]}
     out["gate1b_booked_reading"] = dict(clauses="(a) PP predictions at every ladder point; (b-sep) separation >= 3 x (shot + Var_mask/(2 K)) at K = 256 "
                                                 "(Deviation 27) and pattern floor < separation / 2 at L = 8; (b-fall) Deviation 30: depth fall of the "
                                                 "p = 0 reference (M = 250) on >= 2 of 3 resolvable rungs",
                                         separation_clause_L8=sep_ok.get(8), separation_clause_L12=sep_ok.get(12),
                                         fall_clause_deviation_30=dev30["passes"], fall_clause_deviation_29_for_record=dev29["passes"],
-                                        passes=bool(sep_ok.get(8) and dev30["passes"]))
+                                        fall_clause_deviation_35=dev35["passes"],
+                                        passes=bool(sep_ok.get(8) and dev30["passes"]),
+                                        passes_deviation_35=bool(sep_ok.get(8) and dev35["passes"]))
     d = df[(df.stage == "dev15") & (df.get("status", "") != "pending") & df.n.notna()]
     for (spec, L), grp in d.groupby(["patch", "L"]):
         rec = dict(patch=spec, n=int(grp.n.iloc[0]), L=int(L))
@@ -398,7 +431,45 @@ def verdicts(df: pd.DataFrame, K: int = K_MASKS, kurtosis: float = KURTOSIS_DEV1
     return out
 
 
-DIAL_KEYS = ("gate1b", "deviation_29", "deviation_30", "gate1b_booked_reading", "gate1b_K64")
+DIAL_KEYS = ("gate1b", "deviation_29", "deviation_30", "deviation_35", "gate1b_booked_reading", "gate1b_K64")
+
+
+def shot_table(df: pd.DataFrame, kurtosis: float, M: int = 350) -> pd.DataFrame:
+    """Per p = 0 reference (three rungs, L = 8 and 12, ZZ off and ZZ upper bound): the shots needed for the reference to sit
+    at >= 3 shot floors (N >= 3 / (2 V)), for the depth fall to exceed 3 shot floors (N >= 3 / (2 fall)), the fall against
+    2 x the L = 8 draw 2 sigma at M (shot-independent) with the minimum M for 2x, and the resulting rung status at 4096 and
+    16384 shots. Input to Deviation 44 (shot booking of the p = 0 references)."""
+    df = with_zz_column(df)
+    g = df[(df.stage == "gate1b") & (df.dial == "delay") & (df.status != "pending")]
+    rows = []
+    for zz in ("off", "on"):
+        for spec in ("4x10", "6x10", "10x10"):
+            h = g[(g.patch == spec) & (g.zz_idle == zz)]
+            r8, r12 = h[h.L == 8], h[h.L == 12]
+            if r8.empty:
+                continue
+            v8 = best(r8.iloc[0], "kL")
+            v12 = best(r12.iloc[0], "kL") if not r12.empty else float("nan")
+            fall = v8 - v12
+            ts = draw_two_sigma(v8, M, kurtosis)
+            for L, v in ((8, v8), (12, v12)):
+                if not np.isfinite(v):
+                    continue
+                rec = dict(patch=spec, n=int(r8.iloc[0].n), L=L, zz_idle=zz, var_p0=v, err_p0=err(r8.iloc[0] if L == 8 else r12.iloc[0], "kL"),
+                           shots_for_ref_ge_3_floors=int(np.ceil(1.5 / v)) if v > 0 else None,
+                           fall_L8_to_L12=fall if L == 8 else float("nan"),
+                           shots_for_fall_ge_3_floors=(int(np.ceil(1.5 / fall)) if (L == 8 and np.isfinite(fall) and fall > 0) else None),
+                           draw_2sigma_L8_M350=ts if L == 8 else float("nan"), fall_over_2sigma_M350=(fall / ts if L == 8 and ts > 0 else float("nan")),
+                           min_M_for_fall_2x=(min_M_for(fall, v8, kurtosis) if L == 8 else None))
+                for shots in (4096, 16384):
+                    sfq = shot_floor(shots)
+                    rec[f"ref_over_floor_{shots}"] = v / sfq
+                    rec[f"resolvable_{shots}"] = bool(v >= 3 * sfq)
+                    if L == 8:
+                        rec[f"fall_over_3floors_{shots}"] = fall / (3 * sfq) if np.isfinite(fall) else float("nan")
+                        rec[f"rung_passes_{shots}"] = bool(v >= 3 * sfq and np.isfinite(fall) and fall > 3 * sfq and fall >= 2 * ts)
+                rows.append(rec)
+    return pd.DataFrame(rows)
 
 
 def zz_shift_table(df: pd.DataFrame) -> list:
@@ -474,14 +545,14 @@ def figure(df: pd.DataFrame):
     ax.set_yscale("log")
     ax.set_xlabel("placed n (ladder 20 / 40 / 60 / 80 / 100)")
     ax.set_ylabel("Var[dC/dtheta]")
-    ax.set_title("Deviation 15: PP predictions")
+    ax.set_title("Deviation 15: PP predictions", fontsize=10)
     ax.legend(fontsize=6, ncol=2)
     df = with_zz_column(df)
     ax = axes[1]
     g = df[(df.stage == "gate1b") & (df.status != "pending")]
     for L, ls in ((8, "-"), (12, "--")):
         for dial, c, lab in (("delay", "C0", "p = 0 (delay-matched)"), ("reset", "C3", "p = 0.25 reset dial")):
-            for zz, mk, mfc, suffix in (("off", "s", None, ""), ("on", "D", "none", ", ZZ idle on")):
+            for zz, mk, mfc, suffix in (("off", "s", None, ""), ("on", "D", "none", ", idle-ZZ upper bound (2x Dev. 34 angle)")):
                 h = g[(g.L == L) & (g.dial == dial) & (g.zz_idle == zz)].sort_values("n")
                 if h.empty:
                     continue
@@ -495,7 +566,7 @@ def figure(df: pd.DataFrame):
     ax.axhline(sf, color="grey", ls=":")
     ax.set_yscale("log")
     ax.set_xlabel("ladder n")
-    ax.set_title("Gate 1b: k = L, p = 0.25 vs delay-matched p = 0 (hollow = ZZ idle on)")
+    ax.set_title("Gate 1b: k = L, p = 0.25 vs delay-matched p = 0", fontsize=10)
     ax.legend(fontsize=5)
     ax = axes[2]
     g = df[(df.stage == "dial") & (df.status != "pending")]
@@ -513,8 +584,10 @@ def figure(df: pd.DataFrame):
         ax.axhline(p ** 4 / 9, color=c, ls="-.", lw=0.8, label=f"p^4/9 (Cor. 6, |P|=2), p={p}")
     ax.set_yscale("log")
     ax.set_xlabel("L")
-    ax.set_title(f"Dial grid on the 6x10 patch (n = {int(g.n.dropna().iloc[0]) if not g.empty and g.n.notna().any() else 60}); hollow = ZZ idle on")
+    ax.set_title(f"Dial grid on the 6x10 patch (n = {int(g.n.dropna().iloc[0]) if not g.empty and g.n.notna().any() else 60})", fontsize=10)
     ax.legend(fontsize=5, ncol=2)
+    if (df.zz_idle == "on").any():
+        fig.suptitle("hollow markers / thin lines: idle-ZZ, angle 2x the Deviation 34 convention (upper bound); filled: ZZ off (booked record)", fontsize=9)
     fig.tight_layout()
     OUT_FIG.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(OUT_FIG, dpi=140)
@@ -560,12 +633,19 @@ def main():
             v["zz_off_record"] = {k: v_off[k] for k in DIAL_KEYS if k in v_off}
             v["zz_off_record"]["note"] = "Gate 1b / dial readings without the ZZ idle phase (pure T2 dephasing on the idle branch), kept for the record"
             v["zz_shift"] = zz_shift_table(df)
-            v["zz_model"] = dict(rule="rzz(phi) on every coupler of the cone during the 400 ns dial idle, phi = 2 pi zeta tau with the signed per-edge zeta of the raw "
-                                      "backend properties (fallback: median |zeta|); applied only when both ends idle (non-reset branch); see docs/PAULIPROP.md",
+            v.update(ZZ_CONVENTION)
+            v["reading_note"] = ("the ZZ-on rows are an upper bound (angle 2x the Deviation 34 convention); the Deviation 30 fall clause is reported "
+                                 "with ZZ off (record) and with the ZZ upper bound, and the Deviation 35 reading (n = 53 reference at 16384 shots) is "
+                                 "given for both; the booked reading awaits the Deviation 34 recompute")
+            v["zz_model"] = dict(rule="rzz(phi) on every coupler of the cone during the 400 ns dial idle, phi = 2 pi J tau (= zeta tau) with the signed per-edge J of the raw "
+                                      "backend properties (fallback: median |J|); applied only when both ends idle (non-reset branch); see docs/PAULIPROP.md",
                                  properties=str(df[df.zz_idle == "on"].zz_properties.dropna().iloc[0]) if "zz_properties" in df and df[df.zz_idle == "on"].zz_properties.notna().any() else None,
                                  phi_median_rad=float(df[df.zz_idle == "on"].zz_phi_median.dropna().median()) if "zz_phi_median" in df else None)
         else:
             v = v_off
+        st = shot_table(df, kurtosis=(measured_kurtosis() or {}).get("kurtosis", args.kurtosis))
+        st.to_csv(SHOT_TABLE, index=False)
+        v["shot_table"] = str(SHOT_TABLE.relative_to(ROOT))
         OUT_JSON.write_text(json.dumps(v, indent=2, default=float))
         figure(df)
         print(json.dumps({k: val for k, val in v.items() if k not in ("gate1b_K64", "zz_off_record")}, indent=1, default=float))

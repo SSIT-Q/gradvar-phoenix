@@ -307,11 +307,20 @@ core-minutes, every row converged with deficit < 0.5%). `python scripts/gate1_re
 exact rows with method `not_implemented` are replaced by the propagation rows; a propagation row that duplicates an exactly
 computed point (the noiseless 4x5 L = 4 and 4x10 L = 2 cross-checks, inside the exact 95% intervals) is dropped.
 
-<!-- L4_DEV15_RULE_TABLE -->
+Deviation 15 rule on the new groups (unital - noiseless at k = 1 against 2 x floor(16384) = 6.1e-5, error against half the separation):
+
+| patch | n | L | unital - noiseless (k=1) | max error | > 2 x floor(16384) | hardware-only (Deviation 15 rule) |
+|---|---|---|---|---|---|---|
+| 10x10 | 87 | 4 | -2.035e-03 | 6.7e-05 | True | False |
+| 4x10 | 39 | 2 | -8.795e-03 | 1.4e-04 | True | False |
+| 4x10 | 39 | 4 | -2.697e-03 | 7.7e-05 | True | False |
+| 4x5 | 20 | 4 | -2.231e-03 | 6.7e-05 | True | False |
+| 6x10 | 53 | 4 | -2.112e-03 | 6.6e-05 | True | False |
+| 8x10 | 70 | 4 | -2.124e-03 | 6.7e-05 | True | False |
 
 Per-criterion reading on the complete grid (`gate1_summary.json`, field `overall`):
 
-<!-- GATE1_OVERALL -->
+grid complete (exact points at L <= 4 where the cone allows, Pauli propagation elsewhere; M = 200 exact draws, M = 100 at the 23-qubit 4x10 L = 2 noiseless cone). (a) fail; (b) pass; (c) not-evaluated; (e) pass; (f) reported; (d) pass on the exact points (L <= 4); at L >= 8 every noisy prediction lies below the 10x allowance at 4096 shots and 12 of 20 L = 8 and all L = 12 predictions below it at 16384 shots: the literal clause fails there unless the hardware floor is shown closer to the analytic one; Gate 2 booking decision. (c) part 1 pass (20 of 25 (n, L) points exceed 2 x floor(16384); every L <= 8 point does, no L = 12 point does); (c) part 2 not-evaluated: the propagation yields moments, not paired draws, so the pre-registered paired-bootstrap D_lo > 0 at n = 39 / 87, L = 8 / 12 cannot be formed; its point estimates are listed and none is separated at 2 sigma, i.e. no predicted layer-index separation between the unital and non-unital models at native noise (the H3 hardware-only reading of Deviation 15 / 16). Stop rule ('failing (c) or (d) stops the hardware stage'): (c) is not failed (part 1 passes; part 2 is undecidable by simulation and goes to the hardware-only reading); (d) passes for the L <= 4 points and, at L >= 8, fails the literal 10x allowance at 4096 shots for every point and at 16384 shots for the smaller L = 8 points and all L = 12 points, so the L >= 8 rungs are claimable only with the shot count and floor reading fixed at Gate 2. No overall pass / fail is declared on the grid alone: (d) at L >= 8 and (c) part 2 are decided at Gate 2 / on hardware.
 
 The stop rule ("failing (c) or (d) stops the hardware stage") is therefore not triggered by the simulation grid, and no
 overall pass / fail is declared on the grid alone: (d) at L >= 8 depends on the shot count and on which rungs are claimed

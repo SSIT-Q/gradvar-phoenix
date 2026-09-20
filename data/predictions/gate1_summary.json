@@ -3417,6 +3417,14 @@
         {
           "patch": "10x10",
           "n": 87,
+          "L": 4,
+          "unital_minus_noiseless_k1": -0.0020351310136977,
+          "hardware_only": false,
+          "exceeds_2x_floor_16384": true
+        },
+        {
+          "patch": "10x10",
+          "n": 87,
           "L": 8,
           "unital_minus_noiseless_k1": -0.00012649100610860001,
           "hardware_only": false,
@@ -3429,6 +3437,22 @@
           "unital_minus_noiseless_k1": -8.014104927749355e-06,
           "hardware_only": false,
           "exceeds_2x_floor_16384": false
+        },
+        {
+          "patch": "4x10",
+          "n": 39,
+          "L": 2,
+          "unital_minus_noiseless_k1": -0.008794827287480406,
+          "hardware_only": false,
+          "exceeds_2x_floor_16384": true
+        },
+        {
+          "patch": "4x10",
+          "n": 39,
+          "L": 4,
+          "unital_minus_noiseless_k1": -0.0026966081123092015,
+          "hardware_only": false,
+          "exceeds_2x_floor_16384": true
         },
         {
           "patch": "4x10",
@@ -3449,6 +3473,14 @@
         {
           "patch": "4x5",
           "n": 20,
+          "L": 4,
+          "unital_minus_noiseless_k1": -0.0022305065826793997,
+          "hardware_only": false,
+          "exceeds_2x_floor_16384": true
+        },
+        {
+          "patch": "4x5",
+          "n": 20,
           "L": 8,
           "unital_minus_noiseless_k1": -0.0001146538952507,
           "hardware_only": false,
@@ -3465,6 +3497,14 @@
         {
           "patch": "6x10",
           "n": 53,
+          "L": 4,
+          "unital_minus_noiseless_k1": -0.0021118163313167005,
+          "hardware_only": false,
+          "exceeds_2x_floor_16384": true
+        },
+        {
+          "patch": "6x10",
+          "n": 53,
           "L": 8,
           "unital_minus_noiseless_k1": -9.815385452250004e-05,
           "hardware_only": false,
@@ -3477,6 +3517,14 @@
           "unital_minus_noiseless_k1": -3.5203265011682786e-06,
           "hardware_only": false,
           "exceeds_2x_floor_16384": false
+        },
+        {
+          "patch": "8x10",
+          "n": 70,
+          "L": 4,
+          "unital_minus_noiseless_k1": -0.002124321709887401,
+          "hardware_only": false,
+          "exceeds_2x_floor_16384": true
         },
         {
           "patch": "8x10",
