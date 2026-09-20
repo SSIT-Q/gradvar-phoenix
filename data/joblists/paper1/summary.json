@@ -1,0 +1,354 @@
+{
+ "pre_registration": "Paper 1 pre-registration v0.11.4 (20 Sep 2026)",
+ "m_rule": "baseline",
+ "snapshot": "ibm_phoenix_2026-09-20T030813Z.csv",
+ "properties": "ibm_phoenix_properties_20260920T030813Z.json.gz",
+ "stamp": "2026-09-20T030813Z",
+ "rungs": {
+  "n20": {
+   "n": 20,
+   "patch": "4x5",
+   "origin": [
+    8,
+    2
+   ],
+   "edge": "94_104",
+   "edge_rule": "interior_edge",
+   "broken_edges": [
+    [
+     95,
+     96
+    ]
+   ],
+   "holes": []
+  },
+  "n40": {
+   "n": 37,
+   "patch": "4x10",
+   "origin": [
+    8,
+    0
+   ],
+   "edge": "94_104",
+   "edge_rule": "Deviation 36: intact 4x10 coupler whose L = 2 cone graph equals the 4x5 rung's (the 4x5 edge itself)",
+   "broken_edges": [
+    [
+     86,
+     87
+    ],
+    [
+     100,
+     101
+    ],
+    [
+     95,
+     96
+    ],
+    [
+     87,
+     97
+    ],
+    [
+     100,
+     110
+    ]
+   ],
+   "holes": [
+    91,
+    107,
+    119
+   ]
+  },
+  "n60": {
+   "n": 50,
+   "patch": "6x10",
+   "origin": [
+    3,
+    0
+   ],
+   "edge": "43_44",
+   "edge_rule": "interior_edge",
+   "broken_edges": [
+    [
+     86,
+     87
+    ],
+    [
+     31,
+     32
+    ]
+   ],
+   "holes": [
+    49,
+    55,
+    59,
+    61,
+    62,
+    63,
+    67,
+    72,
+    73,
+    77
+   ]
+  },
+  "n80": {
+   "n": 68,
+   "patch": "8x10",
+   "origin": [
+    3,
+    0
+   ],
+   "edge": "75_85",
+   "edge_rule": "interior_edge",
+   "broken_edges": [
+    [
+     86,
+     87
+    ],
+    [
+     100,
+     101
+    ],
+    [
+     31,
+     32
+    ],
+    [
+     95,
+     96
+    ],
+    [
+     87,
+     97
+    ]
+   ],
+   "holes": [
+    49,
+    55,
+    59,
+    61,
+    62,
+    63,
+    67,
+    72,
+    73,
+    77,
+    91,
+    107
+   ]
+  },
+  "n100": {
+   "n": 85,
+   "patch": "10x10",
+   "origin": [
+    2,
+    0
+   ],
+   "edge": "75_85",
+   "edge_rule": "interior_edge",
+   "broken_edges": [
+    [
+     86,
+     87
+    ],
+    [
+     100,
+     101
+    ],
+    [
+     31,
+     32
+    ],
+    [
+     95,
+     96
+    ],
+    [
+     87,
+     97
+    ],
+    [
+     100,
+     110
+    ]
+   ],
+   "holes": [
+    24,
+    27,
+    49,
+    55,
+    59,
+    61,
+    62,
+    63,
+    67,
+    72,
+    73,
+    77,
+    91,
+    107,
+    119
+   ]
+  }
+ },
+ "ledger_caps_min_at_1us": {
+  "main": 190.5,
+  "dial": 82.5,
+  "null_controls": 2.6
+ },
+ "totals": {
+  "main": {
+   "minutes_at_1us": 61.056,
+   "minutes_at_250us": 899.826,
+   "jobs": 139,
+   "executions": 163840000
+  },
+  "dial": {
+   "minutes_at_1us": 76.827,
+   "minutes_at_250us": 399.844,
+   "jobs": 1381,
+   "executions": 77836288
+  },
+  "null_controls": {
+   "minutes_at_1us": 2.477,
+   "minutes_at_250us": 44.361,
+   "jobs": 9,
+   "executions": 9830400
+  },
+  "dial_contingent": {
+   "minutes_at_1us": 33.421,
+   "minutes_at_250us": 57.215,
+   "jobs": 940,
+   "executions": 5734400
+  }
+ },
+ "within_caps": {
+  "main": true,
+  "dial": true,
+  "null_controls": true
+ },
+ "booked_total_min_at_1us": 140.36,
+ "lists": {
+  "grid_n20.json": {
+   "ledger_line": "main",
+   "jobs": 18,
+   "circuits": 4800,
+   "executions": 19660800,
+   "trex_executions": 1179648,
+   "minutes_at_1us": 6.18,
+   "minutes_at_250us": 92.668,
+   "points": 10,
+   "probes": 2
+  },
+  "grid_n40.json": {
+   "ledger_line": "main",
+   "jobs": 35,
+   "circuits": 9600,
+   "executions": 39321600,
+   "trex_executions": 3407872,
+   "minutes_at_1us": 17.009,
+   "minutes_at_250us": 248.731,
+   "points": 22,
+   "probes": 2
+  },
+  "grid_n60.json": {
+   "ledger_line": "main",
+   "jobs": 18,
+   "circuits": 4800,
+   "executions": 19660800,
+   "trex_executions": 1179648,
+   "minutes_at_1us": 6.18,
+   "minutes_at_250us": 92.668,
+   "points": 10,
+   "probes": 2
+  },
+  "grid_n80.json": {
+   "ledger_line": "main",
+   "jobs": 18,
+   "circuits": 4800,
+   "executions": 19660800,
+   "trex_executions": 1179648,
+   "minutes_at_1us": 6.18,
+   "minutes_at_250us": 92.668,
+   "points": 10,
+   "probes": 2
+  },
+  "grid_n100.json": {
+   "ledger_line": "main",
+   "jobs": 32,
+   "circuits": 8800,
+   "executions": 36044800,
+   "trex_executions": 3145728,
+   "minutes_at_1us": 15.835,
+   "minutes_at_250us": 232.871,
+   "points": 20,
+   "probes": 2
+  },
+  "grid_n100_16384.json": {
+   "ledger_line": "main",
+   "jobs": 4,
+   "circuits": 800,
+   "executions": 13107200,
+   "trex_executions": 1048576,
+   "minutes_at_1us": 4.427,
+   "minutes_at_250us": 63.174,
+   "points": 2,
+   "probes": 0
+  },
+  "grid_n40_repeat.json": {
+   "ledger_line": "main",
+   "jobs": 14,
+   "circuits": 4000,
+   "executions": 16384000,
+   "trex_executions": 917504,
+   "minutes_at_1us": 5.245,
+   "minutes_at_250us": 77.046,
+   "points": 10,
+   "probes": 0
+  },
+  "dial_arm.json": {
+   "ledger_line": "dial",
+   "jobs": 1367,
+   "circuits": 409603,
+   "executions": 9023488,
+   "trex_executions": 0,
+   "minutes_at_1us": 48.789,
+   "minutes_at_250us": 86.233,
+   "points": 0,
+   "probes": 12
+  },
+  "dial_arm_contingent.json": {
+   "ledger_line": "dial_contingent",
+   "jobs": 940,
+   "circuits": 281600,
+   "executions": 5734400,
+   "trex_executions": 0,
+   "minutes_at_1us": 33.421,
+   "minutes_at_250us": 57.215,
+   "points": 0,
+   "probes": 6
+  },
+  "references_gate1b.json": {
+   "ledger_line": "dial",
+   "jobs": 14,
+   "circuits": 4200,
+   "executions": 68812800,
+   "trex_executions": 0,
+   "minutes_at_1us": 28.038,
+   "minutes_at_250us": 313.611,
+   "points": 0,
+   "probes": 6
+  },
+  "null_controls.json": {
+   "ledger_line": "null_controls",
+   "jobs": 9,
+   "circuits": 2400,
+   "executions": 9830400,
+   "trex_executions": 262144,
+   "minutes_at_1us": 2.477,
+   "minutes_at_250us": 44.361,
+   "points": 0,
+   "probes": 6
+  }
+ }
+}

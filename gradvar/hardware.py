@@ -1368,6 +1368,8 @@ def write_job_bundle(run_root: Path, job_id: str, group: List[BuiltPub], backend
     _dump(d / "target.json", target_summary(backend))
     _dump(d / "circuits.json", [dict(index=i, n=_describe(b)["n"], L=_describe(b)["L"], k_1based=_describe(b)["k_1based"],
                                      probe_id=b.probe.get("id") if isinstance(b, BuiltProbe) else _describe(b).get("probe_id"),
+                                     draw=b.probe.get("draw") if isinstance(b, BuiltProbe) else None,
+                                     mask_index=b.probe.get("mask_index") if isinstance(b, BuiltProbe) else None,
                                      depth=b.depth, two_qubit_gates=b.two_qubit_gates, num_qubits=b.isa_circuit.num_qubits, **s)
                                 for i, (b, s) in enumerate(zip(group, summaries))])
     return d
