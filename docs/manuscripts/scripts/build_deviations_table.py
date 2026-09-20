@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Render the Deviations tables of the manuscripts from docs/manuscripts/deviations.yaml.
 
-Writes paper1/deviations_table.tex (Paper 1 rows 14-31) and paper2/deviations_table.tex
-(Paper 2 rows 1-3). Each file is a longtable body only; the manuscripts \\input{} it.
+Writes paper1/deviations_table.tex (Paper 1 rows 14-42) and paper2/deviations_table.tex
+(Paper 2 rows 1-5). Each file is a longtable body only; the manuscripts \\input{} it.
 Run from anywhere: paths are resolved relative to this script. No result is invented here:
 the YAML is a transcript of the pre-registration Deviations tables.
 """
@@ -80,10 +80,10 @@ def main() -> int:
     data = yaml.safe_load(pathlib.Path(a.yaml).read_text())
     outputs = {
         "paper1": (ROOT / "paper1" / "deviations_table.tex",
-                   "Deviations from the signed Paper 1 pre-registration recorded before any hardware minute (rows 14--31; rows 1--13 are the citation corrections of v0.2).",
+                   "Deviations from the signed Paper 1 pre-registration, all recorded before any Paper 1 datum (rows 14--42; rows 1--13 are the citation corrections of v0.2; row 32 was recorded before the smoke test's data existed and fixes how they may be used).",
                    "tab:deviations"),
         "paper2": (ROOT / "paper2" / "deviations_table.tex",
-                   "Deviations from the Paper 2 pre-registration (rows 1--3).",
+                   "Deviations from the Paper 2 pre-registration (rows 1--5).",
                    "tab:deviations"),
     }
     for key, (path, caption, label) in outputs.items():
