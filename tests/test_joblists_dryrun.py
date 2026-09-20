@@ -63,11 +63,22 @@ def test_budget_targets_and_formula():
     assert b1["minutes_at_250us"] <= 3.0 and b1["jobs"] == 3 and b1["executions"] == 2 * 5 * 2 * 1024 + 2 * 2 * 1024
     assert b1["trex_executions"] == 32 * 1024 and b1["readout_us"] == pytest.approx(2.684)          # Marrakesh t_meas
     assert b1["seconds_at_250us"] == pytest.approx(21.1, abs=0.1)
-    assert b2["minutes_at_250us"] <= 5.0 and b2["jobs"] == 5 and b2["readout_us"] == pytest.approx(1.94)   # 5 Flex-minute smoke target
-    assert b2["executions"] == 6 * 10 * 2 * 4096 + 2 * 4 * 2 * 64 + 1024
+    # list 02 (Section 6 smoke test, v0.10.0, Deviation 32): 3 grid jobs, 2 dial-probe jobs (resilience 0 and 1, 16 masks x 16 shots x 2 kinds),
+    # the reset-error mini-sequence, and the 4-rung rep_delay ladder (2 circuits x 4096 shots per rung, one job per rung)
+    assert b2["jobs"] == 10 and b2["readout_us"] == pytest.approx(1.94)
+    assert b2["minutes_at_1us"] <= 5.0                                                              # 5 Flex-minute target at the 1 us ibm_phoenix default
+    assert b2["executions"] == 6 * 10 * 2 * 4096 + 2 * (2 * 16 * 2 * 16) + 1024 + 4 * 2 * 4096
     assert b2["executions_with_zne"] == b2["executions"] + 2 * 2 * 10 * 2 * 4096                     # level-2 circuits x 3
-    assert b2["trex_executions"] == 2 * 32 * 4096 + 32 * 64                                         # L1, L2 and the level-1 probe job
-    assert b2["minutes_at_250us"] == pytest.approx(4.954, abs=0.01) and b2["minutes_at_1us"] == pytest.approx(0.449, abs=0.005)
+    assert b2["trex_executions"] == 2 * 32 * 4096 + 32 * 16                                         # L1, L2 and the level-1 dial-probe job
+    assert b2["minutes_at_250us"] == pytest.approx(5.163, abs=0.01) and b2["minutes_at_1us"] == pytest.approx(0.660, abs=0.005)
+    tags = {e["tag"]: e for e in b2["per_job"]}
+    assert set(tags) == {"L0", "L1", "L2", "L0-probes-s16", "L1-probes-s16", "L0-probes-s1024",
+                         "L0-probes-s4096-rd1us", "L0-probes-s4096-rd5us", "L0-probes-s4096-rd20us", "L0-probes-s4096-rd250us"}
+    for rd in (1, 5, 20, 250):                                                                       # a ladder rung is timed at its own rep_delay in both columns
+        e = tags[f"L0-probes-s4096-rd{rd}us"]
+        assert e["rep_delay_us"] == rd and e["executions"] == 8192 and e["seconds_at_250us"] == e["seconds_at_1us"]
+        assert e["seconds_at_250us"] == pytest.approx(2.0 + 8192 * (rd + 0.04 + 1.94 + 10) * 1e-6, abs=0.002)
+    assert tags["L0"]["rep_delay_us"] is None and tags["L0"]["seconds_at_250us"] > tags["L0"]["seconds_at_1us"]
     assert b3["jobs"] == 1 and b3["executions"] == 9 * 1024 and b3["trex_executions"] == 0
     assert b3["minutes_at_250us"] == pytest.approx(0.074, abs=0.002)
     tiny = dict(backend="ibm_phoenix",
@@ -153,7 +164,7 @@ def test_marrakesh_list_dry_runs_on_fake_marrakesh(tmp_path):
     assert probe_points["delay_midcircuit_control"]["dial_delay_ns"] == 400.0 and probe_points["reset_midcircuit_probe"]["dial_delay_ns"] is None
     assert probe_points["reset_midcircuit_probe"]["mask_seed"] == 20260919 + 1 and probe_points["reset_midcircuit_probe"]["masks"] == 1
     assert probe_job["rep_delay"]["dynamic_reprate_enabled"] is True and probe_job["dynamic_reprate_enabled"] is True     # D5
-    assert probe_job["rep_delay_granted_s"] == "default"                                                                 # D3c
+    assert probe_job["rep_delay_submitted_s"] == "default"                                                                 # D3c
     assert probe_job["usage_estimation"] is None and probe_job["session_id"] is None and probe_job["creation_date"] is None
     assert probe_job["layout_check"]["verdict"] == "pass" and probe_job["layout_check"]["enforced"] is False           # D2, logged only
     assert probe_job["layout_check"]["action"] == "logged" and probe_job["layout_check"]["layout_qubits"] == list(range(5, 15))
@@ -180,7 +191,7 @@ def test_marrakesh_list_dry_runs_on_fake_marrakesh(tmp_path):
     assert set(rows.patch_qubits) == {"5 6 7 8 9 10 11 12 13 14"}
     from gradvar.hardware import LOG_COLUMNS
     assert list(rows.columns) == LOG_COLUMNS
-    assert set(rows.rep_delay_granted) == {"default"} and rows.job_submit_time.notna().all()
+    assert set(rows.rep_delay_submitted) == {"default"} and rows.job_submit_time.notna().all()
     assert set(rows.arm) == {"grid", "reset", "delay"} and rows.param_hash.str.len().eq(64).all()
     probes = rows[rows.arm != "grid"]
     assert set(probes.p) == {0.5} and set(probes.K) == {1} and set(probes.mask_seed) == {20260920}
@@ -191,27 +202,72 @@ def test_phoenix_smoke_dry_run_bundles_probes_separately(tmp_path):
     from gradvar.hardware import run_joblist
     run_joblist(str(DRYRUN / LISTS[1]), submit=False, run_root=str(tmp_path / "runs"), log_dir=str(tmp_path / "jobs"), calibration_csv=CAL)
     bundles = {d.name.split("-", 2)[2]: d for d in (tmp_path / "runs").glob("*/dryrun-*")}
-    assert set(bundles) == {"L0", "L1", "L2", "L0-probes-s1024", "L1-probes-s64"}
+    assert set(bundles) == {"L0", "L1", "L2", "L0-probes-s16", "L1-probes-s16", "L0-probes-s1024",
+                            "L0-probes-s4096-rd1us", "L0-probes-s4096-rd5us", "L0-probes-s4096-rd20us", "L0-probes-s4096-rd250us"}
     for tag in ("L0", "L1", "L2"):
         job = json.loads((bundles[tag] / "job.json").read_text())
         assert job["job_kind"] == "gradient_points" and job["shots"] == 4096 and len(job["points"]) == 20
         assert job["isa_instruction_names"] == ["cz", "rz", "sx"] and job["rep_delay_probe"] is True
-    dial = json.loads((bundles["L1-probes-s64"] / "job.json").read_text())
-    assert dial["resilience_level"] == 1 and dial["shots"] == 64 and len(dial["points"]) == 8
-    masks = {(p["probe_id"], p["mask_index"]): p["mask_hash"] for p in dial["points"]}
-    for m in range(4):                                                   # delay-matched: same masks, same theta
-        assert masks[("reset_dial_p025_L8", m)] == masks[("delay_matched_control_L8", m)]
-    assert len({p["param_hash"] for p in dial["points"]}) == 1
-    circs = json.loads((bundles["L1-probes-s64"] / "circuits.json").read_text())
-    assert all(c["mid_circuit_measures"] == 0 for c in circs)
-    assert all(c["reset_count"] > 0 for c in circs if c["probe_id"] == "reset_dial_p025_L8")
-    assert all(c["delay_count"] > 0 and c["reset_count"] == 0 for c in circs if c["probe_id"] == "delay_matched_control_L8")
+        assert job["rep_delay_submitted_s"] == "default"                                              # grid jobs run at the backend default
+        assert job["layout_check"]["enforced"] is False and job["layout_check"]["action"] == "logged"   # Deviation 26, logged on the dry run
+        assert job["layout_check"]["readout_cut"] == 3e-2 and job["layout_check"]["cz_cut"] == 5e-3 and job["layout_check"]["init_error_cut"] == 5e-4
+        assert job["layout_check"]["layout_qubits"] == [81, 82, 83, 84, 85, 91, 92, 93, 94, 95, 101, 102, 103, 104, 105, 111, 112, 113, 114, 115]
+        assert len(job["layout_check"]["layout_couplers"]) == 31 and job["layout_check"]["verdict"] in ("pass", "fail")
+        assert job["layout_check"]["edge_cone_qubits"] == [81, 82, 83, 84, 91, 92, 93, 94, 101, 102, 103, 104, 111, 112, 113, 114]
+        assert job["points"][0]["edge"] == "93_103"
+    # dial probes: reset arm and delay-matched control at resilience 0 and 1 (kill rule d at level 1), 16 masks x 16 shots
+    for level in (0, 1):
+        dial = json.loads((bundles[f"L{level}-probes-s16"] / "job.json").read_text())
+        assert dial["resilience_level"] == level and dial["shots"] == 16 and len(dial["points"]) == 32
+        masks = {(p["probe_id"], p["mask_index"]): p["mask_hash"] for p in dial["points"]}
+        for m in range(16):                                                  # delay-matched: same masks, same theta
+            assert masks[(f"reset_dial_p025_L8_r{level}", m)] == masks[(f"delay_matched_control_L8_r{level}", m)]
+        assert len({p["param_hash"] for p in dial["points"]}) == 1
+        assert all(p["masks"] == 16 and p["mask_seed"] == 20260919 + 1 + p["mask_index"] for p in dial["points"])
+        circs = json.loads((bundles[f"L{level}-probes-s16"] / "circuits.json").read_text())
+        assert len(circs) == 32 and all(c["mid_circuit_measures"] == 0 for c in circs)               # kill rule (c): reset not compiled to measure + X
+        assert all(c["reset_count"] > 0 and c["delay_count"] == 0 for c in circs if c["probe_id"] == f"reset_dial_p025_L8_r{level}")
+        assert all(c["delay_count"] > 0 and c["reset_count"] == 0 for c in circs if c["probe_id"] == f"delay_matched_control_L8_r{level}")
+        assert all(c["delay_durations_ns"] == [400.0] for c in circs if c["probe_id"] == f"delay_matched_control_L8_r{level}")
+    r0 = json.loads((bundles["L0-probes-s16"] / "job.json").read_text())["points"]
+    r1 = json.loads((bundles["L1-probes-s16"] / "job.json").read_text())["points"]
+    assert {p["mask_hash"] for p in r0} == {p["mask_hash"] for p in r1}                              # same masks at both levels
     err = json.loads((bundles["L0-probes-s1024"] / "job.json").read_text())
     assert err["points"][0]["probe_id"] == "reset_error_patch20" and len(err["points"][0]["qubits"]) == 20
     err_circ = json.loads((bundles["L0-probes-s1024"] / "circuits.json").read_text())[0]
     assert err_circ["reset_count"] == 20 and err_circ["isa_instruction_names"] == ["reset", "x"]
+    # rep_delay ladder: one job per rung with options.execution.rep_delay set and read back (Deviation 23, Gate 2 (c))
+    for rd in (1, 5, 20, 250):
+        job = json.loads((bundles[f"L0-probes-s4096-rd{rd}us"] / "job.json").read_text())
+        assert job["rep_delay_submitted_s"] == pytest.approx(rd * 1e-6) and job["shots"] == 4096 and job["resilience_level"] == 0
+        assert job["rep_delay_submitted_us"] == pytest.approx(rd)
+        assert json.loads((bundles[f"L0-probes-s4096-rd{rd}us"] / "options.json").read_text())["execution"]["rep_delay"] == pytest.approx(rd * 1e-6)
+        assert job["rep_delay"]["default_rep_delay_s"] is not None and job["dynamic_reprate_enabled"] is not None
+        pts = {p["prep"]: p for p in job["points"]}
+        assert set(pts) == {"0", "1"} and all(p["reset_kind"] == "none" and p["rep_delay_us"] == rd and len(p["qubits"]) == 20 for p in pts.values())
+        assert pts["0"]["qubits"] == [81, 82, 83, 84, 85, 91, 92, 93, 94, 95, 101, 102, 103, 104, 105, 111, 112, 113, 114, 115]
+        circs = {c["probe_id"]: c for c in json.loads((bundles[f"L0-probes-s4096-rd{rd}us"] / "circuits.json").read_text())}
+        assert circs[f"ladder_rd{rd}us_prep0"]["ops"] == {} and circs[f"ladder_rd{rd}us_prep1"]["ops"] == {"x": 20}
+        assert len(job["points"][0]["observables"]) == 20                                            # one Z per patch qubit
     rows = pd.read_csv(next((tmp_path / "jobs").glob("*.csv")))
-    assert len(rows) == 60 + 8 + 1 and rows.gradient.isna().all()
+    assert len(rows) == 60 + 2 * 32 + 1 + 8 and rows.gradient.isna().all()
+    ladder = rows[rows.observable_edge.str.startswith("probe:ladder")]
+    assert sorted(ladder.rep_delay_submitted.astype(float).unique()) == pytest.approx([1e-6, 5e-6, 2e-5, 2.5e-4])
+    assert set(rows[~rows.observable_edge.str.startswith("probe:ladder")].rep_delay_submitted) == {"default"}
+
+
+def test_probe_rep_delay_validation_and_grouping(tmp_path):
+    from gradvar.hardware import JoblistError, budget_jobs, DIAL_US, load_joblist, probe_job_tag
+    base = json.loads((DRYRUN / LISTS[1]).read_text())
+    for bad in (dict(rep_delay_us=0), dict(rep_delay_us=-1), dict(rep_delay_us="1us"), dict(rep_delay_us=True), dict(rep_delay_us=3000)):
+        jl = dict(base, probes=[dict(base["probes"][-1], **bad)])
+        (tmp_path / "p.json").write_text(json.dumps(jl))
+        with pytest.raises(JoblistError, match="rep_delay_us"):
+            load_joblist(str(tmp_path / "p.json"))
+    jobs = budget_jobs(load_joblist(str(DRYRUN / LISTS[1])), DIAL_US)
+    ladder = [j for j in jobs if j["rep_delay_us"] is not None]
+    assert [j["rep_delay_us"] for j in ladder] == [1.0, 5.0, 20.0, 250.0] and all(len(j["items"]) == 2 for j in ladder)
+    assert probe_job_tag(0, 4096, 1.0) == "L0-probes-s4096-rd1us" and probe_job_tag(1, 16, None) == "L1-probes-s16"
 
 
 def test_paper2_smoke_flags_synthetic_measure_reset_on_fake_target(tmp_path):
@@ -230,6 +286,9 @@ def test_paper2_smoke_flags_synthetic_measure_reset_on_fake_target(tmp_path):
     assert circs["measure"]["ops"] == {} and circs["x_measure"]["ops"] == {"x": 12}
     assert circs["x_measure_reset_2_measure"]["ops"] == {"x": 12, "measure_reset_2": 12}
     assert circs["x_delay_measure"]["delay_count"] == 12 and circs["x_delay_measure"]["mid_circuit_measures"] == 0
+    assert job["layout_check"]["layout_qubits"] == [9, 12, 21, 38, 43, 50, 69, 78, 81, 97, 108, 110] and job["layout_check"]["layout_couplers"] == []
+    assert job["layout_check"]["enforced"] is False and job["layout_check"]["action"] == "logged" and job["layout_check"]["edge_cone_qubits"] == []
+    assert job["rep_delay_submitted_s"] == "default"
 
 
 def test_probe_schema_validation(tmp_path):
@@ -426,7 +485,83 @@ def test_failed_job_does_not_lose_the_other_bundles(tmp_path, monkeypatch):
     rows = pd.read_csv(log)
     assert len(rows) == 10 and set(rows.job_id) == {"fakejob1", "fakejob2"} and np.allclose(rows.gradient, 0.2)
     assert np.allclose(rows.std_plus, 0.01) and np.allclose(rows.ensemble_se_plus, 0.008) and np.allclose(rows.ensemble_se_minus, 0.009)   # D4
-    assert set(rows.rep_delay_granted) == {"default"} and set(rows.arm) == {"grid"} and rows.job_submit_time.str.len().gt(10).all()
+    assert set(rows.rep_delay_submitted) == {"default"} and set(rows.arm) == {"grid"} and rows.job_submit_time.str.len().gt(10).all()
+
+
+def test_refused_submission_does_not_lose_the_other_bundles(tmp_path, monkeypatch):
+    """S2 (smoke pre-flight review): est.run() itself raising for one job group (a rep_delay refused at submission) writes a
+    not-submitted bundle for that group, the other jobs are still submitted, collected and logged, and the runner exits non-zero."""
+    import qiskit_ibm_runtime as rt
+    from types import SimpleNamespace
+    from qiskit.primitives import DataBin, PrimitiveResult, PubResult
+    import gradvar.hardware as hw
+
+    class FakeJob:
+        counter = 0
+
+        def __init__(self, pubs):
+            FakeJob.counter += 1
+            self._id = f"okjob{FakeJob.counter}"
+            self.pubs = pubs
+
+        def job_id(self):
+            return self._id
+
+        def result(self):
+            return PrimitiveResult([PubResult(DataBin(evs=np.array([0.3, -0.1]), stds=np.array([0.01, 0.01])), metadata={"shots": 1024})
+                                    for _ in self.pubs], metadata={"version": 2})
+
+        def usage(self):
+            return 1.0
+
+        def metrics(self):
+            return {"timestamps": {"created": "t0", "running": "t1", "finished": "t2"}}
+
+        def error_message(self):
+            return None
+
+    class FakeEstimator:
+        def __init__(self, mode=None):
+            self.options = SimpleNamespace(resilience_level=0, default_shots=0, execution=SimpleNamespace(rep_delay=None))
+
+        def run(self, pubs):
+            if any("reset" in p[0].count_ops() or "delay" in p[0].count_ops() for p in pubs):      # the probe group is refused at submission
+                raise ValueError("rep_delay 5e-06 is outside the backend's range")
+            return FakeJob(pubs)
+
+    class FakeBatch:
+        def __init__(self, backend=None):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    monkeypatch.setattr(rt, "EstimatorV2", FakeEstimator)
+    monkeypatch.setattr(rt, "Batch", FakeBatch)
+    jl = hw.load_joblist(str(DRYRUN / LISTS[0]))
+    points, shapes, shots = hw.joblist_points(jl, CAL)
+    backend = hw.fake_backend("ibm_marrakesh")
+    log = tmp_path / "jobs" / "log.csv"
+    with pytest.raises(SystemExit, match="1 of 3 jobs failed") as ex:
+        hw.execute_joblist(jl, points, shapes, shots, backend, submit=True, run_root=str(tmp_path / "runs"), log_path=str(log),
+                           calibration_csv=CAL, instance_plan="open")
+    assert "not-submitted (L0-probes-s1024): ValueError: rep_delay" in str(ex.value)
+    bundles = {d.name: d for d in (tmp_path / "runs").glob("*/*")}
+    assert {n for n in bundles if n.startswith("okjob")} == {"okjob1", "okjob2"}
+    failed = [n for n in bundles if n.startswith("not-submitted-") and n.endswith("-L0-probes-s1024")]
+    assert len(failed) == 1
+    fj = json.loads((bundles[failed[0]] / "job.json").read_text())
+    assert fj["status"] == "failed" and "rep_delay 5e-06" in fj["error"] and fj["usage_qpu_seconds"] is None
+    assert fj["timestamps"]["submit_attempted_local"] and fj["timestamps"]["failed_local"]
+    assert [p["probe_id"] for p in fj["points"]] == ["reset_midcircuit_probe", "delay_midcircuit_control"]      # pub descriptions kept
+    assert json.loads((bundles[failed[0]] / "result.json").read_text())["note"].startswith("job failed")
+    ok = json.loads((bundles["okjob1"] / "job.json").read_text())
+    assert ok["status"] == "completed" and ok["timestamps"]["finished"] == "t2"
+    rows = pd.read_csv(log)
+    assert len(rows) == 10 and set(rows.job_id) == {"okjob1", "okjob2"} and set(rows.rep_delay_submitted) == {"default"}
 
 
 class _Props:
@@ -555,9 +690,9 @@ def test_submit_path_refuses_a_failed_layout_check_unless_overridden(tmp_path, m
         assert job["layout_check"]["override"].startswith("Q5") and job["layout_check"]["action"] == "submit-with-override"
         assert job["layout_check"]["edge_cone_qubits"] == [7, 8, 9, 10, 11, 12] and job["layout_check"]["failing_protected_qubits"] == []
         assert job["layout_check"]["override_denied"] is None
-        assert job["layout_check"]["enforced"] is True and job["rep_delay_granted_s"] == 1e-6
+        assert job["layout_check"]["enforced"] is True and job["rep_delay_submitted_s"] == 1e-6
     csv_rows = pd.read_csv(tmp_path / "log.csv")
-    assert set(csv_rows.rep_delay_granted.astype(float)) == {1e-6}                     # a runner-set rep_delay is logged in seconds
+    assert set(csv_rows.rep_delay_submitted.astype(float)) == {1e-6}                     # a runner-set rep_delay is logged in seconds
     # the dry-run path never refuses (fake calibrations are stale): logged with enforced false
     hw.execute_joblist(jl, points, shapes, shots, backend, submit=False, run_root=str(tmp_path / "dry"), calibration_csv=CAL)
     dry = json.loads(next((tmp_path / "dry").glob("*/dryrun-*L0")).joinpath("job.json").read_text())
