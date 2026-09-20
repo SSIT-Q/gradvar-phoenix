@@ -289,7 +289,7 @@ def test_paper2_smoke_flags_synthetic_measure_reset_on_fake_target(tmp_path):
     assert {"reset", "measure_reset", "measure_reset_2", "delay", "x", "measure"} <= set(job["isa_instruction_names"])
     by_id = {p["label"]: p for p in job["points"]}
     assert by_id["Q1a_measure_reset"]["synthetic_target_instructions"] == ["measure_reset"] and by_id["Q1a_reset"]["synthetic_target_instructions"] == []
-    assert len(by_id["Q1a_reset"]["qubits"]) == 119 and 17 not in by_id["Q1a_reset"]["qubits"]
+    assert len(by_id["Q1a_reset"]["qubits"]) == 118 and 17 not in by_id["Q1a_reset"]["qubits"] and 79 not in by_id["Q1a_reset"]["qubits"]   # Deviation 6
     assert job["layout_check"]["enforced"] is False and job["layout_check"]["action"] == "logged" and job["layout_check"]["layout_couplers"] == []
     assert job["rep_delay_submitted_s"] == "default" and job["init_qubits"] is True
     assert json.loads((bundles["smoke-init_false"] / "job.json").read_text())["init_qubits"] is False

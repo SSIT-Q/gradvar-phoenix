@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import csv
 import hashlib
+import io
 import json
 import sys
 from dataclasses import dataclass, field
@@ -46,6 +47,10 @@ AXES = ("X", "Y", "Z")
 Q4_INPUTS = ("0", "1", "+", "+i")
 Q4_PATTERNS = ((0, 0), (1, 0), (0, 1), (1, 1))
 DEAD_QUBITS = (17,)                      # Section 2: excluded everywhere (no T1 / T2, readout error 0.51, no calibrated coupler)
+SEPARATE_QUBITS = (79,)                  # Deviation 6: its 2140 ns reset would pad every parallel circuit by 1.74 us (T1 loss ~1e-2 on
+                                         # Q3's |1> qubits against the 1e-4 bound); out of the parallel arms of Q1-Q4, own Q1 job
+SEPARATE_Q1_ARMS = ("a", "b", "f")       # Deviation 6: the separate job runs the native-reset arms (a), (b), (f) at the Q1 shots
+ECHO_DELAY_NS = 200.0                    # Deviation 5 / 7 spectator echo: delay(200) X delay(200) in place of delay(400), X folded into P
 CZ_CLUSTER = tuple(q for q in DEFAULT_EXCLUDE if q not in DEAD_QUBITS)   # 55, 61, 62, 63, 72, 73: flagged on the maps, kept
 READOUT_FLAG_CUT = 3e-2                  # Section 3: readout outliers above 3e-2 are flagged, not dropped (Q2: excluded as spectators)
 Q2_MIN_DISTANCE = 3
@@ -56,7 +61,7 @@ RESET_NS_BY_QUBIT = {79: 2140.0}         # qubit 79's reset is 2140 ns (Section 
 SQ_GATE_US = 0.04                        # one physical single-qubit gate (sx / x, 40 ns) in the budget's gate length
 SAMPLER_LOG_COLUMNS = [
     "backend", "job_id", "timestamp", "job_submit_time", "calibration_snapshot", "stage", "protocol", "circuit_index", "label",
-    "reset_kind", "mask_id", "mask_hash", "frame_id", "reps", "prep", "meas_axis", "expected_z", "shots", "rep_delay_submitted",
+    "reset_kind", "mask_id", "mask_hash", "frame_id", "reps", "prep", "meas_axis", "expected_z", "echo", "shots", "rep_delay_submitted",
     "init_qubits", "sched_ns", "reset_ns", "n_measured", "counts_path", "qpu_seconds", "transpiled_depth", "notes",
 ]
 _SYNTHETIC: Dict[int, Dict[str, Instruction]] = {}   # id(backend) -> {kind: synthetic instruction added to a fake target}
@@ -93,9 +98,11 @@ def operational_qubits(csv_path: str | Path) -> dict:
             reasons[q] = why
         else:
             qubits.append(q)
+    separate = [q for q in qubits if q in SEPARATE_QUBITS]              # Deviation 6: operational, but run in their own Q1 job
+    qubits = [q for q in qubits if q not in SEPARATE_QUBITS]
     ro = df["Readout assignment error"].astype(float)
     flagged_readout = sorted(int(q) for q in df.index[ro > READOUT_FLAG_CUT] if int(q) in qubits)
-    return dict(rule="all_operational", snapshot=Path(csv_path).name, qubits=qubits, excluded=sorted(reasons),
+    return dict(rule="all_operational_minus_separate", snapshot=Path(csv_path).name, qubits=qubits, separate=separate, excluded=sorted(reasons),
                 reasons={str(q): v for q, v in sorted(reasons.items())}, flagged_readout=flagged_readout,
                 flagged_cz_cluster=sorted(q for q in CZ_CLUSTER if q in qubits), readout_flag_cut=READOUT_FLAG_CUT)
 
@@ -186,11 +193,12 @@ def q4_mask_sets(ps: Sequence[float], K: int, n_patches: int, seed: int = DEFAUL
 def q4_row_edges(csv_path: str | Path, exclusion: Iterable[int], min_column_gap: int = 3) -> dict:
     """Section 3, Q4 qubit sets: per row, the horizontal edge with the lowest summed readout assignment error whose two
     qubits are outside ``exclusion`` and whose left column is at least ``min_column_gap`` columns from the previous
-    row's edge (rows in order 0..11). The pre-registration states the rule row by row; when the greedy choice leaves a
-    later row without any admissible edge (it does on the 2026-09-19 snapshots: row 5's best edge sits in column 6 and
-    row 6's admissible edges all lie in columns 4-8), the search backtracks to the previous row's next-best edge, so the
-    result is the first complete assignment in the greedy order (identical to the greedy one whenever that exists).
-    Returns the twelve edges and, per row, the candidates considered and whether a backtrack was needed."""
+    row's edge (rows in order 0..11). Deviation 7: admissible edges are ordered per row by (summed readout error, column)
+    and the assignment is the first complete one in depth-first order, backtracking to the previous row's next-best
+    edge when a row has none (the greedy rule is infeasible on the 2026-09-19 / 20 snapshots: row 5's best edge sits in
+    column 6 and row 6's admissible edges all lie in columns 4-8); backtracks are recorded. ``exclusion`` is the
+    programme's set (``paper2_exclusion``: dead qubit, CZ cluster, readout > 3e-2, Paper 1 Deviation 22) plus the
+    Deviation 6 separate qubits."""
     from .noise import load_calibration
     df = load_calibration(csv_path)
     ro = df["Readout assignment error"].astype(float)
@@ -236,19 +244,13 @@ def paper2_exclusion(csv_path: str | Path, properties: str | Path | None = None)
     Deviation 22 rule (|ZZ| >= 1 MHz to an excluded qubit, initialisation error >= 5e-4) through
     ``gradvar.noise.exclusion_from_calibration``."""
     from .noise import exclusion_from_calibration
-    return exclusion_from_calibration(str(csv_path), properties=properties)
+    return tuple(sorted(set(exclusion_from_calibration(str(csv_path), properties=properties)) | set(SEPARATE_QUBITS)))
 
 
 def properties_for_snapshot(csv_path: str | Path) -> str | None:
-    """The raw properties file of the same snapshot stamp as ``csv_path`` (``ibm_phoenix_<stamp>.csv`` ->
-    ``ibm_phoenix_properties_<stamp without dashes and colons>.json[.gz]``), or None."""
-    p = Path(csv_path)
-    stem = p.stem
-    stamp = (stem[len("ibm_phoenix_"):] if stem.startswith("ibm_phoenix_") else stem).replace("-", "").replace(":", "")
-    for cand in (p.parent / f"ibm_phoenix_properties_{stamp}.json.gz", p.parent / f"ibm_phoenix_properties_{stamp}.json"):
-        if cand.exists():
-            return str(cand)
-    return None
+    """The raw properties file of the same snapshot stamp as ``csv_path`` (``gradvar.hardware.properties_for_csv``), or None."""
+    from .hardware import properties_for_csv
+    return properties_for_csv(str(csv_path))
 
 
 def reset_ns(q: int) -> float:
@@ -279,11 +281,25 @@ class SamplerContext:
     q4_ps: Tuple[float, ...] = (0.25, 0.5)
     snapshot: str | None = None
     exclusion: Tuple[int, ...] = ()
+    separate: List[int] = field(default_factory=list)   # Deviation 6: operational qubits kept out of the parallel arms (79)
     _cache: Dict[str, Any] = field(default_factory=dict, repr=False)
 
     @property
     def qubit_set(self) -> set:
         return set(self.qubits)
+
+    def group(self, name: str) -> List[int]:
+        """``parallel`` (the 118 qubits of every parallel circuit) or ``separate`` (the Deviation 6 qubits, own Q1 job)."""
+        if name == "parallel":
+            return list(self.qubits)
+        if name == "separate":
+            if not self.separate:
+                raise Paper2Error("this snapshot has no separate qubits (Deviation 6): drop the qubits: \"separate\" spec")
+            return list(self.separate)
+        raise Paper2Error(f'qubits must be "parallel" or "separate", got {name!r}')
+
+    def separate_suffix(self) -> str:
+        return "_q" + "_".join(str(q) for q in self.separate)
 
     def bit_index(self, q: int) -> int:
         return self.qubits.index(int(q))
@@ -318,7 +334,7 @@ class SamplerContext:
         ops = operational_qubits(csv_path)
         edges = q4_row_edges(csv_path, ex)
         return cls(qubits=ops["qubits"], flagged_readout=ops["flagged_readout"], flagged_cz_cluster=ops["flagged_cz_cluster"],
-                   q4_edges=edges["edges"], snapshot=Path(csv_path).name, exclusion=tuple(ex), **kw)
+                   q4_edges=edges["edges"], snapshot=Path(csv_path).name, exclusion=tuple(ex), separate=ops["separate"], **kw)
 
     @classmethod
     def from_joblist(cls, jl: dict, calibration_dir: str | Path | None = None, verify: bool = True) -> "SamplerContext":
@@ -331,7 +347,7 @@ class SamplerContext:
                   n_dense=int(rnd.get("q3_dense_masks", 8)), dense_p=float(rnd.get("q3_dense_p", 0.5)),
                   n_frames=int(rnd.get("q3_frames", 4)), q4_K=int(rnd.get("q4_masks_per_p", 16)),
                   q4_ps=tuple(float(p) for p in rnd.get("q4_p", (0.25, 0.5))), snapshot=qs.get("snapshot"),
-                  exclusion=tuple(int(q) for q in q4.get("exclusion", ())))
+                  exclusion=tuple(int(q) for q in q4.get("exclusion", ())), separate=[int(q) for q in qs.get("separate", [])])
         if verify and ctx.snapshot:
             d = Path(calibration_dir) if calibration_dir else Path(__file__).resolve().parents[1] / "data" / "calibrations"
             csv_path = d / ctx.snapshot
@@ -339,9 +355,9 @@ class SamplerContext:
                 raise Paper2Error(f"calibration snapshot {csv_path} named by the job list is missing")
             fresh = cls.from_snapshot(csv_path, seed=ctx.seed, n_dense=ctx.n_dense, dense_p=ctx.dense_p, n_frames=ctx.n_frames,
                                       q4_K=ctx.q4_K, q4_ps=ctx.q4_ps)
-            if fresh.qubits != ctx.qubits:
-                raise Paper2Error(f"qubit_set.qubits differs from the {ctx.snapshot} snapshot: list has {len(ctx.qubits)}, "
-                                  f"snapshot gives {len(fresh.qubits)} (regenerate the list with scripts/make_paper2_joblists.py)")
+            if fresh.qubits != ctx.qubits or fresh.separate != ctx.separate:
+                raise Paper2Error(f"qubit_set.qubits differs from the {ctx.snapshot} snapshot: list has {len(ctx.qubits)} + {ctx.separate}, "
+                                  f"snapshot gives {len(fresh.qubits)} + {fresh.separate} (regenerate the list with scripts/make_paper2_joblists.py)")
             if fresh.flagged_readout != ctx.flagged_readout or fresh.flagged_cz_cluster != ctx.flagged_cz_cluster:
                 raise Paper2Error(f"qubit_set flags differ from the {ctx.snapshot} snapshot")
             if ctx.q4_edges and fresh.q4_edges != ctx.q4_edges:
@@ -349,7 +365,8 @@ class SamplerContext:
         return ctx
 
     def as_joblist_fields(self) -> dict:
-        ops = dict(rule="all_operational", snapshot=self.snapshot, qubits=list(self.qubits), excluded=sorted(set(range(N_QUBITS)) - self.qubit_set),
+        ops = dict(rule="all_operational_minus_separate", snapshot=self.snapshot, qubits=list(self.qubits), separate=list(self.separate),
+                   excluded=sorted(set(range(N_QUBITS)) - self.qubit_set - set(self.separate)),
                    flagged_readout=list(self.flagged_readout), flagged_cz_cluster=list(self.flagged_cz_cluster), readout_flag_cut=READOUT_FLAG_CUT)
         return dict(qubit_set=ops,
                     q4_patches=dict(rule="row_edges", snapshot=self.snapshot, min_column_gap=3, exclusion=list(self.exclusion), edges=[list(e) for e in self.q4_edges]),
@@ -367,9 +384,11 @@ def _as_list(v, default):
 def expand_spec(spec: dict, ctx: SamplerContext) -> List[dict]:
     """One generator spec of ``sampler_jobs[].circuits`` -> the circuit specs it stands for (protocol, label, params).
 
-    ``q1``: ``arm`` a-f, ``reset_kind`` (a, b, f; default all three), ``m`` (c; default [2, 4]).
+    ``q1``: ``arm`` a-f (plus ``d0`` / ``d1`` for one of the two (d) circuits), ``reset_kind`` (a, b, f; default all three), ``m``
+    (c; default [2, 4]), ``qubits`` ``"parallel"`` (default) or ``"separate"`` (the Deviation 6 qubits; labels get ``_q79``).
     ``q2``: product of ``masks`` (0-4), ``reps`` (1, 4, 16), ``axes`` (X, Y, Z), ``target_prep`` ("0", "1"), ``arms`` (reset, delay).
-    ``q3``: product of ``masks`` (names of the mask table, default all 13), ``frames`` (0-3), ``cycles`` (1, 16, 64).
+    ``q3``: product of ``masks`` (names of the mask table, default all 13), ``frames`` (0-3), ``cycles`` (1, 16, 64); ``echo``
+    (bool, default False; Deviation 5 / 7 spectator echo, label suffix ``_echo``).
     ``q4``: product of ``p`` (0.25, 0.5), ``masks`` (0-15), ``inputs`` (0, 1, +, +i), ``axes`` (X, Y, Z).
     ``protocol`` may override the label's protocol (the smoke list runs Q1-Q4 circuits under stage ``smoke``)."""
     kind = str(spec.get("kind", ""))
@@ -378,24 +397,28 @@ def expand_spec(spec: dict, ctx: SamplerContext) -> List[dict]:
     proto = str(spec.get("protocol", kind.upper()))
     out = []
     if kind == "q1":
+        group = str(spec.get("qubits", "parallel"))
+        ctx.group(group)                                                    # validates the name and that the group exists
+        sfx = "" if group == "parallel" else ctx.separate_suffix()
         arms = _as_list(spec.get("arm"), Q1_ARMS)
         for arm in arms:
-            if arm not in Q1_ARMS:
-                raise Paper2Error(f"q1 arm must be one of {Q1_ARMS}, got {arm!r}")
+            if arm not in Q1_ARMS + ("d0", "d1"):
+                raise Paper2Error(f"q1 arm must be one of {Q1_ARMS + ('d0', 'd1')}, got {arm!r}")
             if arm in ("a", "b", "f"):
                 for rk in _as_list(spec.get("reset_kind"), RESET_KINDS):
                     if rk not in RESET_KINDS:
                         raise Paper2Error(f"q1 reset_kind must be one of {RESET_KINDS}, got {rk!r}")
-                    out.append(dict(protocol=proto, kind="q1", arm=arm, reset_kind=rk, m=1, label=f"Q1{arm}_{rk}"))
+                    out.append(dict(protocol=proto, kind="q1", arm=arm, reset_kind=rk, m=1, qubits=group, label=f"Q1{arm}_{rk}{sfx}"))
             elif arm == "c":
                 for m in _as_list(spec.get("m"), (2, 4)):
-                    out.append(dict(protocol=proto, kind="q1", arm="c", reset_kind="reset", m=int(m), label=f"Q1c_reset_m{int(m)}"))
-            elif arm == "d":
-                for prep in _as_list(spec.get("prep"), ("1", "0")):
-                    out.append(dict(protocol=proto, kind="q1", arm="d", reset_kind="none", m=0, prep=str(prep),
-                                    label="Q1d_x_measure" if str(prep) == "1" else "Q1d_measure"))
+                    out.append(dict(protocol=proto, kind="q1", arm="c", reset_kind="reset", m=int(m), qubits=group, label=f"Q1c_reset_m{int(m)}{sfx}"))
+            elif arm in ("d", "d0", "d1"):
+                preps = _as_list(spec.get("prep"), ("1", "0")) if arm == "d" else [arm[1]]
+                for prep in preps:
+                    out.append(dict(protocol=proto, kind="q1", arm="d", reset_kind="none", m=0, prep=str(prep), qubits=group,
+                                    label=("Q1d_x_measure" if str(prep) == "1" else "Q1d_measure") + sfx))
             else:  # e
-                out.append(dict(protocol=proto, kind="q1", arm="e", reset_kind="delay", m=1, label="Q1e_x_delay_measure"))
+                out.append(dict(protocol=proto, kind="q1", arm="e", reset_kind="delay", m=1, qubits=group, label=f"Q1e_x_delay_measure{sfx}"))
     elif kind == "q2":
         for s, r, ax, tp, arm in product(_as_list(spec.get("masks"), range(5)), _as_list(spec.get("reps"), (1, 4, 16)),
                                          _as_list(spec.get("axes"), AXES), _as_list(spec.get("target_prep"), ("0", "1")),
@@ -406,10 +429,14 @@ def expand_spec(spec: dict, ctx: SamplerContext) -> List[dict]:
                             label=f"Q2_M{int(s)}_r{int(r)}_{ax}_t{tp}_{arm}"))
     elif kind == "q3":
         names = _as_list(spec.get("masks"), list(ctx.q3_masks))
+        echo = spec.get("echo", False)
+        if not isinstance(echo, bool):
+            raise Paper2Error("q3 echo must be a JSON boolean")
         for name, f, m in product(names, _as_list(spec.get("frames"), range(ctx.n_frames)), _as_list(spec.get("cycles"), (1, 16, 64))):
             if name not in ctx.q3_masks or int(f) not in range(ctx.n_frames) or not (1 <= int(m) <= Q3_MAX_CYCLES):
                 raise Paper2Error(f"q3 spec value out of range: mask {name}, frame {f}, cycles {m}")
-            out.append(dict(protocol=proto, kind="q3", mask=str(name), frame=int(f), cycles=int(m), label=f"Q3_{name}_f{int(f)}_m{int(m)}"))
+            out.append(dict(protocol=proto, kind="q3", mask=str(name), frame=int(f), cycles=int(m), echo=echo,
+                            label=f"Q3_{name}_f{int(f)}_m{int(m)}" + ("_echo" if echo else "")))
     else:  # q4
         for p, k, inp, ax in product(_as_list(spec.get("p"), ctx.q4_ps), _as_list(spec.get("masks"), range(ctx.q4_K)),
                                      _as_list(spec.get("inputs"), Q4_INPUTS), _as_list(spec.get("axes"), AXES)):
@@ -431,35 +458,58 @@ def expand_job(job: dict, ctx: SamplerContext) -> List[dict]:
 
 # ------------------------------------------------------------------------------------------------ budget
 
-def circuit_gate_us(c: dict, dial_us: Dict[str, float]) -> Tuple[float, int]:
+def circuit_reset_qubits(c: dict, ctx: SamplerContext) -> List[int]:
+    """The qubits a circuit spec resets or delay-references (before the mask is applied for q4: the whole patch set), for
+    the per-qubit reset duration of the budget (S3 of the p2-runner review: ``max(reset_ns)`` over them)."""
+    kind = c["kind"]
+    if kind == "q1":
+        return ctx.group(c.get("qubits", "parallel"))
+    if kind == "q2":
+        return q2_roles(q2_masks()[int(c["mask"])], ctx.qubits, ctx.flagged_readout)["targets"]
+    if kind == "q3":
+        return list(ctx.q3_masks[c["mask"]])
+    return list(ctx.q4_qubits)
+
+
+def circuit_gate_us(c: dict, dial_us: Dict[str, float], ctx: SamplerContext | None = None) -> Tuple[float, int]:
     """(gate-only length in us, mid-circuit measurements) of one circuit spec for the budget: single-qubit gates at
     ``SQ_GATE_US`` each (parallel gates on different qubits count once), reset kinds and delays at ``dial_us``
-    (ibm_phoenix target durations: reset 0.40, measure_reset 1.94, measure_reset_2 1.14, delay 0.40 us). A
-    measurement-based reset counts as one mid-circuit measurement whose t_meas is its own duration."""
+    (ibm_phoenix target durations: reset 0.40, measure_reset 1.94, measure_reset_2 1.14, delay 0.40 us), except that the
+    native reset and its matched delay take ``max(reset_ns)`` over the circuit's reset qubits when that is longer (2.14 us
+    for the Deviation 6 separate job on qubit 79; ``ctx`` needed). A Q3 cycle is two 40 ns Pauli layers plus the reset
+    (480 ns idle, Deviation 7), or 520 ns with the spectator echo (delay 200, X, delay 200). A measurement-based reset
+    counts as one mid-circuit measurement whose t_meas is its own duration."""
     kind = c["kind"]
+    native = dial_us["reset"]
+    delay = dial_us["delay"]
+    if ctx is not None:
+        longest = max((reset_ns(q) for q in circuit_reset_qubits(c, ctx)), default=RESET_NS_DEFAULT) / 1e3
+        native, delay = max(native, longest), max(delay, longest)
     if kind == "q1":
         rk, arm = c["reset_kind"], c["arm"]
         mcm = 1 if rk in ("measure_reset", "measure_reset_2") else 0
+        dur = {"reset": native, "delay": delay, "none": 0.0}.get(rk, dial_us.get(rk, 0.0))
         if arm == "a":
-            return SQ_GATE_US + dial_us[rk], mcm
+            return SQ_GATE_US + dur, mcm
         if arm == "b":
-            return dial_us[rk], mcm
+            return dur, mcm
         if arm == "c":
-            return SQ_GATE_US + c["m"] * dial_us["reset"], 0
+            return SQ_GATE_US + c["m"] * native, 0
         if arm == "d":
             return (SQ_GATE_US if c.get("prep", "1") == "1" else 0.0), 0
         if arm == "e":
-            return SQ_GATE_US + dial_us["delay"], 0
-        return 2 * SQ_GATE_US + dial_us[rk], mcm
+            return SQ_GATE_US + delay, 0
+        return 2 * SQ_GATE_US + dur, mcm
     if kind == "q2":
         prep = SQ_GATE_US if (c["axis"] != "Z" or c["target_prep"] == "1") else 0.0
         read = SQ_GATE_US if c["axis"] != "Z" else 0.0
-        return prep + c["reps"] * dial_us["reset" if c["arm"] == "reset" else "delay"] + read, 0
+        return prep + c["reps"] * (native if c["arm"] == "reset" else delay) + read, 0
     if kind == "q3":
-        return SQ_GATE_US + c["cycles"] * (2 * SQ_GATE_US + dial_us["reset"]) + SQ_GATE_US, 0
+        cycle = 2 * SQ_GATE_US + max(native, (2 * ECHO_DELAY_NS / 1e3 + SQ_GATE_US) if c.get("echo") else 0.0)
+        return SQ_GATE_US + c["cycles"] * cycle + SQ_GATE_US, 0
     prep = 0.0 if c["input"] == "0" else SQ_GATE_US
     read = SQ_GATE_US if c["axis"] != "Z" else 0.0
-    return prep + dial_us["reset"] + read, 0
+    return prep + native + read, 0
 
 
 def estimate_budget_sampler(jl: dict, rep_delays_us: Sequence[float], backend=None) -> dict:
@@ -469,7 +519,8 @@ def estimate_budget_sampler(jl: dict, rep_delays_us: Sequence[float], backend=No
         T_job = 2 s + sum over circuits of shots x (rep_delay + gate length + t_meas + 10 us)
 
     with t_meas counted once for the terminal readout of every circuit and once more for each mid-circuit
-    measure_reset through its own target duration (``circuit_gate_us``). Same keys as ``gradvar.hardware.estimate_budget``
+    measure_reset through its own target duration, and the reset / matched-delay duration at ``max(reset_ns)`` over the
+    circuit's reset qubits (``circuit_gate_us``). Same keys as ``gradvar.hardware.estimate_budget``
     plus ``primitive`` and per-job ``init_qubits`` / ``mcm_executions``. A job with its own ``rep_delay_us`` is timed at
     that value in every column."""
     from .hardware import (BUDGET_MODEL_VERSION, EXEC_OVERHEAD_US, TREX_RANDOMIZATIONS, ZNE_NOISE_FACTORS, dial_durations_us, readout_us)
@@ -481,7 +532,7 @@ def estimate_budget_sampler(jl: dict, rep_delays_us: Sequence[float], backend=No
         shots = int(job["shots"])
         circuits = expand_job(job, ctx)
         rd_own = job.get("rep_delay_us")
-        lengths = [circuit_gate_us(c, dial_us) for c in circuits]
+        lengths = [circuit_gate_us(c, dial_us, ctx) for c in circuits]
         entry = dict(tag=str(job["id"]), primitive="sampler", resilience_level=0, shots=shots,
                      init_qubits=bool(job.get("init_qubits", jl.get("init_qubits", True))),
                      rep_delay_us=None if rd_own is None else float(rd_own), circuits=len(circuits), executions=len(circuits) * shots,
@@ -497,7 +548,8 @@ def estimate_budget_sampler(jl: dict, rep_delays_us: Sequence[float], backend=No
         per_job.append(entry)
     out = dict(model_version=BUDGET_MODEL_VERSION, primitive="sampler",
                formula="2 s per job + (rep_delay + gate length + t_meas + 10 us) x executions; SamplerV2 at resilience 0: "
-                       "no ZNE, no TREX term; t_meas once per terminal readout plus each measure_reset's own duration",
+                       "no ZNE, no TREX term; t_meas once per terminal readout plus each measure_reset's own duration; reset and "
+                       "matched delay at max(reset_ns) over the circuit's reset qubits; Q3 cycle 480 ns (520 ns with echo)",
                readout_us=round(t_meas, 3), readout_source=t_meas_source, exec_overhead_us=EXEC_OVERHEAD_US,
                trex_randomizations=TREX_RANDOMIZATIONS, zne_noise_factors=ZNE_NOISE_FACTORS, sq_gate_us=SQ_GATE_US,
                dial_durations_us={k: round(v, 3) for k, v in dial_us.items()},
@@ -533,6 +585,8 @@ def validate_sampler_joblist(jl: dict) -> None:
     qs = jl["qubit_set"].get("qubits")
     if not isinstance(qs, list) or not qs or len(set(qs)) != len(qs) or any(int(q) in DEAD_QUBITS for q in qs):
         raise Paper2Error("qubit_set.qubits must list distinct qubits and exclude the dead qubit 17")
+    if any(int(q) in SEPARATE_QUBITS for q in qs):
+        raise Paper2Error(f"qubit_set.qubits must not contain the Deviation 6 separate qubits {SEPARATE_QUBITS} (they go in qubit_set.separate)")
     if not jl["qubit_set"].get("snapshot"):
         raise Paper2Error("qubit_set.snapshot must name the calibration CSV the list was built from")
     ids = [str(j.get("id", "")) for j in jobs]
@@ -560,17 +614,18 @@ def validate_sampler_joblist(jl: dict) -> None:
 # ------------------------------------------------------------------------------------------------ circuit builders
 
 def reset_operation(kind: str, backend, qubits: Sequence[int]):
-    """``(apply(qc, q, mcm_bit), synthetic)`` for a reset kind. ``reset`` and ``delay`` are Qiskit standard instructions;
+    """``(apply(qc, q, mcm_bit), synthetic, op)`` for a reset kind (``op`` is the target / synthetic instruction of a
+    measurement-based reset, else None). ``reset`` and ``delay`` are Qiskit standard instructions;
     ``measure_reset`` / ``measure_reset_2`` come from ``backend.target`` (ibm_phoenix) or, on a fake target that lacks
     them, a synthetic one-qubit one-clbit instruction whose definition is measure + reset, so the dry run transpiles
     and (``--simulate``) executes them and the ``mcm`` register path is exercised. ``mcm_bit`` receives the classical
     bit(s) of a measurement-based reset when the instruction carries any."""
     if kind == "none":
-        return (lambda qc, q, mcm_bit=None: None), False
+        return (lambda qc, q, mcm_bit=None: None), False, None
     if kind == "delay":
-        return (lambda qc, q, mcm_bit=None: qc.delay(reset_ns(qc.find_bit(q).index), q, unit="ns")), False
+        return (lambda qc, q, mcm_bit=None: qc.delay(reset_ns(qc.find_bit(q).index), q, unit="ns")), False, None
     if kind == "reset":
-        return (lambda qc, q, mcm_bit=None: qc.reset(q)), False
+        return (lambda qc, q, mcm_bit=None: qc.reset(q)), False, None
     if kind not in RESET_KINDS:
         raise Paper2Error(f"unknown reset kind {kind!r}")
     target = backend.target
@@ -589,14 +644,18 @@ def reset_operation(kind: str, backend, qubits: Sequence[int]):
         added[kind] = op
         synthetic = True
 
+    if op.num_clbits > 1:
+        raise Paper2Error(f"{kind} on this target carries {op.num_clbits} classical bits; the mcm register allocates one bit per "
+                          f"qubit (ibm_phoenix configuration of 2026-09-19: num_clbits 1). Extend _mcm_register before running it.")
+
     def apply(qc, q, mcm_bit=None, op=op):
         if op.num_clbits:
             if mcm_bit is None:
-                raise Paper2Error(f"{kind} carries {op.num_clbits} classical bit(s) but no mcm bit was allocated")
-            qc.append(op, [q], [mcm_bit] * op.num_clbits)
+                raise Paper2Error(f"{kind} carries a classical bit but no mcm bit was allocated")
+            qc.append(op, [q], [mcm_bit])
         else:
             qc.append(op, [q])
-    return apply, synthetic
+    return apply, synthetic, op
 
 
 def _rotate_to_axis(qc, q, axis: str):
@@ -629,13 +688,13 @@ def build_circuit(c: dict, ctx: SamplerContext, backend) -> Tuple[QuantumCircuit
                              frame_id=None, reps=None, prep=None, meas_axis="Z", expected_z=None, notes="")
     synthetic: List[str] = []
     if kind == "q1":
-        qubits, rk, arm, m = list(ctx.qubits), c["reset_kind"], c["arm"], int(c["m"])
+        qubits, rk, arm, m = ctx.group(c.get("qubits", "parallel")), c["reset_kind"], c["arm"], int(c["m"])
         measured, reset_q = qubits, (qubits if rk not in ("none", "delay") else [])
         d.update(reset_kind=rk, reps=m, prep={"a": "1", "b": "0", "c": "1", "d": c.get("prep", "1"), "e": "1", "f": "+"}[arm],
-                 meas_axis="X" if arm == "f" else "Z", arm=arm)
+                 meas_axis="X" if arm == "f" else "Z", arm=arm, qubit_group=c.get("qubits", "parallel"))
         qc = QuantumCircuit(qr, ClassicalRegister(len(measured), "meas"), name=c["label"])
-        apply, syn = reset_operation(rk, backend, qubits)
-        mcm_bits = _mcm_register(qc, apply, qubits) if rk in ("measure_reset", "measure_reset_2") else None
+        apply, syn, op = reset_operation(rk, backend, qubits)
+        mcm_bits = _mcm_register(qc, op, qubits)
         for q in qubits:
             _prepare(qc, qr[q], d["prep"])
         qc.barrier(qr)
@@ -668,7 +727,7 @@ def build_circuit(c: dict, ctx: SamplerContext, backend) -> Tuple[QuantumCircuit
             for t in targets:
                 qc.x(qr[t])
         qc.barrier(qr)
-        apply, _ = reset_operation("reset" if arm == "reset" else "delay", backend, targets)
+        apply, _, _ = reset_operation("reset" if arm == "reset" else "delay", backend, targets)
         for _ in range(r):
             for t in targets:
                 apply(qc, qr[t])
@@ -676,7 +735,7 @@ def build_circuit(c: dict, ctx: SamplerContext, backend) -> Tuple[QuantumCircuit
         for q in others:
             _rotate_to_axis(qc, qr[q], ax)
     elif kind == "q3":
-        name, f, m = c["mask"], int(c["frame"]), int(c["cycles"])
+        name, f, m, echo = c["mask"], int(c["frame"]), int(c["cycles"]), bool(c.get("echo", False))
         mask = ctx.q3_masks[name]
         mset = set(mask)
         spect = [q for q in ctx.qubits if q not in mset]
@@ -684,9 +743,10 @@ def build_circuit(c: dict, ctx: SamplerContext, backend) -> Tuple[QuantumCircuit
         final = frame[-1]
         expected = {str(q): int(final[ctx.bit_index(q)] in (1, 2)) for q in mask}   # X or Y in the last cycle -> |1>
         measured, reset_q = list(ctx.qubits), list(mask)
-        d.update(reset_kind="reset", mask_id=name, mask_hash=mask_hash(mask), frame_id=f, reps=m, prep="1/+", meas_axis="Z/X",
+        d.update(reset_kind="reset", mask_id=name, mask_hash=mask_hash(mask), frame_id=f, reps=m, prep="1/+", meas_axis="Z/X", echo=echo,
                  expected_z=expected, expected_z_string="".join(str(expected[str(q)]) for q in mask), mask_qubits=list(mask),
-                 spectators=spect, dense=name.startswith("dense"), frame_hash=hashlib.sha256(np.ascontiguousarray(frame).tobytes()).hexdigest()[:16])
+                 spectators=spect, dense=name.startswith("dense"), frame_hash=hashlib.sha256(np.ascontiguousarray(frame).tobytes()).hexdigest()[:16],
+                 spectator_idle_ns=(2 * ECHO_DELAY_NS if echo else RESET_NS_DEFAULT), echo_delay_ns=ECHO_DELAY_NS if echo else None)
         qc = QuantumCircuit(qr, ClassicalRegister(len(measured), "meas"), name=c["label"])
         for q in mask:
             qc.x(qr[q])
@@ -700,9 +760,16 @@ def build_circuit(c: dict, ctx: SamplerContext, backend) -> Tuple[QuantumCircuit
             for q in mask:
                 qc.reset(qr[q])
             for q in spect:
-                qc.delay(RESET_NS_DEFAULT, qr[q], unit="ns")
-            for q in ctx.qubits:
+                if echo:                      # Deviation 5 / 7 echo: delay, X, delay; the closing Pauli becomes X P (the X folded in)
+                    qc.delay(ECHO_DELAY_NS, qr[q], unit="ns")
+                    qc.x(qr[q])
+                    qc.delay(ECHO_DELAY_NS, qr[q], unit="ns")
+                else:
+                    qc.delay(RESET_NS_DEFAULT, qr[q], unit="ns")
+            for q in mask:
                 _pauli(qc, qr[q], int(row[ctx.bit_index(q)]))
+            for q in spect:
+                _pauli(qc, qr[q], _x_folded(int(row[ctx.bit_index(q)])) if echo else int(row[ctx.bit_index(q)]))
             qc.barrier(qr)
         for q in spect:
             qc.h(qr[q])
@@ -745,10 +812,13 @@ def _pauli(qc, q, code: int):
         qc.z(q)
 
 
-def _mcm_register(qc, apply, qubits):
-    """Allocate the ``mcm`` register (one bit per qubit) when the reset kind carries classical bits; None otherwise."""
-    op = getattr(apply, "__defaults__", None)
-    op = op[-1] if op else None
+def _x_folded(code: int) -> int:
+    """The Pauli X P up to phase, as a frame code (I X Y Z = 0 1 2 3): I -> X, X -> I, Y -> Z, Z -> Y."""
+    return {0: 1, 1: 0, 2: 3, 3: 2}[code]
+
+
+def _mcm_register(qc, op, qubits):
+    """Allocate the ``mcm`` register (one bit per qubit) when the reset instruction ``op`` carries a classical bit; None otherwise."""
     if op is None or not getattr(op, "num_clbits", 0):
         return None
     cr = ClassicalRegister(len(qubits), "mcm")
@@ -859,14 +929,23 @@ def capture_registers(result, group: Sequence[BuiltSampler]) -> Tuple[dict, dict
     return arrays, summary
 
 
-def write_counts(bundle_dir: Path, result, group: Sequence[BuiltSampler]) -> Tuple[str, dict]:
-    """``bitarrays.npz`` (compressed per-shot registers) and ``counts.json`` (per-register summary); returns the npz path."""
+def write_counts(bundle_dir: Path, result, group: Sequence[BuiltSampler]) -> Tuple[str, dict, dict]:
+    """``bitarrays.npz`` (compressed per-shot registers; in the bundle under 20 MB, else under ``<run_root>/../lfs/`` for Git
+    LFS, Deviation 7 (vii)) and ``counts.json`` (per-register summary, always in the bundle); returns (npz path, summary,
+    placement info), and records the placement in job.json."""
+    from .hardware import place_large_file
     arrays, summary = capture_registers(result, group)
-    npz = bundle_dir / "bitarrays.npz"
-    np.savez_compressed(npz, **arrays)
+    buf = io.BytesIO()
+    np.savez_compressed(buf, **arrays)
+    info = place_large_file(bundle_dir, "bitarrays.npz", buf.getvalue())
     (bundle_dir / "counts.json").write_text(json.dumps(dict(bit_order="column j of the unpacked array is register bit j (qubit registers[name][j])",
-                                                            pubs=summary), indent=1))
-    return str(npz), summary
+                                                            bitarrays=info, pubs=summary), indent=1))
+    jp = bundle_dir / "job.json"
+    if jp.exists():
+        j = json.loads(jp.read_text())
+        j["bitarrays"] = info
+        jp.write_text(json.dumps(j, indent=1))
+    return info["path"], summary, info
 
 
 def sampler_rows(backend, job_id: str, snapshot: str, stage: str, group: Sequence[BuiltSampler], shots: int, init_qubits: bool,
@@ -883,7 +962,8 @@ def sampler_rows(backend, job_id: str, snapshot: str, stage: str, group: Sequenc
             "circuit_index": i, "label": d["label"], "reset_kind": d.get("reset_kind") or "", "mask_id": d.get("mask_id") or "",
             "mask_hash": d.get("mask_hash") or "", "frame_id": "" if d.get("frame_id") is None else d["frame_id"],
             "reps": "" if d.get("reps") is None else d["reps"], "prep": d.get("prep") or "", "meas_axis": d.get("meas_axis") or "",
-            "expected_z": ez or "", "shots": shots, "rep_delay_submitted": submitted_rep_delay(options), "init_qubits": init_qubits,
+            "expected_z": ez or "", "echo": "" if d.get("echo") is None else bool(d["echo"]), "shots": shots,
+            "rep_delay_submitted": submitted_rep_delay(options), "init_qubits": init_qubits,
             "sched_ns": "" if b.sched_ns is None else b.sched_ns,
             "reset_ns": " ".join(f"{v:g}" for v in d.get("reset_ns_assumed", [])), "n_measured": d["n_measured"],
             "counts_path": counts_path or "", "qpu_seconds": "" if qpu_seconds is None else qpu_seconds,
@@ -941,7 +1021,7 @@ def sampler_layout_check(jl: dict, ctx: SamplerContext, groups: Sequence[Tuple[d
     denied = None
     if override and protected_failing:
         denied = f"override not accepted for failing Q4 patch qubit(s) {protected_failing}: the pair is the measured observable (Deviation 26)"
-    chk.update(enforced=bool(enforce), override=override, layout_qubits=used, layout_couplers=[], edge_cone_qubits=q4_used,
+    chk.update(enforced=bool(enforce), override=override, layout_qubits=used, layout_couplers=[], edge_cone_qubits=q4_used, separate_qubits=list(ctx.separate),
                failing_protected_qubits=protected_failing, non_operational_qubits=dead_live, flagged_live_qubits=flagged_live,
                snapshot_flags=dict(readout=list(ctx.flagged_readout), cz_cluster=list(ctx.flagged_cz_cluster)), override_denied=denied,
                policy="Paper 2: readout failures are flagged, not dropped; refuse on a non-operational used qubit or a failing Q4 patch qubit")
@@ -1019,8 +1099,8 @@ def execute_sampler_joblist(jl: dict, backend, submit: bool, run_root: str = "da
         raise SystemExit(f"refusing to submit: {_layout_message(chk)}; regenerate the Paper 2 lists from the day's snapshot")
     extra_base = dict(instance_plan=instance_plan, budget=jl.get("budget"), budget_estimate_with_target_durations=budget_target,
                       layout_check=chk, primitive="sampler", protocol=stage,
-                      qubit_set=dict(qubits=list(ctx.qubits), flagged_readout=list(ctx.flagged_readout), flagged_cz_cluster=list(ctx.flagged_cz_cluster),
-                                     snapshot=ctx.snapshot, exclusion=list(ctx.exclusion)),
+                      qubit_set=dict(qubits=list(ctx.qubits), separate=list(ctx.separate), flagged_readout=list(ctx.flagged_readout),
+                                     flagged_cz_cluster=list(ctx.flagged_cz_cluster), snapshot=ctx.snapshot, exclusion=list(ctx.exclusion)),
                       q4_patches=[list(e) for e in ctx.q4_edges], randomness=jl.get("randomness"))
     root = Path(run_root)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
@@ -1030,7 +1110,7 @@ def execute_sampler_joblist(jl: dict, backend, submit: bool, run_root: str = "da
     def finish(d: Path, job_id, job, group, result, shots, init, options, created, qpu=None, note=""):
         counts_path = None
         if result is not None:
-            counts_path, summary = write_counts(d, result, group)
+            counts_path, summary, _ = write_counts(d, result, group)
             regs = sorted({r for s in summary.values() for r in s["registers"]})
             print(f"  registers captured: {regs} ({sum(len(s['registers']) for s in summary.values())} register arrays) -> {counts_path}")
         rows.extend(sampler_rows(backend, job_id, snapshot, stage, group, shots, init, options=options, submit_time=created,

@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import csv
 import hashlib
+import io
 import json
 import os
 import re
@@ -1135,6 +1136,7 @@ def write_job_bundle(run_root: Path, job_id: str, group: List[BuiltPub], backend
         entries = [e for e in jl.get("points", []) if int(e.get("resilience", -1)) == level]
     summaries = [circuit_summary(b.isa_circuit, backend) for b in group]
     rd_info = rep_delay_info(backend)
+    qpy_policy = _qpy_policy(root=run_root, day=day, job_id=job_id, bundle_dir=d, group=group, sampler=custom_kind == "sampler")
     _dump(d / "job.json", dict(
         job_id=job_id, dry_run=dry, job_kind=custom_kind or ("probes" if is_probe_job else "gradient_points"),
         status="failed" if error else ("dry-run" if dry else "completed"), error=error, error_message=error_message,
@@ -1148,6 +1150,7 @@ def write_job_bundle(run_root: Path, job_id: str, group: List[BuiltPub], backend
         rep_delay_probe=bool(jl.get("rep_delay_probe", False)),
         isa_instruction_names=sorted({n for s in summaries for n in s["isa_instruction_names"]}),
         joblist_entries=entries,
+        circuits_qpy=qpy_policy,
         points=[dict(_describe(b), **_pub_payload(b)) for b in group],
         **(extra or {}),
     ))
@@ -1178,13 +1181,60 @@ def write_job_bundle(run_root: Path, job_id: str, group: List[BuiltPub], backend
         props = dict(error=str(e))
     _dump(d / "properties.json", props)
     _dump(d / "target.json", target_summary(backend))
-    with open(d / "circuits.qpy", "wb") as f:
-        qpy.dump([b.isa_circuit for b in group], f)
     _dump(d / "circuits.json", [dict(index=i, n=_describe(b)["n"], L=_describe(b)["L"], k_1based=_describe(b)["k_1based"],
                                      probe_id=b.probe.get("id") if isinstance(b, BuiltProbe) else _describe(b).get("probe_id"),
                                      depth=b.depth, two_qubit_gates=b.two_qubit_gates, num_qubits=b.isa_circuit.num_qubits, **s)
                                 for i, (b, s) in enumerate(zip(group, summaries))])
     return d
+
+
+QPY_ARTIFACT_DIR = "artifacts"       # <run_root>/../artifacts/<date>/<job_id>/circuits.qpy: uploaded by the Action, never committed
+LFS_DIR = "lfs"                      # <run_root>/../lfs/<date>/<job_id>/: files above BITARRAYS_COMMIT_LIMIT_MB go here (Git LFS)
+BITARRAYS_COMMIT_LIMIT_MB = 20.0
+
+
+def _qpy_policy(root: Path, day: str, job_id: str, bundle_dir: Path, group, sampler: bool) -> dict:
+    """Serialise the ISA circuits with qpy and place them by the data policy: Estimator bundles keep ``circuits.qpy`` in
+    the committed bundle (as before); Sampler bundles (Paper 2 Deviation 7 (vii)) write it under
+    ``<run_root>/../artifacts/<date>/<job_id>/`` for the Action's upload-artifact step and record only its SHA-256, size
+    and the qiskit / qiskit-ibm-runtime versions in job.json (one Q3 m = 64 circuit is 1.3 MB of qpy; the job would be
+    about 84 MB). The circuits are deterministic from the job list, the snapshot, the seed and the qiskit version."""
+    from qiskit import qpy
+    import qiskit
+    buf = io.BytesIO()
+    qpy.dump([b.isa_circuit for b in group], buf)
+    data = buf.getvalue()
+    info = dict(sha256=hashlib.sha256(data).hexdigest(), bytes=len(data), circuits=len(group), qiskit_version=qiskit.__version__,
+                qiskit_ibm_runtime_version=_runtime_version(), qpy_version=getattr(qpy, "QPY_VERSION", None))
+    if sampler:
+        art = Path(root).parent / QPY_ARTIFACT_DIR / day / job_id
+        art.mkdir(parents=True, exist_ok=True)
+        (art / "circuits.qpy").write_bytes(data)
+        info.update(committed=False, path=str(art / "circuits.qpy"),
+                    policy="Paper 2 Deviation 7 (vii): ISA circuits are not committed for Sampler jobs; kept as an Action artefact")
+        print(f"  circuits.qpy ({len(data) / 1e6:.1f} MB) written to {art} (Action artefact, not committed); sha256 {info['sha256'][:16]}")
+    else:
+        (bundle_dir / "circuits.qpy").write_bytes(data)
+        info.update(committed=True, path=str(bundle_dir / "circuits.qpy"))
+    return info
+
+
+def place_large_file(bundle_dir: Path, name: str, data: bytes, limit_mb: float = BITARRAYS_COMMIT_LIMIT_MB) -> dict:
+    """Write ``data`` as ``name`` into the bundle when it is under ``limit_mb``, else under ``<run_root>/../lfs/<date>/<job_id>/``
+    (to be tracked with Git LFS before committing); returns path, size, SHA-256 and whether it sits in the bundle
+    (Paper 2 Deviation 7 (vii): per-shot bit arrays committed under 20 MB)."""
+    size_mb = len(data) / 1e6
+    if size_mb < limit_mb:
+        path = bundle_dir / name
+        in_bundle = True
+    else:
+        run_root = bundle_dir.parents[1]
+        path = run_root.parent / LFS_DIR / bundle_dir.parent.name / bundle_dir.name / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        in_bundle = False
+        print(f"  {name} is {size_mb:.1f} MB (limit {limit_mb:g} MB): written to {path} for Git LFS, not in the bundle")
+    path.write_bytes(data)
+    return dict(path=str(path), bytes=len(data), sha256=hashlib.sha256(data).hexdigest(), in_bundle=in_bundle, limit_mb=limit_mb)
 
 
 def _runtime_version() -> str:
