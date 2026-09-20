@@ -43,6 +43,23 @@ No hardware minute is spent on a paper until its gate is passed. Dr. Raviram own
 
 Owais's standing instruction, 19 September 2026: an independent reviewer (a separate Claude worker that did not produce the work) checks every major deliverable before it is shown to the team; a pre-flight review signs off the exact job list, shot counts, backend and instance before any QPU minute is spent, on Flex or open plan; a post-run review audits the logged results against the pre-registration and the job list before analysis begins. Review outcomes are posted in the thread and linked from the tracker.
 
+## 5. Hardware run procedure
+
+Every QPU minute goes through a committed job list and a GitHub Action (`data/joblists/README.md`, Flow); credentials are
+repository secrets only. The steps, after the pre-flight sign-off:
+
+1. Arm the list (`preflight_review` permalink, `dry_run: false`), commit, dispatch `run_jobs.yml` with `dry_run: false`.
+2. Short queues: leave `submit_only` false; the runner waits, writes the bundles and CSV and the Action commits them.
+   Long queues (the Flex queue held the 20 Sep 2026 smoke test for more than six hours and GitHub cancelled the Action at
+   its 360-minute limit before any result was collected, run 35489912431): dispatch with `submit_only: true`. The runner
+   submits, writes `data/runs/<date>/<list name>_job_ids.json` and exits; the file is committed. Every submitting run
+   writes that file right after submission in any case, so a cancelled run keeps its job ids.
+3. Dispatch `retrieve_jobs.yml` with `ids_file` = that path once the IBM platform shows the jobs completed (or earlier;
+   it waits, within its own 350-minute limit). It writes the same bundles and CSV rows as the live path, marked
+   `retrieved: true` with the submitting run's id, plus a calibration snapshot, and commits them. An ids file written by
+   hand with `job_id: null` and a discovery window identifies the jobs by signature (`data/runs/2026-09-20/smoke_02_job_ids.json`).
+4. Post-run review before analysis (Section 4).
+
 ## 6. Side track: applications competing for Owais's time
 
 Paper 1's arXiv date now floats, so applications after mid-November 2026 may still cite a preprint if the analysis finishes; earlier ones cite the repository and the pre-registration.
@@ -123,6 +140,7 @@ Paper 1's arXiv date now floats, so applications after mid-November 2026 may sti
 | 20 Sep 2026 | Theorist referee pass (P1.1.19, delegated) done and independently second-reviewed (scratchpad/review/theorist_referee_pass.md, theorist_referee_pass_review.md; indexed in docs/REVIEWS.md). Adopted under delegated authority in Paper 1 pre-registration v0.11.0 (page Version 28): Deviation 33, ansatz-specific dial floor ½c²g²p² as the H5/H6 threshold and headline; 34, whole-layer static ZZ in both propagation models (exp(−iζτ/4 ZZ), weight sin²(ζτ/2)); 35, clause (b) counted on the measured reference, ≥ 2 counted rungs, n = 53 L = 8 reference at 16384 shots (flagged for the PI's specific countersignature, P1.1.22); 36, 4×10 edge moved to (93,103) and cone-graph wording (n = 39 rows recomputed, P1.1.21); 37, L = 12 exploratory with criterion (d) = null floor + 3σ; 38, shared masks allowed; 39, on-day M = 600 rule; 40, Deviation 14 ratio scope. Paper 2 pre-registration v0.4.3 (Version 9): Deviation 4, fitted τ_eff; Deviation 5, predicted ZZ residual with a conditional echo. Candidate Deviation 41 (L = 8 shot resolvability table, P1.2.12) open. Tracker Version 16. |
 | 20 Sep 2026 | 09:21 IST: smoke-test arming handed to Owais. Pre-flight for list 02 posted 09:16 IST (ts 1789874970.224149); the arming step (preflight_review permalink + dry_run false, dispatch of run_jobs.yml) was denied by the auto-mode permission system as a production deploy. Owais sets the two fields, commits and dispatches run_jobs.yml himself; Claude does the post-run review (P1.2.14). No Flex minute spent. P1.2.2 waiting. |
 | 20 Sep 2026 | About 09:35 IST: Paper 1 pre-registration v0.11.3 (page Version 31), adopted under delegated authority, PI countersignature on return: Deviation 41, dial kill line 7.0 min per point including job overhead; 42, ten pre-data analysis clarifications from the analysis-pipeline review; 43, null_control point type, H1 part 2 and H2 at L = 8/12 exploratory, +2.6 min reserve for the hardware null control; 44, three depth-8 Gate 1b reference points at 16384 shots, +8.0 min reserve (4.9 min unallocated). Paper 2 pre-registration v0.4.4 (Version 10): Deviation 6, qubit 79 isolated in a separate 0.9-min job, campaign estimate 36.3 min; Deviation 7, Q4 depth-first edge rule, 480 ns Q3 cycle idle, spectator-echo specification, data policy. Merged to main: manuscripts (64d3d0c, P1.4.9), p2-runner (4841d49, P2.2.1); reviews manuscripts_review.md, analysis_p1_review.md, p2_runner_review.md indexed in docs/REVIEWS.md. Gate 1 grid complete, 0 deferred (pp-zz-idle 9cdc673, P1.1.16/P1.1.17 done, review in progress); whole-layer ZZ (P1.1.20) on pp-zz-layer. Tracker Version 17. |
+| 20 Sep 2026 | Smoke test list 02 dispatched by Owais (run 35489912431, 04:44Z). GitHub cancelled the Action at its 6-hour limit (10:45Z) with the ten jobs still queued on ibm_phoenix; the jobs ran afterwards (52 s charged) and the runner never collected them, and the job ids never reached the log (buffered stdout). Remedy (Section 5): the ids file written right after submission, `--submit-only`, `retrieve_jobs.yml` with `--retrieve` (bundles marked `retrieved: true`), `timeout-minutes: 350`, unbuffered logging; the smoke-test results are collected by `retrieve_jobs.yml` from `data/runs/2026-09-20/smoke_02_job_ids.json` (job ids identified by signature in the discovery window). P1.2.2 in progress; P1.2.14 post-run review follows the retrieval. |
 
 ## 9. How to use this tracker
 

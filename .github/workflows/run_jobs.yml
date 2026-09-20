@@ -12,6 +12,11 @@ on:
         required: true
         type: boolean
         default: true
+      submit_only:
+        description: "Submit, write data/runs/<date>/<list name>_job_ids.json and exit without waiting (long queues; collect later with retrieve_jobs.yml)"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -23,6 +28,9 @@ concurrency:
 jobs:
   run:
     runs-on: ubuntu-latest
+    timeout-minutes: 350       # GitHub kills a job at 360 minutes; run 35489912431 (20 Sep 2026) was cut off while its jobs were queued
+    env:
+      PYTHONUNBUFFERED: "1"    # every "submitted job <id>" line reaches the log as it is printed
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -50,7 +58,10 @@ jobs:
           QISKIT_IBM_TOKEN: ${{ secrets.QISKIT_IBM_TOKEN }}
           QISKIT_IBM_INSTANCE: ${{ secrets.QISKIT_IBM_INSTANCE }}
           QISKIT_IBM_INSTANCE_OPEN: ${{ secrets.QISKIT_IBM_INSTANCE_OPEN }}
-        run: python -m gradvar.hardware --joblist "$JOBLIST" --yes-submit
+          SUBMIT_ONLY: ${{ inputs.submit_only }}
+        run: |
+          if [ "$SUBMIT_ONLY" = "true" ]; then set -- --submit-only; else set --; fi
+          python -m gradvar.hardware --joblist "$JOBLIST" --yes-submit "$@"
       - name: "Upload the ISA circuits of Sampler jobs (Paper 2 Deviation 7 (vii); kept as an artefact, not committed)"
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
@@ -59,7 +70,7 @@ jobs:
           path: data/artifacts/
           if-no-files-found: ignore
           retention-days: 90
-      - name: Commit logs and calibration snapshot (also after a failed job, so the bundles of the succeeded jobs are kept)
+      - name: Commit logs, job ids file and calibration snapshot (also after a failed or cancelled job, so the bundles of the succeeded jobs and the ids of the submitted ones are kept)
         if: ${{ always() && !inputs.dry_run }}
         env:
           JOBLIST: ${{ inputs.joblist }}

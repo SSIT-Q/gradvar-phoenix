@@ -775,7 +775,7 @@ def pub_couplers(b) -> List[Tuple[int, int]]:
 
 
 def layout_check(backend, qubits: Iterable[int], couplers: Iterable[Tuple[int, int]] = (),
-                 readout_cut: float | None = None, cz_cut: float = CZ_CUT) -> dict:
+                 readout_cut: float | None = None, cz_cut: float = CZ_CUT, props=None, source: str | None = None) -> dict:
     """Re-check a layout against ``backend.properties()`` (the live calibration at submission, not the snapshot the
     list was built from), pre-registration Deviation 26: per-qubit readout assignment error, operational flag and init
     error, per-coupler CZ error, and the verdict of the cuts (readout ``gradvar.noise.READOUT_CUT`` 3e-2, init error
@@ -785,18 +785,21 @@ def layout_check(backend, qubits: Iterable[int], couplers: Iterable[Tuple[int, i
     properties: fake Target-only backends). Logged in every job.json as ``layout_check``; the submitting path refuses on
     anything but ``pass`` unless the job list carries ``layout_check: "override"`` with a ``layout_check_reason``, and
     never accepts the override for a failing qubit on the observable edge or in its L = 2 light cone
-    (``layout_check_for``). Review defect D2: Q11 at 8.4 percent readout sat in the Marrakesh patch unnoticed."""
+    (``layout_check_for``). Review defect D2: Q11 at 8.4 percent readout sat in the Marrakesh patch unnoticed.
+    ``props`` (a BackendProperties) replaces the live ``backend.properties()`` call: the retrieval path passes the
+    properties at the job's creation time (``backend.properties(datetime=job.creation_date)``) and names them in ``source``."""
     from .noise import READOUT_CUT
     cut = READOUT_CUT if readout_cut is None else float(readout_cut)
     qs = sorted({int(q) for q in qubits})
     cps = sorted({tuple(int(x) for x in c) for c in couplers})
-    out: Dict[str, Any] = dict(readout_cut=cut, cz_cut=float(cz_cut), init_error_cut=INIT_ERROR_CUT, source="backend.properties()",
+    out: Dict[str, Any] = dict(readout_cut=cut, cz_cut=float(cz_cut), init_error_cut=INIT_ERROR_CUT, source=source or "backend.properties()",
                                properties_last_update=None, qubits={}, couplers={}, failing_qubits=[], failing_couplers=[], verdict="unavailable")
-    try:
-        props = backend.properties()
-    except Exception as e:  # pragma: no cover - network errors
-        out["error"] = f"{type(e).__name__}: {e}"
-        props = None
+    if props is None:
+        try:
+            props = backend.properties()
+        except Exception as e:  # pragma: no cover - network errors
+            out["error"] = f"{type(e).__name__}: {e}"
+            props = None
     if props is None:
         out["reason"] = "backend reports no properties (Target-only backend)"
         return out
@@ -859,7 +862,7 @@ def edge_cone_qubits(built: Sequence, layers: int = CONE_LAYERS) -> List[int]:
     return sorted(out)
 
 
-def layout_check_for(jl: dict, built: Sequence, backend, enforce: bool) -> dict:
+def layout_check_for(jl: dict, built: Sequence, backend, enforce: bool, props=None, source: str | None = None) -> dict:
     """``layout_check`` over the union of qubits and couplers of every built pub, plus how the runner acted on it:
     ``enforced`` (True only on the submitting path), ``override`` (the job list's ``layout_check_reason`` when it carries
     ``layout_check: "override"``), ``edge_cone_qubits`` (observable edge plus its L = 2 cone, where no override is
@@ -867,7 +870,7 @@ def layout_check_for(jl: dict, built: Sequence, backend, enforce: bool) -> dict:
     ``submit-with-override`` / ``refuse`` / ``logged``)."""
     qubits = sorted({int(q) for b in built for q in (b.qubits if isinstance(b, BuiltProbe) else physical_qubits(b.patch, b.layout, b.edge)[0])})
     couplers = sorted({tuple(c) for b in built for c in pub_couplers(b)})
-    chk = layout_check(backend, qubits, couplers)
+    chk = layout_check(backend, qubits, couplers, props=props, source=source)
     override = str(jl.get("layout_check_reason", "")).strip() if str(jl.get("layout_check", "")).lower() == "override" else None
     cone = edge_cone_qubits(built)
     protected_failing = [q for q in chk["failing_qubits"] if q in cone]
@@ -1214,7 +1217,7 @@ def _pub_payload(b) -> dict:
 
 def write_job_bundle(run_root: Path, job_id: str, group: List[BuiltPub], backend, options, level: int, shots: int, jl: dict,
                      result=None, job=None, timestamps: dict | None = None, dry: bool = False, error: str | None = None,
-                     extra: dict | None = None) -> Path:
+                     extra: dict | None = None, day: str | None = None, properties: dict | None = None) -> Path:
     """data/runs/<date>/<job_id>/: everything IBM Quantum returns for one job, plus what was sent.
 
     Files: job.json (ids, timestamps, usage, metrics, instance alias and plan, backend, rep_delay, git commit, job-list
@@ -1222,13 +1225,16 @@ def write_job_bundle(run_root: Path, job_id: str, group: List[BuiltPub], backend
     result.json (PrimitiveResult via RuntimeEncoder), metadata.json (result + per-pub metadata), options.json,
     properties.json, target.json, circuits.qpy (ISA circuits) and circuits.json (per-circuit depth / 2q counts / ISA ops).
     No secret and no CRN is ever written: the instance appears only as its alias ('flex' / 'open') and plan name.
+    ``day`` (``YYYY-MM-DD``, default today UTC) is the bundle's date directory: the retrieval path passes the job's
+    creation day. ``properties`` (a dict) replaces the live ``backend.properties()`` in properties.json: the retrieval
+    path passes the properties at the job's creation time, labelled ``_source``.
     """
     from qiskit import qpy
     try:
         from qiskit_ibm_runtime import RuntimeEncoder
     except Exception:  # pragma: no cover
         RuntimeEncoder = None
-    day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    day = day or datetime.now(timezone.utc).strftime("%Y-%m-%d")
     d = run_root / day / job_id
     d.mkdir(parents=True, exist_ok=True)
     usage = metrics = error_message = None
@@ -1304,12 +1310,13 @@ def write_job_bundle(run_root: Path, job_id: str, group: List[BuiltPub], backend
     _dump(d / "metadata.json", dict(result_metadata=_jsonable(getattr(result, "metadata", {})) if result is not None else {"dry_run": True},
                                      pubs=pub_meta))
     _dump(d / "options.json", options)
-    props = None
-    try:
-        props = backend.properties()
-        props = props.to_dict() if props is not None else None
-    except Exception as e:  # pragma: no cover
-        props = dict(error=str(e))
+    props = properties
+    if props is None:
+        try:
+            props = backend.properties()
+            props = props.to_dict() if props is not None else None
+        except Exception as e:  # pragma: no cover
+            props = dict(error=str(e))
     _dump(d / "properties.json", props)
     _dump(d / "target.json", target_summary(backend))
     _dump(d / "circuits.json", [dict(index=i, n=_describe(b)["n"], L=_describe(b)["L"], k_1based=_describe(b)["k_1based"],
@@ -1418,24 +1425,14 @@ def _point_rows(backend, job_id: str, snapshot: str, group: List[BuiltPub], leve
     return rows
 
 
-def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int, backend, submit: bool,
-                    run_root: str = "data/runs", log_path: str | None = None, calibration_csv: str | None = None,
-                    instance_plan: str | None = None) -> List[dict]:
-    """Build the PUBs, run one EstimatorV2 job per resilience level (inside a Batch when submitting), write one bundle
-    per job under ``run_root`` and append one row per point to ``log_path``. With ``submit=False`` the same layout is
-    written against the given (fake) backend with job_id 'dryrun-<utc>-L<level>' and no PrimitiveResult.
-
-    A job whose ``result()`` raises (for example the Estimator refusing a mid-circuit reset, kill rule (d)) gets a
-    bundle with ``error`` and ``job.error_message()`` and does not stop the others; a job whose ``run()`` raises (refused
-    at submission, for example a ``rep_delay`` outside the range) gets a bundle ``not-submitted-<utc>-<tag>`` with the
-    error and its pub descriptions and the loop continues. Rows of the succeeded jobs are appended to ``log_path`` and a
-    ``SystemExit`` naming the failed jobs is raised at the end (non-zero exit).
-
-    THIS FUNCTION IS THE ONLY PLACE THAT SUBMITS JOBS, and only when ``submit`` is True.
-    """
-    from qiskit_ibm_runtime import EstimatorV2
+def job_groups(jl: dict, points: List[GridPoint], shapes: dict, shots: int, backend, calibration_csv: str | None = None
+               ) -> Tuple[List[Tuple[str, int, int, list]], Dict[str, float | None]]:
+    """Build and transpile the job list against ``backend`` and group the pubs into the jobs the runner submits:
+    ``[(job tag, resilience level, shots, pubs)]`` (one job per resilience level of the gradient points, then one per
+    (level, shots, rep_delay_us) of the probes, each split at ``max_experiments``) and ``{tag: rep_delay_s}`` for the
+    probe jobs (None: backend default). Deterministic from the job list, the calibration CSV, the seeds and the qiskit
+    version, so the retrieval path (``retrieve_jobs``) rebuilds exactly what ``execute_joblist`` submitted."""
     built = build_pubs(points, backend, shapes=shapes)
-    # one job per resilience level for the gradient points, then one per (level, shots) for the probes
     groups: List[Tuple[str, int, int, list]] = []          # (job tag, level, shots, pubs)
     max_pubs = max_experiments(jl.get("backend"), backend)     # jobs hold at most max_experiments pubs (300 on ibm_phoenix; Deviation 27)
     by_level: Dict[int, List[BuiltPub]] = {}
@@ -1456,6 +1453,32 @@ def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int,
             groups.append((tag, level, pshots, chunk))
     job_rep_delay_s = {tag: (None if probe_rep_delay_us(g[0].probe) is None else probe_rep_delay_us(g[0].probe) / 1e6)
                        for tag, _, _, g in groups if g and isinstance(g[0], BuiltProbe)}
+    return groups, job_rep_delay_s
+
+
+def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int, backend, submit: bool,
+                    run_root: str = "data/runs", log_path: str | None = None, calibration_csv: str | None = None,
+                    instance_plan: str | None = None, wait: bool = True, joblist_path: str | None = None,
+                    run_id: int | str | None = None) -> List[dict]:
+    """Build the PUBs, run one EstimatorV2 job per resilience level (inside a Batch when submitting), write one bundle
+    per job under ``run_root`` and append one row per point to ``log_path``. With ``submit=False`` the same layout is
+    written against the given (fake) backend with job_id 'dryrun-<utc>-L<level>' and no PrimitiveResult.
+
+    A job whose ``result()`` raises (for example the Estimator refusing a mid-circuit reset, kill rule (d)) gets a
+    bundle with ``error`` and ``job.error_message()`` and does not stop the others; a job whose ``run()`` raises (refused
+    at submission, for example a ``rep_delay`` outside the range) gets a bundle ``not-submitted-<utc>-<tag>`` with the
+    error and its pub descriptions and the loop continues. Rows of the succeeded jobs are appended to ``log_path`` and a
+    ``SystemExit`` naming the failed jobs is raised at the end (non-zero exit).
+
+    Right after the last submission the job ids are written to ``<run_root>/<date>/<list name>_job_ids.json``
+    (``write_ids_file``; the Action commits it even when the run is killed later), so a run cut off by the 6-hour
+    Action limit (smoke test run 35489912431, 20 Sep 2026) can be completed by ``retrieve_jobs``. With ``wait=False``
+    (``--submit-only``) the function returns after writing that file without waiting for any result.
+
+    THIS FUNCTION IS THE ONLY PLACE THAT SUBMITS JOBS, and only when ``submit`` is True.
+    """
+    from qiskit_ibm_runtime import EstimatorV2
+    groups, job_rep_delay_s = job_groups(jl, points, shapes, shots, backend, calibration_csv)
     rd_info = rep_delay_info(backend)
 
     def _apply_rep_delay(est, tag):
@@ -1519,10 +1542,22 @@ def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int,
                     d = write_job_bundle(root, f"not-submitted-{stamp}-{tag}", group, backend, est.options, level, gshots, jl, error=err,
                                          timestamps=dict(submit_attempted_local=created, failed_local=datetime.now(timezone.utc).isoformat()),
                                          extra=extra)
-                    print(f"job {tag} NOT SUBMITTED: {err}; wrote {d}; continuing with the remaining jobs", file=sys.stderr)
+                    print(f"job {tag} NOT SUBMITTED: {err}; wrote {d}; continuing with the remaining jobs", file=sys.stderr, flush=True)
                     continue
                 jobs.append((tag, level, gshots, group, job, est.options, created))
-                print(f"submitted job {job.job_id()} ({tag}: resilience {level}, {len(group)} pubs, shots {gshots})")
+                print(f"submitted job {job.job_id()} ({tag}: resilience {level}, {len(group)} pubs, shots {gshots})", flush=True)
+            # the ids go to disk before any result is awaited (run 35489912431 lost them to stdout buffering and the 6-hour limit)
+            batch_id = getattr(batch, "session_id", None)
+            ids_file = write_ids_file(
+                ids_file_path(root, datetime.now(timezone.utc).strftime("%Y-%m-%d"), jl.get("name") or (Path(joblist_path).stem if joblist_path else "joblist")),
+                jl, joblist_path, [dict(job_id=job.job_id(), tag=tag, level=level, shots=gshots, pubs=len(group),
+                                        rep_delay_us=None if job_rep_delay_s.get(tag) is None else round(job_rep_delay_s[tag] * 1e6, 6),
+                                        submitted_utc=created) for tag, level, gshots, group, job, _, created in jobs],
+                batch_id=None if batch_id is None else str(batch_id), calibration_csv=calibration_csv, calibration_snapshot=snapshot,
+                run_id=run_id, notes="written by execute_joblist right after submission" + ("" if wait else " (--submit-only: results not awaited)"))
+            print(f"job ids written to {ids_file}" + ("" if wait else f"; retrieve with: python -m gradvar.hardware --retrieve {ids_file}"), flush=True)
+            if not wait:
+                jobs = []
             for tag, level, gshots, group, job, options, created in jobs:
                 job_id = job.job_id()
                 try:
@@ -1532,17 +1567,17 @@ def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int,
                     failures.append(f"{job_id} ({tag}): {err}")
                     d = write_job_bundle(root, job_id, group, backend, options, level, gshots, jl, job=job, error=err,
                                          timestamps=dict(submitted_local=created, failed_local=datetime.now(timezone.utc).isoformat()),
-                                         extra=extra)
-                    print(f"job {job_id} ({tag}) FAILED: {err}; wrote {d}; continuing with the remaining jobs", file=sys.stderr)
+                                         extra=dict(extra, job_tag=tag))
+                    print(f"job {job_id} ({tag}) FAILED: {err}; wrote {d}; continuing with the remaining jobs", file=sys.stderr, flush=True)
                     continue
                 completed = datetime.now(timezone.utc).isoformat()
                 d = write_job_bundle(root, job_id, group, backend, options, level, gshots, jl, result=result, job=job,
-                                     timestamps=dict(submitted_local=created, result_received_local=completed), extra=extra)
+                                     timestamps=dict(submitted_local=created, result_received_local=completed), extra=dict(extra, job_tag=tag))
                 rows += _point_rows(backend, job_id, snapshot, group, level, gshots, result, options=options, submit_time=created)
-                print(f"wrote {d}")
-    if log_path:
+                print(f"wrote {d}", flush=True)
+    if log_path and wait:            # --submit-only logs nothing: the retrieve step writes the rows
         _append_rows(log_path, rows)
-        print(f"logged {len(rows)} rows to {log_path}")
+        print(f"logged {len(rows)} rows to {log_path}", flush=True)
     if failures:
         raise SystemExit(f"{len(failures)} of {len(groups)} jobs failed (bundles written, rows of the succeeded jobs logged):\n  "
                          + "\n  ".join(failures))
@@ -1550,7 +1585,8 @@ def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int,
 
 
 def run_joblist(path: str, submit: bool, log_dir: str = "data/jobs", run_root: str = "data/runs",
-                calibration_csv: str | None = None, simulate: bool = False, simulate_shots: int | None = None) -> int:
+                calibration_csv: str | None = None, simulate: bool = False, simulate_shots: int | None = None,
+                submit_only: bool = False) -> int:
     jl = load_joblist(path)
     sampler = str(jl.get("primitive", "estimator")) == "sampler"
     points, shapes, shots = ([], {}, None) if sampler else joblist_points(jl, calibration_csv)
@@ -1593,11 +1629,382 @@ def run_joblist(path: str, submit: bool, log_dir: str = "data/jobs", run_root: s
     backend = get_backend(jl["backend"], service=service)
     log_path = str(Path(log_dir) / f"{stem}_{stamp}.csv")
     if sampler:
+        if submit_only:
+            raise SystemExit("--submit-only is not implemented for Sampler lists (gradvar.paper2)")
         from .paper2 import execute_sampler_joblist
         execute_sampler_joblist(jl, backend, submit=True, run_root=run_root, log_path=log_path, instance_plan=plan)
         return 0
-    execute_joblist(jl, points, shapes, shots, backend, submit=True, run_root=run_root, log_path=log_path, instance_plan=plan)
+    execute_joblist(jl, points, shapes, shots, backend, submit=True, run_root=run_root, log_path=log_path, instance_plan=plan,
+                    wait=not submit_only, joblist_path=path, run_id=github_run_id())
     return 0
+
+
+# ------------------------------------------------------------------------------------------------ ids file and retrieval
+# Smoke test run 35489912431 (20 Sep 2026): GitHub killed the Action at the 6-hour job limit while the ten ibm_phoenix jobs
+# were still queued; the jobs then ran (52 s charged) but the runner never collected them, and the "submitted job <id>" lines
+# never reached the log (stdout was block-buffered in the runner). The ids file below is written right after submission,
+# `--submit-only` returns after writing it, and `--retrieve` completes the bundles and CSV rows from the ids, waiting for
+# the jobs if they are still queued. Nothing here submits a job.
+IDS_SCHEMA = "gradvar.hardware job ids v1"
+IDS_JOB_KEYS = ("job_id", "tag", "level", "shots", "pubs")
+
+
+def github_run_id() -> int | None:
+    """``GITHUB_RUN_ID`` of the Action running the runner, or None outside an Action."""
+    v = os.environ.get("GITHUB_RUN_ID", "").strip()
+    return int(v) if v.isdigit() else None
+
+
+def ids_file_path(run_root: str | Path, day: str, name: str) -> Path:
+    """``<run_root>/<day>/<name>_job_ids.json``."""
+    return Path(run_root) / day / f"{name}_job_ids.json"
+
+
+def write_ids_file(path: str | Path, jl: dict, joblist_path: str | None, jobs: List[dict], batch_id: str | None = None,
+                   calibration_csv: str | None = None, calibration_snapshot: str | None = None, run_id: int | str | None = None,
+                   notes: str | None = None, discovery: dict | None = None) -> Path:
+    """Write the ids file: the job list it belongs to, the Action run that submitted (``submission_run``), the Batch id,
+    the calibration CSV the patch was placed on and the snapshot taken before submission, and one entry per job
+    ``{job_id, tag, level, shots, pubs, rep_delay_us, submitted_utc}`` (``job_id`` may be null with a ``discovery``
+    window, see ``retrieve_jobs``). No secret and no CRN."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    _dump(path, dict(schema=IDS_SCHEMA, joblist=joblist_path, joblist_name=jl.get("name"), backend=jl.get("backend"), instance=jl.get("instance"),
+                     submission_run=run_id, runner_git_commit=git_commit_hash(), batch_id=batch_id, calibration_csv=calibration_csv,
+                     calibration_snapshot=calibration_snapshot, written_utc=datetime.now(timezone.utc).isoformat(), notes=notes,
+                     discovery=discovery, jobs=jobs))
+    return path
+
+
+def load_ids_file(path: str | Path) -> dict:
+    """Load and validate an ids file (``write_ids_file`` schema). Every job needs ``tag``, ``level``, ``shots``, ``pubs``
+    and a ``job_id`` that is a string or null; tags are unique; a null ``job_id`` needs a ``discovery`` window
+    (``created_after`` / ``created_before``, UTC ISO) so ``retrieve_jobs`` can identify the job by its signature."""
+    ids = json.loads(Path(path).read_text())
+    if not isinstance(ids, dict) or ids.get("schema") != IDS_SCHEMA:
+        raise JoblistError(f"{path}: not an ids file (schema {IDS_SCHEMA!r} expected)")
+    jobs = ids.get("jobs")
+    if not isinstance(jobs, list) or not jobs:
+        raise JoblistError(f"{path}: jobs must be a non-empty list")
+    tags = []
+    need_discovery = False
+    for i, j in enumerate(jobs):
+        missing = [k for k in IDS_JOB_KEYS if k not in j]
+        if missing:
+            raise JoblistError(f"{path}: job {i} is missing {missing}")
+        if j["job_id"] is not None and not (isinstance(j["job_id"], str) and j["job_id"].strip()):
+            raise JoblistError(f"{path}: job {i}: job_id must be a non-empty string or null")
+        need_discovery |= j["job_id"] is None
+        for k in ("level", "shots", "pubs"):
+            if isinstance(j[k], bool) or not isinstance(j[k], int) or j[k] < 0:
+                raise JoblistError(f"{path}: job {i}: {k} must be a non-negative integer")
+        rd = j.get("rep_delay_us")
+        if rd is not None and (isinstance(rd, bool) or not isinstance(rd, (int, float)) or rd <= 0):
+            raise JoblistError(f"{path}: job {i}: rep_delay_us must be null or a positive number")
+        tags.append(str(j["tag"]))
+    if len(set(tags)) != len(tags):
+        raise JoblistError(f"{path}: job tags must be unique")
+    if need_discovery:
+        disc = ids.get("discovery") or {}
+        try:
+            after, before = _parse_utc(disc["created_after"]), _parse_utc(disc["created_before"])
+        except (KeyError, ValueError, TypeError) as e:
+            raise JoblistError(f"{path}: a null job_id needs discovery.created_after / created_before (UTC ISO): {e}") from e
+        if not after < before:
+            raise JoblistError(f"{path}: discovery.created_after must precede created_before")
+    return ids
+
+
+def _parse_utc(s: str) -> datetime:
+    dt = datetime.fromisoformat(str(s).replace("Z", "+00:00"))
+    return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt.astimezone(timezone.utc)
+
+
+def _utc_iso(dt) -> str | None:
+    if dt is None:
+        return None
+    if isinstance(dt, str):
+        return dt
+    return (dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt.astimezone(timezone.utc)).isoformat()
+
+
+def job_signature(inputs: dict) -> Tuple[int, int, float | None, int]:
+    """``(resilience level, shots, rep_delay_s or None, pub count)`` of a submitted EstimatorV2 job from ``job.inputs``
+    (the program inputs IBM stores: ``pubs``, ``options`` and ``resilience_level``)."""
+    opts = inputs.get("options") or {}
+    rd = (opts.get("execution") or {}).get("rep_delay")
+    return (int(inputs.get("resilience_level", 0)), int(opts.get("default_shots", 0)), None if rd is None else float(rd), len(inputs.get("pubs") or []))
+
+
+def group_signature(level: int, shots: int, rep_delay_s: float | None, group: Sequence) -> Tuple[int, int, float | None, int]:
+    return (int(level), int(shots), None if rep_delay_s is None else float(rep_delay_s), len(group))
+
+
+def _same_signature(a, b) -> bool:
+    return a[0] == b[0] and a[1] == b[1] and a[3] == b[3] and ((a[2] is None and b[2] is None) or
+                                                               (a[2] is not None and b[2] is not None and abs(a[2] - b[2]) <= 1e-9))
+
+
+def match_jobs_by_signature(candidates: List[dict], wanted: Dict[str, tuple]) -> Dict[str, dict]:
+    """Identify the jobs of a run whose ids were lost: ``candidates`` are ``{job_id, session_id, created, signature}``
+    records of the account's jobs in the discovery window, ``wanted`` maps each job tag to its ``group_signature``.
+    Every tag must match exactly one candidate, no candidate may match two tags, and the matched jobs must share one
+    Batch (``session_id``) when they report one; otherwise SystemExit with the candidate list, and nothing is written."""
+    out: Dict[str, dict] = {}
+    problems = []
+    for tag, sig in wanted.items():
+        hits = [c for c in candidates if _same_signature(c["signature"], sig)]
+        if len(hits) != 1:
+            problems.append(f"{tag} (level {sig[0]}, shots {sig[1]}, rep_delay {sig[2]}, {sig[3]} pubs): {len(hits)} candidates "
+                            f"{[h['job_id'] for h in hits]}")
+        else:
+            out[tag] = hits[0]
+    used = [c["job_id"] for c in out.values()]
+    if len(set(used)) != len(used):
+        problems.append(f"one job matched several tags: {used}")
+    sessions = {c.get("session_id") for c in out.values() if c.get("session_id")}
+    if len(sessions) > 1:
+        problems.append(f"matched jobs span several Batches: {sorted(sessions)}")
+    if problems:
+        listing = "\n  ".join(f"{c['job_id']} created {c.get('created')} session {c.get('session_id')} signature {c['signature']}" for c in candidates)
+        raise SystemExit("could not identify the jobs from the discovery window; nothing written:\n  " + "\n  ".join(problems)
+                         + f"\ncandidates ({len(candidates)}):\n  " + listing)
+    return out
+
+
+def options_from_inputs(inputs: dict, level: int, shots: int):
+    """The options a job was submitted with, read back from ``job.inputs`` (``options`` plus ``resilience_level``) as an
+    attribute tree, so ``submitted_rep_delay`` and options.json work as on the live path. ``level`` / ``shots`` fill in
+    when the inputs do not carry them."""
+    from types import SimpleNamespace
+
+    def ns(d):
+        return SimpleNamespace(**{str(k): ns(v) if isinstance(v, dict) else v for k, v in d.items()})
+    opts = dict(inputs.get("options") or {}) if isinstance(inputs, dict) else {}
+    opts.setdefault("default_shots", int(shots))
+    opts["resilience_level"] = int(inputs.get("resilience_level", level)) if isinstance(inputs, dict) else int(level)
+    opts["options_source"] = "job.inputs read back from IBM Quantum (retrieved)"
+    return ns(opts)
+
+
+def verify_job_inputs(inputs: dict, group: Sequence) -> dict:
+    """Compare the pubs IBM stored for the job (``job.inputs['pubs']``, decoded with RuntimeDecoder) with the pubs rebuilt
+    from the job list: pub count, per-pub ISA op counts and qubit count, observables (labels and coefficients) and the
+    bound parameter values. Returns ``{pubs_stored, pubs_rebuilt, decoded, match, mismatches}``; a decode failure is
+    recorded (``error``) and only the counts are compared."""
+    out: Dict[str, Any] = dict(pubs_stored=None, pubs_rebuilt=len(group), decoded=False, match=None, mismatches=[])
+    pubs = inputs.get("pubs") if isinstance(inputs, dict) else None
+    if pubs is None:
+        out.update(error="job inputs carry no pubs", match=False)
+        return out
+    out["pubs_stored"] = len(pubs)
+    if len(pubs) != len(group):
+        out["mismatches"].append(f"pub count: stored {len(pubs)}, rebuilt {len(group)}")
+    try:
+        from qiskit_ibm_runtime import RuntimeDecoder
+        decoded = json.loads(json.dumps(pubs), cls=RuntimeDecoder)
+        out["decoded"] = True
+    except Exception as e:
+        out["error"] = f"could not decode the stored pubs: {type(e).__name__}: {e}"
+        out["match"] = not out["mismatches"]
+        return out
+    for i, (pub, b) in enumerate(zip(decoded, group)):
+        pub = list(pub) if isinstance(pub, (list, tuple)) else [pub]
+        circ = pub[0]
+        if hasattr(circ, "count_ops"):
+            got, want = {k: int(v) for k, v in circ.count_ops().items()}, {k: int(v) for k, v in b.isa_circuit.count_ops().items()}
+            if got != want or circ.num_qubits != b.isa_circuit.num_qubits:
+                out["mismatches"].append(f"pub {i}: circuit ops {got} ({circ.num_qubits} qubits) vs rebuilt {want} ({b.isa_circuit.num_qubits})")
+        else:
+            out["mismatches"].append(f"pub {i}: stored circuit did not decode to a QuantumCircuit ({type(circ).__name__})")
+        want_obs = b.isa_observable if isinstance(b.isa_observable, (list, tuple)) else [b.isa_observable]
+        want_d = [{str(lbl): complex(c).real for lbl, c in o.to_list()} for o in want_obs]
+        got_obs = pub[1] if len(pub) > 1 else None
+        got_d = list(got_obs) if isinstance(got_obs, (list, tuple)) else [got_obs]
+        ok = len(got_d) == len(want_d) and all(isinstance(g, dict) and set(g) == set(w) and all(abs(float(g[k]) - w[k]) <= 1e-9 for k in w)
+                                               for g, w in zip(got_d, want_d))
+        if not ok:
+            out["mismatches"].append(f"pub {i}: observables differ ({len(got_d)} stored, {len(want_d)} rebuilt)")
+        got_vals = pub[2] if len(pub) > 2 else None
+        if b.param_values is None:
+            if got_vals is not None and np.asarray(got_vals).size:
+                out["mismatches"].append(f"pub {i}: stored parameter values {np.asarray(got_vals).shape} for a pub without parameters")
+        else:
+            arr = None if got_vals is None else np.asarray(got_vals, dtype=float)
+            if arr is None or arr.shape != np.asarray(b.param_values).shape or not np.allclose(arr, b.param_values, atol=1e-12):
+                out["mismatches"].append(f"pub {i}: parameter values differ (stored {None if arr is None else arr.shape}, rebuilt {np.asarray(b.param_values).shape})")
+    out["match"] = not out["mismatches"]
+    return out
+
+
+def properties_at(backend, when) -> Tuple[Any, str]:
+    """``backend.properties(datetime=when)``, the calibration in force when the job was created, labelled ``retrieved``;
+    a backend that does not take ``datetime`` (fake backends) or returns None falls back to the live properties, and the
+    label says so."""
+    label = f"retrieved: backend.properties(datetime={_utc_iso(when)})"
+    props = None
+    if when is not None:
+        try:
+            props = backend.properties(datetime=when)
+        except (TypeError, NotImplementedError) as e:
+            label = f"live at retrieval (backend.properties() takes no datetime: {type(e).__name__})"
+        except Exception as e:  # pragma: no cover - network errors
+            label = f"live at retrieval (backend.properties(datetime=...) failed: {type(e).__name__})"
+    else:
+        label = "live at retrieval (job creation date unknown)"
+    if props is None:
+        try:
+            props = backend.properties()
+        except Exception:  # pragma: no cover
+            props = None
+    return props, label
+
+
+def retrieve_jobs(ids_path: str, joblist_path: str | None = None, run_root: str = "data/runs", log_dir: str = "data/jobs",
+                  run_id: int | str | None = None, timeout: float | None = None, calibration_csv: str | None = None,
+                  snapshot_dir: str = "data/calibrations") -> List[dict]:
+    """Complete a run whose results were never collected: for every job in the ids file, ``service.job(id)``, wait for a
+    final state, and write the same bundle as the live path (``write_job_bundle`` with the PrimitiveResult, ``usage()``,
+    ``metrics()``, the options read back from ``job.inputs``, the properties at the job's creation time labelled
+    ``retrieved``, the layout-check verdict recomputed from those properties, the target summary, the list budget) and
+    the same CSV rows (``_point_rows``), under ``<run_root>/<job creation day>/<job_id>/``. The pubs are rebuilt from the
+    job list on the ids file's ``calibration_csv`` with the recorded seeds and checked against the stored inputs
+    (``verify_job_inputs``; a mismatch is flagged in job.json and fails the run after everything is written). Every
+    job.json carries ``retrieved: true``, ``submission_run`` and a ``retrieval`` record. A job with ``job_id`` null is
+    identified in the ids file's discovery window by its signature (``match_jobs_by_signature``) and the ids file is
+    rewritten with the ids found. A calibration snapshot at retrieval time goes to ``snapshot_dir`` (metadata only, no QPU
+    time). Submits nothing; the token and CRN are read as on the live path and never written."""
+    from .noise import latest_calibration_csv
+    ids = load_ids_file(ids_path)
+    joblist_path = joblist_path or ids.get("joblist")
+    if not joblist_path:
+        raise SystemExit(f"{ids_path} names no joblist; pass --joblist")
+    jl = load_joblist(joblist_path)
+    if str(jl.get("primitive", "estimator")) == "sampler":
+        raise SystemExit("retrieval of Sampler lists (gradvar.paper2) is not implemented")
+    csv = calibration_csv or ids.get("calibration_csv") or latest_calibration_csv()
+    resolve_instance(jl["instance"])
+    service = get_service(jl["instance"])
+    try:
+        plan = verify_instance_plan(service, jl["instance"])
+    except SystemExit as e:
+        plan = None
+        print(f"instance plan not verified (nothing is submitted): {e}", flush=True)
+    backend = get_backend(jl["backend"], service=service)
+    points, shapes, shots = joblist_points(jl, csv)
+    groups, job_rep_delay_s = job_groups(jl, points, shapes, shots, backend, csv)
+    by_tag = {tag: (level, gshots, group) for tag, level, gshots, group in groups}
+    tags = [str(j["tag"]) for j in ids["jobs"]]
+    if set(tags) != set(by_tag):
+        raise SystemExit(f"ids file tags {sorted(tags)} differ from the job list's jobs {sorted(by_tag)} (placed on {csv})")
+    for j in ids["jobs"]:
+        level, gshots, group = by_tag[j["tag"]]
+        if (int(j["level"]), int(j["shots"]), int(j["pubs"])) != (level, gshots, len(group)):
+            raise SystemExit(f"ids file job {j['tag']}: (level, shots, pubs) {(j['level'], j['shots'], j['pubs'])} differ from the rebuilt job {(level, gshots, len(group))}")
+    if any(j["job_id"] is None for j in ids["jobs"]):
+        disc = dict(ids.get("discovery") or {})
+        after, before = _parse_utc(disc["created_after"]), _parse_utc(disc["created_before"])
+        print(f"discovering jobs on {jl['backend']} created between {after.isoformat()} and {before.isoformat()}", flush=True)
+        records = []
+        for job in service.jobs(backend_name=jl["backend"], created_after=after, created_before=before, limit=int(disc.get("limit", 100)), descending=False):
+            try:
+                sig = job_signature(job.inputs)
+            except Exception as e:
+                print(f"  {job.job_id()}: inputs unavailable ({type(e).__name__}: {e}); skipped", flush=True)
+                continue
+            records.append(dict(job_id=job.job_id(), session_id=getattr(job, "session_id", None), created=_utc_iso(getattr(job, "creation_date", None)), signature=sig))
+            print(f"  candidate {records[-1]['job_id']}: created {records[-1]['created']}, session {records[-1]['session_id']}, signature {sig}", flush=True)
+        wanted = {j["tag"]: group_signature(*by_tag[j["tag"]][:2], job_rep_delay_s.get(j["tag"]), by_tag[j["tag"]][2]) for j in ids["jobs"] if j["job_id"] is None}
+        matched = match_jobs_by_signature(records, wanted)
+        for j in ids["jobs"]:
+            if j["job_id"] is None:
+                m = matched[j["tag"]]
+                j.update(job_id=m["job_id"], submitted_utc=m["created"], discovered=True)
+        sessions = {m.get("session_id") for m in matched.values() if m.get("session_id")}
+        ids["batch_id"] = ids.get("batch_id") or (sorted(sessions)[0] if sessions else None)
+        disc.update(candidates=len(records), discovered_utc=datetime.now(timezone.utc).isoformat())
+        ids["discovery"] = disc
+        _dump(Path(ids_path), ids)
+        print(f"ids file updated: {ids_path}", flush=True)
+    snapshot_now = snapshot_calibration(backend, snapshot_dir)
+    snapshot = ids.get("calibration_snapshot") or snapshot_now
+    budget_target = estimate_budget(jl, backend=backend)
+    root = Path(run_root)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    log_path = Path(log_dir) / f"{Path(joblist_path).stem}_retrieved_{stamp}.csv"
+    rows: List[dict] = []
+    failures: List[str] = []
+    for j in ids["jobs"]:
+        tag, job_id = str(j["tag"]), str(j["job_id"])
+        level, gshots, group = by_tag[tag]
+        job = service.job(job_id)
+        try:
+            job.wait_for_final_state(timeout=timeout)
+        except Exception as e:
+            failures.append(f"{job_id} ({tag}): no final state: {type(e).__name__}: {e}")
+            print(f"job {job_id} ({tag}) not final: {type(e).__name__}: {e}; skipped", file=sys.stderr, flush=True)
+            continue
+        status = str(job.status())
+        input_error = None
+        try:
+            inputs = job.inputs
+        except Exception as e:
+            inputs, input_error = {}, f"{type(e).__name__}: {e}"
+        options = options_from_inputs(inputs, level, gshots)
+        created = getattr(job, "creation_date", None)
+        created_iso = _utc_iso(created)
+        day = created_iso[:10] if created_iso else datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        props, props_label = properties_at(backend, created)
+        chk = layout_check_for(jl, group, backend, enforce=False, props=props, source=props_label)
+        verif = verify_job_inputs(inputs, group)
+        if input_error:
+            verif["error"] = input_error
+        if not verif.get("match"):
+            failures.append(f"{job_id} ({tag}): rebuilt pubs differ from the stored inputs: {verif.get('mismatches') or verif.get('error')}")
+        props_dict = None
+        if props is not None:
+            try:
+                props_dict = dict(props.to_dict(), _source=props_label)
+            except Exception as e:  # pragma: no cover
+                props_dict = dict(error=str(e), _source=props_label)
+        now = datetime.now(timezone.utc).isoformat()
+        submitted = j.get("submitted_utc") or created_iso
+        extra = dict(instance_plan=plan, budget=jl.get("budget"), budget_estimate_with_target_durations=budget_target, layout_check=chk,
+                     job_tag=tag, retrieved=True, submission_run=ids.get("submission_run"),
+                     retrieval=dict(ids_file=str(ids_path), retrieval_run=run_id, retrieved_utc=now, job_status=status, submitted_utc=submitted,
+                                    properties_source=props_label, calibration_csv=csv, calibration_snapshot=snapshot,
+                                    calibration_snapshot_at_retrieval=snapshot_now, inputs_verification=verif))
+        ts = dict(submitted_local=submitted or "", retrieved_local=now)
+        error = None
+        result = None
+        if status == "DONE":
+            try:
+                result = job.result()
+            except Exception as e:
+                error = f"{type(e).__name__}: {e}"
+        else:
+            try:
+                msg = job.error_message()
+            except Exception:  # pragma: no cover
+                msg = None
+            error = f"job status {status}" + (f": {msg}" if msg else "")
+        if error:
+            failures.append(f"{job_id} ({tag}): {error}")
+            d = write_job_bundle(root, job_id, group, backend, options, level, gshots, jl, job=job, error=error, timestamps=ts, extra=extra,
+                                 day=day, properties=props_dict)
+            print(f"job {job_id} ({tag}) has no result ({error}); wrote {d}", file=sys.stderr, flush=True)
+            continue
+        d = write_job_bundle(root, job_id, group, backend, options, level, gshots, jl, result=result, job=job, timestamps=ts, extra=extra,
+                             day=day, properties=props_dict)
+        rows += _point_rows(backend, job_id, snapshot, group, level, gshots, result, options=options, submit_time=submitted)
+        print(f"retrieved {job_id} ({tag}: resilience {level}, {len(group)} pubs, shots {gshots}, status {status}, inputs "
+              f"{'match' if verif.get('match') else 'MISMATCH'}): wrote {d}", flush=True)
+    if rows:
+        _append_rows(str(log_path), rows)
+        print(f"logged {len(rows)} rows to {log_path}", flush=True)
+    if failures:
+        raise SystemExit(f"{len(failures)} problem(s) retrieving {len(ids['jobs'])} jobs (bundles written where a job had a result):\n  " + "\n  ".join(failures))
+    return rows
 
 
 def main(argv=None):
@@ -1616,14 +2023,31 @@ def main(argv=None):
     p.add_argument("--simulate", action="store_true", help="dry run of a Sampler list: also execute on the Aer stabilizer simulator "
                                                             "and write bitarrays.npz / counts.json (nothing submitted)")
     p.add_argument("--simulate-shots", type=int, default=None, help="shots for --simulate (default: the job's shots)")
+    p.add_argument("--submit-only", action="store_true", help="with --joblist --yes-submit: submit the jobs, write the ids file "
+                                                               "(<run-root>/<date>/<list name>_job_ids.json) and exit without waiting; "
+                                                               "collect the results later with --retrieve")
+    p.add_argument("--retrieve", default=None, metavar="IDS_FILE", help="collect the results of already submitted jobs (ids file written by "
+                                                                        "--submit-only, or hand-written with job_id null and a discovery window) "
+                                                                        "into the same bundles and CSV rows as the live path; submits nothing")
+    p.add_argument("--timeout", type=float, default=None, help="with --retrieve: seconds to wait per job for a final state (default: no limit)")
     a = p.parse_args(argv)
+    try:
+        sys.stdout.reconfigure(line_buffering=True)     # the Action log must show each job id as it is submitted (run 35489912431 lost them)
+    except Exception:  # pragma: no cover
+        pass
+    if a.retrieve:
+        retrieve_jobs(a.retrieve, a.joblist, run_root=a.run_root, log_dir=a.log_dir, run_id=github_run_id(), timeout=a.timeout)
+        return 0
+    if a.submit_only and not (a.joblist and a.yes_submit):
+        p.error("--submit-only needs --joblist and --yes-submit")
     if a.joblist and a.budget:
         print(json.dumps(estimate_budget(load_joblist(a.joblist)), indent=1))
         return 0
     if a.joblist:
         if not a.yes_submit:
             print("no --yes-submit: building the job list against a fake backend, submitting nothing")
-        return run_joblist(a.joblist, submit=a.yes_submit, log_dir=a.log_dir, run_root=a.run_root, simulate=a.simulate, simulate_shots=a.simulate_shots)
+        return run_joblist(a.joblist, submit=a.yes_submit, log_dir=a.log_dir, run_root=a.run_root, simulate=a.simulate, simulate_shots=a.simulate_shots,
+                           submit_only=a.submit_only)
     if a.yes_submit:
         p.error("ad-hoc submission is disabled: hardware jobs run only from a reviewed job list (--joblist)")
     dry_run(a.n, a.L, a.k)

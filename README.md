@@ -390,7 +390,14 @@ against the fake backend and submits nothing. The former ad-hoc `--n/--L --yes-s
 ```bash
 python -m gradvar.hardware --joblist data/joblists/<name>.json               # dry run against the fake backend
 python -m gradvar.hardware --joblist data/joblists/<name>.json --yes-submit  # only inside the action, only with preflight_review set
+python -m gradvar.hardware --joblist data/joblists/<name>.json --yes-submit --submit-only   # submit, write the job ids file, exit (long queues)
+python -m gradvar.hardware --retrieve data/runs/<date>/<name>_job_ids.json                  # collect the results later; submits nothing
 ```
+
+Long queues: the Action limit is 6 hours (run 35489912431 of 20 Sep 2026 was cancelled with its ten jobs still queued).
+Every submitting run now writes `data/runs/<date>/<list name>_job_ids.json` right after submission and the workflow
+keeps it; `run_jobs.yml` with `submit_only: true` stops there, and `.github/workflows/retrieve_jobs.yml` (input
+`ids_file`) completes the bundles and CSV rows from the ids (procedure in `data/joblists/README.md`, Flow steps 5-6).
 
 The token is read only from `QISKIT_IBM_TOKEN` (and the instance from `QISKIT_IBM_INSTANCE`) or the saved
 account; no function takes a token argument.
