@@ -151,6 +151,67 @@ dial's `t_z = p`) is still not modelled; the ZZ to a neighbour *during its reset
 rotation of order `phi/2` on the idle qubit) is not modelled either, since the reset qubit's Z is undefined during the
 operation; its second-moment effect is about `p (1 - p) phi^2 ~ 8e-4` per coupler and layer at p = 0.25, phi = 0.067 (a fraction of the modelled idle term `(1-p)^2 sin^2 phi ~ 2.5e-3`).
 
+### Deviation 34: whole-layer static ZZ in both noisy models (branch `pp-zz-layer`, booked reading)
+
+**Convention (Deviation 34, adopted 20 Sep 2026).** The raw properties give `J` (Hz): the a-transition frequency differs by
+`omega = zeta = 2 pi J` between `b = |0>` and `b = |1>`, i.e. `H = (zeta / 4) Z_a Z_b`; over a time `tau` the pair unitary is
+`exp(-i zeta tau / 4 ZZ) = rzz(zeta tau / 2)` (qiskit `rzz(theta) = exp(-i theta / 2 ZZ)`), the conditional phase one qubit
+accrues is `zeta tau` (0.068 rad over 400 ns at 27 kHz) and the incoherent weight moved per pair is `sin^2(zeta tau / 2)`.
+`pauliprop.ZZ_ANGLE_SCALE = 0.5` multiplies `zeta tau` to give the `rzz` angle; `ZZ_ANGLE_SCALE_UPPER_BOUND = 1.0` is the
+pre-registration's literal "0.07 rad per pair" used as the `rzz` angle by branch `pp-zz-idle` (twice the angle, about 4x the
+weight; kept as the documented upper-bound record under `zz_idle_upper_bound_record`).
+
+**Layer time from the schedule (`scripts/zz_layer_timing.py`, `data/predictions/zz_layer_timing.json`).** The transpiled ISA
+circuits of the list 02 dry run (4x5: grid L = 2 / 8, reset-dial and delay-matched probes at L = 8) and the transpiled cone
+circuits of every ladder patch at L = 8 are scheduled ASAP with the ibm_phoenix target durations of the placements snapshot
+(per-edge `cz` gate_length 68-108 ns on the ladder couplers, `sx` 40 ns, `rz` 0, `reset` 400 ns, `delay` 400 ns). Per layer
+(barrier to barrier) and coupler `(a, b)` the static ZZ-active time is the layer length minus the time `a` or `b` is inside a
+1q gate minus the pair's own CZ; time inside a CZ on a neighbouring pair counts as active (the neighbour's CZ does not cancel
+the a-b coupling), and the dial slot (reset / delay) is excluded from the static term and kept as the mask-conditional idle
+term. Result: a grid layer is 380 ns (4x5, 4x10) or 392 ns (6x10 .. 10x10: one 108 ns CZ in a sub-layer) = 80 ns of `sx` +
+the four CZ sub-layers, and the static ZZ time per coupler-layer is **232-244 ns median (204-312 ns range)**, not 0.71 us:
+Deviation 24's 0.71 us is the dial circuit's layer (712-780 ns in the dry-run probes = grid layer + the 400 ns slot), the
+budget formula's circuit-length coefficient. In the dry-run dial probes the couplers whose two qubits carry neither a reset
+nor a delay instruction (the runner writes the slot only at mask positions) show 632 ns = 232 + 400: that 400 ns is exactly the
+both-idle term of the dial model, so the split static 232-244 ns + conditional 400 ns is what the schedule gives.
+
+| source | circuit | layers | layer length (ns) | static ZZ time per coupler-layer: median / min / max (ns) | dial slot (ns) |
+|---|---|---|---|---|---|
+| list 02 dry run (ISA) | 4x5 L=2 grid | 2 | 380 | 232 / 204 / 232 | 0 |
+| list 02 dry run (ISA) | 4x5 L=8 grid | 8 | 380 | 232 / 204 / 232 | 0 |
+| list 02 dry run (ISA) | 4x5 L=8 reset_dial_p025_L8 | 8 | 712, 752, 772, 780 | 232 / 136 / 632 | 400 |
+| list 02 dry run (ISA) | 4x5 L=8 delay_matched_control_L8 | 8 | 712, 752, 772, 780 | 232 / 136 / 632 | 400 |
+| ladder cone, L = 8 (transpiled) | 4x5 (n = 20, 31 couplers) | 8 | 380 | 232 / 204 / 232 | 0 |
+| ladder cone, L = 8 (transpiled) | 4x10 (n = 39, 62 couplers) | 8 | 380 | 232 / 204 / 300 | 0 |
+| ladder cone, L = 8 (transpiled) | 6x10 (n = 53, 84 couplers) | 8 | 392 | 244 / 204 / 312 | 0 |
+| ladder cone, L = 8 (transpiled) | 8x10 (n = 70, 111 couplers) | 8 | 392 | 244 / 204 / 312 | 0 |
+| ladder cone, L = 8 (transpiled) | 10x10 (n = 87, 139 couplers) | 8 | 392 | 244 / 204 / 312 | 0 |
+
+**Model.** `rzz(zeta tau_e / 2)` on every coupler `e` of the cone (patch edges and Deviation 26 broken couplers) in every layer
+of the unital and non-unital models, with the per-coupler `tau_e` of the patch's schedule (the static ZZ of the CZ block
+commutes with the CZs, so it is one op per layer between the dial slot and the CZ block in Heisenberg order), plus, in the dial
+layer, `rzz(zeta 400 ns / 2)` on the couplers whose both ends idle. The noiseless rows carry no ZZ (it is hardware noise). Both
+terms of a dial layer are one amplitude-level op: per hub `x` (an I/Z qubit with X/Y neighbours) the map is
+`H_x = p ZZ_x(phi_s) R_x + (1 - p) ZZ_x(phi_s + phi_i)` (the static ZZ precedes the reset in circuit time), so the reset
+branch rotates by the static angle only and the idle branch by the sum; the reset and idle branches of an I hub coincide for
+every flip set `S` and are summed before squaring, as are closed alternating ZZ cycles (`_dial_zz_layer_truncated`; the
+sampler forms the I-hub amplitudes coherently per path, `_dial_zz_layer_sampled`). Rerouted weight per coupler and layer:
+`sin^2(zeta tau / 2)` = 7.8e-5 (static, 244 ns, 27 kHz), 1.1e-3 (idle, 400 ns, both idle); the earlier idle-only upper bound
+moved 4.5e-3.
+
+**Validation.** `tests/test_pauliprop.py::test_zz_layer_matches_doubled_space_exact` (2x2 plaquette, L = 2, static layer + idle
+term, noiseless / unital / nonunital and the three dials) agrees with the doubled-space theta average to 1e-9 (noiseless,
+unital) and to the known 5e-6 Z -> I relaxation residual (non-unital, identical with and without ZZ); the Kraus
+computational-basis grid test covers the combined op. `scripts/pauliprop_zz_layer_validate.py` (2x3, L = 4, all three models
+with the static layer, and unital + static + reset dial p = 0.25 with the idle term;
+`data/predictions/pauliprop_zz_layer_validation.csv`):
+
+<!-- ZZ34_VALIDATION_TABLE -->
+
+The 2x4 patch (8-qubit cone) exceeds the doubled-space budget (4^16 entries) and is not run exactly; the 2x2 / 2x3 checks cover
+every op type and the plaquette cycle.
+
+
 **Placement.** All ladder rows were computed on the patches returned by `noise.place_patch` before Deviation 26
 (no CZ cut): the 4x10 (n = 39) cone contains CZ (95, 96) at 4.9e-2 and (100, 101) at 5.9e-2 depolarizing (median
 2.4e-3), qubit 95 being an observable qubit, which is why its unital variance sits a factor ~2 below the 6x10 / 8x10 /
@@ -388,7 +449,29 @@ Minimum M for the 2x test includes the (1 - V12/V8) factor: M >= 17.5 (kappa - 1
 
 Deviation 30 clause: 2 of 2 counted rungs pass -> **PASS**. Gate 1b as booked (Deviations 27 + 30): separation clause L = 8 True, L = 12 True; fall clause True; **overall PASS**. Earlier readings (literal clause, Deviation 28 at M = 200 / 500, Deviation 29 at M = 200) are kept above and in the JSON for the record.
 
-### (b, idle-ZZ upper bound) Gate 1b with the ZZ idle phase in the dial layer, angle 2x the Deviation 34 convention (the tables above are the ZZ-off record and remain the booked reading until the Deviation 34 recompute)
+### (b, Deviation 34, booked) Gate 1b with the static layer ZZ in every layer and the idle ZZ in the dial layer
+
+Rows with `zz_layer = on` (`--zz layer`, one truncation threshold delta = 1e-7 at the 4e5-string cap; N = 2e6 paths for the 4x10
+rows, 1e6 for the others with 2.5e5-path pattern-floor runs, see Runtime). Shifts are against the ZZ-off rows.
+
+<!-- ZZ34_GATE1B_TABLE -->
+
+<!-- ZZ34_DEV30_TABLE -->
+
+Shift of every recomputed number against ZZ off (`+/-` the combined 2 sigma of the two rows); the idle-only upper bound of
+branch `pp-zz-idle` is listed beside it where it exists:
+
+<!-- ZZ34_SHIFT_TABLE -->
+
+Shot table refreshed with the three variants (`data/predictions/gate1b_shot_table.csv`, column `zz_variant`):
+
+<!-- ZZ34_SHOT_TABLE -->
+
+Rows not recomputed within this branch's compute budget (listed as pending, the ZZ-off / upper-bound rows stand for them):
+
+<!-- ZZ34_PENDING -->
+
+### (b, idle-ZZ upper bound, record) Gate 1b with the ZZ idle phase in the dial layer, angle 2x the Deviation 34 convention (the tables above are the ZZ-off record and remain the booked reading until the Deviation 34 recompute)
 
 Every dial row (stages `gate1b` and `dial`) was recomputed with `--zz on` (`zz_idle` column of the CSV; same placements,
 seeds, N = 2e6 paths, delta = 1e-6 / 1e-7, 4e5-string cap; angle `rzz(zeta tau)`, an upper bound, see "Convention" above).
