@@ -693,7 +693,7 @@ page = f"""<title>Gradvar Phoenix Gate 1 Report</title>
 <main>
 {md_to_html(md)}
 </main>
-<footer>Built from main @ {MAIN_SHA} and {html.escape(ZZ_SRC.split(' (')[0].replace('`', ''))} by scripts/build_gate1_report.py ({{COMMIT_NOTE}}). Derived quantities computed at build time; verdict words as in gate1_summary.json.</footer>
+<footer>Built from main @ {MAIN_SHA}{'' if ZZ_SRC.startswith('main') else ' and ' + html.escape(ZZ_SRC.split(' (')[0].replace('`', ''))} by scripts/build_gate1_report.py ({{COMMIT_NOTE}}). Derived quantities computed at build time; verdict words as in gate1_summary.json.</footer>
 </div>
 """
 
