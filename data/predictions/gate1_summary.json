@@ -29,7 +29,7 @@
     "is_preregistered_ladder": false,
     "ladder_n": true,
     "n_points_computed": 43,
-    "n_points_deferred": 32,
+    "n_points_deferred": 0,
     "M_by_point": [
       {
         "n": 20,
@@ -88,13 +88,13 @@
       }
     ]
   },
-  "overall": "not-evaluated: the ladder points at L = 8 and 12 (and the large-cone L = 4 points) requires Pauli propagation, so no overall Gate 1 verdict is given; criteria evaluated on the exactly computed points where the pre-registration allows; after the propagation rows the remaining deferred points are the large-cone L = 4 groups, so the grid is still not the complete ladder and no overall verdict is given",
+  "overall": "grid complete (exact points at L <= 4 where the cone allows, Pauli propagation elsewhere; M = 200 exact draws, M = 100 at the 23-qubit 4x10 L = 2 noiseless cone). (a) fail; (b) pass; (c) not-evaluated; (e) pass; (f) reported; (d) pass on the exact points (L <= 4); at L >= 8 every noisy prediction lies below the 10x allowance at 4096 shots and 12 of 20 L = 8 and all L = 12 predictions below it at 16384 shots: the literal clause fails there unless the hardware floor is shown closer to the analytic one; Gate 2 booking decision. (c) part 1 pass (20 of 25 (n, L) points exceed 2 x floor(16384); every L <= 8 point does, no L = 12 point does); (c) part 2 not-evaluated: the propagation yields moments, not paired draws, so the pre-registered paired-bootstrap D_lo > 0 at n = 39 / 87, L = 8 / 12 cannot be formed; its point estimates are listed and none is separated at 2 sigma, i.e. no predicted layer-index separation between the unital and non-unital models at native noise (the H3 hardware-only reading of Deviation 15 / 16). Stop rule ('failing (c) or (d) stops the hardware stage'): (c) is not failed (part 1 passes; part 2 is undecidable by simulation and goes to the hardware-only reading); (d) passes for the L <= 4 points and, at L >= 8, fails the literal 10x allowance at 4096 shots for every point and at 16384 shots for the smaller L = 8 points and all L = 12 points, so the L >= 8 rungs are claimable only with the shot count and floor reading fixed at Gate 2. No overall pass / fail is declared on the grid alone: (d) at L >= 8 and (c) part 2 are decided at Gate 2 / on hardware.",
   "criteria": {
     "a": {
       "text": "The regression check reproduces 2^-n within bootstrap error for n = 4 to 20.",
       "status": "implemented",
-      "source": "/tmp/claude-0/-workspace/7097aca5-2811-5a07-966b-147d13c851bc/scratchpad/gp_pp/figures/gate1_noiseless.csv",
-      "identity_source": "/tmp/claude-0/-workspace/7097aca5-2811-5a07-966b-147d13c851bc/scratchpad/gp_pp/figures/gate1_chain_identity.csv",
+      "source": "/tmp/claude-0/-workspace/7097aca5-2811-5a07-966b-147d13c851bc/scratchpad/gp_zz/figures/gate1_noiseless.csv",
+      "identity_source": "/tmp/claude-0/-workspace/7097aca5-2811-5a07-966b-147d13c851bc/scratchpad/gp_zz/figures/gate1_chain_identity.csv",
       "points": {
         "4": true,
         "5": true,
@@ -962,7 +962,7 @@
       "n_above_bound": 0,
       "bound": "Deviation 17: hi/lo < 1.5 at L = 1, < 2.0 at L = 2, < 2.5 at L >= 4 with M = 200 (1.5 where M >= 400 at L = 2 or M >= 700 at L >= 4)",
       "result": "pass",
-      "note": "evaluated at M = 100, 200 (pre-registration specifies M = 200); 0 of 41 points at M >= 200 exceed the depth-dependent bound (28 exceed the original 1.5); 2 point(s) at M < 200 listed but not tested; 32 deferred point(s) not included"
+      "note": "evaluated at M = 100, 200 (pre-registration specifies M = 200); 0 of 41 points at M >= 200 exceed the depth-dependent bound (28 exceed the original 1.5); 2 point(s) at M < 200 listed but not tested"
     },
     "c": {
       "text": "The unital-noise and noiseless predictions, computed with the ibm_phoenix calibration snapshot, differ by more than twice the 16384-shot floor at six or more (n, L) points, and the layer-index ratio (k = L versus k = 1) predicted by the non-unital model differs from the unital-only model by more than twice the floor at n = 40 or 100.",
@@ -989,6 +989,16 @@
             "unital_minus_noiseless": -0.009989765243465606,
             "exceeds_2floor": true,
             "source": "exact"
+          },
+          {
+            "n": 20,
+            "L": 4,
+            "var_noiseless": 0.0132219681666739,
+            "var_unital": 0.0090774905334094,
+            "var_nonunital": 0.0092369168385636,
+            "unital_minus_noiseless": -0.004144477633264499,
+            "exceeds_2floor": true,
+            "source": "exact (noiseless) + pauli_propagation (nonunital, unital)"
           },
           {
             "n": 20,
@@ -1019,6 +1029,26 @@
             "unital_minus_noiseless": -0.012227453786472886,
             "exceeds_2floor": true,
             "source": "exact"
+          },
+          {
+            "n": 39,
+            "L": 2,
+            "var_noiseless": 0.0770162800487683,
+            "var_unital": 0.0693130164625196,
+            "var_nonunital": 0.069758157344711,
+            "unital_minus_noiseless": -0.007703263586248704,
+            "exceeds_2floor": true,
+            "source": "exact (noiseless) + pauli_propagation (nonunital, unital)"
+          },
+          {
+            "n": 39,
+            "L": 4,
+            "var_noiseless": 0.0149560033569335,
+            "var_unital": 0.0122593952446243,
+            "var_nonunital": 0.0123285942121207,
+            "unital_minus_noiseless": -0.0026966081123092015,
+            "exceeds_2floor": true,
+            "source": "pauli_propagation"
           },
           {
             "n": 39,
@@ -1062,6 +1092,16 @@
           },
           {
             "n": 53,
+            "L": 4,
+            "var_noiseless": 0.0112932656021118,
+            "var_unital": 0.0091814492707951,
+            "var_nonunital": 0.009381276438981,
+            "unital_minus_noiseless": -0.0021118163313167005,
+            "exceeds_2floor": true,
+            "source": "pauli_propagation"
+          },
+          {
+            "n": 53,
             "L": 8,
             "var_noiseless": 0.0003060114187635,
             "var_unital": 0.000207857564241,
@@ -1099,6 +1139,16 @@
             "unital_minus_noiseless": -0.009927092977117094,
             "exceeds_2floor": true,
             "source": "exact"
+          },
+          {
+            "n": 70,
+            "L": 4,
+            "var_noiseless": 0.0113561452178955,
+            "var_unital": 0.0092318235080081,
+            "var_nonunital": 0.0093770029915243,
+            "unital_minus_noiseless": -0.002124321709887401,
+            "exceeds_2floor": true,
+            "source": "pauli_propagation"
           },
           {
             "n": 70,
@@ -1142,6 +1192,16 @@
           },
           {
             "n": 87,
+            "L": 4,
+            "var_noiseless": 0.0120047145614624,
+            "var_unital": 0.0099695835477647,
+            "var_nonunital": 0.0100938602567553,
+            "unital_minus_noiseless": -0.0020351310136977,
+            "exceeds_2floor": true,
+            "source": "pauli_propagation"
+          },
+          {
+            "n": 87,
             "L": 8,
             "var_noiseless": 0.0004170527511454,
             "var_unital": 0.0002905617450368,
@@ -1161,42 +1221,11 @@
             "source": "pauli_propagation"
           }
         ],
-        "n_exceeding": 14,
+        "n_exceeding": 20,
         "required": 6,
         "result": "pass",
-        "deferred_points": [
-          {
-            "n": 20,
-            "L": 4,
-            "note": "requires Pauli propagation"
-          },
-          {
-            "n": 39,
-            "L": 2,
-            "note": "requires Pauli propagation"
-          },
-          {
-            "n": 39,
-            "L": 4,
-            "note": "requires Pauli propagation"
-          },
-          {
-            "n": 53,
-            "L": 4,
-            "note": "requires Pauli propagation"
-          },
-          {
-            "n": 70,
-            "L": 4,
-            "note": "requires Pauli propagation"
-          },
-          {
-            "n": 87,
-            "L": 4,
-            "note": "requires Pauli propagation"
-          }
-        ],
-        "note": "14 of 19 exactly computed (n, L) points exceed 2 x floor = 6.10e-05 at k = 1; the >= 6 count of the 25-point ladder is already met on the exact points; 6 (n, L) point(s) requires Pauli propagation; 10 (n, L) point(s) from Pauli propagation (L = 8 / 12, sampled value)"
+        "deferred_points": [],
+        "note": "20 of 25 exactly computed (n, L) points exceed 2 x floor = 6.10e-05 at k = 1; the >= 6 count of the 25-point ladder is already met on the exact points; 16 (n, L) point(s) from Pauli propagation (L = 8 / 12, the large-cone L = 4 groups and the cut noisy 4x5 L = 4 / 4x10 L = 2 groups; sampled value)"
       },
       "part2": {
         "statistic": "D = R_nonunital - R_unital, R_m = [Var_m(k=L)/Var_m(k=1)] / [Var_noiseless(k=L)/Var_noiseless(k=1)], 95% paired bootstrap over shared theta draws; 'differs' = D_lo > 0 (directional, H3 predicts D > 0; Deviation 14)",
@@ -1283,33 +1312,6 @@
             "note": "missing point(s)"
           },
           {
-            "n": 39,
-            "L": 4,
-            "M": NaN,
-            "r_noiseless": NaN,
-            "r_noiseless_lo": NaN,
-            "r_noiseless_hi": NaN,
-            "r_unital": NaN,
-            "r_unital_lo": NaN,
-            "r_unital_hi": NaN,
-            "r_nonunital": NaN,
-            "r_nonunital_lo": NaN,
-            "r_nonunital_hi": NaN,
-            "R_unital": NaN,
-            "R_unital_lo": NaN,
-            "R_unital_hi": NaN,
-            "R_nonunital": NaN,
-            "R_nonunital_lo": NaN,
-            "R_nonunital_hi": NaN,
-            "D": NaN,
-            "D_lo": NaN,
-            "D_hi": NaN,
-            "separated": NaN,
-            "separated_two_sided": NaN,
-            "var_kL_nonunital_minus_unital": NaN,
-            "note": "missing point(s)"
-          },
-          {
             "n": 53,
             "L": 2,
             "M": 200.0,
@@ -1337,33 +1339,6 @@
             "note": NaN
           },
           {
-            "n": 53,
-            "L": 4,
-            "M": NaN,
-            "r_noiseless": NaN,
-            "r_noiseless_lo": NaN,
-            "r_noiseless_hi": NaN,
-            "r_unital": NaN,
-            "r_unital_lo": NaN,
-            "r_unital_hi": NaN,
-            "r_nonunital": NaN,
-            "r_nonunital_lo": NaN,
-            "r_nonunital_hi": NaN,
-            "R_unital": NaN,
-            "R_unital_lo": NaN,
-            "R_unital_hi": NaN,
-            "R_nonunital": NaN,
-            "R_nonunital_lo": NaN,
-            "R_nonunital_hi": NaN,
-            "D": NaN,
-            "D_lo": NaN,
-            "D_hi": NaN,
-            "separated": NaN,
-            "separated_two_sided": NaN,
-            "var_kL_nonunital_minus_unital": NaN,
-            "note": "missing point(s)"
-          },
-          {
             "n": 70,
             "L": 2,
             "M": 200.0,
@@ -1389,33 +1364,6 @@
             "separated_two_sided": false,
             "var_kL_nonunital_minus_unital": 0.00033467101098527685,
             "note": NaN
-          },
-          {
-            "n": 70,
-            "L": 4,
-            "M": NaN,
-            "r_noiseless": NaN,
-            "r_noiseless_lo": NaN,
-            "r_noiseless_hi": NaN,
-            "r_unital": NaN,
-            "r_unital_lo": NaN,
-            "r_unital_hi": NaN,
-            "r_nonunital": NaN,
-            "r_nonunital_lo": NaN,
-            "r_nonunital_hi": NaN,
-            "R_unital": NaN,
-            "R_unital_lo": NaN,
-            "R_unital_hi": NaN,
-            "R_nonunital": NaN,
-            "R_nonunital_lo": NaN,
-            "R_nonunital_hi": NaN,
-            "D": NaN,
-            "D_lo": NaN,
-            "D_hi": NaN,
-            "separated": NaN,
-            "separated_two_sided": NaN,
-            "var_kL_nonunital_minus_unital": NaN,
-            "note": "missing point(s)"
           },
           {
             "n": 87,
@@ -1443,33 +1391,6 @@
             "separated_two_sided": false,
             "var_kL_nonunital_minus_unital": 0.001264128785619545,
             "note": NaN
-          },
-          {
-            "n": 87,
-            "L": 4,
-            "M": NaN,
-            "r_noiseless": NaN,
-            "r_noiseless_lo": NaN,
-            "r_noiseless_hi": NaN,
-            "r_unital": NaN,
-            "r_unital_lo": NaN,
-            "r_unital_hi": NaN,
-            "r_nonunital": NaN,
-            "r_nonunital_lo": NaN,
-            "r_nonunital_hi": NaN,
-            "R_unital": NaN,
-            "R_unital_lo": NaN,
-            "R_unital_hi": NaN,
-            "R_nonunital": NaN,
-            "R_nonunital_lo": NaN,
-            "R_nonunital_hi": NaN,
-            "D": NaN,
-            "D_lo": NaN,
-            "D_hi": NaN,
-            "separated": NaN,
-            "separated_two_sided": NaN,
-            "var_kL_nonunital_minus_unital": NaN,
-            "note": "missing point(s)"
           }
         ],
         "prereg_points": [],
@@ -1477,6 +1398,24 @@
         "result": "not-evaluated",
         "note": "the pre-registered 'twice the floor' threshold compares a dimensionless ratio with a variance; per Deviation 14 (approved by the PI, 19 Sep 2026) it is replaced by the directional paired-bootstrap test D_lo > 0. No computed n = 40 / 100 (39 / 90, or 39 / 87 under Deviations 22 + 26), L = 8 / 12 point on this grid. Pauli-propagation point estimates of D at n = 39 / 87, L = 8 / 12 are listed under 'propagation_point_estimates' (no paired bootstrap: the propagation yields moments, not draws; the propagated 2 sigma treats the models as independent). They do not change the result field.",
         "propagation_point_estimates": [
+          {
+            "n": 20,
+            "L": 4,
+            "source": "pauli_propagation (point estimate; independent 2 sigma propagated, no paired bootstrap)",
+            "r_noiseless": 1.321516081201824,
+            "r_unital": 1.3121901954737283,
+            "r_nonunital": 1.3101986708713043,
+            "R_unital": 0.9929430402998846,
+            "R_nonunital": 0.9914360403997298,
+            "D": -0.001506999900154793,
+            "D_2sigma": 0.014798522138369552,
+            "separated_point_estimate": false,
+            "status": [
+              "converged",
+              "converged",
+              "converged"
+            ]
+          },
           {
             "n": 20,
             "L": 8,
@@ -1511,6 +1450,42 @@
               "not converged (truncation deficit >= 10%)",
               "not converged (truncation deficit >= 10%)",
               "not converged (truncation deficit >= 10%)"
+            ]
+          },
+          {
+            "n": 39,
+            "L": 2,
+            "source": "pauli_propagation (point estimate; independent 2 sigma propagated, no paired bootstrap)",
+            "r_noiseless": 1.400361519389658,
+            "r_unital": 1.3943122078733954,
+            "r_nonunital": 1.3950816658794527,
+            "R_unital": 0.9956801787020689,
+            "R_nonunital": 0.9962296496746738,
+            "D": 0.0005494709726048264,
+            "D_2sigma": 0.00441318588298505,
+            "separated_point_estimate": false,
+            "status": [
+              "converged",
+              "converged",
+              "converged"
+            ]
+          },
+          {
+            "n": 39,
+            "L": 4,
+            "source": "pauli_propagation (point estimate; independent 2 sigma propagated, no paired bootstrap)",
+            "r_noiseless": 1.5764475260870545,
+            "r_unital": 1.5662334596840495,
+            "r_nonunital": 1.5704845872087938,
+            "R_unital": 0.9935208332443785,
+            "R_nonunital": 0.9962174834369137,
+            "D": 0.002696650192535288,
+            "D_2sigma": 0.01249017030668398,
+            "separated_point_estimate": false,
+            "status": [
+              "converged",
+              "converged",
+              "converged"
             ]
           },
           {
@@ -1551,6 +1526,24 @@
           },
           {
             "n": 53,
+            "L": 4,
+            "source": "pauli_propagation (point estimate; independent 2 sigma propagated, no paired bootstrap)",
+            "r_noiseless": 1.3290242954925338,
+            "r_unital": 1.318244067213385,
+            "r_nonunital": 1.3152802438923408,
+            "R_unital": 0.9918886145906358,
+            "R_nonunital": 0.9896585399929807,
+            "D": -0.0022300745976551184,
+            "D_2sigma": 0.014768547409625878,
+            "separated_point_estimate": false,
+            "status": [
+              "converged",
+              "converged",
+              "converged"
+            ]
+          },
+          {
+            "n": 53,
             "L": 8,
             "source": "pauli_propagation (point estimate; independent 2 sigma propagated, no paired bootstrap)",
             "r_noiseless": 1.4321852989541928,
@@ -1587,6 +1580,24 @@
           },
           {
             "n": 70,
+            "L": 4,
+            "source": "pauli_propagation (point estimate; independent 2 sigma propagated, no paired bootstrap)",
+            "r_noiseless": 1.3252800612732172,
+            "r_unital": 1.314689953336969,
+            "r_nonunital": 1.315251070825377,
+            "R_unital": 0.9920091547094777,
+            "R_nonunital": 0.9924325501145734,
+            "D": 0.0004233954050957278,
+            "D_2sigma": 0.014776587022906226,
+            "separated_point_estimate": false,
+            "status": [
+              "converged",
+              "converged",
+              "converged"
+            ]
+          },
+          {
+            "n": 70,
             "L": 8,
             "source": "pauli_propagation (point estimate; independent 2 sigma propagated, no paired bootstrap)",
             "r_noiseless": 1.4123278424902543,
@@ -1619,6 +1630,24 @@
               "sampled, trunc. deficit < 10%",
               "sampled, trunc. deficit < 10%",
               "not converged (truncation deficit >= 10%)"
+            ]
+          },
+          {
+            "n": 87,
+            "L": 4,
+            "source": "pauli_propagation (point estimate; independent 2 sigma propagated, no paired bootstrap)",
+            "r_noiseless": 1.3494662512959859,
+            "r_unital": 1.3427357580412993,
+            "r_nonunital": 1.341751620825924,
+            "R_unital": 0.9950124775271536,
+            "R_nonunital": 0.9942831986626912,
+            "D": -0.0007292788644623904,
+            "D_2sigma": 0.013948403569546422,
+            "separated_point_estimate": false,
+            "status": [
+              "converged",
+              "converged",
+              "converged"
             ]
           },
           {
@@ -1742,41 +1771,51 @@
         "var": 0.0724565961365861,
         "ci_lo": 0.0569409116899225
       },
-      "deferred_points": [
-        {
-          "n": 20,
-          "L": 4,
-          "note": "requires Pauli propagation"
-        },
-        {
-          "n": 39,
-          "L": 2,
-          "note": "requires Pauli propagation"
-        },
-        {
-          "n": 39,
-          "L": 4,
-          "note": "requires Pauli propagation"
-        },
-        {
-          "n": 53,
-          "L": 4,
-          "note": "requires Pauli propagation"
-        },
-        {
-          "n": 70,
-          "L": 4,
-          "note": "requires Pauli propagation"
-        },
-        {
-          "n": 87,
-          "L": 4,
-          "note": "requires Pauli propagation"
-        }
-      ],
-      "result": "provisional pass",
-      "note": "null control simulated at n = [20, 39] under the non-unital model with sampled shots; Var_null / (1/(2N)) = 0.74 (N = 4096), 0.66 (N = 16384), 0.85 (N = 4096), 0.80 (N = 16384); smallest exactly computed noisy signal Var = 7.25e-02 (nonunital, n = 20, L = 2, k = 1), CI low 5.69e-02; the 10x allowance at both shot counts lies below it; PROVISIONAL: the smallest signal to be claimed is at L = 12, where the predictions requires Pauli propagation (6 deferred (n, L) points); the stop rule is not cleared until those points exist",
-      "propagation_note": "the propagation rows at L = 8 / 12 are listed under 'propagation.findings'; whether they are 'signals to be claimed' is the Gate 2 booking decision, so (d) keeps its exact-point evaluation"
+      "deferred_points": [],
+      "result": "pass on the exact points (L <= 4); at L >= 8 every noisy prediction lies below the 10x allowance at 4096 shots and 12 of 20 L = 8 and all L = 12 predictions below it at 16384 shots: the literal clause fails there unless the hardware floor is shown closer to the analytic one; Gate 2 booking decision",
+      "note": "null control simulated at n = [20, 39] under the non-unital model with sampled shots; Var_null / (1/(2N)) = 0.74 (N = 4096), 0.66 (N = 16384), 0.85 (N = 4096), 0.80 (N = 16384); smallest exactly computed noisy signal Var = 7.25e-02 (nonunital, n = 20, L = 2, k = 1), CI low 5.69e-02; the 10x allowance at both shot counts lies below it",
+      "propagation_note": "the propagation rows at L = 8 / 12 are listed under 'propagation.findings'; whether they are 'signals to be claimed' is the Gate 2 booking decision, so (d) keeps its exact-point evaluation",
+      "complete_grid": {
+        "rows": [
+          {
+            "shots": 4096,
+            "allowance_10x": 0.001220703125,
+            "n_noisy_points": 90,
+            "n_below_allowance": 40,
+            "below_by_L": {
+              "8": 20,
+              "12": 20
+            },
+            "smallest": {
+              "model": "nonunital",
+              "n": 53,
+              "L": 12,
+              "k": 1,
+              "var": 4.359779554080292e-06
+            },
+            "largest_L_fully_above": 4
+          },
+          {
+            "shots": 16384,
+            "allowance_10x": 0.00030517578125,
+            "n_noisy_points": 90,
+            "n_below_allowance": 32,
+            "below_by_L": {
+              "8": 12,
+              "12": 20
+            },
+            "smallest": {
+              "model": "nonunital",
+              "n": 53,
+              "L": 12,
+              "k": 1,
+              "var": 4.359779554080292e-06
+            },
+            "largest_L_fully_above": 4
+          }
+        ],
+        "note": "with the propagation rows the grid is complete; the criterion's 'smallest signal to be claimed' is fixed by the Gate 2 booking (which rungs, how many shots), so the literal 10x reading is given per shot count and per L; the simulated null-control floor is 0.7-0.85 x the analytic 1/(2N), i.e. the 10x allowance is conservative by about an order of magnitude"
+      }
     },
     "e": {
       "text": "eps_N below 1 at every point to be claimed.",
@@ -2264,268 +2303,11 @@
       "note": "L_s(n) at 95% of the Page value: n = 12: L_s = 14 (interp. 13.18), n = 16: L_s = 13 (interp. 12.49), n = 20: L_s = 12 (interp. 11.93); fit L_s = 15.03 + -0.156 n; design check on where the noiseless variance is expected to collapse, no pass/fail threshold pre-registered. Caveats: L_s(20) = 12 sits at the sweep edge (L_max = 12) and S2(12) clears the threshold by ~0.5 SEM; the near n-independence is geometric (all three patches are 4 rows cut into 2 + 2, so saturation is set by the fixed 2-row distance to the boundary) and the fit must not be extrapolated to the 6x10-10x10 patches (n = 39..90 are beyond exact statevector simulation; a 2x10 vs 2x10 cut of the 4x10 patch would be the relevant check for n = 39)"
     }
   },
-  "skipped_points": [
-    {
-      "model": "unital",
-      "n": 20,
-      "L": 4,
-      "k": 1,
-      "n_cone": 20,
-      "note": "requires Pauli propagation, not implemented (cut for compute time: measured 38 s per circuit (unital ~17 s) with 32 trajectories on the 20-qubit cone: ~63 min per point at M = 50; cone 20 qubits, L = 4)"
-    },
-    {
-      "model": "nonunital",
-      "n": 20,
-      "L": 4,
-      "k": 1,
-      "n_cone": 20,
-      "note": "requires Pauli propagation, not implemented (cut for compute time: measured 38 s per circuit (unital ~17 s) with 32 trajectories on the 20-qubit cone: ~63 min per point at M = 50; cone 20 qubits, L = 4)"
-    },
-    {
-      "model": "unital",
-      "n": 20,
-      "L": 4,
-      "k": 4,
-      "n_cone": 20,
-      "note": "requires Pauli propagation, not implemented (cut for compute time: measured 38 s per circuit (unital ~17 s) with 32 trajectories on the 20-qubit cone: ~63 min per point at M = 50; cone 20 qubits, L = 4)"
-    },
-    {
-      "model": "nonunital",
-      "n": 20,
-      "L": 4,
-      "k": 4,
-      "n_cone": 20,
-      "note": "requires Pauli propagation, not implemented (cut for compute time: measured 38 s per circuit (unital ~17 s) with 32 trajectories on the 20-qubit cone: ~63 min per point at M = 50; cone 20 qubits, L = 4)"
-    },
-    {
-      "model": "unital",
-      "n": 39,
-      "L": 2,
-      "k": 1,
-      "n_cone": 20,
-      "note": "requires Pauli propagation, not implemented (cut for compute time: measured > 150 s per circuit with 32 trajectories on the 23-qubit cone: > 4 h per point at M = 50; cone 20 qubits, L = 2)"
-    },
-    {
-      "model": "nonunital",
-      "n": 39,
-      "L": 2,
-      "k": 1,
-      "n_cone": 20,
-      "note": "requires Pauli propagation, not implemented (cut for compute time: measured > 150 s per circuit with 32 trajectories on the 23-qubit cone: > 4 h per point at M = 50; cone 20 qubits, L = 2)"
-    },
-    {
-      "model": "unital",
-      "n": 39,
-      "L": 2,
-      "k": 2,
-      "n_cone": 20,
-      "note": "requires Pauli propagation, not implemented (cut for compute time: measured > 150 s per circuit with 32 trajectories on the 23-qubit cone: > 4 h per point at M = 50; cone 20 qubits, L = 2)"
-    },
-    {
-      "model": "nonunital",
-      "n": 39,
-      "L": 2,
-      "k": 2,
-      "n_cone": 20,
-      "note": "requires Pauli propagation, not implemented (cut for compute time: measured > 150 s per circuit with 32 trajectories on the 23-qubit cone: > 4 h per point at M = 50; cone 20 qubits, L = 2)"
-    },
-    {
-      "model": "noiseless",
-      "n": 39,
-      "L": 4,
-      "k": 1,
-      "n_cone": 36,
-      "note": "requires Pauli propagation, not implemented (cone 36 qubits exceeds the 24-qubit statevector limit, L = 4)"
-    },
-    {
-      "model": "unital",
-      "n": 39,
-      "L": 4,
-      "k": 1,
-      "n_cone": 36,
-      "note": "requires Pauli propagation, not implemented (cone 36 qubits exceeds the 24-qubit statevector limit, L = 4)"
-    },
-    {
-      "model": "nonunital",
-      "n": 39,
-      "L": 4,
-      "k": 1,
-      "n_cone": 36,
-      "note": "requires Pauli propagation, not implemented (cone 36 qubits exceeds the 24-qubit statevector limit, L = 4)"
-    },
-    {
-      "model": "noiseless",
-      "n": 39,
-      "L": 4,
-      "k": 4,
-      "n_cone": 36,
-      "note": "requires Pauli propagation, not implemented (cone 36 qubits exceeds the 24-qubit statevector limit, L = 4)"
-    },
-    {
-      "model": "unital",
-      "n": 39,
-      "L": 4,
-      "k": 4,
-      "n_cone": 36,
-      "note": "requires Pauli propagation, not implemented (cone 36 qubits exceeds the 24-qubit statevector limit, L = 4)"
-    },
-    {
-      "model": "nonunital",
-      "n": 39,
-      "L": 4,
-      "k": 4,
-      "n_cone": 36,
-      "note": "requires Pauli propagation, not implemented (cone 36 qubits exceeds the 24-qubit statevector limit, L = 4)"
-    },
-    {
-      "model": "noiseless",
-      "n": 53,
-      "L": 4,
-      "k": 1,
-      "n_cone": 48,
-      "note": "requires Pauli propagation, not implemented (cone 48 qubits exceeds the 24-qubit statevector limit, L = 4)"
-    },
-    {
-      "model": "unital",
-      "n": 53,
-      "L": 4,
-      "k": 1,
-      "n_cone": 48,
-      "note": "requires Pauli propagation, not implemented (cone 48 qubits exceeds the 24-qubit statevector limit, L = 4)"
-    },
-    {
-      "model": "nonunital",
-      "n": 53,
-      "L": 4,
-      "k": 1,
-      "n_cone": 48,
-      "note": "requires Pauli propagation, not implemented (cone 48 qubits exceeds the 24-qubit statevector limit, L = 4)"
-    },
-    {
-      "model": "noiseless",
-      "n": 53,
-      "L": 4,
-      "k": 4,
-      "n_cone": 48,
-      "note": "requires Pauli propagation, not implemented (cone 48 qubits exceeds the 24-qubit statevector limit, L = 4)"
-    },
-    {
-      "model": "unital",
-      "n": 53,
-      "L": 4,
-      "k": 4,
-      "n_cone": 48,
-      "note": "requires Pauli propagation, not implemented (cone 48 qubits exceeds the 24-qubit statevector limit, L = 4)"
-    },
-    {
-      "model": "nonunital",
-      "n": 53,
-      "L": 4,
-      "k": 4,
-      "n_cone": 48,
-      "note": "requires Pauli propagation, not implemented (cone 48 qubits exceeds the 24-qubit statevector limit, L = 4)"
-    },
-    {
-      "model": "noiseless",
-      "n": 70,
-      "L": 4,
-      "k": 1,
-      "n_cone": 65,
-      "note": "requires Pauli propagation, not implemented (cone 65 qubits exceeds the 24-qubit statevector limit, L = 4)"
-    },
-    {
-      "model": "unital",
-      "n": 70,
-      "L": 4,
-      "k": 1,
-      "n_cone": 65,
-      "note": "requires Pauli propagation, not implemented (cone 65 qubits exceeds the 24-qubit statevector limit, L = 4)"
-    },
-    {
-      "model": "nonunital",
-      "n": 70,
-      "L": 4,
-      "k": 1,
-      "n_cone": 65,
-      "note": "requires Pauli propagation, not implemented (cone 65 qubits exceeds the 24-qubit statevector limit, L = 4)"
-    },
-    {
-      "model": "noiseless",
-      "n": 70,
-      "L": 4,
-      "k": 4,
-      "n_cone": 65,
-      "note": "requires Pauli propagation, not implemented (cone 65 qubits exceeds the 24-qubit statevector limit, L = 4)"
-    },
-    {
-      "model": "unital",
-      "n": 70,
-      "L": 4,
-      "k": 4,
-      "n_cone": 65,
-      "note": "requires Pauli propagation, not implemented (cone 65 qubits exceeds the 24-qubit statevector limit, L = 4)"
-    },
-    {
-      "model": "nonunital",
-      "n": 70,
-      "L": 4,
-      "k": 4,
-      "n_cone": 65,
-      "note": "requires Pauli propagation, not implemented (cone 65 qubits exceeds the 24-qubit statevector limit, L = 4)"
-    },
-    {
-      "model": "noiseless",
-      "n": 87,
-      "L": 4,
-      "k": 1,
-      "n_cone": 72,
-      "note": "requires Pauli propagation, not implemented (cone 72 qubits exceeds the 24-qubit statevector limit, L = 4)"
-    },
-    {
-      "model": "unital",
-      "n": 87,
-      "L": 4,
-      "k": 1,
-      "n_cone": 72,
-      "note": "requires Pauli propagation, not implemented (cone 72 qubits exceeds the 24-qubit statevector limit, L = 4)"
-    },
-    {
-      "model": "nonunital",
-      "n": 87,
-      "L": 4,
-      "k": 1,
-      "n_cone": 72,
-      "note": "requires Pauli propagation, not implemented (cone 72 qubits exceeds the 24-qubit statevector limit, L = 4)"
-    },
-    {
-      "model": "noiseless",
-      "n": 87,
-      "L": 4,
-      "k": 4,
-      "n_cone": 72,
-      "note": "requires Pauli propagation, not implemented (cone 72 qubits exceeds the 24-qubit statevector limit, L = 4)"
-    },
-    {
-      "model": "unital",
-      "n": 87,
-      "L": 4,
-      "k": 4,
-      "n_cone": 72,
-      "note": "requires Pauli propagation, not implemented (cone 72 qubits exceeds the 24-qubit statevector limit, L = 4)"
-    },
-    {
-      "model": "nonunital",
-      "n": 87,
-      "L": 4,
-      "k": 4,
-      "n_cone": 72,
-      "note": "requires Pauli propagation, not implemented (cone 72 qubits exceeds the 24-qubit statevector limit, L = 4)"
-    }
-  ],
+  "skipped_points": [],
   "stop_rule": "Failing (c) or (d) stops the hardware stage.",
   "propagation": {
     "source": "data/predictions/pauliprop_predictions.csv",
-    "n_rows": 60,
+    "n_rows": 92,
     "points": [
       {
         "model": "noiseless",
@@ -3186,6 +2968,358 @@
         "ci_hi_mc_plus_2sigma": 1.6894963342798796e-05,
         "method": "pauli_propagation",
         "note": "Pauli propagation (not converged (truncation deficit >= 10%)); interval one-sided [V_trunc, V_MC + 2 sigma]; ladder_placements.json (Deviations 22/26, ibm_phoenix_2026-09-19T192510Z.csv)"
+      },
+      {
+        "model": "noiseless",
+        "n": 39,
+        "L": 4,
+        "k": 1,
+        "var": 0.0149560033569335,
+        "ci_lo_trunc": 0.0149187549541238,
+        "ci_hi_mc_plus_2sigma": 0.015032790917601794,
+        "method": "pauli_propagation",
+        "note": "Pauli propagation (converged); interval one-sided [V_trunc, V_MC + 2 sigma]; ladder_placements.json (Deviations 22/26, ibm_phoenix_2026-09-19T192510Z.csv)"
+      },
+      {
+        "model": "noiseless",
+        "n": 39,
+        "L": 4,
+        "k": 4,
+        "var": 0.0235773544921875,
+        "ci_lo_trunc": 0.0235561649606097,
+        "ci_hi_mc_plus_2sigma": 0.02366121106341572,
+        "method": "pauli_propagation",
+        "note": "Pauli propagation (converged); interval one-sided [V_trunc, V_MC + 2 sigma]; ladder_placements.json (Deviations 22/26, ibm_phoenix_2026-09-19T192510Z.csv)"
+      },
+      {
+        "model": "unital",
+        "n": 39,
+        "L": 4,
+        "k": 1,
+        "var": 0.0122593952446243,
+        "ci_lo_trunc": 0.0122293953305437,
+        "ci_hi_mc_plus_2sigma": 0.012322838868598144,
+        "method": "pauli_propagation",
+        "note": "Pauli propagation (converged); interval one-sided [V_trunc, V_MC + 2 sigma]; ladder_placements.json (Deviations 22/26, ibm_phoenix_2026-09-19T192510Z.csv)"
+      },
+      {
+        "model": "unital",
+        "n": 39,
+        "L": 4,
+        "k": 4,
+        "var": 0.0192010750276221,
+        "ci_lo_trunc": 0.0191850282797431,
+        "ci_hi_mc_plus_2sigma": 0.019270090334168627,
+        "method": "pauli_propagation",
+        "note": "Pauli propagation (converged); interval one-sided [V_trunc, V_MC + 2 sigma]; ladder_placements.json (Deviations 22/26, ibm_phoenix_2026-09-19T192510Z.csv)"
+      },
+      {
+        "model": "nonunital",
+        "n": 39,
+        "L": 4,
+        "k": 1,
+        "var": 0.0123285942121207,
+        "ci_lo_trunc": 0.0123285942121207,
+        "ci_hi_mc_plus_2sigma": 0.012392587952066983,
+        "method": "pauli_propagation",
+        "note": "Pauli propagation (converged); interval one-sided [V_trunc, V_MC + 2 sigma]; ladder_placements.json (Deviations 22/26, ibm_phoenix_2026-09-19T192510Z.csv)"
+      },
+      {
+        "model": "nonunital",
+        "n": 39,
+        "L": 4,
+        "k": 4,
+        "var": 0.0193618671920871,
+        "ci_lo_trunc": 0.0193618671920871,
+        "ci_hi_mc_plus_2sigma": 0.019431549546844385,
+        "method": "pauli_propagation",
+        "note": "Pauli propagation (converged); interval one-sided [V_trunc, V_MC + 2 sigma]; ladder_placements.json (Deviations 22/26, ibm_phoenix_2026-09-19T192510Z.csv)"
+      },
+      {
+        "model": "noiseless",
+        "n": 53,
+        "L": 4,
+        "k": 1,
+        "var": 0.0112932656021118,
+        "ci_lo_trunc": 0.0112932656021118,
+        "ci_hi_mc_plus_2sigma": 0.011359717694617409,
+        "method": "pauli_propagation",
+        "note": "Pauli propagation (converged); interval one-sided [V_trunc, V_MC + 2 sigma]; ladder_placements.json (Deviations 22/26, ibm_phoenix_2026-09-19T192510Z.csv)"
+      },
+      {
+        "model": "noiseless",
+        "n": 53,
+        "L": 4,
+        "k": 4,
+        "var": 0.0150090243606567,
+        "ci_lo_trunc": 0.0150090243606567,
+        "ci_hi_mc_plus_2sigma": 0.015076745758667374,
+        "method": "pauli_propagation",
+        "note": "Pauli propagation (converged); interval one-sided [V_trunc, V_MC + 2 sigma]; ladder_placements.json (Deviations 22/26, ibm_phoenix_2026-09-19T192510Z.csv)"
+      },
+      {
+        "model": "unital",
+        "n": 53,
+        "L": 4,
+        "k": 1,
+        "var": 0.0091814492707951,
+        "ci_lo_trunc": 0.0091814492707951,
+        "ci_hi_mc_plus_2sigma": 0.009235937207913129,
+        "method": "pauli_propagation",
+        "note": "Pauli propagation (converged); interval one-sided [V_trunc, V_MC + 2 sigma]; ladder_placements.json (Deviations 22/26, ibm_phoenix_2026-09-19T192510Z.csv)"
+      },
+      {
+        "model": "unital",
+        "n": 53,
+        "L": 4,
+        "k": 4,
+        "var": 0.0121033910296463,
+        "ci_lo_trunc": 0.0121033910296463,
+        "ci_hi_mc_plus_2sigma": 0.01215883625615649,
+        "method": "pauli_propagation",
+        "note": "Pauli propagation (converged); interval one-sided [V_trunc, V_MC + 2 sigma]; ladder_placements.json (Deviations 22/26, ibm_phoenix_2026-09-19T192510Z.csv)"
+      },
+      {
+        "model": "nonunital",
+        "n": 53,
+        "L": 4,
+        "k": 1,
+        "var": 0.009381276438981,
+        "ci_lo_trunc": 0.0093699018873547,
+        "ci_hi_mc_plus_2sigma": 0.009436820107623693,
+        "method": "pauli_propagation",
+        "note": "Pauli propagation (converged); interval one-sided [V_trunc, V_MC + 2 sigma]; ladder_placements.json (Deviations 22/26, ibm_phoenix_2026-09-19T192510Z.csv)"
+      },
+      {
+        "model": "nonunital",
+        "n": 53,
+        "L": 4,
+        "k": 4,
+        "var": 0.0123390075626844,
+        "ci_lo_trunc": 0.0123337865755819,
+        "ci_hi_mc_plus_2sigma": 0.012395506483331643,
+        "method": "pauli_propagation",
+        "note": "Pauli propagation (converged); interval one-sided [V_trunc, V_MC + 2 sigma]; ladder_placements.json (Deviations 22/26, ibm_phoenix_2026-09-19T192510Z.csv)"
+      },
+      {
+        "model": "noiseless",
+        "n": 70,
+        "L": 4,
+        "k": 1,
+        "var": 0.0113561452178955,
+        "ci_lo_trunc": 0.0113402990682516,
+        "ci_hi_mc_plus_2sigma": 0.01142282489750202,
+        "method": "pauli_propagation",
+        "note": "Pauli propagation (converged); interval one-sided [V_trunc, V_MC + 2 sigma]; ladder_placements.json (Deviations 22/26, ibm_phoenix_2026-09-19T192510Z.csv)"
+      },
+      {
+        "model": "noiseless",
+        "n": 70,
+        "L": 4,
+        "k": 4,
+        "var": 0.0150500728302001,
+        "ci_lo_trunc": 0.0150404210144188,
+        "ci_hi_mc_plus_2sigma": 0.015118005693628008,
+        "method": "pauli_propagation",
+        "note": "Pauli propagation (converged); interval one-sided [V_trunc, V_MC + 2 sigma]; ladder_placements.json (Deviations 22/26, ibm_phoenix_2026-09-19T192510Z.csv)"
+      },
+      {
+        "model": "unital",
+        "n": 70,
+        "L": 4,
+        "k": 1,
+        "var": 0.0092318235080081,
+        "ci_lo_trunc": 0.0092189051548706,
+        "ci_hi_mc_plus_2sigma": 0.009286489860367215,
+        "method": "pauli_propagation",
+        "note": "Pauli propagation (converged); interval one-sided [V_trunc, V_MC + 2 sigma]; ladder_placements.json (Deviations 22/26, ibm_phoenix_2026-09-19T192510Z.csv)"
+      },
+      {
+        "model": "unital",
+        "n": 70,
+        "L": 4,
+        "k": 4,
+        "var": 0.0121369856169583,
+        "ci_lo_trunc": 0.012129250160902,
+        "ci_hi_mc_plus_2sigma": 0.012192597418401167,
+        "method": "pauli_propagation",
+        "note": "Pauli propagation (converged); interval one-sided [V_trunc, V_MC + 2 sigma]; ladder_placements.json (Deviations 22/26, ibm_phoenix_2026-09-19T192510Z.csv)"
+      },
+      {
+        "model": "nonunital",
+        "n": 70,
+        "L": 4,
+        "k": 1,
+        "var": 0.0093770029915243,
+        "ci_lo_trunc": 0.0093662451336848,
+        "ci_hi_mc_plus_2sigma": 0.009432520376443133,
+        "method": "pauli_propagation",
+        "note": "Pauli propagation (converged); interval one-sided [V_trunc, V_MC + 2 sigma]; ladder_placements.json (Deviations 22/26, ibm_phoenix_2026-09-19T192510Z.csv)"
+      },
+      {
+        "model": "nonunital",
+        "n": 70,
+        "L": 4,
+        "k": 4,
+        "var": 0.0123331132257351,
+        "ci_lo_trunc": 0.0123189562104255,
+        "ci_hi_mc_plus_2sigma": 0.012389590652455214,
+        "method": "pauli_propagation",
+        "note": "Pauli propagation (converged); interval one-sided [V_trunc, V_MC + 2 sigma]; ladder_placements.json (Deviations 22/26, ibm_phoenix_2026-09-19T192510Z.csv)"
+      },
+      {
+        "model": "noiseless",
+        "n": 87,
+        "L": 4,
+        "k": 1,
+        "var": 0.0120047145614624,
+        "ci_lo_trunc": 0.011975157969573,
+        "ci_hi_mc_plus_2sigma": 0.012071618440220915,
+        "method": "pauli_propagation",
+        "note": "Pauli propagation (converged); interval one-sided [V_trunc, V_MC + 2 sigma]; ladder_placements.json (Deviations 22/26, ibm_phoenix_2026-09-19T192510Z.csv)"
+      },
+      {
+        "model": "noiseless",
+        "n": 87,
+        "L": 4,
+        "k": 4,
+        "var": 0.016199957157135,
+        "ci_lo_trunc": 0.0161689783926703,
+        "ci_hi_mc_plus_2sigma": 0.01626809203434894,
+        "method": "pauli_propagation",
+        "note": "Pauli propagation (converged); interval one-sided [V_trunc, V_MC + 2 sigma]; ladder_placements.json (Deviations 22/26, ibm_phoenix_2026-09-19T192510Z.csv)"
+      },
+      {
+        "model": "unital",
+        "n": 87,
+        "L": 4,
+        "k": 1,
+        "var": 0.0099695835477647,
+        "ci_lo_trunc": 0.0099455545416928,
+        "ci_hi_mc_plus_2sigma": 0.010025447909663143,
+        "method": "pauli_propagation",
+        "note": "Pauli propagation (converged); interval one-sided [V_trunc, V_MC + 2 sigma]; ladder_placements.json (Deviations 22/26, ibm_phoenix_2026-09-19T192510Z.csv)"
+      },
+      {
+        "model": "unital",
+        "n": 87,
+        "L": 4,
+        "k": 4,
+        "var": 0.0133865163223639,
+        "ci_lo_trunc": 0.0133611662762192,
+        "ci_hi_mc_plus_2sigma": 0.013443371072740707,
+        "method": "pauli_propagation",
+        "note": "Pauli propagation (converged); interval one-sided [V_trunc, V_MC + 2 sigma]; ladder_placements.json (Deviations 22/26, ibm_phoenix_2026-09-19T192510Z.csv)"
+      },
+      {
+        "model": "nonunital",
+        "n": 87,
+        "L": 4,
+        "k": 1,
+        "var": 0.0100938602567553,
+        "ci_lo_trunc": 0.0100812823013842,
+        "ci_hi_mc_plus_2sigma": 0.010150574528561416,
+        "method": "pauli_propagation",
+        "note": "Pauli propagation (converged); interval one-sided [V_trunc, V_MC + 2 sigma]; ladder_placements.json (Deviations 22/26, ibm_phoenix_2026-09-19T192510Z.csv)"
+      },
+      {
+        "model": "nonunital",
+        "n": 87,
+        "L": 4,
+        "k": 4,
+        "var": 0.0135434533598918,
+        "ci_lo_trunc": 0.0135323449375107,
+        "ci_hi_mc_plus_2sigma": 0.013601155832021268,
+        "method": "pauli_propagation",
+        "note": "Pauli propagation (converged); interval one-sided [V_trunc, V_MC + 2 sigma]; ladder_placements.json (Deviations 22/26, ibm_phoenix_2026-09-19T192510Z.csv)"
+      },
+      {
+        "model": "unital",
+        "n": 20,
+        "L": 4,
+        "k": 1,
+        "var": 0.0090774905334094,
+        "ci_lo_trunc": 0.0090774905334094,
+        "ci_hi_mc_plus_2sigma": 0.009131166682380606,
+        "method": "pauli_propagation",
+        "note": "Pauli propagation (converged); interval one-sided [V_trunc, V_MC + 2 sigma]; ladder_placements.json (Deviations 22/26, ibm_phoenix_2026-09-19T192510Z.csv)"
+      },
+      {
+        "model": "unital",
+        "n": 20,
+        "L": 4,
+        "k": 4,
+        "var": 0.0119113940774454,
+        "ci_lo_trunc": 0.0119113940774454,
+        "ci_hi_mc_plus_2sigma": 0.01196601358985401,
+        "method": "pauli_propagation",
+        "note": "Pauli propagation (converged); interval one-sided [V_trunc, V_MC + 2 sigma]; ladder_placements.json (Deviations 22/26, ibm_phoenix_2026-09-19T192510Z.csv)"
+      },
+      {
+        "model": "nonunital",
+        "n": 20,
+        "L": 4,
+        "k": 1,
+        "var": 0.0092369168385636,
+        "ci_lo_trunc": 0.0092369168385636,
+        "ci_hi_mc_plus_2sigma": 0.009291493784747366,
+        "method": "pauli_propagation",
+        "note": "Pauli propagation (converged); interval one-sided [V_trunc, V_MC + 2 sigma]; ladder_placements.json (Deviations 22/26, ibm_phoenix_2026-09-19T192510Z.csv)"
+      },
+      {
+        "model": "nonunital",
+        "n": 20,
+        "L": 4,
+        "k": 4,
+        "var": 0.0121021961648348,
+        "ci_lo_trunc": 0.0121021961648348,
+        "ci_hi_mc_plus_2sigma": 0.012157721279186332,
+        "method": "pauli_propagation",
+        "note": "Pauli propagation (converged); interval one-sided [V_trunc, V_MC + 2 sigma]; ladder_placements.json (Deviations 22/26, ibm_phoenix_2026-09-19T192510Z.csv)"
+      },
+      {
+        "model": "unital",
+        "n": 39,
+        "L": 2,
+        "k": 1,
+        "var": 0.0693130164625196,
+        "ci_lo_trunc": 0.0693130164625196,
+        "ci_hi_mc_plus_2sigma": 0.06944249492360238,
+        "method": "pauli_propagation",
+        "note": "Pauli propagation (converged); interval one-sided [V_trunc, V_MC + 2 sigma]; ladder_placements.json (Deviations 22/26, ibm_phoenix_2026-09-19T192510Z.csv)"
+      },
+      {
+        "model": "unital",
+        "n": 39,
+        "L": 2,
+        "k": 2,
+        "var": 0.0966439850182207,
+        "ci_lo_trunc": 0.0966402669052211,
+        "ci_hi_mc_plus_2sigma": 0.09676089072397426,
+        "method": "pauli_propagation",
+        "note": "Pauli propagation (converged); interval one-sided [V_trunc, V_MC + 2 sigma]; ladder_placements.json (Deviations 22/26, ibm_phoenix_2026-09-19T192510Z.csv)"
+      },
+      {
+        "model": "nonunital",
+        "n": 39,
+        "L": 2,
+        "k": 1,
+        "var": 0.069758157344711,
+        "ci_lo_trunc": 0.0697269141036426,
+        "ci_hi_mc_plus_2sigma": 0.06988839024412924,
+        "method": "pauli_propagation",
+        "note": "Pauli propagation (converged); interval one-sided [V_trunc, V_MC + 2 sigma]; ladder_placements.json (Deviations 22/26, ibm_phoenix_2026-09-19T192510Z.csv)"
+      },
+      {
+        "model": "nonunital",
+        "n": 39,
+        "L": 2,
+        "k": 2,
+        "var": 0.0973183263571404,
+        "ci_lo_trunc": 0.0973024762748673,
+        "ci_hi_mc_plus_2sigma": 0.0974359446793199,
+        "method": "pauli_propagation",
+        "note": "Pauli propagation (converged); interval one-sided [V_trunc, V_MC + 2 sigma]; ladder_placements.json (Deviations 22/26, ibm_phoenix_2026-09-19T192510Z.csv)"
       }
     ],
     "findings": {
@@ -3283,6 +3417,14 @@
         {
           "patch": "10x10",
           "n": 87,
+          "L": 4,
+          "unital_minus_noiseless_k1": -0.0020351310136977,
+          "hardware_only": false,
+          "exceeds_2x_floor_16384": true
+        },
+        {
+          "patch": "10x10",
+          "n": 87,
           "L": 8,
           "unital_minus_noiseless_k1": -0.00012649100610860001,
           "hardware_only": false,
@@ -3295,6 +3437,22 @@
           "unital_minus_noiseless_k1": -8.014104927749355e-06,
           "hardware_only": false,
           "exceeds_2x_floor_16384": false
+        },
+        {
+          "patch": "4x10",
+          "n": 39,
+          "L": 2,
+          "unital_minus_noiseless_k1": -0.008794827287480406,
+          "hardware_only": false,
+          "exceeds_2x_floor_16384": true
+        },
+        {
+          "patch": "4x10",
+          "n": 39,
+          "L": 4,
+          "unital_minus_noiseless_k1": -0.0026966081123092015,
+          "hardware_only": false,
+          "exceeds_2x_floor_16384": true
         },
         {
           "patch": "4x10",
@@ -3315,6 +3473,14 @@
         {
           "patch": "4x5",
           "n": 20,
+          "L": 4,
+          "unital_minus_noiseless_k1": -0.0022305065826793997,
+          "hardware_only": false,
+          "exceeds_2x_floor_16384": true
+        },
+        {
+          "patch": "4x5",
+          "n": 20,
           "L": 8,
           "unital_minus_noiseless_k1": -0.0001146538952507,
           "hardware_only": false,
@@ -3331,6 +3497,14 @@
         {
           "patch": "6x10",
           "n": 53,
+          "L": 4,
+          "unital_minus_noiseless_k1": -0.0021118163313167005,
+          "hardware_only": false,
+          "exceeds_2x_floor_16384": true
+        },
+        {
+          "patch": "6x10",
+          "n": 53,
           "L": 8,
           "unital_minus_noiseless_k1": -9.815385452250004e-05,
           "hardware_only": false,
@@ -3343,6 +3517,14 @@
           "unital_minus_noiseless_k1": -3.5203265011682786e-06,
           "hardware_only": false,
           "exceeds_2x_floor_16384": false
+        },
+        {
+          "patch": "8x10",
+          "n": 70,
+          "L": 4,
+          "unital_minus_noiseless_k1": -0.002124321709887401,
+          "hardware_only": false,
+          "exceeds_2x_floor_16384": true
         },
         {
           "patch": "8x10",
@@ -3364,9 +3546,9 @@
       "criterion_c_part2_at_L12": "every unital - noiseless separation at L = 12 (3.5e-6 to 1.7e-5) is below 2 x floor(16384) = 6.1e-5: (c) part 2 is unresolvable at L = 12 whatever the truncation"
     },
     "grid_after_propagation": {
-      "n_points_computed": 103,
-      "n_points_deferred": 32,
-      "remaining_deferred": "the large-cone L = 4 points of the 4x10 .. 10x10 patches and the cut noisy 4x5 L = 4 / 4x10 L = 2 groups"
+      "n_points_computed": 135,
+      "n_points_deferred": 0,
+      "remaining_deferred": "none: every ladder point is computed exactly or by Pauli propagation"
     }
   }
 }
