@@ -103,6 +103,30 @@ def main():
         note="with the propagation rows the grid is complete; the criterion's 'smallest signal to be claimed' is fixed by the Gate 2 booking "
              "(which rungs, how many shots), so the literal 10x reading is given per shot count and per L; the simulated null-control floor is "
              "0.7-0.85 x the analytic 1/(2N), i.e. the 10x allowance is conservative by about an order of magnitude")
+    # Deviation 37: at L >= 8 the floor is the simulated null-control variance + 3 sigma (bootstrap), not the 10x analytic allowance
+    dev37 = []
+    if null_control and null_control.get("points"):
+        for shots in (4096, 16384):
+            floors = []
+            for q in null_control["points"]:
+                if int(q["shots"]) != shots:
+                    continue
+                se = (float(q["ci_hi"]) - float(q["ci_lo"])) / (2 * 1.959964)
+                floors.append(dict(n=int(q["n"]), var_null=float(q["var_null"]), se_null=se, floor_3sigma=float(q["var_null"]) + 3 * se))
+            if not floors:
+                continue
+            fl = max(f["floor_3sigma"] for f in floors)          # the larger of the two null patches (n = 20 / 39): conservative
+            deep = [r for r in noisy if r.L >= 8]
+            above = [r for r in deep if r.var > fl]
+            dev37.append(dict(shots=shots, null_floors=floors, floor_3sigma_used=fl, n_points_L_ge_8=len(deep), n_above=len(above),
+                              by_L={int(L): dict(n=sum(1 for r in deep if r.L == L), above=sum(1 for r in above if r.L == L),
+                                                 min_var=float(min(r.var for r in deep if r.L == L))) for L in sorted({r.L for r in deep})}))
+    d["deviation_37"] = dict(rule="(d) at L >= 8: the simulated null-control floor (non-unital, parameter outside the light cone) plus 3 sigma of its "
+                                  "bootstrap estimate, in place of the 10x analytic allowance; the propagation rows are the L >= 8 signals",
+                             readings=dev37)
+    d37_text = (" Under Deviation 37 (null floor + 3 sigma instead of 10x): " + "; ".join(
+        f"{q['shots']} shots: floor {q['floor_3sigma_used']:.2e}, {q['n_above']} of {q['n_points_L_ge_8']} L >= 8 noisy predictions above it ("
+        + ", ".join(f"L = {L}: {b['above']}/{b['n']}, min {b['min_var']:.1e}" for L, b in q["by_L"].items()) + ")" for q in dev37)) if dev37 else ""
     d4, d16 = d_rows
     d["result"] = (f"pass on the exact points (L <= {d4['largest_L_fully_above']}); at L >= 8 every noisy prediction lies below the 10x allowance at "
                    f"4096 shots and {d16['below_by_L'].get(8, 0)} of {sum(1 for r in noisy if r.L == 8)} L = 8 and all L = 12 predictions below it at 16384 shots: "
@@ -121,7 +145,7 @@ def main():
             "stage'): (c) is not failed (part 1 passes; part 2 is undecidable by simulation and goes to the hardware-only reading); (d) passes for the "
             "L <= 4 points and, at L >= 8, fails the literal 10x allowance at 4096 shots for every point and at 16384 shots for the smaller L = 8 points "
             "and all L = 12 points, so the L >= 8 rungs are claimable only with the shot count and floor reading fixed at Gate 2. No overall pass / fail "
-            "is declared on the grid alone: (d) at L >= 8 and (c) part 2 are decided at Gate 2 / on hardware.")
+            "is declared on the grid alone: (d) at L >= 8 and (c) part 2 are decided at Gate 2 / on hardware." + d37_text)
     else:
         summary["overall"] = (summary["overall"] + "; after the propagation rows the remaining deferred points are the large-cone L = 4 groups, so the "
                               "grid is still not the complete ladder and no overall verdict is given")
