@@ -692,6 +692,7 @@ def main():
     ap.add_argument("--pattern-samples", type=int, default=None, help="paths per pattern-floor run (default: --n-samples)")
     ap.add_argument("--zz-fallback-hz", type=float, default=None, help="zeta for couplers without a properties entry (default: median |zeta|)")
     ap.add_argument("--reuse-gate1b", action="store_true", help="dial stage: copy the 6x10 delay / reset-0.25 rows from stage gate1b")
+    ap.add_argument("--only-missing", action="store_true", help="skip jobs whose row (same stage, model, patch, L, dial, p, ZZ flags) is already computed")
     args = ap.parse_args()
     global OUT_CSV
     if args.out:
@@ -766,6 +767,22 @@ def main():
         jobs.append(j)
     if args.stage == "dial" and args.reuse_gate1b:
         print(f"copied {copy_gate1b_to_dial(args)} gate1b 6x10 row(s) into stage dial")
+    if args.only_missing and OUT_CSV.exists():
+        have = with_zz_column(pd.read_csv(OUT_CSV))
+        have = have[have.status != "pending"]
+        def _done(j):
+            zi = "on" if (j.get("zz") in ("on", "layer") and j.get("dial")) else "off"
+            zl = "on" if (j.get("zz") == "layer" and j["model"] != "noiseless") else "off"
+            h = have[(have.stage == j["stage"]) & (have.model == j["model"]) & (have.patch == j["patch"]) & (have.L == j["L"]) &
+                     (have.dial.fillna("") == j.get("dial", "")) & (have.zz_idle == zi) & (have.zz_layer == zl)]
+            if "p" in j:
+                h = h[np.isclose(h.p.fillna(-1.0), j["p"])]
+            return not h.empty
+        skipped = [j for j in jobs if _done(j)]
+        jobs = [j for j in jobs if not _done(j)]
+        print(f"--only-missing: {len(skipped)} job(s) already computed, {len(jobs)} to run")
+        if not jobs:
+            return
     t0 = time.time()
     append_rows(pending_rows(jobs))
     rows = []
