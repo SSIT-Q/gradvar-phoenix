@@ -362,6 +362,18 @@ Gate 1b verdict of the Gate 1 decision (PASS under Deviations 27 + 45) is unchan
 
 Snapshot `ibm_phoenix_2026-09-20T030813Z.csv` with raw properties `ibm_phoenix_properties_20260920T030813Z.json.gz`; excluded qubits [8, 17, 18, 24, 27, 49, 55, 59, 61, 62, 63, 67, 72, 73, 77, 91, 107, 119]. Placement rule: copy of scripts/make_paper1_joblists.py place_rungs / cone_graph (p1-production 92cf0ec); gradvar.hardware.properties_for_csv. Frozen numbers: the Deviation 34 layer-model Gate 1b rows drawn on the 19 Sep 19:25Z placement (`ladder_placements.json`; committed 20 Sep 2026 05:11 UTC). Model: unital snapshot noise + static whole-layer ZZ rzz(zeta tau_layer / 2) (ZZ_ANGLE_SCALE = 0.5) + idle ZZ rzz(zeta 400 ns / 2) in the dial layer; tau_layer per coupler from `zz_layer_timing.json`; Pauli-path sampler seed 0, 5e+05 paths (2e+05 per pattern-floor run, seed 7). Kurtosis 14.24 (measured), M = 350 on the references.
 
+**Main-grid rows, n = 20 rung (campaign day 1, Gate 2 (a) input).** `python scripts/redraw_gate1b.py --main-grid --exact --frozen-samples --no-gate1b --rungs 20`
+on the same snapshot re-drew the 16 frozen 4x5 rows whose cone graph changed (the 4x5 moved to origin (8, 2), edge 94_104, coupler 95_96 broken):
+7 exact rows (L = 1 / 2 all models and L = 4 noiseless at k = 1, the k the `grid_n20` list measures; `gate1_ladder.py` settings, seed 2026, M = 200,
+32 trajectories) and 9 propagation rows (L = 4 / 8 / 12, k = 1 and k = L, three models, frozen 2e6 paths; Deviation 34 layer ZZ on the noisy rows,
+where the frozen rows are ZZ off); 44 core-minutes; outputs `data/predictions/main_grid_redraw_2026-09-20.json` / `.csv` / `.md`. Shifts: L = 1 +1%
+(noisy) / 0 (noiseless); L = 2 +17 to +19% (the new cone has 95_96 broken, one CZ fewer); L = 4 propagation +1.4 to +3.5%; L = 8 +10 to +17%
+(placement plus the static ZZ); L = 12 +27 to +60% (largest: non-unital k = 1, 5.24e-6 -> 8.39e-6, at 2 sigma 2.3e-6, so 1.4 sigma; every L = 12 row is
+below the 4096-shot floor and stays exploratory). The exact noiseless L = 4 k = 1 row moves 1.322e-2 -> 8.39e-3 (-37%) while its propagation value moves
+1.131e-2 -> 1.160e-2 (+2.6%): the exact M = 200 estimate has hi / lo = 2.3 at L = 4 (criterion (b) bound 2.5) and both draws bracket the propagated
+value, so this is draw noise, not a placement effect. The Gate 2 (a) comparison on day 1 uses the re-drawn rows (join on patch, edge 94_104, L, k).
+The remaining 39 propagation rows and 19 exact rows of the n = 40 / 60 / 80 / 100 rungs run detached after this commit and are committed when done.
+
 | rung | role | 19 Sep record: n, origin, edge, broken | 20 Sep 03:08Z reference: n, origin, edge | run-day: n, origin, holes, broken, edge (rule) | cone L2 | cone graph changed vs record (L = 1 / 2 / 4 / 8 / 12) | same as 20 Sep reference |
 |---|---|---|---|---|---|---|---|
 | n20 (4x5) | main grid | 20, (8, 1), 93_103, 0 broken | 20, (8, 2), 94_104 | **20**, (8, 2), holes [], broken ['95_96'], edge **94_104** (interior_edge) | 16 | yes / yes / yes / yes / yes | yes |
