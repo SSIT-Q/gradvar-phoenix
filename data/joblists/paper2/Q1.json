@@ -1,100 +1,55 @@
 {
-  "name": "dryrun_03_paper2_smoke",
+  "name": "paper2_Q1_reset_error_map",
   "backend": "ibm_phoenix",
   "instance": "flex",
   "primitive": "sampler",
-  "protocol": "smoke",
+  "protocol": "Q1",
   "dry_run": true,
   "rep_delay_probe": true,
   "preflight_review": "TBD: pre-flight review permalink",
   "init_qubits": true,
-  "notes": "Paper 2 pre-registration v0.4.4 (20 Sep 2026), Section 3 'Order of runs' item 1 and the Minute-budget row 'Smoke test' (81,920 executions: 40 circuits at 2,048 shots, 0.4 min at 250 us, 3 s at 1 us), checked by Gate P2-2 (P(1 | X, reset, measure) within 3 sigma of P(1 | measure) on 90 percent of qubits; P(1 | X, delay, measure) above 0.9; scheduled native reset 400 ns, 2140 ns on qubit 79 in its separate Q1 job, not here; three reset kinds as three distinct ISA instructions; readout within 1.5x of the snapshot; locked time per execution within 1.5x the Deviation 2 model) and by kill criteria 1-3. Converted from the EstimatorV2 <Z> estimate to SamplerV2 with init_qubits (the pre-registration's Section 3 'Execution' row). Composition (Deviation 7 (iii)): job smoke-init_true (37 circuits) = the full Q1 arm set (a)-(f) (14, on all 119 qubits), a Q2 slice (mask M0, r in {{1, 16}}, X readout, all four arms: 8), a Q3 slice (sparse0 and dense0, frame 0, m in {{1, 16, 64}}: 6) and a Q4 slice (p = 0.25, masks 0-2, |0> read in Z and |+> read in X and Y: 9); job smoke-init_false (3) = Q1 arm (b) with init_qubits False. measure_reset and measure_reset_2 come from backend.target on ibm_phoenix; the fake backend of the dry run lacks them, so the runner adds synthetic one-qubit one-clbit stand-ins (measure + reset definition), flagged as synthetic_target_instructions. Execution (Section 3): SamplerV2 in job mode, resilience 0 (no twirling, no dynamical decoupling, no TREX term), init_qubits True unless the job says otherwise, rep_delay at the backend default (Deviation 1: the granted value follows Paper 1's Deviation 23 gate; budgets quoted at 250 us and 1 us). One Sampler job per stage (Section 3 'Job packing'). Per-shot bitstrings of every classical register are written to bitarrays.npz with a counts.json summary in each bundle; one CSV row per circuit follows the Section 5 logging schema. Qubit sets from the ibm_phoenix_2026-09-20T030813Z.csv snapshot: the 118 parallel qubits (qubit 17 excluded everywhere; qubit 79 with its 2140 ns reset isolated in its own Q1 job, Deviation 6), readout flags above 3e-2 [24, 55, 62, 67, 73, 77, 107] and the CZ cluster [55, 61, 62, 63, 72, 73] flagged and kept (Section 3, Deviation 7 (iv): separate columns); the runner re-derives them from the named snapshot and refuses a stale list, and the live Deviation 26 re-check flags (Q1/Q2/Q3/Q5) or refuses (Q4 patch qubit, non-operational qubit) at submission. Budget model v2 for the Sampler (Deviation 2 with the TREX term zero): 0.429 min at 250 us, 0.089 min at 1 us. Data policy (Deviation 7 (vii)): no circuits.qpy in the committed bundle (SHA-256 and versions in job.json, qpy under data/artifacts/ for the Action artefact), bitarrays.npz committed under 20 MB else under data/lfs/ and flagged, counts.json / job.json / CSV always. Nothing is submitted while dry_run is true and the pre-flight review permalink is the placeholder.",
+  "notes": "Paper 2 pre-registration v0.4.4 (20 Sep 2026), Section 2 Q1 / H1 and Section 3 'Order of runs' item 3: the reset-error map on the 118 parallel qubits (Deviation 6: qubit 79, whose native reset is 2140 ns, runs its native arms (a), (b), (f) in the separate job Q1-q79 at the same shots, 196,608 executions, about 0.9 min at 250 us). Job Q1-init_true (init_qubits True, 14 circuits): (a) X -> reset kind -> measure and (b) reset kind -> measure for native reset, measure_reset and measure_reset_2; (c) X -> reset^m -> measure for m = 2, 4 (native); (d) X -> measure and measure alone (readout confusion); (e) X -> delay(400 ns; 2140 ns on qubit 79) -> measure; (f) |+> -> reset kind -> measure in X (residual coherence). Job Q1-init_false (init_qubits False, 3 circuits): arm (b) again, the only look at the pre-shot state. 65,536 shots per circuit, 1,114,112 + 196,608 executions (Section 3 table: 5.0 + 0.9 min at 250 us, 20 + 3 s at 1 us). Gate P2-2 must have passed on the smoke test before this list is submitted. Execution (Section 3): SamplerV2 in job mode, resilience 0 (no twirling, no dynamical decoupling, no TREX term), init_qubits True unless the job says otherwise, rep_delay at the backend default (Deviation 1: the granted value follows Paper 1's Deviation 23 gate; budgets quoted at 250 us and 1 us). One Sampler job per stage (Section 3 'Job packing'). Per-shot bitstrings of every classical register are written to bitarrays.npz with a counts.json summary in each bundle; one CSV row per circuit follows the Section 5 logging schema. Qubit sets from the ibm_phoenix_2026-09-20T030813Z.csv snapshot: the 118 parallel qubits (qubit 17 excluded everywhere; qubit 79 with its 2140 ns reset isolated in its own Q1 job, Deviation 6), readout flags above 3e-2 [24, 55, 62, 67, 73, 77, 107] and the CZ cluster [55, 61, 62, 63, 72, 73] flagged and kept (Section 3, Deviation 7 (iv): separate columns); the runner re-derives them from the named snapshot and refuses a stale list, and the live Deviation 26 re-check flags (Q1/Q2/Q3/Q5) or refuses (Q4 patch qubit, non-operational qubit) at submission. Budget model v2 for the Sampler (Deviation 2 with the TREX term zero): 5.848 min at 250 us, 0.409 min at 1 us. Data policy (Deviation 7 (vii)): no circuits.qpy in the committed bundle (SHA-256 and versions in job.json, qpy under data/artifacts/ for the Action artefact), bitarrays.npz committed under 20 MB else under data/lfs/ and flagged, counts.json / job.json / CSV always. Nothing is submitted while dry_run is true and the pre-flight review permalink is the placeholder.",
   "layout_check": "enforce",
   "points": [],
   "sampler_jobs": [
     {
-      "id": "smoke-init_true",
-      "shots": 2048,
+      "id": "Q1-init_true",
+      "shots": 65536,
       "init_qubits": true,
-      "purpose": "Gate P2-2: Q1 arms plus Q2 / Q3 / Q4 slices",
+      "purpose": "Section 2 Q1 arms (a)-(f), init_qubits True, 118 parallel qubits",
       "circuits": [
         {
           "kind": "q1"
-        },
-        {
-          "kind": "q2",
-          "masks": [
-            0
-          ],
-          "reps": [
-            1,
-            16
-          ],
-          "axes": [
-            "X"
-          ]
-        },
-        {
-          "kind": "q3",
-          "masks": [
-            "sparse0",
-            "dense0"
-          ],
-          "frames": [
-            0
-          ],
-          "cycles": [
-            1,
-            16,
-            64
-          ]
-        },
-        {
-          "kind": "q4",
-          "p": [
-            0.25
-          ],
-          "masks": [
-            0,
-            1,
-            2
-          ],
-          "inputs": [
-            "0"
-          ],
-          "axes": [
-            "Z"
-          ]
-        },
-        {
-          "kind": "q4",
-          "p": [
-            0.25
-          ],
-          "masks": [
-            0,
-            1,
-            2
-          ],
-          "inputs": [
-            "+"
-          ],
-          "axes": [
-            "X",
-            "Y"
-          ]
         }
       ]
     },
     {
-      "id": "smoke-init_false",
-      "shots": 2048,
+      "id": "Q1-init_false",
+      "shots": 65536,
       "init_qubits": false,
-      "purpose": "Q1 arm (b) with init_qubits False",
+      "purpose": "Section 2 Q1 arm (b) with init_qubits False: the pre-shot state",
       "circuits": [
         {
           "kind": "q1",
           "arm": "b"
+        }
+      ]
+    },
+    {
+      "id": "Q1-q79",
+      "shots": 65536,
+      "init_qubits": true,
+      "purpose": "Deviation 6: qubit 79's native-reset arms (a), (b), (f) in their own job",
+      "circuits": [
+        {
+          "kind": "q1",
+          "qubits": "separate",
+          "arm": [
+            "a",
+            "b",
+            "f"
+          ],
+          "reset_kind": "reset"
         }
       ]
     }
@@ -491,58 +446,79 @@
       "none": 0.0
     },
     "dial_durations_source": "ibm_phoenix target (2026-09-19)",
-    "jobs": 2,
-    "circuits": 40,
-    "executions": 81920,
-    "executions_with_zne": 81920,
+    "jobs": 3,
+    "circuits": 20,
+    "executions": 1310720,
+    "executions_with_zne": 1310720,
     "trex_executions": 0,
-    "mcm_executions": 16384,
-    "seconds_at_250us": 25.72,
-    "minutes_at_250us": 0.429,
-    "seconds_at_1us": 5.32,
-    "minutes_at_1us": 0.089,
+    "mcm_executions": 524288,
+    "seconds_at_250us": 350.89,
+    "minutes_at_250us": 5.848,
+    "seconds_at_1us": 24.52,
+    "minutes_at_1us": 0.409,
     "per_job": [
       {
-        "tag": "smoke-init_true",
+        "tag": "Q1-init_true",
         "primitive": "sampler",
         "resilience_level": 0,
-        "shots": 2048,
+        "shots": 65536,
         "init_qubits": true,
         "rep_delay_us": null,
-        "circuits": 37,
-        "executions": 75776,
+        "circuits": 14,
+        "executions": 917504,
         "zne_factor": 1,
         "n_bases": 1,
         "trex_executions": 0,
-        "mcm_executions": 12288,
-        "mean_gate_us": 3.3492,
-        "circuit_seconds_at_250us": 20.103,
+        "mcm_executions": 393216,
+        "mean_gate_us": 0.9829,
+        "circuit_seconds_at_250us": 241.233,
         "trex_seconds_at_250us": 0.0,
-        "seconds_at_250us": 22.103,
-        "circuit_seconds_at_1us": 1.234,
+        "seconds_at_250us": 243.233,
+        "circuit_seconds_at_1us": 12.774,
         "trex_seconds_at_1us": 0.0,
-        "seconds_at_1us": 3.234
+        "seconds_at_1us": 14.774
       },
       {
-        "tag": "smoke-init_false",
+        "tag": "Q1-init_false",
         "primitive": "sampler",
         "resilience_level": 0,
-        "shots": 2048,
+        "shots": 65536,
         "init_qubits": false,
         "rep_delay_us": null,
         "circuits": 3,
-        "executions": 6144,
+        "executions": 196608,
         "zne_factor": 1,
         "n_bases": 1,
         "trex_executions": 0,
-        "mcm_executions": 4096,
+        "mcm_executions": 131072,
         "mean_gate_us": 1.16,
-        "circuit_seconds_at_250us": 1.616,
+        "circuit_seconds_at_250us": 51.728,
         "trex_seconds_at_250us": 0.0,
-        "seconds_at_250us": 3.616,
-        "circuit_seconds_at_1us": 0.087,
+        "seconds_at_250us": 53.728,
+        "circuit_seconds_at_1us": 2.772,
         "trex_seconds_at_1us": 0.0,
-        "seconds_at_1us": 2.087
+        "seconds_at_1us": 4.772
+      },
+      {
+        "tag": "Q1-q79",
+        "primitive": "sampler",
+        "resilience_level": 0,
+        "shots": 65536,
+        "init_qubits": true,
+        "rep_delay_us": null,
+        "circuits": 3,
+        "executions": 196608,
+        "zne_factor": 1,
+        "n_bases": 1,
+        "trex_executions": 0,
+        "mcm_executions": 0,
+        "mean_gate_us": 2.18,
+        "circuit_seconds_at_250us": 51.928,
+        "trex_seconds_at_250us": 0.0,
+        "seconds_at_250us": 53.928,
+        "circuit_seconds_at_1us": 2.973,
+        "trex_seconds_at_1us": 0.0,
+        "seconds_at_1us": 4.973
       }
     ]
   }

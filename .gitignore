@@ -5,3 +5,5 @@ __pycache__/
 .env
 logs/*.csv
 data/jobs/*.json
+
+data/artifacts/

@@ -82,8 +82,9 @@ def test_budget_targets_and_formula():
         assert e["rep_delay_us"] == rd and e["executions"] == 8192 and e["seconds_at_250us"] == e["seconds_at_1us"]
         assert e["seconds_at_250us"] == pytest.approx(2.0 + 8192 * (rd + 0.04 + 1.94 + 10) * 1e-6, abs=0.002)
     assert tags["L0"]["rep_delay_us"] is None and tags["L0"]["seconds_at_250us"] > tags["L0"]["seconds_at_1us"]
-    assert b3["jobs"] == 1 and b3["executions"] == 9 * 1024 and b3["trex_executions"] == 0
-    assert b3["minutes_at_250us"] == pytest.approx(0.074, abs=0.002)
+    # list 03 is the Paper 2 Sampler smoke list (40 circuits x 2048 shots in two jobs, resilience 0: no TREX); tests/test_paper2_sampler.py
+    assert b3["primitive"] == "sampler" and b3["jobs"] == 2 and b3["executions"] == 40 * 2048 and b3["trex_executions"] == 0
+    assert b3["minutes_at_250us"] == pytest.approx(0.429, abs=0.005) and b3["minutes_at_1us"] == pytest.approx(0.089, abs=0.003)
     tiny = dict(backend="ibm_phoenix",
                 points=[dict(n=20, patch="4x5", edge="93_103", L=2, k=1, resilience=1, shots=100, M=1, seed=7)],
                 probes=[dict(id="d", kind="reset_dial", reset_kind="reset", n=20, patch="4x5", edge="93_103", L=2, p=0.5, masks=1,
@@ -277,35 +278,32 @@ def test_probe_rep_delay_validation_and_grouping(tmp_path):
 
 
 def test_paper2_smoke_flags_synthetic_measure_reset_on_fake_target(tmp_path):
+    """List 03 is the Paper 2 Sampler smoke list (gradvar.paper2): measure_reset / measure_reset_2 are missing from the fake
+    target, so the runner adds one-qubit one-clbit stand-ins and flags them. The full checks live in tests/test_paper2_sampler.py."""
     from gradvar.hardware import run_joblist
     run_joblist(str(DRYRUN / LISTS[2]), submit=False, run_root=str(tmp_path / "runs"), log_dir=str(tmp_path / "jobs"), calibration_csv=CAL)
-    bundles = list((tmp_path / "runs").glob("*/dryrun-*"))
-    assert len(bundles) == 1 and bundles[0].name.endswith("L0-probes-s1024")
-    job = json.loads((bundles[0] / "job.json").read_text())
-    assert len(job["points"]) == 9 and {"reset", "measure_reset", "measure_reset_2", "delay", "x"} <= set(job["isa_instruction_names"])
-    by_id = {p["probe_id"]: p for p in job["points"]}
-    assert by_id["x_measure_reset_measure"]["synthetic_target_instructions"] == ["measure_reset"]
-    assert by_id["measure_reset_measure"]["synthetic_target_instructions"] == ["measure_reset"]   # second probe of the kind too
-    assert by_id["x_reset_measure"]["synthetic_target_instructions"] == []
-    assert by_id["x_reset_measure"]["qubits"] == [9, 12, 21, 38, 43, 50, 69, 78, 81, 97, 108, 110]
-    circs = {c["probe_id"]: c for c in json.loads((bundles[0] / "circuits.json").read_text())}
-    assert circs["measure"]["ops"] == {} and circs["x_measure"]["ops"] == {"x": 12}
-    assert circs["x_measure_reset_2_measure"]["ops"] == {"x": 12, "measure_reset_2": 12}
-    assert circs["x_delay_measure"]["delay_count"] == 12 and circs["x_delay_measure"]["mid_circuit_measures"] == 0
-    assert job["layout_check"]["layout_qubits"] == [9, 12, 21, 38, 43, 50, 69, 78, 81, 97, 108, 110] and job["layout_check"]["layout_couplers"] == []
-    assert job["layout_check"]["enforced"] is False and job["layout_check"]["action"] == "logged" and job["layout_check"]["edge_cone_qubits"] == []
-    assert job["rep_delay_submitted_s"] == "default"
+    bundles = {d.name.split("-", 2)[2]: d for d in (tmp_path / "runs").glob("*/dryrun-*")}
+    assert set(bundles) == {"smoke-init_true", "smoke-init_false"}
+    job = json.loads((bundles["smoke-init_true"] / "job.json").read_text())
+    assert job["job_kind"] == "sampler" and len(job["points"]) == 37 and job["synthetic_target_instructions"] == ["measure_reset", "measure_reset_2"]
+    assert {"reset", "measure_reset", "measure_reset_2", "delay", "x", "measure"} <= set(job["isa_instruction_names"])
+    by_id = {p["label"]: p for p in job["points"]}
+    assert by_id["Q1a_measure_reset"]["synthetic_target_instructions"] == ["measure_reset"] and by_id["Q1a_reset"]["synthetic_target_instructions"] == []
+    assert len(by_id["Q1a_reset"]["qubits"]) == 118 and 17 not in by_id["Q1a_reset"]["qubits"] and 79 not in by_id["Q1a_reset"]["qubits"]   # Deviation 6
+    assert job["layout_check"]["enforced"] is False and job["layout_check"]["action"] == "logged" and job["layout_check"]["layout_couplers"] == []
+    assert job["rep_delay_submitted_s"] == "default" and job["init_qubits"] is True
+    assert json.loads((bundles["smoke-init_false"] / "job.json").read_text())["init_qubits"] is False
 
 
 def test_probe_schema_validation(tmp_path):
     from gradvar.hardware import JoblistError, load_joblist
-    base = json.loads((DRYRUN / LISTS[2]).read_text())
-    for bad in (dict(kind="sampler"), dict(reset_kind="measure_reset_3"), dict(resilience=5), dict(id="x_reset_measure")):
+    base = json.loads((DRYRUN / LISTS[1]).read_text())                # list 02 carries probes (03 is the Paper 2 Sampler list)
+    for bad in (dict(kind="sampler"), dict(reset_kind="measure_reset_3"), dict(resilience=5), dict(id=base["probes"][0]["id"])):
         jl = dict(base, probes=[dict(base["probes"][0]), dict(base["probes"][1], **bad)])
         (tmp_path / "p.json").write_text(json.dumps(jl))
         with pytest.raises(JoblistError):
             load_joblist(str(tmp_path / "p.json"))
-    (tmp_path / "e.json").write_text(json.dumps(dict(base, probes=[])))
+    (tmp_path / "e.json").write_text(json.dumps(dict(base, points=[], probes=[])))
     with pytest.raises(JoblistError, match="no points and no probes"):
         load_joblist(str(tmp_path / "e.json"))
     (tmp_path / "f.json").write_text(json.dumps(dict(base, dry_run="yes")))
