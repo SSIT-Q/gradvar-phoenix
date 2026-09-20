@@ -1,0 +1,223 @@
+% Paper 2 manuscript skeleton, gradvar-phoenix programme (SSIT Tumakuru).
+% Status: SKELETON. No hardware minute has been spent. Every [RESULT] / [TBD] / \placeholder{} is a placeholder.
+% Pre-registration: preregistration_p2.html v0.4.2 (20 Sep 2026). Q1-Q5 follow Section 2 exactly as registered.
+% Build: latexmk -pdf main.tex (see ../Makefile). Class: REVTeX 4.2, PRA / QST style.
+\documentclass[aps,pra,reprint,superscriptaddress,nofootinbib,longbibliography,amsmath,amssymb]{revtex4-2}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true,linkcolor=blue!60!black,citecolor=blue!60!black,urlcolor=blue!60!black}
+\newcommand{\placeholder}[1]{\textcolor{red!70!black}{[RESULT: #1]}}
+\newcommand{\tbd}[1]{\textcolor{orange!80!black}{[TBD: #1]}}
+\newcommand{\figstub}[2]{\fbox{\parbox[c][0.28\textheight][c]{0.95\linewidth}{\centering\textcolor{gray}{Figure stub: \texttt{#1}\\[1ex]#2}}}}
+\newcommand{\Np}{\mathcal{N}_p}
+\newcommand{\eps}{\varepsilon}
+
+\begin{document}
+
+\title{A 120-qubit characterisation of the dissipative reset and mid-circuit measurement of an IBM Nighthawk r2 processor}
+
+\author{\tbd{Author 1}}
+\affiliation{Department of Computer Science and Engineering, SSIT Tumakuru, India}
+\author{\tbd{Author 2}}
+\affiliation{Department of Computer Science and Engineering, SSIT Tumakuru, India}
+\author{\tbd{Physics collaborator, if named}}
+\affiliation{\tbd{affiliation}}
+\date{\today}
+
+\begin{abstract}
+IBM's Nighthawk r2 adds a dissipative reset element to each of its 120 qubits, exposed on \texttt{ibm\_phoenix} as a native 400\,ns \texttt{reset} instruction beside two measurement-based variants (\texttt{measure\_reset}, 1940\,ns; \texttt{measure\_reset\_2}, 1140\,ns). No calibration figure for the reset itself is published. We report a pre-registered, device-wide characterisation on the $12\times10$ square lattice: a per-qubit reset-error map for the three reset kinds and their repetition dependence (Q1), the backaction of a reset on idle neighbours in a design that cancels the state-dependent $ZZ$ phase (Q2), a frame-tracked reset cycle benchmark comparing simultaneous and isolated resets (Q3), a Bloch-map test of whether pooled random-mask resets realise the mixture channel $\Np(\rho) = (1-p)\rho + p|0\rangle\langle0|$ assumed by a companion gradient-variance experiment (Q4), and the day-to-day stability of the reset-error map (Q5). Every statistic and bound was fixed before data at $\geq 3\times$ its shot floor. We find a device-median native reset error of \placeholder{value, 95\% interval} against the pre-registered bound $3\times10^{-4}$, per-reset spectator excess phase, Bloch-length loss and excitation of \placeholder{values} on \placeholder{fraction} of directed pairs, a dense-minus-sparse residual of \placeholder{value}, Bloch-map entries within \placeholder{max deviation} of the intended channel, and a median drift of \placeholder{value} between days. Protocols, masks, raw counts and calibration snapshots are public.
+\end{abstract}
+
+\maketitle
+
+\section{Introduction}\label{sec:intro}
+\paragraph{Motivation.} On \texttt{ibm\_phoenix} the reset element appears as a native \texttt{reset} of 400\,ns on 119 qubits (2140\,ns on qubit 79) alongside \texttt{measure\_reset} (1940\,ns) and \texttt{measure\_reset\_2} (1140\,ns); the target reports no gate error for any of the three, and the nearest calibration figure, the initialisation error (median $2\times10^{-5}$), bounds the reset error only on the unverified assumption that IBM measures it with the reset engaged. At the time of pre-registration nothing had been published on Nighthawk r2 (arXiv metadata search, 19 September 2026; the Nighthawk papers found used r1). \tbd{Re-run the search before submission and update.} A per-qubit map of reset error, dissipative against measurement-based reset, and what a reset does to idle neighbours is therefore \tbd{the first / an early} independent characterisation of this device class.
+
+\paragraph{The reset as a resource.} The companion paper (Paper 1) uses pooled random-mask resets as a dial on the non-unital strength of the noise; the dial is meaningful only if the reset realises the intended channel (Q4) and leaves other qubits alone (Q2, Q3). Schmitt et al.~\cite{Schmitt2026} attribute the saturation of gradient magnitudes on IBM hardware to $T_1$-dominated non-unital noise, with the strength set by the device rather than by a knob; a calibrated reset turns that observation into a controlled experiment. Dynamic circuits reuse auxiliary qubits by mid-circuit reset, and the disturbance a mid-circuit operation inflicts on spectators is an open characterisation problem.
+
+\paragraph{Protocol lineage.} The protocols adapt the mid-circuit-measurement (MCM) literature: the randomised-benchmarking suite of Govia et al.~\cite{Govia2023} for measurement-induced spectator errors and entangling errors between measured and spectator qubits; MCM cycle benchmarking of Hines and Proctor~\cite{Hines2025} for Pauli error rates of randomly compiled layers with MCMs; the generalised cycle-benchmarking algorithm and learnability theory of Zhang et al.~\cite{Zhang2025}; and the three-repeated-measurement design of Chu et al.~\cite{Chu2026}, who find $T_1$-dominated backaction on IBM processors. None has been applied to a dissipative (non-measurement) reset or to a square-lattice device; adapting them, in particular the frame tracking that a reset without a classical register requires, is the methodological content of this paper.
+
+\section{Methods}\label{sec:methods}
+\subsection{Device and qubit sets}
+\texttt{ibm\_phoenix}: 120 qubits, qubit $q$ at row $\lfloor q/10\rfloor$, column $q \bmod 10$; calibration snapshot of 19 September 2026 11:13 UTC for planning; run-day snapshots saved per job. Qubit 17 (no $T_1$ or $T_2$, readout error 0.51, no calibrated coupler) is excluded everywhere; 119 operational qubits. Readout outliers above $3\times10^{-2}$ (24, 49, 55, 62, 73, 77, 107 on the snapshot) and the CZ cluster (55, 61, 62, 63, 72, 73) are flagged on the maps, not dropped. Run-day flags: \placeholder{}.
+
+\subsection{Reset kinds, durations and execution}
+\texttt{reset} (400\,ns; 2140\,ns on qubit 79, reported separately), \texttt{measure\_reset} (1940\,ns), \texttt{measure\_reset\_2} (1140\,ns) and \texttt{delay(400\,ns)} as the no-reset reference; fractional gates disabled; the scheduled duration of every reset instruction is logged from the transpiled circuit (kill criterion 1). SamplerV2, job mode, one job per stage (Q5: one per day), default $\tau_{\mathrm{rep}} = 250\,\mu$s or the value granted to Paper 1 (Deviation 1), \texttt{init\_qubits} True except the one Q1 job noted below; both logged per job. Order of runs: \texttt{ibm\_marrakesh} dry run under the open plan (packaging, logging, parsing; Heron r2's reset is measurement-based so durations are not tested), \texttt{ibm\_phoenix} smoke test, Gate P2-2, Q1, Q4, Q2, Q3, Q5.
+
+\subsection{Budget model}
+$T_{\mathrm{job}} = 2\,\mathrm{s} + (\tau_{\mathrm{rep}} + \text{circuit length} + t_{\mathrm{meas}} + 10\,\mu\mathrm{s})\,N_{\mathrm{exec}} + [\text{resilience}\geq1]\,32\,\text{shots}\,n_{\mathrm{bases}}\,(\tau_{\mathrm{rep}} + t_{\mathrm{meas}} + 10\,\mu\mathrm{s})$ with $t_{\mathrm{meas}} = 1.94\,\mu$s (Deviation 2); every stage at resilience 0 so the TREX term is zero. Executions: smoke 81\,920; Q1 1\,114\,112; Q2 2\,949\,120; Q3 1\,916\,928; Q4 786\,432; Q5 1\,048\,576; total 7\,897\,088, estimate 35.4\,min at 250\,$\mu$s (2.7\,min at 1\,$\mu$s) against a hard 45-minute cap. Pre-registered fallback if the smoke test measures $> 1.27\times$ the model: Q2 at 8192 shots. Measured: \placeholder{locked time per stage}.
+
+\subsection{Gates and kill criteria}
+Gate P2-1 (before any Flex minute): a prediction for every statistic from the snapshot; every bound $\geq 3\times$ its shot floor (Table~\ref{tab:floors}); dry run complete; independent sign-off. Gate P2-2 (after the smoke test, before Q1): on $\geq 90\%$ of qubits $P(1\mid X,\text{reset},\text{measure})$ within $3\sigma$ of $P(1\mid\text{measure})$ and $P(1\mid X,\text{delay},\text{measure}) > 0.9$; scheduled native reset 400\,ns and three distinct transpiled instructions; readout within $1.5\times$ of the snapshot; locked time within $1.5\times$ the estimate. Kill criteria: (1) reset compiles to \texttt{measure\_reset} or any 1940\,ns instruction on \texttt{ibm\_phoenix}; (2) native reset error median $> 2\times10^{-2}$ in the smoke test; (3) locked time $> 1.5\times$ the estimate. Outcomes: \placeholder{Gate P2-1, smoke test numbers, Gate P2-2}.
+
+\begin{table}[t]
+\caption{Pre-registered bounds and recomputed $1\sigma$ shot floors (readout $P(1\mid0)$ taken as $2\times10^{-3}$ where it enters). \label{tab:floors}}
+\begin{ruledtabular}
+\begin{tabular}{llll}
+Statistic & Bound & Floor & Ratio \\
+\hline
+H1 device median $\eps$, native (65\,536 shots) & 3e-4 & 3.2e-5 & 9.4 \\
+H1 per-qubit $\eps$ on $\geq 90\%$ of qubits & 1e-3 & 2.8e-4 & 3.6 \\
+H2 excess phase, target $|0\rangle$, per reset (16\,384 shots, $r = 16$) & 5 mrad & 0.69 mrad & 7.2 \\
+H2 excess phase, target $|1\rangle$, $\zeta$-corrected & 5 mrad & 1.16 mrad & 4.3 \\
+H2 excess Bloch-length loss per reset & 2.5e-3 & 6.9e-4 & 3.6 \\
+H2 excess excitation per reset & 2e-4 & 3.1e-5 & 6.5 \\
+H3 $\eps_{\mathrm{dense}} - \eps_{\mathrm{sparse}}$, mean over 112 qubits & 1e-4 & 2.7e-5 & 3.7 \\
+H3 spectator per-cycle excess at $m = 64$ & 1e-3 & 1.0e-4 & 10 \\
+H4 $D$ entries (32\,768 pooled shots) & 0.02 & 3.9e-3 & 5.1 \\
+H4 $t_z$ & 0.05 & 5.5e-3 & 9.1 \\
+H4 $|t_x|, |t_y|$ & 0.02 & 5.5e-3 & 3.6 \\
+H4 connected $\langle XX\rangle$ & 0.02 & 5.5e-3 & 3.6 \\
+H5 device-median drift between days (32\,768 shots) & 2e-4 & 5.6e-5 & 3.6 \\
+\end{tabular}
+\end{ruledtabular}
+\end{table}
+
+\subsection{Backaction model with $ZZ$ correction (Q2)}
+Five target masks $M_s = \{q = 10i + j : (i + 2j) \bmod 5 = s\}$, $s = 0..4$, each of 24 targets no two within lattice distance 3, so every non-target has at most one target neighbour, each qubit is a target in one mask, and the five masks cover all 428 directed neighbour pairs once. Neighbours in $|+\rangle$ ($|0\rangle$ for the excitation channel), target in $|0\rangle$ or $|1\rangle$; $r \in \{1, 4, 16\}$ repetitions of reset or delay on the target; neighbours read in $X$, $Y$ or $Z$. Primary statistic: the target-$|0\rangle$ excess (reset arm minus delay arm) per reset from the slope in $r$, in which the state-dependent $ZZ$ phase cancels. Secondary: the target-$|1\rangle$ excess after subtracting the $ZZ$ mismatch: a working reset empties the target within about 25\,ns, so the spectator accrues $\zeta\times375$\,ns less $ZZ$ phase than in the delay arm (12\,mrad at $\zeta = 2\pi\times5$\,kHz, 118\,mrad at $2\pi\times50$\,kHz); $\zeta$ is measured per pair from the two delay arms, $\phi_{\mathrm{delay}}(1) - \phi_{\mathrm{delay}}(0) = \zeta\times400$\,ns, and subtracted with propagated uncertainty, the $0.9375 = 375/400$ coefficient carried through both arms (floor 1.16\,mrad per reset). \tbd{Theorist's review of the $ZZ$ model when the reset empties the target in $\sim$25\,ns: does the linear-in-time subtraction hold, and what replaces it if the emptying time is comparable to 400\,ns? Delegated review, countersignature on return (Deviation 3).} Non-targets with no target neighbour (8 or 9 per mask) are distance-2 controls.
+
+\subsection{Frame-tracked reset cycle benchmark (Q3)}
+$m \in \{1, 16, 64\}$ cycles of [random Pauli $P_q$ on every qubit $\to$ reset on the mask, \texttt{delay(400\,ns)} elsewhere $\to$ $P_q^\dagger$]. Reset qubits enter in $|1\rangle$ and are read in $Z$; because reset erases history only the final cycle's frame matters for them, and the expected outcome is 0 for $P \in \{I, Z\}$ and 1 for $P \in \{X, Y\}$, recorded per circuit as \texttt{expected\_z}; without tracking the twirled reset is $I/2$ and the $Z$ readout uninformative. The reset residual per qubit is $\eps = P(\text{outcome} \neq \text{expected}) - \text{readout error}$, a single-cycle quantity read at every $m$ and required $m$-independent. Spectators enter in $|+\rangle$ and are read in $X$; the frames twirl their error into a Pauli channel and the per-cycle spectator error is the decay of $\langle X\rangle$ in $m$. Masks: the five sparse masks of Q2 (20\%) and eight random 50\% masks (dense), four Pauli frames each, drawn once from seed 20260919. \tbd{Theorist: does the twirl argument hold for a reset that erases the frame; learnability of the reset parameters under SPAM in the sense of Zhang et al.~\cite{Zhang2025}.}
+
+\subsection{Analysis plan}
+Per-qubit probabilities, phases and Bloch entries with 95\% bootstrap intervals over shots (10\,000 resamples); Q2 and Q3 slopes in $r$ or $m$ by weighted least squares; H3's mean difference by bootstrap over qubits. Every per-qubit quantity on the $12\times10$ lattice with the flags; directed-pair quantities on the edges. Comparison to IBM figures: $\eps_q$ against the day's initialisation error and readout confusion; \texttt{measure\_reset} $\eps$ against $P(0\mid1)$. The 90\%-of-qubits thresholds are the statistics; per-qubit outliers go to the anomaly section, never to post-hoc exclusion. One logged row per circuit (fields: \texttt{backend, job\_id, timestamp, calib\_file, protocol, reset\_kind, mask\_id, mask\_hash, frame\_id, reps, prep, meas\_axis, expected\_z, shots, rep\_delay, init\_qubits, sched\_ns, counts\_path, qpu\_seconds, notes}).
+
+\section{Pre-registered questions and hypotheses}\label{sec:prereg}
+Restated from pre-registration v0.4.2 Section 2; $\langle Z\rangle = +1$ for $|0\rangle$.
+
+\subsection{Q1: reset-error map}
+Protocol, all 119 qubits in parallel: (a) $X \to$ reset $\to$ measure and (b) reset $\to$ measure for each kind; (c) $X \to$ reset$^m$ $\to$ measure, $m = 2, 4$ (native); (d) $X \to$ measure and measure alone; (e) $X \to$ delay $\to$ measure; (f) $|+\rangle \to$ reset $\to$ measure in $X$. 17 circuits at 65\,536 shots in two jobs (\texttt{init\_qubits} True: 14; False: 3, the only look at the pre-shot state). $\eps_q = P(1\mid X,\text{reset},\text{measure}) - P(1\mid\text{measure})$, raw probabilities reported alongside since some MCM parameters are inseparable from SPAM~\cite{Zhang2025} and a one-parameter gauge remains~\cite{Chu2026}. The $m$ dependence separates per-attempt failure (geometric) from steady-state heating (constant). \textbf{H1.} Primary: median native $\eps \leq 3\times10^{-4}$ (predicted $\leq 10^{-4}$). Secondary: $\eps_q \leq 10^{-3}$ on $\geq 108$ of 119 qubits; ordering native $<$ \texttt{measure\_reset\_2} $<$ \texttt{measure\_reset}. \emph{Refuted if} the median's 95\% interval lies above $3\times10^{-4}$, or fewer than 108 point estimates are $\leq 10^{-3}$, or the ordering is violated outside the intervals.
+
+\subsection{Q2: spectator backaction}
+\textbf{H2.} Per reset, on $\geq 90\%$ of directed pairs in the target-$|0\rangle$ arm: $|\Delta\phi| \leq 5$\,mrad, excess Bloch-length loss $\leq 2.5\times10^{-3}$, excess excitation $\leq 2\times10^{-4}$; the $\zeta$-corrected target-$|1\rangle$ phase reported against the same 5\,mrad as a consistency check. \emph{Refuted if} fewer than 90\% of pairs meet all three primary bounds, or the distance-2 controls show any excess beyond $3\sigma$. 180 circuits at 16\,384 shots.
+
+\subsection{Q3: crosstalk at scale}
+\textbf{H3.} At fixed $m$, $\eps_{\mathrm{dense}} - \eps_{\mathrm{sparse}} \leq 10^{-4}$, mean over the 112 non-flagged qubits; per-cycle spectator excess under dense masks $\leq 10^{-3}$ at $m = 64$. \emph{Refuted if} the mean difference's 95\% interval lies above $10^{-4}$ at any $m$, or the spectator excess exceeds $10^{-3}$ on more than 10\% of qubits. 156 circuits at 12\,288 shots.
+
+\subsection{Q4: reset as channel}
+Twelve two-qubit patches (one horizontal edge per row: the edge with the lowest summed readout error, both qubits outside the exclusion set, at least three columns from the previous row's edge), in parallel. For $p \in \{0.25, 0.5\}$, 16 stratified masks per $p$ realise $\Np\otimes\Np$ exactly on every patch (patterns 00/10/01/11 appearing 9/3/3/1 times at $p = 0.25$ and 4/4/4/4 at $p = 0.5$), so the realised $\hat p_q = p$ and the pattern floor on the pooled statistics is zero. Four inputs ($|0\rangle, |1\rangle, |+\rangle, |{+}i\rangle$) and three readout axes give the affine Bloch map $r \mapsto Dr + t$ pooled over masks; $\langle XX\rangle$ on $|+\rangle|+\rangle$ tests for a correlated part. Intended: $D = (1-p)\mathbb{1}_3$, $t = (0, 0, p)$. \textbf{H4.} On every patch qubit: $|t_z - \hat p_q| < 0.05$, $|t_x|, |t_y| < 0.02$, $|D_{ii} - (1 - \hat p_q)| < 0.05$, $|D_{ij}| < 0.02$, connected $|\langle XX\rangle - \langle X\rangle\langle X\rangle| < 0.02$. \emph{Refuted if} any bound fails on more than one of the 24 qubits at either $p$; the dial is then not used in Paper 1 without a recorded Deviation. 384 circuits at 2048 shots (32\,768 pooled per entry).
+
+\subsection{Q5: time stability}
+The native-reset subset of Q1 (8 circuits, 32\,768 shots) on four further Paper 1 hardware days within the window, each with its snapshot. \textbf{H5.} The device median native reset error changes by less than $2\times10^{-4}$ between any two days; per-qubit changes reported as a map and as the count moving by more than $1.5\times10^{-3}$ ($3\sigma$ on a two-day difference), without a threshold. \emph{Refuted if} the median drift's 95\% interval lies above $2\times10^{-4}$ for any pair of days.
+
+\subsection{Anomaly protocol}
+Mirrors Paper 1's Deviation 19: a qubit or pair deviating from its Gate P2-1 prediction by $> 3\sigma$, or three or more mutually adjacent qubits (or a full row or column) deviating in the same direction by $> 2\sigma$ each; confirmation needs re-measurement on another day using $\leq 20$ reserve minutes and failure of the calibrated simulation (snapshot $T_1$, $T_2$, readout, 1Q errors, fitted $ZZ$) to reproduce it; unreplicated anomalies are exploratory.
+
+\section{Results}\label{sec:results}
+Tables are keyed to the logging-schema fields (\texttt{protocol, reset\_kind, mask\_id, frame\_id, reps, prep, meas\_axis}); no value exists yet.
+
+\begin{table}[t]
+\caption{Provenance. \label{tab:provenance}}
+\begin{ruledtabular}
+\begin{tabular}{ll}
+Pre-registration version at booking & v0.4.2 (Deviations 1--3) \\
+Gate P2-1 predictions commit & \placeholder{sha} \\
+Job lists, pre-flight review links & \placeholder{} \\
+Hardware days, snapshots & \placeholder{} \\
+Post-run review & \placeholder{} \\
+\end{tabular}
+\end{ruledtabular}
+\end{table}
+
+\subsection{Q1}
+\begin{table}[t]
+\caption{Reset-error map summary. \label{tab:q1}}
+\begin{ruledtabular}
+\begin{tabular}{llll}
+Kind & median $\eps$ [95\% CI] & qubits with $\eps \leq 10^{-3}$ & prediction \\
+\hline
+native & \placeholder{} & \placeholder{}/119 & $\leq 10^{-4}$ \\
+\texttt{measure\_reset\_2} & \placeholder{} & \placeholder{} & \tbd{from MEASURE\_2 error 6.4e-3} \\
+\texttt{measure\_reset} & \placeholder{} & \placeholder{} & $\approx P(0\mid1) = 1.4\times10^{-2}$ \\
+native, $m = 2 / 4$ & \placeholder{} & -- & geometric vs constant \\
+$|+\rangle$ residual ($X$ basis) & \placeholder{} & -- & \tbd{} \\
+\texttt{init\_qubits} False, arm (b) & \placeholder{} & -- & pre-shot state \\
+\end{tabular}
+\end{ruledtabular}
+\end{table}
+\begin{figure}[t]
+\figstub{figures/q1\_reset\_error\_map.pdf}{$12\times10$ lattice map of $\eps_q$ per reset kind with flags; histogram beside; qubit 79 marked.}
+\caption{\placeholder{}}\label{fig:q1}
+\end{figure}
+
+\subsection{Q2}
+\begin{figure}[t]
+\figstub{figures/q2\_backaction\_edges.pdf}{Directed-pair maps of per-reset excess phase, Bloch-length loss and excitation (target-$|0\rangle$ arm); $\zeta$ map from the delay arms; $\zeta$-corrected target-$|1\rangle$ phase against the 5\,mrad line; distance-2 controls.}
+\caption{\placeholder{}}\label{fig:q2}
+\end{figure}
+Fraction of directed pairs meeting all three bounds: \placeholder{}/428. Distance-2 controls: \placeholder{max excess in $\sigma$}. $\zeta$ distribution: \placeholder{median, range} against the raw-properties median $|ZZ|$ of 27\,kHz.
+
+\subsection{Q3}
+\begin{table}[t]
+\caption{Reset cycle benchmark. \label{tab:q3}}
+\begin{ruledtabular}
+\begin{tabular}{lllll}
+$m$ & $\bar\eps_{\mathrm{sparse}}$ & $\bar\eps_{\mathrm{dense}}$ & difference [95\% CI] & spectator excess $> 10^{-3}$ (qubits) \\
+\hline
+1 & \placeholder{} & \placeholder{} & \placeholder{} & -- \\
+16 & \placeholder{} & \placeholder{} & \placeholder{} & -- \\
+64 & \placeholder{} & \placeholder{} & \placeholder{} & \placeholder{}/119 \\
+\end{tabular}
+\end{ruledtabular}
+\end{table}
+$m$-independence of $\eps$: \placeholder{slope in $m$ per qubit}.
+
+\subsection{Q4}
+\begin{table}[t]
+\caption{Bloch-map entries pooled over stratified masks, worst qubit of 24 per entry. \label{tab:q4}}
+\begin{ruledtabular}
+\begin{tabular}{llll}
+Entry & bound & $p = 0.25$ (worst) & $p = 0.5$ (worst) \\
+\hline
+$|t_z - \hat p_q|$ & 0.05 & \placeholder{} & \placeholder{} \\
+$|t_x|, |t_y|$ & 0.02 & \placeholder{} & \placeholder{} \\
+$|D_{ii} - (1 - \hat p_q)|$ & 0.05 & \placeholder{} & \placeholder{} \\
+$|D_{ij}|$ & 0.02 & \placeholder{} & \placeholder{} \\
+connected $\langle XX\rangle$ & 0.02 & \placeholder{} & \placeholder{} \\
+qubits failing any bound & $\leq 1$ & \placeholder{} & \placeholder{} \\
+\end{tabular}
+\end{ruledtabular}
+\end{table}
+\begin{figure}[t]
+\figstub{figures/q4\_bloch\_maps.pdf}{Per-qubit $D$ and $t$ entries at $p = 0.25$ and 0.5 against the intended $(1-p)\mathbb{1}$, $(0, 0, p)$; connected $\langle XX\rangle$.}
+\caption{\placeholder{}}\label{fig:q4}
+\end{figure}
+
+\subsection{Q5}
+\begin{figure}[t]
+\figstub{figures/q5\_stability.pdf}{Device-median native $\eps$ per hardware day with intervals; per-qubit change map between consecutive days; count of qubits moving by $> 1.5\times10^{-3}$.}
+\caption{\placeholder{}}\label{fig:q5}
+\end{figure}
+
+\subsection{Anomalies}
+\placeholder{List or ``none''.}
+
+\section{Discussion}\label{sec:discussion}
+Pre-written branches; only the branch that occurred is kept at submission.
+\paragraph{H1 passes.} \tbd{The dissipative reset is at least as good as the initialisation error implies, and better than the measurement-based variants by the readout confusion; the 400\,ns element is usable as a mid-circuit primitive at the $10^{-4}$ level; what this does and does not say about the reset mechanism.}
+\paragraph{H1 fails.} \tbd{Which arm failed (residual, ordering, per-qubit count); whether the $m$ dependence points to per-attempt failure or heating; consequences for Paper 1's dial (kill rule (a)) and for the Q5 series.}
+\paragraph{H2 / H3 pass.} \tbd{Spectators are undisturbed at the mrad and $10^{-3}$ level per reset and dense masks cost nothing measurable; the $ZZ$-cancelling design and the frame-tracked benchmark are reusable on any backend exposing reset.}
+\paragraph{H2 / H3 fail.} \tbd{Separate a genuine backaction (target-$|0\rangle$ arm) from a $ZZ$ mismatch (target-$|1\rangle$ arm only); spatial structure under the anomaly protocol; implications for dynamic circuits.}
+\paragraph{H4 passes / fails.} \tbd{The pooled mask realises $\Np$ within the bounds and Paper 1's channel assumption holds; or it does not and Paper 1's dial is not used without a Deviation, with the measured $D$, $t$ as the actual channel.}
+\paragraph{H5.} \tbd{Drift below / above $2\times10^{-4}$; what a per-qubit map without a threshold can and cannot say.}
+\paragraph{Limits.} \tbd{Student-run; thin physics model; IBM's own Nighthawk r2 paper; the initialisation-error assumption; what is and is not shown about classical hardness (nothing).}
+
+\section*{Data availability}
+Open dataset: reset-error map for three reset kinds, directed-pair backaction map, dense-versus-sparse crosstalk table, $\Np$ Bloch maps, daily stability series, raw counts and snapshots (\url{https://github.com/SSIT-Q/gradvar-phoenix}, Apache 2.0; Zenodo DOI \tbd{at submission}). Reusable characterisation package: mask generator, circuit builders, job lists and analysis notebooks, runnable on any Qiskit backend exposing \texttt{reset}.
+
+\section*{Author contributions}
+\tbd{Name}: design, code, runs, analysis, first draft. \tbd{Name}: PI, supervision, arXiv endorsement. \tbd{Physics collaborator}: review of the MCM-protocol adaptation and the $ZZ$ model in Q2.
+
+\appendix
+\section{Deviations from the pre-registration}\label{app:deviations}
+Generated from \texttt{docs/manuscripts/deviations.yaml}.
+\input{deviations_table}
+
+\section{Mask construction}\label{app:masks}
+Q2/Q3 sparse masks $M_s$ as defined above (24 targets each; \tbd{list per $s$ from the committed mask file with SHA-256}); Q3 dense masks and Pauli frames from seed 20260919; Q4 stratified mask lists constructed deterministically and shuffled with the same seed; all committed before the smoke test.
+
+\bibliography{references}
+\end{document}
