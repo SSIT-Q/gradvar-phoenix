@@ -137,8 +137,11 @@ def dial_point(rows: pd.DataFrame, n_boot: int = N_BOOT, seed: int = 0) -> Dict:
     shot_g = float(np.mean(shotv)) / (2.0 * K) if K else float("nan")          # Var_shot(C_mix) = mean per-mask shot var / K; gradient / 4 x 2
     finite_pat = [t for t in pattern if np.isfinite(t)]
     vm = float(np.mean(finite_pat)) if finite_pat else float("nan")
-    pat_g = vm / (2.0 * K) if K else float("nan")
-    pat_se = float(np.mean(np.std(np.asarray(boot_pat), axis=1) / np.sqrt(max(M, 1)))) / (2.0 * K) if boot_pat else float("nan")
+    if K <= 1:            # no mask lottery (delay-matched p = 0 reference, Deviation 28): the pattern term does not belong to the floor
+        vm, pat_g, pat_se = 0.0, 0.0, 0.0
+    else:
+        pat_g = vm / (2.0 * K) if np.isfinite(vm) else float("nan")
+        pat_se = float(np.mean(np.std(np.asarray(boot_pat), axis=1) / np.sqrt(max(M, 1)))) / (2.0 * K) if boot_pat else float("nan")
     out.update(mean=float(g.mean()), shot_floor=shot_g, pattern_var_mask=vm, pattern_floor=pat_g, pattern_floor_se=pat_se,
                combined_floor=shot_g + pat_g, mean_cmix=float(np.mean(cmix)), kurtosis=kurtosis(g) if M >= 4 else float("nan"))
     if M >= 2:
@@ -156,35 +159,45 @@ def dial_point(rows: pd.DataFrame, n_boot: int = N_BOOT, seed: int = 0) -> Dict:
 
 # ------------------------------------------------------------------------------------------------ ratios and fits
 
-def paired_ratio(a, b, n_boot: int = N_BOOT, seed: int = 3) -> Dict:
-    """Var(a) / Var(b) with a 95 percent bootstrap interval, paired over draws when ``a`` and ``b`` have the same length
-    (shared theta draws: Section 3b "Pairing"; Deviation 14), independent otherwise."""
-    a, b = _finite(a), _finite(b)
-    if a.size < 2 or b.size < 2 or b.var(ddof=1) <= 0:
+def paired_ratio(a, b, n_boot: int = N_BOOT, seed: int = 3, sub_a=None, sub_b=None) -> Dict:
+    """[Var(a) - mean(sub_a)] / [Var(b) - mean(sub_b)] with a 95 percent bootstrap interval, paired over draws when ``a`` and
+    ``b`` have the same length (shared theta draws: Section 3b "Pairing"; Deviation 14), independent otherwise.
+    ``sub_a`` / ``sub_b`` are per-draw floors (shot variance, or shot + pattern for the dial) subtracted inside every
+    resample, so the ratio is one of signal variances (Section 3, Estimate: measured = signal + shot)."""
+    a, b = np.asarray(a, float).reshape(-1), np.asarray(b, float).reshape(-1)
+    sa = np.zeros_like(a) if sub_a is None else np.nan_to_num(np.asarray(sub_a, float).reshape(-1))
+    sb = np.zeros_like(b) if sub_b is None else np.nan_to_num(np.asarray(sub_b, float).reshape(-1))
+    ka, kb = np.isfinite(a), np.isfinite(b)
+    a, sa, b, sb = a[ka], sa[ka], b[kb], sb[kb]
+    if a.size < 2 or b.size < 2:
         return dict(ratio=float("nan"), lo=float("nan"), hi=float("nan"), paired=False)
+    den = b.var(ddof=1) - sb.mean()
+    if den <= 0:
+        return dict(ratio=float("nan"), lo=float("nan"), hi=float("nan"), paired=bool(a.size == b.size), note="denominator signal variance <= 0")
     rng = np.random.default_rng(seed)
     paired = a.size == b.size
     if paired:
         idx = rng.integers(0, a.size, size=(n_boot, a.size))
-        r = a[idx].var(axis=1, ddof=1) / b[idx].var(axis=1, ddof=1)
+        num, dnm = a[idx].var(axis=1, ddof=1) - sa[idx].mean(axis=1), b[idx].var(axis=1, ddof=1) - sb[idx].mean(axis=1)
     else:
-        ia = rng.integers(0, a.size, size=(n_boot, a.size))
-        ib = rng.integers(0, b.size, size=(n_boot, b.size))
-        r = a[ia].var(axis=1, ddof=1) / b[ib].var(axis=1, ddof=1)
-    r = r[np.isfinite(r)]
+        ia, ib = rng.integers(0, a.size, size=(n_boot, a.size)), rng.integers(0, b.size, size=(n_boot, b.size))
+        num, dnm = a[ia].var(axis=1, ddof=1) - sa[ia].mean(axis=1), b[ib].var(axis=1, ddof=1) - sb[ib].mean(axis=1)
+    ok = dnm > 0
+    r = num[ok] / dnm[ok]
     lo, hi = np.quantile(r, [0.025, 0.975]) if r.size else (float("nan"), float("nan"))
-    return dict(ratio=float(a.var(ddof=1) / b.var(ddof=1)), lo=float(lo), hi=float(hi), paired=paired)
+    return dict(ratio=float((a.var(ddof=1) - sa.mean()) / den), lo=float(lo), hi=float(hi), paired=paired, resamples_with_positive_denominator=int(ok.sum()))
 
 
 def layer_index_ratio(g_kL, g_k1, r_noiseless: float, R_unital: float | None = None, pred_log_se: float = 0.0,
-                      n_boot: int = N_BOOT, seed: int = 5) -> Dict:
+                      n_boot: int = N_BOOT, seed: int = 5, sv_kL=None, sv_k1=None) -> Dict:
     """Deviation 14: r_hw = Var_hw(k = L) / Var_hw(k = 1) (paired bootstrap over the shared draws), the noiseless-corrected
     R_hw = r_hw / r_noiseless, and the test statistic R_hw / R_unital whose 95 percent interval must exclude 1 in the
     Mele direction (> 1: last layer larger relative to the first under non-unital noise). ``pred_log_se`` is the
-    standard error of log(r_noiseless x R_unital) from the predictions, added in quadrature on the log scale."""
-    pr = paired_ratio(g_kL, g_k1, n_boot, seed)
+    standard error of log(r_noiseless x R_unital) from the predictions, added in quadrature on the log scale. ``sv_*``
+    are the per-draw shot variances, subtracted inside the bootstrap (signal-variance ratio)."""
+    pr = paired_ratio(g_kL, g_k1, n_boot, seed, sv_kL, sv_k1)
     out = dict(r_hw=pr["ratio"], r_hw_lo=pr["lo"], r_hw_hi=pr["hi"], paired=pr["paired"], r_noiseless=r_noiseless, R_unital=R_unital)
-    if not np.isfinite(pr["ratio"]) or not r_noiseless or not np.isfinite(r_noiseless):
+    if not np.isfinite(pr["ratio"]) or not r_noiseless or not np.isfinite(r_noiseless) or not (pr["lo"] > 0):
         out.update(R_hw=float("nan"), stat=float("nan"), lo=float("nan"), hi=float("nan"), excludes_1_mele_direction=None, contains_1=None)
         return out
     R_hw = pr["ratio"] / r_noiseless
@@ -284,11 +297,13 @@ def point_table(rows: pd.DataFrame, n_boot: int = N_BOOT) -> pd.DataFrame:
         if first.kind == "grid":
             est = variance_point(g.gradient.astype(float), g.shot_var.astype(float), int(first.shots), int(first.L), n_boot=n_boot)
             est["gradients"] = g.sort_values("draw").gradient.astype(float).tolist()
+            est["shot_vars"] = g.sort_values("draw").shot_var.astype(float).tolist()
             est["draw_seeds"] = g.sort_values("draw").seed.tolist()
         elif first.kind == "reset_dial":
             est = dial_point(g, n_boot=n_boot)
             est["gradients"] = [(a.ev_plus.mean() - a.ev_minus.mean()) / 2.0 for _, a in g.groupby("draw", sort=True)]
             est["draw_hashes"] = [str(a.param_hash.iloc[0]) for _, a in g.groupby("draw", sort=True)]
+            est["shot_vars"] = [est["combined_floor"]] * len(est["gradients"])       # shot + pattern floor per draw
         else:
             continue
         out.append({**base, **est})
