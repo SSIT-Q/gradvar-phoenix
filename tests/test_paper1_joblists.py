@@ -19,8 +19,9 @@ sys.path.insert(0, str(ROOT / "scripts"))
 P1 = ROOT / "data" / "joblists" / "paper1"
 SNAP = str(ROOT / "data" / "calibrations" / "ibm_phoenix_2026-09-20T030813Z.csv")
 LISTS = ["grid_n20.json", "grid_n40.json", "grid_n60.json", "grid_n80.json", "grid_n100.json", "grid_n100_16384.json", "grid_n40_repeat.json",
-         "dial_arm.json", "dial_arm_contingent.json", "references_gate1b.json", "null_controls.json"]
+         "dial_arm.json", "dial_arm_contingent.json", "references_gate1b.json", "null_controls.json", "day1_null_grid_n20.json"]
 MAIN = LISTS[:7]
+DAY1 = LISTS[-1]      # Deviation 50 campaign day 1: null_controls + grid_n20 in one list
 pytestmark = pytest.mark.skipif(not HAS_AER, reason="qiskit-aer not installed")
 
 
@@ -32,7 +33,7 @@ def generated():
 
 
 def test_committed_lists_equal_the_generator_output(generated):
-    """Deterministic seeds and placement: the eleven committed lists are exactly what the generator writes from the committed snapshot."""
+    """Deterministic seeds and placement: the twelve committed lists are exactly what the generator writes from the committed snapshot."""
     gen, lists, pl = generated
     assert set(lists) == set(LISTS)
     for name, jl in lists.items():
@@ -193,6 +194,39 @@ def test_dial_reference_and_null_lists_follow_section_3b_and_deviation_43(genera
     nulls = lists["null_controls.json"]["probes"]
     assert [(p["patch"], p["resilience"]) for p in nulls] == [("4x5", 0), ("4x5", 1), ("4x10", 0), ("6x10", 0), ("8x10", 0), ("10x10", 0)]
     assert all(p["kind"] == "null_control" and p["L"] == 0 and "k" not in p and p["M"] == 200 and p["shots"] == 4096 for p in nulls)
+
+
+def test_day1_list_is_the_two_source_lists_pub_for_pub(generated, tmp_path):
+    """Deviation 50 campaign day 1 (target 21 Sep 2026): day1_null_grid_n20.json is the null_controls.json probes followed by the grid_n20.json
+    points and probes, entry for entry and seed for seed, with the same placement block, dry_run true and the placeholder permalink; its
+    budget is the runner's packing of the same pubs (one Batch instead of two), and summary.json records it without counting it twice."""
+    gen, lists, pl = generated
+    d1, nc, g20 = lists[DAY1], lists["null_controls.json"], lists["grid_n20.json"]
+    assert d1["points"] == g20["points"] and d1["probes"] == nc["probes"] + g20["probes"]
+    assert [p["id"] for p in d1["probes"]] == ["null_L0_n20_r0", "null_L0_n20_r1", "null_L0_n40_r0", "null_L0_n60_r0", "null_L0_n80_r0", "null_L0_n100_r0",
+                                                "null_L1_n20_r0", "null_L1_n20_r1"]
+    assert d1["placement"] == nc["placement"] and d1["placement"]["rungs"]["n20"] == g20["placement"]["rungs"]["n20"]
+    assert d1["dry_run"] is True and d1["preflight_review"] == gen.PLACEHOLDER and d1["layout_check"] == "enforce"
+    assert d1["name"] == "paper1_day1_null_grid_n20" and "Deviation 50" in d1["notes"] and "null_controls.json" in d1["notes"] and "grid_n20.json" in d1["notes"]
+    assert d1["campaign"]["ledger_line"] == "null_controls+main" and d1["campaign"]["source_lists"] == ["null_controls.json", "grid_n20.json"]
+    b, bn, bg = d1["budget"], nc["budget"], g20["budget"]
+    assert b["pubs"] == bn["pubs"] + bg["pubs"] == 3600 and b["circuits"] == bn["circuits"] + bg["circuits"] and b["executions"] == bn["executions"] + bg["executions"]
+    assert b["trex_executions"] == 0 and b["jobs"] <= bn["jobs"] + bg["jobs"] and b["jobs"] == 14
+    assert b["minutes_at_1us"] == pytest.approx(bn["minutes_at_1us"] + bg["minutes_at_1us"], rel=0.05) and 5.5 <= b["minutes_at_1us"] <= 6.5
+    assert d1["campaign"]["source_lists_min_at_1us"] == pytest.approx(bn["minutes_at_1us"] + bg["minutes_at_1us"], abs=0.001)
+    assert [e["tag"] for e in b["per_job"]] == ["L0", "L0-c2", "L0-c3", "L0-c4", "L1", "L1-c2", "L1-c3", "L1-c4",
+                                                 "L0-probes-s4096", "L0-probes-s4096-c2", "L0-probes-s4096-c3", "L0-probes-s4096-c4", "L1-probes-s4096", "L1-probes-s4096-c2"]
+    # summary.json: the combined list is listed but its minutes are not added to any ledger total (they are the two source lists' minutes)
+    s = json.loads((P1 / "summary.json").read_text())
+    assert s["day1"]["list"] == DAY1 and s["day1"]["jobs"] == 14 and s["day1"]["source_lists_jobs"] == 15
+    assert s["totals"]["null_controls"]["minutes_at_1us"] == pytest.approx(bn["minutes_at_1us"], abs=0.001)
+    assert s["totals"]["main"]["minutes_at_1us"] == pytest.approx(sum(lists[n]["budget"]["minutes_at_1us"] for n in MAIN), abs=0.01)
+    assert DAY1 in s["lists"] and s["lists"][DAY1]["ledger_line"] == "null_controls+main"
+    # --day1 writes only the combined list (no summary.json) and --day1 --check passes against the committed file
+    assert gen.main(["--day1", "--out", str(tmp_path)]) == 0
+    assert sorted(p.name for p in tmp_path.iterdir()) == [DAY1]
+    assert json.loads((tmp_path / DAY1).read_text()) == d1 == json.loads((P1 / DAY1).read_text())
+    assert gen.main(["--day1", "--check"]) == 0 and gen.main(["--check"]) == 0
 
 
 def _small(base: dict, **kw) -> dict:

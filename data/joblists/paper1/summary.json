@@ -231,6 +231,22 @@
   "null_controls": true
  },
  "booked_total_min_at_1us": 80.812,
+ "day1": {
+  "list": "day1_null_grid_n20.json",
+  "source_lists": [
+   "null_controls.json",
+   "grid_n20.json"
+  ],
+  "ledger_lines": [
+   "null_controls",
+   "main"
+  ],
+  "jobs": 14,
+  "minutes_at_1us": 5.958,
+  "source_lists_jobs": 15,
+  "source_lists_min_at_1us": 6.008,
+  "note": "Deviation 50 day-1 packaging of the two source lists (same pubs, same seeds); not counted again in the totals"
+ },
  "lists": {
   "grid_n20.json": {
    "ledger_line": "main",
@@ -363,6 +379,18 @@
    "minutes_at_250us": 42.392,
    "points": 0,
    "probes": 6
+  },
+  "day1_null_grid_n20.json": {
+   "ledger_line": "null_controls+main",
+   "jobs": 14,
+   "pubs": 3600,
+   "circuits": 7200,
+   "executions": 29491200,
+   "trex_executions": 0,
+   "minutes_at_1us": 5.958,
+   "minutes_at_250us": 128.347,
+   "points": 10,
+   "probes": 8
   }
  }
 }

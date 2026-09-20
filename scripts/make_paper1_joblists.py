@@ -2,8 +2,11 @@
 gradvar.hardware.estimate_budget (model v3, Deviation 47) and a summary (data/joblists/paper1/summary.json).
 
     python scripts/make_paper1_joblists.py [--snapshot data/calibrations/ibm_phoenix_2026-09-20T030813Z.csv]
-                                           [--out data/joblists/paper1] [--m-rule baseline|dev17]
+                                           [--out data/joblists/paper1] [--m-rule baseline|dev17] [--check] [--day1]
 
+``--day1`` writes (or, with ``--check``, checks) only data/joblists/paper1/day1_null_grid_n20.json, the Deviation 50 campaign
+day-1 list: the null_controls.json probes followed by the grid_n20.json points and probes, pub for pub the same as the two
+committed source lists, so that day is one Batch, one pre-flight review and one arming step (docs/preflight/03_paper1_day1_2026-09-21.md).
 Every list is written with dry_run: true and the placeholder preflight_review; nothing here touches credentials.
 Pre-registration: Paper 1 (preregistration_q1) v0.12.0, 20 Sep 2026: Section 2 (design), Section 3b (reset dial), Section 5
 (Gate 2), Section 6 (minute budget), Deviations 17, 18, 22, 26, 27, 30, 33-49 (46: placement re-derived per run day under
@@ -124,13 +127,14 @@ def point(rung: dict, L: int, k: int, level: int, M: int, seed: int, shots: int 
     return dict(n=rung["n"], patch=rung["patch"], edge=rung["edge"], L=L, k=k, resilience=level, shots=shots, M=M, seed=seed, **extra)
 
 
-def base_list(name: str, notes: str, placement: dict, rungs: list, ledger_line: str, points: list, probes: list) -> dict:
+def base_list(name: str, notes: str, placement: dict, rungs: list, ledger_line: str, points: list, probes: list,
+              extra_campaign: dict | None = None) -> dict:
     jl = dict(name=name, backend="ibm_phoenix", instance="flex", dry_run=True, rep_delay_probe=True, preflight_review=PLACEHOLDER,
               notes=notes, layout_check="enforce",
               placement=dict(snapshot=placement["snapshot"], properties=placement["properties"], stamp=placement["stamp"],
                              excluded=placement["excluded"], rules=placement["rules"], rungs={r: placement["rungs"][r] for r in rungs}),
               campaign=dict(pre_registration=PREREG, ledger_line=ledger_line, budget_model_version=BUDGET_MODEL_VERSION,
-                            max_experiments=MAX_EXPERIMENTS, max_job_param_mb=MAX_JOB_PARAM_MB),
+                            max_experiments=MAX_EXPERIMENTS, max_job_param_mb=MAX_JOB_PARAM_MB, **(extra_campaign or {})),
               points=points, probes=probes)
     jl["budget"] = estimate_budget(jl)
     b = jl["budget"]
@@ -334,6 +338,41 @@ def null_control_list(pl: dict, rule: str) -> dict:
     return {"null_controls.json": base_list("paper1_null_controls", notes, pl, RUNGS, "null_controls", [], probes)}
 
 
+DAY1_NAME = "day1_null_grid_n20.json"
+DAY1_SOURCES = ("null_controls.json", "grid_n20.json")
+
+
+def day1_list(pl: dict, lists: dict) -> dict:
+    """Deviation 50 (v0.13.0) campaign day 1, target 21 Sep 2026: ONE list holding the null_controls.json probes followed by the
+    grid_n20.json points and probes, identical entry by entry (n, patch, edge, L, k, M, shots, resilience, seed) to the two
+    committed source lists (asserted in tests/test_paper1_joblists.py), so the day is one Batch, one pre-flight review and one
+    arming step, and Gate 2 (a)-(e) is decided from it (Deviation 49 for (e)). The runner submits the gradient-point jobs (L0,
+    L1) before the probe jobs, so inside the Batch the null controls follow the n = 20 grid points; the two source lists stay
+    committed as the fallback packaging (same pubs, same seeds). Its ledger line is the two lines it draws on, so ``summarise``
+    does not count it in the totals."""
+    nc, g20 = lists[DAY1_SOURCES[0]], lists[DAY1_SOURCES[1]]
+    points = [dict(p) for p in g20["points"]]
+    probes = [dict(p) for p in nc["probes"]] + [dict(p) for p in g20["probes"]]
+    notes = (f"{PREREG}; Deviation 50 (v0.13.0, campaign advanced to a target of 21-28 Sep 2026): campaign day 1 = the Deviation 43 L = 0 null_control "
+             f"points of null_controls.json (the five rungs at resilience 0 plus the level-1 check at n = 20; ledger: the 2.6-minute reserve item) followed by "
+             f"the n = 20 grid rung of grid_n20.json (Section 2 main grid, L in {list(DEPTHS)}, k = 1, resilience 0 and 1, M = {M_BASE} draws, {SHOTS} shots, "
+             "plus the Section 2 control (a) L = 1 null controls; ledger: the 190.5-minute main-grid line), combined into one list so the day is one Batch, "
+             "one pre-flight review and one arming step. Every point and probe is identical (n, patch, edge, L, k, M, shots, resilience, seed) to its entry "
+             "in the two committed source lists, which stay on main as the fallback packaging. Gate 2 is decided from this day (Section 5): (a) on the "
+             "n = 20 level-0 L = 8 point against the measured null floor of null_L0_n20_r0 at M = 200; (b) and (d) re-read from the logged rep_delay "
+             "figures and the usage of this day's jobs; (c) stands from the smoke test's ladder; (e) per qubit against the same-day 03:00 UTC snapshot under "
+             "Deviation 49; a Gate 2 failure pauses the campaign before day 2 (the remaining main grid) is armed. Job order inside the Batch: the runner "
+             "submits the gradient-point jobs (L0, then L1) before the probe jobs (L0-probes, then L1-probes), so the null controls run after the n = 20 "
+             "grid points on the same day; the live layout check covers the union of the five rungs' qubits (SPAM only on the n40 to n100 rungs: no CZ) "
+             "and the n = 20 rung's 30 live couplers, so a failing qubit on any rung refuses the whole list (fallback: arm the two source lists instead). "
+             "Pre-flight review: docs/preflight/03_paper1_day1_2026-09-21.md.")
+    extra = dict(day="Deviation 50 campaign day 1 (target 21 Sep 2026)", source_lists=list(DAY1_SOURCES),
+                 ledger_split_min_at_1us={"null_controls": nc["budget"]["minutes_at_1us"], "main": g20["budget"]["minutes_at_1us"]},
+                 source_lists_min_at_1us=round(nc["budget"]["minutes_at_1us"] + g20["budget"]["minutes_at_1us"], 3),
+                 source_lists_jobs=nc["budget"]["jobs"] + g20["budget"]["jobs"])
+    return {DAY1_NAME: base_list("paper1_day1_null_grid_n20", notes, pl, RUNGS, "null_controls+main", points, probes, extra)}
+
+
 def make_lists(snapshot: str, rule: str = "baseline") -> tuple[dict, dict]:
     pl = place_rungs(snapshot)
     lists = {}
@@ -341,6 +380,7 @@ def make_lists(snapshot: str, rule: str = "baseline") -> tuple[dict, dict]:
     lists.update(dial_lists(pl))
     lists.update(reference_list(pl))
     lists.update(null_control_list(pl, rule))
+    lists.update(day1_list(pl, lists))          # Deviation 50 day 1: built from the two lists above, never hand-edited
     return lists, pl
 
 
@@ -355,13 +395,18 @@ def summarise(lists: dict, pl: dict, rule: str) -> dict:
         totals[line] = dict(minutes_at_1us=round(sum(v["minutes_at_1us"] for v in sel), 3), minutes_at_250us=round(sum(v["minutes_at_250us"] for v in sel), 3),
                             jobs=sum(v["jobs"] for v in sel), executions=sum(v["executions"] for v in sel))
     caps = dict(main=LEDGER["main"], dial=LEDGER["dial"] + LEDGER["dial_reserve_item"] + LEDGER["reference_topup"], null_controls=LEDGER["null_controls"])
+    d1 = lists[DAY1_NAME]
+    day1 = dict(list=DAY1_NAME, source_lists=list(DAY1_SOURCES), ledger_lines=["null_controls", "main"], jobs=d1["budget"]["jobs"],
+                minutes_at_1us=d1["budget"]["minutes_at_1us"], source_lists_jobs=d1["campaign"]["source_lists_jobs"],
+                source_lists_min_at_1us=d1["campaign"]["source_lists_min_at_1us"],
+                note="Deviation 50 day-1 packaging of the two source lists (same pubs, same seeds); not counted again in the totals")
     return dict(pre_registration=PREREG, budget_model_version=BUDGET_MODEL_VERSION, max_experiments=MAX_EXPERIMENTS, max_job_param_mb=MAX_JOB_PARAM_MB,
                 m_rule=rule, snapshot=pl["snapshot"], properties=pl["properties"], stamp=pl["stamp"],
                 rungs={r: dict(n=v["n"], patch=v["patch"], origin=v["origin"], edge=v["edge"], edge_rule=v["edge_rule"], broken_edges=v["broken_edges"], holes=v["holes"])
                        for r, v in pl["rungs"].items()},
                 ledger_caps_min_at_1us=caps, totals=totals,
                 within_caps={k: totals[k]["minutes_at_1us"] <= caps[k] for k in caps},
-                booked_total_min_at_1us=round(sum(totals[k]["minutes_at_1us"] for k in caps), 3), lists=per)
+                booked_total_min_at_1us=round(sum(totals[k]["minutes_at_1us"] for k in caps), 3), day1=day1, lists=per)
 
 
 def main(argv=None) -> int:
@@ -371,10 +416,14 @@ def main(argv=None) -> int:
     ap.add_argument("--m-rule", choices=("baseline", "dev17"), default="baseline",
                     help="baseline: M = 200 (booked); dev17: 400 at L = 2, 700 at L >= 4 (Section 6 surplus rule, for the budget comparison)")
     ap.add_argument("--check", action="store_true", help="compare with the committed lists instead of writing (exit 1 on a difference)")
+    ap.add_argument("--day1", action="store_true", help=f"only the Deviation 50 campaign day-1 list {DAY1_NAME} (null_controls + grid_n20, one list); "
+                                                          "no summary.json")
     a = ap.parse_args(argv)
     lists, pl = make_lists(a.snapshot, a.m_rule)
     summary = summarise(lists, pl, a.m_rule)
     out = Path(a.out)
+    if a.day1:
+        lists = {DAY1_NAME: lists[DAY1_NAME]}
     if a.check:
         bad = [n for n, jl in lists.items() if not (out / n).exists() or json.loads((out / n).read_text()) != jl]
         print("differs: " + ", ".join(bad) if bad else "all committed lists match the generator")
@@ -386,8 +435,12 @@ def main(argv=None) -> int:
         b = jl["budget"]
         print(f"{name}: {len(jl['points'])} points, {len(jl['probes'])} probes, {b['jobs']} jobs, {b['pubs']} pubs, {b['circuits']} parameter sets, "
               f"{b['executions']} exec, {b['minutes_at_1us']} min at 1 us / {b['minutes_at_250us']} min at 250 us")
+    if a.day1:
+        print(json.dumps(summary["day1"], indent=1))
+        return 0
     (out / "summary.json").write_text(json.dumps(summary, indent=1) + "\n")
-    print(json.dumps(dict(totals=summary["totals"], caps=summary["ledger_caps_min_at_1us"], within_caps=summary["within_caps"], rungs=summary["rungs"]), indent=1))
+    print(json.dumps(dict(totals=summary["totals"], caps=summary["ledger_caps_min_at_1us"], within_caps=summary["within_caps"], rungs=summary["rungs"],
+                          day1=summary["day1"]), indent=1))
     return 0
 
 
