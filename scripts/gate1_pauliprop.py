@@ -5,8 +5,11 @@ python scripts/gate1_pauliprop.py --stage dev15 --depths 12
 python scripts/gate1_pauliprop.py --stage gate1b                        # (b)
 python scripts/gate1_pauliprop.py --stage dial                          # (c)
 python scripts/gate1_pauliprop.py --stage summary                       # figure + verdicts from the CSV
+python scripts/gate1_pauliprop.py --stage gate1b --zz on                # (b) with the ZZ idle phase of the dial layer
+python scripts/gate1_pauliprop.py --stage dial --zz on --reuse-gate1b   # (c) with ZZ; 6x10 delay / reset-0.25 rows copied from (b)
+python scripts/gate1_pauliprop.py --stage dev15 --depths 4              # the deferred large-cone L = 4 groups (Gate 1 grid)
 
-Every stage appends to data/predictions/pauliprop_predictions.csv (rows keyed by (stage, model, n, L, dial, p));
+Every stage appends to data/predictions/pauliprop_predictions.csv (rows keyed by (stage, model, n, L, dial, p, zz_idle));
 points are run in a process pool with a wall-clock limit per propagation; a propagation that hits the limit is
 recorded as not converged with whatever estimates exist.
 """
@@ -62,6 +65,15 @@ def resolve_patch(spec: str, csv: str, placements: str | None):
     return predict.parse_patch(spec, csv), csv, "old placement (place_patch before the Deviation 26 CZ cut)", None
 
 
+def properties_path(placements: str | None) -> str:
+    """Raw backend properties (per-edge ZZ) named in the placements JSON, else the newest in data/calibrations."""
+    if placements and placements.lower() != "none":
+        pl = load_placements(placements)
+        if pl.get("properties"):
+            return str(ROOT / "data" / "calibrations" / pl["properties"])
+    return noise.latest_properties_file()
+
+
 def run_point(job: dict) -> dict:
     patch, csv, placement, edge = resolve_patch(job["patch"], job["csv"], job.get("placements"))
     from gradvar.circuits import hea_observable
@@ -69,18 +81,26 @@ def run_point(job: dict) -> dict:
     if edge is not None and tuple(e) != tuple(edge):
         raise RuntimeError(f"interior_edge {e} differs from the placed observable edge {edge} for {job['patch']}")
     dial = None
+    zz = None
     if job.get("dial"):
         dial = pp.dial_bloch_by_qubit(csv, patch.qubits, job["dial"], job.get("p", 0.0))
+        if job.get("zz"):
+            from gradvar.circuits import light_cone
+            cone = light_cone(patch, job["L"], e)
+            zz = pp.zz_phases(properties_path(job.get("placements")), pp.cone_couplers(patch, cone), fallback_hz=job.get("zz_fallback_hz"))
     t0 = time.time()
     exempt = tuple(e) if job.get("exempt_obs") else ()
     out = pp.predict_point(patch, job["L"], job["L"], job["model"], csv, deltas=tuple(job["deltas"]), n_samples=job["n_samples"],
-                           dial=dial, seed=job.get("seed", 0), time_limit_s=job["time_limit_s"], n_cap=job["n_cap"], exempt_last_layer=exempt)
+                           dial=dial, seed=job.get("seed", 0), time_limit_s=job["time_limit_s"], n_cap=job["n_cap"], exempt_last_layer=exempt, zz=zz)
     out.update(stage=job["stage"], patch=job["patch"], dial=job.get("dial", ""), p=job.get("p", float("nan")),
                ladder_n=patch.n, ladder_nominal_n=LADDER_NOMINAL.get(job["patch"], patch.n), placement=placement,
                calibration=Path(csv).name, n_broken_edges=len(patch.broken_edges), runtime_s=time.time() - t0)
     out["exempt_obs_last_layer"] = bool(job.get("exempt_obs"))
+    if zz:
+        phis = np.abs(list(zz.values()))
+        out.update(zz_properties=Path(properties_path(job.get("placements"))).name, zz_phi_median=float(np.median(phis)), zz_phi_max=float(phis.max()))
     if job.get("pattern"):
-        prog = pp.make_program(patch, job["L"], job["L"], job["model"], csv, dial=dial, exempt_last_layer=exempt)
+        prog = pp.make_program(patch, job["L"], job["L"], job["model"], csv, dial=dial, exempt_last_layer=exempt, zz=zz)
         pv = pp.pattern_variance(prog, job["n_samples"], seed=job.get("seed", 0) + 7)
         out.update(var_mask=pv["var_mask"], var_mask_se=pv["se"], pattern_floor=pv["var_mask"] / (2 * K_MASKS), K_masks=K_MASKS,
                    pattern_runtime_s=pv["runtime_s"])
@@ -118,17 +138,25 @@ def status_of(r) -> str:
 
 def pending_rows(jobs):
     return [dict(stage=j["stage"], model=j["model"], patch=j["patch"], L=j["L"], dial=j.get("dial", ""), p=j.get("p", np.nan),
-                 ladder_nominal_n=LADDER_NOMINAL.get(j["patch"]), status="pending") for j in jobs]
+                 ladder_nominal_n=LADDER_NOMINAL.get(j["patch"]), status="pending", zz_idle=("on" if j.get("zz") else "off")) for j in jobs]
+
+
+def with_zz_column(df: pd.DataFrame) -> pd.DataFrame:
+    """`zz_idle` = 'on' for dial rows propagated with the ZZ idle phase, 'off' otherwise (rows without a dial layer have no idle)."""
+    if "zz_idle" not in df:
+        df["zz_idle"] = "off"
+    df["zz_idle"] = df["zz_idle"].fillna("off")
+    return df
 
 
 def append_rows(rows):
     rows = [dict(r, status=r.get("status") or status_of(r)) for r in rows]
-    df = pd.DataFrame(rows)
+    df = with_zz_column(pd.DataFrame(rows))
     OUT_CSV.parent.mkdir(parents=True, exist_ok=True)
     if OUT_CSV.exists():
-        old = pd.read_csv(OUT_CSV)
+        old = with_zz_column(pd.read_csv(OUT_CSV))
         df = pd.concat([old, df], ignore_index=True)
-        key = ["stage", "model", "patch", "L", "dial", "p"]
+        key = ["stage", "model", "patch", "L", "dial", "p", "zz_idle"]
         df["p"] = df["p"].fillna(-1.0)
         df["dial"] = df["dial"].fillna("")
         df = df.drop_duplicates(key, keep="last")
@@ -145,18 +173,35 @@ def jobs_dev15(args):
 
 
 def jobs_gate1b(args):
+    zz = args.zz == "on"
     for spec in ("4x10", "6x10", "10x10"):
         for L in args.depths:
-            yield dict(stage="gate1b", patch=spec, L=L, model="unital", dial="delay", p=0.0)
-            yield dict(stage="gate1b", patch=spec, L=L, model="unital", dial="reset", p=0.25, pattern=True)
+            yield dict(stage="gate1b", patch=spec, L=L, model="unital", dial="delay", p=0.0, zz=zz)
+            yield dict(stage="gate1b", patch=spec, L=L, model="unital", dial="reset", p=0.25, pattern=True, zz=zz)
 
 
 def jobs_dial(args):
+    zz = args.zz == "on"
     for L in args.depths:
         for p in (0.25, 0.5):
-            yield dict(stage="dial", patch="6x10", L=L, model="unital", dial="reset", p=p, pattern=True)
-        yield dict(stage="dial", patch="6x10", L=L, model="unital", dial="dephase", p=0.5)
-        yield dict(stage="dial", patch="6x10", L=L, model="unital", dial="delay", p=0.0)
+            if p == 0.25 and args.reuse_gate1b:
+                continue     # identical computation to the gate1b 6x10 row: copied by `copy_gate1b_to_dial`
+            yield dict(stage="dial", patch="6x10", L=L, model="unital", dial="reset", p=p, pattern=True, zz=zz)
+        yield dict(stage="dial", patch="6x10", L=L, model="unital", dial="dephase", p=0.5, zz=zz)
+        if not args.reuse_gate1b:
+            yield dict(stage="dial", patch="6x10", L=L, model="unital", dial="delay", p=0.0, zz=zz)
+
+
+def copy_gate1b_to_dial(args):
+    """The 6x10 delay p = 0 and reset p = 0.25 rows of stage 'gate1b' are the same computation (same seed) as the dial-grid
+    rows: copy them into stage 'dial' instead of recomputing."""
+    df = with_zz_column(pd.read_csv(OUT_CSV))
+    zz = "on" if args.zz == "on" else "off"
+    src = df[(df.stage == "gate1b") & (df.patch == "6x10") & (df.zz_idle == zz) & df.L.isin(args.depths) & (df.status != "pending")]
+    rows = [dict(r, stage="dial") for r in src.to_dict("records")]
+    if rows:
+        append_rows(rows)
+    return len(rows)
 
 
 KURTOSIS_DEV17 = 8.4     # gradient kurtosis assumed for the M-draw sampling interval (Deviation 17 / 28)
@@ -201,14 +246,17 @@ def dev28_readings(fall: float, var39: float, sf: float, kurtoses: dict, Ms=(200
     return out
 
 
-def verdicts(df: pd.DataFrame, K: int = K_MASKS, kurtosis: float = KURTOSIS_DEV17, M_p0: int = M_P0) -> dict:
+def verdicts(df: pd.DataFrame, K: int = K_MASKS, kurtosis: float = KURTOSIS_DEV17, M_p0: int = M_P0, zz_idle: str = "off") -> dict:
     """Gate 1b per ladder point (pattern floor Var_mask / (2 K) for ``K`` pooled masks per (draw, shift)) and the
     Deviation 15 truncation rule, from the CSV. Clause (b) of Gate 1b is reported in three readings: the literal one
     (fall of the p = 0 series against the combined shot + pattern floor), against the shot floor only, and the
     Deviation 28 rule (each series against its own floor: p = 0 has no mask lottery, so fall > 3 x shot floor AND
     fall > 2 x the predicted M = ``M_p0`` draw 2 sigma at n = 39, with the gradient kurtosis ``kurtosis``)."""
     sf = shot_floor(4096)
-    out = {"shot_floor_4096": sf, "K_masks": int(K), "kurtosis_assumed": kurtosis, "M_p0": int(M_p0), "gate1b": [], "dev15": []}
+    df = with_zz_column(df.copy())
+    # the dial rows (stages gate1b / dial) enter with the requested ZZ flag; the Deviation 15 rows carry no dial layer
+    df = df[(df.zz_idle == zz_idle) | ~df.stage.isin(["gate1b", "dial"])]
+    out = {"shot_floor_4096": sf, "K_masks": int(K), "kurtosis_assumed": kurtosis, "M_p0": int(M_p0), "zz_idle": zz_idle, "gate1b": [], "dev15": []}
     for stage_name in ("gate1b",):
       g = df[(df.stage == stage_name) & (df.get("status", "") != "pending") & df.n.notna()]
       out.setdefault(stage_name, [])
@@ -350,6 +398,34 @@ def verdicts(df: pd.DataFrame, K: int = K_MASKS, kurtosis: float = KURTOSIS_DEV1
     return out
 
 
+DIAL_KEYS = ("gate1b", "deviation_29", "deviation_30", "gate1b_booked_reading", "gate1b_K64")
+
+
+def zz_shift_table(df: pd.DataFrame) -> list:
+    """Every dial-row number with ZZ on against its ZZ-off counterpart: relative shift (on / off - 1) and its 2 sigma."""
+    df = with_zz_column(df)
+    rows = []
+    d = df[df.stage.isin(["gate1b", "dial"]) & (df.status != "pending")]
+    for key, g in d.groupby(["stage", "patch", "L", "dial", "p"], dropna=False):
+        on, off = g[g.zz_idle == "on"], g[g.zz_idle == "off"]
+        if on.empty or off.empty:
+            continue
+        on, off = on.iloc[0], off.iloc[0]
+        rec = dict(stage=key[0], patch=key[1], n=int(on.n), L=int(key[2]), dial=key[3], p=(None if pd.isna(key[4]) else float(key[4])))
+        for which, lab in (("k1", "var_k1"), ("kL", "var_kL"), ("cost", "var_cost")):
+            a, b = best(on, which), best(off, which)
+            ea, eb = err(on, which), err(off, which)
+            rec[lab + "_off"], rec[lab + "_on"] = b, a
+            rec[lab + "_shift"] = a / b - 1.0 if b else float("nan")
+            rec[lab + "_shift_2sigma"] = float(np.hypot(ea / b, a * eb / b ** 2)) if b else float("nan")
+        rec["mean_cost_off"], rec["mean_cost_on"] = float(off.mean_cost), float(on.mean_cost)
+        if "var_mask" in g and np.isfinite(_f(on.get("var_mask"))) and np.isfinite(_f(off.get("var_mask"))):
+            rec["var_mask_off"], rec["var_mask_on"] = float(off.var_mask), float(on.var_mask)
+            rec["var_mask_shift"] = float(on.var_mask / off.var_mask - 1.0)
+        rows.append(rec)
+    return rows
+
+
 def best(r, which="k"):
     """Prediction used in verdicts: the sampled estimate when present (unbiased), else the fine truncation."""
     mc = r.get(f"var_{which}_mc" if which != "k" else "var_mc", np.nan)
@@ -400,41 +476,45 @@ def figure(df: pd.DataFrame):
     ax.set_ylabel("Var[dC/dtheta]")
     ax.set_title("Deviation 15: PP predictions")
     ax.legend(fontsize=6, ncol=2)
+    df = with_zz_column(df)
     ax = axes[1]
-    g = df[df.stage == "gate1b"]
+    g = df[(df.stage == "gate1b") & (df.status != "pending")]
     for L, ls in ((8, "-"), (12, "--")):
         for dial, c, lab in (("delay", "C0", "p = 0 (delay-matched)"), ("reset", "C3", "p = 0.25 reset dial")):
-            h = g[(g.L == L) & (g.dial == dial)].sort_values("n")
-            if h.empty:
-                continue
-            ax.errorbar(h.ladder_n, [best(r, "kL") for _, r in h.iterrows()], yerr=[err(r, "kL") for _, r in h.iterrows()],
-                        color=c, ls=ls, marker="s", capsize=2, label=f"{lab}, L={L}")
-        h = g[(g.L == L) & (g.dial == "reset")].sort_values("n")
+            for zz, mk, mfc, suffix in (("off", "s", None, ""), ("on", "D", "none", ", ZZ idle on")):
+                h = g[(g.L == L) & (g.dial == dial) & (g.zz_idle == zz)].sort_values("n")
+                if h.empty:
+                    continue
+                ax.errorbar(h.ladder_n, [best(r, "kL") for _, r in h.iterrows()], yerr=[err(r, "kL") for _, r in h.iterrows()],
+                            color=c, ls=ls, marker=mk, mfc=mfc, capsize=2, lw=(1.4 if zz == "off" else 0.8), label=f"{lab}, L={L}{suffix}")
+        g_off = g[g.zz_idle == "off"]
+        h = g_off[(g_off.L == L) & (g_off.dial == "reset")].sort_values("n")
         if not h.empty and "var_mask" in h:
             for K, mk in ((64, "x"), (256, "+")):
                 ax.plot(h.ladder_n, h.var_mask / (2 * K) + sf, color="grey", ls=ls, marker=mk, label=f"shot + pattern floor K={K}, L={L}")
     ax.axhline(sf, color="grey", ls=":")
     ax.set_yscale("log")
     ax.set_xlabel("ladder n")
-    ax.set_title("Gate 1b: k = L, p = 0.25 vs delay-matched p = 0")
-    ax.legend(fontsize=6)
+    ax.set_title("Gate 1b: k = L, p = 0.25 vs delay-matched p = 0 (hollow = ZZ idle on)")
+    ax.legend(fontsize=5)
     ax = axes[2]
-    g = df[df.stage == "dial"]
+    g = df[(df.stage == "dial") & (df.status != "pending")]
     for dial, p, c in (("reset", 0.25, "C1"), ("reset", 0.5, "C3"), ("dephase", 0.5, "C2"), ("delay", 0.0, "C0")):
-        h = g[(g.dial == dial) & ((g.p == p) | (g.p.isna() & (p == 0)))].sort_values("L")
-        if h.empty:
-            continue
-        for which, mk, ls in (("k1", "o", "--"), ("kL", "s", "-")):
-            ax.errorbar(h.L, [best(r, which) for _, r in h.iterrows()], yerr=[err(r, which) for _, r in h.iterrows()],
-                        color=c, marker=mk, ls=ls, capsize=2, label=f"{dial} p={p} k={'1' if which == 'k1' else 'L'}")
-        ax.plot(h.L, [best(r, "cost") for _, r in h.iterrows()], color=c, marker="^", ls=":", label=f"{dial} p={p} Var[C]")
+        for zz, mfc, suffix, lw in (("off", None, "", 1.4), ("on", "none", " ZZ", 0.8)):
+            h = g[(g.dial == dial) & ((g.p == p) | (g.p.isna() & (p == 0))) & (g.zz_idle == zz)].sort_values("L")
+            if h.empty:
+                continue
+            for which, mk, ls in (("k1", "o", "--"), ("kL", "s", "-")):
+                ax.errorbar(h.L, [best(r, which) for _, r in h.iterrows()], yerr=[err(r, which) for _, r in h.iterrows()],
+                            color=c, marker=mk, mfc=mfc, ls=ls, lw=lw, capsize=2, label=f"{dial} p={p} k={'1' if which == 'k1' else 'L'}{suffix}")
+            ax.plot(h.L, [best(r, "cost") for _, r in h.iterrows()], color=c, marker="^", mfc=mfc, ls=":", lw=lw, label=f"{dial} p={p} Var[C]{suffix}")
     ax.axhline(sf, color="grey", ls=":")
     for p, c in ((0.25, "C1"), (0.5, "C3")):
         ax.axhline(p ** 4 / 9, color=c, ls="-.", lw=0.8, label=f"p^4/9 (Cor. 6, |P|=2), p={p}")
     ax.set_yscale("log")
     ax.set_xlabel("L")
-    ax.set_title(f"Dial grid on the 6x10 patch (n = {int(g.n.dropna().iloc[0]) if not g.empty and g.n.notna().any() else 60})")
-    ax.legend(fontsize=6, ncol=2)
+    ax.set_title(f"Dial grid on the 6x10 patch (n = {int(g.n.dropna().iloc[0]) if not g.empty and g.n.notna().any() else 60}); hollow = ZZ idle on")
+    ax.legend(fontsize=5, ncol=2)
     fig.tight_layout()
     OUT_FIG.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(OUT_FIG, dpi=140)
@@ -455,6 +535,9 @@ def main():
     ap.add_argument("--out", default=None, help="override the output CSV path")
     ap.add_argument("--K", type=int, default=K_MASKS, help="pooled masks per (draw, shift) for the pattern floor (Deviation 27: 256)")
     ap.add_argument("--kurtosis", type=float, default=KURTOSIS_DEV17, help="gradient kurtosis for the M-draw 2 sigma (Deviation 28)")
+    ap.add_argument("--zz", choices=["on", "off"], default="off", help="ZZ idle phase in the dial layer (stages gate1b / dial)")
+    ap.add_argument("--zz-fallback-hz", type=float, default=None, help="zeta for couplers without a properties entry (default: median |zeta|)")
+    ap.add_argument("--reuse-gate1b", action="store_true", help="dial stage: copy the 6x10 delay / reset-0.25 rows from stage gate1b")
     args = ap.parse_args()
     global OUT_CSV
     if args.out:
@@ -466,18 +549,35 @@ def main():
             df["pattern_floor"] = df["var_mask"] / (2 * args.K)
             df["K_masks"] = np.where(df["var_mask"].notna(), args.K, np.nan)
         df.to_csv(OUT_CSV, index=False)
-        v = verdicts(df, K=args.K, kurtosis=args.kurtosis)
-        v["gate1b_K64"] = verdicts(df, K=64)["gate1b"]          # the Section 3b v0.5 pooling, for comparison
+        df = with_zz_column(df)
+        v_off = verdicts(df, K=args.K, kurtosis=args.kurtosis, zz_idle="off")
+        v_off["gate1b_K64"] = verdicts(df, K=64, zz_idle="off")["gate1b"]          # the Section 3b v0.5 pooling, for comparison
+        has_on = bool(((df.zz_idle == "on") & df.stage.isin(["gate1b", "dial"]) & (df.status != "pending")).any())
+        if has_on:
+            # ZZ-on readings are the current ones (pre-Gate-2 action of Deviation 30); the ZZ-off readings stay as record
+            v = verdicts(df, K=args.K, kurtosis=args.kurtosis, zz_idle="on")
+            v["gate1b_K64"] = verdicts(df, K=64, zz_idle="on")["gate1b"]
+            v["zz_off_record"] = {k: v_off[k] for k in DIAL_KEYS if k in v_off}
+            v["zz_off_record"]["note"] = "Gate 1b / dial readings without the ZZ idle phase (pure T2 dephasing on the idle branch), kept for the record"
+            v["zz_shift"] = zz_shift_table(df)
+            v["zz_model"] = dict(rule="rzz(phi) on every coupler of the cone during the 400 ns dial idle, phi = 2 pi zeta tau with the signed per-edge zeta of the raw "
+                                      "backend properties (fallback: median |zeta|); applied only when both ends idle (non-reset branch); see docs/PAULIPROP.md",
+                                 properties=str(df[df.zz_idle == "on"].zz_properties.dropna().iloc[0]) if "zz_properties" in df and df[df.zz_idle == "on"].zz_properties.notna().any() else None,
+                                 phi_median_rad=float(df[df.zz_idle == "on"].zz_phi_median.dropna().median()) if "zz_phi_median" in df else None)
+        else:
+            v = v_off
         OUT_JSON.write_text(json.dumps(v, indent=2, default=float))
         figure(df)
-        print(json.dumps(v, indent=1, default=float))
+        print(json.dumps({k: val for k, val in v.items() if k not in ("gate1b_K64", "zz_off_record")}, indent=1, default=float))
         return
     gen = {"dev15": jobs_dev15, "gate1b": jobs_gate1b, "dial": jobs_dial}[args.stage]
     jobs = []
     for j in gen(args):
         j.update(csv=args.csv, placements=args.placements, deltas=args.deltas, n_samples=args.n_samples, n_cap=args.n_cap,
-                 time_limit_s=args.time_limit)
+                 time_limit_s=args.time_limit, zz_fallback_hz=args.zz_fallback_hz)
         jobs.append(j)
+    if args.stage == "dial" and args.reuse_gate1b:
+        print(f"copied {copy_gate1b_to_dial(args)} gate1b 6x10 row(s) into stage dial")
     t0 = time.time()
     append_rows(pending_rows(jobs))
     rows = []

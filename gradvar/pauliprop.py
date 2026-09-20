@@ -56,6 +56,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
@@ -140,6 +141,7 @@ class ChannelSet:
     cz_factor: Dict[Tuple[int, int], float]    # depolarizing factor after the relaxation
     layer: Dict[int, Bloch]                    # dial channel after every layer (reset / delay / dephasing)
     readout: Dict[int, Tuple[float, float]]    # (a, b) of the measured Z folding per local qubit
+    zz: Dict[Tuple[int, int], float] = field(default_factory=dict)   # ZZ(phi) per local coupler during the dial idle (rad)
 
 
 def _ptm(err) -> np.ndarray:
@@ -147,11 +149,13 @@ def _ptm(err) -> np.ndarray:
 
 
 def channels_from_models(model: str, csv_path: str, qubits: Sequence[int], edges: Sequence[Tuple[int, int]],
-                         dial: Optional[Bloch | Dict[int, Bloch]] = None, readout: bool = True) -> ChannelSet:
+                         dial: Optional[Bloch | Dict[int, Bloch]] = None, readout: bool = True,
+                         zz: Optional[Dict[Tuple[int, int], float]] = None) -> ChannelSet:
     """Channels of 'noiseless' | 'unital' | 'nonunital' for the local register ``qubits`` (physical indices),
     read from the Pauli-transfer matrices of the Aer NoiseModel of `gradvar.noise` (so composition order and
     qubit assignment are exactly the simulated ones). ``dial`` adds a per-layer channel (one Bloch for all
-    qubits or a dict by local qubit)."""
+    qubits or a dict by local qubit). ``zz`` = {(physical a, physical b): phi} adds the ZZ(phi) rotation of the
+    dial layer's idle on every listed coupler with both ends in ``qubits`` (see ``zz_phases``)."""
     m = len(qubits)
     local = {int(q): i for i, q in enumerate(qubits)}
     trivial = Bloch()
@@ -182,7 +186,11 @@ def channels_from_models(model: str, csv_path: str, qubits: Sequence[int], edges
     layer = {}
     if dial is not None:
         layer = dict(dial) if isinstance(dial, dict) else {i: dial for i in range(m)}
-    return ChannelSet(sx, idle, cz_relax, cz_factor, layer, ro)
+    zz_local = {}
+    for (a, b), phi in (zz or {}).items():
+        if int(a) in local and int(b) in local and phi != 0.0:
+            zz_local[(local[int(a)], local[int(b)])] = float(phi)
+    return ChannelSet(sx, idle, cz_relax, cz_factor, layer, ro, zz_local)
 
 
 def _decompose_cz_error(R: np.ndarray) -> Tuple[Tuple[Bloch, Bloch], float]:
@@ -219,7 +227,7 @@ class Program:
     the last block; ('sx', q) Clifford; ('cz', a, b); ('n1', q, Bloch); ('dep2', a, b, f); ('dial', q, Bloch)
     (a per-layer channel; sampled per path in the fixed-mask variant)."""
     m: int
-    ops: List[tuple]
+    ops: List[tuple]    # ('dial_zz', (Bloch | None per local qubit), ((a, b, phi), ...)) is the whole dial layer with ZZ
     prefix_end: int     # ops[:prefix_end] are theta independent (coefficient level)
     tail_start: int     # ops[tail_start:] are single-qubit ops of the last block (integrated exactly)
     i: int              # local index of the differentiated / first observable qubit
@@ -242,7 +250,11 @@ def build_program(patch: Patch, L: int, k: int, channels: ChannelSet, cone: Sequ
     ops: List[tuple] = []
     exempt = {local[int(q)] for q in exempt_last_layer if int(q) in local}
     for layer in range(L, 0, -1):
-        if channels.layer:
+        if channels.layer and channels.zz:
+            # one op for the whole dial layer: per-qubit N_p (None = exempt) plus ZZ(phi) on every coupler of the cone
+            blochs = tuple(None if (layer == L and q in exempt) else channels.layer[q] for q in range(m))
+            ops.append(("dial_zz", blochs, tuple((a, b, phi) for (a, b), phi in sorted(channels.zz.items()))))
+        elif channels.layer:
             for q in range(m):
                 if layer == L and q in exempt:
                     continue          # variant: listed qubits are not in the reset lottery of the last layer
@@ -284,7 +296,7 @@ def build_program(patch: Patch, L: int, k: int, channels: ChannelSet, cone: Sequ
             ops.append(("sx", q))
     ops = _merge_adjacent_bloch(ops)
     first_rot = next(t for t, op in enumerate(ops) if op[0] in ("rot", "mark", "proj"))
-    last_multi = max([t for t, op in enumerate(ops) if op[0] in ("cz", "dep2", "dial")], default=-1)
+    last_multi = max([t for t, op in enumerate(ops) if op[0] in ("cz", "dep2", "dial", "dial_zz")], default=-1)
     # the tail must contain no 'mark'; if L == 1 there is no cz after the prefix and everything is tail
     tail_start = last_multi + 1
     # the prefix ends at the first rotation-type op and never overlaps the tail (L = 1: no op between them)
@@ -306,7 +318,10 @@ def _merge_adjacent_bloch(ops: List[tuple]) -> List[tuple]:
     last = {}   # qubit -> index in out of the last op touching it
     for op in ops:
         kind = op[0]
-        qs = (op[1], op[2]) if kind in ("cz", "dep2") else (op[1],)
+        if kind == "dial_zz":
+            qs = tuple(range(len(op[1])))
+        else:
+            qs = (op[1], op[2]) if kind in ("cz", "dep2") else (op[1],)
         if kind == "n1":
             q = op[1]
             t = last.get(q)
@@ -320,10 +335,12 @@ def _merge_adjacent_bloch(ops: List[tuple]) -> List[tuple]:
 
 
 def make_program(patch, L: int, k: int, model: str, csv_path: str, dial: Optional[Bloch | Dict[int, Bloch]] = None,
-                 readout: bool = True, exempt_last_layer: Sequence[int] = ()) -> Program:
+                 readout: bool = True, exempt_last_layer: Sequence[int] = (),
+                 zz: Optional[Dict[Tuple[int, int], float]] = None) -> Program:
     """Convenience: light cone, channels and program for one (patch, L, k, model[, dial]). ``exempt_last_layer``
     (physical qubits, e.g. the observable edge) removes the dial from those qubits in the last layer only: a variant
-    of the pre-registered channel in which the observable qubits are not in the final reset lottery."""
+    of the pre-registered channel in which the observable qubits are not in the final reset lottery. ``zz`` (physical
+    coupler -> phi, from ``zz_phases``) switches on the ZZ idle phase of the dial layer (requires ``dial``)."""
     patch = _as_patch(patch) if not isinstance(patch, Patch) else patch
     if not 1 <= k <= L:
         raise ValueError(f"k must be in 1..L, got {k}")
@@ -331,7 +348,9 @@ def make_program(patch, L: int, k: int, model: str, csv_path: str, dial: Optiona
     cone = light_cone(patch, L, edge)
     if isinstance(dial, dict):   # keyed by physical qubit -> local
         dial = {cone.index(q): b for q, b in dial.items() if q in cone}
-    ch = channels_from_models(model, csv_path, cone, patch.edges(), dial=dial, readout=readout)
+    if zz and dial is None:
+        raise ValueError("the ZZ idle phase belongs to the dial layer: pass a dial channel")
+    ch = channels_from_models(model, csv_path, cone, patch.edges(), dial=dial, readout=readout, zz=zz)
     return build_program(patch, L, k, ch, cone, edge, exempt_last_layer=exempt_last_layer)
 
 
@@ -357,6 +376,40 @@ def dial_bloch_by_qubit(csv_path: str, qubits: Sequence[int], kind: str, p: floa
     return out
 
 
+def zz_phases(properties: str | Path | dict, edges: Sequence[Tuple[int, int]], idle_ns: float = T_RESET_NS,
+              fallback_hz: float | None = None) -> Dict[Tuple[int, int], float]:
+    """ZZ(phi) angle per coupler for the dial layer's idle: phi = 2 pi zeta tau with the signed per-edge zeta (Hz) from
+    the raw backend properties (``noise.zz_couplings``; entries ``zz_<a><b>`` in GHz) and tau = ``idle_ns``. Couplers
+    without an entry take ``fallback_hz`` (default: the median |zeta| over every listed coupler, 26.7 kHz on the
+    19 Sep 2026 19:25Z ibm_phoenix properties). Keys are (a, b) as given in ``edges``; ``phi`` is the qiskit ``rzz``
+    angle, X_a -> cos(phi) X_a - sin(phi) Y_a Z_b (Section 3b: about 0.07 rad per idle neighbour pair)."""
+    props = properties if isinstance(properties, dict) else noise_mod.load_properties(properties)
+    zz = noise_mod.zz_couplings(props)
+    if fallback_hz is None:
+        fallback_hz = float(np.median(np.abs(np.array(list(zz.values())) * 1e9))) if zz else 27e3
+    out = {}
+    for a, b in edges:
+        a, b = int(a), int(b)
+        z = zz.get((a, b), zz.get((b, a)))
+        hz = float(z) * 1e9 if z is not None else float(fallback_hz)
+        out[(a, b)] = float(2 * np.pi * hz * idle_ns * 1e-9)
+    return out
+
+
+def cone_couplers(patch, cone: Sequence[int]) -> List[Tuple[int, int]]:
+    """Every physical coupler with both ends in ``cone``: the patch edges plus the Deviation 26 broken couplers (no CZ is
+    applied on them, but the ZZ coupling is always on)."""
+    patch = _as_patch(patch) if not isinstance(patch, Patch) else patch
+    qs = set(int(q) for q in cone)
+    seen, out = set(), []
+    for a, b in list(patch.edges()) + [tuple(e) for e in patch.broken_edges]:
+        key = (min(a, b), max(a, b))
+        if a in qs and b in qs and key not in seen:
+            seen.add(key)
+            out.append((int(a), int(b)))
+    return out
+
+
 # --------------------------------------------------------------------------- prefix (coefficient level)
 
 def _prefix_coefficients(prog: Program, obs: Dict[Tuple[int, int], float] | None = None,
@@ -369,7 +422,16 @@ def _prefix_coefficients(prog: Program, obs: Dict[Tuple[int, int], float] | None
         zi, zj = 1 << prog.i, 1 << prog.j
         obs = {(0, zi | zj): ai * aj, (0, zi): ai * bj, (0, zj): bi * aj, (0, 0): bi * bj}
     state = {s: c for s, c in obs.items() if c != 0.0}
+    ops = []
     for op in prog.ops[:prog.prefix_end]:
+        if op[0] == "dial_zz":
+            # Z-type strings only in the prefix: ZZ(phi) acts trivially, the per-qubit N_p as 'dial' ops
+            if any(x for (x, _z) in state):
+                raise NotImplementedError("prefix dial_zz on a string with X/Y")
+            ops.extend(("dial", q, b) for q, b in enumerate(op[1]) if b is not None)
+        else:
+            ops.append(op)
+    for op in ops:
         kind = op[0]
         new: Dict[Tuple[int, int], float] = {}
         if kind in ("n1", "dial"):
@@ -631,6 +693,12 @@ def propagate_truncated(prog: Program, delta: float = 1e-7, max_weight: int | No
             wa, ba, wb, bb = a >> 6, U64(a & 63), bq >> 6, U64(bq & 63)
             nonid = (((X[:, wa] | Z[:, wa]) >> ba) & ONE) | (((X[:, wb] | Z[:, wb]) >> bb) & ONE)
             Wt[nonid.astype(bool)] *= f * f
+        elif kind == "dial_zz":
+            X, Z, Wt, disc = _dial_zz_layer_truncated(X, Z, Wt, op[1], op[2], delta, n_cap)
+            discarded += disc
+            n_since = X.shape[0]
+            n_max = max(n_max, X.shape[0])
+            continue
         elif kind in ("n1", "dial"):
             q, bl = op[1], op[2]
             c = _codes(X, Z, q)
@@ -687,6 +755,263 @@ def propagate_truncated(prog: Program, delta: float = 1e-7, max_weight: int | No
                     delta=delta, extra=dict(capped=capped, timed_out=False))
 
 
+# --------------------------------------------------------------------------- dial layer with the ZZ idle phase
+
+def _zz_neighbours(blochs, edges, m: int):
+    nb = {q: [] for q in range(m)}
+    for a, b, phi in edges:
+        nb[a].append((b, float(phi)))
+        nb[b].append((a, float(phi)))
+    return nb
+
+
+def _dial_zz_layer_truncated(X, Z, Wt, blochs, edges, delta: float, n_cap: int | None):
+    """Exact second moment of one dial layer with the ZZ idle phase (see docs/PAULIPROP.md, 'ZZ idle phase').
+
+    First-moment map of the layer on a string P (mask average of reset / idle per qubit, ZZ(phi_e) on every coupler
+    whose two ends idle): X/Y qubits are forced idle (factor (1-p) d, no branching); every I/Z qubit x is a 'hub'
+    whose incident couplers to X/Y neighbours a in N(x) rotate only when x idles, so the map factorises over hubs,
+    H_x = p R_x + (1-p) prod_{a in N(x)} ZZ_ax. Outcomes of H_x: the reset branch (Z_x -> I, p; I_x -> I, p) and the
+    idle branches S subset N(x) with amplitude (1-p) prod_S (-+ sin phi) prod_{N\S} cos phi (X_a -> -sin Y_a Z_x,
+    Y_a -> +sin X_a Z_x), which flip X <-> Y on a in S and toggle Z_x by the parity of |S|. Distinct outcome strings
+    are told apart by this layer's rotations (X/Y vs Z/I on a; Z vs I on x), so their squares add; outcomes that
+    coincide (the reset and the S = {} branch on an I hub, closed alternating ZZ cycles across hubs) carry the same
+    theta dependence and are summed *before* squaring. The layer is therefore propagated at the amplitude level per
+    input string (key = (origin, string)), squared at the end and merged. Pruning inside the layer at
+    w_origin amp^2 < delta can break the strict lower bound by at most the pruned cycle cross terms, O(sin^4 phi)."""
+    m = len(blochs)
+    W = X.shape[1]
+    n0 = X.shape[0]
+    if n0 == 0:
+        return X, Z, Wt, 0.0
+    nb = _zz_neighbours(blochs, edges, m)
+    origin = np.arange(n0, dtype=np.int64)
+    amp = np.ones(n0)
+    w0 = Wt[:, 0].copy()
+    discarded = 0.0
+    n_since = n0
+
+    def merge(X, Z, amp, origin):
+        nonlocal discarded
+        if X.shape[0] == 0:
+            return X, Z, amp, origin
+        keys = [Z[:, w] for w in range(W)] + [X[:, w] for w in range(W)] + [origin]
+        order = np.lexsort(keys)
+        Xo, Zo, ao, oo = X[order], Z[order], amp[order], origin[order]
+        first = np.empty(Xo.shape[0], dtype=bool)
+        first[0] = True
+        first[1:] = np.any(Xo[1:] != Xo[:-1], axis=1) | np.any(Zo[1:] != Zo[:-1], axis=1) | (oo[1:] != oo[:-1])
+        idx = np.cumsum(first) - 1
+        am = np.zeros(int(first.sum()))
+        np.add.at(am, idx, ao)
+        Xm, Zm, om = Xo[first], Zo[first], oo[first]
+        wm = w0[om] * am ** 2
+        keep = wm >= delta
+        discarded += float(wm[~keep].sum())
+        return Xm[keep], Zm[keep], am[keep], om[keep]
+
+    for x in range(m):
+        b = blochs[x] if blochs[x] is not None else Bloch()
+        tz = float(b.tz)
+        q_idle = 1.0 - tz
+        dz_i = float(b.dz) / q_idle if q_idle > 0 else 0.0
+        c = _codes(X, Z, x)
+        amp = np.where(c == 1, amp * b.dx, np.where(c == 2, amp * b.dy, amp))
+        hub = (c == 0) | (c == 3)
+        nbrs = nb[x]
+        if not nbrs:
+            if tz == 0.0 and dz_i == 1.0:
+                continue
+            isz = c == 3
+            if not isz.any():
+                continue
+            # plain N_p on a Z hub without X/Y-coupled neighbours: reset branch (-> I, amplitude p) is a distinct string
+            Xn, Zn, an, on = X[isz], Z[isz].copy(), amp[isz] * tz, origin[isz]
+            wq, bq = x >> 6, U64(x & 63)
+            Zn[:, wq] &= ~(ONE << bq)
+            amp = np.where(isz, amp * (q_idle * dz_i), amp)
+            if tz != 0.0:
+                X = np.concatenate([X, Xn]); Z = np.concatenate([Z, Zn]); amp = np.concatenate([amp, an]); origin = np.concatenate([origin, on])
+        else:
+            idx = np.nonzero(hub)[0]
+            if idx.size == 0:
+                continue
+            Xh, Zh, ah, oh = X[idx], Z[idx], amp[idx], origin[idx]
+            ch = c[idx]
+            k = len(nbrs)
+            ind, sgn_sin, cosv = [], [], []
+            for a, phi in nbrs:
+                ca = _codes(Xh, Zh, a)
+                present = (ca == 1) | (ca == 2)
+                ind.append(present)
+                sgn_sin.append(np.where(ca == 1, -np.sin(phi), np.sin(phi)) * present)
+                cosv.append(np.where(present, np.cos(phi), 1.0))
+            has_nbr = np.logical_or.reduce(ind) if k > 1 else ind[0]
+            isz = ch == 3
+            new_X, new_Z, new_a, new_o = [], [], [], []
+            wq, bq = x >> 6, U64(x & 63)
+            # reset branch: Z hub -> I (amplitude p), I hub -> I (amplitude p, merged with the S = {} idle branch below)
+            if tz != 0.0 and isz.any():
+                Xn, Zn = Xh[isz], Zh[isz].copy()
+                Zn[:, wq] &= ~(ONE << bq)
+                new_X.append(Xn); new_Z.append(Zn); new_a.append(ah[isz] * tz); new_o.append(oh[isz])
+            for S in range(2 ** k):
+                fac = np.ones(idx.size)
+                par = 0
+                for t in range(k):
+                    if (S >> t) & 1:
+                        fac = fac * sgn_sin[t]
+                        par ^= 1
+                    else:
+                        fac = fac * cosv[t]
+                a_idle = np.where(isz, q_idle * dz_i, q_idle) * fac
+                if S == 0:
+                    a_idle = a_idle + np.where(isz, 0.0, tz)          # I hub: reset branch coincides with S = {}
+                sel = a_idle != 0.0
+                if not sel.any():
+                    continue
+                Xn, Zn = Xh[sel], Zh[sel].copy()
+                for t in range(k):
+                    if (S >> t) & 1:
+                        a_t = nbrs[t][0]
+                        wa, ba = a_t >> 6, U64(a_t & 63)
+                        Zn[:, wa] ^= (ONE << ba)                       # X <-> Y on the flipped neighbour
+                zbit = (isz[sel].astype(np.uint64) ^ U64(par))          # Z hub: Z^(1+|S|); I hub: Z^|S|
+                Zn[:, wq] = (Zn[:, wq] & ~(ONE << bq)) | (zbit << bq)
+                new_X.append(Xn); new_Z.append(Zn); new_a.append((ah * a_idle)[sel]); new_o.append(oh[sel])
+            keep = ~hub
+            X = np.concatenate([X[keep]] + new_X)
+            Z = np.concatenate([Z[keep]] + new_Z)
+            amp = np.concatenate([amp[keep]] + new_a)
+            origin = np.concatenate([origin[keep]] + new_o)
+        if X.shape[0] > 1.5 * n_since or (n_cap and X.shape[0] > 2 * n_cap):
+            X, Z, amp, origin = merge(X, Z, amp, origin)
+            n_since = X.shape[0]
+    X, Z, amp, origin = merge(X, Z, amp, origin)
+    Wn = Wt[origin] * (amp ** 2)[:, None]
+    return X, Z, Wn, discarded
+
+
+def _prefix_dial_tz(prog: "Program") -> Dict[int, float]:
+    """{local qubit: reset probability} of the dial ops inside the theta-independent prefix (both op forms)."""
+    out = {}
+    for op in prog.ops[:prog.prefix_end]:
+        if op[0] == "dial":
+            out[op[1]] = float(op[2].tz)
+        elif op[0] == "dial_zz":
+            for q, b in enumerate(op[1]):
+                if b is not None:
+                    out[q] = float(b.tz)
+    return out
+
+
+def _dial_zz_layer_sampled(X, Z, weight, blochs, edges, rng, fixed_masks: bool):
+    """Sampled counterpart of `_dial_zz_layer_truncated` (per path). Mixture (fixed_masks=False): per hub x, reset with
+    probability p^2 / (p^2 + (1-p)^2 dz_i^2) on a Z hub (-> I, no flips), otherwise independent flips of the X/Y
+    neighbours with probability sin^2 phi_e and Z_x toggled by their parity; on an I hub the coincident reset / S = {}
+    outcome has probability (p + (1-p) prod cos)^2 / total; the weight carries the total mass. Closed ZZ cycles across
+    hubs are summed incoherently here (O(sin^4 phi) relative, far below the sampling error). Fixed masks: a reset mask
+    is drawn per qubit; every coupler with both ends idle and exactly one X/Y end flips with probability sin^2 phi."""
+    m = len(blochs)
+    N = X.shape[0]
+    if fixed_masks:
+        reset = np.zeros((m, N), dtype=bool)
+        for q in range(m):
+            b = blochs[q] if blochs[q] is not None else Bloch()
+            p = b.tz
+            reset[q] = rng.random(N) < p
+            c = _codes(X, Z, q)
+            idle_x = (b.dx / (1 - p)) ** 2 if p < 1 else 1.0
+            wq, bq = q >> 6, U64(q & 63)
+            dead = reset[q] & ((c == 1) | (c == 2))
+            weight[dead] = 0.0
+            toI = reset[q] & (c == 3)
+            Z[toI, wq] &= ~(ONE << bq)
+            weight[(~reset[q]) & ((c == 1) | (c == 2))] *= idle_x
+        for a, b_, phi in edges:
+            ca, cb = _codes(X, Z, a), _codes(X, Z, b_)
+            xa, xb = (ca == 1) | (ca == 2), (cb == 1) | (cb == 2)
+            act = (~reset[a]) & (~reset[b_]) & (xa ^ xb)
+            flip = act & (rng.random(N) < np.sin(phi) ** 2)
+            if flip.any():
+                wa, ba, wb, bb = a >> 6, U64(a & 63), b_ >> 6, U64(b_ & 63)
+                Z[flip, wa] ^= (ONE << ba)
+                Z[flip, wb] ^= (ONE << bb)
+        return X, Z, weight
+    nb = _zz_neighbours(blochs, edges, m)
+    for x in range(m):
+        b = blochs[x] if blochs[x] is not None else Bloch()
+        tz = float(b.tz)
+        q_idle = 1.0 - tz
+        dz_i = float(b.dz) / q_idle if q_idle > 0 else 0.0
+        c = _codes(X, Z, x)
+        weight = np.where(c == 1, weight * b.dx ** 2, np.where(c == 2, weight * b.dy ** 2, weight))
+        wq, bq = x >> 6, U64(x & 63)
+        isz = c == 3
+        isi = c == 0
+        nbrs = nb[x]
+        if not nbrs:
+            mz = tz ** 2 + (q_idle * dz_i) ** 2
+            weight = np.where(isz, weight * mz, weight)
+            if tz:
+                toI = isz & (rng.random(N) < tz ** 2 / mz)
+                Z[toI, wq] &= ~(ONE << bq)
+            continue
+        k = len(nbrs)
+        present = np.zeros((k, N), dtype=bool)
+        for t, (a, phi) in enumerate(nbrs):
+            ca = _codes(X, Z, a)
+            present[t] = (ca == 1) | (ca == 2)
+        C = np.ones(N)
+        for t, (a, phi) in enumerate(nbrs):
+            C = C * np.where(present[t], np.cos(phi), 1.0)
+        u = rng.random(N)
+        # Z hubs
+        mz = tz ** 2 + (q_idle * dz_i) ** 2
+        weight = np.where(isz, weight * mz, weight)
+        reset_z = isz & (u < (tz ** 2 / mz if mz > 0 else 0.0))
+        idle_z = isz & ~reset_z
+        Z[reset_z, wq] &= ~(ONE << bq)
+        # I hubs
+        tot_i = tz ** 2 + q_idle ** 2 + 2 * tz * q_idle * C
+        weight = np.where(isi, weight * tot_i, weight)
+        p0 = (tz + q_idle * C) ** 2 / tot_i
+        flip_i = isi & (u >= p0)
+        # flips: Z hubs (idle) independent Bernoulli(sin^2) per present neighbour; I hubs conditioned on >= 1 flip
+        parity = np.zeros(N, dtype=np.uint64)
+        flips = np.zeros((k, N), dtype=bool)
+        for t, (a, phi) in enumerate(nbrs):
+            flips[t] = idle_z & present[t] & (rng.random(N) < np.sin(phi) ** 2)
+        rows = np.nonzero(flip_i)[0]
+        if rows.size:
+            probs = np.zeros((rows.size, 2 ** k))
+            for S in range(1, 2 ** k):
+                pr = np.ones(rows.size)
+                for t, (a, phi) in enumerate(nbrs):
+                    if (S >> t) & 1:
+                        pr = pr * np.where(present[t, rows], np.sin(phi) ** 2, 0.0)
+                    else:
+                        pr = pr * np.where(present[t, rows], np.cos(phi) ** 2, 1.0)
+                probs[:, S] = pr
+            probs /= probs.sum(axis=1, keepdims=True)
+            cum = np.cumsum(probs, axis=1)
+            r = rng.random(rows.size)[:, None]
+            S_pick = (r > cum).sum(axis=1)
+            S_pick = np.minimum(S_pick, 2 ** k - 1)
+            for t in range(k):
+                flips[t, rows] |= ((S_pick >> t) & 1).astype(bool)
+        for t, (a, phi) in enumerate(nbrs):
+            f = flips[t]
+            if f.any():
+                wa, ba = a >> 6, U64(a & 63)
+                Z[f, wa] ^= (ONE << ba)
+                parity ^= f.astype(np.uint64)
+        touched = idle_z | flip_i
+        zbit = (isz.astype(np.uint64) ^ parity) & ONE
+        Z[touched, wq] = (Z[touched, wq] & ~(ONE << bq)) | (zbit[touched] << bq)
+    return X, Z, weight
+
+
 # --------------------------------------------------------------------------- sampled engine (Pauli paths)
 
 def propagate_sampled(prog: Program, n_samples: int = 200_000, seed: int = 0, fixed_masks: bool = False,
@@ -704,13 +1029,14 @@ def propagate_sampled(prog: Program, n_samples: int = 200_000, seed: int = 0, fi
     N = int(n_samples)
     if fixed_masks:
         # layer-L dial on the observable qubits is in the prefix: enumerate the 4 mask cases there
-        dial_qs = sorted({op[1] for op in prog.ops[:prog.prefix_end] if op[0] == "dial"} & {prog.i, prog.j})
+        dial_tz = _prefix_dial_tz(prog)
+        dial_qs = sorted(set(dial_tz) & {prog.i, prog.j})
         cases = []
         for bits in range(2 ** len(dial_qs)):
             mb = {q: (bits >> t) & 1 for t, q in enumerate(dial_qs)}
             p_case = 1.0
             for q in dial_qs:
-                pz = [op[2].tz for op in prog.ops[:prog.prefix_end] if op[0] == "dial" and op[1] == q][0]
+                pz = dial_tz[q]
                 p_case *= pz if mb[q] else (1 - pz)
             c0, strings, w0 = _split_prefix(prog, mask_bits=mb)
             cases.append((p_case, c0, strings, w0))
@@ -776,6 +1102,8 @@ def propagate_sampled(prog: Program, n_samples: int = 200_000, seed: int = 0, fi
             wa, ba, wb, bb = a >> 6, U64(a & 63), bq >> 6, U64(bq & 63)
             nonid = ((((X[:, wa] | Z[:, wa]) >> ba) & ONE) | (((X[:, wb] | Z[:, wb]) >> bb) & ONE)).astype(bool)
             weight[nonid] *= f * f
+        elif kind == "dial_zz":
+            X, Z, weight = _dial_zz_layer_sampled(X, Z, weight, op[1], op[2], rng, fixed_masks)
         elif kind == "dial" and fixed_masks:
             q, bl = op[1], op[2]
             w, b = q >> 6, U64(q & 63)
@@ -839,11 +1167,12 @@ def pattern_variance(prog: Program, n_samples: int = 200_000, seed: int = 0) -> 
 def predict_point(patch, L: int, k: int, model: str, csv_path: str, deltas: Sequence[float] = (1e-6, 1e-7),
                   n_samples: int = 200_000, dial=None, seed: int = 0, time_limit_s: float | None = None,
                   n_cap: int | None = 400_000, sampled: bool = True, readout: bool = True,
-                  exempt_last_layer: Sequence[int] = ()) -> Dict:
+                  exempt_last_layer: Sequence[int] = (), zz: Optional[Dict[Tuple[int, int], float]] = None) -> Dict:
     """Truncation sweep over ``deltas`` (coarse to fine) plus the sampled estimate; returns a flat dict."""
-    prog = make_program(patch, L, k, model, csv_path, dial=dial, readout=readout, exempt_last_layer=exempt_last_layer)
+    prog = make_program(patch, L, k, model, csv_path, dial=dial, readout=readout, exempt_last_layer=exempt_last_layer, zz=zz)
     out = dict(model=model, n=_as_patch(patch).n, L=L, k=k, n_cone=prog.m, edge=f"{prog.qubits[prog.i]}_{prog.qubits[prog.j]}",
-               mean_cost=prog and float("nan"))
+               mean_cost=prog and float("nan"), zz_idle="on" if zz else "off",
+               n_zz_couplers=sum(len(op[2]) for op in prog.ops if op[0] == "dial_zz") // max(1, sum(1 for op in prog.ops if op[0] == "dial_zz")))
     res = []
     for d in deltas:
         r = propagate_truncated(prog, delta=d, n_cap=n_cap, time_limit_s=time_limit_s)
