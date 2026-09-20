@@ -160,16 +160,16 @@ Hybrid decided 19 Sep 2026, 23:39 IST (Owais; Dr. Raviram agreed to Deviation 20
 
 ## 5. Minute ledger
 
-Flex allocation of 360 minutes, ledger of pre-registration v0.12.0, Section 6 (budget model v3, Deviation 47, from the 20 Sep smoke test; lines re-based at the 1 µs default rep_delay under Deviations 23, 27, 45 and 48); predicted use about 94 minutes. Spent as of 20 September 2026, 20:40 IST: 0.87 Flex minutes (52 QPU s, the smoke test, charged to the reserve's dry-run item); instance cap raised 180 → 220 minutes (Owais, 19 Sep 23:55 IST), to be raised again before the main grid.
+Flex allocation of 360 minutes, ledger of pre-registration v0.12.0, Section 6 (budget model v3, Deviation 47, from the 20 Sep smoke test; lines re-based at the 1 µs default rep_delay under Deviations 23, 27, 45 and 48); predicted use about 94 minutes. Spent as of 20 September 2026, 23:35 IST: 7.12 Flex minutes (52 QPU s smoke test on the reserve's dry-run item; 375 QPU s = 6.25 min campaign day 1, 14 jobs, against 357.5 s predicted under model v3, ratio 1.05, split about 1.89 min to the null-control reserve item and 4.37 to the main-grid line; docs/postrun/03_paper1_day1_2026-09-20.md); instance cap raised 180 → 220 minutes (Owais, 19 Sep 23:55 IST), to be raised again before the main grid.
 
 | Bucket | Planned % | Planned min | Spent | Remaining | Last updated |
 |---|---|---|---|---|---|
-| Paper 1 main grid | about 53 | 190.5 | 0 | 190.5 | 20 Sep 2026 |
+| Paper 1 main grid | about 53 | 190.5 | 4.4 (day 1: the n20 rung and its L = 1 null controls, about 262 of 375 QPU s) | 186.1 | 20 Sep 2026, 23:35 IST |
 | Gate 1b p = 0 reference top-up (Deviation 45) | about 3 | 9.5 | 0 | 9.5 | 20 Sep 2026 |
 | Reset-dial arm, Section 3b (Deviation 27, 171 jobs per point) | about 18 | 65 | 0 | 65 | 20 Sep 2026 |
 | Paper 2 characterisation | about 12 | 45 | 0 | 45 | 20 Sep 2026 |
-| Reserve (itemised below: dry run, anomaly replications, Deviation 44 references, M-rule, null control, unallocated) | about 14 | 50 | 0.87 | 49.13 | 20 Sep 2026 |
-| Total | 100 | 360 | 0.87 | 359.13 | 20 Sep 2026 |
+| Reserve (itemised below: dry run, anomaly replications, Deviation 44 references, M-rule, null control, unallocated) | about 14 | 50 | 2.76 (0.87 smoke test on the dry-run item; 1.89 of the 2.6 null-control item, day 1) | 47.24 | 20 Sep 2026, 23:35 IST |
+| Total | 100 | 360 | 7.12 | 352.88 | 20 Sep 2026, 23:35 IST |
 
 Reserve itemisation, 50 minutes (Paper 1 pre-registration v0.11.3): 10 dry run (smoke tests, Deviation 32); 20 anomaly replications (Deviation 19 protocol, P1.4.8); 8.0 three depth-8 Gate 1b reference points at 16384 shots (Deviation 44, which absorbs the Deviation 35 clause-(b) reference); up to 4.5 on-day M = 600 rule (Deviation 39, 1.5 min per rung); 2.6 hardware null control (Deviation 43); 4.9 unallocated. Paper 2 characterisation estimate 36.3 min at 250 µs against the 45-minute line (Paper 2 v0.4.4, Deviation 6: qubit 79 isolated in a separate 0.9-min job). Reserve minutes are spent only on these items or on referee-style checks, never on new tests.
 
