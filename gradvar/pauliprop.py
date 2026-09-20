@@ -35,8 +35,11 @@ of `gradvar.noise` (Pauli-transfer matrices), so the propagation reproduces the 
 exactly. Known residual: two Z -> I relaxation branches on one qubit that are separated by a CZ (no rotation in between) are
 treated as distinct paths although they carry the same theta dependence; the missed cross term 2 d_z t1 t2 ~ 2 gamma^2
 per pair (gamma(68 ns) ~ 4e-4) is a positive systematic below 1e-3 relative at n = 90, L = 12, and does not affect
-the lower-bound property. Not modelled in the dial channel: the ZZ phase between neighbours during the 400 ns idle and
-T1 on the idle branch (pure T2 dephasing is used there). Noise rules: unital = depolarizing factors; non-unital = thermal relaxation D = (e^{-t/T2},
+the lower-bound property. Dial channel with the ZZ idle phase (`zz` argument of `make_program`; pre-Gate-2 action of
+Deviation 30): during the 400 ns dial idle every coupler of the cone rotates by rzz(phi_e), phi_e = 2 pi zeta_e tau with
+the signed per-edge zeta of the raw properties, on the branch where both ends idle (non-reset); the layer is one op
+('dial_zz') whose exact second-moment rule is derived in `_dial_zz_layer_truncated` and docs/PAULIPROP.md. Still not
+modelled: T1 on the idle branch (pure T2 dephasing is used there). Noise rules: unital = depolarizing factors; non-unital = thermal relaxation D = (e^{-t/T2},
 e^{-t/T2}, e^{-t/T1}), t_z = 1 - e^{-t/T1} (pure amplitude damping is the T2 = 2 T1 case: X, Y -> sqrt(1-gamma),
 Z -> (1-gamma) Z + gamma I); reset dial N_p = p Reset + (1-p) Idle(400 ns): D = (1-p)(e^{-400/T2}, e^{-400/T2}, 1),
 t_z = p; delay-matched control p = 0 (D = (e^{-400/T2}, e^{-400/T2}, 1)); dephasing dial (Z with probability

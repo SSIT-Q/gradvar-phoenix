@@ -74,12 +74,64 @@ below 10%. Systematic: two Z -> I relaxation branches on one qubit separated by 
 missed); relative size `< n L 4 (2 gamma^2) ~ 1e-3` at n = 90, L = 12, positive (true >= computed), absolute
 `< 3e-7`, below the sampler's 2 sigma; the lower-bound property is unaffected.
 
-**Model gaps (dial channel).** The pre-registration (Section 3b) mentions a mask-dependent ZZ phase between
-neighbours during the 400 ns idle and per-edge ZZ values in the simulation; this module models the idle as pure T2
-dephasing on the non-reset branch and does **not** include the ZZ phase (a two-qubit unital rotation that would mix
-`XI <-> YZ` etc. with angle `J tau ~ 2 pi x (tens of kHz) x 0.4 us ~ 1e-2 rad`, i.e. a `~1e-4` weight effect per pair
-per layer) nor T1 relaxation on the idle branch (`t_z ~ 2e-3` per layer, two orders below the dial's `t_z = p`). Both
-are stated here so the decision to add them (or to record the gap as a deviation) can be taken before booking.
+**ZZ idle phase of the dial layer (pre-Gate-2 action, Deviation 30 correction; branch `pp-zz-idle`).** Section 3b
+states that the qubits idling for 400 ns in a dial layer acquire a mask-dependent ZZ phase with their neighbours (about
+0.07 rad per pair at the raw-properties median |zeta| of 27 kHz). The model: during the dial idle every coupler `e = (a, b)`
+of the cone (patch edges plus the Deviation 26 broken couplers, which carry no CZ but stay coupled; `pauliprop.cone_couplers`)
+rotates by `rzz(phi_e) = exp(-i phi_e/2 Z_a Z_b)` with `phi_e = 2 pi zeta_e tau`, `tau = 400 ns`, the signed per-edge
+`zeta_e` read from the raw backend properties (`noise.zz_couplings`; median 26.7 kHz over the 218 couplers of the 19:25Z
+snapshot; every coupler of the five ladder patches has an entry, so the median fallback is never used; `pauliprop.zz_phases`),
+on the branch where **both** ends idle (a reset qubit is not in a definite Z eigenstate during its reset, and the
+mask-dependent phase is what Section 3b describes). Spectators outside the patch stay in |0> and their static shift is
+part of the calibrated frame, so no ZZ to them is applied. For the delay-matched `p = 0` control and the dephasing dial
+every qubit idles, so every coupler rotates in every layer; for the reset dial the rotation is conditioned on the mask.
+
+*Second-moment rule.* Heisenberg action of `rzz(phi)` on a coupler: `X_a -> cos(phi) X_a - sin(phi) Y_a Z_b`,
+`Y_a -> cos(phi) Y_a + sin(phi) X_a Z_b`, Z and I unchanged; a coupler with both ends in {X, Y} or both in {I, Z} is
+untouched. The rotation is unital and orthogonal in the Pauli basis, so on squared coefficients it **reroutes weight
+without loss**: `cos^2 phi` stays on the string, `sin^2 phi` moves to the string with `X <-> Y` on `a` and `Z` toggled on
+`b` (`cos^2 + sin^2 = 1`). The layer's first-moment map for the mixture channel factorises over "hubs": every I/Z qubit
+`x` whose neighbours `N(x)` carry X or Y (X/Y qubits are forced to idle, otherwise the term dies) contributes
+`H_x = p R_x + (1 - p) prod_{a in N(x)} ZZ_ax` (R = reset, `Z -> I`, `I -> I`); the hubs' maps commute, and different
+hubs' ZZ's are conditioned on their own mask bit, so this is the exact mask average. Outcomes of `H_x`: the reset branch
+(amplitude `p`) and the idle branches `S subset N(x)` with amplitude `(1 - p) prod_S (-+ sin phi_e) prod_{N \ S} cos phi_e`,
+flipping `X <-> Y` on `a in S` and toggling `Z_x` by the parity of `|S|` (`I_x` hubs: `Z^|S|`; `Z_x` hubs: `Z^(1+|S|)`).
+Distinct outcome strings differ by `X <-> Y` on a neighbour or `Z <-> I` on the hub, both of which the same layer's
+rotations detect (after `sx`, X splits while Y -> -Z passes; Z -> Y splits while I passes), so their weights add
+(zero theta covariance). Outcomes that **coincide** carry the same theta dependence and must be added before squaring:
+the reset branch and the `S = {}` idle branch of an `I` hub (`p + (1 - p) prod cos phi`, whose square is *less* than
+`p^2 + (1-p)^2 prod cos^2 + ...`: the mask-dependent phase acts as extra dephasing on average, so with `p > 0` the layer
+does lose weight, `1 - [p^2 + (1-p)^2 + 2 p (1-p) prod cos]`), and closed alternating ZZ cycles across hubs (a plaquette
+with X/Y on two diagonal qubits and I/Z on the other two reached by flipping all four couplers versus none; amplitude
+`prod sin phi ~ 2e-5`). `_dial_zz_layer_truncated` therefore propagates the whole dial layer at the **amplitude level**
+per input string (key `(origin string, string)`), merges coinciding outcomes coherently, squares at the end of the layer
+and merges by string; this is exact. Pruning inside the layer at `w_origin a^2 < delta` can drop one member of a
+coinciding pair, so the truncated value is a lower bound up to the pruned cycle cross terms, `O(sin^4 phi) ~ 1e-5`
+relative, far below the truncation deficit it is quoted with. The sampled engines use the factorised per-hub rule
+(reset with probability `p^2 / (p^2 + (1-p)^2)` on a Z hub, independent flips with probability `sin^2 phi_e`, the
+coincident `S = {}` outcome of an I hub with its coherent probability; fixed masks: every coupler with both ends idle
+and exactly one X/Y end flips with `sin^2 phi_e`), summing closed cycles incoherently (`O(sin^4 phi)`, far below the
+sampling error). Sign convention: `phi` is the qiskit `rzz` angle, as the pre-registration's "0.07 rad per pair"; if the
+properties' `zz` is the conditional frequency shift `zeta`, the pair unitary in the calibrated frame is
+`CPhase(2 pi zeta tau) = rzz(pi zeta tau) x local Rz`, whose rerouted second-moment weight per coupler and layer is about
+half of `rzz(2 pi zeta tau)`'s (`2 sin^2(phi/2)` against `sin^2 phi`); the implemented rule is the pre-registered, larger
+one and the convention is flagged for the reviewer (the shift scales as `phi^2`).
+
+*Validation.* `tests/test_pauliprop.py`: (i) 2x2 patch (one plaquette, so closed cycles occur), L = 2, delay p = 0 /
+reset p = 0.3 / dephase p = 0.5 with the per-edge ZZ of the snapshot: the rule equals the brute-force doubled-space
+theta average (`gradvar/pauliprop_exact.py`: `E_theta[rho x rho]` propagated with exact Pauli-transfer matrices, the
+theta average taken exactly on each rotation's 16-dimensional two-copy space, the dial layer built as the explicit
+64-mask sum from the diagonal ZZ unitary in the computational basis) to 1e-9 relative for `Var[C]`, `E[C]`, k = 1 and
+k = L; (ii) a fully independent Kraus-level density-matrix evaluation in the computational basis on the exact 3-point
+theta grid (8 angles, reset p = 0.3 with ZZ) agrees to 1e-6 relative. `scripts/pauliprop_zz_validate.py` runs (i) on
+the 2x3 patch at L = 4 (`data/predictions/pauliprop_zz_validation.csv`):
+
+<!-- ZZ_VALIDATION_TABLE -->
+
+**Remaining model gap (dial channel).** T1 relaxation on the idle branch (`t_z ~ 2e-3` per layer, two orders below the
+dial's `t_z = p`) is still not modelled; the ZZ to a neighbour *during its reset* (a mask-dependent single-qubit Z
+rotation of order `phi/2` on the idle qubit) is not modelled either, since the reset qubit's Z is undefined during the
+operation; its second-moment effect is `< p (phi/2)^2 ~ 3e-4` per coupler and layer, a fraction of the modelled term.
 
 **Placement.** All ladder rows were computed on the patches returned by `noise.place_patch` before Deviation 26
 (no CZ cut): the 4x10 (n = 39) cone contains CZ (95, 96) at 4.9e-2 and (100, 101) at 5.9e-2 depolarizing (median
@@ -197,6 +249,19 @@ Deviation 15 rule per (n, L): unital - noiseless at k = 1, the assigned error an
 
 At L = 12 every unital - noiseless separation (3.5e-06 to 1.7e-05) is below 2 x floor(16384) = 6.1e-05, so criterion (c) part 2 is **unresolvable at L = 12** whatever the truncation (the whole L = 12 variance is 10-100x below the 4096-shot floor); the hardware-only column is the Deviation 15 rule applied literally and does not make those points confirmatory.
 
+### (a, continued) the deferred Gate 1 groups: large-cone L = 4 (4x10 .. 10x10), noisy 4x5 L = 4 and noisy 4x10 L = 2
+
+The Gate 1 exact grid recorded these groups as "requires Pauli propagation" (cones of 36 / 48 / 65 / 72 qubits at L = 4,
+and the two noisy groups cut for compute time). Rows below are stage `dev15` at L = 4 / 2 (N = 2e6 paths, delta = 1e-6 /
+1e-7, 4e5-string cap; every row converged, deficit < 0.5%). The noiseless 4x5 L = 4 and 4x10 L = 2 rows duplicate exact
+M = 200 / 100 points and serve as cross-checks (they do not enter the re-summary):
+
+<!-- L4_GROUPS_TABLE -->
+
+Cross-check against the exact M-draw estimates of `gate1_predictions.csv`:
+
+<!-- L4_CROSSCHECK_TABLE -->
+
 ### (b) Gate 1b: k = L, p = 0.25 reset dial vs delay-matched p = 0 (snapshot unital noise + dial), K = 256 masks per (draw, shift) (Deviation 27)
 
 | L | patch | n | Var p=0 | Var p=0.25 | separation | Var_mask[C] | pattern floor Var_mask/(2K) | shot+pattern floor | sep / floor | >= 3x | pattern floor < sep/2 |
@@ -281,6 +346,19 @@ Minimum M for the 2x test includes the (1 - V12/V8) factor: M >= 17.5 (kappa - 1
 
 Deviation 30 clause: 2 of 2 counted rungs pass -> **PASS**. Gate 1b as booked (Deviations 27 + 30): separation clause L = 8 True, L = 12 True; fall clause True; **overall PASS**. Earlier readings (literal clause, Deviation 28 at M = 200 / 500, Deviation 29 at M = 200) are kept above and in the JSON for the record.
 
+### (b, ZZ idle phase on) Gate 1b with the ZZ idle phase in the dial layer (booked reading; the tables above are the ZZ-off record)
+
+Every dial row (stages `gate1b` and `dial`) was recomputed with `--zz on` (`zz_idle` column of the CSV; same placements,
+seeds, N = 2e6 paths, delta = 1e-6 / 1e-7, 4e5-string cap). Shifts are `on / off - 1` with the two rows' errors combined.
+
+<!-- ZZ_GATE1B_TABLE -->
+
+<!-- ZZ_DEV30_TABLE -->
+
+Shift of every dial number (sampled values; `+/-` is the combined 2 sigma of the two rows):
+
+<!-- ZZ_SHIFT_TABLE -->
+
 **Pattern-noise floor, its mechanism and the 3x rule.** `Var_mask[C]` (variance of the cost over reset masks at fixed theta, averaged over theta) is dominated by the last layer's lottery on the two observable qubits: a reset of qubit i or j in layer L replaces Z_i by +1 (the |0> value), so with probability ~2p(1-p) the measured ZZ changes by O(1); `Var_mask[C] ~ 0.14` at p = 0.25 and `~0.35` at p = 0.5 at every n and L. With the pre-registered pooling K = 64 the pattern floor on the gradient is `Var_mask/(2K) ~ 1.1e-3` at p = 0.25, about the size of the predicted p = 0.25 vs p = 0 separation (~1.9e-3), so the 3x rule of Gate 1b(b) and the half-separation rule of Gate 1b(d) are not met at K = 64 for any ladder point. The floor scales as 1/K at fixed total shots (the mixture estimator does not need many shots per mask): the table below gives, per point, the smallest K for which `separation >= 3 (shot floor + Var_mask/(2K))`. The variant (b') removes the observable qubits from the last layer's lottery and roughly halves `Var_mask`; it was not run (it changes the estimand). Deviation 27 instead moves the pooling to K = 256 masks x 16 shots (same 4096 executions per point, one job), dividing the pattern floor by 4 while keeping the i.i.d. channel.
 
 Exact check of the floor and of its 1/K scaling (`scripts/pauliprop_pattern_check.py`, `data/predictions/pauliprop_pattern_check.csv`): K = 64: exact excess gradient variance 1.37e-03 +/- 2.6e-04 vs Var_mask/(2K) = 1.38e-03 (exact Var_mask 0.177) / 1.35e-03 (PP Var_mask 0.173); K = 256: exact excess gradient variance 3.92e-04 +/- 5.9e-05 vs Var_mask/(2K) = 3.45e-04 (exact Var_mask 0.177) / 3.38e-04 (PP Var_mask 0.173) on the 2x3 patch, L = 4, p = 0.25, M = 60 draws.
@@ -309,10 +387,16 @@ Exact check of the floor and of its 1/K scaling (`scripts/pauliprop_pattern_chec
 | 12 | reset | 0.25 | 1.856e-08 +/- 1.9e-08 | 1.989e-03 +/- 2.6e-05 | 3.557e-03 +/- 3.6e-05 | 6.58e-02 | 2.81e-04 | converged |
 | 12 | reset | 0.5 | 1.902e-11 +/- 3.6e-11 | 9.515e-03 +/- 3.6e-05 | 1.821e-02 +/- 4.7e-05 | 2.52e-01 | 6.71e-04 | converged |
 
+The same grid with the ZZ idle phase on (`--zz on --reuse-gate1b`; the delay p = 0 and reset p = 0.25 rows are the gate1b 6x10 rows):
+
+<!-- ZZ_DIAL_TABLE -->
+
 Reference lines: p^4/9 (Corollary 6 lower-bound form for |P| = 2: 4.3e-4 at p = 0.25, 6.9e-3 at p = 0.5); the pre-registration (Deviation 21) quotes the same p^4/9. E[C] = a_i a_j p^2 + (a_i b_j + a_j b_i) p + b_i b_j is the readout-folded p^2 (0.066 / 0.252). Errors in this section are max(2 sigma, V_MC - V_trunc); rows without a sampled value are lower bounds only.
 
 Figure: `figures/pauliprop_predictions.png`; verdicts: `data/predictions/pauliprop_summary.json`.
 
 ## Runtime
+
+<!-- ZZ_RUNTIME -->
 
 Per point (truncated sweep delta = 1e-6, 1e-7 with a 4e5-string cap, plus 2e6 sampled paths, 300 s wall-clock cap per propagation): median 176 s, max 444 s on one core; pattern-noise floor adds two sampled runs. Total 175 core-minutes for 50 points (50 planned), run 3 in parallel. Truncation strings kept: up to 400000. Points marked 'not converged (time cap)': 0.

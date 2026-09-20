@@ -297,7 +297,25 @@ decision. Findings recorded under `propagation.findings`, not as verdicts: every
 (2.9e-4 / 2.8e-4) and most noisy k = 1 rows lie; the shots per point at L >= 8 and whether the L = 12 rung is booked
 are Gate 2 decisions for the PI. The Deviation 15 hardware-only flags are listed (only 4x5 at L = 12). The remaining
 deferred points are the large-cone L = 4 groups of the 4x10 .. 10x10 patches (and the cut noisy 4x5 L = 4 / 4x10 L = 2
-groups), which the propagation module can supply in ~30 core-minutes but which were not part of this branch's task.
+groups), supplied by branch `pp-zz-idle` (next section).
+
+## Complete grid (branch `pp-zz-idle`): the deferred L = 4 / L = 2 groups and the re-summary
+
+The remaining deferred groups (4x10 / 6x10 / 8x10 / 10x10 at L = 4, cones 36 / 48 / 65 / 72; the noisy 4x5 L = 4 and
+4x10 L = 2 groups cut for compute time) are now propagation rows (`docs/PAULIPROP.md`, "(a, continued)"; 18 rows, 9.7
+core-minutes, every row converged with deficit < 0.5%). `python scripts/gate1_resummary.py` then reports no deferred point:
+exact rows with method `not_implemented` are replaced by the propagation rows; a propagation row that duplicates an exactly
+computed point (the noiseless 4x5 L = 4 and 4x10 L = 2 cross-checks, inside the exact 95% intervals) is dropped.
+
+<!-- L4_DEV15_RULE_TABLE -->
+
+Per-criterion reading on the complete grid (`gate1_summary.json`, field `overall`):
+
+<!-- GATE1_OVERALL -->
+
+The stop rule ("failing (c) or (d) stops the hardware stage") is therefore not triggered by the simulation grid, and no
+overall pass / fail is declared on the grid alone: (d) at L >= 8 depends on the shot count and on which rungs are claimed
+(Gate 2 booking), and (c) part 2 goes to the hardware-only reading of Deviation 15.
 
 ## Figures and data
 

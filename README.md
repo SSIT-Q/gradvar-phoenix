@@ -230,7 +230,7 @@ cut are in **`docs/GATE1_RESULTS.md`**. Criteria on this run:
 | (e) | implemented | **pass** | evaluated at 4096 shots on every computed point of this grid; the pre-registered scope is 'every point to be claimed' |
 | (f) | implemented | **reported** | L_s(n) at 95% of the Page value: n = 12: L_s = 14 (interp. 13.18), n = 16: L_s = 13 (interp. 12.49), n = 20: L_s = 12 (interp. 11.93); fit L_s = 15.03 + -0.156 n; design check on where the noiseless variance is expected to collapse, no pass/fail threshold pre-registered. Caveats: L_s(20) = 12 sits at the sweep edge (L_max = 12) ... |
 
-Overall: not-evaluated: the ladder points at L = 8 and 12 (and the large-cone L = 4 points) requires Pauli propagation, so no overall Gate 1 verdict is given; criteria evaluated on the exactly computed points where the pre-registration allows. `python scripts/gate1_predict.py --summary-only --null-json ... --renyi-json ...` rebuilds the summary from the saved CSV without re-simulating.
+Overall (exact half): not-evaluated on the exact points alone. With the Pauli-propagation rows (L = 8 / 12 and the large-cone L = 4 groups, branches `gate1-pauli-prop` and `pp-zz-idle`) the grid is complete; `scripts/gate1_resummary.py` gives the per-criterion reading in `docs/GATE1_RESULTS.md` (section "Complete grid"). `python scripts/gate1_predict.py --summary-only --null-json ... --renyi-json ...` rebuilds the summary from the saved CSV without re-simulating.
 
 The demo grid below (4x3 and 4x4) is the earlier run kept for reference; its files were replaced by the ladder run above.
 
@@ -299,7 +299,11 @@ python scripts/gate1_pauliprop.py --stage dev15 --depths 8 12   # ladder patches
 python scripts/gate1_pauliprop.py --stage gate1b                 # p = 0 (delay-matched) vs p = 0.25 at n = 39 / 56 / 90
 python scripts/gate1_pauliprop.py --stage dial                   # dial grid at n = 56 + controls
 python scripts/gate1_pauliprop.py --stage summary                # verdicts JSON + figures/pauliprop_predictions.png
+python scripts/gate1_pauliprop.py --stage gate1b --zz on         # the same with the ZZ idle phase in the dial layer (booked reading)
+python scripts/gate1_pauliprop.py --stage dial --zz on --reuse-gate1b
+python scripts/gate1_pauliprop.py --stage dev15 --depths 4       # the large-cone L = 4 groups of the Gate 1 grid (then scripts/gate1_resummary.py)
 python scripts/pauliprop_validate.py                             # PP vs exact (CSV at n = 12, 16; fresh density matrix at n <= 10)
+python scripts/pauliprop_zz_validate.py                          # ZZ idle-phase rule vs the exact doubled-space theta average (2x3, L = 4)
 ```
 
 `gradvar/pauliprop.py` computes `Var_theta[d<O>/d theta]` and `Var_theta[<O>]` for uniform angles by second-moment
@@ -312,8 +316,10 @@ density-matrix reference exactly (tests: 3-point angle grid on a 2x2 patch, exac
 non-unital and reset-dial rules). Two engines: truncation by coefficient (and optionally Pauli weight) with the
 discarded weight recorded (a rigorous lower bound), and an unbiased Pauli-path sampler with standard errors; the
 prediction is `V_MC +/- 2 sigma`, the truncation error is the deficit `V_MC - V_trunc` (3-5% at L = 8), and the
-Deviation 15 error is `max(2 sigma, V_MC - V_trunc)`. Not modelled: the ZZ phase during the 400 ns dial idle and T1
-on the idle branch (see `docs/PAULIPROP.md`). Rules: unital depolarizing factors, T1/T2 relaxation (`Z -> (1-gamma) Z + gamma I`, `X, Y -> e^{-t/T2}`),
+Deviation 15 error is `max(2 sigma, V_MC - V_trunc)`. The dial layer carries the ZZ idle phase (`--zz on`: rzz(phi) on
+every coupler of the cone during the 400 ns idle, phi = 2 pi zeta tau from the raw properties, both ends idle; exact
+second-moment rule validated against a doubled-space computation, `scripts/pauliprop_zz_validate.py`); still not
+modelled: T1 on the idle branch (see `docs/PAULIPROP.md`). Rules: unital depolarizing factors, T1/T2 relaxation (`Z -> (1-gamma) Z + gamma I`, `X, Y -> e^{-t/T2}`),
 reset dial `N_p = p Reset + (1-p) Idle(400 ns)` (`D = (1-p)`, `t_z = p`), delay-matched `p = 0`, dephasing dial.
 Pattern-noise floor `Var_mask[C]/(2K)` from a sampled propagation with a fresh reset mask per path. Method,
 validation table, results and runtimes: `docs/PAULIPROP.md`; numbers: `data/predictions/pauliprop_predictions.csv`.
