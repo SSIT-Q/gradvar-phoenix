@@ -48,7 +48,7 @@ from gradvar.noise import COHERENCE_FLOOR_SINCE, COHERENCE_FLOOR_US, CZ_CUT, REA
 PLACEHOLDER = "TBD: pre-flight review permalink"
 PREREG = "Paper 1 pre-registration v0.13.2 (20 Sep 2026)"
 MAX_EXPERIMENTS = max_experiments("ibm_phoenix")   # 300 pubs per job (configuration ledger)
-DEFAULT_SNAPSHOT = "data/calibrations/ibm_phoenix_2026-09-20T141736Z.csv"   # Deviation 53 (b): the newest committed calibration data (retrieval properties 13:44Z calibration)
+DEFAULT_SNAPSHOT = "data/calibrations/ibm_phoenix_2026-09-20T175012Z.csv"   # Deviation 53 (b): the newest committed calibration data (day-1 retrieval properties, 17:22Z calibration)
 SHAPES = {"n20": (4, 5), "n40": (4, 10), "n60": (6, 10), "n80": (8, 10), "n100": (10, 10)}   # Section 2 nominal ladder
 RUNGS = list(SHAPES)
 DEV36_EDGE = (93, 103)
@@ -341,6 +341,17 @@ def null_control_list(pl: dict, rule: str) -> dict:
 
 DAY1_NAME = "day1_null_grid_n20.json"
 DAY1_SOURCES = ("null_controls.json", "grid_n20.json")
+DAY2_NAME = "day2_main_grid.json"
+DAY2_SOURCES = ("grid_n40.json", "grid_n60.json", "grid_n80.json", "grid_n100.json")   # 4096-shot lists only: grid_n100_16384 needs its own Batch (one shot count per list); grid_n40_repeat is control (d), a later day
+
+
+def armed(path: Path) -> bool:
+    """True when the committed list at ``path`` has been armed (``dry_run`` false): it is then the record of a run and the generator
+    neither rewrites nor checks it (its placement block is the snapshot it ran on)."""
+    try:
+        return path.exists() and json.loads(path.read_text()).get("dry_run") is False
+    except (OSError, ValueError):
+        return False
 
 
 def day1_list(pl: dict, lists: dict) -> dict:
@@ -374,6 +385,30 @@ def day1_list(pl: dict, lists: dict) -> dict:
     return {DAY1_NAME: base_list("paper1_day1_null_grid_n20", notes, pl, RUNGS, "null_controls+main", points, probes, extra)}
 
 
+def day2_list(pl: dict, lists: dict) -> dict:
+    """Deviation 50 campaign day 2 (on Gate 2 green): ONE list holding the four remaining 4096-shot main-grid rungs, grid_n40 + grid_n60 +
+    grid_n80 + grid_n100 (points then probes, in that order, each identical to its entry in the committed source list), so the day is one
+    Batch, one pre-flight review and one arming step. grid_n100_16384.json (16384 shots) stays its own list and arming; grid_n40_repeat.json
+    runs on a later calendar day (Section 2 control (d)). Ledger line ``day2:main`` so ``summarise`` does not count it twice."""
+    src = [lists[n] for n in DAY2_SOURCES]
+    points = [dict(p) for s in src for p in s["points"]]
+    probes = [dict(p) for s in src for p in s["probes"]]
+    rungs = [r for s in src for r in s["placement"]["rungs"]]
+    notes = (f"{PREREG}; Deviation 50 (v0.13.0) campaign day 2, armed only on Gate 2 green (decided from day 1, docs/postrun/03_paper1_day1_2026-09-20.md): "
+             f"the remaining 4096-shot main-grid rungs of Section 2 in one list, {' + '.join(DAY2_SOURCES)} (points then probes, each identical in n, patch, edge, "
+             "L, k, M, shots, resilience and seed to its entry in the committed source list, which stays on main as the fallback packaging): the L in "
+             f"{list(DEPTHS)} main grid at k = 1, resilience 0 and 1, M = {M_BASE}, {SHOTS} shots on the n40 / n60 / n80 / n100 rungs (n100 without its L = 8 k = 1 "
+             "main points, which are the 16384-shot headline points of grid_n100_16384.json, a separate list and arming because one Estimator list carries one shot "
+             "count), the level-2 (ZNE) reduced grid and the layer-index sweep on n40 and n100, and the Section 2 control (a) L = 1 null controls of every rung. "
+             "Ledger: the 190.5-minute main-grid line. Not here: grid_n100_16384.json (same day, own arming), grid_n40_repeat.json (control (d), at least one calendar "
+             "day after this run), the Paper 2 Sampler list 03 (own pre-flight). Job order inside the Batch: the runner submits the gradient-point jobs by level "
+             "(L0 ..., L1 ..., L2 ...) before the probe jobs; the live layout check covers the union of the four rungs' qubits and live couplers, so a failing qubit on "
+             "any rung refuses the whole list (fallback: arm the source lists separately). Pre-flight review: docs/preflight/04_paper1_day2_2026-09-21.md.")
+    extra = dict(day="Deviation 50 campaign day 2 (on Gate 2 green)", source_lists=list(DAY2_SOURCES),
+                 source_lists_min_at_1us=round(sum(s["budget"]["minutes_at_1us"] for s in src), 3), source_lists_jobs=sum(s["budget"]["jobs"] for s in src))
+    return {DAY2_NAME: base_list("paper1_day2_main_grid", notes, pl, rungs, "day2:main", points, probes, extra)}
+
+
 def make_lists(snapshot: str, rule: str = "baseline") -> tuple[dict, dict]:
     pl = place_rungs(snapshot)
     lists = {}
@@ -382,6 +417,7 @@ def make_lists(snapshot: str, rule: str = "baseline") -> tuple[dict, dict]:
     lists.update(reference_list(pl))
     lists.update(null_control_list(pl, rule))
     lists.update(day1_list(pl, lists))          # Deviation 50 day 1: built from the two lists above, never hand-edited
+    lists.update(day2_list(pl, lists))          # Deviation 50 day 2: the four remaining 4096-shot grid rungs
     return lists, pl
 
 
@@ -401,13 +437,17 @@ def summarise(lists: dict, pl: dict, rule: str) -> dict:
                 minutes_at_1us=d1["budget"]["minutes_at_1us"], source_lists_jobs=d1["campaign"]["source_lists_jobs"],
                 source_lists_min_at_1us=d1["campaign"]["source_lists_min_at_1us"],
                 note="Deviation 50 day-1 packaging of the two source lists (same pubs, same seeds); not counted again in the totals")
+    d2 = lists[DAY2_NAME]
+    day2 = dict(list=DAY2_NAME, source_lists=list(DAY2_SOURCES), ledger_lines=["main"], jobs=d2["budget"]["jobs"], minutes_at_1us=d2["budget"]["minutes_at_1us"],
+                source_lists_jobs=d2["campaign"]["source_lists_jobs"], source_lists_min_at_1us=d2["campaign"]["source_lists_min_at_1us"],
+                note="Deviation 50 day-2 packaging of the four 4096-shot grid lists (same pubs, same seeds); not counted again in the totals")
     return dict(pre_registration=PREREG, budget_model_version=BUDGET_MODEL_VERSION, max_experiments=MAX_EXPERIMENTS, max_job_param_mb=MAX_JOB_PARAM_MB,
                 m_rule=rule, snapshot=pl["snapshot"], properties=pl["properties"], stamp=pl["stamp"],
                 rungs={r: dict(n=v["n"], patch=v["patch"], origin=v["origin"], edge=v["edge"], edge_rule=v["edge_rule"], broken_edges=v["broken_edges"], holes=v["holes"])
                        for r, v in pl["rungs"].items()},
                 ledger_caps_min_at_1us=caps, totals=totals,
                 within_caps={k: totals[k]["minutes_at_1us"] <= caps[k] for k in caps},
-                booked_total_min_at_1us=round(sum(totals[k]["minutes_at_1us"] for k in caps), 3), day1=day1, lists=per)
+                booked_total_min_at_1us=round(sum(totals[k]["minutes_at_1us"] for k in caps), 3), day1=day1, day2=day2, lists=per)
 
 
 def main(argv=None) -> int:
@@ -419,29 +459,37 @@ def main(argv=None) -> int:
     ap.add_argument("--check", action="store_true", help="compare with the committed lists instead of writing (exit 1 on a difference)")
     ap.add_argument("--day1", action="store_true", help=f"only the Deviation 50 campaign day-1 list {DAY1_NAME} (null_controls + grid_n20, one list); "
                                                           "no summary.json")
+    ap.add_argument("--day2", action="store_true", help=f"only the Deviation 50 campaign day-2 list {DAY2_NAME} (grid_n40 + n60 + n80 + n100, one list); no summary.json")
     a = ap.parse_args(argv)
     lists, pl = make_lists(a.snapshot, a.m_rule)
     summary = summarise(lists, pl, a.m_rule)
     out = Path(a.out)
     if a.day1:
         lists = {DAY1_NAME: lists[DAY1_NAME]}
+    if a.day2:
+        lists = {DAY2_NAME: lists[DAY2_NAME]}
+    kept = [n for n in lists if armed(out / n)]           # armed lists are run records: never rewritten, never checked against a newer snapshot
+    if kept:
+        print("kept (armed, dry_run false; the record of a run): " + ", ".join(kept))
     if a.check:
-        bad = [n for n, jl in lists.items() if not (out / n).exists() or json.loads((out / n).read_text()) != jl]
+        bad = [n for n, jl in lists.items() if n not in kept and (not (out / n).exists() or json.loads((out / n).read_text()) != jl)]
         print("differs: " + ", ".join(bad) if bad else "all committed lists match the generator")
         return 1 if bad else 0
     out.mkdir(parents=True, exist_ok=True)
     for name, jl in lists.items():
+        if name in kept:
+            continue
         (out / name).write_text(json.dumps(jl, indent=1) + "\n")
         load_joblist(str(out / name))                     # schema check
         b = jl["budget"]
         print(f"{name}: {len(jl['points'])} points, {len(jl['probes'])} probes, {b['jobs']} jobs, {b['pubs']} pubs, {b['circuits']} parameter sets, "
               f"{b['executions']} exec, {b['minutes_at_1us']} min at 1 us / {b['minutes_at_250us']} min at 250 us")
-    if a.day1:
-        print(json.dumps(summary["day1"], indent=1))
+    if a.day1 or a.day2:
+        print(json.dumps(summary["day1" if a.day1 else "day2"], indent=1))
         return 0
     (out / "summary.json").write_text(json.dumps(summary, indent=1) + "\n")
     print(json.dumps(dict(totals=summary["totals"], caps=summary["ledger_caps_min_at_1us"], within_caps=summary["within_caps"], rungs=summary["rungs"],
-                          day1=summary["day1"]), indent=1))
+                          day1=summary["day1"], day2=summary["day2"]), indent=1))
     return 0
 
 
