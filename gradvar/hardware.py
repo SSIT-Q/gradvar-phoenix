@@ -37,7 +37,7 @@ from qiskit.transpiler import generate_preset_pass_manager
 
 from .circuits import hea_observable, hea_square, hea_square_dial, param_index
 from .gradients import shifted_params
-from .lattice import DEFAULT_EXCLUDE, Patch, patch_for_n, rect_patch
+from .lattice import DEFAULT_EXCLUDE, Patch, interior_edge, patch_for_n, rect_patch
 
 LOG_COLUMNS = [
     "backend", "job_id", "timestamp", "job_submit_time", "calibration_snapshot", "n", "patch_qubits", "observable_edge",
@@ -180,8 +180,9 @@ def submitted_rep_delay_us(options) -> float | str:
 # Probe circuits ride in their own EstimatorV2 jobs (one per (resilience level, shots)), so a primitive that refuses a
 # mid-circuit reset (pre-registration Section 3b, kill rule (d)) fails a probe job, never a gradient-grid job.
 PROBE_KINDS = {"reset_dial", "reset_error", "null_control"}   # null_control: pre-registration Section 2 control (a), candidate Deviation 43
-RESET_KINDS = {"reset", "delay", "measure_reset", "measure_reset_2", "none"}
+RESET_KINDS = {"reset", "delay", "measure_reset", "measure_reset_2", "dephase", "none"}   # dephase: Z + delay(400 ns), Section 3b dephasing dial
 DIAL_DELAY_NS = 400.0
+MAX_EXPERIMENTS = 300          # ibm_phoenix max_experiments (configuration ledger 2026-09-19/20): circuits (parameter sets) per job
 # Minute-budget model, version 2 (post-run review of the Marrakesh pipeline check, 2026-09-19, defect D1). Per job:
 #   T_job = 2 s + (rep_delay + L x 0.71 us + t_meas + 10 us [+ dial durations]) x N_exec x (3 if resilience 2)
 #         + [resilience >= 1] x 32 x shots x n_bases x (rep_delay + t_meas + 10 us)
@@ -198,7 +199,7 @@ LAYER_US, READOUT_US, X_US = 0.71, 1.94, 0.04
 READOUT_US_BY_BACKEND = {"ibm_phoenix": 1.94, "ibm_marrakesh": 2.684}   # backend.properties() readout_length, 2026-09-19
 EXEC_OVERHEAD_US = 10.0
 TREX_RANDOMIZATIONS = 32       # EstimatorV2 default resilience.measure_noise_learning.num_randomizations
-DIAL_US = {"reset": 0.40, "delay": 0.40, "measure_reset": 1.94, "measure_reset_2": 1.14, "none": 0.0}
+DIAL_US = {"reset": 0.40, "delay": 0.40, "measure_reset": 1.94, "measure_reset_2": 1.14, "dephase": 0.40, "none": 0.0}
 BUDGET_REP_DELAYS_US = (250.0, 1.0)
 ZNE_NOISE_FACTORS = 3          # resilience 2 runs each circuit at 3 noise factors (default noise_factors (1, 3, 5))
 _SYNTHETIC_INSTRUCTIONS: Dict[int, set] = {}   # id(backend) -> reset kinds added to a fake target by dial_operation
@@ -214,6 +215,11 @@ def dial_operation(kind: str, backend, physical_qubits: Sequence[int]):
         return (lambda qc, q: None), False
     if kind == "delay":
         return (lambda qc, q: qc.delay(DIAL_DELAY_NS, q, unit="ns")), False
+    if kind == "dephase":                # Section 3b unital dephasing dial: a virtual Z (rz(pi), zero duration) plus the matched 400 ns idle
+        def _dephase(qc, q):
+            qc.z(q)
+            qc.delay(DIAL_DELAY_NS, q, unit="ns")
+        return _dephase, False
     if kind == "reset":
         return (lambda qc, q: qc.reset(q)), False
     from qiskit.circuit import ClassicalRegister, Instruction
@@ -303,6 +309,34 @@ def properties_for_csv(csv_path: str) -> str | None:
     return None
 
 
+def resolve_edge(patch: Patch, layout: Sequence[int] | None, requested, label: str) -> Tuple[int, int]:
+    """The lattice edge of the Z_i Z_j observable for a job-list entry: ``interior_edge(patch)`` when ``requested`` is
+    empty, else the requested ``i_j`` (physical qubits; layout coordinates when a ``layout`` is given), which must be an
+    intact (unbroken) coupler of the placed patch (pre-registration Section 2 / Deviation 36: the 4x10 rung's edge is
+    chosen so that its L = 2 cone graph matches the 4x5 rung's, not by ``interior_edge``). Returned in the patch's
+    edge orientation."""
+    default = interior_edge(patch)
+    want = str(requested or "").replace("-", "_").strip()
+    if not want:
+        return default
+    try:
+        a, b = (int(x) for x in want.split("_"))
+    except ValueError:
+        raise JoblistError(f"{label}: edge must be 'i_j' physical qubits, got {requested!r}")
+    if layout is not None:
+        lay = [int(q) for q in layout]
+        if a not in lay or b not in lay:
+            raise JoblistError(f"{label}: edge {want} is not in the layout")
+        a, b = patch.qubits[lay.index(a)], patch.qubits[lay.index(b)]
+    edges = patch.edges()
+    if (a, b) in edges:
+        return (a, b)
+    if (b, a) in edges:
+        return (b, a)
+    raise JoblistError(f"{label}: edge {want} is not an intact coupler of the placed {patch.n_rows}x{patch.n_cols} patch "
+                       f"(origin {patch.origin}, broken {[list(e) for e in patch.broken_edges]}); interior edge is {default[0]}_{default[1]}")
+
+
 def _probe_patch(pr: dict, shapes: dict, calibration_csv: str | None) -> Tuple[Patch, Tuple[int, ...] | None]:
     n = int(pr["n"])
     layout = parse_layout(pr, n, f"probe {pr.get('id')}")
@@ -326,43 +360,73 @@ def build_probes(jl: dict, backend, shapes: dict, calibration_csv: str | None = 
         kind, rk = str(pr["kind"]), str(pr.get("reset_kind", "reset"))
         level, shots, seed = int(pr.get("resilience", 0)), int(pr["shots"]), int(pr.get("seed", 0))
         if kind == "reset_dial":
+            # Draw d of M (default 1) takes theta from seed + d and mask m from seed + d + 1 + m, so a control probe with the
+            # same seed and p is delay-matched draw by draw (same masks, same theta; pre-registration Section 3b, Deviation 38:
+            # the two shift circuits of a draw share their mask). ``unshifted`` builds one circuit at theta (the cost C_mix,
+            # truncation arm); ``truncate_to`` = l keeps only the last l layers with their theta and masks, all qubits
+            # starting in |0> (Section 3b truncation arm, H7).
             patch, layout = _probe_patch(pr, shapes, calibration_csv)
-            obs, edge = hea_observable(patch)
+            edge = resolve_edge(patch, layout, pr.get("edge"), f"probe {pr.get('id')}")
+            obs, edge = hea_observable(patch, edge)
             phys, phys_edge = physical_qubits(patch, layout, edge)
-            want = str(pr.get("edge", "")).replace("-", "_")
-            if want and want != f"{phys_edge[0]}_{phys_edge[1]}":
-                raise JoblistError(f"probe {pr.get('id')}: edge {want} differs from the interior edge {phys_edge[0]}_{phys_edge[1]}")
             L, p = int(pr["L"]), float(pr["p"])
             k = int(pr.get("k", L))
             if not (1 <= k <= L):
                 raise JoblistError(f"probe {pr.get('id')}: k must be in 1..L")
+            mask_p = float(pr.get("mask_p", p))   # lottery probability when it differs from the logged channel strength p (README)
+            unshifted = bool(pr.get("unshifted", False))
+            trunc = pr.get("truncate_to")
+            l_keep = L if trunc is None else int(trunc)
+            if not (1 <= l_keep <= L):
+                raise JoblistError(f"probe {pr.get('id')}: truncate_to must be in 1..L")
+            if trunc is not None and not unshifted:
+                raise JoblistError(f"probe {pr.get('id')}: truncate_to needs unshifted: true (the truncation arm measures C_mix, not a gradient)")
             dial, synthetic = dial_operation(rk, backend, phys)
-            theta = np.random.default_rng(seed).uniform(0, 2 * np.pi, size=patch.n * L)
-            plus, minus = shifted_params(theta, param_index(k - 1, patch.local(edge[0]), patch.n))
-            for m in range(int(pr.get("masks", 1))):
-                mask = np.random.default_rng(seed + 1 + m).random((L, patch.n)) < p
-                qc = hea_square_dial(patch, L, mask, dial)
-                pm = generate_preset_pass_manager(optimization_level=optimization_level, backend=backend,
-                                                  initial_layout=list(phys), seed_transpiler=seed)
-                isa = pm.run(qc)
-                built.append(BuiltProbe(dict(pr, mask_index=m), patch, phys, edge, isa, obs.apply_layout(isa.layout),
-                                        np.stack([plus, minus]), theta, isa.depth(), two_qubit_count(isa), level, shots, seed,
-                                        mask_hash=hashlib.sha256(np.ascontiguousarray(mask).tobytes()).hexdigest()[:16],
-                                        synthetic_target_instructions=[rk] if synthetic else [], layout=layout))
+            pm = generate_preset_pass_manager(optimization_level=optimization_level, backend=backend,
+                                              initial_layout=list(phys), seed_transpiler=seed)
+            drop = (L - l_keep) * patch.n
+            for d in range(int(pr.get("M", 1))):
+                dseed = seed + d
+                theta = np.random.default_rng(dseed).uniform(0, 2 * np.pi, size=patch.n * L)
+                plus, minus = shifted_params(theta, param_index(k - 1, patch.local(edge[0]), patch.n))
+                for m in range(int(pr.get("masks", 1))):
+                    mask = np.random.default_rng(dseed + 1 + m).random((L, patch.n)) < mask_p
+                    if unshifted:
+                        qc = hea_square_dial(patch, l_keep, mask[L - l_keep:], dial, params=theta[drop:])
+                        pv = None
+                    else:
+                        qc = hea_square_dial(patch, L, mask, dial)
+                        pv = np.stack([plus, minus])
+                    isa = pm.run(qc)
+                    built.append(BuiltProbe(dict(pr, mask_index=m, draw=d), patch, phys, edge, isa, obs.apply_layout(isa.layout),
+                                            pv, theta, isa.depth(), two_qubit_count(isa), level, shots, dseed,
+                                            mask_hash=hashlib.sha256(np.ascontiguousarray(mask).tobytes()).hexdigest()[:16],
+                                            synthetic_target_instructions=[rk] if synthetic else [], layout=layout))
         elif kind == "null_control":
             # Section 2 control (a): the same HEA with the differentiated parameter outside the observable's light cone (ideal
             # gradient exactly zero), giving the empirical noise floor including hardware noise (Deviation 37 claimability bar;
             # Gate 2 (a)). One pub per draw d (seed + d), the pair shifted at layer k on the null qubit (candidate Deviation 43).
             patch, layout = _probe_patch(pr, shapes, calibration_csv)
-            obs, edge = hea_observable(patch)
+            edge = resolve_edge(patch, layout, pr.get("edge"), f"probe {pr.get('id')}")
+            obs, edge = hea_observable(patch, edge)
             phys, phys_edge = physical_qubits(patch, layout, edge)
-            want = str(pr.get("edge", "")).replace("-", "_")
-            if want and want != f"{phys_edge[0]}_{phys_edge[1]}":
-                raise JoblistError(f"probe {pr.get('id')}: edge {want} differs from the interior edge {phys_edge[0]}_{phys_edge[1]}")
             L = int(pr.get("L", 1))
+            pm = generate_preset_pass_manager(optimization_level=optimization_level, backend=backend, initial_layout=list(phys), seed_transpiler=seed)
+            if L == 0:
+                # Deviation 43: the L = 0 shifted-pair point, state preparation and measurement only (no Ry/CZ layer, no parameter,
+                # so k and null_qubit do not apply). One pub per draw with two identical parameter-free evaluations (a (2, 0)
+                # bindings array), so the logged gradient (ev_plus - ev_minus) / 2 of every draw is pure SPAM noise: its variance
+                # over the M draws is the measured null floor of the Deviation 37 claimability bar and Gate 2 (a).
+                if "k" in pr or "null_qubit" in pr:
+                    raise JoblistError(f"probe {pr.get('id')}: L = 0 null_control has no parameter: drop k and null_qubit")
+                isa = pm.run(QuantumCircuit(patch.n, name=f"null_control_L0_{patch.n_rows}x{patch.n_cols}"))
+                isa_obs = obs.apply_layout(isa.layout)
+                for d in range(int(pr.get("M", 1))):
+                    built.append(BuiltProbe(dict(pr, draw=d, null_qubit=None, lattice_null_qubit=None, reset_kind="none", k=None), patch, phys, edge, isa,
+                                            isa_obs, np.zeros((2, 0)), np.zeros(0), isa.depth(), two_qubit_count(isa), level, shots, seed + d, layout=layout))
+                continue
             k = int(pr.get("k", 1))
             null_q = null_control_qubit(patch, edge, L, pr.get("null_qubit"), layout)
-            pm = generate_preset_pass_manager(optimization_level=optimization_level, backend=backend, initial_layout=list(phys), seed_transpiler=seed)
             isa = pm.run(hea_square(patch, L))
             isa_obs = obs.apply_layout(isa.layout)
             phys_null = null_q if layout is None else layout[patch.local(null_q)]
@@ -459,18 +523,54 @@ def _probe_length_us(pr: dict, dial_us: Dict[str, float]) -> float:
     """Gate time of a probe circuit (without readout): the dial layers of ``reset_dial``, or X + reset kind."""
     rk = str(pr.get("reset_kind", "reset"))
     if pr["kind"] == "reset_dial":
-        return int(pr["L"]) * (LAYER_US + dial_us[rk])
+        layers = int(pr["L"]) if pr.get("truncate_to") is None else int(pr["truncate_to"])
+        return layers * (LAYER_US + dial_us[rk])
     if pr["kind"] == "null_control":
         return int(pr.get("L", 1)) * LAYER_US
     return X_US + dial_us[rk]
 
 
-def _probe_circuits(pr: dict) -> int:
+def _probe_pubs(pr: dict) -> Tuple[int, int]:
+    """(number of pubs, circuits per pub) of a probe, in ``build_probes`` order: reset_dial builds M x masks pubs of two
+    shifted circuits (one when ``unshifted``), null_control M pubs of two, reset_error a single one-circuit pub."""
     if pr["kind"] == "reset_dial":
-        return 2 * int(pr.get("masks", 1))
+        return int(pr.get("M", 1)) * int(pr.get("masks", 1)), (1 if pr.get("unshifted") else 2)
     if pr["kind"] == "null_control":
-        return 2 * int(pr.get("M", 1))
-    return 1
+        return int(pr.get("M", 1)), 2
+    return 1, 1
+
+
+def _probe_circuits(pr: dict) -> int:
+    pubs, per = _probe_pubs(pr)
+    return pubs * per
+
+
+def pub_circuits(b) -> int:
+    """Circuits (parameter sets) one built pub sends: what ``max_experiments`` counts."""
+    pv = getattr(b, "param_values", None)
+    return 1 if pv is None else int(np.asarray(pv).shape[0])
+
+
+def chunk_by_circuits(items: Sequence, circuits, limit: int = MAX_EXPERIMENTS) -> List[list]:
+    """Split ``items`` (in order) into consecutive chunks whose summed ``circuits(item)`` stays at or below ``limit``
+    (ibm_phoenix ``max_experiments`` = 300): the job packing of the pre-registration (600 circuits per grid point in 2 jobs,
+    the 256 mask circuits of one (draw, shift) under 300, 700-circuit reference points in 3 jobs, Deviations 27 and 43)."""
+    chunks, cur, load = [], [], 0
+    for it in items:
+        c = int(circuits(it))
+        if cur and load + c > limit:
+            chunks.append(cur)
+            cur, load = [], 0
+        cur.append(it)
+        load += c
+    if cur:
+        chunks.append(cur)
+    return chunks
+
+
+def chunk_tags(tag: str, n_chunks: int) -> List[str]:
+    """Job tags of a group split into ``n_chunks`` jobs: the group's tag, then ``<tag>-j2``, ``<tag>-j3``, ..."""
+    return [tag if i == 0 else f"{tag}-j{i + 1}" for i in range(n_chunks)]
 
 
 def probe_rep_delay_us(pr: dict) -> float | None:
@@ -494,24 +594,32 @@ def _probe_basis(pr: dict) -> str:
 
 
 def budget_jobs(jl: dict, dial_us: Dict[str, float]) -> List[dict]:
-    """The jobs the runner will submit for ``jl`` (same grouping as ``execute_joblist``: one per resilience level of the
-    gradient points, one per (level, shots, rep_delay_us) of the probes), each with its circuit items
-    ``(circuits, shots, gate_us)``, the number of distinct measurement bases and ``rep_delay_us`` (None: backend default)."""
+    """The jobs the runner will submit for ``jl`` (same grouping as ``execute_joblist``: one group per resilience level of the
+    gradient points, one per (level, shots, rep_delay_us) of the probes, each group split into jobs of at most
+    ``MAX_EXPERIMENTS`` circuits in build order), each with its pub items ``(circuits, shots, gate_us)``, the distinct
+    measurement bases and ``rep_delay_us`` (None: backend default)."""
     by_level: Dict[int, dict] = {}
     for pt in jl.get("points", []) or []:
         lvl = int(pt["resilience"])
         j = by_level.setdefault(lvl, dict(tag=f"L{lvl}", level=lvl, shots=int(pt["shots"]), items=[], bases=set(), rep_delay_us=None))
-        j["items"].append((2 * int(pt["M"]), int(pt["shots"]), int(pt["L"]) * LAYER_US))
-        j["bases"].add(f"ZZ:{pt.get('edge')}")
+        for _ in range(int(pt["M"])):                      # one pub (shifted pair) per draw, in build order
+            j["items"].append((2, int(pt["shots"]), int(pt["L"]) * LAYER_US, f"ZZ:{pt.get('edge')}"))
     by_probe: Dict[Tuple[int, int, float], dict] = {}
     for pr in jl.get("probes", []) or []:
         rd = probe_rep_delay_us(pr)
         key = (int(pr.get("resilience", 0)), int(pr["shots"]), -1.0 if rd is None else rd)
         j = by_probe.setdefault(key, dict(tag=probe_job_tag(key[0], key[1], rd), level=key[0], shots=key[1], items=[], bases=set(),
                                           rep_delay_us=rd))
-        j["items"].append((_probe_circuits(pr), int(pr["shots"]), _probe_length_us(pr, dial_us)))
-        j["bases"].add(_probe_basis(pr))
-    return [by_level[k] for k in sorted(by_level)] + [by_probe[k] for k in sorted(by_probe)]
+        pubs, per = _probe_pubs(pr)
+        for _ in range(pubs):
+            j["items"].append((per, int(pr["shots"]), _probe_length_us(pr, dial_us), _probe_basis(pr)))
+    jobs = []
+    for g in [by_level[k] for k in sorted(by_level)] + [by_probe[k] for k in sorted(by_probe)]:
+        chunks = chunk_by_circuits(g["items"], lambda it: it[0])       # max_experiments packing, same as execute_joblist
+        for tag, items in zip(chunk_tags(g["tag"], len(chunks)), chunks):
+            jobs.append(dict(tag=tag, level=g["level"], shots=g["shots"], items=[it[:3] for it in items], bases={it[3] for it in items},
+                             rep_delay_us=g["rep_delay_us"]))
+    return jobs
 
 
 def estimate_budget(jl: dict, rep_delays_us: Sequence[float] = BUDGET_REP_DELAYS_US, backend=None) -> dict:
@@ -631,6 +739,7 @@ class GridPoint:
     q: int = 0            # local qubit of the differentiated parameter
     seed: int = 0         # seed for the random parameter vector
     layout: Tuple[int, ...] | None = None   # explicit physical qubits (job-list ``layout``); the Patch stays in lattice coordinates
+    edge: Tuple[int, int] | None = None     # observable edge in lattice coordinates (None: interior_edge of the patch)
 
 
 @dataclass
@@ -835,15 +944,19 @@ def build_pubs(points: Iterable[GridPoint], backend, exclude=DEFAULT_EXCLUDE, op
                shapes: dict | None = None) -> List[BuiltPub]:
     built = []
     shapes = shapes or {}
+    cache: Dict[tuple, tuple] = {}     # the parametrised circuit is the same for every draw of a point: transpile it once
     for pt in points:
         shape = shapes.get(pt.n)
         patch = shape if isinstance(shape, Patch) else patch_for(pt.n, exclude, shape)
-        obs, edge = hea_observable(patch)
-        qc = hea_square(patch, pt.L)  # parametrised
-        pm = generate_preset_pass_manager(optimization_level=optimization_level, backend=backend,
-                                          initial_layout=list(pt.layout or patch.qubits), seed_transpiler=pt.seed)
-        isa = pm.run(qc)
-        isa_obs = obs.apply_layout(isa.layout)
+        obs, edge = hea_observable(patch, pt.edge)
+        key = (tuple(patch.qubits), patch.broken_edges, pt.L, pt.layout, edge)
+        if key not in cache:
+            qc = hea_square(patch, pt.L)  # parametrised
+            pm = generate_preset_pass_manager(optimization_level=optimization_level, backend=backend,
+                                              initial_layout=list(pt.layout or patch.qubits), seed_transpiler=pt.seed)
+            isa = pm.run(qc)
+            cache[key] = (isa, obs.apply_layout(isa.layout))
+        isa, isa_obs = cache[key]
         rng = np.random.default_rng(pt.seed)
         theta = rng.uniform(0, 2 * np.pi, size=pt.n * pt.L)
         idx = param_index(pt.k, pt.q, pt.n)
@@ -942,13 +1055,30 @@ def load_joblist(path: str) -> dict:
             need = {"n", "patch"}
         if pr["kind"] == "null_control":
             need = {"n", "patch", "M"}
-            if not (1 <= int(pr.get("k", 1)) <= int(pr.get("L", 1))):
+            L0 = int(pr.get("L", 1))
+            if L0 < 0:
+                raise JoblistError(f"probe {pr.get('id')}: L must be >= 0 (0: the Deviation 43 SPAM-only point)")
+            if L0 == 0 and ("k" in pr or "null_qubit" in pr):
+                raise JoblistError(f"probe {pr.get('id')}: L = 0 null_control has no parameter: drop k and null_qubit")
+            if L0 >= 1 and not (1 <= int(pr.get("k", 1)) <= L0):
                 raise JoblistError(f"probe {pr.get('id')}: k must be in 1..L")
+        if pr["kind"] in ("reset_dial", "null_control") and int(pr.get("M", 1)) < 1:
+            raise JoblistError(f"probe {pr.get('id')}: M must be >= 1")
+        if pr["kind"] == "reset_dial":
+            if "unshifted" in pr and not isinstance(pr["unshifted"], bool):
+                raise JoblistError(f"probe {pr.get('id')}: unshifted must be a JSON boolean")
+            if pr.get("truncate_to") is not None:
+                if not pr.get("unshifted"):
+                    raise JoblistError(f"probe {pr.get('id')}: truncate_to needs unshifted: true")
+                if not (1 <= int(pr["truncate_to"]) <= int(pr["L"])):
+                    raise JoblistError(f"probe {pr.get('id')}: truncate_to must be in 1..L")
         missing = need - set(pr)
         if missing:
             raise JoblistError(f"probe {pr.get('id')}: missing {sorted(missing)}")
         if pr["kind"] == "reset_dial" and not (0.0 <= float(pr["p"]) <= 1.0):
             raise JoblistError(f"probe {pr.get('id')}: p must lie in [0, 1]")
+        if pr["kind"] == "reset_dial" and "mask_p" in pr and not (0.0 <= float(pr["mask_p"]) <= 1.0):
+            raise JoblistError(f"probe {pr.get('id')}: mask_p must lie in [0, 1]")
         if "rep_delay_us" in pr:
             rd = pr["rep_delay_us"]
             if isinstance(rd, bool) or not isinstance(rd, (int, float)) or not (0.0 < float(rd) <= 2000.0):
@@ -987,18 +1117,14 @@ def joblist_points(jl: dict, calibration_csv: str | None = None) -> Tuple[List[G
     for pt in jl["points"]:
         patch, layout = _placed_patch(pt, csv, f"point n={pt['n']}")
         shapes[int(pt["n"])] = patch
-        _, edge = hea_observable(patch)
-        _, phys_edge = physical_qubits(patch, layout, edge)
-        want = str(pt["edge"]).replace("-", "_")
-        if want and want != f"{phys_edge[0]}_{phys_edge[1]}":
-            raise JoblistError(f"point n={pt['n']}: job-list edge {want} differs from the interior edge {phys_edge[0]}_{phys_edge[1]}")
+        edge = resolve_edge(patch, layout, pt["edge"], f"point n={pt['n']}")
         if shots is None:
             shots = int(pt["shots"])
         elif shots != int(pt["shots"]):
             raise JoblistError("all points in one job list must share the same shot count (one Batch, one EstimatorV2 default)")
         for d in range(int(pt["M"])):
             points.append(GridPoint(n=int(pt["n"]), L=int(pt["L"]), k=int(pt["k"]) - 1, resilience_level=int(pt["resilience"]),
-                                    q=patch.local(edge[0]), seed=int(pt["seed"]) + d, layout=layout))
+                                    q=patch.local(edge[0]), seed=int(pt["seed"]) + d, layout=layout, edge=edge))
     return points, shapes, shots
 
 
@@ -1114,8 +1240,10 @@ def _describe(b) -> dict:
                  param_hash=param_hash(b.theta) if b.theta.size else None,
                  masks=b.probe.get("masks", 1) if b.probe.get("kind") == "reset_dial" else None,
                  mask_seed=(b.seed + 1 + int(b.probe["mask_index"])) if b.probe.get("mask_index") is not None else None,
-                 dial_delay_ns=DIAL_DELAY_NS if str(b.probe.get("reset_kind", "reset")) == "delay" else None,
+                 dial_delay_ns=DIAL_DELAY_NS if str(b.probe.get("reset_kind", "reset")) in ("delay", "dephase") else None,
                  rep_delay_us=probe_rep_delay_us(b.probe),
+                 unshifted=bool(b.probe.get("unshifted", False)) if b.probe.get("kind") == "reset_dial" else None,
+                 truncate_to=b.probe.get("truncate_to"), M=b.probe.get("M"), mask_p=b.probe.get("mask_p"),
                  synthetic_target_instructions=list(b.synthetic_target_instructions))
         if b.patch is not None:
             d.update(patch=f"{b.patch.n_rows}x{b.patch.n_cols}", origin=list(b.patch.origin), holes=list(b.patch.holes), broken_edges=[list(e) for e in b.patch.broken_edges],
@@ -1346,7 +1474,7 @@ def _point_rows(backend, job_id: str, snapshot: str, group: List[BuiltPub], leve
 
 def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int, backend, submit: bool,
                     run_root: str = "data/runs", log_path: str | None = None, calibration_csv: str | None = None,
-                    instance_plan: str | None = None) -> List[dict]:
+                    instance_plan: str | None = None, dry_run_sample: int | None = None) -> List[dict]:
     """Build the PUBs, run one EstimatorV2 job per resilience level (inside a Batch when submitting), write one bundle
     per job under ``run_root`` and append one row per point to ``log_path``. With ``submit=False`` the same layout is
     written against the given (fake) backend with job_id 'dryrun-<utc>-L<level>' and no PrimitiveResult.
@@ -1376,6 +1504,22 @@ def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int,
         by_probe.setdefault((b.resilience_level, b.shots, -1.0 if rd is None else rd), []).append(b)
     for (level, pshots, _), group in sorted(by_probe.items()):
         groups.append((probe_job_tag(level, pshots, probe_rep_delay_us(group[0].probe)), level, pshots, group))
+    sampled = None
+    if dry_run_sample is not None and not submit:
+        # dry-run only: keep the first ``dry_run_sample`` pubs of every group (a build / transpile / bundle check of lists whose full
+        # circuit count is too large to build here); recorded in every job.json as ``dry_run_sample``. Never applies to a submission.
+        sampled = dict(pubs_per_group=int(dry_run_sample), full_pubs={tag: len(g) for tag, _, _, g in groups})
+        groups = [(tag, level, gshots, group[: int(dry_run_sample)]) for tag, level, gshots, group in groups]
+        print(f"dry-run sample: building the first {dry_run_sample} pubs of each group ({sampled['full_pubs']} pubs in full); "
+              f"budget figures below are for the full list")
+    # max_experiments (300 circuits per job): split each group into consecutive jobs, tags <tag>, <tag>-j2, ... (same
+    # packing as budget_jobs, so the budget's job count and 2 s overheads are the ones charged)
+    split: List[Tuple[str, int, int, list]] = []
+    for tag, level, gshots, group in groups:
+        chunks = chunk_by_circuits(group, pub_circuits)
+        for ctag, chunk in zip(chunk_tags(tag, len(chunks)), chunks):
+            split.append((ctag, level, gshots, chunk))
+    groups = split
     job_rep_delay_s = {tag: (None if probe_rep_delay_us(g[0].probe) is None else probe_rep_delay_us(g[0].probe) / 1e6)
                        for tag, _, _, g in groups if g and isinstance(g[0], BuiltProbe)}
     rd_info = rep_delay_info(backend)
@@ -1403,7 +1547,7 @@ def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int,
             "move the patch / layout, or set layout_check: \"override\" with a layout_check_reason in the job list"
         raise SystemExit(f"refusing to submit: {_layout_check_message(chk)}; {remedy}")
     extra = dict(instance_plan=instance_plan, budget=jl.get("budget"), budget_estimate_with_target_durations=budget_target,
-                 layout_check=chk)
+                 layout_check=chk, max_experiments=MAX_EXPERIMENTS, dry_run_sample=sampled)
     root = Path(run_root)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     rows: List[dict] = []
@@ -1472,7 +1616,8 @@ def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int,
 
 
 def run_joblist(path: str, submit: bool, log_dir: str = "data/jobs", run_root: str = "data/runs",
-                calibration_csv: str | None = None, simulate: bool = False, simulate_shots: int | None = None) -> int:
+                calibration_csv: str | None = None, simulate: bool = False, simulate_shots: int | None = None,
+                dry_run_sample: int | None = None) -> int:
     jl = load_joblist(path)
     sampler = str(jl.get("primitive", "estimator")) == "sampler"
     points, shapes, shots = ([], {}, None) if sampler else joblist_points(jl, calibration_csv)
@@ -1501,7 +1646,8 @@ def run_joblist(path: str, submit: bool, log_dir: str = "data/jobs", run_root: s
                                     calibration_csv=calibration_csv, simulate=simulate, simulate_shots=simulate_shots)
             return 0
         execute_joblist(jl, points, shapes, shots, backend, submit=False, run_root=run_root,
-                        log_path=str(Path(log_dir) / f"{stem}_dryrun_{stamp}.csv"), calibration_csv=calibration_csv)
+                        log_path=str(Path(log_dir) / f"{stem}_dryrun_{stamp}.csv"), calibration_csv=calibration_csv,
+                        dry_run_sample=dry_run_sample)
         return 0
     if jl.get("dry_run", False) is True:
         raise SystemExit(f"refusing to submit: {path} carries dry_run: true; set it to false after the pre-flight review")
@@ -1538,6 +1684,8 @@ def main(argv=None):
     p.add_argument("--simulate", action="store_true", help="dry run of a Sampler list: also execute on the Aer stabilizer simulator "
                                                             "and write bitarrays.npz / counts.json (nothing submitted)")
     p.add_argument("--simulate-shots", type=int, default=None, help="shots for --simulate (default: the job's shots)")
+    p.add_argument("--dry-run-sample", type=int, default=None,
+                   help="dry run only: build the first N pubs of every job group (recorded as dry_run_sample in job.json); never applies to --yes-submit")
     a = p.parse_args(argv)
     if a.joblist and a.budget:
         print(json.dumps(estimate_budget(load_joblist(a.joblist)), indent=1))
@@ -1545,7 +1693,10 @@ def main(argv=None):
     if a.joblist:
         if not a.yes_submit:
             print("no --yes-submit: building the job list against a fake backend, submitting nothing")
-        return run_joblist(a.joblist, submit=a.yes_submit, log_dir=a.log_dir, run_root=a.run_root, simulate=a.simulate, simulate_shots=a.simulate_shots)
+        if a.yes_submit and a.dry_run_sample is not None:
+            p.error("--dry-run-sample is a dry-run option and cannot be combined with --yes-submit")
+        return run_joblist(a.joblist, submit=a.yes_submit, log_dir=a.log_dir, run_root=a.run_root, simulate=a.simulate, simulate_shots=a.simulate_shots,
+                           dry_run_sample=a.dry_run_sample)
     if a.yes_submit:
         p.error("ad-hoc submission is disabled: hardware jobs run only from a reviewed job list (--joblist)")
     dry_run(a.n, a.L, a.k)
