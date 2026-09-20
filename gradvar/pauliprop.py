@@ -57,6 +57,7 @@ first rotation on the observable qubit) and Var[<O>] from one propagation.
 """
 from __future__ import annotations
 
+import json
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -145,6 +146,7 @@ class ChannelSet:
     layer: Dict[int, Bloch]                    # dial channel after every layer (reset / delay / dephasing)
     readout: Dict[int, Tuple[float, float]]    # (a, b) of the measured Z folding per local qubit
     zz: Dict[Tuple[int, int], float] = field(default_factory=dict)   # ZZ(phi) per local coupler during the dial idle (rad)
+    zz_layer: Dict[Tuple[int, int], float] = field(default_factory=dict)   # static ZZ(phi) per local coupler per layer (CZ-block idle time)
 
 
 def _ptm(err) -> np.ndarray:
@@ -153,12 +155,14 @@ def _ptm(err) -> np.ndarray:
 
 def channels_from_models(model: str, csv_path: str, qubits: Sequence[int], edges: Sequence[Tuple[int, int]],
                          dial: Optional[Bloch | Dict[int, Bloch]] = None, readout: bool = True,
-                         zz: Optional[Dict[Tuple[int, int], float]] = None) -> ChannelSet:
+                         zz: Optional[Dict[Tuple[int, int], float]] = None,
+                         zz_layer: Optional[Dict[Tuple[int, int], float]] = None) -> ChannelSet:
     """Channels of 'noiseless' | 'unital' | 'nonunital' for the local register ``qubits`` (physical indices),
     read from the Pauli-transfer matrices of the Aer NoiseModel of `gradvar.noise` (so composition order and
     qubit assignment are exactly the simulated ones). ``dial`` adds a per-layer channel (one Bloch for all
     qubits or a dict by local qubit). ``zz`` = {(physical a, physical b): phi} adds the ZZ(phi) rotation of the
-    dial layer's idle on every listed coupler with both ends in ``qubits`` (see ``zz_phases``)."""
+    dial layer's idle on every listed coupler with both ends in ``qubits`` (see ``zz_phases``); ``zz_layer`` the same for the
+    whole-layer static ZZ during the CZ block (Deviation 34; angle from ``zz_phases`` with the layer's both-idle time)."""
     m = len(qubits)
     local = {int(q): i for i, q in enumerate(qubits)}
     trivial = Bloch()
@@ -189,11 +193,13 @@ def channels_from_models(model: str, csv_path: str, qubits: Sequence[int], edges
     layer = {}
     if dial is not None:
         layer = dict(dial) if isinstance(dial, dict) else {i: dial for i in range(m)}
-    zz_local = {}
-    for (a, b), phi in (zz or {}).items():
-        if int(a) in local and int(b) in local and phi != 0.0:
-            zz_local[(local[int(a)], local[int(b)])] = float(phi)
-    return ChannelSet(sx, idle, cz_relax, cz_factor, layer, ro, zz_local)
+    def _local(d):
+        out = {}
+        for (a, b), phi in (d or {}).items():
+            if int(a) in local and int(b) in local and phi != 0.0:
+                out[(local[int(a)], local[int(b)])] = float(phi)
+        return out
+    return ChannelSet(sx, idle, cz_relax, cz_factor, layer, ro, _local(zz), _local(zz_layer))
 
 
 def _decompose_cz_error(R: np.ndarray) -> Tuple[Tuple[Bloch, Bloch], float]:
@@ -230,7 +236,7 @@ class Program:
     the last block; ('sx', q) Clifford; ('cz', a, b); ('n1', q, Bloch); ('dep2', a, b, f); ('dial', q, Bloch)
     (a per-layer channel; sampled per path in the fixed-mask variant)."""
     m: int
-    ops: List[tuple]    # ('dial_zz', (Bloch | None per local qubit), ((a, b, phi), ...)) is the whole dial layer with ZZ
+    ops: List[tuple]    # ('dial_zz', (Bloch | None per local qubit), ((a, b, phi_idle, phi_static), ...)) is a whole dial layer with ZZ
     prefix_end: int     # ops[:prefix_end] are theta independent (coefficient level)
     tail_start: int     # ops[tail_start:] are single-qubit ops of the last block (integrated exactly)
     i: int              # local index of the differentiated / first observable qubit
@@ -253,15 +259,20 @@ def build_program(patch: Patch, L: int, k: int, channels: ChannelSet, cone: Sequ
     ops: List[tuple] = []
     exempt = {local[int(q)] for q in exempt_last_layer if int(q) in local}
     for layer in range(L, 0, -1):
-        if channels.layer and channels.zz:
-            # one op for the whole dial layer: per-qubit N_p (None = exempt) plus ZZ(phi) on every coupler of the cone
+        if channels.layer and (channels.zz or channels.zz_layer):
+            # one amplitude-level op for the whole dial layer: per-qubit N_p (None = exempt), the idle ZZ (both ends idle) and the
+            # static ZZ of the CZ block (Deviation 34) per coupler
             blochs = tuple(None if (layer == L and q in exempt) else channels.layer[q] for q in range(m))
-            ops.append(("dial_zz", blochs, tuple((a, b, phi) for (a, b), phi in sorted(channels.zz.items()))))
+            keys = sorted(set(channels.zz) | set(channels.zz_layer))
+            ops.append(("dial_zz", blochs, tuple((a, b, channels.zz.get((a, b), 0.0), channels.zz_layer.get((a, b), 0.0)) for (a, b) in keys)))
         elif channels.layer:
             for q in range(m):
                 if layer == L and q in exempt:
                     continue          # variant: listed qubits are not in the reset lottery of the last layer
                 ops.append(("dial", q, channels.layer[q]))
+        elif channels.zz_layer:
+            # Deviation 34 without a dial: the static ZZ of the CZ block (commutes with the CZs), unconditional (blochs = None)
+            ops.append(("dial_zz", (None,) * m, tuple((a, b, 0.0, phi) for (a, b), phi in sorted(channels.zz_layer.items()))))
         for sub in reversed(subs):
             busy = {q for e in sub for q in e}
             for q in range(m):
@@ -339,11 +350,13 @@ def _merge_adjacent_bloch(ops: List[tuple]) -> List[tuple]:
 
 def make_program(patch, L: int, k: int, model: str, csv_path: str, dial: Optional[Bloch | Dict[int, Bloch]] = None,
                  readout: bool = True, exempt_last_layer: Sequence[int] = (),
-                 zz: Optional[Dict[Tuple[int, int], float]] = None) -> Program:
+                 zz: Optional[Dict[Tuple[int, int], float]] = None,
+                 zz_layer: Optional[Dict[Tuple[int, int], float]] = None) -> Program:
     """Convenience: light cone, channels and program for one (patch, L, k, model[, dial]). ``exempt_last_layer``
     (physical qubits, e.g. the observable edge) removes the dial from those qubits in the last layer only: a variant
     of the pre-registered channel in which the observable qubits are not in the final reset lottery. ``zz`` (physical
-    coupler -> phi, from ``zz_phases``) switches on the ZZ idle phase of the dial layer (requires ``dial``)."""
+    coupler -> phi, from ``zz_phases``) switches on the ZZ idle phase of the dial layer (requires ``dial``); ``zz_layer`` (the same
+    keying) the whole-layer static ZZ of every layer (any model)."""
     patch = _as_patch(patch) if not isinstance(patch, Patch) else patch
     if not 1 <= k <= L:
         raise ValueError(f"k must be in 1..L, got {k}")
@@ -353,7 +366,7 @@ def make_program(patch, L: int, k: int, model: str, csv_path: str, dial: Optiona
         dial = {cone.index(q): b for q, b in dial.items() if q in cone}
     if zz and dial is None:
         raise ValueError("the ZZ idle phase belongs to the dial layer: pass a dial channel")
-    ch = channels_from_models(model, csv_path, cone, patch.edges(), dial=dial, readout=readout, zz=zz)
+    ch = channels_from_models(model, csv_path, cone, patch.edges(), dial=dial, readout=readout, zz=zz, zz_layer=zz_layer)
     return build_program(patch, L, k, ch, cone, edge, exempt_last_layer=exempt_last_layer)
 
 
@@ -379,13 +392,26 @@ def dial_bloch_by_qubit(csv_path: str, qubits: Sequence[int], kind: str, p: floa
     return out
 
 
-def zz_phases(properties: str | Path | dict, edges: Sequence[Tuple[int, int]], idle_ns: float = T_RESET_NS,
-              fallback_hz: float | None = None) -> Dict[Tuple[int, int], float]:
-    """ZZ(phi) angle per coupler for the dial layer's idle: phi = 2 pi zeta tau with the signed per-edge zeta (Hz) from
-    the raw backend properties (``noise.zz_couplings``; entries ``zz_<a><b>`` in GHz) and tau = ``idle_ns``. Couplers
-    without an entry take ``fallback_hz`` (default: the median |zeta| over every listed coupler, 26.7 kHz on the
-    19 Sep 2026 19:25Z ibm_phoenix properties). Keys are (a, b) as given in ``edges``; ``phi`` is the qiskit ``rzz``
-    angle, X_a -> cos(phi) X_a - sin(phi) Y_a Z_b (Section 3b: about 0.07 rad per idle neighbour pair)."""
+# ZZ angle convention (Deviation 34, 20 Sep 2026). The raw properties give J (Hz): the a-transition frequency differs by
+# omega = zeta = 2 pi J between b = |0> and b = |1>, i.e. H = (zeta / 4) Z_a Z_b. Over a time tau the pair unitary is
+# exp(-i zeta tau / 4 Z Z) = rzz(zeta tau / 2) in qiskit's rzz(theta) = exp(-i theta / 2 Z Z); the conditional phase one
+# qubit accrues is zeta tau (0.068 rad over 400 ns at 27 kHz) and the incoherent second-moment weight moved per pair is
+# sin^2(zeta tau / 2). ZZ_ANGLE_SCALE multiplies zeta tau to give the rzz angle: 0.5 is Deviation 34; 1.0 is the
+# pre-registration's literal "0.07 rad per pair" used as the rzz angle (branch pp-zz-idle), kept as the documented
+# upper-bound record (twice the angle, about 4x the weight).
+ZZ_ANGLE_SCALE = 0.5
+ZZ_ANGLE_SCALE_UPPER_BOUND = 1.0
+ZZ_CONVENTIONS = {0.5: "rzz(zeta*tau/2) (Deviation 34)", 1.0: "rzz(zeta*tau) (upper bound, 2x Deviation 34 angle)"}
+
+
+def zz_phases(properties: str | Path | dict, edges: Sequence[Tuple[int, int]], idle_ns: float | Dict[Tuple[int, int], float] = T_RESET_NS,
+              fallback_hz: float | None = None, scale: float = ZZ_ANGLE_SCALE) -> Dict[Tuple[int, int], float]:
+    """rzz angle per coupler for a ZZ idle of duration ``idle_ns``: phi = scale x zeta tau, zeta = 2 pi J with the signed
+    per-edge J (Hz) from the raw backend properties (``noise.zz_couplings``; entries ``zz_<a><b>`` in GHz); ``scale`` =
+    ``ZZ_ANGLE_SCALE`` (0.5, Deviation 34) or ``ZZ_ANGLE_SCALE_UPPER_BOUND`` (1.0, the pp-zz-idle record). Couplers without
+    an entry take ``fallback_hz`` (default: the median |J| over every listed coupler, 26.7 kHz on the 19 Sep 2026 19:25Z
+    ibm_phoenix properties). ``idle_ns`` may be a per-coupler dict (the static layer time of ``scripts/zz_layer_timing.py``).
+    Keys are (a, b) as given in ``edges``; Heisenberg action X_a -> cos(phi) X_a - sin(phi) Y_a Z_b."""
     props = properties if isinstance(properties, dict) else noise_mod.load_properties(properties)
     zz = noise_mod.zz_couplings(props)
     if fallback_hz is None:
@@ -395,7 +421,26 @@ def zz_phases(properties: str | Path | dict, edges: Sequence[Tuple[int, int]], i
         a, b = int(a), int(b)
         z = zz.get((a, b), zz.get((b, a)))
         hz = float(z) * 1e9 if z is not None else float(fallback_hz)
-        out[(a, b)] = float(2 * np.pi * hz * idle_ns * 1e-9)
+        tau = idle_ns if not isinstance(idle_ns, dict) else idle_ns.get((a, b), idle_ns.get((b, a)))
+        if tau is None:
+            raise KeyError(f"no layer time for coupler {(a, b)}")
+        out[(a, b)] = float(scale * 2 * np.pi * hz * float(tau) * 1e-9)
+    return out
+
+
+LAYER_TIMING = Path(__file__).resolve().parents[1] / "data" / "predictions" / "zz_layer_timing.json"
+
+
+def layer_tau_ns(patch_spec: str, couplers: Sequence[Tuple[int, int]], timing: str | Path | dict = LAYER_TIMING) -> Dict[Tuple[int, int], float]:
+    """Static (unconditional) ZZ time per coupler and layer from ``scripts/zz_layer_timing.py`` for a ladder patch; couplers
+    absent from the schedule (e.g. a smaller test patch) take the ladder median."""
+    t = timing if isinstance(timing, dict) else json.loads(Path(timing).read_text())
+    per = t.get("ladder", {}).get(patch_spec, {}).get("static_zz_ns_per_coupler_layer_mean", {})
+    med = float(t["tau_grid_ns_median_over_ladder"])
+    out = {}
+    for a, b in couplers:
+        v = per.get(f"{a}_{b}", per.get(f"{b}_{a}", med))
+        out[(int(a), int(b))] = float(v)
     return out
 
 
@@ -758,30 +803,35 @@ def propagate_truncated(prog: Program, delta: float = 1e-7, max_weight: int | No
                     delta=delta, extra=dict(capped=capped, timed_out=False))
 
 
-# --------------------------------------------------------------------------- dial layer with the ZZ idle phase
+# --------------------------------------------------------------------------- dial layer with the ZZ phases
 
 def _zz_neighbours(blochs, edges, m: int):
+    """edges: (a, b, phi_idle, phi_static) per coupler (3-tuples (a, b, phi) are read as phi_idle = phi, phi_static = 0)."""
     nb = {q: [] for q in range(m)}
-    for a, b, phi in edges:
-        nb[a].append((b, float(phi)))
-        nb[b].append((a, float(phi)))
+    for e in edges:
+        a, b_ = e[0], e[1]
+        phi_i = float(e[2])
+        phi_s = float(e[3]) if len(e) > 3 else 0.0
+        nb[a].append((b_, phi_i, phi_s))
+        nb[b_].append((a, phi_i, phi_s))
     return nb
 
 
 def _dial_zz_layer_truncated(X, Z, Wt, blochs, edges, delta: float, n_cap: int | None):
-    """Exact second moment of one dial layer with the ZZ idle phase (see docs/PAULIPROP.md, 'ZZ idle phase').
+    """Exact second moment of one dial layer with the ZZ phases (docs/PAULIPROP.md, 'ZZ idle phase' and 'Deviation 34').
 
-    First-moment map of the layer on a string P (mask average of reset / idle per qubit, ZZ(phi_e) on every coupler
-    whose two ends idle): X/Y qubits are forced idle (factor (1-p) d, no branching); every I/Z qubit x is a 'hub'
-    whose incident couplers to X/Y neighbours a in N(x) rotate only when x idles, so the map factorises over hubs,
-    H_x = p R_x + (1-p) prod_{a in N(x)} ZZ_ax. Outcomes of H_x: the reset branch (Z_x -> I, p; I_x -> I, p) and the
-    idle branches S subset N(x) with amplitude (1-p) prod_S (-+ sin phi) prod_{N\S} cos phi (X_a -> -sin Y_a Z_x,
-    Y_a -> +sin X_a Z_x), which flip X <-> Y on a in S and toggle Z_x by the parity of |S|. Distinct outcome strings
-    are told apart by this layer's rotations (X/Y vs Z/I on a; Z vs I on x), so their squares add; outcomes that
-    coincide (the reset and the S = {} branch on an I hub, closed alternating ZZ cycles across hubs) carry the same
-    theta dependence and are summed *before* squaring. The layer is therefore propagated at the amplitude level per
-    input string (key = (origin, string)), squared at the end and merged. Pruning inside the layer at
-    w_origin amp^2 < delta can break the strict lower bound by at most the pruned cycle cross terms, O(sin^4 phi)."""
+    Circuit order of the layer: CZ block with the static ZZ rzz(phi_static) on every coupler, then the dial slot: reset (prob.
+    p) or idle (dephasing d, and rzz(phi_idle) on every coupler whose both ends idle). First-moment map on a string P: X/Y
+    qubits are forced idle (factor (1-p) d); every I/Z qubit x is a 'hub' whose incident couplers to X/Y neighbours a rotate
+    by phi_static + phi_idle when x idles and by phi_static when x is reset (the static ZZ precedes the reset), so the map
+    factorises over hubs, H_x = p ZZ_x(phi_s) R_x + (1-p) ZZ_x(phi_s + phi_i). Outcomes of H_x: the idle branches S subset
+    N(x), amplitude (1-p) [d_z] prod_S (-+ sin) prod_{N\\S} cos of the total angle, flipping X <-> Y on a in S and toggling
+    Z_x by the parity of |S|; the reset branches S, amplitude p prod_S (-+ sin phi_s) prod cos phi_s, the hub left in Z^|S|
+    (it was reset to I). Outcome strings that differ are told apart by this layer's rotations, so their squares add; outcomes
+    that coincide (every S of an I hub across the two branches; closed alternating ZZ cycles across hubs) carry the same
+    theta dependence and are summed before squaring. The layer is therefore propagated at the amplitude level per input
+    string (key = (origin, string)), squared at the end and merged. Pruning inside the layer at w_origin amp^2 < delta can
+    break the strict lower bound by at most the pruned cross terms, O(sin^4 phi)."""
     m = len(blochs)
     W = X.shape[1]
     n0 = X.shape[0]
@@ -822,15 +872,14 @@ def _dial_zz_layer_truncated(X, Z, Wt, blochs, edges, delta: float, n_cap: int |
         amp = np.where(c == 1, amp * b.dx, np.where(c == 2, amp * b.dy, amp))
         hub = (c == 0) | (c == 3)
         nbrs = nb[x]
+        wq, bq = x >> 6, U64(x & 63)
         if not nbrs:
             if tz == 0.0 and dz_i == 1.0:
                 continue
             isz = c == 3
             if not isz.any():
                 continue
-            # plain N_p on a Z hub without X/Y-coupled neighbours: reset branch (-> I, amplitude p) is a distinct string
             Xn, Zn, an, on = X[isz], Z[isz].copy(), amp[isz] * tz, origin[isz]
-            wq, bq = x >> 6, U64(x & 63)
             Zn[:, wq] &= ~(ONE << bq)
             amp = np.where(isz, amp * (q_idle * dz_i), amp)
             if tz != 0.0:
@@ -841,47 +890,48 @@ def _dial_zz_layer_truncated(X, Z, Wt, blochs, edges, delta: float, n_cap: int |
                 continue
             Xh, Zh, ah, oh = X[idx], Z[idx], amp[idx], origin[idx]
             ch = c[idx]
-            k = len(nbrs)
-            ind, sgn_sin, cosv = [], [], []
-            for a, phi in nbrs:
-                ca = _codes(Xh, Zh, a)
-                present = (ca == 1) | (ca == 2)
-                ind.append(present)
-                sgn_sin.append(np.where(ca == 1, -np.sin(phi), np.sin(phi)) * present)
-                cosv.append(np.where(present, np.cos(phi), 1.0))
-            has_nbr = np.logical_or.reduce(ind) if k > 1 else ind[0]
             isz = ch == 3
+            k = len(nbrs)
+            sgn, sinT, cosT, sinS, cosS = [], [], [], [], []
+            for a, phi_i, phi_s in nbrs:
+                ca = _codes(Xh, Zh, a)
+                pr = (ca == 1) | (ca == 2)
+                sgn.append(np.where(ca == 1, -1.0, 1.0))
+                tot = phi_i + phi_s
+                sinT.append(np.where(pr, np.sin(tot), 0.0)); cosT.append(np.where(pr, np.cos(tot), 1.0))
+                sinS.append(np.where(pr, np.sin(phi_s), 0.0)); cosS.append(np.where(pr, np.cos(phi_s), 1.0))
+            base_idle = np.where(isz, q_idle * dz_i, q_idle)
             new_X, new_Z, new_a, new_o = [], [], [], []
-            wq, bq = x >> 6, U64(x & 63)
-            # reset branch: Z hub -> I (amplitude p), I hub -> I (amplitude p, merged with the S = {} idle branch below)
-            if tz != 0.0 and isz.any():
-                Xn, Zn = Xh[isz], Zh[isz].copy()
-                Zn[:, wq] &= ~(ONE << bq)
-                new_X.append(Xn); new_Z.append(Zn); new_a.append(ah[isz] * tz); new_o.append(oh[isz])
             for S in range(2 ** k):
-                fac = np.ones(idx.size)
+                fI = np.ones(idx.size)
+                fR = np.full(idx.size, tz) if tz != 0.0 else None
                 par = 0
                 for t in range(k):
                     if (S >> t) & 1:
-                        fac = fac * sgn_sin[t]
+                        fI = fI * sgn[t] * sinT[t]
+                        if fR is not None:
+                            fR = fR * sgn[t] * sinS[t]
                         par ^= 1
                     else:
-                        fac = fac * cosv[t]
-                a_idle = np.where(isz, q_idle * dz_i, q_idle) * fac
-                if S == 0:
-                    a_idle = a_idle + np.where(isz, 0.0, tz)          # I hub: reset branch coincides with S = {}
-                sel = a_idle != 0.0
-                if not sel.any():
-                    continue
-                Xn, Zn = Xh[sel], Zh[sel].copy()
-                for t in range(k):
-                    if (S >> t) & 1:
-                        a_t = nbrs[t][0]
-                        wa, ba = a_t >> 6, U64(a_t & 63)
-                        Zn[:, wa] ^= (ONE << ba)                       # X <-> Y on the flipped neighbour
-                zbit = (isz[sel].astype(np.uint64) ^ U64(par))          # Z hub: Z^(1+|S|); I hub: Z^|S|
-                Zn[:, wq] = (Zn[:, wq] & ~(ONE << bq)) | (zbit << bq)
-                new_X.append(Xn); new_Z.append(Zn); new_a.append((ah * a_idle)[sel]); new_o.append(oh[sel])
+                        fI = fI * cosT[t]
+                        if fR is not None:
+                            fR = fR * cosS[t]
+                for a_out, zstart in ((base_idle * fI, isz.astype(np.uint64)), (fR, None)):
+                    if a_out is None:
+                        continue
+                    sel = a_out != 0.0
+                    if not sel.any():
+                        continue
+                    Xn, Zn = Xh[sel], Zh[sel].copy()
+                    for t in range(k):
+                        if (S >> t) & 1:
+                            a_t = nbrs[t][0]
+                            wa, ba = a_t >> 6, U64(a_t & 63)
+                            Zn[:, wa] ^= (ONE << ba)                       # X <-> Y on the flipped neighbour
+                    z0 = zstart[sel] if zstart is not None else np.zeros(int(sel.sum()), dtype=np.uint64)
+                    zbit = z0 ^ U64(par)
+                    Zn[:, wq] = (Zn[:, wq] & ~(ONE << bq)) | (zbit << bq)
+                    new_X.append(Xn); new_Z.append(Zn); new_a.append((ah * a_out)[sel]); new_o.append(oh[sel])
             keep = ~hub
             X = np.concatenate([X[keep]] + new_X)
             Z = np.concatenate([Z[keep]] + new_Z)
@@ -909,14 +959,16 @@ def _prefix_dial_tz(prog: "Program") -> Dict[int, float]:
 
 
 def _dial_zz_layer_sampled(X, Z, weight, blochs, edges, rng, fixed_masks: bool):
-    """Sampled counterpart of `_dial_zz_layer_truncated` (per path). Mixture (fixed_masks=False): per hub x, reset with
-    probability p^2 / (p^2 + (1-p)^2 dz_i^2) on a Z hub (-> I, no flips), otherwise independent flips of the X/Y
-    neighbours with probability sin^2 phi_e and Z_x toggled by their parity; on an I hub the coincident reset / S = {}
-    outcome has probability (p + (1-p) prod cos)^2 / total; the weight carries the total mass. Closed ZZ cycles across
-    hubs are summed incoherently here (O(sin^4 phi) relative, far below the sampling error). Fixed masks: a reset mask
-    is drawn per qubit; every coupler with both ends idle and exactly one X/Y end flips with probability sin^2 phi."""
+    """Sampled counterpart of `_dial_zz_layer_truncated` (per path), exact per hub. Mixture (fixed_masks=False): Z hub:
+    reset with probability p^2 / (p^2 + (1-p)^2 dz_i^2) (-> I, then independent flips of the X/Y neighbours with sin^2 phi_s)
+    else idle (flips with sin^2 (phi_s + phi_i)), Z_x toggled by the flip parity; I hub: the two branches give the same string
+    for every flip set S, so amp_S = p prod_S sin phi_s prod cos phi_s + (1-p) prod_S sin(phi_s + phi_i) prod cos(phi_s + phi_i)
+    is formed coherently, the weight carries sum_S amp_S^2 and S is drawn with amp_S^2. Closed ZZ cycles across hubs are
+    summed incoherently (O(sin^4 phi), far below the sampling error). Fixed masks: a reset mask is drawn per qubit; every
+    coupler with exactly one X/Y end rotates by phi_s + phi_i (both ends idle) or phi_s (a reset end) and flips with sin^2."""
     m = len(blochs)
     N = X.shape[0]
+    nb = _zz_neighbours(blochs, edges, m)
     if fixed_masks:
         reset = np.zeros((m, N), dtype=bool)
         for q in range(m):
@@ -931,17 +983,20 @@ def _dial_zz_layer_sampled(X, Z, weight, blochs, edges, rng, fixed_masks: bool):
             toI = reset[q] & (c == 3)
             Z[toI, wq] &= ~(ONE << bq)
             weight[(~reset[q]) & ((c == 1) | (c == 2))] *= idle_x
-        for a, b_, phi in edges:
+        for e in edges:
+            a, b_ = e[0], e[1]
+            phi_i = float(e[2]); phi_s = float(e[3]) if len(e) > 3 else 0.0
             ca, cb = _codes(X, Z, a), _codes(X, Z, b_)
             xa, xb = (ca == 1) | (ca == 2), (cb == 1) | (cb == 2)
-            act = (~reset[a]) & (~reset[b_]) & (xa ^ xb)
-            flip = act & (rng.random(N) < np.sin(phi) ** 2)
+            act = xa ^ xb
+            both_idle = (~reset[a]) & (~reset[b_])
+            ang = np.where(both_idle, phi_s + phi_i, phi_s)
+            flip = act & (rng.random(N) < np.sin(ang) ** 2)
             if flip.any():
                 wa, ba, wb, bb = a >> 6, U64(a & 63), b_ >> 6, U64(b_ & 63)
                 Z[flip, wa] ^= (ONE << ba)
                 Z[flip, wb] ^= (ONE << bb)
         return X, Z, weight
-    nb = _zz_neighbours(blochs, edges, m)
     for x in range(m):
         b = blochs[x] if blochs[x] is not None else Bloch()
         tz = float(b.tz)
@@ -953,8 +1008,8 @@ def _dial_zz_layer_sampled(X, Z, weight, blochs, edges, rng, fixed_masks: bool):
         isz = c == 3
         isi = c == 0
         nbrs = nb[x]
+        mz = tz ** 2 + (q_idle * dz_i) ** 2
         if not nbrs:
-            mz = tz ** 2 + (q_idle * dz_i) ** 2
             weight = np.where(isz, weight * mz, weight)
             if tz:
                 toI = isz & (rng.random(N) < tz ** 2 / mz)
@@ -962,55 +1017,49 @@ def _dial_zz_layer_sampled(X, Z, weight, blochs, edges, rng, fixed_masks: bool):
             continue
         k = len(nbrs)
         present = np.zeros((k, N), dtype=bool)
-        for t, (a, phi) in enumerate(nbrs):
+        for t, (a, phi_i, phi_s) in enumerate(nbrs):
             ca = _codes(X, Z, a)
             present[t] = (ca == 1) | (ca == 2)
-        C = np.ones(N)
-        for t, (a, phi) in enumerate(nbrs):
-            C = C * np.where(present[t], np.cos(phi), 1.0)
         u = rng.random(N)
-        # Z hubs
-        mz = tz ** 2 + (q_idle * dz_i) ** 2
+        flips = np.zeros((k, N), dtype=bool)
         weight = np.where(isz, weight * mz, weight)
         reset_z = isz & (u < (tz ** 2 / mz if mz > 0 else 0.0))
         idle_z = isz & ~reset_z
-        Z[reset_z, wq] &= ~(ONE << bq)
-        # I hubs
-        tot_i = tz ** 2 + q_idle ** 2 + 2 * tz * q_idle * C
-        weight = np.where(isi, weight * tot_i, weight)
-        p0 = (tz + q_idle * C) ** 2 / tot_i
-        flip_i = isi & (u >= p0)
-        # flips: Z hubs (idle) independent Bernoulli(sin^2) per present neighbour; I hubs conditioned on >= 1 flip
-        parity = np.zeros(N, dtype=np.uint64)
-        flips = np.zeros((k, N), dtype=bool)
-        for t, (a, phi) in enumerate(nbrs):
-            flips[t] = idle_z & present[t] & (rng.random(N) < np.sin(phi) ** 2)
-        rows = np.nonzero(flip_i)[0]
+        for t, (a, phi_i, phi_s) in enumerate(nbrs):
+            r = rng.random(N)
+            flips[t] |= idle_z & present[t] & (r < np.sin(phi_s + phi_i) ** 2)
+            flips[t] |= reset_z & present[t] & (r < np.sin(phi_s) ** 2)
+        rows = np.nonzero(isi)[0]
         if rows.size:
-            probs = np.zeros((rows.size, 2 ** k))
-            for S in range(1, 2 ** k):
-                pr = np.ones(rows.size)
-                for t, (a, phi) in enumerate(nbrs):
+            amps = np.zeros((rows.size, 2 ** k))
+            for S in range(2 ** k):
+                fI = np.full(rows.size, q_idle)
+                fR = np.full(rows.size, tz)
+                for t, (a, phi_i, phi_s) in enumerate(nbrs):
+                    pr = present[t, rows]
                     if (S >> t) & 1:
-                        pr = pr * np.where(present[t, rows], np.sin(phi) ** 2, 0.0)
+                        fI = fI * np.where(pr, np.sin(phi_s + phi_i), 0.0)
+                        fR = fR * np.where(pr, np.sin(phi_s), 0.0)
                     else:
-                        pr = pr * np.where(present[t, rows], np.cos(phi) ** 2, 1.0)
-                probs[:, S] = pr
-            probs /= probs.sum(axis=1, keepdims=True)
-            cum = np.cumsum(probs, axis=1)
-            r = rng.random(rows.size)[:, None]
-            S_pick = (r > cum).sum(axis=1)
-            S_pick = np.minimum(S_pick, 2 ** k - 1)
+                        fI = fI * np.where(pr, np.cos(phi_s + phi_i), 1.0)
+                        fR = fR * np.where(pr, np.cos(phi_s), 1.0)
+                amps[:, S] = fI + fR
+            w2 = amps ** 2
+            tot = w2.sum(axis=1)
+            weight[rows] *= tot
+            cum = np.cumsum(w2 / tot[:, None], axis=1)
+            S_pick = np.minimum((rng.random(rows.size)[:, None] > cum).sum(axis=1), 2 ** k - 1)
             for t in range(k):
                 flips[t, rows] |= ((S_pick >> t) & 1).astype(bool)
-        for t, (a, phi) in enumerate(nbrs):
+        parity = np.zeros(N, dtype=np.uint64)
+        for t, (a, phi_i, phi_s) in enumerate(nbrs):
             f = flips[t]
             if f.any():
                 wa, ba = a >> 6, U64(a & 63)
                 Z[f, wa] ^= (ONE << ba)
                 parity ^= f.astype(np.uint64)
-        touched = idle_z | flip_i
-        zbit = (isz.astype(np.uint64) ^ parity) & ONE
+        touched = isz | isi
+        zbit = (idle_z.astype(np.uint64) ^ parity) & ONE          # reset Z hub and I hub start from I, idle Z hub from Z
         Z[touched, wq] = (Z[touched, wq] & ~(ONE << bq)) | (zbit[touched] << bq)
     return X, Z, weight
 
@@ -1170,12 +1219,13 @@ def pattern_variance(prog: Program, n_samples: int = 200_000, seed: int = 0) -> 
 def predict_point(patch, L: int, k: int, model: str, csv_path: str, deltas: Sequence[float] = (1e-6, 1e-7),
                   n_samples: int = 200_000, dial=None, seed: int = 0, time_limit_s: float | None = None,
                   n_cap: int | None = 400_000, sampled: bool = True, readout: bool = True,
-                  exempt_last_layer: Sequence[int] = (), zz: Optional[Dict[Tuple[int, int], float]] = None) -> Dict:
+                  exempt_last_layer: Sequence[int] = (), zz: Optional[Dict[Tuple[int, int], float]] = None,
+                  zz_layer: Optional[Dict[Tuple[int, int], float]] = None) -> Dict:
     """Truncation sweep over ``deltas`` (coarse to fine) plus the sampled estimate; returns a flat dict."""
-    prog = make_program(patch, L, k, model, csv_path, dial=dial, readout=readout, exempt_last_layer=exempt_last_layer, zz=zz)
+    prog = make_program(patch, L, k, model, csv_path, dial=dial, readout=readout, exempt_last_layer=exempt_last_layer, zz=zz, zz_layer=zz_layer)
     out = dict(model=model, n=_as_patch(patch).n, L=L, k=k, n_cone=prog.m, edge=f"{prog.qubits[prog.i]}_{prog.qubits[prog.j]}",
-               mean_cost=prog and float("nan"), zz_idle="on" if zz else "off",
-               n_zz_couplers=sum(len(op[2]) for op in prog.ops if op[0] == "dial_zz") // max(1, sum(1 for op in prog.ops if op[0] == "dial_zz")))
+               mean_cost=prog and float("nan"), zz_idle="on" if zz else "off", zz_layer="on" if zz_layer else "off",
+               n_zz_couplers=(len(zz_layer) if zz_layer else (len(zz) if zz else 0)))
     res = []
     for d in deltas:
         r = propagate_truncated(prog, delta=d, n_cap=n_cap, time_limit_s=time_limit_s)

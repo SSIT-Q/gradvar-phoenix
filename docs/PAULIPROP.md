@@ -151,6 +151,86 @@ dial's `t_z = p`) is still not modelled; the ZZ to a neighbour *during its reset
 rotation of order `phi/2` on the idle qubit) is not modelled either, since the reset qubit's Z is undefined during the
 operation; its second-moment effect is about `p (1 - p) phi^2 ~ 8e-4` per coupler and layer at p = 0.25, phi = 0.067 (a fraction of the modelled idle term `(1-p)^2 sin^2 phi ~ 2.5e-3`).
 
+### Deviation 34: whole-layer static ZZ in both noisy models (branch `pp-zz-layer`, booked reading)
+
+**Convention (Deviation 34, adopted 20 Sep 2026).** The raw properties give `J` (Hz): the a-transition frequency differs by
+`omega = zeta = 2 pi J` between `b = |0>` and `b = |1>`, i.e. `H = (zeta / 4) Z_a Z_b`; over a time `tau` the pair unitary is
+`exp(-i zeta tau / 4 ZZ) = rzz(zeta tau / 2)` (qiskit `rzz(theta) = exp(-i theta / 2 ZZ)`), the conditional phase one qubit
+accrues is `zeta tau` (0.068 rad over 400 ns at 27 kHz) and the incoherent weight moved per pair is `sin^2(zeta tau / 2)`.
+`pauliprop.ZZ_ANGLE_SCALE = 0.5` multiplies `zeta tau` to give the `rzz` angle; `ZZ_ANGLE_SCALE_UPPER_BOUND = 1.0` is the
+pre-registration's literal "0.07 rad per pair" used as the `rzz` angle by branch `pp-zz-idle` (twice the angle, about 4x the
+weight; kept as the documented upper-bound record under `zz_idle_upper_bound_record`).
+
+**Layer time from the schedule (`scripts/zz_layer_timing.py`, `data/predictions/zz_layer_timing.json`).** The transpiled ISA
+circuits of the list 02 dry run (4x5: grid L = 2 / 8, reset-dial and delay-matched probes at L = 8) and the transpiled cone
+circuits of every ladder patch at L = 8 are scheduled ASAP with the ibm_phoenix target durations of the placements snapshot
+(per-edge `cz` gate_length 68-108 ns on the ladder couplers, `sx` 40 ns, `rz` 0, `reset` 400 ns, `delay` 400 ns). Per layer
+(barrier to barrier) and coupler `(a, b)` the static ZZ-active time is the layer length minus the time `a` or `b` is inside a
+1q gate minus the pair's own CZ; time inside a CZ on a neighbouring pair counts as active (the neighbour's CZ does not cancel
+the a-b coupling), and the dial slot (reset / delay) is excluded from the static term and kept as the mask-conditional idle
+term. Result: a grid layer is 380 ns (4x5, 4x10) or 392 ns (6x10 .. 10x10: one 108 ns CZ in a sub-layer) = 80 ns of `sx` +
+the four CZ sub-layers, and the static ZZ time per coupler-layer is **232-244 ns median (204-312 ns range)**, not 0.71 us:
+Deviation 24's 0.71 us is the dial circuit's layer (712-780 ns in the dry-run probes = grid layer + the 400 ns slot), the
+budget formula's circuit-length coefficient. In the dry-run dial probes the couplers whose two qubits carry neither a reset
+nor a delay instruction (the runner writes the slot only at mask positions) show 632 ns = 232 + 400: that 400 ns is exactly the
+both-idle term of the dial model, so the split static 232-244 ns + conditional 400 ns is what the schedule gives.
+
+| source | circuit | layers | layer length (ns) | static ZZ time per coupler-layer: median / min / max (ns) | dial slot (ns) |
+|---|---|---|---|---|---|
+| list 02 dry run (ISA) | 4x5 L=2 grid | 2 | 380 | 232 / 204 / 232 | 0 |
+| list 02 dry run (ISA) | 4x5 L=8 grid | 8 | 380 | 232 / 204 / 232 | 0 |
+| list 02 dry run (ISA) | 4x5 L=8 reset_dial_p025_L8 | 8 | 712, 752, 772, 780 | 232 / 136 / 632 | 400 |
+| list 02 dry run (ISA) | 4x5 L=8 delay_matched_control_L8 | 8 | 712, 752, 772, 780 | 232 / 136 / 632 | 400 |
+| ladder cone, L = 8 (transpiled) | 4x5 (n = 20, 31 couplers) | 8 | 380 | 232 / 204 / 232 | 0 |
+| ladder cone, L = 8 (transpiled) | 4x10 (n = 39, 62 couplers) | 8 | 380 | 232 / 204 / 300 | 0 |
+| ladder cone, L = 8 (transpiled) | 6x10 (n = 53, 84 couplers) | 8 | 392 | 244 / 204 / 312 | 0 |
+| ladder cone, L = 8 (transpiled) | 8x10 (n = 70, 111 couplers) | 8 | 392 | 244 / 204 / 312 | 0 |
+| ladder cone, L = 8 (transpiled) | 10x10 (n = 87, 139 couplers) | 8 | 392 | 244 / 204 / 312 | 0 |
+
+**Model.** `rzz(zeta tau_e / 2)` on every coupler `e` of the cone (patch edges and Deviation 26 broken couplers) in every layer
+of the unital and non-unital models, with the per-coupler `tau_e` of the patch's schedule (the static ZZ of the CZ block
+commutes with the CZs, so it is one op per layer between the dial slot and the CZ block in Heisenberg order), plus, in the dial
+layer, `rzz(zeta 400 ns / 2)` on the couplers whose both ends idle. The noiseless rows carry no ZZ (it is hardware noise). Both
+terms of a dial layer are one amplitude-level op: per hub `x` (an I/Z qubit with X/Y neighbours) the map is
+`H_x = p ZZ_x(phi_s) R_x + (1 - p) ZZ_x(phi_s + phi_i)` (the static ZZ precedes the reset in circuit time), so the reset
+branch rotates by the static angle only and the idle branch by the sum; the reset and idle branches of an I hub coincide for
+every flip set `S` and are summed before squaring, as are closed alternating ZZ cycles (`_dial_zz_layer_truncated`; the
+sampler forms the I-hub amplitudes coherently per path, `_dial_zz_layer_sampled`). Rerouted weight per coupler and layer:
+`sin^2(zeta tau / 2)` = 7.8e-5 (static, 244 ns, 27 kHz), 1.1e-3 (idle, 400 ns, both idle); the earlier idle-only upper bound
+moved 4.5e-3.
+
+**Validation.** `tests/test_pauliprop.py::test_zz_layer_matches_doubled_space_exact` (2x2 plaquette, L = 2, static layer + idle
+term, noiseless / unital / nonunital and the three dials) agrees with the doubled-space theta average to 1e-9 (noiseless,
+unital) and to the known 5e-6 Z -> I relaxation residual (non-unital, identical with and without ZZ); the Kraus
+computational-basis grid test covers the combined op. `scripts/pauliprop_zz_layer_validate.py` (2x3, L = 4, all three models
+with the static layer, and unital + static + reset dial p = 0.25 with the idle term;
+`data/predictions/pauliprop_zz_layer_validation.csv`):
+
+| model | dial | ZZ | quantity | PP (delta = 0) | exact (doubled space) | rel. diff | sampled 2e5 (pull) |
+|---|---|---|---|---|---|---|---|
+| noiseless |   | layer | var_cost | 5.281943069997e-02 | 5.281943069997e-02 | 6.6e-16 | 5.26401e-02 (-1.1 sigma) |
+| noiseless |   | layer | mean_cost | 0.000000000000e+00 | -6.938893903907e-18 | 6.9e-18 | 0.00000e+00 (+0.0 sigma) |
+| noiseless |   | layer | var_k1 | 2.991239981146e-02 | 2.991239981146e-02 | 3.5e-16 | 2.98026e-02 (-0.7 sigma) |
+| noiseless |   | layer | var_kL | 5.281943069997e-02 | 5.281943069997e-02 | 6.6e-16 | 5.26401e-02 (-1.1 sigma) |
+| unital |   | layer | var_cost | 4.624022918608e-02 | 4.624022918608e-02 | 1.2e-15 | 4.62093e-02 (-0.2 sigma) |
+| unital |   | layer | mean_cost | 1.072883605957e-04 | 1.072883605956e-04 | 6.3e-14 | 1.07288e-04 (+0.0 sigma) |
+| unital |   | layer | var_k1 | 2.615936955021e-02 | 2.615936955021e-02 | 1.1e-15 | 2.60528e-02 (-0.8 sigma) |
+| unital |   | layer | var_kL | 4.623252430561e-02 | 4.623252430561e-02 | 1.4e-15 | 4.62025e-02 (-0.2 sigma) |
+| nonunital |   | layer | var_cost | 4.617414759488e-02 | 4.617483117755e-02 | 1.5e-05 | 4.60782e-02 (-0.7 sigma) |
+| nonunital |   | layer | mean_cost | 1.463996276202e-04 | 1.463996276202e-04 | 4.6e-14 | 1.46400e-04 (+0.0 sigma) |
+| nonunital |   | layer | var_k1 | 2.614583146080e-02 | 2.614616225403e-02 | 1.3e-05 | 2.61829e-02 (+0.3 sigma) |
+| nonunital |   | layer | var_kL | 4.616312865892e-02 | 4.616381200454e-02 | 1.5e-05 | 4.60716e-02 (-0.6 sigma) |
+| unital | reset p=0.25 | layer + idle | var_cost | 5.149884974259e-03 | 5.149884974259e-03 | 1.7e-16 | 5.17369e-03 (+0.4 sigma) |
+| unital | reset p=0.25 | layer + idle | mean_cost | 6.643384695053e-02 | 6.643384695053e-02 | 0.0e+00 | 6.64338e-02 (+0.0 sigma) |
+| unital | reset p=0.25 | layer + idle | var_k1 | 8.631075938056e-04 | 8.631075938056e-04 | 2.5e-16 | 8.62850e-04 (-0.0 sigma) |
+| unital | reset p=0.25 | layer + idle | var_kL | 3.179193402559e-03 | 3.179193402559e-03 | 2.7e-16 | 3.19744e-03 (+0.4 sigma) |
+
+13 of 16 quantities agree to 1e-12 relative; the four outside are the non-unital rows at the known 1.5e-5 Z -> I relaxation residual of the base model (identical without ZZ; docs 'Known residual') and E[C] = 0 vs -7e-18 for the noiseless model. The static layer term moves the 2x3 L = 4 variances by -0.22% (unital / non-unital / noiseless) and the reset-dial row by -0.14%.
+
+The 2x4 patch (8-qubit cone) exceeds the doubled-space budget (4^16 entries) and is not run exactly; the 2x2 / 2x3 checks cover
+every op type and the plaquette cycle.
+
+
 **Placement.** All ladder rows were computed on the patches returned by `noise.place_patch` before Deviation 26
 (no CZ cut): the 4x10 (n = 39) cone contains CZ (95, 96) at 4.9e-2 and (100, 101) at 5.9e-2 depolarizing (median
 2.4e-3), qubit 95 being an observable qubit, which is why its unital variance sits a factor ~2 below the 6x10 / 8x10 /
@@ -388,7 +468,201 @@ Minimum M for the 2x test includes the (1 - V12/V8) factor: M >= 17.5 (kappa - 1
 
 Deviation 30 clause: 2 of 2 counted rungs pass -> **PASS**. Gate 1b as booked (Deviations 27 + 30): separation clause L = 8 True, L = 12 True; fall clause True; **overall PASS**. Earlier readings (literal clause, Deviation 28 at M = 200 / 500, Deviation 29 at M = 200) are kept above and in the JSON for the record.
 
-### (b, idle-ZZ upper bound) Gate 1b with the ZZ idle phase in the dial layer, angle 2x the Deviation 34 convention (the tables above are the ZZ-off record and remain the booked reading until the Deviation 34 recompute)
+### (b, Deviation 34, booked) Gate 1b with the static layer ZZ in every layer and the idle ZZ in the dial layer
+
+Rows with `zz_layer = on` (`--zz layer`, one truncation threshold delta = 1e-7 at the 4e5-string cap; N = 2e6 paths for the 4x10
+rows, 1e6 for the others with 2.5e5-path pattern-floor runs, see Runtime). Shifts are against the ZZ-off rows.
+
+| L | patch | n | Var p=0 (Dev. 34 ZZ) | shift vs ZZ off | Var p=0.25 (Dev. 34 ZZ) | shift | separation | shift | Var_mask[C] | pattern floor (K=256) | shot+pattern floor | sep / floor | >= 3x | pattern floor < sep/2 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 8 | 4x10 | 39 | 7.457e-04 +/- 1.3e-05 | -4.9% | 2.111e-03 +/- 2.7e-05 | +0.8% | 1.366e-03 | +4.3% | 0.147 (-0.1%) | 2.88e-04 | 4.10e-04 | 3.3 | True | True |
+| 8 | 6x10 | 53 | 2.592e-04 +/- 1.0e-05 | -8.1% | 1.979e-03 +/- 3.6e-05 | -0.7% | 1.720e-03 | +0.5% | 0.145 (+0.9%) | 2.84e-04 | 4.06e-04 | 4.2 | True | True |
+| 8 | 10x10 | 87 | 3.679e-04 +/- 1.2e-05 | -7.9% | 2.009e-03 +/- 3.7e-05 | -1.0% | 1.641e-03 | +0.7% | 0.146 (+0.7%) | 2.85e-04 | 4.07e-04 | 4.0 | True | True |
+
+| L | patch | n | Var p=0 (Dev. 34 ZZ) | shift vs ZZ off | Var p=0.25 (Dev. 34 ZZ) | shift | separation | shift | Var_mask[C] | pattern floor (K=256) | shot+pattern floor | sep / floor | >= 3x | pattern floor < sep/2 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 12 | 4x10 | 39 | 3.117e-05 +/- 2.4e-06 | -9.4% | 2.108e-03 +/- 2.7e-05 | +0.8% | 2.076e-03 | +1.0% | 0.147 (-0.1%) | 2.87e-04 | 4.09e-04 | 5.1 | True | True |
+| 12 | 6x10 | 53 | 5.582e-06 +/- 1.4e-06 | -12.8% | 1.975e-03 +/- 3.6e-05 | -0.7% | 1.969e-03 | -0.7% | 0.145 (+0.9%) | 2.83e-04 | 4.05e-04 | 4.9 | True | True |
+| 12 | 10x10 | 87 | 9.352e-06 +/- nan | -32.0% | 2.026e-03 +/- nan | +0.0% | 2.016e-03 | +0.3% | 0.146 (+0.7%) | 2.84e-04 | 4.06e-04 | 5.0 | True | True |
+
+
+**Convention.** rzz(zeta*tau/2) (Deviation 34); Deviation 34: rzz(zeta tau_layer / 2), zeta = 2 pi J (signed per-edge J of the raw properties), on every coupler of the cone in every layer of the unital / non-unital models (static ZZ of the CZ block; tau_layer per coupler from zz_layer_timing.json), plus rzz(zeta 400 ns / 2) on couplers whose both ends idle in the dial layer; the noiseless rows carry no ZZ.
+
+*Frozen Deviation 30 rule (4096 shots everywhere, M = 350), Deviation 34 model (booked):*
+
+| rung | n | Var p=0 L=8 (/ shot floor) | Var p=0 L=12 | fall | fall / (3 shot floors) | fall / 2 sigma (M=250) | fall / 2 sigma (M=350) | kappa covered at M=350 | status | passes (M=250) | passes (M=350) |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 4x10 | 39 | 7.457e-04 (6.1) | 3.117e-05 | 7.145e-04 | 1.95 | 2.08 | 2.46 | <= 21.1 | counted | True | True |
+| 6x10 | 53 | 2.592e-04 (2.1) | 5.582e-06 | 2.536e-04 | 0.69 | 2.13 | 2.51 | <= 21.9 | unresolvable at 4096 shots (L = 8 reference below 3 shot floors); not counted | None | False |
+| 10x10 | 87 | 3.679e-04 (3.0) | 9.352e-06 | 3.586e-04 | 0.98 | 2.12 | 2.50 | <= 21.8 | counted | False | False |
+
+Deviation 30 clause, Deviation 34 model (booked): M = 250: **FAIL (1 of 2 counted rungs pass)**; M = 350: **FAIL (1 of 2 counted rungs pass)**.
+
+*Deviation 35 reading (n = 53 L = 8 reference at 16384 shots), Deviation 34 model (booked):*
+
+| rung | n | booked shots | shot floor | Var p=0 L=8 (/ floor) | Var p=0 L=12 | fall | fall / (3 floors) | fall / 2 sigma (M=350) | status | passes |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 4x10 | 39 | 4096 | 1.22e-04 | 7.457e-04 (6.1) | 3.117e-05 | 7.145e-04 | 1.95 | 2.46 | counted | True |
+| 6x10 | 53 | 16384 | 3.05e-05 | 2.592e-04 (8.5) | 5.582e-06 | 2.536e-04 | 2.77 | 2.51 | counted | True |
+| 10x10 | 87 | 4096 | 1.22e-04 | 3.679e-04 (3.0) | 9.352e-06 | 3.586e-04 | 0.98 | 2.50 | counted | False |
+
+Deviation 35 reading, Deviation 34 model (booked): **PASS (2 of 3 counted rungs pass)**.
+
+*Deviation 44 reading (all three L = 8 references at 16384 shots), Deviation 34 model (booked):*
+
+| rung | n | shots | shot floor | Var p=0 L=8 (/ floor) | Var p=0 L=12 | fall | fall / (3 floors) | fall / 2 sigma (M=350) | status | passes |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 4x10 | 39 | 16384 | 3.05e-05 | 7.457e-04 (24.4) | 3.117e-05 | 7.145e-04 | 7.80 | 2.46 | counted | True |
+| 6x10 | 53 | 16384 | 3.05e-05 | 2.592e-04 (8.5) | 5.582e-06 | 2.536e-04 | 2.77 | 2.51 | counted | True |
+| 10x10 | 87 | 16384 | 3.05e-05 | 3.679e-04 (12.1) | 9.352e-06 | 3.586e-04 | 3.92 | 2.50 | counted | True |
+
+Deviation 44 reading, Deviation 34 model (booked): **PASS (3 of 3 counted rungs pass)**.
+
+Gate 1b clauses, Deviation 34 model (booked): separation L = 8 True, L = 12 True; fall clause Deviation 30 FAIL (1 of 2 counted rungs pass), Deviation 35 PASS (2 of 3 counted rungs pass), Deviation 44 PASS (3 of 3 counted rungs pass).
+
+*Record: idle-only ZZ at twice the Deviation 34 angle (branch pp-zz-idle):*
+
+*Frozen Deviation 30 rule (4096 shots everywhere, M = 350), idle-ZZ upper bound (record):*
+
+| rung | n | Var p=0 L=8 (/ shot floor) | Var p=0 L=12 | fall | fall / (3 shot floors) | fall / 2 sigma (M=250) | fall / 2 sigma (M=350) | kappa covered at M=350 | status | passes (M=250) | passes (M=350) |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 4x10 | 39 | 7.190e-04 (5.9) | 2.918e-05 | 6.898e-04 | 1.88 | 2.08 | 2.47 | <= 21.1 | counted | True | True |
+| 6x10 | 53 | 2.555e-04 (2.1) | 5.431e-06 | 2.501e-04 | 0.68 | 2.13 | 2.52 | <= 21.9 | unresolvable at 4096 shots (L = 8 reference below 3 shot floors); not counted | None | False |
+| 10x10 | 87 | 3.565e-04 (2.9) | 1.020e-05 | 3.463e-04 | 0.95 | 2.11 | 2.50 | <= 21.6 | unresolvable at 4096 shots (L = 8 reference below 3 shot floors); not counted | None | False |
+
+Deviation 30 clause, idle-ZZ upper bound (record): M = 250: **inconclusive (1 rung counted; Deviation 35 (ii))**; M = 350: **inconclusive (1 rung counted; Deviation 35 (ii))**.
+
+*Deviation 35 reading (n = 53 L = 8 reference at 16384 shots), idle-ZZ upper bound (record):*
+
+| rung | n | booked shots | shot floor | Var p=0 L=8 (/ floor) | Var p=0 L=12 | fall | fall / (3 floors) | fall / 2 sigma (M=350) | status | passes |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 4x10 | 39 | 4096 | 1.22e-04 | 7.190e-04 (5.9) | 2.918e-05 | 6.898e-04 | 1.88 | 2.47 | counted | True |
+| 6x10 | 53 | 16384 | 3.05e-05 | 2.555e-04 (8.4) | 5.431e-06 | 2.501e-04 | 2.73 | 2.52 | counted | True |
+| 10x10 | 87 | 4096 | 1.22e-04 | 3.565e-04 (2.9) | 1.020e-05 | 3.463e-04 | 0.95 | 2.50 | unresolvable at 4096 shots (L = 8 reference below 3 shot floors); not counted | None |
+
+Deviation 35 reading, idle-ZZ upper bound (record): **PASS (2 of 2 counted rungs pass)**.
+
+*Deviation 44 reading (all three L = 8 references at 16384 shots), idle-ZZ upper bound (record):*
+
+| rung | n | shots | shot floor | Var p=0 L=8 (/ floor) | Var p=0 L=12 | fall | fall / (3 floors) | fall / 2 sigma (M=350) | status | passes |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 4x10 | 39 | 16384 | 3.05e-05 | 7.190e-04 (23.6) | 2.918e-05 | 6.898e-04 | 7.53 | 2.47 | counted | True |
+| 6x10 | 53 | 16384 | 3.05e-05 | 2.555e-04 (8.4) | 5.431e-06 | 2.501e-04 | 2.73 | 2.52 | counted | True |
+| 10x10 | 87 | 16384 | 3.05e-05 | 3.565e-04 (11.7) | 1.020e-05 | 3.463e-04 | 3.78 | 2.50 | counted | True |
+
+Deviation 44 reading, idle-ZZ upper bound (record): **PASS (3 of 3 counted rungs pass)**.
+
+Gate 1b clauses, idle-ZZ upper bound (record): separation L = 8 True, L = 12 True; fall clause Deviation 30 inconclusive (1 rung counted; Deviation 35 (ii)), Deviation 35 PASS (2 of 2 counted rungs pass), Deviation 44 PASS (3 of 3 counted rungs pass).
+
+*Record: no ZZ (the reading booked before branch pp-zz-idle):*
+
+*Frozen Deviation 30 rule (4096 shots everywhere, M = 350), ZZ off (record):*
+
+| rung | n | Var p=0 L=8 (/ shot floor) | Var p=0 L=12 | fall | fall / (3 shot floors) | fall / 2 sigma (M=250) | fall / 2 sigma (M=350) | kappa covered at M=350 | status | passes (M=250) | passes (M=350) |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 4x10 | 39 | 7.840e-04 (6.4) | 3.439e-05 | 7.496e-04 | 2.05 | 2.08 | 2.46 | <= 21.0 | counted | True | True |
+| 6x10 | 53 | 2.821e-04 (2.3) | 6.404e-06 | 2.756e-04 | 0.75 | 2.12 | 2.51 | <= 21.9 | unresolvable at 4096 shots (L = 8 reference below 3 shot floors); not counted | None | False |
+| 10x10 | 87 | 3.994e-04 (3.3) | 1.376e-05 | 3.856e-04 | 1.05 | 2.10 | 2.48 | <= 21.4 | counted | True | True |
+
+Deviation 30 clause, ZZ off (record): M = 250: **PASS (2 of 2 counted rungs pass)**; M = 350: **PASS (2 of 2 counted rungs pass)**.
+
+*Deviation 35 reading (n = 53 L = 8 reference at 16384 shots), ZZ off (record):*
+
+| rung | n | booked shots | shot floor | Var p=0 L=8 (/ floor) | Var p=0 L=12 | fall | fall / (3 floors) | fall / 2 sigma (M=350) | status | passes |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 4x10 | 39 | 4096 | 1.22e-04 | 7.840e-04 (6.4) | 3.439e-05 | 7.496e-04 | 2.05 | 2.46 | counted | True |
+| 6x10 | 53 | 16384 | 3.05e-05 | 2.821e-04 (9.2) | 6.404e-06 | 2.756e-04 | 3.01 | 2.51 | counted | True |
+| 10x10 | 87 | 4096 | 1.22e-04 | 3.994e-04 (3.3) | 1.376e-05 | 3.856e-04 | 1.05 | 2.48 | counted | True |
+
+Deviation 35 reading, ZZ off (record): **PASS (3 of 3 counted rungs pass)**.
+
+*Deviation 44 reading (all three L = 8 references at 16384 shots), ZZ off (record):*
+
+| rung | n | shots | shot floor | Var p=0 L=8 (/ floor) | Var p=0 L=12 | fall | fall / (3 floors) | fall / 2 sigma (M=350) | status | passes |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 4x10 | 39 | 16384 | 3.05e-05 | 7.840e-04 (25.7) | 3.439e-05 | 7.496e-04 | 8.19 | 2.46 | counted | True |
+| 6x10 | 53 | 16384 | 3.05e-05 | 2.821e-04 (9.2) | 6.404e-06 | 2.756e-04 | 3.01 | 2.51 | counted | True |
+| 10x10 | 87 | 16384 | 3.05e-05 | 3.994e-04 (13.1) | 1.376e-05 | 3.856e-04 | 4.21 | 2.48 | counted | True |
+
+Deviation 44 reading, ZZ off (record): **PASS (3 of 3 counted rungs pass)**.
+
+Gate 1b clauses, ZZ off (record): separation L = 8 True, L = 12 True; fall clause Deviation 30 PASS (2 of 2 counted rungs pass), Deviation 35 PASS (3 of 3 counted rungs pass), Deviation 44 PASS (3 of 3 counted rungs pass).
+
+The 10x10 L = 12 p = 0 row is a truncated lower bound only (its N = 1e6 sampler hit the 600 s cap), so its fall 3.586e-4 is an upper bound on the true fall and the 10x10 rung's 0.98 x 3 shot floors is robust; the 10x10 L = 8 reference sits at 3.01 shot floors (counted by 0.3%, its own 2 sigma 3.3%).
+
+Shift of every recomputed number against ZZ off (`+/-` the combined 2 sigma of the two rows); the idle-only upper bound of
+branch `pp-zz-idle` is listed beside it where it exists:
+
+| variant | stage | model | patch | n | L | dial | p | Var k=L off | on | shift +/- 2 sigma | Var k=1 off | on | shift | Var[C] off | on | shift | Var_mask off -> on |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| layer | gate1b | unital | 10x10 | 87 | 8 | delay | 0.0 | 3.994e-04 | 3.679e-04 | -7.9% +/- 3.5% | 2.750e-04 | 2.519e-04 | -8.4% +/- 4.9% | 4.000e-04 | 3.684e-04 | -7.9% |  |
+| layer | gate1b | unital | 10x10 | 87 | 8 | reset | 0.25 | 2.028e-03 | 2.009e-03 | -1.0% +/- 2.2% | 3.402e-06 | 3.526e-06 | +3.7% +/- 9.2% | 3.596e-03 | 3.569e-03 | -0.8% | 0.1449 -> 0.1459 (+0.7%) |
+| layer | gate1b | unital | 10x10 | 87 | 12 | delay | 0.0 | 1.376e-05 | 9.352e-06 | -32.0% +/- nan% | 9.268e-06 | 6.690e-06 | -27.8% +/- nan% | 1.376e-05 | 9.352e-06 | -32.0% |  |
+| layer | gate1b | unital | 10x10 | 87 | 12 | reset | 0.25 | 2.025e-03 | 2.026e-03 | +0.0% +/- nan% | 1.899e-08 | 0.000e+00 | -100.0% +/- nan% | 3.590e-03 | 3.575e-03 | -0.4% | 0.1447 -> 0.1456 (+0.7%) |
+| layer | gate1b | unital | 4x10 | 39 | 8 | delay | 0.0 | 7.840e-04 | 7.457e-04 | -4.9% +/- 2.3% | 4.642e-04 | 4.456e-04 | -4.0% +/- 3.4% | 7.850e-04 | 7.463e-04 | -4.9% |  |
+| layer | gate1b | unital | 4x10 | 39 | 8 | reset | 0.25 | 2.094e-03 | 2.111e-03 | +0.8% +/- 1.8% | 3.633e-06 | 3.591e-06 | -1.1% +/- 6.6% | 3.616e-03 | 3.635e-03 | +0.5% | 0.1476 -> 0.1474 (-0.1%) |
+| layer | gate1b | unital | 4x10 | 39 | 12 | delay | 0.0 | 3.439e-05 | 3.117e-05 | -9.4% +/- 9.7% | 2.061e-05 | 1.805e-05 | -12.4% +/- 13.5% | 3.440e-05 | 3.117e-05 | -9.4% |  |
+| layer | gate1b | unital | 4x10 | 39 | 12 | reset | 0.25 | 2.090e-03 | 2.108e-03 | +0.8% +/- 1.8% | 1.963e-08 | 2.560e-08 | +30.4% +/- 184.5% | 3.610e-03 | 3.628e-03 | +0.5% | 0.1472 -> 0.1471 (-0.1%) |
+| layer | gate1b | unital | 6x10 | 53 | 8 | delay | 0.0 | 2.821e-04 | 2.592e-04 | -8.1% +/- 4.5% | 2.016e-04 | 1.812e-04 | -10.1% +/- 5.9% | 2.843e-04 | 2.601e-04 | -8.5% |  |
+| layer | gate1b | unital | 6x10 | 53 | 8 | reset | 0.25 | 1.993e-03 | 1.979e-03 | -0.7% +/- 2.2% | 3.461e-06 | 3.526e-06 | +1.9% +/- 8.9% | 3.563e-03 | 3.565e-03 | +0.0% | 0.1440 -> 0.1452 (+0.9%) |
+| layer | gate1b | unital | 6x10 | 53 | 12 | delay | 0.0 | 6.404e-06 | 5.582e-06 | -12.8% +/- 25.3% | 4.378e-06 | 3.817e-06 | -12.8% +/- 35.5% | 6.822e-06 | 5.955e-06 | -12.7% |  |
+| layer | gate1b | unital | 6x10 | 53 | 12 | reset | 0.25 | 1.989e-03 | 1.975e-03 | -0.7% +/- 2.2% | 1.856e-08 | 1.755e-08 | -5.4% +/- 133.8% | 3.557e-03 | 3.559e-03 | +0.0% | 0.1437 -> 0.1449 (+0.9%) |
+| idle_upper_bound | dial | unital | 6x10 | 53 | 8 | delay | 0.0 | 2.821e-04 | 2.555e-04 | -9.4% +/- 3.6% | 2.016e-04 | 1.814e-04 | -10.0% +/- 4.8% | 2.843e-04 | 2.556e-04 | -10.1% |  |
+| idle_upper_bound | dial | unital | 6x10 | 53 | 8 | dephase | 0.5 | 1.705e-05 | 1.501e-05 | -12.0% +/- 16.0% | 1.589e-05 | 1.378e-05 | -13.3% +/- 17.0% | 1.836e-05 | 1.503e-05 | -18.1% |  |
+| idle_upper_bound | dial | unital | 6x10 | 53 | 8 | reset | 0.25 | 1.993e-03 | 1.987e-03 | -0.3% +/- 1.8% | 3.461e-06 | 3.253e-06 | -6.0% +/- 6.8% | 3.563e-03 | 3.590e-03 | +0.8% | 0.1440 -> 0.1437 (-0.2%) |
+| idle_upper_bound | dial | unital | 6x10 | 53 | 8 | reset | 0.5 | 9.515e-03 | 9.518e-03 | +0.0% +/- 0.5% | 1.500e-08 | 1.296e-08 | -13.6% +/- 122.2% | 1.821e-02 | 1.819e-02 | -0.1% | 0.3434 -> 0.3431 (-0.1%) |
+| idle_upper_bound | dial | unital | 6x10 | 53 | 12 | delay | 0.0 | 6.404e-06 | 5.431e-06 | -15.2% +/- 19.8% | 4.378e-06 | 3.802e-06 | -13.2% +/- 28.1% | 6.822e-06 | 5.431e-06 | -20.4% |  |
+| idle_upper_bound | dial | unital | 6x10 | 53 | 12 | dephase | 0.5 | 3.146e-08 | 1.939e-08 | -38.4% +/- 72.0% | 2.284e-08 | 1.308e-08 | -42.7% +/- 78.6% | 2.437e-07 | 1.939e-08 | -92.0% |  |
+| idle_upper_bound | dial | unital | 6x10 | 53 | 12 | reset | 0.25 | 1.989e-03 | 1.983e-03 | -0.3% +/- 1.8% | 1.856e-08 | 2.148e-08 | +15.7% +/- 163.7% | 3.557e-03 | 3.584e-03 | +0.8% | 0.1437 -> 0.1434 (-0.2%) |
+| idle_upper_bound | dial | unital | 6x10 | 53 | 12 | reset | 0.5 | 9.515e-03 | 9.518e-03 | +0.0% +/- 0.5% | 1.902e-11 | 6.035e-13 | -96.8% +/- 8.4% | 1.821e-02 | 1.819e-02 | -0.1% | 0.3434 -> 0.3431 (-0.1%) |
+| idle_upper_bound | gate1b | unital | 10x10 | 87 | 8 | delay | 0.0 | 3.994e-04 | 3.565e-04 | -10.7% +/- 3.4% | 2.750e-04 | 2.473e-04 | -10.1% +/- 3.9% | 4.000e-04 | 3.579e-04 | -10.5% |  |
+| idle_upper_bound | gate1b | unital | 10x10 | 87 | 8 | reset | 0.25 | 2.028e-03 | 2.035e-03 | +0.3% +/- 1.8% | 3.402e-06 | 3.419e-06 | +0.5% +/- 7.3% | 3.596e-03 | 3.595e-03 | -0.0% | 0.1449 -> 0.1450 (+0.0%) |
+| idle_upper_bound | gate1b | unital | 10x10 | 87 | 12 | delay | 0.0 | 1.376e-05 | 1.020e-05 | -25.9% +/- 18.8% | 9.268e-06 | 6.516e-06 | -29.7% +/- 15.9% | 1.376e-05 | 1.021e-05 | -25.8% |  |
+| idle_upper_bound | gate1b | unital | 10x10 | 87 | 12 | reset | 0.25 | 2.025e-03 | 2.031e-03 | +0.3% +/- 1.8% | 1.899e-08 | 1.962e-08 | +3.3% +/- 146.1% | 3.590e-03 | 3.589e-03 | -0.0% | 0.1447 -> 0.1447 (+0.0%) |
+| idle_upper_bound | gate1b | unital | 4x10 | 39 | 8 | delay | 0.0 | 7.840e-04 | 7.190e-04 | -8.3% +/- 2.2% | 4.642e-04 | 4.283e-04 | -7.7% +/- 3.3% | 7.850e-04 | 7.198e-04 | -8.3% |  |
+| idle_upper_bound | gate1b | unital | 4x10 | 39 | 8 | reset | 0.25 | 2.094e-03 | 2.081e-03 | -0.6% +/- 1.8% | 3.633e-06 | 3.738e-06 | +2.9% +/- 6.8% | 3.616e-03 | 3.620e-03 | +0.1% | 0.1476 -> 0.1479 (+0.2%) |
+| idle_upper_bound | gate1b | unital | 4x10 | 39 | 12 | delay | 0.0 | 3.439e-05 | 2.918e-05 | -15.2% +/- 9.1% | 2.061e-05 | 1.655e-05 | -19.7% +/- 12.7% | 3.440e-05 | 2.942e-05 | -14.5% |  |
+| idle_upper_bound | gate1b | unital | 4x10 | 39 | 12 | reset | 0.25 | 2.090e-03 | 2.077e-03 | -0.6% +/- 1.8% | 1.963e-08 | 2.090e-08 | +6.5% +/- 150.6% | 3.610e-03 | 3.614e-03 | +0.1% | 0.1472 -> 0.1475 (+0.2%) |
+| idle_upper_bound | gate1b | unital | 6x10 | 53 | 8 | delay | 0.0 | 2.821e-04 | 2.555e-04 | -9.4% +/- 3.6% | 2.016e-04 | 1.814e-04 | -10.0% +/- 4.8% | 2.843e-04 | 2.556e-04 | -10.1% |  |
+| idle_upper_bound | gate1b | unital | 6x10 | 53 | 8 | reset | 0.25 | 1.993e-03 | 1.987e-03 | -0.3% +/- 1.8% | 3.461e-06 | 3.253e-06 | -6.0% +/- 6.8% | 3.563e-03 | 3.590e-03 | +0.8% | 0.1440 -> 0.1437 (-0.2%) |
+| idle_upper_bound | gate1b | unital | 6x10 | 53 | 12 | delay | 0.0 | 6.404e-06 | 5.431e-06 | -15.2% +/- 19.8% | 4.378e-06 | 3.802e-06 | -13.2% +/- 28.1% | 6.822e-06 | 5.431e-06 | -20.4% |  |
+| idle_upper_bound | gate1b | unital | 6x10 | 53 | 12 | reset | 0.25 | 1.989e-03 | 1.983e-03 | -0.3% +/- 1.8% | 1.856e-08 | 2.148e-08 | +15.7% +/- 163.7% | 3.557e-03 | 3.584e-03 | +0.8% | 0.1437 -> 0.1434 (-0.2%) |
+
+Shot table refreshed with the three variants (`data/predictions/gate1b_shot_table.csv`, column `zz_variant`):
+
+| patch | n | L | ZZ variant | Var p=0 | shots for ref >= 3 floors | fall L8->12 | shots for fall >= 3 floors | fall / 2 sigma (M=350) | min M for 2x | ref / floor 4096 | ref / floor 16384 | rung passes 4096 | rung passes 16384 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 4x10 | 39 | 8 | off | 7.840e-04 | 1914 | 7.496e-04 | 2001 | 2.46 | 232 | 6.42 | 25.69 | True | True |
+| 4x10 | 39 | 12 | off | 3.439e-05 | 43612 |  |  |  |  | 0.28 | 1.13 |  |  |
+| 6x10 | 53 | 8 | off | 2.821e-04 | 5319 | 2.756e-04 | 5442 | 2.51 | 222 | 2.31 | 9.24 | False | True |
+| 6x10 | 53 | 12 | off | 6.404e-06 | 234224 |  |  |  |  | 0.05 | 0.21 |  |  |
+| 10x10 | 87 | 8 | off | 3.994e-04 | 3756 | 3.856e-04 | 3890 | 2.48 | 228 | 3.27 | 13.09 | True | True |
+| 10x10 | 87 | 12 | off | 1.376e-05 | 109020 |  |  |  |  | 0.11 | 0.45 |  |  |
+| 4x10 | 39 | 8 | idle_upper_bound | 7.190e-04 | 2087 | 6.898e-04 | 2175 | 2.47 | 231 | 5.89 | 23.56 | True | True |
+| 4x10 | 39 | 12 | idle_upper_bound | 2.918e-05 | 51406 |  |  |  |  | 0.24 | 0.96 |  |  |
+| 6x10 | 53 | 8 | idle_upper_bound | 2.555e-04 | 5870 | 2.501e-04 | 5998 | 2.52 | 222 | 2.09 | 8.37 | False | True |
+| 6x10 | 53 | 12 | idle_upper_bound | 5.431e-06 | 276172 |  |  |  |  | 0.04 | 0.18 |  |  |
+| 10x10 | 87 | 8 | idle_upper_bound | 3.565e-04 | 4208 | 3.463e-04 | 4331 | 2.50 | 225 | 2.92 | 11.68 | False | True |
+| 10x10 | 87 | 12 | idle_upper_bound | 1.020e-05 | 147050 |  |  |  |  | 0.08 | 0.33 |  |  |
+| 4x10 | 39 | 8 | layer | 7.457e-04 | 2012 | 7.145e-04 | 2100 | 2.46 | 231 | 6.11 | 24.43 | True | True |
+| 4x10 | 39 | 12 | layer | 3.117e-05 | 48122 |  |  |  |  | 0.26 | 1.02 |  |  |
+| 6x10 | 53 | 8 | layer | 2.592e-04 | 5788 | 2.536e-04 | 5916 | 2.51 | 222 | 2.12 | 8.49 | False | True |
+| 6x10 | 53 | 12 | layer | 5.582e-06 | 268716 |  |  |  |  | 0.05 | 0.18 |  |  |
+| 10x10 | 87 | 8 | layer | 3.679e-04 | 4077 | 3.586e-04 | 4184 | 2.50 | 224 | 3.01 | 12.06 | False | True |
+| 10x10 | 87 | 12 | layer | 9.352e-06 | 160391 |  |  |  |  | 0.08 | 0.31 |  |  |
+
+Rows not recomputed within this branch's compute budget (listed as pending, the ZZ-off / upper-bound rows stand for them):
+
+* stage `dial`, 6x10, L = 8 and 12: reset p = 0.5 (with pattern floor) and dephase p = 0.5 (4 rows; the delay p = 0 and reset p = 0.25 rows are the gate1b 6x10 rows above)
+* stage `dev15`, unital and non-unital, L = 8 and L = 12, all five rungs (20 rows: the noisy main-grid points; the noiseless rows carry no ZZ and stand)
+* stage `dev15`, unital and non-unital, L <= 4 (the exact-grid depths; 18 rows)
+
+Estimated cost from this branch's rows: p = 0 / noisy rows 5-12 core-min each (the amplitude-level layer op on every layer roughly
+triples the truncated engine's time at the 4e5-string cap; the 10x10 L = 12 sampler hit the 600 s cap at N = 1e6 and is a
+lower bound only), reset rows 4-10 core-min with the pattern floor: about 30 (dial) + 150 (dev15 L = 8 / 12) + 60 (L <= 4)
+core-min.
+
+### (b, idle-ZZ upper bound, record) Gate 1b with the ZZ idle phase in the dial layer, angle 2x the Deviation 34 convention (the tables above are the ZZ-off record and remain the booked reading until the Deviation 34 recompute)
 
 Every dial row (stages `gate1b` and `dial`) was recomputed with `--zz on` (`zz_idle` column of the CSV; same placements,
 seeds, N = 2e6 paths, delta = 1e-6 / 1e-7, 4e5-string cap; angle `rzz(zeta tau)`, an upper bound, see "Convention" above).
@@ -557,6 +831,8 @@ Reference lines: p^4/9 (Corollary 6 lower-bound form for |P| = 2: 4.3e-4 at p = 
 Figure: `figures/pauliprop_predictions.png`; verdicts: `data/predictions/pauliprop_summary.json`.
 
 ## Runtime
+
+Branch `pp-zz-layer` (Deviation 34): 12 gate1b rows, 109 core-min (4x10 rows at N = 2e6 with the 5e5-path pattern floor, the others at N = 1e6 / 2.5e5 after the budget check; one truncation threshold 1e-7); the 2x3 L = 4 validation 20 core-min; tests about 10; total about 145 core-min against the 120 budget, the remainder of the recompute is listed as pending above.
 
 Branch `pp-zz-idle`: L4/L2 groups: 9.7 core-min over 18 points; ZZ-on rows: 139.0 core-min over 20 rows; the 2x3 L = 4 doubled-space validation 15 core-min; total for the branch about 165 core-min (the ZZ-on p = 0 rows are the slowest: the amplitude-level dial layer roughly doubles the truncated engine's time at the 4e5-string cap; the ZZ-on dial rows include the pattern-floor runs).
 

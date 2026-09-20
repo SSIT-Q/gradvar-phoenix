@@ -1,25 +1,30 @@
 """Generate the Paper 1 production job lists (data/joblists/paper1/*.json) from a calibration snapshot, with budgets from
-gradvar.hardware.estimate_budget (model v2, Deviation 24) and a summary (data/joblists/paper1/summary.json).
+gradvar.hardware.estimate_budget (model v3, Deviation 47) and a summary (data/joblists/paper1/summary.json).
 
     python scripts/make_paper1_joblists.py [--snapshot data/calibrations/ibm_phoenix_2026-09-20T030813Z.csv]
                                            [--out data/joblists/paper1] [--m-rule baseline|dev17]
 
 Every list is written with dry_run: true and the placeholder preflight_review; nothing here touches credentials.
-Pre-registration: Paper 1 (preregistration_q1) v0.11.4, 20 Sep 2026: Section 2 (design), Section 3b (reset dial), Section 5
-(Gate 2), Section 6 (minute budget), Deviations 17, 18, 22, 24, 26, 27, 30, 33-45.
+Pre-registration: Paper 1 (preregistration_q1) v0.12.0, 20 Sep 2026: Section 2 (design), Section 3b (reset dial), Section 5
+(Gate 2), Section 6 (minute budget), Deviations 17, 18, 22, 26, 27, 30, 33-49 (46: placement re-derived per run day under
+the cone-graph edge rule; 47: budget model v3; 48: dial-arm job packing; 49: Gate 2 (e) transient rule).
 
-Placement (Section 2, Deviations 18, 22, 26): the five rectangles 4x5 / 4x10 / 6x10 / 8x10 / 10x10 are placed by
+Placement (Section 2, Deviations 18, 22, 26, 46): the five rectangles 4x5 / 4x10 / 6x10 / 8x10 / 10x10 are placed by
 gradvar.noise.place_patch on the named snapshot's CSV plus the raw properties of the same stamp (init-error / ZZ rule,
 coupler cut; couplers at or above 5e-3 are broken edges with no CZ). The rung labels n20 / n40 / n60 / n80 / n100 are the
 pre-registration's nominal counts; the actual n of each rung is whatever the snapshot gives (20 / 39 / 53 / 70 / 87 on
-19 Sep 19:25Z; 20 / 37 / 50 / 68 / 85 on 20 Sep 03:08Z) and is re-derived by the runner on the run day, which refuses a
-list whose n no longer matches, so the lists are regenerated from the run-day snapshot before the pre-flight review.
+19 Sep 19:25Z; 20 / 37 / 50 / 68 / 85 on 20 Sep 03:08Z) and is re-derived by the runner on the run day (Deviation 46), which
+refuses a list whose n no longer matches, so the lists are regenerated from the run-day snapshot before the pre-flight review
+and the realised n, patch, edge and cone graph are recorded per rung in every list's ``placement`` block.
 
-Observable edges: interior_edge of the placed patch (what data/predictions/ladder_placements.json records), except the
-4x10 rung, whose edge follows the Deviation 36 rule: the intact 4x10 coupler whose L = 2 cone graph equals the 4x5 rung's
-((93, 103) on the 19 Sep placements, where the 4x5 sits at origin (8,1) with edge (93, 103); the same rule on a snapshot
-that moves the 4x5 gives the 4x5's own edge when it is an intact 4x10 coupler), falling back to (93, 103) if intact,
-else to interior_edge; the rule applied and its outcome are recorded in every list's ``placement`` block.
+Observable edges (Deviation 46, the cone-graph edge rule, of which Deviation 36 is the 19 Sep instance): interior_edge of
+the placed patch, except the 4x10 rung, whose edge is the intact 4x10 coupler whose L = 2 cone graph (after holes and broken
+couplers) equals the 4x5 rung's ((93, 103) on the 19 Sep placements, where the 4x5 sits at origin (8,1) with edge (93, 103);
+94_104 on 20 Sep, where the 4x5 has moved to (8,2)), falling back to (93, 103) if intact, else to interior_edge; the rule
+applied and its outcome are recorded in every list's ``placement`` block.
+
+Job packing (Deviation 48) and budgets (Deviation 47) are the runner's: one pub per dial mask carrying the M draws as
+parameter rows, jobs of at most max_experiments pubs and MAX_JOB_PARAM_MB of parameter values, model v3 constants.
 """
 from __future__ import annotations
 
@@ -33,12 +38,13 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from gradvar.circuits import light_cone                                    # noqa: E402
-from gradvar.hardware import MAX_EXPERIMENTS, estimate_budget, load_joblist, properties_for_csv   # noqa: E402
+from gradvar.hardware import BUDGET_MODEL_VERSION, MAX_JOB_PARAM_MB, estimate_budget, load_joblist, max_experiments, properties_for_csv   # noqa: E402
 from gradvar.lattice import interior_edge                                  # noqa: E402
 from gradvar.noise import CZ_CUT, READOUT_CUT, cz_errors_from_calibration, exclusion_from_calibration, load_calibration, place_patch   # noqa: E402
 
 PLACEHOLDER = "TBD: pre-flight review permalink"
-PREREG = "Paper 1 pre-registration v0.11.4 (20 Sep 2026)"
+PREREG = "Paper 1 pre-registration v0.12.0 (20 Sep 2026)"
+MAX_EXPERIMENTS = max_experiments("ibm_phoenix")   # 300 pubs per job (configuration ledger)
 DEFAULT_SNAPSHOT = "data/calibrations/ibm_phoenix_2026-09-20T030813Z.csv"
 SHAPES = {"n20": (4, 5), "n40": (4, 10), "n60": (6, 10), "n80": (8, 10), "n100": (10, 10)}   # Section 2 nominal ladder
 RUNGS = list(SHAPES)
@@ -50,7 +56,7 @@ M_BASE = 200                            # Section 2 / Deviation 17 minimum
 SEED_BASE = 20261001                    # deterministic seeds: SEED_BASE + 1e6 rung + 1e5 role + 1e4 depth index + 1e3 k (Section 7 seed field)
 ROLES = dict(main=0, sweep=1, level2_a=2, level2_b=3, repeat=4, null_L1=5, null_L0=6, dial=7, dial_control=8, reference=9,
              trunc=10, char=11, dial_contingent=12)
-LEDGER = dict(main=190.5, dial=65.0, dial_reserve_item=8.0, reference_topup=9.5, null_controls=2.6)   # Section 6, v0.11.4
+LEDGER = dict(main=190.5, dial=65.0, dial_reserve_item=8.0, reference_topup=9.5, null_controls=2.6)   # Section 6, v0.12.0 (caps unchanged by Deviation 47)
 
 
 def seed_for(rung: str, role: str, L: int, k: int = 0) -> int:
@@ -94,16 +100,16 @@ def place_rungs(snapshot: str) -> dict:
         rule = "interior_edge"
         edge = interior_edge(patch)
         if rung == "n40":
-            # Deviation 36: the 4x10 edge whose L = 2 cone graph equals the 4x5 rung's (identical 16-qubit / 24-CZ cone, no broken
-            # coupler and no hole inside it); (93, 103) on the 19 Sep placements
+            # Deviation 46 cone-graph rule (Deviation 36 restated): the 4x10 edge whose L = 2 cone graph equals the 4x5 rung's
+            # (identical 16-qubit / 24-CZ cone, no broken coupler and no hole inside it); (93, 103) on the 19 Sep placements
             same = [e for e in patch.edges() if cone_graph(patch, e) == cone45]
             if same:
                 edge = min(same, key=lambda e: (e != e45, e))
-                rule = "Deviation 36: intact 4x10 coupler whose L = 2 cone graph equals the 4x5 rung's" + (" (the 4x5 edge itself)" if edge == e45 else "")
+                rule = "Deviation 46 cone-graph rule (Deviation 36 restated): intact 4x10 coupler whose L = 2 cone graph equals the 4x5 rung's" + (" (the 4x5 edge itself)" if edge == e45 else "")
             elif DEV36_EDGE in patch.edges():
-                edge, rule = DEV36_EDGE, "Deviation 36: (93, 103) as written (its L = 2 cone graph differs from the 4x5 rung's on this snapshot)"
+                edge, rule = DEV36_EDGE, "Deviation 36's (93, 103) as written (its L = 2 cone graph differs from the 4x5 rung's on this snapshot; Deviation 46 fallback)"
             else:
-                rule = "interior_edge (Deviation 36's (93, 103) is not an intact coupler of this placement)"
+                rule = "interior_edge (Deviation 36's (93, 103) is not an intact coupler of this placement; Deviation 46 fallback)"
         cq, ce = cone_graph(patch, edge)
         out["rungs"][rung] = dict(patch=f"{patch.n_rows}x{patch.n_cols}", n=patch.n, origin=list(patch.origin), holes=list(patch.holes),
                                   qubits=list(patch.qubits), broken_edges=[list(e) for e in patch.broken_edges],
@@ -123,15 +129,17 @@ def base_list(name: str, notes: str, placement: dict, rungs: list, ledger_line: 
               notes=notes, layout_check="enforce",
               placement=dict(snapshot=placement["snapshot"], properties=placement["properties"], stamp=placement["stamp"],
                              excluded=placement["excluded"], rules=placement["rules"], rungs={r: placement["rungs"][r] for r in rungs}),
-              campaign=dict(pre_registration=PREREG, ledger_line=ledger_line, max_experiments=MAX_EXPERIMENTS),
+              campaign=dict(pre_registration=PREREG, ledger_line=ledger_line, budget_model_version=BUDGET_MODEL_VERSION,
+                            max_experiments=MAX_EXPERIMENTS, max_job_param_mb=MAX_JOB_PARAM_MB),
               points=points, probes=probes)
     jl["budget"] = estimate_budget(jl)
     b = jl["budget"]
-    jl["notes"] = notes + (f" Placement from snapshot {placement['stamp']} (CSV plus raw properties; Deviations 22 and 26): "
+    jl["notes"] = notes + (f" Placement from snapshot {placement['stamp']} (CSV plus raw properties; Deviations 22, 26 and 46): "
                            + "; ".join(f"{r} = {placement['rungs'][r]['patch']} n = {placement['rungs'][r]['n']} origin {tuple(placement['rungs'][r]['origin'])} "
                                        f"edge {placement['rungs'][r]['edge']} broken {placement['rungs'][r]['broken_edges']}" for r in rungs)
-                           + f". The runner re-derives the placement on the run day (Deviation 26 live re-check, layout_check enforce) and refuses a list whose n no longer matches; regenerate with scripts/make_paper1_joblists.py from the run-day snapshot. "
-                           f"Budget model v2 (Deviation 24), jobs of at most {MAX_EXPERIMENTS} circuits (max_experiments): {b['jobs']} jobs, {b['circuits']} circuits, "
+                           + f". Deviation 46: the runner re-derives the placement and the observable edges from the run-day snapshot under the Deviation 22 / 26 cuts and the cone-graph edge rule (live re-check, layout_check enforce) and refuses a list whose n no longer matches; regenerate with scripts/make_paper1_joblists.py from the run-day snapshot and re-draw the Gate 1b reference predictions where the cone graph changed. "
+                           f"Budget model v{b['model_version']} (Deviation 47: 3.0 s per job, +2.7 s at resilience >= 1, 5 us per execution, max(shots, 64) at resilience >= 1), jobs of at most {MAX_EXPERIMENTS} pubs (max_experiments; Deviation 48) "
+                           f"and {MAX_JOB_PARAM_MB:g} MB of parameter values: {b['jobs']} jobs, {b['pubs']} pubs, {b['circuits']} parameter sets, "
                            f"{b['executions']} executions (+{b['trex_executions']} TREX), {b['minutes_at_1us']} min at the booked 1 us rep_delay "
                            f"({b['minutes_at_250us']} min at 250 us). Nothing is submitted while dry_run is true and the pre-flight review permalink is the placeholder.")
     return jl
@@ -207,13 +215,18 @@ def dial_probe(pid: str, R: dict, L: int, k: int, p: float, reset_kind: str, M: 
                 shots=shots, resilience=level, seed=seed, purpose=purpose, **extra)
 
 
-DIAL_COMMON = (" Design (Section 3b, Deviation 27): K = 256 fresh Bernoulli(p) reset masks per (draw, shift), 16 shots per mask (4096 executions per shifted "
-               "circuit), the two shift circuits of a draw sharing their mask sequence (Deviation 38, logged as shared), draw d of a probe taking theta from "
-               "seed + d and mask m from seed + d + 1 + m, so probes with the same seed are paired draw by draw and mask by mask (Section 3b 'Pairing'). "
-               "Native reset (400 ns on the target; kill rule (c) checks the transpiled circuit for measure-plus-conditional-X); resilience 0 (the Section 3b "
-               "budget quotes the dial at resilience 0; kill rule (d) at resilience 1 was tested by the smoke test's probes). Jobs of at most 300 circuits: "
-               "51,200 circuits per gradient point in 171 jobs (points of one job group are packed consecutively). Gated by Gate 1b; same day and same "
-               "patches as the ladder points it is compared with. Ledger: Section 6 dial line (65 min at 1 us; the six p = 0 references are in references_gate1b.json).")
+DIAL_COMMON = (" Design (Section 3b, Deviations 27 and 48): K = 256 Bernoulli(p) reset masks per gradient point, 16 shots per mask (4096 executions per shifted "
+               "circuit), the two shift circuits of a draw sharing their mask (Deviation 38, logged as shared) and all M draws sharing the K masks (the draws ride "
+               "in the mask pub as parameter rows; docs/PAPER1_JOBLISTS.md section 7, item 13), draw d of a probe taking theta from "
+               "seed + d and mask m from the lottery stream (seed + 1 + m, MASK_STREAM), so probes with the same seed are paired draw by draw and mask by mask "
+               "(Section 3b 'Pairing'). Native reset (400 ns on the target; kill rule (c) checks the transpiled circuit for measure-plus-conditional-X); "
+               "resilience 0 (the Section 3b budget quotes the dial at resilience 0; kill rule (d) at resilience 1 was tested by the smoke test's probes). "
+               "Deviation 48 packing: one Estimator pub per mask carrying the 100 draws as parameter rows (a (100, 2, nL) bindings array of the shifted pairs, so "
+               "both shifts of a draw share the mask), 256 pubs per gradient point in jobs of at most 300 pubs and 12 MB of parameter values (about 15 jobs per "
+               "point at n = 50, L = 8; the Deviation's 512-pub / 2-job count puts the shifts in separate pubs and carries no payload cap), against the 171 "
+               "one-row-circuit jobs of Deviation 27 on which kill rule (b) fired (Deviation 41: 7.0 min per point; model v3 gives about 1.0 min here). Gated by "
+               "Gate 1b; same day and same patches as the ladder points it is compared with. Ledger: Section 6 dial line (65 min at 1 us; the six p = 0 "
+               "references are in references_gate1b.json).")
 
 
 def dial_lists(pl: dict) -> dict:
@@ -267,7 +280,8 @@ def dial_lists(pl: dict) -> dict:
                   "The k = L delay-matched p = 0 control (matched control (a)) is the M = 350, 16384-shot reference point of references_gate1b.json (Deviations 28-30, 44-45). "
                   "Not run (Section 3b): p = 0.1, k in {L/2, L-1}, p = 0.25 truncation. Not in this list (Estimator runner limits, see docs/PAPER1_JOBLISTS.md): the "
                   "|+> -> reset -> measure-X residual-coherence check and the f(theta + pi) rotation-survival identity at p > 0. Kill rules (a)-(d) (Deviation 41: 7.0 min "
-                  "locked time per dial gradient point including job overhead) are read from the smoke test before this list is armed." + DIAL_COMMON)
+                  "locked time per dial gradient point including job overhead; (b) fired on the smoke test under the Deviation 27 structure and is re-evaluated "
+                  "under the Deviation 48 packing) are read from the smoke test before this list is armed." + DIAL_COMMON)
     notes_cont = (f"{PREREG}, Section 3b 'Minute budget' contingent items, in the pre-registered order of first call on unspent reserve: (1) k = 1 at L = 12 "
                   "(p = 0.25, 0.5; 12.0 min), (2) truncation l = 4 (3.4 min), (3) k = 1 at L = 8 (p = 0.25, 0.5) with its delay-matched p = 0 control at k = 1 (12.2 min); "
                   "about 27.5 min at 1 us in all. NOT part of the booked 65-minute dial line: armed only by an explicit reserve decision recorded as a deviation "
@@ -285,15 +299,17 @@ def reference_list(pl: dict) -> dict:
                                      f"Gate 1b clause (b) reference (Deviations 28-30, 35, 44-45): delay-matched p = 0, k = L, L = {L} on the {rung} rung (actual n = {R['n']}); "
                                      "every qubit idles 400 ns after every layer (mask_p = 1: delay on all qubits, no lottery, no pattern floor), M = 350 draws "
                                      "(rule M = 17.5(1.3 kappa - 1), kappa = 14.2), 16384 shots (floor 3.05e-5); the L = 8 to L = 12 fall on this rung must exceed "
-                                     "3x the larger shot floor (9.2e-5) and 2x the L = 8 point's measured bootstrap 2 sigma; Deviation 39 on-day M = 600 rule", mask_p=1.0))
+                                     "3x the larger shot floor (9.2e-5) and 2x the L = 8 point's measured bootstrap 2 sigma; Deviation 39 on-day M = 600 rule. "
+                                     "Deviation 48 packing: one pub carrying the 350 draws' shifted pairs as parameter rows", mask_p=1.0))
     notes = (f"{PREREG}, Section 3b Gate 1b clause (b) unital references (Deviations 28-30 frozen clause, 35, 44-45): the six delay-matched p = 0, k = L points at "
              "L = 8 and L = 12 on the three ladder rungs n = 40 / 60 / 100 (actual n = "
-             f"{pl['rungs']['n40']['n']} / {pl['rungs']['n60']['n']} / {pl['rungs']['n100']['n']}), M = 350, 16384 shots, resilience 0, no masks (700 circuits per point, "
-             "3 jobs per point in the pre-registration's count; here the six points of one job group are packed consecutively into jobs of at most 300 circuits). "
+             f"{pl['rungs']['n40']['n']} / {pl['rungs']['n60']['n']} / {pl['rungs']['n100']['n']}), M = 350, 16384 shots, resilience 0, no masks (700 parameter sets per point: "
+             "3 jobs per point in the pre-registration's count; under the Deviation 48 packing one pub per point carrying the 350 shifted pairs as rows, the six pubs "
+             "packed into jobs of at most 300 pubs and 12 MB of parameter values). "
              "The n = 60, L = 8 point doubles as Section 3b matched control (a) at k = L. Evaluated per rung on the measured, floor-subtracted references: a rung "
              "whose L = 8 reference lies below 3 shot floors is 'reference unresolvable'; clause (b) passes with at least two counted rungs all passing. Runs before "
              "dial_arm.json on the same day and patches (order of runs). Ledger: 23.6 min at 1 us in the pre-registration's arithmetic, funded as 6.4 (dial line) + 8.0 "
-             "(Deviation 44 reserve item) + 9.5 (Deviation 45 top-up line).")
+             "(Deviation 44 reserve item) + 9.5 (Deviation 45 top-up line); about 22.7 min under model v3 in the pre-registration's arithmetic (Deviation 47).")
     return {"references_gate1b.json": base_list("paper1_references_gate1b", notes, pl, ["n40", "n60", "n100"], "dial", [], probes)}
 
 
@@ -314,7 +330,7 @@ def null_control_list(pl: dict, rule: str) -> dict:
              "logged gradient (ev_plus - ev_minus) / 2 is pure SPAM noise and its variance over draws is the measured null floor used by the Deviation 37 "
              "claimability bar (signal above the null floor plus 3 bootstrap sigma) and by Gate 2 (a). Runs first, before the main grid, on the same day as the "
              "n = 20 grid list (order of runs). Ledger: 2.6 min at 1 us from the Section 6 reserve (Deviation 43; 400 circuits per rung in 2 jobs in the "
-             "pre-registration's count, packed consecutively here).")
+             "pre-registration's count; here 200 pubs per rung, the six probes packed consecutively into jobs of at most 300 pubs, about 0.27 min per rung under model v3).")
     return {"null_controls.json": base_list("paper1_null_controls", notes, pl, RUNGS, "null_controls", [], probes)}
 
 
@@ -329,7 +345,7 @@ def make_lists(snapshot: str, rule: str = "baseline") -> tuple[dict, dict]:
 
 
 def summarise(lists: dict, pl: dict, rule: str) -> dict:
-    per = {name: dict(ledger_line=jl["campaign"]["ledger_line"], jobs=jl["budget"]["jobs"], circuits=jl["budget"]["circuits"],
+    per = {name: dict(ledger_line=jl["campaign"]["ledger_line"], jobs=jl["budget"]["jobs"], pubs=jl["budget"]["pubs"], circuits=jl["budget"]["circuits"],
                       executions=jl["budget"]["executions"], trex_executions=jl["budget"]["trex_executions"],
                       minutes_at_1us=jl["budget"]["minutes_at_1us"], minutes_at_250us=jl["budget"]["minutes_at_250us"],
                       points=len(jl["points"]), probes=len(jl["probes"])) for name, jl in lists.items()}
@@ -339,7 +355,8 @@ def summarise(lists: dict, pl: dict, rule: str) -> dict:
         totals[line] = dict(minutes_at_1us=round(sum(v["minutes_at_1us"] for v in sel), 3), minutes_at_250us=round(sum(v["minutes_at_250us"] for v in sel), 3),
                             jobs=sum(v["jobs"] for v in sel), executions=sum(v["executions"] for v in sel))
     caps = dict(main=LEDGER["main"], dial=LEDGER["dial"] + LEDGER["dial_reserve_item"] + LEDGER["reference_topup"], null_controls=LEDGER["null_controls"])
-    return dict(pre_registration=PREREG, m_rule=rule, snapshot=pl["snapshot"], properties=pl["properties"], stamp=pl["stamp"],
+    return dict(pre_registration=PREREG, budget_model_version=BUDGET_MODEL_VERSION, max_experiments=MAX_EXPERIMENTS, max_job_param_mb=MAX_JOB_PARAM_MB,
+                m_rule=rule, snapshot=pl["snapshot"], properties=pl["properties"], stamp=pl["stamp"],
                 rungs={r: dict(n=v["n"], patch=v["patch"], origin=v["origin"], edge=v["edge"], edge_rule=v["edge_rule"], broken_edges=v["broken_edges"], holes=v["holes"])
                        for r, v in pl["rungs"].items()},
                 ledger_caps_min_at_1us=caps, totals=totals,
@@ -367,7 +384,7 @@ def main(argv=None) -> int:
         (out / name).write_text(json.dumps(jl, indent=1) + "\n")
         load_joblist(str(out / name))                     # schema check
         b = jl["budget"]
-        print(f"{name}: {len(jl['points'])} points, {len(jl['probes'])} probes, {b['jobs']} jobs, {b['circuits']} circuits, "
+        print(f"{name}: {len(jl['points'])} points, {len(jl['probes'])} probes, {b['jobs']} jobs, {b['pubs']} pubs, {b['circuits']} parameter sets, "
               f"{b['executions']} exec, {b['minutes_at_1us']} min at 1 us / {b['minutes_at_250us']} min at 250 us")
     (out / "summary.json").write_text(json.dumps(summary, indent=1) + "\n")
     print(json.dumps(dict(totals=summary["totals"], caps=summary["ledger_caps_min_at_1us"], within_caps=summary["within_caps"], rungs=summary["rungs"]), indent=1))

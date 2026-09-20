@@ -182,8 +182,22 @@ def submitted_rep_delay_us(options) -> float | str:
 PROBE_KINDS = {"reset_dial", "reset_error", "null_control"}   # null_control: pre-registration Section 2 control (a), candidate Deviation 43
 RESET_KINDS = {"reset", "delay", "measure_reset", "measure_reset_2", "dephase", "none"}   # dephase: Z + delay(400 ns), Section 3b dephasing dial
 DIAL_DELAY_NS = 400.0
-MAX_EXPERIMENTS = 300          # ibm_phoenix max_experiments (configuration ledger 2026-09-19/20): circuits (parameter sets) per job
-# Minute-budget model, version 2 (post-run review of the Marrakesh pipeline check, 2026-09-19, defect D1). Per job:
+MASK_STREAM = 0x4D41534B       # "MASK": second word of the SeedSequence of a dial mask, so mask m (seed + 1 + m) and draw d (seed + d) never share a stream
+# Minute-budget model, version 3 (Deviation 47, from the 20 Sep 2026 ibm_phoenix smoke test: 52 QPU s charged against 39.6 s
+# predicted by version 2). Per job:
+#   T_job = 3.0 s + [resilience >= 1] x 2.7 s
+#         + (rep_delay + L x 0.71 us x (3 if resilience 2) + t_meas + 5 us [+ dial and idle durations]) x N_exec x (3 if resilience 2)
+#         + [resilience >= 1 and shots < 1024] x 32 x N_shots x n_bases x (rep_delay + t_meas + 5 us)
+# with N_shots = max(shots, 64) at resilience >= 1 (the Estimator's measure-twirling minimum: pubs requested at 16 shots ran at
+# 64) and N_exec = parameter sets x N_shots. The 3.0 s is IBM's whole-second accounting behaving as a floor (2.77-3.13 s
+# measured on seven level-0 jobs), the 2.7 s the untimed mitigation time of levels 1-2 (5.6-5.9 s per job), the 5 us the
+# per-execution overhead (11.4 us measured for the level-0 L = 2 / 8 mix against 16.5 modelled), the gate time x 3 at
+# resilience 2 the depth-weighted ZNE folding (timed seconds x 5.0 measured, 4.8 reproduced); the TREX-executions term is
+# dropped at >= 1024 shots (0.26 s of timed circuits against 1.7 s modelled). t_meas is the backend target's measure duration
+# (fallback per backend name: ibm_phoenix 1.94 us, ibm_marrakesh 2.684 us). Dial layers add the target durations (ibm_phoenix:
+# reset 400 ns, measure_reset 1940 ns, measure_reset_2 1140 ns, delay 400 ns; dephase timed as delay).
+# Version 2 (Deviation 24; post-run review of the Marrakesh pipeline check, 2026-09-19, defect D1), kept for the lists budgeted
+# under it (dryrun/01, dryrun/02; ``estimate_budget(..., model_version=2)``):
 #   T_job = 2 s + (rep_delay + L x 0.71 us + t_meas + 10 us [+ dial durations]) x N_exec x (3 if resilience 2)
 #         + [resilience >= 1] x 32 x shots x n_bases x (rep_delay + t_meas + 10 us)
 # The first line is the circuit executions (resilience 2 runs every circuit at the 3 ZNE noise factors); the second is
@@ -194,15 +208,96 @@ MAX_EXPERIMENTS = 300          # ibm_phoenix max_experiments (configuration ledg
 # the target durations (ibm_phoenix: reset 400 ns, measure_reset 1940 ns, measure_reset_2 1140 ns, delay 400 ns).
 # Model version 1 (2 s per job + (rep_delay + L x 0.71 us + 1.94 us) x executions, no TREX, no overhead) predicted
 # 12.2 s for the Marrakesh list against 22 s charged; version 2 predicts 21.1 s.
-BUDGET_MODEL_VERSION = 2
+BUDGET_MODEL_VERSION = 3
+BUDGET_MODELS = {
+    2: dict(job_s=2.0, mitigation_s=0.0, overhead_us=10.0, min_mitigated_shots=0, trex_shots_cutoff=None, zne_gate_factor=1.0),
+    3: dict(job_s=3.0, mitigation_s=2.7, overhead_us=5.0, min_mitigated_shots=64, trex_shots_cutoff=1024, zne_gate_factor=3.0),
+}
 LAYER_US, READOUT_US, X_US = 0.71, 1.94, 0.04
 READOUT_US_BY_BACKEND = {"ibm_phoenix": 1.94, "ibm_marrakesh": 2.684}   # backend.properties() readout_length, 2026-09-19
-EXEC_OVERHEAD_US = 10.0
+EXEC_OVERHEAD_US = 10.0        # model v2 per-execution overhead (gradvar.paper2's Sampler budget still uses it); v3: BUDGET_MODELS[3]["overhead_us"]
+MAX_JOB_PARAM_MB = 12.0        # runner cap on the bound parameter values (float64 bytes) of one job: with the Deviation 48 packing a dial
+                               # point carries 51,200 parameter sets x n L values (164 MB at n = 50, L = 8), far above what one request
+                               # should carry (IBM's job payload limit is of order 16 MB), so ``chunk_pubs`` also splits at this size
+PARAM_VALUES_INLINE_MAX = 4096   # job.json keeps a pub's bound parameter values inline up to this many floats (the (2, nL) pairs); larger
+                                 # arrays (the Deviation 48 multi-draw pubs) are omitted and recorded by theta_seeds and per-draw hashes
 TREX_RANDOMIZATIONS = 32       # EstimatorV2 default resilience.measure_noise_learning.num_randomizations
 DIAL_US = {"reset": 0.40, "delay": 0.40, "measure_reset": 1.94, "measure_reset_2": 1.14, "none": 0.0}   # dephase: timed as delay (virtual Z has no duration)
 BUDGET_REP_DELAYS_US = (250.0, 1.0)
+MAX_EXPERIMENTS_DEFAULT = 300      # pubs per job (ibm_phoenix / Heron ``max_experiments``, configuration ledger 2026-09-19; Deviation 27)
+CONFIG_LEDGER = Path(__file__).resolve().parents[1] / "data" / "calibrations" / "backend_configurations.csv"
 ZNE_NOISE_FACTORS = 3          # resilience 2 runs each circuit at 3 noise factors (default noise_factors (1, 3, 5))
 _SYNTHETIC_INSTRUCTIONS: Dict[int, set] = {}   # id(backend) -> reset kinds added to a fake target by dial_operation
+
+
+def max_experiments(backend_name: str | None = None, backend=None, ledger: str | Path | None = None) -> int:
+    """Pubs per job: ``backend.configuration().max_experiments`` when a backend is at hand, else the newest row for
+    ``backend_name`` in the configuration ledger (``data/calibrations/backend_configurations.csv``), else 300."""
+    cfg = None
+    if backend is not None:
+        try:
+            cfg = backend.configuration() if callable(getattr(backend, "configuration", None)) else None
+        except Exception:  # pragma: no cover
+            cfg = None
+    val = getattr(cfg, "max_experiments", None) if cfg is not None else None
+    if isinstance(val, (int, float)) and val > 0:
+        return int(val)
+    path = Path(ledger) if ledger else CONFIG_LEDGER
+    if backend_name and path.exists():
+        best = None
+        with open(path, newline="") as f:
+            for row in csv.DictReader(f):
+                if row.get("backend") == backend_name and row.get("max_experiments"):
+                    if best is None or row.get("received_at_utc", "") >= best[0]:
+                        best = (row.get("received_at_utc", ""), row["max_experiments"])
+        if best:
+            try:
+                return int(float(best[1]))
+            except ValueError:
+                pass
+    return MAX_EXPERIMENTS_DEFAULT
+
+
+def chunk_tags(tag: str, n_chunks: int) -> List[str]:
+    """Job tags of a group split into ``n_chunks`` jobs of at most ``max_experiments`` pubs: the first keeps ``tag``, the
+    others take ``-c2``, ``-c3``, ..."""
+    return [tag] + [f"{tag}-c{i}" for i in range(2, n_chunks + 1)]
+
+
+def chunk_pubs(pubs: list, max_pubs: int, sizes: Sequence[int] | None = None, max_bytes: int | None = None) -> List[list]:
+    """Split a job group's pub list into consecutive chunks of at most ``max_pubs`` pubs (the backend's ``max_experiments``;
+    Deviation 48 counts pubs, whatever their parameter rows) whose ``sizes`` (bound parameter bytes per pub) sum to at
+    most ``max_bytes`` when both are given (``MAX_JOB_PARAM_MB``). A single pub above ``max_bytes`` gets a chunk of its own."""
+    max_pubs = max(int(max_pubs), 1)
+    if sizes is None or max_bytes is None:
+        return [pubs[i:i + max_pubs] for i in range(0, len(pubs), max_pubs)] or [[]]
+    chunks: List[list] = []
+    cur: list = []
+    load = 0
+    for pub, size in zip(pubs, sizes):
+        if cur and (len(cur) >= max_pubs or load + int(size) > int(max_bytes)):
+            chunks.append(cur)
+            cur, load = [], 0
+        cur.append(pub)
+        load += int(size)
+    if cur:
+        chunks.append(cur)
+    return chunks or [[]]
+
+
+def pub_param_bytes(b) -> int:
+    """Bytes of bound parameter values one built pub sends (float64), the quantity ``MAX_JOB_PARAM_MB`` caps per job."""
+    pv = getattr(b, "param_values", None)
+    return 0 if pv is None else int(np.asarray(pv, dtype=float).nbytes)
+
+
+def mask_lottery(seed: int, m: int, L: int, n: int, p: float) -> np.ndarray:
+    """Reset mask m of a dial probe: Bernoulli(``p``) on (L, n) from the SeedSequence (``seed + 1 + m``, ``MASK_STREAM``).
+    ``seed + 1 + m`` is the logged ``mask_seed``; the second word keeps the lottery off the stream of the theta draws
+    (draw d takes theta from ``seed + d``, so without it mask m would be a function of draw m + 1's angles). Probes with
+    the same ``seed`` and ``p`` share their masks (the delay-matched control, Section 3b Pairing). The 20 Sep 2026 smoke
+    test (list 02, M = 1) drew its masks from ``default_rng(seed + 1 + m)``; its bundles carry their own mask hashes."""
+    return np.random.default_rng([int(seed) + 1 + int(m), MASK_STREAM]).random((int(L), int(n))) < float(p)
 
 
 def dial_operation(kind: str, backend, physical_qubits: Sequence[int]):
@@ -253,8 +348,9 @@ class BuiltProbe:
     edge: Tuple[int, int] | None
     isa_circuit: object
     isa_observable: object            # SparsePauliOp (dial pair) or list of SparsePauliOp (one Z per qubit)
-    param_values: np.ndarray | None   # (2, nL) shifted pair for reset_dial, None for reset_error
-    theta: np.ndarray
+    param_values: np.ndarray | None   # (2, nL) shifted pair (one draw), (M, 2, nL) the M draws' pairs (Deviation 48 mask pub), (M, nL) /
+                                      # (nL,) unshifted theta rows, (2, 0) the L = 0 null control, None for reset_error
+    theta: np.ndarray                 # (nL,) the pub's theta, or (M, nL) one row per draw of a multi-draw pub
     depth: int
     two_qubit_gates: int
     resilience_level: int
@@ -263,6 +359,12 @@ class BuiltProbe:
     mask_hash: str = ""
     synthetic_target_instructions: List[str] = field(default_factory=list)
     layout: Tuple[int, ...] | None = None
+    theta_seeds: Tuple[int, ...] | None = None   # multi-draw pub: the seed of every theta row (seed + d)
+
+    @property
+    def draws(self) -> int:
+        """Rows this pub logs (one CSV row per draw): M for a Deviation 48 mask pub, else 1."""
+        return int(self.theta.shape[0]) if np.ndim(self.theta) == 2 else 1
 
     def pub(self):
         if self.param_values is None:
@@ -349,9 +451,11 @@ def build_probes(jl: dict, backend, shapes: dict, calibration_csv: str | None = 
                  optimization_level: int = 1, max_pubs_per_probe: int | None = None) -> List[BuiltProbe]:
     """Build and transpile the job list's ``probes`` (schema: data/joblists/README.md).
 
-    ``reset_dial``: the HEA on the patch with a dial layer after every layer (``hea_square_dial``); mask m of a probe is
-    Bernoulli(p) from seed ``seed + 1 + m`` (so the delay-matched control, same seed and p, shares the masks), theta
-    from ``seed``, observable Z_i Z_j on the interior edge, shifted pair at layer ``k`` (default L).
+    ``reset_dial``: the HEA on the patch with a dial layer after every layer (``hea_square_dial``), observable Z_i Z_j on
+    the probe's edge (``resolve_edge``), shifted pair at layer ``k`` (default L). Deviation 48 packing: one pub per mask
+    (``mask_lottery``: Bernoulli(mask_p) from (seed + 1 + m, MASK_STREAM), shared by both shifts and all draws) carrying
+    the M draws (theta from ``seed + d``) as parameter rows, so a probe is ``masks`` pubs of M x 2 parameter sets.
+    ``null_control``: Deviation 43 (L = 0, SPAM only, one pub per draw) or the L >= 1 out-of-cone shifted pair.
     ``reset_error``: prep (|1> by default, or |0>) -> reset kind -> Z on each listed qubit (``qubits``, or the placed
     patch), one pub with one Z observable per qubit; P(1) = (1 - <Z>) / 2 at resilience 0.
     ``max_pubs_per_probe`` (the dry-run sample) stops building a probe's pubs after that many, in build order.
@@ -363,11 +467,6 @@ def build_probes(jl: dict, backend, shapes: dict, calibration_csv: str | None = 
         kind, rk = str(pr["kind"]), str(pr.get("reset_kind", "reset"))
         level, shots, seed = int(pr.get("resilience", 0)), int(pr["shots"]), int(pr.get("seed", 0))
         if kind == "reset_dial":
-            # Draw d of M (default 1) takes theta from seed + d and mask m from seed + d + 1 + m, so a control probe with the
-            # same seed and p is delay-matched draw by draw (same masks, same theta; pre-registration Section 3b, Deviation 38:
-            # the two shift circuits of a draw share their mask). ``unshifted`` builds one circuit at theta (the cost C_mix,
-            # truncation arm); ``truncate_to`` = l keeps only the last l layers with their theta and masks, all qubits
-            # starting in |0> (Section 3b truncation arm, H7).
             patch, layout = _probe_patch(pr, shapes, calibration_csv)
             edge = resolve_edge(patch, layout, pr.get("edge"), f"probe {pr.get('id')}")
             obs, edge = hea_observable(patch, edge)
@@ -385,30 +484,35 @@ def build_probes(jl: dict, backend, shapes: dict, calibration_csv: str | None = 
             if trunc is not None and not unshifted:
                 raise JoblistError(f"probe {pr.get('id')}: truncate_to needs unshifted: true (the truncation arm measures C_mix, not a gradient)")
             dial, synthetic = dial_operation(rk, backend, phys)
+            # Deviation 48 packing: one pub per mask m, carrying the M draws as parameter rows. Mask m is Bernoulli(mask_p) from the
+            # stream (seed + 1 + m, MASK_STREAM) (``mask_lottery``), shared by the two shift circuits of every draw (Deviation 38) and
+            # by all M draws; draw d takes theta from seed + d. The bindings array is (M, 2, nL) of shifted pairs, or (M, nL) of
+            # theta_d when ``unshifted`` (the cost C_mix; ``truncate_to`` = l keeps the last l layers with their theta and masks,
+            # all qubits starting in |0>, Section 3b truncation arm, H7). Probes with the same seed are paired draw by draw and
+            # mask by mask (delay-matched control, dephasing dial, full and truncated circuits). M = 1 keeps the (2, nL) pair of
+            # the smoke-test lists (one row per pub).
+            M = int(pr.get("M", 1))
+            n_masks = int(pr.get("masks", 1)) if limit is None else min(limit, int(pr.get("masks", 1)))
+            drop = (L - l_keep) * patch.n
+            idx = param_index(k - 1, patch.local(edge[0]), patch.n)
+            thetas = np.stack([np.random.default_rng(seed + d).uniform(0, 2 * np.pi, size=patch.n * L) for d in range(M)])
+            if unshifted:
+                pv = thetas[:, drop:]                                                    # (M, n l_keep): one circuit at theta per draw
+            else:
+                pv = np.stack([np.stack(shifted_params(th, idx)) for th in thetas])      # (M, 2, nL): the shifted pair per draw
+            if M == 1:
+                pv = pv[0]
             pm = generate_preset_pass_manager(optimization_level=optimization_level, backend=backend,
                                               initial_layout=list(phys), seed_transpiler=seed)
-            drop = (L - l_keep) * patch.n
-            for d in range(int(pr.get("M", 1))):
-                dseed = seed + d
-                theta = np.random.default_rng(dseed).uniform(0, 2 * np.pi, size=patch.n * L)
-                plus, minus = shifted_params(theta, param_index(k - 1, patch.local(edge[0]), patch.n))
-                if limit is not None and len(built) - n_before >= limit:
-                    break
-                for m in range(int(pr.get("masks", 1))):
-                    if limit is not None and len(built) - n_before >= limit:
-                        break
-                    mask = np.random.default_rng(dseed + 1 + m).random((L, patch.n)) < mask_p
-                    if unshifted:
-                        qc = hea_square_dial(patch, l_keep, mask[L - l_keep:], dial, params=theta[drop:])
-                        pv = None
-                    else:
-                        qc = hea_square_dial(patch, L, mask, dial)
-                        pv = np.stack([plus, minus])
-                    isa = pm.run(qc)
-                    built.append(BuiltProbe(dict(pr, mask_index=m, draw=d), patch, phys, edge, isa, obs.apply_layout(isa.layout),
-                                            pv, theta, isa.depth(), two_qubit_count(isa), level, shots, dseed,
-                                            mask_hash=hashlib.sha256(np.ascontiguousarray(mask).tobytes()).hexdigest()[:16],
-                                            synthetic_target_instructions=[rk] if synthetic else [], layout=layout))
+            for m in range(n_masks):
+                mask = mask_lottery(seed, m, L, patch.n, mask_p)
+                qc = hea_square_dial(patch, l_keep, mask[L - l_keep:], dial) if unshifted else hea_square_dial(patch, L, mask, dial)
+                isa = pm.run(qc)
+                built.append(BuiltProbe(dict(pr, mask_index=m), patch, phys, edge, isa, obs.apply_layout(isa.layout),
+                                        pv, thetas[0] if M == 1 else thetas, isa.depth(), two_qubit_count(isa), level, shots, seed,
+                                        mask_hash=hashlib.sha256(np.ascontiguousarray(mask).tobytes()).hexdigest()[:16],
+                                        synthetic_target_instructions=[rk] if synthetic else [], layout=layout,
+                                        theta_seeds=tuple(seed + d for d in range(M))))
         elif kind == "null_control":
             # Section 2 control (a): the same HEA with the differentiated parameter outside the observable's light cone (ideal
             # gradient exactly zero), giving the empirical noise floor including hardware noise (Deviation 37 claimability bar;
@@ -417,30 +521,23 @@ def build_probes(jl: dict, backend, shapes: dict, calibration_csv: str | None = 
             edge = resolve_edge(patch, layout, pr.get("edge"), f"probe {pr.get('id')}")
             obs, edge = hea_observable(patch, edge)
             phys, phys_edge = physical_qubits(patch, layout, edge)
-            L = int(pr.get("L", 1))
+            # Deviation 43: L = 0 (the default) is the SPAM-only pair, two identical circuits with no Ry / CZ layer and no
+            # parameter (k is irrelevant and must be absent or 0); L >= 1 shifts the pair at layer k on the null qubit.
+            L = int(pr.get("L", 0))
+            k = int(pr.get("k", 1 if L else 0))
+            null_q = null_control_qubit(patch, edge, L, pr.get("null_qubit"), layout) if L else None
             pm = generate_preset_pass_manager(optimization_level=optimization_level, backend=backend, initial_layout=list(phys), seed_transpiler=seed)
-            if L == 0:
-                # Deviation 43: the L = 0 shifted-pair point, state preparation and measurement only (no Ry/CZ layer, no parameter,
-                # so k and null_qubit do not apply). One pub per draw with two identical parameter-free evaluations (a (2, 0)
-                # bindings array), so the logged gradient (ev_plus - ev_minus) / 2 of every draw is pure SPAM noise: its variance
-                # over the M draws is the measured null floor of the Deviation 37 claimability bar and Gate 2 (a).
-                if "k" in pr or "null_qubit" in pr:
-                    raise JoblistError(f"probe {pr.get('id')}: L = 0 null_control has no parameter: drop k and null_qubit")
-                isa = pm.run(QuantumCircuit(patch.n, name=f"null_control_L0_{patch.n_rows}x{patch.n_cols}"))
-                isa_obs = obs.apply_layout(isa.layout)
-                for d in range(int(pr.get("M", 1)) if limit is None else min(limit, int(pr.get("M", 1)))):
-                    built.append(BuiltProbe(dict(pr, draw=d, null_qubit=None, lattice_null_qubit=None, reset_kind="none", k=None), patch, phys, edge, isa,
-                                            isa_obs, np.zeros((2, 0)), np.zeros(0), isa.depth(), two_qubit_count(isa), level, shots, seed + d, layout=layout))
-                continue
-            k = int(pr.get("k", 1))
-            null_q = null_control_qubit(patch, edge, L, pr.get("null_qubit"), layout)
             isa = pm.run(hea_square(patch, L))
             isa_obs = obs.apply_layout(isa.layout)
-            phys_null = null_q if layout is None else layout[patch.local(null_q)]
+            phys_null = None if null_q is None else (null_q if layout is None else layout[patch.local(null_q)])
             for d in range(int(pr.get("M", 1)) if limit is None else min(limit, int(pr.get("M", 1)))):
                 theta = np.random.default_rng(seed + d).uniform(0, 2 * np.pi, size=patch.n * L)
-                plus, minus = shifted_params(theta, param_index(k - 1, patch.local(null_q), patch.n))
-                built.append(BuiltProbe(dict(pr, draw=d, null_qubit=int(phys_null), lattice_null_qubit=int(null_q), reset_kind="none"), patch, phys, edge, isa,
+                if L:
+                    plus, minus = shifted_params(theta, param_index(k - 1, patch.local(null_q), patch.n))
+                else:
+                    plus, minus = theta, theta          # zero parameters: a (2, 0) array, two executions of the same SPAM circuit
+                built.append(BuiltProbe(dict(pr, draw=d, null_qubit=None if phys_null is None else int(phys_null), lattice_null_qubit=None if null_q is None else int(null_q),
+                                             reset_kind="none", L=L, k=k), patch, phys, edge, isa,
                                         isa_obs, np.stack([plus, minus]), theta, isa.depth(), two_qubit_count(isa), level, shots, seed + d, layout=layout))
         elif kind == "reset_error":
             layout = None
@@ -534,51 +631,30 @@ def _probe_length_us(pr: dict, dial_us: Dict[str, float]) -> float:
         layers = int(pr["L"]) if pr.get("truncate_to") is None else int(pr["truncate_to"])
         return layers * (LAYER_US + dial_us[rk])
     if pr["kind"] == "null_control":
-        return int(pr.get("L", 1)) * LAYER_US
+        return int(pr.get("L", 0)) * LAYER_US          # L = 0: SPAM only, rep_delay + t_meas + overhead per execution (Deviation 43)
     return X_US + dial_us[rk]
 
 
 def _probe_pubs(pr: dict) -> Tuple[int, int]:
-    """(number of pubs, circuits per pub) of a probe, in ``build_probes`` order: reset_dial builds M x masks pubs of two
-    shifted circuits (one when ``unshifted``), null_control M pubs of two, reset_error a single one-circuit pub."""
+    """(number of pubs, parameter sets per pub) of a probe, in ``build_probes`` order: reset_dial builds one pub per mask
+    carrying the M draws as rows (2 M shifted circuits, M when ``unshifted``; Deviation 48), null_control M pubs of two,
+    reset_error a single one-circuit pub."""
     if pr["kind"] == "reset_dial":
-        return int(pr.get("M", 1)) * int(pr.get("masks", 1)), (1 if pr.get("unshifted") else 2)
+        return int(pr.get("masks", 1)), int(pr.get("M", 1)) * (1 if pr.get("unshifted") else 2)
     if pr["kind"] == "null_control":
         return int(pr.get("M", 1)), 2
     return 1, 1
 
 
-def _probe_circuits(pr: dict) -> int:
-    pubs, per = _probe_pubs(pr)
-    return pubs * per
-
-
-def pub_circuits(b) -> int:
-    """Circuits (parameter sets) one built pub sends: what ``max_experiments`` counts."""
-    pv = getattr(b, "param_values", None)
-    return 1 if pv is None else int(np.asarray(pv).shape[0])
-
-
-def chunk_by_circuits(items: Sequence, circuits, limit: int = MAX_EXPERIMENTS) -> List[list]:
-    """Split ``items`` (in order) into consecutive chunks whose summed ``circuits(item)`` stays at or below ``limit``
-    (ibm_phoenix ``max_experiments`` = 300): the job packing of the pre-registration (600 circuits per grid point in 2 jobs,
-    the 256 mask circuits of one (draw, shift) under 300, 700-circuit reference points in 3 jobs, Deviations 27 and 43)."""
-    chunks, cur, load = [], [], 0
-    for it in items:
-        c = int(circuits(it))
-        if cur and load + c > limit:
-            chunks.append(cur)
-            cur, load = [], 0
-        cur.append(it)
-        load += c
-    if cur:
-        chunks.append(cur)
-    return chunks
-
-
-def chunk_tags(tag: str, n_chunks: int) -> List[str]:
-    """Job tags of a group split into ``n_chunks`` jobs: the group's tag, then ``<tag>-j2``, ``<tag>-j3``, ..."""
-    return [tag if i == 0 else f"{tag}-j{i + 1}" for i in range(n_chunks)]
+def _probe_params(pr: dict) -> int:
+    """Parameters per bound circuit of a probe (what one parameter row carries): n x L for reset_dial (n x truncate_to when
+    truncated), n x L for null_control (0 at L = 0), none for reset_error."""
+    n = int(pr.get("n", 0) or 0)
+    if pr["kind"] == "reset_dial":
+        return n * int(pr["L"] if pr.get("truncate_to") is None else pr["truncate_to"])
+    if pr["kind"] == "null_control":
+        return n * int(pr.get("L", 0))
+    return 0
 
 
 def probe_rep_delay_us(pr: dict) -> float | None:
@@ -601,17 +677,18 @@ def _probe_basis(pr: dict) -> str:
     return f"Z:{pr.get('qubits', pr.get('layout', pr.get('patch')))}"
 
 
-def budget_jobs(jl: dict, dial_us: Dict[str, float]) -> List[dict]:
-    """The jobs the runner will submit for ``jl`` (same grouping as ``execute_joblist``: one group per resilience level of the
-    gradient points, one per (level, shots, rep_delay_us) of the probes, each group split into jobs of at most
-    ``MAX_EXPERIMENTS`` circuits in build order), each with its pub items ``(circuits, shots, gate_us)``, the distinct
-    measurement bases and ``rep_delay_us`` (None: backend default)."""
+def budget_jobs(jl: dict, dial_us: Dict[str, float], max_pubs: int | None = None, max_param_bytes: int | None = None) -> List[dict]:
+    """The jobs the runner will submit for ``jl`` (same grouping and packing as ``job_groups``: one group per resilience
+    level of the gradient points, one per (level, shots, rep_delay_us) of the probes, each group split in build order into
+    consecutive jobs of at most ``max_pubs`` pubs (the backend's ``max_experiments``, Deviation 48) whose bound parameter
+    values stay under ``max_param_bytes`` (``MAX_JOB_PARAM_MB``)), each with its pub items ``(parameter sets, shots,
+    gate_us)``, the distinct measurement bases, ``rep_delay_us`` (None: backend default) and ``param_bytes``."""
     by_level: Dict[int, dict] = {}
     for pt in jl.get("points", []) or []:
         lvl = int(pt["resilience"])
         j = by_level.setdefault(lvl, dict(tag=f"L{lvl}", level=lvl, shots=int(pt["shots"]), items=[], bases=set(), rep_delay_us=None))
         for _ in range(int(pt["M"])):                      # one pub (shifted pair) per draw, in build order
-            j["items"].append((2, int(pt["shots"]), int(pt["L"]) * LAYER_US, f"ZZ:{pt.get('edge')}"))
+            j["items"].append((2, int(pt["shots"]), int(pt["L"]) * LAYER_US, f"ZZ:{pt.get('edge')}", 2 * int(pt["n"]) * int(pt["L"]) * 8))
     by_probe: Dict[Tuple[int, int, float], dict] = {}
     for pr in jl.get("probes", []) or []:
         rd = probe_rep_delay_us(pr)
@@ -619,64 +696,91 @@ def budget_jobs(jl: dict, dial_us: Dict[str, float]) -> List[dict]:
         j = by_probe.setdefault(key, dict(tag=probe_job_tag(key[0], key[1], rd), level=key[0], shots=key[1], items=[], bases=set(),
                                           rep_delay_us=rd))
         pubs, per = _probe_pubs(pr)
+        nbytes = per * _probe_params(pr) * 8
         for _ in range(pubs):
-            j["items"].append((per, int(pr["shots"]), _probe_length_us(pr, dial_us), _probe_basis(pr)))
+            j["items"].append((per, int(pr["shots"]), _probe_length_us(pr, dial_us), _probe_basis(pr), nbytes))
+    max_pubs = max_experiments(jl.get("backend")) if max_pubs is None else int(max_pubs)
+    max_param_bytes = int(MAX_JOB_PARAM_MB * 1e6) if max_param_bytes is None else int(max_param_bytes)
     jobs = []
     for g in [by_level[k] for k in sorted(by_level)] + [by_probe[k] for k in sorted(by_probe)]:
-        chunks = chunk_by_circuits(g["items"], lambda it: it[0])       # max_experiments packing, same as execute_joblist
+        chunks = chunk_pubs(g["items"], max_pubs, sizes=[it[4] for it in g["items"]], max_bytes=max_param_bytes)
         for tag, items in zip(chunk_tags(g["tag"], len(chunks)), chunks):
             jobs.append(dict(tag=tag, level=g["level"], shots=g["shots"], items=[it[:3] for it in items], bases={it[3] for it in items},
-                             rep_delay_us=g["rep_delay_us"]))
+                             rep_delay_us=g["rep_delay_us"], param_bytes=sum(it[4] for it in items)))
     return jobs
 
 
-def estimate_budget(jl: dict, rep_delays_us: Sequence[float] = BUDGET_REP_DELAYS_US, backend=None) -> dict:
-    """Locked-time estimate of a job list, budget model version 2 (``BUDGET_MODEL_VERSION``; see the constants above):
+def estimate_budget(jl: dict, rep_delays_us: Sequence[float] = BUDGET_REP_DELAYS_US, backend=None, model_version: int | None = None) -> dict:
+    """Locked-time estimate of a job list, budget model version 3 by default (``BUDGET_MODEL_VERSION``; Deviation 47; the
+    constants above), or version 2 (Deviation 24) with ``model_version=2`` for the lists budgeted under it:
 
-        T_job = 2 s + (rep_delay + L x 0.71 us + t_meas + 10 us [+ dial durations]) x N_exec x (3 if resilience 2)
-                + [resilience >= 1] x 32 x shots x n_bases x (rep_delay + t_meas + 10 us)
+        v3: T_job = 3.0 s + [res >= 1] x 2.7 s + (rep_delay + L x 0.71 us x zne_gate + t_meas + 5 us [+ dial durations]) x N_exec x (3 if res 2)
+                  + [res >= 1 and shots < 1024] x 32 x N_shots x n_bases x (rep_delay + t_meas + 5 us),   N_shots = max(shots, 64) at res >= 1
+        v2: T_job = 2 s + (rep_delay + L x 0.71 us + t_meas + 10 us [+ dial durations]) x N_exec x (3 if res 2)
+                  + [res >= 1] x 32 x shots x n_bases x (rep_delay + t_meas + 10 us)
 
-    summed over the jobs the runner submits (one per resilience level of the gradient points, one per (level, shots,
-    rep_delay_us) of the probes). ``t_meas`` and the dial durations come from ``backend.target`` when ``backend`` is given,
-    else from the per-backend fallbacks (``jl['backend']``). ``executions`` counts circuit executions before the ZNE factor;
-    ``executions_with_zne`` and ``trex_executions`` are the two terms actually timed; ``per_job`` gives the breakdown
-    (``circuit_seconds_*`` + ``trex_seconds_*`` is what ``job.metrics()['circuits_execution_time_ns']`` times; the 2 s per job is on top).
+    summed over the jobs the runner submits (``budget_jobs``: the same grouping and max_experiments / parameter-payload
+    packing as ``job_groups``). ``t_meas`` and the dial durations come from ``backend.target`` when ``backend`` is given,
+    else from the per-backend fallbacks (``jl['backend']``). ``executions`` counts parameter sets x executed shots before
+    the ZNE factor (at resilience >= 1 under v3 the executed shots are max(shots, 64)); ``executions_with_zne`` and
+    ``trex_executions`` are the two terms actually timed; ``per_job`` gives the breakdown (``circuit_seconds_*`` +
+    ``trex_seconds_*`` is what ``job.metrics()['circuits_execution_time_ns']`` times; the job constants are on top).
     The ``seconds_at_<rd>`` figures sweep the backend-default rep_delay over ``rep_delays_us`` for the jobs that run at the
     default; a probe job with its own ``rep_delay_us`` (the Section 6 rep_delay ladder) is timed at that value in every
     column (``per_job[].rep_delay_us``). Compile latency and queueing are not in the formula."""
-    if str(jl.get("primitive", "estimator")) == "sampler":      # Paper 2 lists: gradvar.paper2 (no TREX at resilience 0)
+    if str(jl.get("primitive", "estimator")) == "sampler":      # Paper 2 lists: gradvar.paper2 (its own Sampler model)
         from .paper2 import estimate_budget_sampler
         return estimate_budget_sampler(jl, rep_delays_us, backend)
+    version = BUDGET_MODEL_VERSION if model_version is None else int(model_version)
+    if version not in BUDGET_MODELS:
+        raise ValueError(f"budget model version {version} is not implemented (known: {sorted(BUDGET_MODELS)})")
+    c = BUDGET_MODELS[version]
     dial_us = dial_durations_us(backend)
     t_meas, t_meas_source = readout_us(backend, jl.get("backend"))
-    jobs = budget_jobs(jl, dial_us)
+    max_pubs = max_experiments(jl.get("backend"), backend)
+    jobs = budget_jobs(jl, dial_us, max_pubs)
     per_job = []
     for j in jobs:
-        zne = ZNE_NOISE_FACTORS if j["level"] == 2 else 1
+        lvl = j["level"]
+        zne = ZNE_NOISE_FACTORS if lvl == 2 else 1
+        zne_gate = c["zne_gate_factor"] if lvl == 2 else 1.0
+        n_shots = max(j["shots"], c["min_mitigated_shots"]) if lvl >= 1 else j["shots"]
         n_bases = max(1, len(j["bases"]))
-        trex = TREX_RANDOMIZATIONS * j["shots"] * n_bases if j["level"] >= 1 else 0
-        entry = dict(tag=j["tag"], resilience_level=j["level"], shots=j["shots"], rep_delay_us=j.get("rep_delay_us"),
-                     circuits=sum(c for c, _, _ in j["items"]),
-                     executions=sum(c * s for c, s, _ in j["items"]), zne_factor=zne, n_bases=n_bases, trex_executions=trex)
+        learn_on = lvl >= 1 and (c["trex_shots_cutoff"] is None or j["shots"] < c["trex_shots_cutoff"])
+        trex = TREX_RANDOMIZATIONS * n_shots * n_bases if learn_on else 0
+        constant = c["job_s"] + (c["mitigation_s"] if lvl >= 1 else 0.0)
+        entry = dict(tag=j["tag"], resilience_level=lvl, shots=j["shots"], shots_executed=n_shots, rep_delay_us=j.get("rep_delay_us"),
+                     pubs=len(j["items"]), circuits=sum(cnt for cnt, _, _ in j["items"]),
+                     executions=sum(cnt * n_shots for cnt, _, _ in j["items"]), zne_factor=zne, n_bases=n_bases, trex_executions=trex,
+                     job_constant_seconds=round(constant, 3), param_mb=round(j.get("param_bytes", 0) / 1e6, 3))
         for rd_sweep in rep_delays_us:
             rd = rd_sweep if j.get("rep_delay_us") is None else float(j["rep_delay_us"])
-            circ = sum(c * s * zne * (rd + g + t_meas + EXEC_OVERHEAD_US) for c, s, g in j["items"]) * 1e-6
-            learn = trex * (rd + t_meas + EXEC_OVERHEAD_US) * 1e-6
+            circ = sum(cnt * n_shots * zne * (rd + g * zne_gate + t_meas + c["overhead_us"]) for cnt, _, g in j["items"]) * 1e-6
+            learn = trex * (rd + t_meas + c["overhead_us"]) * 1e-6
             tag = f"{rd_sweep:g}us"
             entry[f"circuit_seconds_at_{tag}"] = round(circ, 3)
             entry[f"trex_seconds_at_{tag}"] = round(learn, 3)
-            entry[f"seconds_at_{tag}"] = round(2.0 + circ + learn, 3)
+            entry[f"seconds_at_{tag}"] = round(constant + circ + learn, 3)
         per_job.append(entry)
-    out = dict(model_version=BUDGET_MODEL_VERSION,
-               formula="2 s per job + (rep_delay + L x 0.71 us + t_meas + 10 us [+ dial durations]) x executions x (3 if resilience 2) "
-                       "+ [resilience >= 1] x 32 x shots x n_bases x (rep_delay + t_meas + 10 us)",
-               readout_us=round(t_meas, 3), readout_source=t_meas_source, exec_overhead_us=EXEC_OVERHEAD_US,
+    if version == 3:
+        formula = ("3.0 s per job + 2.7 s at resilience >= 1 + (rep_delay + L x 0.71 us x (3 if resilience 2) + t_meas + 5 us [+ dial durations]) "
+                   "x executions x (3 if resilience 2) + [resilience >= 1, shots < 1024] x 32 x max(shots, 64) x n_bases x (rep_delay + t_meas + 5 us); "
+                   "executions at max(shots, 64) for resilience >= 1 (Deviation 47)")
+    else:
+        formula = ("2 s per job + (rep_delay + L x 0.71 us + t_meas + 10 us [+ dial durations]) x executions x (3 if resilience 2) "
+                   "+ [resilience >= 1] x 32 x shots x n_bases x (rep_delay + t_meas + 10 us)")
+    out = dict(model_version=version, formula=formula,
+               job_seconds=c["job_s"], mitigation_seconds=c["mitigation_s"], min_mitigated_shots=c["min_mitigated_shots"],
+               trex_shots_cutoff=c["trex_shots_cutoff"], zne_gate_factor=c["zne_gate_factor"],
+               readout_us=round(t_meas, 3), readout_source=t_meas_source, exec_overhead_us=c["overhead_us"],
                trex_randomizations=TREX_RANDOMIZATIONS, zne_noise_factors=ZNE_NOISE_FACTORS,
                dial_durations_us={k: round(v, 3) for k, v in dial_us.items()},
                dial_durations_source=getattr(backend, "name", None) if backend is not None else "ibm_phoenix target (2026-09-19)",
-               jobs=len(jobs), circuits=sum(e["circuits"] for e in per_job), executions=sum(e["executions"] for e in per_job),
+               max_experiments=max_pubs, max_job_param_mb=MAX_JOB_PARAM_MB, jobs=len(jobs),
+               pubs=sum(e["pubs"] for e in per_job), circuits=sum(e["circuits"] for e in per_job), executions=sum(e["executions"] for e in per_job),
                executions_with_zne=sum(e["executions"] * e["zne_factor"] for e in per_job),
-               trex_executions=sum(e["trex_executions"] for e in per_job))
+               trex_executions=sum(e["trex_executions"] for e in per_job),
+               job_constant_seconds=round(sum(e["job_constant_seconds"] for e in per_job), 3))
     for rd in rep_delays_us:
         tag = f"{rd:g}us"
         secs = sum(e[f"seconds_at_{tag}"] for e in per_job)
@@ -686,20 +790,28 @@ def estimate_budget(jl: dict, rep_delays_us: Sequence[float] = BUDGET_REP_DELAYS
     return out
 
 
-def check_budget(jl: dict, tolerance: float = 0.05) -> List[str]:
-    """Differences between the job list's stored ``budget`` and ``estimate_budget(jl)`` beyond ``tolerance``; a missing
-    or empty ``budget`` is itself a difference (the field is required for submission), and so is a stored
-    ``model_version`` other than ``BUDGET_MODEL_VERSION`` (a list budgeted with an older model must be re-budgeted)."""
+def check_budget(jl: dict, tolerance: float = 0.05, model_version: int | None = None) -> List[str]:
+    """Differences between the job list's stored ``budget`` and the runner's estimate beyond ``tolerance``; a missing or
+    empty ``budget`` is itself a difference (the field is required for submission), and so is a stored ``model_version``
+    other than the version in force (``BUDGET_MODEL_VERSION``, or ``model_version`` when given; a Sampler list is held to
+    its own model's version): a list budgeted under an older model must be re-budgeted before it is submitted. The
+    numbers are compared under the stored version's arithmetic where the runner still has it, so a historical v2 list
+    reports the version line alone."""
     stored = jl.get("budget") or {}
     fresh = estimate_budget(jl)
     if not stored:
         return ["budget field missing or empty: fill it with `python -m gradvar.hardware --joblist <file> --budget`"]
     diffs = []
-    if int(stored.get("model_version", 1)) != BUDGET_MODEL_VERSION:
-        diffs.append(f"budget.model_version: job list says {stored.get('model_version', 1)}, runner computes {BUDGET_MODEL_VERSION}")
-    for key in ("executions", "jobs") + tuple(k for k in fresh if k.startswith("minutes_at_")):
+    stored_v = int(stored.get("model_version", 1))
+    want = int(fresh["model_version"]) if model_version is None else int(model_version)
+    if stored_v != want:
+        diffs.append(f"budget.model_version: job list says {stored.get('model_version', 1)}, runner computes {want}")
+    ref = fresh
+    if stored_v != int(fresh["model_version"]) and stored_v in BUDGET_MODELS and str(jl.get("primitive", "estimator")) != "sampler":
+        ref = estimate_budget(jl, model_version=stored_v)
+    for key in ("executions", "jobs") + tuple(k for k in ref if k.startswith("minutes_at_")):
         if key in stored:
-            a, b = float(stored[key]), float(fresh[key])
+            a, b = float(stored[key]), float(ref[key])
             if abs(a - b) > tolerance * max(abs(b), 1e-9):
                 diffs.append(f"budget.{key}: job list says {a:g}, runner computes {b:g}")
     return diffs
@@ -823,7 +935,7 @@ def pub_couplers(b) -> List[Tuple[int, int]]:
 
 
 def layout_check(backend, qubits: Iterable[int], couplers: Iterable[Tuple[int, int]] = (),
-                 readout_cut: float | None = None, cz_cut: float = CZ_CUT) -> dict:
+                 readout_cut: float | None = None, cz_cut: float = CZ_CUT, props=None, source: str | None = None) -> dict:
     """Re-check a layout against ``backend.properties()`` (the live calibration at submission, not the snapshot the
     list was built from), pre-registration Deviation 26: per-qubit readout assignment error, operational flag and init
     error, per-coupler CZ error, and the verdict of the cuts (readout ``gradvar.noise.READOUT_CUT`` 3e-2, init error
@@ -833,18 +945,21 @@ def layout_check(backend, qubits: Iterable[int], couplers: Iterable[Tuple[int, i
     properties: fake Target-only backends). Logged in every job.json as ``layout_check``; the submitting path refuses on
     anything but ``pass`` unless the job list carries ``layout_check: "override"`` with a ``layout_check_reason``, and
     never accepts the override for a failing qubit on the observable edge or in its L = 2 light cone
-    (``layout_check_for``). Review defect D2: Q11 at 8.4 percent readout sat in the Marrakesh patch unnoticed."""
+    (``layout_check_for``). Review defect D2: Q11 at 8.4 percent readout sat in the Marrakesh patch unnoticed.
+    ``props`` (a BackendProperties) replaces the live ``backend.properties()`` call: the retrieval path passes the
+    properties at the job's creation time (``backend.properties(datetime=job.creation_date)``) and names them in ``source``."""
     from .noise import READOUT_CUT
     cut = READOUT_CUT if readout_cut is None else float(readout_cut)
     qs = sorted({int(q) for q in qubits})
     cps = sorted({tuple(int(x) for x in c) for c in couplers})
-    out: Dict[str, Any] = dict(readout_cut=cut, cz_cut=float(cz_cut), init_error_cut=INIT_ERROR_CUT, source="backend.properties()",
+    out: Dict[str, Any] = dict(readout_cut=cut, cz_cut=float(cz_cut), init_error_cut=INIT_ERROR_CUT, source=source or "backend.properties()",
                                properties_last_update=None, qubits={}, couplers={}, failing_qubits=[], failing_couplers=[], verdict="unavailable")
-    try:
-        props = backend.properties()
-    except Exception as e:  # pragma: no cover - network errors
-        out["error"] = f"{type(e).__name__}: {e}"
-        props = None
+    if props is None:
+        try:
+            props = backend.properties()
+        except Exception as e:  # pragma: no cover - network errors
+            out["error"] = f"{type(e).__name__}: {e}"
+            props = None
     if props is None:
         out["reason"] = "backend reports no properties (Target-only backend)"
         return out
@@ -907,7 +1022,7 @@ def edge_cone_qubits(built: Sequence, layers: int = CONE_LAYERS) -> List[int]:
     return sorted(out)
 
 
-def layout_check_for(jl: dict, built: Sequence, backend, enforce: bool) -> dict:
+def layout_check_for(jl: dict, built: Sequence, backend, enforce: bool, props=None, source: str | None = None) -> dict:
     """``layout_check`` over the union of qubits and couplers of every built pub, plus how the runner acted on it:
     ``enforced`` (True only on the submitting path), ``override`` (the job list's ``layout_check_reason`` when it carries
     ``layout_check: "override"``), ``edge_cone_qubits`` (observable edge plus its L = 2 cone, where no override is
@@ -915,7 +1030,7 @@ def layout_check_for(jl: dict, built: Sequence, backend, enforce: bool) -> dict:
     ``submit-with-override`` / ``refuse`` / ``logged``)."""
     qubits = sorted({int(q) for b in built for q in (b.qubits if isinstance(b, BuiltProbe) else physical_qubits(b.patch, b.layout, b.edge)[0])})
     couplers = sorted({tuple(c) for b in built for c in pub_couplers(b)})
-    chk = layout_check(backend, qubits, couplers)
+    chk = layout_check(backend, qubits, couplers, props=props, source=source)
     override = str(jl.get("layout_check_reason", "")).strip() if str(jl.get("layout_check", "")).lower() == "override" else None
     cone = edge_cone_qubits(built)
     protected_failing = [q for q in chk["failing_qubits"] if q in cone]
@@ -1063,11 +1178,13 @@ def load_joblist(path: str) -> dict:
             need = {"n", "patch"}
         if pr["kind"] == "null_control":
             need = {"n", "patch", "M"}
-            L0 = int(pr.get("L", 1))
+            L0 = int(pr.get("L", 0))
             if L0 < 0:
-                raise JoblistError(f"probe {pr.get('id')}: L must be >= 0 (0: the Deviation 43 SPAM-only point)")
-            if L0 == 0 and ("k" in pr or "null_qubit" in pr):
-                raise JoblistError(f"probe {pr.get('id')}: L = 0 null_control has no parameter: drop k and null_qubit")
+                raise JoblistError(f"probe {pr.get('id')}: L must be >= 0 (0 = SPAM-only pair, Deviation 43)")
+            if L0 == 0 and pr.get("k", 0) not in (0, None):
+                raise JoblistError(f"probe {pr.get('id')}: an L = 0 null_control has no parameter: k must be absent or 0")
+            if L0 == 0 and "null_qubit" in pr:
+                raise JoblistError(f"probe {pr.get('id')}: an L = 0 null_control has no parameter: drop null_qubit")
             if L0 >= 1 and not (1 <= int(pr.get("k", 1)) <= L0):
                 raise JoblistError(f"probe {pr.get('id')}: k must be in 1..L")
         if pr["kind"] in ("reset_dial", "null_control") and int(pr.get("M", 1)) < 1:
@@ -1239,13 +1356,16 @@ def _describe(b) -> dict:
         return b.describe()
     if isinstance(b, BuiltProbe):
         phys, phys_edge = (b.qubits, None) if b.patch is None else physical_qubits(b.patch, b.layout, b.edge)
+        multi = np.ndim(b.theta) == 2                       # Deviation 48 mask pub: one theta row per draw
         d = dict(probe_id=b.probe.get("id"), kind=b.probe.get("kind"), reset_kind=b.probe.get("reset_kind", "none" if b.probe.get("kind") == "null_control" else "reset"),
                  null_qubit=b.probe.get("null_qubit"), lattice_null_qubit=b.probe.get("lattice_null_qubit"), draw=b.probe.get("draw"),
                  mask_index=b.probe.get("mask_index"), mask_hash=b.mask_hash, n=len(b.qubits), L=b.probe.get("L"),
                  k_1based=b.probe.get("k", b.probe.get("L")), p=b.probe.get("p"), prep=b.probe.get("prep", "1"), seed=b.seed,
                  qubits=list(phys), edge=None if phys_edge is None else f"{phys_edge[0]}_{phys_edge[1]}",
                  layout=None if b.layout is None else list(b.layout),
-                 param_hash=param_hash(b.theta) if b.theta.size else None,
+                 param_hash=None if multi or not b.theta.size else param_hash(b.theta),
+                 draws=b.draws, param_hashes=[param_hash(t) for t in b.theta] if multi else None,
+                 theta_seeds=None if b.theta_seeds is None else list(b.theta_seeds),
                  masks=b.probe.get("masks", 1) if b.probe.get("kind") == "reset_dial" else None,
                  mask_seed=(b.seed + 1 + int(b.probe["mask_index"])) if b.probe.get("mask_index") is not None else None,
                  dial_delay_ns=DIAL_DELAY_NS if str(b.probe.get("reset_kind", "reset")) in ("delay", "dephase") else None,
@@ -1270,13 +1390,19 @@ def _pub_payload(b) -> dict:
         return b.payload()
     obs = b.isa_observable
     obs_list = obs if isinstance(obs, (list, tuple)) else [obs]
+    pv = None if b.param_values is None else np.asarray(b.param_values, dtype=float)
+    if pv is not None and pv.size > PARAM_VALUES_INLINE_MAX:      # Deviation 48 multi-draw pubs: reproducible from theta_seeds, hashed per draw
+        return dict(observables=[[[str(lbl), complex(c).real] for lbl, c in o.to_list()] for o in obs_list], param_values=None,
+                    param_values_omitted=dict(shape=list(pv.shape), values=int(pv.size), bytes=int(pv.nbytes),
+                                              note="above PARAM_VALUES_INLINE_MAX: rebuild from theta_seeds (theta_d = default_rng(seed_d).uniform(0, 2 pi, n L)); "
+                                                   "per-draw SHA-256 in param_hashes"))
     return dict(observables=[[[str(lbl), complex(c).real] for lbl, c in o.to_list()] for o in obs_list],
-                param_values=None if b.param_values is None else np.asarray(b.param_values).tolist())
+                param_values=None if pv is None else pv.tolist())
 
 
 def write_job_bundle(run_root: Path, job_id: str, group: List[BuiltPub], backend, options, level: int, shots: int, jl: dict,
                      result=None, job=None, timestamps: dict | None = None, dry: bool = False, error: str | None = None,
-                     extra: dict | None = None) -> Path:
+                     extra: dict | None = None, day: str | None = None, properties: dict | None = None) -> Path:
     """data/runs/<date>/<job_id>/: everything IBM Quantum returns for one job, plus what was sent.
 
     Files: job.json (ids, timestamps, usage, metrics, instance alias and plan, backend, rep_delay, git commit, job-list
@@ -1284,13 +1410,16 @@ def write_job_bundle(run_root: Path, job_id: str, group: List[BuiltPub], backend
     result.json (PrimitiveResult via RuntimeEncoder), metadata.json (result + per-pub metadata), options.json,
     properties.json, target.json, circuits.qpy (ISA circuits) and circuits.json (per-circuit depth / 2q counts / ISA ops).
     No secret and no CRN is ever written: the instance appears only as its alias ('flex' / 'open') and plan name.
+    ``day`` (``YYYY-MM-DD``, default today UTC) is the bundle's date directory: the retrieval path passes the job's
+    creation day. ``properties`` (a dict) replaces the live ``backend.properties()`` in properties.json: the retrieval
+    path passes the properties at the job's creation time, labelled ``_source``.
     """
     from qiskit import qpy
     try:
         from qiskit_ibm_runtime import RuntimeEncoder
     except Exception:  # pragma: no cover
         RuntimeEncoder = None
-    day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    day = day or datetime.now(timezone.utc).strftime("%Y-%m-%d")
     d = run_root / day / job_id
     d.mkdir(parents=True, exist_ok=True)
     usage = metrics = error_message = None
@@ -1366,12 +1495,13 @@ def write_job_bundle(run_root: Path, job_id: str, group: List[BuiltPub], backend
     _dump(d / "metadata.json", dict(result_metadata=_jsonable(getattr(result, "metadata", {})) if result is not None else {"dry_run": True},
                                      pubs=pub_meta))
     _dump(d / "options.json", options)
-    props = None
-    try:
-        props = backend.properties()
-        props = props.to_dict() if props is not None else None
-    except Exception as e:  # pragma: no cover
-        props = dict(error=str(e))
+    props = properties
+    if props is None:
+        try:
+            props = backend.properties()
+            props = props.to_dict() if props is not None else None
+        except Exception as e:  # pragma: no cover
+            props = dict(error=str(e))
     _dump(d / "properties.json", props)
     _dump(d / "target.json", target_summary(backend))
     _dump(d / "circuits.json", [dict(index=i, n=_describe(b)["n"], L=_describe(b)["L"], k_1based=_describe(b)["k_1based"],
@@ -1442,49 +1572,117 @@ def _runtime_version() -> str:
 
 def _point_rows(backend, job_id: str, snapshot: str, group: List[BuiltPub], level: int, shots: int, result=None,
                 options=None, submit_time: str | None = None) -> List[dict]:
-    """One CSV row per pub. ``std_*`` are EstimatorV2 ``stds`` (at resilience >= 1 the twirled spread, the conservative
-    figure); ``ensemble_se_*`` are ``ensemble_standard_error`` when the result carries it (review D4). ``arm`` is
-    ``grid`` for gradient points and the reset kind for probes; ``p`` / ``K`` / ``mask_seed`` are the dial probe's reset
-    probability, mask count and the seed of this circuit's mask (review D3b)."""
+    """One CSV row per pub, or per draw of a Deviation 48 multi-draw pub (its ``evs`` are (M, 2): row d carries draw d's
+    shifted pair, seed + d and theta_d's hash). ``std_*`` are EstimatorV2 ``stds`` (at resilience >= 1 the twirled spread,
+    the conservative figure); ``ensemble_se_*`` are ``ensemble_standard_error`` when the result carries it (review D4).
+    ``arm`` is ``grid`` for gradient points and the reset kind for probes; ``p`` / ``K`` / ``mask_seed`` are the dial
+    probe's reset probability, mask count and the seed of this circuit's mask (review D3b). An unshifted pub (one circuit
+    at theta, the truncation arm's C_mix) logs its value as ``ev_plus`` with ``ev_minus`` and ``gradient`` NaN."""
     rows = []
     nan = float("nan")
     for i, b in enumerate(group):
-        evs = stds = ens = (nan, nan)
-        if result is not None:
-            pr = result[i]
-            evs = np.asarray(pr.data.evs).reshape(-1)
-            stds = np.asarray(pr.data.stds).reshape(-1)
-            ens_raw = getattr(pr.data, "ensemble_standard_error", None)
-            ens = np.asarray(ens_raw).reshape(-1) if ens_raw is not None else np.full(len(evs), nan)
-            if len(evs) != 2:                  # reset_error probe: one <Z> per qubit; per-qubit values live in result.json
-                evs, stds, ens = (float(np.mean(evs)), nan), (nan, nan), (nan, nan)
         desc = _describe(b)
         probe = isinstance(b, BuiltProbe)
-        rows.append({
-            "backend": getattr(backend, "name", str(backend)), "job_id": job_id,
-            "timestamp": datetime.now(timezone.utc).isoformat(), "job_submit_time": submit_time or "",
-            "calibration_snapshot": snapshot,
-            "n": desc["n"], "patch_qubits": " ".join(map(str, desc["qubits"] if probe else desc["patch_qubits"])),
-            "observable_edge": f"probe:{desc['probe_id']}" if probe else desc["edge"],
-            "L": desc["L"], "k": desc["k_1based"],   # 1-based, as in the job list
-            "resilience_level": level, "shots": shots, "seed": desc["seed"],
-            "param_hash": desc["param_hash"],
-            "arm": ("null_control" if desc.get("kind") == "null_control" else desc["reset_kind"]) if probe else "grid",
-            "p": desc.get("p", "") if probe else "", "K": desc.get("masks") if probe and desc.get("masks") is not None else "",
-            "mask_seed": desc.get("mask_seed") if probe and desc.get("mask_seed") is not None else "",
-            "rep_delay_submitted": submitted_rep_delay(options), "rep_delay_submitted_us": submitted_rep_delay_us(options),
-            "ev_plus": evs[0], "ev_minus": evs[1],
-            "std_plus": stds[0], "std_minus": stds[1], "ensemble_se_plus": ens[0], "ensemble_se_minus": ens[1],
-            "gradient": (evs[0] - evs[1]) / 2,
-            "transpiled_depth": b.depth, "two_qubit_gates": b.two_qubit_gates,
-            "fractional_gates": bool(getattr(getattr(backend, "options", None), "use_fractional_gates", False)),
-        })
+        draws = int(desc.get("draws") or 1)
+        per_draw = [((nan, nan), (nan, nan), (nan, nan))] * draws
+        if result is not None:
+            pr = result[i]
+            evs = np.asarray(pr.data.evs, dtype=float)
+            stds = np.asarray(pr.data.stds, dtype=float)
+            ens_raw = getattr(pr.data, "ensemble_standard_error", None)
+            ens = np.asarray(ens_raw, dtype=float) if ens_raw is not None else np.full(evs.shape, nan)
+            if desc.get("kind") == "reset_error":       # one <Z> per qubit; per-qubit values live in result.json
+                per_draw = [((float(np.mean(evs)), nan), (nan, nan), (nan, nan))]
+            else:
+                evs, stds, ens = (a.reshape(draws, -1) for a in (evs, stds, ens))
+
+                def pair(v):
+                    return (float(v[0]), float(v[1])) if v.size >= 2 else (float(v[0]), nan)
+                per_draw = [(pair(evs[d]), pair(stds[d]), pair(ens[d])) for d in range(draws)]
+        for d, (ev, sd, en) in enumerate(per_draw):
+            seed = desc["seed"] if draws == 1 else (desc["theta_seeds"] or [desc["seed"] + dd for dd in range(draws)])[d]
+            phash = desc["param_hash"] if draws == 1 else (desc.get("param_hashes") or [None] * draws)[d]
+            rows.append({
+                "backend": getattr(backend, "name", str(backend)), "job_id": job_id,
+                "timestamp": datetime.now(timezone.utc).isoformat(), "job_submit_time": submit_time or "",
+                "calibration_snapshot": snapshot,
+                "n": desc["n"], "patch_qubits": " ".join(map(str, desc["qubits"] if probe else desc["patch_qubits"])),
+                "observable_edge": f"probe:{desc['probe_id']}" if probe else desc["edge"],
+                "L": desc["L"], "k": desc["k_1based"],   # 1-based, as in the job list
+                "resilience_level": level, "shots": shots, "seed": seed,
+                "param_hash": phash,
+                "arm": ("null_control" if desc.get("kind") == "null_control" else desc["reset_kind"]) if probe else "grid",
+                "p": desc.get("p", "") if probe else "", "K": desc.get("masks") if probe and desc.get("masks") is not None else "",
+                "mask_seed": desc.get("mask_seed") if probe and desc.get("mask_seed") is not None else "",
+                "rep_delay_submitted": submitted_rep_delay(options), "rep_delay_submitted_us": submitted_rep_delay_us(options),
+                "ev_plus": ev[0], "ev_minus": ev[1],
+                "std_plus": sd[0], "std_minus": sd[1], "ensemble_se_plus": en[0], "ensemble_se_minus": en[1],
+                "gradient": (ev[0] - ev[1]) / 2,
+                "transpiled_depth": b.depth, "two_qubit_gates": b.two_qubit_gates,
+                "fractional_gates": bool(getattr(getattr(backend, "options", None), "use_fractional_gates", False)),
+            })
     return rows
+
+
+def dry_run_sample_info(jl: dict, points: List[GridPoint], pubs_per_group: int) -> dict:
+    """What ``--dry-run-sample N`` records in every job.json: the sample size and the full pub count of every job group
+    (before max_experiments chunking), so the sampled bundles say what the full build would have been."""
+    full: Dict[str, int] = {f"L{lvl}": sum(1 for p in points if p.resilience_level == lvl) for lvl in sorted({p.resilience_level for p in points})}
+    for pr in jl.get("probes", []) or []:
+        tag = probe_job_tag(int(pr.get("resilience", 0)), int(pr["shots"]), probe_rep_delay_us(pr))
+        full[tag] = full.get(tag, 0) + _probe_pubs(pr)[0]
+    return dict(pubs_per_group=int(pubs_per_group), full_pubs=full)
+
+
+def job_groups(jl: dict, points: List[GridPoint], shapes: dict, shots: int, backend, calibration_csv: str | None = None,
+               dry_run_sample: int | None = None) -> Tuple[List[Tuple[str, int, int, list]], Dict[str, float | None]]:
+    """Build and transpile the job list against ``backend`` and group the pubs into the jobs the runner submits:
+    ``[(job tag, resilience level, shots, pubs)]`` (one group per resilience level of the gradient points, then one per
+    (level, shots, rep_delay_us) of the probes, each split in build order at ``max_experiments`` pubs and at
+    ``MAX_JOB_PARAM_MB`` of bound parameter values, tags ``L0``, ``L0-c2``, ...; the same packing as ``budget_jobs``) and
+    ``{tag: rep_delay_s}`` for the probe jobs (None: backend default). Deterministic from the job list, the calibration
+    CSV, the seeds and the qiskit version, so the retrieval path (``retrieve_jobs``) rebuilds exactly what
+    ``execute_joblist`` submitted. ``dry_run_sample`` (dry runs only) keeps the first that many pubs of every group."""
+    if dry_run_sample is not None:
+        lim, kept, per_level = int(dry_run_sample), [], {}
+        for p in points:
+            if per_level.get(p.resilience_level, 0) < lim:
+                kept.append(p)
+                per_level[p.resilience_level] = per_level.get(p.resilience_level, 0) + 1
+        points = kept
+    built = build_pubs(points, backend, shapes=shapes)
+    groups: List[Tuple[str, int, int, list]] = []          # (job tag, level, shots, pubs)
+    max_pubs = max_experiments(jl.get("backend"), backend)     # jobs hold at most max_experiments pubs (300 on ibm_phoenix; Deviation 48)
+    max_bytes = int(MAX_JOB_PARAM_MB * 1e6)
+
+    def split(tag, level, gshots, group):
+        if dry_run_sample is not None:
+            group = group[: int(dry_run_sample)]
+        chunks = chunk_pubs(group, max_pubs, sizes=[pub_param_bytes(b) for b in group], max_bytes=max_bytes)
+        for ctag, chunk in zip(chunk_tags(tag, len(chunks)), chunks):
+            groups.append((ctag, level, gshots, chunk))
+    by_level: Dict[int, List[BuiltPub]] = {}
+    for b in built:
+        by_level.setdefault(b.point.resilience_level, []).append(b)
+    for level, group in sorted(by_level.items()):
+        split(f"L{level}", level, shots, group)
+    # probes: one job per (level, shots, rep_delay_us); a rep_delay ladder rung (Section 6, Deviation 23) is its own job
+    # submitted with options.execution.rep_delay set and logged per job (rep_delay_submitted_s); a refused value fails that job only
+    by_probe: Dict[Tuple[int, int, float], List[BuiltProbe]] = {}
+    for b in build_probes(jl, backend, shapes, calibration_csv, max_pubs_per_probe=dry_run_sample):
+        rd = probe_rep_delay_us(b.probe)
+        by_probe.setdefault((b.resilience_level, b.shots, -1.0 if rd is None else rd), []).append(b)
+    for (level, pshots, _), group in sorted(by_probe.items()):
+        split(probe_job_tag(level, pshots, probe_rep_delay_us(group[0].probe)), level, pshots, group)
+    job_rep_delay_s = {tag: (None if probe_rep_delay_us(g[0].probe) is None else probe_rep_delay_us(g[0].probe) / 1e6)
+                       for tag, _, _, g in groups if g and isinstance(g[0], BuiltProbe)}
+    return groups, job_rep_delay_s
 
 
 def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int, backend, submit: bool,
                     run_root: str = "data/runs", log_path: str | None = None, calibration_csv: str | None = None,
-                    instance_plan: str | None = None, dry_run_sample: int | None = None) -> List[dict]:
+                    instance_plan: str | None = None, wait: bool = True, joblist_path: str | None = None,
+                    run_id: int | str | None = None, dry_run_sample: int | None = None) -> List[dict]:
     """Build the PUBs, run one EstimatorV2 job per resilience level (inside a Batch when submitting), write one bundle
     per job under ``run_root`` and append one row per point to ``log_path``. With ``submit=False`` the same layout is
     written against the given (fake) backend with job_id 'dryrun-<utc>-L<level>' and no PrimitiveResult.
@@ -1495,54 +1693,20 @@ def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int,
     error and its pub descriptions and the loop continues. Rows of the succeeded jobs are appended to ``log_path`` and a
     ``SystemExit`` naming the failed jobs is raised at the end (non-zero exit).
 
+    Right after the last submission the job ids are written to ``<run_root>/<date>/<list name>_job_ids.json``
+    (``write_ids_file``; the Action commits it even when the run is killed later), so a run cut off by the 6-hour
+    Action limit (smoke test run 35489912431, 20 Sep 2026) can be completed by ``retrieve_jobs``. With ``wait=False``
+    (``--submit-only``) the function returns after writing that file without waiting for any result.
+
     THIS FUNCTION IS THE ONLY PLACE THAT SUBMITS JOBS, and only when ``submit`` is True.
     """
     from qiskit_ibm_runtime import EstimatorV2
-    sampled = None
-    if dry_run_sample is not None and not submit:
-        # dry-run only: build the first ``dry_run_sample`` pubs of every job group (a build / transpile / bundle check of lists whose full
-        # circuit count is too large to build here), recorded in every job.json as ``dry_run_sample``. Never applies to a submission.
-        lim = int(dry_run_sample)
-        full = {f"L{lvl}": sum(1 for p in points if p.resilience_level == lvl) for lvl in sorted({p.resilience_level for p in points})}
-        for pr in jl.get("probes", []) or []:
-            tag = probe_job_tag(int(pr.get("resilience", 0)), int(pr["shots"]), probe_rep_delay_us(pr))
-            full[tag] = full.get(tag, 0) + _probe_pubs(pr)[0]
-        sampled = dict(pubs_per_group=lim, full_pubs=full)
-        kept, per_level = [], {}
-        for p in points:
-            if per_level.get(p.resilience_level, 0) < lim:
-                kept.append(p)
-                per_level[p.resilience_level] = per_level.get(p.resilience_level, 0) + 1
-        points = kept
-        print(f"dry-run sample: building the first {lim} pubs of each group ({full} pubs in full); budget figures below are for the full list")
-    built = build_pubs(points, backend, shapes=shapes)
-    # one job per resilience level for the gradient points, then one per (level, shots) for the probes
-    groups: List[Tuple[str, int, int, list]] = []          # (job tag, level, shots, pubs)
-    by_level: Dict[int, List[BuiltPub]] = {}
-    for b in built:
-        by_level.setdefault(b.point.resilience_level, []).append(b)
-    for level, group in sorted(by_level.items()):
-        groups.append((f"L{level}", level, shots, group))
-    # probes: one job per (level, shots, rep_delay_us); a rep_delay ladder rung (Section 6, Deviation 23) is its own job
-    # submitted with options.execution.rep_delay set and logged per job (rep_delay_submitted_s); a refused value fails that job only
-    by_probe: Dict[Tuple[int, int, float], List[BuiltProbe]] = {}
-    for b in build_probes(jl, backend, shapes, calibration_csv, max_pubs_per_probe=None if sampled is None else sampled["pubs_per_group"]):
-        rd = probe_rep_delay_us(b.probe)
-        by_probe.setdefault((b.resilience_level, b.shots, -1.0 if rd is None else rd), []).append(b)
-    for (level, pshots, _), group in sorted(by_probe.items()):
-        groups.append((probe_job_tag(level, pshots, probe_rep_delay_us(group[0].probe)), level, pshots, group))
-    if sampled is not None:                                  # the groups hold at most the sample per probe; cap each group at the sample
-        groups = [(tag, level, gshots, group[: sampled["pubs_per_group"]]) for tag, level, gshots, group in groups]
-    # max_experiments (300 circuits per job): split each group into consecutive jobs, tags <tag>, <tag>-j2, ... (same
-    # packing as budget_jobs, so the budget's job count and 2 s overheads are the ones charged)
-    split: List[Tuple[str, int, int, list]] = []
-    for tag, level, gshots, group in groups:
-        chunks = chunk_by_circuits(group, pub_circuits)
-        for ctag, chunk in zip(chunk_tags(tag, len(chunks)), chunks):
-            split.append((ctag, level, gshots, chunk))
-    groups = split
-    job_rep_delay_s = {tag: (None if probe_rep_delay_us(g[0].probe) is None else probe_rep_delay_us(g[0].probe) / 1e6)
-                       for tag, _, _, g in groups if g and isinstance(g[0], BuiltProbe)}
+    sampled = None if (dry_run_sample is None or submit) else dry_run_sample_info(jl, points, int(dry_run_sample))
+    if sampled is not None:
+        print(f"dry-run sample: building the first {sampled['pubs_per_group']} pubs of each group ({sampled['full_pubs']} pubs in full); "
+              "budget figures below are for the full list")
+    groups, job_rep_delay_s = job_groups(jl, points, shapes, shots, backend, calibration_csv,
+                                         dry_run_sample=None if sampled is None else sampled["pubs_per_group"])
     rd_info = rep_delay_info(backend)
 
     def _apply_rep_delay(est, tag):
@@ -1568,7 +1732,8 @@ def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int,
             "move the patch / layout, or set layout_check: \"override\" with a layout_check_reason in the job list"
         raise SystemExit(f"refusing to submit: {_layout_check_message(chk)}; {remedy}")
     extra = dict(instance_plan=instance_plan, budget=jl.get("budget"), budget_estimate_with_target_durations=budget_target,
-                 layout_check=chk, max_experiments=MAX_EXPERIMENTS, dry_run_sample=sampled)
+                 layout_check=chk, max_experiments=max_experiments(jl.get("backend"), backend), max_job_param_mb=MAX_JOB_PARAM_MB,
+                 dry_run_sample=sampled)
     root = Path(run_root)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     rows: List[dict] = []
@@ -1586,7 +1751,8 @@ def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int,
                                  timestamps=dict(created=created), extra=extra)
             rows += _point_rows(backend, job_id, snapshot, group, level, gshots, options=est.options, submit_time=created)
             names = sorted({n for b in group for n in circuit_summary(b.isa_circuit, backend)["isa_instruction_names"]})
-            print(f"dry run: wrote {d} ({len(group)} pubs, resilience {level}, shots {gshots}, ISA ops {names}); nothing submitted")
+            print(f"dry run: wrote {d} ({len(group)} pubs, {sum(b.draws if isinstance(b, BuiltProbe) else 1 for b in group)} rows, "
+                  f"{sum(pub_param_bytes(b) for b in group) / 1e6:.2f} MB of parameter values, resilience {level}, shots {gshots}, ISA ops {names}); nothing submitted")
     else:
         from qiskit_ibm_runtime import Batch
         snapshot = calibration_csv or snapshot_calibration(backend)
@@ -1606,10 +1772,22 @@ def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int,
                     d = write_job_bundle(root, f"not-submitted-{stamp}-{tag}", group, backend, est.options, level, gshots, jl, error=err,
                                          timestamps=dict(submit_attempted_local=created, failed_local=datetime.now(timezone.utc).isoformat()),
                                          extra=extra)
-                    print(f"job {tag} NOT SUBMITTED: {err}; wrote {d}; continuing with the remaining jobs", file=sys.stderr)
+                    print(f"job {tag} NOT SUBMITTED: {err}; wrote {d}; continuing with the remaining jobs", file=sys.stderr, flush=True)
                     continue
                 jobs.append((tag, level, gshots, group, job, est.options, created))
-                print(f"submitted job {job.job_id()} ({tag}: resilience {level}, {len(group)} pubs, shots {gshots})")
+                print(f"submitted job {job.job_id()} ({tag}: resilience {level}, {len(group)} pubs, shots {gshots})", flush=True)
+            # the ids go to disk before any result is awaited (run 35489912431 lost them to stdout buffering and the 6-hour limit)
+            batch_id = getattr(batch, "session_id", None)
+            ids_file = write_ids_file(
+                ids_file_path(root, datetime.now(timezone.utc).strftime("%Y-%m-%d"), jl.get("name") or (Path(joblist_path).stem if joblist_path else "joblist")),
+                jl, joblist_path, [dict(job_id=job.job_id(), tag=tag, level=level, shots=gshots, pubs=len(group),
+                                        rep_delay_us=None if job_rep_delay_s.get(tag) is None else round(job_rep_delay_s[tag] * 1e6, 6),
+                                        submitted_utc=created) for tag, level, gshots, group, job, _, created in jobs],
+                batch_id=None if batch_id is None else str(batch_id), calibration_csv=calibration_csv, calibration_snapshot=snapshot,
+                run_id=run_id, notes="written by execute_joblist right after submission" + ("" if wait else " (--submit-only: results not awaited)"))
+            print(f"job ids written to {ids_file}" + ("" if wait else f"; retrieve with: python -m gradvar.hardware --retrieve {ids_file}"), flush=True)
+            if not wait:
+                jobs = []
             for tag, level, gshots, group, job, options, created in jobs:
                 job_id = job.job_id()
                 try:
@@ -1619,17 +1797,17 @@ def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int,
                     failures.append(f"{job_id} ({tag}): {err}")
                     d = write_job_bundle(root, job_id, group, backend, options, level, gshots, jl, job=job, error=err,
                                          timestamps=dict(submitted_local=created, failed_local=datetime.now(timezone.utc).isoformat()),
-                                         extra=extra)
-                    print(f"job {job_id} ({tag}) FAILED: {err}; wrote {d}; continuing with the remaining jobs", file=sys.stderr)
+                                         extra=dict(extra, job_tag=tag))
+                    print(f"job {job_id} ({tag}) FAILED: {err}; wrote {d}; continuing with the remaining jobs", file=sys.stderr, flush=True)
                     continue
                 completed = datetime.now(timezone.utc).isoformat()
                 d = write_job_bundle(root, job_id, group, backend, options, level, gshots, jl, result=result, job=job,
-                                     timestamps=dict(submitted_local=created, result_received_local=completed), extra=extra)
+                                     timestamps=dict(submitted_local=created, result_received_local=completed), extra=dict(extra, job_tag=tag))
                 rows += _point_rows(backend, job_id, snapshot, group, level, gshots, result, options=options, submit_time=created)
-                print(f"wrote {d}")
-    if log_path:
+                print(f"wrote {d}", flush=True)
+    if log_path and wait:            # --submit-only logs nothing: the retrieve step writes the rows
         _append_rows(log_path, rows)
-        print(f"logged {len(rows)} rows to {log_path}")
+        print(f"logged {len(rows)} rows to {log_path}", flush=True)
     if failures:
         raise SystemExit(f"{len(failures)} of {len(groups)} jobs failed (bundles written, rows of the succeeded jobs logged):\n  "
                          + "\n  ".join(failures))
@@ -1638,7 +1816,7 @@ def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int,
 
 def run_joblist(path: str, submit: bool, log_dir: str = "data/jobs", run_root: str = "data/runs",
                 calibration_csv: str | None = None, simulate: bool = False, simulate_shots: int | None = None,
-                dry_run_sample: int | None = None) -> int:
+                submit_only: bool = False, dry_run_sample: int | None = None) -> int:
     jl = load_joblist(path)
     sampler = str(jl.get("primitive", "estimator")) == "sampler"
     points, shapes, shots = ([], {}, None) if sampler else joblist_points(jl, calibration_csv)
@@ -1682,11 +1860,383 @@ def run_joblist(path: str, submit: bool, log_dir: str = "data/jobs", run_root: s
     backend = get_backend(jl["backend"], service=service)
     log_path = str(Path(log_dir) / f"{stem}_{stamp}.csv")
     if sampler:
+        if submit_only:
+            raise SystemExit("--submit-only is not implemented for Sampler lists (gradvar.paper2)")
         from .paper2 import execute_sampler_joblist
         execute_sampler_joblist(jl, backend, submit=True, run_root=run_root, log_path=log_path, instance_plan=plan)
         return 0
-    execute_joblist(jl, points, shapes, shots, backend, submit=True, run_root=run_root, log_path=log_path, instance_plan=plan)
+    execute_joblist(jl, points, shapes, shots, backend, submit=True, run_root=run_root, log_path=log_path, instance_plan=plan,
+                    wait=not submit_only, joblist_path=path, run_id=github_run_id())
     return 0
+
+
+# ------------------------------------------------------------------------------------------------ ids file and retrieval
+# Smoke test run 35489912431 (20 Sep 2026): GitHub killed the Action at the 6-hour job limit while the ten ibm_phoenix jobs
+# were still queued; the jobs then ran (52 s charged) but the runner never collected them, and the "submitted job <id>" lines
+# never reached the log (stdout was block-buffered in the runner). The ids file below is written right after submission,
+# `--submit-only` returns after writing it, and `--retrieve` completes the bundles and CSV rows from the ids, waiting for
+# the jobs if they are still queued. Nothing here submits a job.
+IDS_SCHEMA = "gradvar.hardware job ids v1"
+IDS_JOB_KEYS = ("job_id", "tag", "level", "shots", "pubs")
+
+
+def github_run_id() -> int | None:
+    """``GITHUB_RUN_ID`` of the Action running the runner, or None outside an Action."""
+    v = os.environ.get("GITHUB_RUN_ID", "").strip()
+    return int(v) if v.isdigit() else None
+
+
+def ids_file_path(run_root: str | Path, day: str, name: str) -> Path:
+    """``<run_root>/<day>/<name>_job_ids.json``."""
+    return Path(run_root) / day / f"{name}_job_ids.json"
+
+
+def write_ids_file(path: str | Path, jl: dict, joblist_path: str | None, jobs: List[dict], batch_id: str | None = None,
+                   calibration_csv: str | None = None, calibration_snapshot: str | None = None, run_id: int | str | None = None,
+                   notes: str | None = None, discovery: dict | None = None) -> Path:
+    """Write the ids file: the job list it belongs to, the Action run that submitted (``submission_run``), the Batch id,
+    the calibration CSV the patch was placed on and the snapshot taken before submission, and one entry per job
+    ``{job_id, tag, level, shots, pubs, rep_delay_us, submitted_utc}`` (``job_id`` may be null with a ``discovery``
+    window, see ``retrieve_jobs``). No secret and no CRN."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    _dump(path, dict(schema=IDS_SCHEMA, joblist=joblist_path, joblist_name=jl.get("name"), backend=jl.get("backend"), instance=jl.get("instance"),
+                     submission_run=run_id, runner_git_commit=git_commit_hash(), batch_id=batch_id, calibration_csv=calibration_csv,
+                     calibration_snapshot=calibration_snapshot, written_utc=datetime.now(timezone.utc).isoformat(), notes=notes,
+                     discovery=discovery, jobs=jobs))
+    return path
+
+
+def load_ids_file(path: str | Path) -> dict:
+    """Load and validate an ids file (``write_ids_file`` schema). Every job needs ``tag``, ``level``, ``shots``, ``pubs``
+    and a ``job_id`` that is a string or null; tags are unique; a null ``job_id`` needs a ``discovery`` window
+    (``created_after`` / ``created_before``, UTC ISO) so ``retrieve_jobs`` can identify the job by its signature."""
+    ids = json.loads(Path(path).read_text())
+    if not isinstance(ids, dict) or ids.get("schema") != IDS_SCHEMA:
+        raise JoblistError(f"{path}: not an ids file (schema {IDS_SCHEMA!r} expected)")
+    jobs = ids.get("jobs")
+    if not isinstance(jobs, list) or not jobs:
+        raise JoblistError(f"{path}: jobs must be a non-empty list")
+    tags = []
+    need_discovery = False
+    for i, j in enumerate(jobs):
+        missing = [k for k in IDS_JOB_KEYS if k not in j]
+        if missing:
+            raise JoblistError(f"{path}: job {i} is missing {missing}")
+        if j["job_id"] is not None and not (isinstance(j["job_id"], str) and j["job_id"].strip()):
+            raise JoblistError(f"{path}: job {i}: job_id must be a non-empty string or null")
+        need_discovery |= j["job_id"] is None
+        for k in ("level", "shots", "pubs"):
+            if isinstance(j[k], bool) or not isinstance(j[k], int) or j[k] < 0:
+                raise JoblistError(f"{path}: job {i}: {k} must be a non-negative integer")
+        rd = j.get("rep_delay_us")
+        if rd is not None and (isinstance(rd, bool) or not isinstance(rd, (int, float)) or rd <= 0):
+            raise JoblistError(f"{path}: job {i}: rep_delay_us must be null or a positive number")
+        tags.append(str(j["tag"]))
+    if len(set(tags)) != len(tags):
+        raise JoblistError(f"{path}: job tags must be unique")
+    if need_discovery:
+        disc = ids.get("discovery") or {}
+        try:
+            after, before = _parse_utc(disc["created_after"]), _parse_utc(disc["created_before"])
+        except (KeyError, ValueError, TypeError) as e:
+            raise JoblistError(f"{path}: a null job_id needs discovery.created_after / created_before (UTC ISO): {e}") from e
+        if not after < before:
+            raise JoblistError(f"{path}: discovery.created_after must precede created_before")
+    return ids
+
+
+def _parse_utc(s: str) -> datetime:
+    dt = datetime.fromisoformat(str(s).replace("Z", "+00:00"))
+    return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt.astimezone(timezone.utc)
+
+
+def _utc_iso(dt) -> str | None:
+    if dt is None:
+        return None
+    if isinstance(dt, str):
+        return dt
+    return (dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt.astimezone(timezone.utc)).isoformat()
+
+
+def job_signature(inputs: dict) -> Tuple[int, int, float | None, int]:
+    """``(resilience level, shots, rep_delay_s or None, pub count)`` of a submitted EstimatorV2 job from ``job.inputs``
+    (the program inputs IBM stores: ``pubs``, ``options`` and ``resilience_level``)."""
+    opts = inputs.get("options") or {}
+    rd = (opts.get("execution") or {}).get("rep_delay")
+    return (int(inputs.get("resilience_level", 0)), int(opts.get("default_shots", 0)), None if rd is None else float(rd), len(inputs.get("pubs") or []))
+
+
+def group_signature(level: int, shots: int, rep_delay_s: float | None, group: Sequence) -> Tuple[int, int, float | None, int]:
+    return (int(level), int(shots), None if rep_delay_s is None else float(rep_delay_s), len(group))
+
+
+def _same_signature(a, b) -> bool:
+    return a[0] == b[0] and a[1] == b[1] and a[3] == b[3] and ((a[2] is None and b[2] is None) or
+                                                               (a[2] is not None and b[2] is not None and abs(a[2] - b[2]) <= 1e-9))
+
+
+def match_jobs_by_signature(candidates: List[dict], wanted: Dict[str, tuple]) -> Dict[str, dict]:
+    """Identify the jobs of a run whose ids were lost: ``candidates`` are ``{job_id, session_id, created, signature}``
+    records of the account's jobs in the discovery window, ``wanted`` maps each job tag to its ``group_signature``.
+    Every tag must match exactly one candidate, no candidate may match two tags, and the matched jobs must share one
+    Batch (``session_id``) when they report one; otherwise SystemExit with the candidate list, and nothing is written."""
+    out: Dict[str, dict] = {}
+    problems = []
+    for tag, sig in wanted.items():
+        hits = [c for c in candidates if _same_signature(c["signature"], sig)]
+        if len(hits) != 1:
+            problems.append(f"{tag} (level {sig[0]}, shots {sig[1]}, rep_delay {sig[2]}, {sig[3]} pubs): {len(hits)} candidates "
+                            f"{[h['job_id'] for h in hits]}")
+        else:
+            out[tag] = hits[0]
+    used = [c["job_id"] for c in out.values()]
+    if len(set(used)) != len(used):
+        problems.append(f"one job matched several tags: {used}")
+    sessions = {c.get("session_id") for c in out.values() if c.get("session_id")}
+    if len(sessions) > 1:
+        problems.append(f"matched jobs span several Batches: {sorted(sessions)}")
+    if problems:
+        listing = "\n  ".join(f"{c['job_id']} created {c.get('created')} session {c.get('session_id')} signature {c['signature']}" for c in candidates)
+        raise SystemExit("could not identify the jobs from the discovery window; nothing written:\n  " + "\n  ".join(problems)
+                         + f"\ncandidates ({len(candidates)}):\n  " + listing)
+    return out
+
+
+def options_from_inputs(inputs: dict, level: int, shots: int):
+    """The options a job was submitted with, read back from ``job.inputs`` (``options`` plus ``resilience_level``) as an
+    attribute tree, so ``submitted_rep_delay`` and options.json work as on the live path. ``level`` / ``shots`` fill in
+    when the inputs do not carry them."""
+    from types import SimpleNamespace
+
+    def ns(d):
+        return SimpleNamespace(**{str(k): ns(v) if isinstance(v, dict) else v for k, v in d.items()})
+    opts = dict(inputs.get("options") or {}) if isinstance(inputs, dict) else {}
+    opts.setdefault("default_shots", int(shots))
+    opts["resilience_level"] = int(inputs.get("resilience_level", level)) if isinstance(inputs, dict) else int(level)
+    opts["options_source"] = "job.inputs read back from IBM Quantum (retrieved)"
+    return ns(opts)
+
+
+def verify_job_inputs(inputs: dict, group: Sequence) -> dict:
+    """Compare the pubs IBM stored for the job (``job.inputs['pubs']``, decoded with RuntimeDecoder) with the pubs rebuilt
+    from the job list: pub count, per-pub ISA op counts and qubit count, observables (labels and coefficients) and the
+    bound parameter values. Returns ``{pubs_stored, pubs_rebuilt, decoded, match, mismatches}``; a decode failure is
+    recorded (``error``) and only the counts are compared."""
+    out: Dict[str, Any] = dict(pubs_stored=None, pubs_rebuilt=len(group), decoded=False, match=None, mismatches=[])
+    pubs = inputs.get("pubs") if isinstance(inputs, dict) else None
+    if pubs is None:
+        out.update(error="job inputs carry no pubs", match=False)
+        return out
+    out["pubs_stored"] = len(pubs)
+    if len(pubs) != len(group):
+        out["mismatches"].append(f"pub count: stored {len(pubs)}, rebuilt {len(group)}")
+    try:
+        from qiskit_ibm_runtime import RuntimeDecoder
+        decoded = json.loads(json.dumps(pubs), cls=RuntimeDecoder)
+        out["decoded"] = True
+    except Exception as e:
+        out["error"] = f"could not decode the stored pubs: {type(e).__name__}: {e}"
+        out["match"] = not out["mismatches"]
+        return out
+    for i, (pub, b) in enumerate(zip(decoded, group)):
+        pub = list(pub) if isinstance(pub, (list, tuple)) else [pub]
+        circ = pub[0]
+        if hasattr(circ, "count_ops"):
+            got, want = {k: int(v) for k, v in circ.count_ops().items()}, {k: int(v) for k, v in b.isa_circuit.count_ops().items()}
+            if got != want or circ.num_qubits != b.isa_circuit.num_qubits:
+                out["mismatches"].append(f"pub {i}: circuit ops {got} ({circ.num_qubits} qubits) vs rebuilt {want} ({b.isa_circuit.num_qubits})")
+        else:
+            out["mismatches"].append(f"pub {i}: stored circuit did not decode to a QuantumCircuit ({type(circ).__name__})")
+        want_obs = b.isa_observable if isinstance(b.isa_observable, (list, tuple)) else [b.isa_observable]
+        want_d = [{str(lbl): complex(c).real for lbl, c in o.to_list()} for o in want_obs]
+        got_obs = pub[1] if len(pub) > 1 else None
+        got_d = list(got_obs) if isinstance(got_obs, (list, tuple)) else [got_obs]
+        ok = len(got_d) == len(want_d) and all(isinstance(g, dict) and set(g) == set(w) and all(abs(float(g[k]) - w[k]) <= 1e-9 for k in w)
+                                               for g, w in zip(got_d, want_d))
+        if not ok:
+            out["mismatches"].append(f"pub {i}: observables differ ({len(got_d)} stored, {len(want_d)} rebuilt)")
+        got_vals = pub[2] if len(pub) > 2 else None
+        if b.param_values is None:
+            if got_vals is not None and np.asarray(got_vals).size:
+                out["mismatches"].append(f"pub {i}: stored parameter values {np.asarray(got_vals).shape} for a pub without parameters")
+        else:
+            arr = None if got_vals is None else np.asarray(got_vals, dtype=float)
+            if arr is None or arr.shape != np.asarray(b.param_values).shape or not np.allclose(arr, b.param_values, atol=1e-12):
+                out["mismatches"].append(f"pub {i}: parameter values differ (stored {None if arr is None else arr.shape}, rebuilt {np.asarray(b.param_values).shape})")
+    out["match"] = not out["mismatches"]
+    return out
+
+
+def properties_at(backend, when) -> Tuple[Any, str]:
+    """``backend.properties(datetime=when)``, the calibration in force when the job was created, labelled ``retrieved``;
+    a backend that does not take ``datetime`` (fake backends) or returns None falls back to the live properties, and the
+    label says so."""
+    label = f"retrieved: backend.properties(datetime={_utc_iso(when)})"
+    props = None
+    if when is not None:
+        try:
+            props = backend.properties(datetime=when)
+        except (TypeError, NotImplementedError) as e:
+            label = f"live at retrieval (backend.properties() takes no datetime: {type(e).__name__})"
+        except Exception as e:  # pragma: no cover - network errors
+            label = f"live at retrieval (backend.properties(datetime=...) failed: {type(e).__name__})"
+    else:
+        label = "live at retrieval (job creation date unknown)"
+    if props is None:
+        try:
+            props = backend.properties()
+        except Exception:  # pragma: no cover
+            props = None
+    return props, label
+
+
+def retrieve_jobs(ids_path: str, joblist_path: str | None = None, run_root: str = "data/runs", log_dir: str = "data/jobs",
+                  run_id: int | str | None = None, timeout: float | None = None, calibration_csv: str | None = None,
+                  snapshot_dir: str = "data/calibrations") -> List[dict]:
+    """Complete a run whose results were never collected: for every job in the ids file, ``service.job(id)``, wait for a
+    final state, and write the same bundle as the live path (``write_job_bundle`` with the PrimitiveResult, ``usage()``,
+    ``metrics()``, the options read back from ``job.inputs``, the properties at the job's creation time labelled
+    ``retrieved``, the layout-check verdict recomputed from those properties, the target summary, the list budget) and
+    the same CSV rows (``_point_rows``), under ``<run_root>/<job creation day>/<job_id>/``. The pubs are rebuilt from the
+    job list on the ids file's ``calibration_csv`` with the recorded seeds and checked against the stored inputs
+    (``verify_job_inputs``; a mismatch is flagged in job.json and fails the run after everything is written). Every
+    job.json carries ``retrieved: true``, ``submission_run`` and a ``retrieval`` record. A job with ``job_id`` null is
+    identified in the ids file's discovery window by its signature (``match_jobs_by_signature``) and the ids file is
+    rewritten with the ids found. A calibration snapshot at retrieval time goes to ``snapshot_dir`` (metadata only, no QPU
+    time). Submits nothing; the token and CRN are read as on the live path and never written."""
+    from .noise import latest_calibration_csv
+    ids = load_ids_file(ids_path)
+    joblist_path = joblist_path or ids.get("joblist")
+    if not joblist_path:
+        raise SystemExit(f"{ids_path} names no joblist; pass --joblist")
+    jl = load_joblist(joblist_path)
+    if str(jl.get("primitive", "estimator")) == "sampler":
+        raise SystemExit("retrieval of Sampler lists (gradvar.paper2) is not implemented")
+    csv = calibration_csv or ids.get("calibration_csv") or latest_calibration_csv()
+    resolve_instance(jl["instance"])
+    service = get_service(jl["instance"])
+    try:
+        plan = verify_instance_plan(service, jl["instance"])
+    except SystemExit as e:
+        plan = None
+        print(f"instance plan not verified (nothing is submitted): {e}", flush=True)
+    backend = get_backend(jl["backend"], service=service)
+    points, shapes, shots = joblist_points(jl, csv)
+    groups, job_rep_delay_s = job_groups(jl, points, shapes, shots, backend, csv)
+    by_tag = {tag: (level, gshots, group) for tag, level, gshots, group in groups}
+    tags = [str(j["tag"]) for j in ids["jobs"]]
+    if set(tags) != set(by_tag):
+        raise SystemExit(f"ids file tags {sorted(tags)} differ from the job list's jobs {sorted(by_tag)} (placed on {csv})")
+    for j in ids["jobs"]:
+        level, gshots, group = by_tag[j["tag"]]
+        if (int(j["level"]), int(j["shots"]), int(j["pubs"])) != (level, gshots, len(group)):
+            raise SystemExit(f"ids file job {j['tag']}: (level, shots, pubs) {(j['level'], j['shots'], j['pubs'])} differ from the rebuilt job {(level, gshots, len(group))}")
+    if any(j["job_id"] is None for j in ids["jobs"]):
+        disc = dict(ids.get("discovery") or {})
+        after, before = _parse_utc(disc["created_after"]), _parse_utc(disc["created_before"])
+        print(f"discovering jobs on {jl['backend']} created between {after.isoformat()} and {before.isoformat()}", flush=True)
+        records = []
+        for job in service.jobs(backend_name=jl["backend"], created_after=after, created_before=before, limit=int(disc.get("limit", 100)), descending=False):
+            try:
+                sig = job_signature(job.inputs)
+            except Exception as e:
+                print(f"  {job.job_id()}: inputs unavailable ({type(e).__name__}: {e}); skipped", flush=True)
+                continue
+            records.append(dict(job_id=job.job_id(), session_id=getattr(job, "session_id", None), created=_utc_iso(getattr(job, "creation_date", None)), signature=sig))
+            print(f"  candidate {records[-1]['job_id']}: created {records[-1]['created']}, session {records[-1]['session_id']}, signature {sig}", flush=True)
+        wanted = {j["tag"]: group_signature(*by_tag[j["tag"]][:2], job_rep_delay_s.get(j["tag"]), by_tag[j["tag"]][2]) for j in ids["jobs"] if j["job_id"] is None}
+        matched = match_jobs_by_signature(records, wanted)
+        for j in ids["jobs"]:
+            if j["job_id"] is None:
+                m = matched[j["tag"]]
+                j.update(job_id=m["job_id"], submitted_utc=m["created"], discovered=True)
+        sessions = {m.get("session_id") for m in matched.values() if m.get("session_id")}
+        ids["batch_id"] = ids.get("batch_id") or (sorted(sessions)[0] if sessions else None)
+        disc.update(candidates=len(records), discovered_utc=datetime.now(timezone.utc).isoformat())
+        ids["discovery"] = disc
+        _dump(Path(ids_path), ids)
+        print(f"ids file updated: {ids_path}", flush=True)
+    snapshot_now = snapshot_calibration(backend, snapshot_dir)
+    snapshot = ids.get("calibration_snapshot") or snapshot_now
+    budget_target = estimate_budget(jl, backend=backend)
+    root = Path(run_root)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    log_path = Path(log_dir) / f"{Path(joblist_path).stem}_retrieved_{stamp}.csv"
+    rows: List[dict] = []
+    failures: List[str] = []
+    for j in ids["jobs"]:
+        tag, job_id = str(j["tag"]), str(j["job_id"])
+        level, gshots, group = by_tag[tag]
+        job = service.job(job_id)
+        try:
+            job.wait_for_final_state(timeout=timeout)
+        except Exception as e:
+            failures.append(f"{job_id} ({tag}): no final state: {type(e).__name__}: {e}")
+            print(f"job {job_id} ({tag}) not final: {type(e).__name__}: {e}; skipped", file=sys.stderr, flush=True)
+            continue
+        status = str(job.status())
+        input_error = None
+        try:
+            inputs = job.inputs
+        except Exception as e:
+            inputs, input_error = {}, f"{type(e).__name__}: {e}"
+        options = options_from_inputs(inputs, level, gshots)
+        created = getattr(job, "creation_date", None)
+        created_iso = _utc_iso(created)
+        day = created_iso[:10] if created_iso else datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        props, props_label = properties_at(backend, created)
+        chk = layout_check_for(jl, group, backend, enforce=False, props=props, source=props_label)
+        verif = verify_job_inputs(inputs, group)
+        if input_error:
+            verif["error"] = input_error
+        if not verif.get("match"):
+            failures.append(f"{job_id} ({tag}): rebuilt pubs differ from the stored inputs: {verif.get('mismatches') or verif.get('error')}")
+        props_dict = None
+        if props is not None:
+            try:
+                props_dict = dict(props.to_dict(), _source=props_label)
+            except Exception as e:  # pragma: no cover
+                props_dict = dict(error=str(e), _source=props_label)
+        now = datetime.now(timezone.utc).isoformat()
+        submitted = j.get("submitted_utc") or created_iso
+        extra = dict(instance_plan=plan, budget=jl.get("budget"), budget_estimate_with_target_durations=budget_target, layout_check=chk,
+                     max_experiments=max_experiments(jl.get("backend"), backend), max_job_param_mb=MAX_JOB_PARAM_MB, dry_run_sample=None,
+                     job_tag=tag, retrieved=True, submission_run=ids.get("submission_run"),
+                     retrieval=dict(ids_file=str(ids_path), retrieval_run=run_id, retrieved_utc=now, job_status=status, submitted_utc=submitted,
+                                    properties_source=props_label, calibration_csv=csv, calibration_snapshot=snapshot,
+                                    calibration_snapshot_at_retrieval=snapshot_now, inputs_verification=verif))
+        ts = dict(submitted_local=submitted or "", retrieved_local=now)
+        error = None
+        result = None
+        if status == "DONE":
+            try:
+                result = job.result()
+            except Exception as e:
+                error = f"{type(e).__name__}: {e}"
+        else:
+            try:
+                msg = job.error_message()
+            except Exception:  # pragma: no cover
+                msg = None
+            error = f"job status {status}" + (f": {msg}" if msg else "")
+        if error:
+            failures.append(f"{job_id} ({tag}): {error}")
+            d = write_job_bundle(root, job_id, group, backend, options, level, gshots, jl, job=job, error=error, timestamps=ts, extra=extra,
+                                 day=day, properties=props_dict)
+            print(f"job {job_id} ({tag}) has no result ({error}); wrote {d}", file=sys.stderr, flush=True)
+            continue
+        d = write_job_bundle(root, job_id, group, backend, options, level, gshots, jl, result=result, job=job, timestamps=ts, extra=extra,
+                             day=day, properties=props_dict)
+        rows += _point_rows(backend, job_id, snapshot, group, level, gshots, result, options=options, submit_time=submitted)
+        print(f"retrieved {job_id} ({tag}: resilience {level}, {len(group)} pubs, shots {gshots}, status {status}, inputs "
+              f"{'match' if verif.get('match') else 'MISMATCH'}): wrote {d}", flush=True)
+    if rows:
+        _append_rows(str(log_path), rows)
+        print(f"logged {len(rows)} rows to {log_path}", flush=True)
+    if failures:
+        raise SystemExit(f"{len(failures)} problem(s) retrieving {len(ids['jobs'])} jobs (bundles written where a job had a result):\n  " + "\n  ".join(failures))
+    return rows
 
 
 def main(argv=None):
@@ -1707,7 +2257,23 @@ def main(argv=None):
     p.add_argument("--simulate-shots", type=int, default=None, help="shots for --simulate (default: the job's shots)")
     p.add_argument("--dry-run-sample", type=int, default=None,
                    help="dry run only: build the first N pubs of every job group (recorded as dry_run_sample in job.json); never applies to --yes-submit")
+    p.add_argument("--submit-only", action="store_true", help="with --joblist --yes-submit: submit the jobs, write the ids file "
+                                                               "(<run-root>/<date>/<list name>_job_ids.json) and exit without waiting; "
+                                                               "collect the results later with --retrieve")
+    p.add_argument("--retrieve", default=None, metavar="IDS_FILE", help="collect the results of already submitted jobs (ids file written by "
+                                                                        "--submit-only, or hand-written with job_id null and a discovery window) "
+                                                                        "into the same bundles and CSV rows as the live path; submits nothing")
+    p.add_argument("--timeout", type=float, default=None, help="with --retrieve: seconds to wait per job for a final state (default: no limit)")
     a = p.parse_args(argv)
+    try:
+        sys.stdout.reconfigure(line_buffering=True)     # the Action log must show each job id as it is submitted (run 35489912431 lost them)
+    except Exception:  # pragma: no cover
+        pass
+    if a.retrieve:
+        retrieve_jobs(a.retrieve, a.joblist, run_root=a.run_root, log_dir=a.log_dir, run_id=github_run_id(), timeout=a.timeout)
+        return 0
+    if a.submit_only and not (a.joblist and a.yes_submit):
+        p.error("--submit-only needs --joblist and --yes-submit")
     if a.joblist and a.budget:
         print(json.dumps(estimate_budget(load_joblist(a.joblist)), indent=1))
         return 0
@@ -1717,7 +2283,7 @@ def main(argv=None):
         if a.yes_submit and a.dry_run_sample is not None:
             p.error("--dry-run-sample is a dry-run option and cannot be combined with --yes-submit")
         return run_joblist(a.joblist, submit=a.yes_submit, log_dir=a.log_dir, run_root=a.run_root, simulate=a.simulate, simulate_shots=a.simulate_shots,
-                           dry_run_sample=a.dry_run_sample)
+                           submit_only=a.submit_only, dry_run_sample=a.dry_run_sample)
     if a.yes_submit:
         p.error("ad-hoc submission is disabled: hardware jobs run only from a reviewed job list (--joblist)")
     dry_run(a.n, a.L, a.k)

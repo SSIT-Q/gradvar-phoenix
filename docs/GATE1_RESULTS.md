@@ -326,6 +326,8 @@ The stop rule ("failing (c) or (d) stops the hardware stage") is therefore not t
 overall pass / fail is declared on the grid alone: (d) at L >= 8 depends on the shot count and on which rungs are claimed
 (Gate 2 booking), and (c) part 2 goes to the hardware-only reading of Deviation 15.
 
+Criterion (d) at L >= 8 under Deviation 37 (the simulated null-control floor + 3 sigma of its bootstrap estimate in place of the 10x analytic allowance; branch `pp-zz-layer`): at 4096 shots the floor is 1.38e-04 and 20 of 40 L >= 8 noisy predictions lie above it (L = 8: 20/20, smallest 2.0e-04, L = 12: 0/20, smallest 4.4e-06); at 16384 shots the floor is 3.18e-05 and 22 of 40 L >= 8 noisy predictions lie above it (L = 8: 20/20, smallest 2.0e-04, L = 12: 2/20, smallest 4.4e-06). Every L = 8 noisy prediction clears the Deviation 37 floor at either shot count (smallest 2.0e-4 against 1.4e-4 / 3.2e-5); no L = 12 prediction does at 4096 shots and 2 of 20 at 16384, so L = 12 stays exploratory (Deviation 37). The Deviation 34 static-layer ZZ has so far been applied to the Gate 1b rows only (docs/PAULIPROP.md, 'Deviation 34'); the noisy main-grid rows at L = 8 / 12 are pending their recompute and the ZZ-free rows stand here.
+
 ## Figures and data
 
 * `figures/gate1_noiseless.png`, `figures/gate1_noiseless.csv` - criterion (a) chain n = 4..20 and the 4x3 / 4x4 HEA noiseless points.

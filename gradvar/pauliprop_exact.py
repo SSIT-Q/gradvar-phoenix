@@ -111,9 +111,12 @@ def dial_zz_layer_ptm(blochs: Sequence[Bloch | None], edges: Sequence[Tuple[int,
         if pr == 0.0:
             continue
         phase = np.zeros(d)
-        for a, b, phi in edges:
-            if mask[a] == 0 and mask[b] == 0:
-                phase = phase - 0.5 * phi * zsign[a] * zsign[b]
+        for e in edges:
+            a, b = e[0], e[1]
+            phi_i = float(e[2])
+            phi_s = float(e[3]) if len(e) > 3 else 0.0
+            phi = phi_s + (phi_i if (mask[a] == 0 and mask[b] == 0) else 0.0)   # static ZZ precedes the slot; idle ZZ only when both idle
+            phase = phase - 0.5 * phi * zsign[a] * zsign[b]
         u = np.exp(1j * phase)
         # PTM of U: block per x-pattern; (U Q U^dag)[s, s^x] = u[s] Q[s, s^x] conj(u[s^x]); Tr[P U Q U^dag] = sum_s P[s^x, s] (UQU)[s, s^x]
         # with P[s^x, s] = valsP[s^x] (row s^x -> column (s^x)^x = s).

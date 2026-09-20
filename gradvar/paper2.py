@@ -59,6 +59,9 @@ Q3_MAX_CYCLES = 64
 RESET_NS_DEFAULT = 400.0                 # native reset on 119 qubits; the delay reference and the Q3 spectator delay
 RESET_NS_BY_QUBIT = {79: 2140.0}         # qubit 79's reset is 2140 ns (Section 1); its delay reference matches
 SQ_GATE_US = 0.04                        # one physical single-qubit gate (sx / x, 40 ns) in the budget's gate length
+SAMPLER_BUDGET_MODEL_VERSION = 2   # the Paper 2 Sampler budget model (Deviation 24 constants: 2 s per job, 10 us overhead); Paper 1's
+                                   # gradvar.hardware model moved to v3 (Deviation 47) on the 20 Sep 2026 smoke test, the Sampler model
+                                   # is re-based under Paper 2's own pre-registration
 SAMPLER_LOG_COLUMNS = [
     "backend", "job_id", "timestamp", "job_submit_time", "calibration_snapshot", "stage", "protocol", "circuit_index", "label",
     "reset_kind", "mask_id", "mask_hash", "frame_id", "reps", "prep", "meas_axis", "expected_z", "echo", "shots", "rep_delay_submitted",
@@ -523,7 +526,7 @@ def estimate_budget_sampler(jl: dict, rep_delays_us: Sequence[float], backend=No
     circuit's reset qubits (``circuit_gate_us``). Same keys as ``gradvar.hardware.estimate_budget``
     plus ``primitive`` and per-job ``init_qubits`` / ``mcm_executions``. A job with its own ``rep_delay_us`` is timed at
     that value in every column."""
-    from .hardware import (BUDGET_MODEL_VERSION, EXEC_OVERHEAD_US, TREX_RANDOMIZATIONS, ZNE_NOISE_FACTORS, dial_durations_us, readout_us)
+    from .hardware import EXEC_OVERHEAD_US, TREX_RANDOMIZATIONS, ZNE_NOISE_FACTORS, dial_durations_us, readout_us
     dial_us = dial_durations_us(backend)
     t_meas, t_meas_source = readout_us(backend, jl.get("backend"))
     ctx = SamplerContext.from_joblist(jl, verify=False)
@@ -546,7 +549,7 @@ def estimate_budget_sampler(jl: dict, rep_delays_us: Sequence[float], backend=No
             entry[f"trex_seconds_at_{tag}"] = 0.0
             entry[f"seconds_at_{tag}"] = round(2.0 + circ, 3)
         per_job.append(entry)
-    out = dict(model_version=BUDGET_MODEL_VERSION, primitive="sampler",
+    out = dict(model_version=SAMPLER_BUDGET_MODEL_VERSION, primitive="sampler",
                formula="2 s per job + (rep_delay + gate length + t_meas + 10 us) x executions; SamplerV2 at resilience 0: "
                        "no ZNE, no TREX term; t_meas once per terminal readout plus each measure_reset's own duration; reset and "
                        "matched delay at max(reset_ns) over the circuit's reset qubits; Q3 cycle 480 ns (520 ns with echo)",

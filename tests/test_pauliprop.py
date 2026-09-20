@@ -167,13 +167,53 @@ def test_pattern_variance_is_nonnegative_and_small_at_p0():
 PROPS = str(predict.Path(__file__).resolve().parents[1] / "data" / "calibrations" / "ibm_phoenix_properties_20260919T192510Z.json.gz")
 
 
-def _zz_setup(L=2):
+def _zz_setup(L=2, scale=pp.ZZ_ANGLE_SCALE_UPPER_BOUND):
     patch = rect_patch(2, 2, exclude=(), origin=(8, 1))
     _, edge = hea_observable(patch)
     cone = light_cone(patch, L, edge)
-    zz = pp.zz_phases(PROPS, pp.cone_couplers(patch, cone))
+    zz = pp.zz_phases(PROPS, pp.cone_couplers(patch, cone), scale=scale)
     assert len(zz) == 4 and all(0 < abs(v) < 0.5 for v in zz.values())
     return patch, cone, edge, zz
+
+
+def test_zz_angle_convention():
+    """Deviation 34: rzz angle = zeta tau / 2 with zeta = 2 pi J; the upper-bound record uses zeta tau."""
+    patch, cone, edge, zz_ub = _zz_setup()
+    zz = pp.zz_phases(PROPS, pp.cone_couplers(patch, cone))
+    J = noise.zz_couplings(noise.load_properties(PROPS))
+    for (a, b), phi in zz.items():
+        j = J.get((a, b), J.get((b, a))) * 1e9
+        assert phi == pytest.approx(0.5 * 2 * np.pi * j * 400e-9, rel=1e-12)
+        assert zz_ub[(a, b)] == pytest.approx(2 * phi, rel=1e-12)
+    assert pp.ZZ_ANGLE_SCALE == 0.5
+
+
+@pytest.mark.parametrize("model,kind,p", [("noiseless", None, None), ("unital", None, None), ("nonunital", None, None),
+                                          ("unital", "reset", 0.3), ("unital", "delay", 0.0), ("unital", "dephase", 0.5)])
+def test_zz_layer_matches_doubled_space_exact(model, kind, p):
+    """Deviation 34 whole-layer static ZZ (tau_layer from zz_layer_timing.json) in every layer, plus the idle term rzz(zeta 400ns/2)
+    in the dial layer where a dial is present: 2x2 plaquette, L = 2, exact to 1e-9 (noiseless / unital) against the doubled-space
+    theta average; the non-unital model carries the known 5e-6 Z -> I relaxation residual, identical with and without ZZ."""
+    from gradvar.pauliprop_exact import exact_moments
+    patch, cone, edge, _ = _zz_setup()
+    couplers = pp.cone_couplers(patch, cone)
+    zz_layer = pp.zz_phases(PROPS, couplers, idle_ns=pp.layer_tau_ns("2x2", couplers))
+    assert all(0 < abs(v) < 0.1 for v in zz_layer.values())
+    dial = pp.dial_bloch_by_qubit(CSV, cone, kind, p) if kind else None
+    zz = pp.zz_phases(PROPS, couplers) if kind else None
+    prog = pp.make_program(patch, 2, 2, model, CSV, dial=dial, zz=zz, zz_layer=zz_layer)
+    assert sum(1 for op in prog.ops if op[0] == "dial_zz") == 2 and all(len(op[2][0]) == 4 for op in prog.ops if op[0] == "dial_zz")
+    r = pp.propagate_truncated(prog, delta=0.0)
+    ex = exact_moments(prog)
+    rel = 1e-5 if model == "nonunital" else 1e-9
+    for name in ("var_cost", "var_k1", "var_kL"):
+        assert getattr(r, name) == pytest.approx(ex[name], rel=rel)
+    assert r.mean_cost == pytest.approx(ex["mean_cost"], rel=1e-9, abs=1e-15)
+    s = pp.propagate_sampled(prog, 50_000, seed=4)
+    assert abs(s.var_kL - r.var_kL) < 4 * s.se_kL + 1e-9
+    assert abs(s.var_k1 - r.var_k1) < 4 * s.se_k1 + 1e-9
+    r0 = pp.propagate_truncated(pp.make_program(patch, 2, 2, model, CSV, dial=dial), delta=0.0)
+    assert abs(r.var_kL / r0.var_kL - 1) > 1e-4          # the layer term is not a no-op
 
 
 @pytest.mark.parametrize("kind,p", [("delay", 0.0), ("reset", 0.3), ("dephase", 0.5)])
@@ -196,7 +236,7 @@ def test_zz_idle_layer_matches_doubled_space_exact(kind, p):
         vals[use] = r.var_kL
         s = pp.propagate_sampled(prog, 50_000, seed=3)
         assert abs(s.var_kL - r.var_kL) < 4 * s.se_kL + 1e-9
-    assert abs(vals[True] / vals[False] - 1) > 1e-3
+    assert abs(vals[True] / vals[False] - 1) > 1e-3     # upper-bound angle: the rule is not a no-op
 
 
 def _kraus_reference(prog, zz_edges_local, thetas_grid, k_index, obs):
@@ -287,8 +327,10 @@ def _kraus_reference(prog, zz_edges_local, thetas_grid, k_index, obs):
                 if pr == 0:
                     continue
                 U = np.eye(d, dtype=complex)
-                for a, b_, phi in edges:
-                    if mask[a] == 0 and mask[b_] == 0:
+                for e in edges:
+                    a, b_ = e[0], e[1]
+                    phi = (float(e[3]) if len(e) > 3 else 0.0) + (float(e[2]) if (mask[a] == 0 and mask[b_] == 0) else 0.0)
+                    if phi:
                         U = U @ embed(np.diag(np.exp(-1j * phi / 2 * np.array([1, -1, -1, 1]))), [a, b_])
                 Sm = superop([U])
                 for ks in kraus_sets:
