@@ -20,14 +20,14 @@ from ..variance import shot_noise_variance
 
 # Section 7 columns of the tidy table, in output order.
 TIDY_COLUMNS = [
-    "point_id", "kind", "arm", "n", "L", "k", "resilience_level", "shots", "p", "K", "draw", "mask_index", "mask_seed",
+    "point_id", "kind", "arm", "n", "L", "k", "resilience_level", "shots", "p", "K", "draw", "repeat", "mask_index", "mask_seed",
     "seed", "param_hash", "ev_plus", "ev_minus", "std_plus", "std_minus", "ensemble_se_plus", "ensemble_se_minus",
     "gradient", "shot_var", "se_gradient", "shot_var_source", "patch", "edge", "patch_qubits", "probe_id", "reset_kind",
     "dial_delay_ns", "backend", "job_id", "job_kind", "status", "timestamp", "job_submit_time", "usage_qpu_seconds",
-    "rep_delay_granted", "default_rep_delay_s", "dynamic_reprate_enabled", "layout_verdict", "calibration_snapshot",
+    "rep_delay_submitted", "rep_delay_us", "default_rep_delay_s", "dynamic_reprate_enabled", "layout_verdict", "calibration_snapshot",
     "properties_file", "bundle_dir", "transpiled_depth", "two_qubit_gates", "fractional_gates",
 ]
-_CSV_DEFAULTS = {"arm": "grid", "p": np.nan, "K": np.nan, "mask_seed": np.nan, "rep_delay_granted": "default",
+_CSV_DEFAULTS = {"arm": "grid", "p": np.nan, "K": np.nan, "mask_seed": np.nan, "rep_delay_submitted": "default",
                  "ensemble_se_plus": np.nan, "ensemble_se_minus": np.nan, "job_submit_time": ""}
 
 
@@ -126,6 +126,8 @@ def find_run_files(run_dir: str | Path):
 def _point_id(r: dict) -> str:
     if r["kind"] == "grid":
         return f"grid n{r['n']} L{r['L']} k{r['k']} r{r['resilience_level']} s{r['shots']}"
+    if r["kind"] == "null_control":    # Section 2 control (a); job-list probe kind pending as Deviation 43
+        return f"null n{r['n']} L{r['L']} k{r['k']} r{r['resilience_level']} s{r['shots']}"
     if r["kind"] == "reset_dial":
         return f"{r['reset_kind']} p{float(r['p']):g} n{r['n']} L{r['L']} k{r['k']} r{r['resilience_level']}"
     return f"{r['kind']}:{r['probe_id']} r{r['resilience_level']}"
@@ -156,12 +158,13 @@ def _enrich_from_bundle(rows: pd.DataFrame, b: Bundle) -> pd.DataFrame:
     rows["default_rep_delay_s"] = rd.get("default_rep_delay_s")
     rows["dynamic_reprate_enabled"] = j.get("dynamic_reprate_enabled", rd.get("dynamic_reprate_enabled"))
     rows["layout_verdict"] = (j.get("layout_check") or {}).get("verdict")
+    rows["rep_delay_submitted_job"] = [job_rep_delay(j)] * len(rows)     # main writes rep_delay_submitted_s (older bundles: rep_delay_granted_s)
     rows["properties_file"] = str(b.path / "properties.json") if (b.path / "properties.json").exists() else ""
     rows["bundle_dir"] = str(b.path)
     if len(pts) != len(rows):
         rows["bundle_note"] = f"{len(pts)} pubs in job.json vs {len(rows)} CSV rows"
         return rows
-    for col in ("probe_id", "reset_kind", "mask_index", "patch", "edge", "dial_delay_ns", "mask_seed_bundle", "p_bundle", "K_bundle"):
+    for col in ("probe_id", "reset_kind", "mask_index", "patch", "edge", "dial_delay_ns", "mask_seed_bundle", "p_bundle", "K_bundle", "rep_delay_us", "null_qubit"):
         rows[col] = None
     rows = rows.reset_index(drop=True)
     for i, pt in enumerate(pts):
@@ -177,8 +180,22 @@ def _enrich_from_bundle(rows: pd.DataFrame, b: Bundle) -> pd.DataFrame:
         rows.at[i, "mask_seed_bundle"] = pt.get("mask_seed")
         rows.at[i, "p_bundle"] = pt.get("p")
         rows.at[i, "K_bundle"] = pt.get("masks")
+        rows.at[i, "rep_delay_us"] = pt.get("rep_delay_us")
+        rows.at[i, "null_qubit"] = pt.get("null_qubit")
         rows.at[i, "kind"] = pt.get("kind") or "grid"
     return rows
+
+
+def job_rep_delay(job: dict):
+    """The rep_delay the job was submitted with: ``rep_delay_submitted_s`` (main since 56de033), falling back to the older
+    ``rep_delay_granted_s``; seconds, or the string 'default'."""
+    return job.get("rep_delay_submitted_s", job.get("rep_delay_granted_s"))
+
+
+def _repeat_index(df: pd.DataFrame) -> pd.Series:
+    """Repeat index of a circuit pair within its point: rows sharing point id and theta seed (a level-2 point is run twice,
+    Section 2 "Mitigation") are numbered 0, 1, ... in job order."""
+    return df.groupby(["point_id", "seed"], sort=False).cumcount().astype(int)
 
 
 def _draw_index(df: pd.DataFrame) -> pd.Series:
@@ -210,6 +227,10 @@ class RunData:
     def dial(self) -> pd.DataFrame:
         return self.rows[self.rows.kind == "reset_dial"]
 
+    @property
+    def is_dry_run(self) -> bool:
+        return bool(len(self.rows)) and set(self.rows.status.astype(str)) <= {"dry-run"}
+
     def summary(self) -> dict:
         r = self.rows
         return dict(run_dir=str(self.run_dir), csv_files=[str(p) for p in self.csv_paths], n_rows=int(len(r)),
@@ -234,8 +255,8 @@ def reset_error_table(bundles: Sequence[Bundle]) -> pd.DataFrame:
                 ev = float(evs[qi]) if evs is not None and qi < len(evs) else float("nan")
                 out.append(dict(job_id=b.job_id, probe_id=pt.get("probe_id"), reset_kind=pt.get("reset_kind"), prep=str(pt.get("prep", "1")),
                                 qubit=int(q), ev=ev, p1=(1.0 - ev) / 2.0, shots=b.job.get("shots"), resilience_level=b.job.get("resilience_level"),
-                                status=b.job.get("status"), rep_delay_granted=b.job.get("rep_delay_granted_s")))
-    cols = ["job_id", "probe_id", "reset_kind", "prep", "qubit", "ev", "p1", "shots", "resilience_level", "status", "rep_delay_granted"]
+                                status=b.job.get("status"), rep_delay_submitted=job_rep_delay(b.job), rep_delay_us=pt.get("rep_delay_us")))
+    cols = ["job_id", "probe_id", "reset_kind", "prep", "qubit", "ev", "p1", "shots", "resilience_level", "status", "rep_delay_submitted", "rep_delay_us"]
     return pd.DataFrame(out, columns=cols)
 
 
@@ -277,12 +298,17 @@ def load_run(run_dir: str | Path, csv_paths: Sequence[str | Path] | None = None)
     rows.loc[rows.kind != "grid", "reset_kind"] = rows.loc[rows.kind != "grid", "reset_kind"].fillna(rows.loc[rows.kind != "grid", "arm"])
     rows.loc[rows.kind != "grid", "probe_id"] = rows.loc[rows.kind != "grid", "probe_id"].fillna(rows.loc[rows.kind != "grid", "observable_edge"].astype(str).str.replace("probe:", "", regex=False))
     rows.loc[rows.kind == "grid", "edge"] = rows.loc[rows.kind == "grid", "edge"].fillna(rows.loc[rows.kind == "grid", "observable_edge"])
+    if "rep_delay_granted" in rows.columns:                                                # pre-56de033 CSV column name
+        rows["rep_delay_submitted"] = rows["rep_delay_submitted"].where(rows["rep_delay_submitted"].notna() & (rows["rep_delay_submitted"] != "default"), rows["rep_delay_granted"])
+    if "rep_delay_submitted_job" in rows.columns:                                           # the per-job figure is authoritative when the row has none
+        rows["rep_delay_submitted"] = rows["rep_delay_submitted"].where(rows["rep_delay_submitted"].notna(), rows["rep_delay_submitted_job"])
     for col, alt in (("mask_seed", "mask_seed_bundle"), ("p", "p_bundle"), ("K", "K_bundle")):   # pre-D3b CSVs lack arm / p / K
         if alt in rows.columns:
             rows[col] = pd.to_numeric(rows[col], errors="coerce")
             rows[col] = rows[col].where(pd.notna(rows[col]), pd.to_numeric(rows[alt], errors="coerce"))
     probes = rows.kind != "grid"
     rows.loc[probes, "arm"] = rows.loc[probes, "reset_kind"].astype(object)
+    rows.loc[rows.kind == "null_control", "arm"] = "null_control"
     for col in ("n", "L", "k", "resilience_level", "shots"):
         rows[col] = pd.to_numeric(rows[col], errors="coerce").astype("Int64")
     sv = [_shot_var(a, c, d, e, s) for a, c, d, e, s in zip(rows.ev_plus, rows.ev_minus, rows.std_plus, rows.std_minus, rows.shots.fillna(0))]
@@ -291,6 +317,7 @@ def load_run(run_dir: str | Path, csv_paths: Sequence[str | Path] | None = None)
     rows["se_gradient"] = np.sqrt(rows["shot_var"].astype(float))
     rows["point_id"] = [_point_id(r) for r in rows.to_dict("records")]
     rows["draw"] = _draw_index(rows)
-    keep = TIDY_COLUMNS + [c for c in ("source_csv", "bundle_note", "observable_edge") if c in rows.columns]
+    rows["repeat"] = _repeat_index(rows)
+    keep = TIDY_COLUMNS + [c for c in ("source_csv", "bundle_note", "observable_edge", "null_qubit") if c in rows.columns]
     rows = rows[keep]
     return RunData(rows=rows, bundles=bundles, reset_error=reset_error_table(list(bundles.values())), csv_paths=list(csvs), run_dir=root)

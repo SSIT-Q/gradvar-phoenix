@@ -87,23 +87,35 @@ def per_mask_shot_variance(ev, std, shots: int, resilience: int) -> np.ndarray:
     return outcome_form
 
 
-def _pattern_terms(evs: np.ndarray, sv: np.ndarray) -> float:
-    """Var_mask[C] estimate of one (draw, shift): sample variance of the K per-mask means minus their mean shot variance."""
+def _pattern_upper_bound(evs: np.ndarray, sv: np.ndarray) -> float:
+    """Var_mask[C] of one (draw, shift): sample variance of the K per-mask means minus their mean shot variance. Its value
+    over 2K is the independent-mask pattern floor, an upper bound under shared masks (Deviation 38)."""
     if evs.size < 2:
         return float("nan")
     return float(evs.var(ddof=1) - sv.mean())
 
 
+def _block_var(a: np.ndarray, sub: np.ndarray, idx=None) -> np.ndarray | float:
+    """Variance over all values of the (M, r) block array minus the mean of the per-block floors, on the draws ``idx``."""
+    if idx is None:
+        return float(a.var(ddof=1) - sub.mean())
+    return a[idx].reshape(idx.shape[0], -1).var(axis=1, ddof=1) - sub[idx].mean(axis=1)
+
+
 def dial_point(rows: pd.DataFrame, n_boot: int = N_BOOT, seed: int = 0) -> Dict:
-    """Section 3b estimator for one dial point (one arm, p, n, L, k, resilience). ``rows`` hold one row per (draw, mask)
-    with ``ev_plus`` / ``ev_minus`` / ``std_plus`` / ``std_minus`` / ``shots`` / ``draw``. Per draw: C_mix(+/-) is the
-    mean over masks, the gradient (C+ - C-) / 2. Floors on the gradient: shot 1 / (2 K s) (reported per-mask shot
-    variance averaged, / 2K), pattern Var_mask[C] / (2K) with Var_mask[C] per draw and shift as the sample variance of
-    the K per-mask means minus their mean shot variance, averaged over draws and shifts; its uncertainty from a
-    bootstrap over masks within draws (Section 3b "Floors"). Var[C_mix] from the shift circuits (H5) with the
-    mean subtracted and the floors / K removed; the mean of C_mix is reported against p^2 (pipeline check)."""
+    """Section 3b estimator for one dial point (one arm, p, n, L, k, resilience) under Deviation 38. ``rows`` hold one
+    row per (draw, mask): both shift circuits of a mask ride in one pub, so ``ev_plus`` / ``ev_minus`` of a row share
+    that mask (shared masks, the logged design). Per draw: g_m = (ev+_m - ev-_m) / 2 per mask, the gradient estimate
+    is mean_m g_m; the pattern-noise floor on the gradient is [Var_m(g_m) - mean_m(sv_m)] / K with sv_m = (sv+_m +
+    sv-_m) / 4 the per-mask shot variance of g_m (Deviation 27: (1 - ev^2) / (s - 1) at resilience 0, reported std^2 at
+    resilience >= 1), the shot floor mean_m(sv_m) / K; the floor's uncertainty comes from a bootstrap over masks within
+    draws (2000 resamples per draw), averaged over draws and propagated into the subtracted quantity. Var_mask[C] / (2K)
+    from the per-shift mask means is kept as the logged independent-mask upper bound (``pattern_floor_upper_bound``).
+    Var[C_mix] over the 2M shift values (H5) with a bootstrap over draws; its floors do not cancel under shared masks
+    (Deviation 38: Var[C_mix] = Var[C_Phi] + E Var_mask[C] / K exactly), so the cost's pattern floor is Var_mask[C] / K
+    and its shot floor the mean per-mask shot variance of C over K; the mean of C_mix is reported against p^2."""
     rng = np.random.default_rng(seed)
-    K_per_draw, grads, cmix, pattern, shotv, boot_pat = [], [], [], [], [], []
+    K_per_draw, grads, cmix, pat, pat_ub, shotv, boot_pat, boot_ub = [], [], [], [], [], [], [], []
     res = int(rows.resilience_level.iloc[0]) if len(rows) else 0
     shots = int(rows.shots.iloc[0]) if len(rows) else 0
     for _, g in rows.groupby("draw", sort=True):
@@ -113,47 +125,57 @@ def dial_point(rows: pd.DataFrame, n_boot: int = N_BOOT, seed: int = 0) -> Dict:
         ep, em = g.ev_plus.astype(float).to_numpy(), g.ev_minus.astype(float).to_numpy()
         svp = per_mask_shot_variance(ep, g.std_plus.astype(float), shots, res)
         svm = per_mask_shot_variance(em, g.std_minus.astype(float), shots, res)
+        gm, svg = (ep - em) / 2.0, (svp + svm) / 4.0
         K = len(g)
         K_per_draw.append(K)
-        grads.append((ep.mean() - em.mean()) / 2.0)
-        cmix.extend([ep.mean(), em.mean()])
-        terms = [t for t in (_pattern_terms(ep, svp), _pattern_terms(em, svm)) if np.isfinite(t)]
-        pattern.append(float(np.mean(terms)) if terms else float("nan"))
-        shotv.append((svp.mean() + svm.mean()) / 2.0)
+        grads.append(float(gm.mean()))
+        cmix.append([ep.mean(), em.mean()])
+        shotv.append(float(svg.mean()))
+        pat.append(float(gm.var(ddof=1) - svg.mean()) if K >= 2 else float("nan"))
+        ub = [t for t in (_pattern_upper_bound(ep, svp), _pattern_upper_bound(em, svm)) if np.isfinite(t)]
+        pat_ub.append(float(np.mean(ub)) if ub else float("nan"))
         if K >= 2:
             idx = rng.integers(0, K, size=(min(n_boot, 2000), K))
-            bp = ep[idx].var(axis=1, ddof=1) - svp[idx].mean(axis=1)
-            bm = em[idx].var(axis=1, ddof=1) - svm[idx].mean(axis=1)
-            boot_pat.append((bp + bm) / 2.0)
+            boot_pat.append(gm[idx].var(axis=1, ddof=1) - svg[idx].mean(axis=1))
+            boot_ub.append(((ep[idx].var(axis=1, ddof=1) - svp[idx].mean(axis=1)) + (em[idx].var(axis=1, ddof=1) - svm[idx].mean(axis=1))) / 2.0)
     M = len(grads)
     K = int(np.median(K_per_draw)) if K_per_draw else 0
     out: Dict = dict(M=M, K=K, shots_per_mask=shots, shots_total=K * shots, resilience_level=res, variance=float("nan"), ci_lo=float("nan"),
                      ci_hi=float("nan"), mean=float("nan"), shot_floor=float("nan"), pattern_var_mask=float("nan"), pattern_floor=float("nan"),
-                     pattern_floor_se=float("nan"), combined_floor=float("nan"), signal_variance=float("nan"), signal_ci_lo=float("nan"),
-                     signal_ci_hi=float("nan"), var_cmix=float("nan"), var_cmix_signal=float("nan"), mean_cmix=float("nan"), kurtosis=float("nan"))
+                     pattern_floor_se=float("nan"), pattern_floor_upper_bound=float("nan"), combined_floor=float("nan"), signal_variance=float("nan"),
+                     signal_ci_lo=float("nan"), signal_ci_hi=float("nan"), var_cmix=float("nan"), var_cmix_ci_lo=float("nan"), var_cmix_ci_hi=float("nan"),
+                     var_cmix_signal=float("nan"), var_cmix_signal_ci_lo=float("nan"), var_cmix_signal_ci_hi=float("nan"), mean_cmix=float("nan"),
+                     kurtosis=float("nan"), masks_shared=True)
     if M == 0:
         return out
-    g = np.asarray(grads)
-    shot_g = float(np.mean(shotv)) / (2.0 * K) if K else float("nan")          # Var_shot(C_mix) = mean per-mask shot var / K; gradient / 4 x 2
-    finite_pat = [t for t in pattern if np.isfinite(t)]
-    vm = float(np.mean(finite_pat)) if finite_pat else float("nan")
+    g, c = np.asarray(grads), np.asarray(cmix)
+    shot_g = float(np.mean(shotv)) / K if K else float("nan")
+    fin = [t for t in pat if np.isfinite(t)]
     if K <= 1:            # no mask lottery (delay-matched p = 0 reference, Deviation 28): the pattern term does not belong to the floor
-        vm, pat_g, pat_se = 0.0, 0.0, 0.0
+        pat_g, pat_se, vm, ub_g, ub_se = 0.0, 0.0, 0.0, 0.0, 0.0
     else:
-        pat_g = vm / (2.0 * K) if np.isfinite(vm) else float("nan")
-        pat_se = float(np.mean(np.std(np.asarray(boot_pat), axis=1) / np.sqrt(max(M, 1)))) / (2.0 * K) if boot_pat else float("nan")
-    out.update(mean=float(g.mean()), shot_floor=shot_g, pattern_var_mask=vm, pattern_floor=pat_g, pattern_floor_se=pat_se,
-               combined_floor=shot_g + pat_g, mean_cmix=float(np.mean(cmix)), kurtosis=kurtosis(g) if M >= 4 else float("nan"))
+        pat_g = float(np.mean(fin)) / K if fin else float("nan")
+        pat_se = float(np.mean(np.std(np.asarray(boot_pat), axis=1)) / np.sqrt(max(M, 1))) / K if boot_pat else float("nan")
+        fin_ub = [t for t in pat_ub if np.isfinite(t)]
+        vm = float(np.mean(fin_ub)) if fin_ub else float("nan")
+        ub_g = vm / (2.0 * K) if np.isfinite(vm) else float("nan")
+        ub_se = float(np.mean(np.std(np.asarray(boot_ub), axis=1)) / np.sqrt(max(M, 1))) / (2.0 * K) if boot_ub else float("nan")
+    out.update(mean=float(g.mean()), shot_floor=shot_g, pattern_var_mask=vm, pattern_floor=pat_g, pattern_floor_se=pat_se, pattern_floor_upper_bound=ub_g,
+               combined_floor=shot_g + pat_g, mean_cmix=float(c.mean()), kurtosis=kurtosis(g) if M >= 4 else float("nan"), cmix_draws=c.tolist())
     if M >= 2:
         var = float(g.var(ddof=1))
         lo, hi = bootstrap_variance_ci(g, n_boot=n_boot, seed=seed)
         pad = Z95 * pat_se if np.isfinite(pat_se) else 0.0
         out.update(variance=var, ci_lo=lo, ci_hi=hi, signal_variance=var - shot_g - pat_g,
-                   signal_ci_lo=lo - shot_g - pat_g - pad, signal_ci_hi=hi - shot_g - pat_g + pad,
-                   hi_lo=hi / lo if lo > 0 else float("inf"))
-        c = np.asarray(cmix)
-        out["var_cmix"] = float(c.var(ddof=1))
-        out["var_cmix_signal"] = out["var_cmix"] - 2.0 * shot_g - 2.0 * pat_g     # floors on C_mix are / K, i.e. twice the gradient's
+                   signal_ci_lo=lo - shot_g - pat_g - pad, signal_ci_hi=hi - shot_g - pat_g + pad, hi_lo=hi / lo if lo > 0 else float("inf"))
+        floor_c = 2.0 * shot_g + 2.0 * ub_g                      # C_mix: shot floor mean sv_C / K (= 2 shot_g) and pattern floor Var_mask[C] / K (= 2 ub_g)
+        pad_c = 2.0 * Z95 * ub_se if np.isfinite(ub_se) else 0.0
+        idx = rng.integers(0, M, size=(n_boot, M))
+        vc_raw = c.reshape(-1).var(ddof=1)
+        vb = c[idx].reshape(n_boot, -1).var(axis=1, ddof=1)
+        clo, chi = np.quantile(vb, [0.025, 0.975])
+        out.update(var_cmix=float(vc_raw), var_cmix_ci_lo=float(clo), var_cmix_ci_hi=float(chi), var_cmix_floor=float(floor_c), var_cmix_signal=float(vc_raw - floor_c),
+                   var_cmix_signal_ci_lo=float(clo - floor_c - pad_c), var_cmix_signal_ci_hi=float(chi - floor_c + pad_c))
     return out
 
 
@@ -188,6 +210,18 @@ def paired_ratio(a, b, n_boot: int = N_BOOT, seed: int = 3, sub_a=None, sub_b=No
     return dict(ratio=float((a.var(ddof=1) - sa.mean()) / den), lo=float(lo), hi=float(hi), paired=paired, resamples_with_positive_denominator=int(ok.sum()))
 
 
+def k1_above_shot_floor(g_k1, sv_k1=None, n_boot: int = N_BOOT, seed: int = 5) -> Dict:
+    """Deviation 40 scope rule: the ratio is formed only where the k = 1 denominator lies above the shot floor, read as
+    the 95 percent bootstrap lower bound of the k = 1 variance exceeding its mean shot variance."""
+    g = np.asarray(g_k1, float).reshape(-1)
+    g = g[np.isfinite(g)]
+    sv = np.nan_to_num(np.asarray(sv_k1, float).reshape(-1)) if sv_k1 is not None else np.zeros_like(g)
+    if g.size < 2:
+        return dict(k1_variance=float("nan"), k1_ci_lo=float("nan"), k1_shot_floor=float(sv.mean()) if sv.size else 0.0, k1_above_shot_floor=False)
+    lo, _ = bootstrap_variance_ci(g, n_boot=n_boot, seed=seed)
+    return dict(k1_variance=float(g.var(ddof=1)), k1_ci_lo=float(lo), k1_shot_floor=float(sv.mean()), k1_above_shot_floor=bool(lo > sv.mean()))
+
+
 def layer_index_ratio(g_kL, g_k1, r_noiseless: float, R_unital: float | None = None, pred_log_se: float = 0.0,
                       n_boot: int = N_BOOT, seed: int = 5, sv_kL=None, sv_k1=None) -> Dict:
     """Deviation 14: r_hw = Var_hw(k = L) / Var_hw(k = 1) (paired bootstrap over the shared draws), the noiseless-corrected
@@ -196,8 +230,9 @@ def layer_index_ratio(g_kL, g_k1, r_noiseless: float, R_unital: float | None = N
     standard error of log(r_noiseless x R_unital) from the predictions, added in quadrature on the log scale. ``sv_*``
     are the per-draw shot variances, subtracted inside the bootstrap (signal-variance ratio)."""
     pr = paired_ratio(g_kL, g_k1, n_boot, seed, sv_kL, sv_k1)
-    out = dict(r_hw=pr["ratio"], r_hw_lo=pr["lo"], r_hw_hi=pr["hi"], paired=pr["paired"], r_noiseless=r_noiseless, R_unital=R_unital)
-    if not np.isfinite(pr["ratio"]) or not r_noiseless or not np.isfinite(r_noiseless) or not (pr["lo"] > 0):
+    scope = k1_above_shot_floor(g_k1, sv_k1, n_boot, seed)
+    out = dict(r_hw=pr["ratio"], r_hw_lo=pr["lo"], r_hw_hi=pr["hi"], paired=pr["paired"], r_noiseless=r_noiseless, R_unital=R_unital, **scope)
+    if not scope["k1_above_shot_floor"] or not np.isfinite(pr["ratio"]) or not r_noiseless or not np.isfinite(r_noiseless):
         out.update(R_hw=float("nan"), stat=float("nan"), lo=float("nan"), hi=float("nan"), excludes_1_mele_direction=None, contains_1=None)
         return out
     R_hw = pr["ratio"] / r_noiseless
@@ -292,18 +327,28 @@ def point_table(rows: pd.DataFrame, n_boot: int = N_BOOT) -> pd.DataFrame:
         first = g.iloc[0]
         base = dict(point_id=pid, kind=first.kind, arm=first.arm, p=first.p, n=int(first.n) if pd.notna(first.n) else None,
                     L=int(first.L) if pd.notna(first.L) else None, k=int(first.k) if pd.notna(first.k) else None,
-                    resilience_level=int(first.resilience_level), shots=int(first.shots), patch=first.patch, edge=first.edge,
-                    backend=first.backend, jobs=sorted(set(g.job_id.astype(str))), n_rows=int(len(g)), status=",".join(sorted(set(g.status.astype(str)))))
+                    resilience_level=int(first.resilience_level), shots=int(first.shots), patch=first.patch, edge=first.edge, patch_qubits=first.patch_qubits,
+                    properties_file=first.properties_file, backend=first.backend, jobs=sorted(set(g.job_id.astype(str))), n_rows=int(len(g)),
+                    status=",".join(sorted(set(g.status.astype(str)))))
         if first.kind == "grid":
             est = variance_point(g.gradient.astype(float), g.shot_var.astype(float), int(first.shots), int(first.L), n_boot=n_boot)
-            est["gradients"] = g.sort_values("draw").gradient.astype(float).tolist()
-            est["shot_vars"] = g.sort_values("draw").shot_var.astype(float).tolist()
-            est["draw_seeds"] = g.sort_values("draw").seed.tolist()
+            g0 = g[g.repeat == 0].sort_values("draw") if "repeat" in g.columns else g.sort_values("draw")
+            est["gradients"] = g0.gradient.astype(float).tolist()
+            est["shot_vars"] = g0.shot_var.astype(float).tolist()
+            est["draw_seeds"] = g0.seed.tolist()
+            est["n_repeats"] = int(g.repeat.max()) + 1 if "repeat" in g.columns else 1
+            if est["n_repeats"] > 1:                                                  # level-2 points run twice (Section 2): per-repeat gradients for H4
+                est["repeat_gradients"] = [g[g.repeat == r].sort_values("draw").gradient.astype(float).tolist() for r in range(est["n_repeats"])]
+                est["repeat_shot_vars"] = [g[g.repeat == r].sort_values("draw").shot_var.astype(float).tolist() for r in range(est["n_repeats"])]
         elif first.kind == "reset_dial":
             est = dial_point(g, n_boot=n_boot)
             est["gradients"] = [(a.ev_plus.mean() - a.ev_minus.mean()) / 2.0 for _, a in g.groupby("draw", sort=True)]
             est["draw_hashes"] = [str(a.param_hash.iloc[0]) for _, a in g.groupby("draw", sort=True)]
             est["shot_vars"] = [est["combined_floor"]] * len(est["gradients"])       # shot + pattern floor per draw
+        elif first.kind == "null_control":                                           # Section 2 control (a): ideal gradient 0, the hardware floor
+            est = variance_point(g.gradient.astype(float), g.shot_var.astype(float), int(first.shots), int(first.L), n_boot=n_boot)
+            est["gradients"] = g.sort_values("draw").gradient.astype(float).tolist()
+            est["shot_vars"] = g.sort_values("draw").shot_var.astype(float).tolist()
         else:
             continue
         out.append({**base, **est})

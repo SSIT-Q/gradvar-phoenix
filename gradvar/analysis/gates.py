@@ -1,5 +1,6 @@
-"""Section 3b kill rules (a)-(d) and Section 5 Gate 2 (a)-(e), pre-registration v0.9.9. Each evaluator returns a
-``verdict`` (pass / fail / not-evaluable) with the measured number and the pre-registered threshold side by side.
+"""Section 3b kill rules (a)-(d) (Deviation 41 for (b), Deviation 42 (vi)-(vii)), Section 5 Gate 2 (a)-(e) (Deviation 42
+(iv)-(v)) and the Gate 1b clause (b) per-rung reading on the measured references (Deviations 35, 39), pre-registration
+v0.11.1. Each evaluator returns a ``verdict`` (pass / fail / not-evaluable) with the number and the threshold side by side.
 """
 from __future__ import annotations
 
@@ -12,23 +13,22 @@ import pandas as pd
 
 from .. import hardware as hw
 from . import predictions as P
-from .estimators import Z95
+from .estimators import Z95, paired_ratio
 from .hypotheses import verdict
-from .loader import RunData
+from .loader import RunData, job_rep_delay
 
-RESET_ERROR_KILL = 2e-2               # kill rule (a); Gate 2 (e)
-LOCKED_MINUTES_PER_POINT_KILL = 5.0   # kill rule (b)
-DIAL_LAYER_US_KILL = 1.0              # kill rule (c)
-PAPER1_LAYER_US = 0.35                # Section 3b "Reset element": a Paper 1 layer is about 0.35 us, the dial layer 0.71 us
-DIAL_POINT_EXECUTIONS = 100 * 2 * 4096  # one dial gradient point: M = 100 draws x 2 shifts x 4096 shots (Deviation 27 footnote (b))
-DIAL_POINT_JOBS = 171                    # 51,200 circuits at max_experiments 300
-JOB_OVERHEAD_S = 2.0
-MAIN_GRID_LINE_MIN = 200.0            # Section 6
-MAIN_GRID_EXECUTIONS = 2.85e8         # Section 2 point count, Deviation 24 recompute
-MAIN_GRID_JOBS = 188
-GRID_LEVEL = 1                        # resilience level "used on the Paper 1 grid" for kill rule (d): the smoke list probes it at level 1
-READOUT_DRIFT_FACTOR = 1.5            # Gate 2 (e)
+RESET_ERROR_KILL = 2e-2                # kill rule (a); Gate 2 (e)
+LOCKED_MINUTES_PER_POINT_KILL = 7.0    # kill rule (b), Deviation 41: including job overhead at the submitted rep_delay
+DIAL_LAYER_US_KILL = 1.0               # kill rule (c)
+PAPER1_LAYER_US = 0.35                 # Deviation 42 (vi): the 0.35 us Paper 1 layer plus the target's reset duration
+DIAL_POINT_EXECUTIONS = 100 * 2 * 4096  # one dial gradient point: M = 100 draws x 2 shifts x 4096 shots (Section 3b footnote (b))
+DIAL_POINT_JOBS = 171                    # 51,200 circuits at max_experiments 300 (Deviation 27)
+JOB_OVERHEAD_S = 2.0                     # Deviation 24 per-job charge (default; the smoke test measures it)
+MAIN_GRID_LINE_MIN = 200.0             # Section 6
+GRID_LEVEL = 1                         # resilience level used on the Paper 1 grid (kill rule (d))
+READOUT_DRIFT_FACTOR = 1.5             # Gate 2 (e)
 RESET_ERROR_DRIFT_FACTOR = 1.5
+LADDER_N = {39, 40, 53, 56, 60, 87, 90, 100}   # n-ladder rungs, nominal and as placed (Deviations 18, 22, 26)
 
 
 def _measured_reset_error(run: RunData) -> pd.DataFrame:
@@ -49,73 +49,85 @@ def _timed_seconds(job: dict) -> tuple:
     return max(float(job.get("usage_qpu_seconds") or 0.0) - JOB_OVERHEAD_S, 0.0), "usage_qpu_seconds - 2 s"
 
 
+def measured_job_overhead(run: RunData) -> Dict:
+    """Per-job constant of the Deviation 24 model measured on the run: mean over completed jobs of usage minus the timed
+    circuit seconds where ``metrics`` reports them (else the 2 s default)."""
+    vals = []
+    for b in run.bundles.values():
+        j = b.job
+        if j.get("status") != "completed" or j.get("usage_qpu_seconds") is None:
+            continue
+        timed, src = _timed_seconds(j)
+        if src.startswith("metrics"):
+            vals.append(float(j["usage_qpu_seconds"]) - timed)
+    return dict(seconds=float(np.mean(vals)) if vals else JOB_OVERHEAD_S, n_jobs=len(vals), source="measured (usage - timed circuits)" if vals else "Deviation 24 default 2 s")
+
+
+def _executions(job: dict) -> int:
+    pts = job.get("points", []) or []
+    shots = int(job.get("shots", 0))
+    zne = 3 if int(job.get("resilience_level", 0)) == 2 else 1
+    per_pub = [2 if (p.get("kind") in ("reset_dial", "null_control") or p.get("kind") is None) else 1 for p in pts]
+    return sum(per_pub) * shots * zne
+
+
 # ------------------------------------------------------------------------------------------------ kill rules
 
-def kill_rule_a(run: RunData, reference_reset_error: Dict[int, float] | None = None) -> Dict:
-    """(a) measured reset error above 2e-2 on any dial-patch qubit that cannot be swapped out within the clean component.
-    P(1) after |1> -> reset -> measure per qubit from the reset_error probes (reset kind 'reset', prep 1). Whether a
-    failing qubit can be swapped is a placement decision, not computed here: any qubit above the line fails the rule
-    and is listed."""
+def kill_rule_a(run: RunData) -> Dict:
+    """(a) measured reset error above 2e-2 on any dial-patch qubit. P(1) after |1> -> reset -> measure per qubit from the
+    reset_error probes (reset kind 'reset', prep 1). Deviation 42 (vii): any qubit above the line fails the rule and is
+    listed; whether it can be swapped out is decided at placement (Deviation 26 re-check), not here."""
     t = _measured_reset_error(run)
     t = t[(t.reset_kind == "reset") & (t.prep == "1")]
-    text = "Kill rule (a): measured reset error above 2e-2 on any dial-patch qubit that cannot be swapped out within the clean component"
+    text = "Kill rule (a): measured reset error above 2e-2 on any dial-patch qubit (swap-out decided at placement, Deviation 42 (vii))"
     if t.empty:
         return verdict("kill_a", text, "not-evaluable", threshold=RESET_ERROR_KILL, note="no measured reset-error probe (|1> -> reset -> measure) in the run")
     worst = t.loc[t.p1.idxmax()]
     bad = t[t.p1 > RESET_ERROR_KILL]
     return verdict("kill_a", text, "fail" if len(bad) else "pass", value=float(worst.p1), threshold=RESET_ERROR_KILL, comparison="max P(1) per qubit <= 2e-2",
-                   note=f"{len(t)} qubits measured; worst qubit {int(worst.qubit)}; {len(bad)} above the line" + ("" if not len(bad) else " (swap-out not assessed)"),
+                   note=f"{len(t)} qubits measured; worst qubit {int(worst.qubit)}; {len(bad)} above the line",
                    failing_qubits=[int(q) for q in bad.qubit], per_qubit={int(r.qubit): float(r.p1) for r in t.itertuples()})
 
 
 def kill_rule_b(run: RunData) -> Dict:
-    """(b) QPU-locked time above 5 minutes per gradient point at the rep_delay actually granted. Measured from the reset-dial
-    probe jobs: per-execution seconds = (usage - 2 s) / executions, extrapolated to one dial gradient point (819,200
-    executions; Section 3b footnote (b)). Ambiguity: with Deviation 27's 171 jobs per point the pre-registration's own
-    footnote gives 5.95 min per point including the 2 s per-job charge (5.7 min of it job overhead), above the 5-minute
-    line at any execution speed, so the verdict here is on the circuit-execution locked time; the figure with the job
-    overhead is reported beside it for the PI's decision (a Deviation is needed either way)."""
-    text = "Kill rule (b): QPU-locked time above 5 minutes per gradient point at the rep_delay actually granted"
+    """(b) Deviation 41: QPU-locked time per dial gradient point including job overhead at the submitted rep_delay above
+    7.0 minutes kills the arm. The point is extrapolated from the reset-dial probe jobs: 819,200 executions at the
+    measured seconds per execution (``metrics.circuits_execution_time_ns`` / executions, execution-weighted) plus
+    171 jobs at the measured per-job constant; the circuit-execution-only time is reported beside it."""
+    text = "Kill rule (b), Deviation 41: QPU-locked time per dial gradient point including job overhead at the submitted rep_delay <= 7.0 min"
     jobs = []
     for jid, b in run.bundles.items():
         pts = b.job.get("points", []) or []
-        if b.job.get("job_kind") != "probes" or not any(p.get("kind") == "reset_dial" for p in pts):
-            continue
-        usage = b.job.get("usage_qpu_seconds")
-        if usage is None or b.job.get("status") != "completed":
+        if b.job.get("job_kind") != "probes" or not any(p.get("kind") == "reset_dial" for p in pts) or b.job.get("status") != "completed":
             continue
         execs = sum(2 * int(b.job.get("shots", 0)) for p in pts if p.get("kind") == "reset_dial")
-        if execs <= 0:
+        if execs <= 0 or b.job.get("usage_qpu_seconds") is None:
             continue
         timed, src = _timed_seconds(b.job)
-        per_exec = timed / execs
-        circuit_min = DIAL_POINT_EXECUTIONS * per_exec / 60.0
-        jobs.append(dict(job_id=jid, usage_s=float(usage), timed_s=timed, timing_source=src, executions=execs, seconds_per_execution=per_exec, minutes_per_gradient_point_circuits=circuit_min,
-                         minutes_per_gradient_point_with_job_overhead=circuit_min + DIAL_POINT_JOBS * JOB_OVERHEAD_S / 60.0,
-                         rep_delay_granted=b.job.get("rep_delay_granted_s"), default_rep_delay_s=(b.job.get("rep_delay") or {}).get("default_rep_delay_s")))
+        jobs.append(dict(job_id=jid, usage_s=float(b.job["usage_qpu_seconds"]), timed_s=timed, timing_source=src, executions=execs, seconds_per_execution=timed / execs,
+                         rep_delay_submitted=job_rep_delay(b.job), default_rep_delay_s=(b.job.get("rep_delay") or {}).get("default_rep_delay_s")))
     if not jobs:
         return verdict("kill_b", text, "not-evaluable", threshold=LOCKED_MINUTES_PER_POINT_KILL, note="no completed reset-dial probe job with usage in the run")
     w = np.array([j["executions"] for j in jobs], float)
-    per_exec = float(np.sum(w * np.array([j["seconds_per_execution"] for j in jobs])) / w.sum())    # execution-weighted over the dial probe jobs
-    worst = DIAL_POINT_EXECUTIONS * per_exec / 60.0
-    worst_all = worst + DIAL_POINT_JOBS * JOB_OVERHEAD_S / 60.0
-    return verdict("kill_b", text, "fail" if worst > LOCKED_MINUTES_PER_POINT_KILL else "pass", value=float(worst), threshold=LOCKED_MINUTES_PER_POINT_KILL,
-                   comparison="circuit-execution minutes per dial gradient point (819,200 executions x measured s/execution) <= 5",
-                   note=f"with the 171 x 2 s job overhead the same point is {worst_all:.2f} min (the pre-registration's footnote (b) itself gives 5.95 min); "
-                        "AMBIGUITY flagged for the PI: the literal reading including job overhead fails at any execution speed",
-                   minutes_with_job_overhead=float(worst_all), jobs=jobs)
+    per_exec = float(np.sum(w * np.array([j["seconds_per_execution"] for j in jobs])) / w.sum())
+    overhead = measured_job_overhead(run)
+    circuit_min = DIAL_POINT_EXECUTIONS * per_exec / 60.0
+    total_min = circuit_min + DIAL_POINT_JOBS * overhead["seconds"] / 60.0
+    return verdict("kill_b", text, "fail" if total_min > LOCKED_MINUTES_PER_POINT_KILL else "pass", value=float(total_min), threshold=LOCKED_MINUTES_PER_POINT_KILL,
+                   comparison="819,200 executions x measured s/execution + 171 jobs x measured per-job seconds, in minutes, <= 7.0",
+                   note=f"circuit-execution-only time {circuit_min:.2f} min ({per_exec * 1e6:.1f} us per execution); per-job constant {overhead['seconds']:.2f} s "
+                        f"({overhead['source']}, {overhead['n_jobs']} jobs); the pre-registration footnote gives 5.95 min at 1 us",
+                   minutes_circuits_only=float(circuit_min), seconds_per_execution=per_exec, job_overhead=overhead, jobs=jobs)
 
 
 def kill_rule_c(run: RunData) -> Dict:
-    """(c) the transpiler maps reset to a measure-plus-conditional-X sequence: a measure count in the transpiled circuit
-    above the terminal readout (Estimator circuits have none, so any ``mid_circuit_measures`` > 0), or a dial layer above
-    1 us from the target durations (0.35 us Paper 1 layer + the reset instruction's target duration)."""
-    text = "Kill rule (c): reset compiled to measure-plus-conditional-X (mid-circuit measure count > 0), or a dial layer above 1 us from the target durations"
+    """(c) the transpiler maps reset to a measure-plus-conditional-X sequence (``mid_circuit_measures`` > 0 in a reset
+    circuit), or a dial layer above 1 us: Deviation 42 (vi), the 0.35 us Paper 1 layer plus the target's reset duration
+    for that qubit (read from the run's ``circuits.json`` target durations)."""
+    text = "Kill rule (c): reset compiled to measure-plus-conditional-X (mid-circuit measure count > 0), or dial layer 0.35 us + target reset duration above 1 us"
     measures, layer_us = [], []
     for jid, b in run.bundles.items():
         for c in b.circuits:
-            if c.get("reset_count", 0) <= 0 and not c.get("probe_id"):
-                continue
             if c.get("probe_id") and c.get("reset_count", 0) > 0:
                 measures.append(dict(job_id=jid, probe_id=c.get("probe_id"), mid_circuit_measures=int(c.get("mid_circuit_measures", 0))))
                 durs = (c.get("target_durations_s") or {}).get("reset") or {}
@@ -129,13 +141,14 @@ def kill_rule_c(run: RunData) -> Dict:
     fail = max_meas > 0 or (np.isfinite(max_layer) and max_layer > DIAL_LAYER_US_KILL)
     return verdict("kill_c", text, "fail" if fail else "pass", value=dict(mid_circuit_measures=max_meas, dial_layer_us=max_layer),
                    threshold=dict(mid_circuit_measures=0, dial_layer_us=DIAL_LAYER_US_KILL), comparison="both at or below",
-                   note=f"{len(measures)} reset circuits inspected; dial layer = {PAPER1_LAYER_US} us + max reset target duration", circuits=measures[:20], durations=layer_us[:20])
+                   note=f"{len(measures)} reset circuits inspected; reset duration from the run's target.json / circuits.json (a fake target's value is the fake's)",
+                   circuits=measures[:20], durations=layer_us[:20])
 
 
 def kill_rule_d(run: RunData, grid_level: int = GRID_LEVEL) -> Dict:
-    """(d) the Estimator primitive refuses a mid-circuit reset at the resilience level used on the Paper 1 grid: every
-    executed probe job carrying native-reset circuits is inspected; a job with status 'failed' fails the rule, all
-    'completed' passes; a dry run is not evaluable. The note says whether the grid level (1) was among the levels probed."""
+    """(d) the Estimator refuses a mid-circuit reset at the resilience level used on the Paper 1 grid: every executed probe
+    job carrying native-reset circuits is inspected; 'failed' fails the rule, all 'completed' passes; a dry run is not
+    evaluable. The note says whether the grid level was among the levels probed."""
     text = f"Kill rule (d): the Estimator refuses a mid-circuit reset at the resilience level used on the Paper 1 grid (level {grid_level})"
     hits = []
     for jid, b in run.bundles.items():
@@ -151,28 +164,62 @@ def kill_rule_d(run: RunData, grid_level: int = GRID_LEVEL) -> Dict:
                    note=f"levels probed: {levels}" + ("" if grid_level in levels else f"; the grid level {grid_level} was NOT probed"), jobs=hits)
 
 
-def kill_rules(run: RunData, reference_reset_error=None, grid_level: int = GRID_LEVEL) -> Dict[str, Dict]:
-    return {"a": kill_rule_a(run, reference_reset_error), "b": kill_rule_b(run), "c": kill_rule_c(run), "d": kill_rule_d(run, grid_level)}
+def kill_rules(run: RunData, grid_level: int = GRID_LEVEL) -> Dict[str, Dict]:
+    return {"a": kill_rule_a(run), "b": kill_rule_b(run), "c": kill_rule_c(run), "d": kill_rule_d(run, grid_level)}
+
+
+# ------------------------------------------------------------------------------------------------ null-control floors
+
+def null_floors(points: pd.DataFrame, preds: Dict) -> List[Dict]:
+    """The hardware noise floor per (n, shots, level): measured null-control points (Section 2 control (a), probe kind
+    ``null_control``, candidate Deviation 43) when the run has them, else the simulated floor of Gate 1 criterion (d),
+    labelled. ``sigma`` is the bootstrap standard deviation of the floor's variance estimate."""
+    out = []
+    if len(points):
+        for r in points[points.kind == "null_control"].itertuples():
+            out.append(dict(n=int(r.n), shots=int(r.shots), resilience_level=int(r.resilience_level), var_null=float(r.variance),
+                            ci_lo=float(r.ci_lo), ci_hi=float(r.ci_hi), sigma=float((r.ci_hi - r.ci_lo) / (2 * Z95)), M=int(r.M), source="measured null control"))
+    for q in preds.get("null_control", {}).get("points", []):
+        if not any(o["n"] == int(q["n"]) and o["shots"] == int(q["shots"]) and o["source"].startswith("measured") for o in out):
+            out.append(dict(n=int(q["n"]), shots=int(q["shots"]), resilience_level=None, var_null=float(q["var_null"]), ci_lo=float(q["ci_lo"]), ci_hi=float(q["ci_hi"]),
+                            sigma=float((q["ci_hi"] - q["ci_lo"]) / (2 * Z95)), M=int(q["M"]), source="simulated (Gate 1 criterion (d)); Deviation 43 pending"))
+    return out
+
+
+def null_floor_for(floors: List[Dict], n: int, shots: int) -> Dict | None:
+    """The floor for a point: a measured one at the same shots, else a measured one rescaled by shots (the floor is shot
+    dominated; labelled 'scaled'), else the simulated floor at the same shots, else the simulated one rescaled."""
+    for measured in (True, False):
+        cands = [f for f in floors if f["source"].startswith("measured") == measured]
+        same = [f for f in cands if f["shots"] == int(shots) and f["n"] == int(n)] or [f for f in cands if f["shots"] == int(shots)]
+        if same:
+            return dict(same[0])
+        if cands:
+            f = dict(cands[0])
+            scale = f["shots"] / float(shots)
+            f.update(var_null=f["var_null"] * scale, ci_lo=f["ci_lo"] * scale, ci_hi=f["ci_hi"] * scale, sigma=f["sigma"] * scale, source=f["source"] + f" (scaled from {f['shots']} shots)")
+            return f
+    return None
 
 
 # ------------------------------------------------------------------------------------------------ Gate 2
 
-def gate2_a(points: pd.DataFrame, preds: Dict) -> Dict:
+def gate2_a(points: pd.DataFrame, preds: Dict, floors: List[Dict] | None = None) -> Dict:
     """(a) at n = 20, level 0, at the deepest L on the ladder whose Gate 1 predicted variance lies above the null-control
-    floor (not L = 1), the measured variance exceeds the null-control floor by more than three standard errors. The
-    floor is the simulated null control of criterion (d) (a hardware null control is not in the job-list schema yet);
+    floor (not L = 1), the measured variance exceeds the null-control floor by more than three standard errors. The floor
+    is the measured null control when the run has one, else the simulated floor of criterion (d) (Deviation 42 (v));
     SE = bootstrap half-width / 1.96 of the measured variance."""
     text = "Gate 2 (a): at n = 20, level 0, deepest predicted-resolvable L > 1, measured variance exceeds the null-control floor by > 3 SE"
     g = points[(points.kind == "grid") & (points.n == 20) & (points.resilience_level == 0) & (points.k == 1) & (points.L > 1)] if len(points) else points
     if g.empty:
         return verdict("gate2_a", text, "not-evaluable", note="no n = 20, level 0, L > 1 grid point measured")
     shots = int(g.shots.iloc[0])
-    floor = P.null_control_floor(preds, 20, shots)
+    floor = null_floor_for(floors if floors is not None else null_floors(points, preds), 20, shots)
     if floor is None:
-        return verdict("gate2_a", text, "not-evaluable", note=f"no null-control floor for n = 20 at {shots} shots in the predictions")
+        return verdict("gate2_a", text, "not-evaluable", note=f"no null-control floor for n = 20 at {shots} shots (measured or simulated)")
     cands = []
     for r in g.sort_values("L", ascending=False).itertuples():
-        pr = P.predicted_point(preds, 20, int(r.L), 1, "grid")
+        pr = P.predicted_point(preds, 20, int(r.L), 1, "grid", patch=r.patch, edge=r.edge)
         if pr and pr["var"] > floor["var_null"]:
             cands.append((int(r.L), pr["var"], r))
     if not cands:
@@ -181,8 +228,8 @@ def gate2_a(points: pd.DataFrame, preds: Dict) -> Dict:
     se = (r.ci_hi - r.ci_lo) / (2 * Z95)
     z = (r.variance - floor["var_null"]) / se if se > 0 else float("nan")
     return verdict("gate2_a", text, "pass" if z > 3 else "fail", value=float(z), threshold=3.0, comparison="(Var_measured - Var_null) / SE > 3",
-                   note=f"L = {L} (predicted {pv:.3g} > null floor {floor['var_null']:.3g}); measured {r.variance:.3g} +/- {se:.2g}", L=L, predicted=pv, floor=floor,
-                   measured=float(r.variance))
+                   note=f"L = {L} (predicted {pv:.3g} > null floor {floor['var_null']:.3g}, {floor['source']}); measured {r.variance:.3g} +/- {se:.2g}", L=L, predicted=pv,
+                   floor=floor, measured=float(r.variance))
 
 
 def preregistered_main_grid(shots: int = 4096, headline_shots: int = 16384, M: int = 200, ns=(20, 39, 53, 70, 87), Ls=(1, 2, 4, 8, 12)) -> dict:
@@ -209,58 +256,28 @@ def preregistered_main_grid(shots: int = 4096, headline_shots: int = 16384, M: i
     return dict(backend="ibm_phoenix", points=pts, probes=[])
 
 
-def booked_rep_delay_us(run: RunData) -> Dict:
-    """Section 6 booking rule: the grid is booked at 1 us, or the smallest value the smoke-test ladder shows to be bias-free
-    (bias change below twice the 4096-shot floor against the default), whichever is larger; without a ladder the
-    backend's default rep_delay is the booked value."""
-    rds = [(b.job.get("rep_delay") or {}).get("default_rep_delay_s") for b in run.bundles.values()]
-    rds = [float(r) * 1e6 for r in rds if r is not None]
-    default_us = rds[0] if rds else float("nan")
-    t = _ladder_rows(run)
-    if t.empty or t.rep_delay_us.isna().all():
-        return dict(booked_us=default_us, default_us=default_us, source="backend default (no ladder)")
-    N = int(t.shots.iloc[0])
-    floor = 1.0 / (2.0 * np.sqrt(N))
-    per = t.groupby(["rep_delay_us", "prep"]).bias.mean().unstack("prep")
-    ref = per.index.max()
-    free = [rd for rd in per.index if float(np.nanmax(np.abs(per.loc[rd] - per.loc[ref]))) < 2 * floor]
-    booked = max(min(free) if free else ref, 1.0)
-    return dict(booked_us=float(booked), default_us=default_us, source="smallest bias-free ladder setting (Section 6)", ladder_settings_us=[float(x) for x in per.index],
-                bias_free_settings_us=[float(x) for x in free])
-
-
-def gate2_b(run: RunData) -> Dict:
-    """(b) default_rep_delay, rep_delay_range and dynamic_reprate_enabled read from backend.configuration() (here from the
-    bundles' ``rep_delay``), and the Section 2 grid recomputed with the Deviation 24 model at the booked floor (the
-    granted / default rep_delay) must fit the 200-minute line."""
-    text = "Gate 2 (b): rep_delay figures read back; the Section 2 grid under the Deviation 24 model at the booked rep_delay fits the 200-minute line"
-    rds = [b.job.get("rep_delay") or {} for b in run.bundles.values()]
-    rds = [r for r in rds if r.get("default_rep_delay_s") is not None]
-    if not rds:
-        return verdict("gate2_b", text, "not-evaluable", threshold=MAIN_GRID_LINE_MIN, note="no bundle reports default_rep_delay")
-    rd_us = float(rds[0]["default_rep_delay_s"]) * 1e6
-    booked = booked_rep_delay_us(run)
-    booked_us = booked["booked_us"]
-    est = hw.estimate_budget(preregistered_main_grid(), rep_delays_us=(booked_us,))
-    minutes = float(est[f"minutes_at_{booked_us:g}us"])
-    return verdict("gate2_b", text, "pass" if minutes <= MAIN_GRID_LINE_MIN else "fail", value=minutes, threshold=MAIN_GRID_LINE_MIN,
-                   comparison="minutes of the Section 2 grid at the booked rep_delay <= 200",
-                   note=f"default_rep_delay {rd_us:g} us, range {rds[0].get('rep_delay_range_s')} s, dynamic_reprate_enabled {rds[0].get('dynamic_reprate_enabled')}; "
-                        f"booked {booked_us:g} us ({booked['source']}); {est['jobs']} jobs, {est['executions']:.3g} executions; cut order of Section 6 applies on failure",
-                   rep_delay=rds[0], booked_rep_delay_us=booked_us, booking=booked, budget=dict((k, v) for k, v in est.items() if k != "per_job"))
+def main_grid_constants(rep_delay_us: float = 1.0) -> Dict:
+    """Jobs and executions of the Section 2 grid from ``preregistered_main_grid`` through the Deviation 24 budget model
+    (Gate 2 (b) and (d) share them; N5)."""
+    est = hw.estimate_budget(preregistered_main_grid(), rep_delays_us=(rep_delay_us,))
+    return dict(jobs=int(est["jobs"]), executions=int(est["executions"]), executions_with_zne=int(est["executions_with_zne"]), trex_executions=int(est["trex_executions"]),
+                minutes=float(est[f"minutes_at_{rep_delay_us:g}us"]), rep_delay_us=rep_delay_us)
 
 
 def _ladder_rows(run: RunData) -> pd.DataFrame:
-    """Rep_delay ladder probes (Section 6: prepare |0> / |1> -> measure at the default, 20, 5 and 1 us): reset_error probes
-    of reset kind 'none' whose id names the rep_delay (``rd<value>us``) or whose job carries a granted rep_delay."""
+    """Rep_delay ladder probes (Section 6: prepare |0> / |1> -> measure at 250, 20, 5 and 1 us): reset_error probes of reset
+    kind 'none'; the rung's rep_delay comes from the probe's ``rep_delay_us`` (main since 56de033), else the job's
+    submitted rep_delay, else the id (``rd<value>us``)."""
     t = _measured_reset_error(run)
     t = t[t.reset_kind == "none"].copy()
     if t.empty:
         return t
 
     def rd(r):
-        g = r.rep_delay_granted
-        if isinstance(g, (int, float)):
+        if r.rep_delay_us is not None and np.isfinite(float(r.rep_delay_us if r.rep_delay_us is not None else np.nan)):
+            return float(r.rep_delay_us)
+        g = r.rep_delay_submitted
+        if isinstance(g, (int, float)) and not isinstance(g, bool):
             return float(g) * 1e6
         m = re.search(r"rd(\d+(?:p\d+)?)us", str(r.probe_id))
         return float(m.group(1).replace("p", ".")) if m else float("nan")
@@ -269,19 +286,69 @@ def _ladder_rows(run: RunData) -> pd.DataFrame:
     return t
 
 
+def ladder_bias_table(run: RunData) -> pd.DataFrame:
+    t = _ladder_rows(run)
+    if t.empty or t.rep_delay_us.isna().all():
+        return pd.DataFrame()
+    return t.groupby(["rep_delay_us", "prep"]).bias.mean().unstack("prep")
+
+
+def booked_rep_delay_us(run: RunData) -> Dict:
+    """Section 6 booking rule: the grid is booked at 1 us, or the smallest value the smoke-test ladder shows to be bias-free
+    (bias change below 2 x 1/(2 sqrt N) against the default, Deviation 42 (iv)), whichever is larger. Without a ladder
+    the booked value is undetermined (``booked_us`` None) and the backend default is reported."""
+    rds = [(b.job.get("rep_delay") or {}).get("default_rep_delay_s") for b in run.bundles.values()]
+    rds = [float(r) * 1e6 for r in rds if r is not None]
+    default_us = rds[0] if rds else float("nan")
+    per = ladder_bias_table(run)
+    if per.empty:
+        return dict(booked_us=None, default_us=default_us, source="no ladder in the run: booked rep_delay undetermined")
+    N = int(_ladder_rows(run).shots.iloc[0])
+    floor = 1.0 / (2.0 * np.sqrt(N))
+    ref = per.index.max()
+    free = [rd for rd in per.index if float(np.nanmax(np.abs(per.loc[rd] - per.loc[ref]))) < 2 * floor]
+    booked = max(min(free) if free else ref, 1.0)
+    return dict(booked_us=float(booked), default_us=default_us, source="smallest bias-free ladder setting (Section 6)", ladder_settings_us=[float(x) for x in per.index],
+                bias_free_settings_us=[float(x) for x in free])
+
+
+def gate2_b(run: RunData) -> Dict:
+    """(b) default_rep_delay, rep_delay_range and dynamic_reprate_enabled read back (from the bundles' ``rep_delay``), and the
+    Section 2 grid recomputed with the Deviation 24 model at the booked rep_delay must fit the 200-minute line. Without a
+    ladder the booked floor is undetermined and the criterion is not evaluable (N2); the grid at the backend default is
+    reported in the note."""
+    text = "Gate 2 (b): rep_delay figures read back; the Section 2 grid under the Deviation 24 model at the booked rep_delay fits the 200-minute line"
+    rds = [b.job.get("rep_delay") or {} for b in run.bundles.values()]
+    rds = [r for r in rds if r.get("default_rep_delay_s") is not None]
+    if not rds:
+        return verdict("gate2_b", text, "not-evaluable", threshold=MAIN_GRID_LINE_MIN, note="no bundle reports default_rep_delay")
+    rd_us = float(rds[0]["default_rep_delay_s"]) * 1e6
+    booked = booked_rep_delay_us(run)
+    at_default = main_grid_constants(rd_us)
+    figures = f"default_rep_delay {rd_us:g} us, range {rds[0].get('rep_delay_range_s')} s, dynamic_reprate_enabled {rds[0].get('dynamic_reprate_enabled')}"
+    if booked["booked_us"] is None:
+        return verdict("gate2_b", text, "not-evaluable", value=at_default["minutes"], threshold=MAIN_GRID_LINE_MIN,
+                       note=f"{figures}; {booked['source']}; at the backend default the grid is {at_default['minutes']:.1f} min ({at_default['jobs']} jobs, "
+                            f"{at_default['executions']:.3g} executions)", rep_delay=rds[0], booking=booked, budget_at_default=at_default)
+    est = main_grid_constants(booked["booked_us"])
+    return verdict("gate2_b", text, "pass" if est["minutes"] <= MAIN_GRID_LINE_MIN else "fail", value=est["minutes"], threshold=MAIN_GRID_LINE_MIN,
+                   comparison="minutes of the Section 2 grid at the booked rep_delay <= 200",
+                   note=f"{figures}; booked {booked['booked_us']:g} us ({booked['source']}); {est['jobs']} jobs, {est['executions']:.3g} executions; cut order of Section 6 applies on failure",
+                   rep_delay=rds[0], booked_rep_delay_us=booked["booked_us"], booking=booked, budget=est)
+
+
 def gate2_c(run: RunData) -> Dict:
     """(c) the smoke test's rep_delay ladder shows a state-preparation bias change below twice the 4096-shot floor between
-    the default and the booked floor (the floor on a probability is taken as 1 / (2 sqrt N), the binomial standard
-    error at p = 1/2; the clause does not define it), and the granted rep_delay and dynamic_reprate_enabled are logged
-    for every job."""
-    text = "Gate 2 (c): rep_delay ladder bias change < 2 x the 4096-shot floor between the default and the booked floor; rep_delay and dynamic_reprate logged per job"
-    logged = all(b.job.get("rep_delay_granted_s") is not None and b.job.get("dynamic_reprate_enabled") is not None for b in run.bundles.values())
+    the default and the booked floor (Deviation 42 (iv): 2 x 1/(2 sqrt N) = 1.56e-2 at N = 4096), and the submitted
+    rep_delay and dynamic_reprate_enabled are logged for every job (``rep_delay_submitted_s``)."""
+    text = "Gate 2 (c): rep_delay ladder bias change < 2 x 1/(2 sqrt N) between the default and the booked floor; rep_delay and dynamic_reprate logged per job"
+    logged = bool(run.bundles) and all(job_rep_delay(b.job) is not None and b.job.get("dynamic_reprate_enabled") is not None for b in run.bundles.values())
     t = _ladder_rows(run)
     if t.empty or t.rep_delay_us.isna().all():
         return verdict("gate2_c", text, "not-evaluable", note=f"no rep_delay ladder probe in the run; per-job logging {'complete' if logged else 'INCOMPLETE'}", logging_complete=logged)
     N = int(t.shots.iloc[0])
     floor = 1.0 / (2.0 * np.sqrt(N))
-    per = t.groupby(["rep_delay_us", "prep"]).bias.mean().unstack("prep")
+    per = ladder_bias_table(run)
     rd_default, rd_min = per.index.max(), per.index.min()
     change = float(np.nanmax(np.abs(per.loc[rd_min] - per.loc[rd_default]))) if rd_default != rd_min else 0.0
     ok = change < 2 * floor and logged
@@ -291,36 +358,38 @@ def gate2_c(run: RunData) -> Dict:
 
 
 def gate2_d(run: RunData) -> Dict:
-    """(d) measured QPU-locked time per point at the granted rep_delay within the Section 6 budget: the measured
-    seconds per execution of the completed gradient-point jobs, extrapolated to the Section 2 grid (2.85e8 executions
-    in 188 jobs of 2 s), must fit the 200-minute line; the ratio measured / budget-model per job is reported."""
-    text = "Gate 2 (d): measured QPU-locked time per point at the granted rep_delay within the Section 6 budget (200-minute main-grid line)"
+    """(d) measured QPU-locked time per point at the submitted rep_delay within the Section 6 budget: the measured seconds
+    per execution of the completed gradient-point jobs (execution-weighted over levels 0 / 1) and the measured per-job
+    constant, extrapolated to the Section 2 grid (jobs and executions from ``preregistered_main_grid``, N5), against the
+    200-minute line; usage / budget-model per job is reported."""
+    text = "Gate 2 (d): measured QPU-locked time per point at the submitted rep_delay within the Section 6 budget (200-minute main-grid line)"
     jobs = []
     for jid, b in run.bundles.items():
         if b.job.get("job_kind") != "gradient_points" or b.job.get("status") != "completed" or b.job.get("usage_qpu_seconds") is None:
             continue
         pts = b.job.get("points", []) or []
-        execs = 2 * len(pts) * int(b.job.get("shots", 0)) * (3 if int(b.job.get("resilience_level", 0)) == 2 else 1)
+        execs = _executions(b.job)
         model = None
         for e in (b.job.get("budget_estimate_with_target_durations") or {}).get("per_job", []) or []:
             if e.get("tag") == f"L{b.job.get('resilience_level')}":
                 rd = (b.job.get("rep_delay") or {}).get("default_rep_delay_s")
-                key = f"seconds_at_{float(rd) * 1e6:g}us" if rd else None
-                model = e.get(key) if key else None
+                model = e.get(f"seconds_at_{float(rd) * 1e6:g}us") if rd else None
         usage = float(b.job["usage_qpu_seconds"])
         timed, src = _timed_seconds(b.job)
         jobs.append(dict(job_id=jid, resilience_level=b.job.get("resilience_level"), points=len(pts), usage_s=usage, timed_s=timed, timing_source=src, executions=execs,
-                         seconds_per_execution=timed / max(execs, 1), seconds_per_point=usage / max(len(pts), 1),
-                         model_seconds=model, usage_over_model=(usage / model) if model else None))
+                         seconds_per_execution=timed / max(execs, 1), seconds_per_point=usage / max(len(pts), 1), model_seconds=model, usage_over_model=(usage / model) if model else None))
     if not jobs:
         return verdict("gate2_d", text, "not-evaluable", threshold=MAIN_GRID_LINE_MIN, note="no completed gradient-point job with usage in the run")
     lvl01 = [j for j in jobs if int(j["resilience_level"] or 0) <= 1] or jobs
     w = np.array([j["executions"] for j in lvl01], float)
     per_exec = float(np.sum(w * np.array([j["seconds_per_execution"] for j in lvl01])) / w.sum())
-    minutes = (MAIN_GRID_JOBS * JOB_OVERHEAD_S + MAIN_GRID_EXECUTIONS * per_exec) / 60.0
+    overhead = measured_job_overhead(run)
+    grid = main_grid_constants()
+    minutes = (grid["jobs"] * overhead["seconds"] + grid["executions_with_zne"] * per_exec) / 60.0
     return verdict("gate2_d", text, "pass" if minutes <= MAIN_GRID_LINE_MIN else "fail", value=minutes, threshold=MAIN_GRID_LINE_MIN,
-                   comparison="188 x 2 s + 2.85e8 executions x measured s/execution, in minutes, <= 200",
-                   note=f"measured {per_exec * 1e6:.2f} us per execution over {len(lvl01)} level 0/1 jobs", jobs=jobs)
+                   comparison=f"{grid['jobs']} jobs x per-job seconds + {grid['executions_with_zne']:.3g} executions x measured s/execution, in minutes, <= 200",
+                   note=f"measured {per_exec * 1e6:.2f} us per execution over {len(lvl01)} level 0/1 jobs; per-job constant {overhead['seconds']:.2f} s ({overhead['source']})",
+                   grid=grid, job_overhead=overhead, jobs=jobs)
 
 
 def _snapshot_readout(csv_path: str | Path | None) -> Dict[int, float]:
@@ -344,9 +413,9 @@ def _live_readout(run: RunData) -> Dict[int, float]:
 
 
 def gate2_e(run: RunData, snapshot_csv: str | Path | None, reference_reset_error: Dict[int, float] | None = None) -> Dict:
-    """(e) readout errors on the day within 1.5x of the planning snapshot on the patch qubits; reset error on the dial
-    patch within 1.5x of its dry-run (earlier smoke-test) value and below the 2e-2 kill line. ``reference_reset_error``
-    is the earlier run's per-qubit P(1); without it only the kill line is checked."""
+    """(e) readout errors on the day within 1.5x of the planning snapshot on the patch qubits; reset error on the dial patch
+    within 1.5x of its dry-run (earlier smoke-test) value and below the 2e-2 kill line. ``reference_reset_error`` is the
+    earlier run's per-qubit P(1); without it only the kill line is checked."""
     text = "Gate 2 (e): day readout errors within 1.5x the planning snapshot; dial-patch reset error within 1.5x its dry-run value and below 2e-2"
     live, snap = _live_readout(run), _snapshot_readout(snapshot_csv)
     patch_q = sorted({int(q) for s in run.rows.patch_qubits.dropna().astype(str) for q in s.split() if q.isdigit()})
@@ -365,7 +434,8 @@ def gate2_e(run: RunData, snapshot_csv: str | Path | None, reference_reset_error
     if ro:
         parts.append(f"readout: max live/snapshot {max(r['ratio'] for r in ro):.2f} over {len(ro)} patch qubits (limit 1.5), {len(ro_bad)} above")
     if reset:
-        parts.append(f"reset error: max P(1) {max(reset.values()):.2e} (kill line 2e-2), {len(reset_bad)} at or above" + (f"; drift vs reference: {len(drift_bad)} of {len(drift)} above 1.5x" if drift else "; no reference value for the drift check"))
+        parts.append(f"reset error: max P(1) {max(reset.values()):.2e} (kill line 2e-2), {len(reset_bad)} at or above"
+                     + (f"; drift vs reference: {len(drift_bad)} of {len(drift)} above 1.5x" if drift else "; no reference value for the drift check"))
     fail = bool(ro_bad or reset_bad or drift_bad)
     return verdict("gate2_e", text, "fail" if fail else "pass",
                    value=dict(readout_ratio_max=max((r["ratio"] for r in ro), default=None), reset_error_max=max(reset.values(), default=None),
@@ -374,6 +444,63 @@ def gate2_e(run: RunData, snapshot_csv: str | Path | None, reference_reset_error
                    note="; ".join(parts), readout=ro, readout_failing=ro_bad, reset_error=reset, reset_drift=drift)
 
 
-def gate2(run: RunData, points: pd.DataFrame, preds: Dict, snapshot_csv=None, reference_reset_error=None) -> Dict[str, Dict]:
+def gate2(run: RunData, points: pd.DataFrame, preds: Dict, snapshot_csv=None, reference_reset_error=None, floors: List[Dict] | None = None) -> Dict[str, Dict]:
     """Gate 2 (a)-(e). Pause rule: failing any of these pauses the campaign until the cause is logged and the PI signs off."""
-    return {"a": gate2_a(points, preds), "b": gate2_b(run), "c": gate2_c(run), "d": gate2_d(run), "e": gate2_e(run, snapshot_csv, reference_reset_error)}
+    return {"a": gate2_a(points, preds, floors), "b": gate2_b(run), "c": gate2_c(run), "d": gate2_d(run), "e": gate2_e(run, snapshot_csv, reference_reset_error)}
+
+
+# ------------------------------------------------------------------------------------------------ Gate 1b clause (b) on the day
+
+def gate1b_clause_b(points: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict:
+    """Gate 1b clause (b) read on the measured references (Deviation 35): per rung (patch), the delay-matched p = 0 k = L
+    reference at L = 8 is counted only if its measured, floor-subtracted variance exceeds 3 shot floors at its shot
+    count; a counted rung passes if the measured depth fall V(8) - V(12) exceeds 3 shot floors and 2 x the L = 8 point's
+    bootstrap 2 sigma, and the p = 0.25 to p = 0 separation at L = 8 is at least 3 x the reset point's combined floor;
+    the clause passes if at least two rungs are counted and all counted rungs pass, is inconclusive with fewer than two
+    counted (Deviation 35 (ii)). Deviation 39 flag per rung: measured bootstrap 2 sigma of the L = 8 reference above
+    half its predicted depth fall raises M to 600 on that rung. Reported as flags; Gate 1b itself is decided on the
+    predictions before booking."""
+    text = "Gate 1b clause (b) on the measured references (Deviation 35 per-rung counting; Deviation 39 M = 600 trigger)"
+    d = points[points.kind == "reset_dial"] if len(points) else points
+    rungs = []
+    for n, g in d[(d.arm == "delay") & (d.k == d.L)].groupby("n"):
+        r8, r12 = g[g.L == 8], g[g.L == 12]
+        if r8.empty:
+            continue
+        a = r8.iloc[0]
+        floor8 = float(a.shot_floor)
+        two_sigma = float((a.signal_ci_hi - a.signal_ci_lo) / 2)
+        rung = dict(n=int(n), patch=a.patch, ref8=float(a.signal_variance), ref8_ci=[float(a.signal_ci_lo), float(a.signal_ci_hi)], shot_floor=floor8, shots=int(a.shots),
+                    ref8_over_shot_floor=float(a.signal_variance / floor8) if floor8 else None, counted=bool(a.signal_variance > 3 * floor8), M=int(a.M), two_sigma_8=two_sigma)
+        pr8 = P.predicted_point(preds, int(n), 8, 8, "delay", 0.0, patch=a.patch, edge=a.edge)
+        pr12 = P.predicted_point(preds, int(n), 12, 12, "delay", 0.0, patch=a.patch, edge=a.edge)
+        if pr8 and pr12:
+            rung["predicted_fall"] = pr8["var"] - pr12["var"]
+            rung["deviation_39_trigger_M600"] = bool(two_sigma > 0.5 * rung["predicted_fall"])
+        if not r12.empty:
+            b = r12.iloc[0]
+            fall = float(a.signal_variance - b.signal_variance)
+            pr = paired_ratio(a.gradients, b.gradients, n_boot, sub_a=a.shot_vars, sub_b=b.shot_vars)
+            rung.update(ref12=float(b.signal_variance), fall=fall, fall_over_3_shot_floors=fall / (3 * floor8) if floor8 else None, fall_over_2x_2sigma=fall / (2 * two_sigma) if two_sigma > 0 else None,
+                        depth_ratio_8_over_12=pr["ratio"], depth_ratio_lo=pr["lo"], depth_ratio_hi=pr["hi"], unital_reference_falls=bool(pr["lo"] > 1.0),
+                        fall_passes=bool(fall > 3 * floor8 and fall > 2 * two_sigma))
+        reset8 = d[(d.arm == "reset") & (d.n == n) & (d.L == 8) & (d.k == 8) & np.isclose(d.p.astype(float), 0.25)]
+        if not reset8.empty:
+            c = reset8.iloc[0]
+            sep = float(c.signal_variance - a.signal_variance)
+            rung.update(separation_p025_minus_p0=sep, separation_over_combined_floor=sep / c.combined_floor if c.combined_floor else None,
+                        separation_passes=bool(c.combined_floor and sep >= 3 * c.combined_floor))
+        rung["passes"] = bool(rung.get("fall_passes", False) and rung.get("separation_passes", True)) if "fall" in rung else None
+        rungs.append(rung)
+    counted = [r for r in rungs if r["counted"] and r["passes"] is not None]
+    if not rungs:
+        return verdict("gate1b_b", text, "not-evaluable", note="no delay-matched p = 0 k = L reference at L = 8 in the run", rungs=rungs)
+    if len(counted) < 2:
+        result = "not-evaluable"
+        note = f"{len(counted)} rung(s) counted (fewer than two): clause (b) inconclusive, not passed (Deviation 35 (ii))"
+    else:
+        result = "pass" if all(r["passes"] for r in counted) else "fail"
+        note = f"{len(counted)} rungs counted, {sum(1 for r in counted if r['passes'])} pass"
+    triggers = [r["n"] for r in rungs if r.get("deviation_39_trigger_M600")]
+    return verdict("gate1b_b", text, result, value=f"{sum(1 for r in counted if r['passes'])} of {len(counted)} counted rungs pass", threshold="all counted rungs pass, >= 2 counted",
+                   note=note + (f"; Deviation 39: M rises to 600 on rung(s) n = {triggers}" if triggers else "; Deviation 39 trigger not raised"), rungs=rungs, deviation_39_rungs=triggers)

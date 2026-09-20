@@ -12,7 +12,7 @@ from typing import Dict
 import numpy as np
 import pandas as pd
 
-from . import figures, gates, hypotheses
+from . import dial_hypotheses, figures, gates, hypotheses
 from . import predictions as P
 from .estimators import delay_matched_comparison, null_variance_interval, point_table
 from .loader import load_run
@@ -35,6 +35,13 @@ def _jsonable(o):
         return _jsonable(o.to_dict("records"))
     if o is pd.NA or o is pd.NaT:
         return None
+    if isinstance(o, (bool, int, str)) or o is None:
+        return o
+    try:
+        if pd.isna(o):
+            return None
+    except (TypeError, ValueError):
+        pass
     return o
 
 
@@ -48,7 +55,8 @@ def dial_comparisons(points: pd.DataFrame, preds: Dict) -> list:
         if ctrl.empty:
             continue
         c = ctrl.iloc[0].to_dict()
-        pr, pc = P.predicted_point(preds, r["n"], r["L"], r["k"], "reset", r["p"]), P.predicted_point(preds, r["n"], r["L"], r["k"], "delay", 0.0)
+        pr = P.predicted_point(preds, r["n"], r["L"], r["k"], "reset", r["p"], patch=r["patch"], edge=r["edge"])
+        pc = P.predicted_point(preds, r["n"], r["L"], r["k"], "delay", 0.0, patch=r["patch"], edge=r["edge"])
         sep = (pr["var"] - pc["var"]) if pr and pc else None
         cmp = delay_matched_comparison(r, c, r.get("gradients"), c.get("gradients"), sep)
         cmp.update(point_id=r["point_id"], control_id=c["point_id"], n=r["n"], L=r["L"], k=r["k"], p=r["p"],
@@ -78,16 +86,26 @@ def deviation25_checks(points: pd.DataFrame, comparison: pd.DataFrame, preds: Di
 
 def analyse(run_dir: str, predictions_dir: str | None = None, snapshot_csv: str | None = None, reference_reset_error: Dict | None = None,
             n_boot: int = 10_000) -> Dict:
+    """The whole pre-registered analysis of one run: load, estimate per point, null-control floors and the Deviation 37
+    claimability bar, Deviation 33 floors on the dial points, prediction join and Deviation 19 flags, H1-H4, H5-H7,
+    kill rules, Gate 2, Gate 1b clause (b) on the day."""
     run = load_run(run_dir)
     preds = P.load_predictions(predictions_dir)
     points = point_table(run.rows, n_boot=n_boot)
+    floors = gates.null_floors(points, preds)
+    if len(points):
+        points = hypotheses.mark_claimable(points, floors)
+        points = dial_hypotheses.mark_dial_floors(points, snapshot_csv)
     comparison = P.compare_points(points, preds) if len(points) else pd.DataFrame()
     anomalies = P.anomaly_protocol(comparison) if len(comparison) else dict(flagged=False, single_point=[], monotone_runs=[], n_compared=0)
     hyp = hypotheses.evaluate_all(points, preds, n_boot) if len(points) else {}
+    dial = dial_hypotheses.evaluate_all(points, run.rows, preds, n_boot) if len(points) else {}
     kill = gates.kill_rules(run)
-    g2 = gates.gate2(run, points, preds, snapshot_csv, reference_reset_error)
+    g2 = gates.gate2(run, points, preds, snapshot_csv, reference_reset_error, floors)
+    g1b = gates.gate1b_clause_b(points, preds, n_boot) if len(points) else {}
     return dict(run=run.summary(), predictions_dir=preds["dir"], points=points, comparison=comparison, anomaly_protocol=anomalies, hypotheses=hyp,
-                kill_rules=kill, gate2=g2, dial_controls=dial_comparisons(points, preds) if len(points) else [],
+                dial_hypotheses=dial, kill_rules=kill, gate2=g2, gate1b_clause_b=g1b, null_floors=floors,
+                dial_controls=dial_comparisons(points, preds) if len(points) else [],
                 deviation_25=deviation25_checks(points, comparison, preds) if len(points) else [], reset_error=run.reset_error, _run=run, _preds=preds)
 
 
@@ -126,15 +144,22 @@ def write_report(res: Dict, out_dir: str | Path, figure_files: Dict[str, str]) -
           f"backends {res['run']['backends']}, statuses {res['run']['statuses']}). Predictions: `{res['predictions_dir']}`. "
           "Pre-registration v0.9.9; every verdict below names its clause.", ""]
     if res["hypotheses"]:
-        md.append(_verdict_table("Hypotheses (Section 1, Deviations 14 / 16 / 17)", res["hypotheses"]))
-    md.append(_verdict_table("Kill rules (Section 3b)", res["kill_rules"]))
+        md.append(_verdict_table("Hypotheses H1-H4 (Section 1; Deviations 14 / 16 / 17 / 37 / 40 / 42)", res["hypotheses"]))
+    if res.get("dial_hypotheses"):
+        md.append(_verdict_table("Hypotheses H5-H7 (Section 3b; Deviation 33 floor, Deviation 38 floors, Deviation 40)", res["dial_hypotheses"]))
+    md.append(_verdict_table("Kill rules (Section 3b; Deviation 41 for (b))", res["kill_rules"]))
     md.append(_verdict_table("Gate 2 (Section 5); pause rule on any failure", res["gate2"]))
+    if res.get("gate1b_clause_b"):
+        md.append(_verdict_table("Gate 1b clause (b) on the measured references (Deviations 35, 39; flags)", {"b": res["gate1b_clause_b"]}))
+    if res.get("null_floors"):
+        md += ["### Null-control floors (Deviation 37 claimability bar = floor + 3 sigma)", "", _md_table(pd.DataFrame(res["null_floors"])), ""]
     a = res["anomaly_protocol"]
     md += ["### Anomaly protocol (Deviation 19)", "", f"Flagged: **{a.get('flagged')}** ({a.get('n_compared', 0)} points compared). "
            f"Single-point anomalies: {len(a.get('single_point', []))}; monotone runs: {len(a.get('monotone_runs', []))}. Action: {a.get('action', 'none')}.", ""]
     if len(pts):
-        cols = [c for c in ("point_id", "M", "variance", "ci_lo", "ci_hi", "shot_variance", "shot_floor", "pattern_floor", "signal_variance", "signal_ci_lo", "signal_ci_hi",
-                            "eps_N", "mean", "mean_z", "kurtosis", "hi_lo", "criterion_b_bound", "criterion_b_pass", "mean_cmix") if c in pts.columns]
+        cols = [c for c in ("point_id", "M", "variance", "ci_lo", "ci_hi", "shot_variance", "shot_floor", "pattern_floor", "pattern_floor_upper_bound", "signal_variance",
+                            "signal_ci_lo", "signal_ci_hi", "eps_N", "claimable", "exploratory", "claim_bar", "floor_grad", "headline_ratio", "mele_floor", "mean", "mean_z",
+                            "kurtosis", "hi_lo", "criterion_b_bound", "criterion_b_pass", "mean_cmix", "var_cmix_signal") if c in pts.columns]
         md += ["### Points (Section 3 estimate; Section 3b for the dial)", "", _md_table(pts[cols]), ""]
     if len(cmp):
         cols = ["point_id", "measured", "predicted", "pred_sigma", "sigma", "z", "source", "status", "anomaly_single"]
@@ -170,7 +195,7 @@ def main(argv=None) -> int:
     out.mkdir(parents=True, exist_ok=True)
     null = P.null_control_floor(res["_preds"], 20, 4096)
     figs = figures.make_all(res["points"], res["comparison"], out / "figures", null["var_null"] if null else None) if len(res["points"]) else {}
-    pts = res["points"].drop(columns=["gradients", "draw_seeds", "draw_hashes"], errors="ignore") if len(res["points"]) else res["points"]
+    pts = res["points"].drop(columns=["gradients", "shot_vars", "draw_seeds", "draw_hashes", "cmix_draws", "repeat_gradients", "repeat_shot_vars"], errors="ignore") if len(res["points"]) else res["points"]
     pts.to_csv(out / "points.csv", index=False)
     if len(res["comparison"]):
         res["comparison"].to_csv(out / "comparison.csv", index=False)
@@ -180,7 +205,7 @@ def main(argv=None) -> int:
     (out / "results.json").write_text(json.dumps(_jsonable(payload), indent=1))
     rp = write_report(res, out, figs)
     print(f"wrote {out / 'results.json'}, {rp}, {len(figs)} figures")
-    for group in ("hypotheses", "kill_rules", "gate2"):
+    for group in ("hypotheses", "dial_hypotheses", "kill_rules", "gate2"):
         for k, v in res[group].items():
             print(f"{group} {k}: {v['result']}  value={_fmt(v.get('value'))} threshold={_fmt(v.get('threshold'))}")
     print(f"anomaly protocol flagged: {res['anomaly_protocol'].get('flagged')}")

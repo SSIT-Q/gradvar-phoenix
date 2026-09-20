@@ -46,18 +46,34 @@ def load_predictions(directory: str | Path | None = None) -> Dict:
     return out
 
 
-def _pp_lookup(pp: pd.DataFrame, n: int, L: int, k: int, model: str, dial: str | None, p: float | None) -> Dict | None:
-    """Propagation row for (n, L, k): var_k1 / var_kL (sampled value +/- se, truncated lower bound) by k."""
+def _select_rows(df: pd.DataFrame, n: int, L: int, patch: str | None, edge: str | None, model: str) -> pd.DataFrame:
+    """Prediction rows for one point, keyed by (patch, edge, L, model) when the table carries patch / edge columns
+    (Deviations 34 / 36: regenerated CSVs hold the n = 39 rows on edge (93, 103) beside the old (94, 95) rows, so row
+    order and n alone do not identify a point); n is the fallback key when no row matches the edge. Among several
+    matches the converged / exact rows are preferred and the last written wins."""
+    d = df[(df.L == L) & (df.model == model)]
+    if patch and edge and "patch" in d.columns and "edge" in d.columns:
+        e = str(edge).replace("-", "_")
+        by_edge = d[(d.patch.astype(str) == str(patch)) & (d.edge.astype(str).str.replace("-", "_") == e)]
+        if not by_edge.empty:
+            return by_edge
+    return d[d.n == n]
+
+
+def _pp_lookup(pp: pd.DataFrame, n: int, L: int, k: int, model: str, dial: str | None, p: float | None,
+               patch: str | None = None, edge: str | None = None) -> Dict | None:
+    """Propagation row for (patch, edge, L, k): var_k1 / var_kL (sampled value +/- se, truncated lower bound) by k."""
     if pp.empty:
         return None
-    d = pp[(pp.n == n) & (pp.L == L) & (pp.model == model)]
+    d = _select_rows(pp, n, L, patch, edge, model)
     if dial is None:
         d = d[d.dial.isna()] if "dial" in d.columns else d
     else:
         d = d[(d.dial == dial) & (np.isclose(d.p.astype(float), float(p or 0.0)))]
     if d.empty:
         return None
-    r = d.iloc[0]
+    conv = d[d.status.astype(str).str.startswith("converged")] if "status" in d.columns else d
+    r = (conv if not conv.empty else d).iloc[-1]
     tag = "k1" if k == 1 else ("kL" if k == L else None)
     if tag is None:
         return None
@@ -68,33 +84,40 @@ def _pp_lookup(pp: pd.DataFrame, n: int, L: int, k: int, model: str, dial: str |
     var = mc if np.isfinite(mc) else pp_v
     deficit = mc - pp_v if np.isfinite(mc) and np.isfinite(pp_v) else float("nan")
     err2 = max(2 * se if np.isfinite(se) else 0.0, deficit if np.isfinite(deficit) else 0.0)   # Deviation 15 error: max(2 sigma, deficit)
+    vc, vc_se = r.get("var_cost_mc"), r.get("se_cost_mc")
+    vc = float(vc) if pd.notna(vc) else (float(r.get("var_cost_pp")) if pd.notna(r.get("var_cost_pp")) else float("nan"))
     return dict(var=var, sigma=err2 / 2.0, error_2sigma=err2, source="pauliprop_predictions.csv", method="pauli_propagation",
                 status=str(r.get("status", "")), truncation_deficit=deficit, model=model, var_mask=r.get("var_mask"),
-                pattern_floor=r.get("pattern_floor"), mean_cost=r.get("mean_cost"), var_cost=r.get("var_cost_pp"),
-                lower_bound_only=not np.isfinite(mc))
+                pattern_floor=r.get("pattern_floor"), mean_cost=r.get("mean_cost"), var_cost=vc,
+                var_cost_sigma=float(vc_se) if pd.notna(vc_se) else float("nan"), lower_bound_only=not np.isfinite(mc),
+                n=int(r["n"]) if pd.notna(r.get("n")) else n, patch=str(r.get("patch", "")), edge=str(r.get("edge", "")),
+                edge_matched=bool(edge and str(r.get("edge", "")).replace("-", "_") == str(edge).replace("-", "_")),
+                not_converged=bool(str(r.get("status", "")).startswith("not converged")))
 
 
-def _exact_lookup(exact: pd.DataFrame, n: int, L: int, k: int, model: str) -> Dict | None:
+def _exact_lookup(exact: pd.DataFrame, n: int, L: int, k: int, model: str, patch: str | None = None, edge: str | None = None) -> Dict | None:
     if exact.empty:
         return None
-    d = exact[(exact.n == n) & (exact.L == L) & (exact.k == k) & (exact.model == model) & (exact.method != "not_implemented")]
-    if d.empty or not np.isfinite(float(d.iloc[0]["var"])):
+    d = _select_rows(exact, n, L, patch, edge, model)
+    d = d[(d.k == k) & (d.method != "not_implemented")]
+    if d.empty or not np.isfinite(float(d.iloc[-1]["var"])):
         return None
-    r = d.iloc[0]
+    r = d.iloc[-1]
     return dict(var=float(r["var"]), sigma=float((r.ci_hi - r.ci_lo) / (2 * Z95)), error_2sigma=float(r.ci_hi - r.ci_lo) / 2, source="gate1_predictions.csv",
                 method=str(r.method), status="exact", truncation_deficit=0.0, model=model, ci_lo=float(r.ci_lo), ci_hi=float(r.ci_hi),
-                M=int(r.M), lower_bound_only=False)
+                M=int(r.M), lower_bound_only=False, n=int(r.n), patch=str(r.get("patch", "")), edge=str(r.get("edge", "")),
+                edge_matched=bool(edge and str(r.get("edge", "")).replace("-", "_") == str(edge).replace("-", "_")), not_converged=False)
 
 
 def predicted_point(preds: Dict, n: int, L: int, k: int, arm: str = "grid", p: float | None = None,
-                    models=MODEL_PREFERENCE) -> Dict | None:
+                    models=MODEL_PREFERENCE, patch: str | None = None, edge: str | None = None) -> Dict | None:
     """The pre-drawn Var_theta for one point: the exact Gate 1 grid first, else Deviation 15 propagation, under the
     first available model of ``models`` (the full calibrated non-unital model is the Gate 1 prediction of Deviation 19).
     Dial points (arm reset / delay / dephase) use the Section 3b second-moment curves (unital base + dial channel)."""
     if arm != "grid":
-        return _pp_lookup(preds["pp"], n, L, k, "unital", DIAL_KIND.get(str(arm), str(arm)), p)
+        return _pp_lookup(preds["pp"], n, L, k, "unital", DIAL_KIND.get(str(arm), str(arm)), p, patch, edge)
     for m in models:
-        hit = _exact_lookup(preds["exact"], n, L, k, m) or _pp_lookup(preds["pp"], n, L, k, m, None, None)
+        hit = _exact_lookup(preds["exact"], n, L, k, m, patch, edge) or _pp_lookup(preds["pp"], n, L, k, m, None, None, patch, edge)
         if hit:
             return hit
     return None
@@ -105,26 +128,28 @@ def predicted_gradients(preds: Dict, n: int, L: int, k: int, model: str = "nonun
     return preds.get("gradients", {}).get(f"{model}_n{n}_L{L}_k{k}")
 
 
-def layer_index_prediction(preds: Dict, n: int, L: int) -> Dict:
+def layer_index_prediction(preds: Dict, n: int, L: int, patch: str | None = None, edge: str | None = None) -> Dict:
     """r_noiseless = Var_nl(k = L) / Var_nl(k = 1) and R_unital for (n, L): from ``gate1_layer_index.csv`` when the exact
     grid has the point, else from the propagation rows (k = 1 and k = L of the same propagation share theta by
     construction); ``log_se`` is the standard error of log(r_noiseless x R_unital)."""
     li = preds["layer_index"]
     if not li.empty:
         d = li[(li.n == n) & (li.L == L) & li.r_noiseless.notna()]
+        if edge and "edge" in li.columns:
+            d = d[d.edge.astype(str).str.replace("-", "_") == str(edge).replace("-", "_")]
         if not d.empty:
             r = d.iloc[0]
             lse = np.sqrt(np.log(r.r_noiseless_hi / r.r_noiseless_lo) ** 2 + np.log(r.R_unital_hi / r.R_unital_lo) ** 2) / (2 * Z95)
             return dict(r_noiseless=float(r.r_noiseless), R_unital=float(r.R_unital), R_nonunital=float(r.R_nonunital), log_se=float(lse),
                         source="gate1_layer_index.csv")
-    nl = _pp_lookup(preds["pp"], n, L, L, "noiseless", None, None), _pp_lookup(preds["pp"], n, L, 1, "noiseless", None, None)
-    un = _pp_lookup(preds["pp"], n, L, L, "unital", None, None), _pp_lookup(preds["pp"], n, L, 1, "unital", None, None)
+    nl = _pp_lookup(preds["pp"], n, L, L, "noiseless", None, None, patch, edge), _pp_lookup(preds["pp"], n, L, 1, "noiseless", None, None, patch, edge)
+    un = _pp_lookup(preds["pp"], n, L, L, "unital", None, None, patch, edge), _pp_lookup(preds["pp"], n, L, 1, "unital", None, None, patch, edge)
     if any(v is None for v in nl + un):
         return dict(r_noiseless=float("nan"), R_unital=float("nan"), R_nonunital=float("nan"), log_se=float("nan"), source="none")
     r_nl = nl[0]["var"] / nl[1]["var"]
     r_un = un[0]["var"] / un[1]["var"]
     lse = np.sqrt(sum((v["sigma"] / v["var"]) ** 2 for v in nl + un if np.isfinite(v["sigma"]) and v["var"] > 0))
-    nn = _pp_lookup(preds["pp"], n, L, L, "nonunital", None, None), _pp_lookup(preds["pp"], n, L, 1, "nonunital", None, None)
+    nn = _pp_lookup(preds["pp"], n, L, L, "nonunital", None, None, patch, edge), _pp_lookup(preds["pp"], n, L, 1, "nonunital", None, None, patch, edge)
     R_nn = (nn[0]["var"] / nn[1]["var"]) / r_nl if all(nn) else float("nan")
     return dict(r_noiseless=float(r_nl), R_unital=float(r_un / r_nl), R_nonunital=float(R_nn), log_se=float(lse), source="pauliprop_predictions.csv")
 
@@ -143,9 +168,9 @@ def compare_points(points: pd.DataFrame, preds: Dict) -> pd.DataFrame:
     shot floor and the bootstrap interval"; the prediction's own error is added) and z = (measured - predicted) / sigma."""
     rows = []
     for r in points.to_dict("records"):
-        if r.get("L") is None or r.get("k") is None:
+        if r.get("L") is None or r.get("k") is None or r.get("kind") == "null_control":
             continue
-        pr = predicted_point(preds, int(r["n"]), int(r["L"]), int(r["k"]), str(r["arm"]), r.get("p"))
+        pr = predicted_point(preds, int(r["n"]), int(r["L"]), int(r["k"]), str(r["arm"]), r.get("p"), patch=r.get("patch"), edge=r.get("edge"))
         meas = r.get("signal_variance", np.nan)
         hw = (r.get("signal_ci_hi", np.nan) - r.get("signal_ci_lo", np.nan)) / 2.0
         floor = r.get("shot_floor", np.nan)
@@ -158,7 +183,8 @@ def compare_points(points: pd.DataFrame, preds: Dict) -> pd.DataFrame:
             sig = float(np.sqrt((hw / Z95) ** 2 + (floor if np.isfinite(floor) else 0.0) ** 2 + (pr["sigma"] if np.isfinite(pr["sigma"]) else 0.0) ** 2))
             z = (meas - pr["var"]) / sig if sig > 0 and np.isfinite(meas) else np.nan
             rec.update(predicted=pr["var"], pred_sigma=pr["sigma"], pred_model=pr["model"], sigma=sig, z=float(z) if np.isfinite(z) else np.nan,
-                       source=pr["source"], status=pr["status"], truncation_deficit=pr.get("truncation_deficit"),
+                       source=pr["source"], status=pr["status"], truncation_deficit=pr.get("truncation_deficit"), edge_matched=pr.get("edge_matched"),
+                       exploratory=bool(int(r["L"]) == 12 and (r["kind"] == "grid" or int(r["k"]) == 1)) or bool(pr.get("not_converged")),   # Deviation 37
                        hardware_only=bool(pr.get("lower_bound_only")), anomaly_single=bool(np.isfinite(z) and abs(z) > ANOMALY_SIGMA),
                        inside_prediction_2sigma=bool(np.isfinite(z) and abs(z) <= 2.0))
         rows.append(rec)
