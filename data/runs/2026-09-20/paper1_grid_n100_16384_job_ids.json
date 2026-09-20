@@ -1,0 +1,35 @@
+{
+ "schema": "gradvar.hardware job ids v1",
+ "joblist": "data/joblists/paper1/grid_n100_16384.json",
+ "joblist_name": "paper1_grid_n100_16384",
+ "backend": "ibm_phoenix",
+ "instance": "flex",
+ "submission_run": 35530398396,
+ "runner_git_commit": "21b07ae869ab9232d53e146392f022ecd7da3c67",
+ "batch_id": null,
+ "calibration_csv": null,
+ "calibration_snapshot": "data/calibrations/ibm_phoenix_properties_2026-09-20T185845Z.json",
+ "written_utc": "2026-09-20T19:03:44.530905+00:00",
+ "notes": "written by execute_joblist right after submission (--submit-only: results not awaited); this copy was reconstructed by hand from the Action log of run 35530398396 (job 106130769597) after the runner's commit 8425b29 (this file plus the calibration snapshot data/calibrations/ibm_phoenix_properties_2026-09-20T185845Z.json) was rejected on push because main had moved (run 35530358790 pushed 0e5f702 at 18:58Z). job_id, tag, level, pubs and shots are verbatim from the 'submitted job' log lines. submitted_utc values are the Action log timestamps of those lines (upper bounds, within about 6 s of the runner's pre-submission clock; the IBM creation_date that retrieve_jobs records in each bundle is authoritative). batch_id is not printed in the log and was not recovered (retrieve_jobs stores the Batch session_id per job in the bundles). The snapshot file named in calibration_snapshot was lost with the rejected push; the run's layout check used IBM's 2026-09-20 18:44:14+00:00 properties update (pass: all 85 qubits and 129 couplers within the cuts), which retrieve_jobs re-fetches as properties_at(job.creation_date).",
+ "discovery": null,
+ "jobs": [
+  {
+   "job_id": "dao2pqv8gn2s739nabkg",
+   "tag": "L0",
+   "level": 0,
+   "shots": 16384,
+   "pubs": 200,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:58:51.820228+00:00"
+  },
+  {
+   "job_id": "dao2psf8gn2s739nabmg",
+   "tag": "L1",
+   "level": 1,
+   "shots": 16384,
+   "pubs": 200,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:58:57.540757+00:00"
+  }
+ ]
+}
