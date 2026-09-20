@@ -200,8 +200,50 @@ EXEC_OVERHEAD_US = 10.0
 TREX_RANDOMIZATIONS = 32       # EstimatorV2 default resilience.measure_noise_learning.num_randomizations
 DIAL_US = {"reset": 0.40, "delay": 0.40, "measure_reset": 1.94, "measure_reset_2": 1.14, "none": 0.0}
 BUDGET_REP_DELAYS_US = (250.0, 1.0)
+MAX_EXPERIMENTS_DEFAULT = 300      # pubs per job (ibm_phoenix / Heron ``max_experiments``, configuration ledger 2026-09-19; Deviation 27)
+CONFIG_LEDGER = Path(__file__).resolve().parents[1] / "data" / "calibrations" / "backend_configurations.csv"
 ZNE_NOISE_FACTORS = 3          # resilience 2 runs each circuit at 3 noise factors (default noise_factors (1, 3, 5))
 _SYNTHETIC_INSTRUCTIONS: Dict[int, set] = {}   # id(backend) -> reset kinds added to a fake target by dial_operation
+
+
+def max_experiments(backend_name: str | None = None, backend=None, ledger: str | Path | None = None) -> int:
+    """Pubs per job: ``backend.configuration().max_experiments`` when a backend is at hand, else the newest row for
+    ``backend_name`` in the configuration ledger (``data/calibrations/backend_configurations.csv``), else 300."""
+    cfg = None
+    if backend is not None:
+        try:
+            cfg = backend.configuration() if callable(getattr(backend, "configuration", None)) else None
+        except Exception:  # pragma: no cover
+            cfg = None
+    val = getattr(cfg, "max_experiments", None) if cfg is not None else None
+    if isinstance(val, (int, float)) and val > 0:
+        return int(val)
+    path = Path(ledger) if ledger else CONFIG_LEDGER
+    if backend_name and path.exists():
+        best = None
+        with open(path, newline="") as f:
+            for row in csv.DictReader(f):
+                if row.get("backend") == backend_name and row.get("max_experiments"):
+                    if best is None or row.get("received_at_utc", "") >= best[0]:
+                        best = (row.get("received_at_utc", ""), row["max_experiments"])
+        if best:
+            try:
+                return int(float(best[1]))
+            except ValueError:
+                pass
+    return MAX_EXPERIMENTS_DEFAULT
+
+
+def chunk_tags(tag: str, n_chunks: int) -> List[str]:
+    """Job tags of a group split into ``n_chunks`` jobs of at most ``max_experiments`` pubs: the first keeps ``tag``, the
+    others take ``-c2``, ``-c3``, ... (Deviation 27: 51,200 dial circuits go in 171 jobs of at most 300)."""
+    return [tag] + [f"{tag}-c{i}" for i in range(2, n_chunks + 1)]
+
+
+def chunk_pubs(pubs: list, max_pubs: int) -> List[list]:
+    """Split a job's pub list into consecutive chunks of at most ``max_pubs``."""
+    max_pubs = max(int(max_pubs), 1)
+    return [pubs[i:i + max_pubs] for i in range(0, len(pubs), max_pubs)] or [[]]
 
 
 def dial_operation(kind: str, backend, physical_qubits: Sequence[int]):
@@ -359,17 +401,23 @@ def build_probes(jl: dict, backend, shapes: dict, calibration_csv: str | None = 
             want = str(pr.get("edge", "")).replace("-", "_")
             if want and want != f"{phys_edge[0]}_{phys_edge[1]}":
                 raise JoblistError(f"probe {pr.get('id')}: edge {want} differs from the interior edge {phys_edge[0]}_{phys_edge[1]}")
-            L = int(pr.get("L", 1))
-            k = int(pr.get("k", 1))
-            null_q = null_control_qubit(patch, edge, L, pr.get("null_qubit"), layout)
+            # Deviation 43: L = 0 (the default) is the SPAM-only pair, two identical circuits with no Ry / CZ layer and no
+            # parameter (k is irrelevant and must be absent or 0); L >= 1 shifts the pair at layer k on the null qubit.
+            L = int(pr.get("L", 0))
+            k = int(pr.get("k", 1 if L else 0))
+            null_q = null_control_qubit(patch, edge, L, pr.get("null_qubit"), layout) if L else None
             pm = generate_preset_pass_manager(optimization_level=optimization_level, backend=backend, initial_layout=list(phys), seed_transpiler=seed)
             isa = pm.run(hea_square(patch, L))
             isa_obs = obs.apply_layout(isa.layout)
-            phys_null = null_q if layout is None else layout[patch.local(null_q)]
+            phys_null = None if null_q is None else (null_q if layout is None else layout[patch.local(null_q)])
             for d in range(int(pr.get("M", 1))):
                 theta = np.random.default_rng(seed + d).uniform(0, 2 * np.pi, size=patch.n * L)
-                plus, minus = shifted_params(theta, param_index(k - 1, patch.local(null_q), patch.n))
-                built.append(BuiltProbe(dict(pr, draw=d, null_qubit=int(phys_null), lattice_null_qubit=int(null_q), reset_kind="none"), patch, phys, edge, isa,
+                if L:
+                    plus, minus = shifted_params(theta, param_index(k - 1, patch.local(null_q), patch.n))
+                else:
+                    plus, minus = theta, theta          # zero parameters: a (2, 0) array, two executions of the same SPAM circuit
+                built.append(BuiltProbe(dict(pr, draw=d, null_qubit=None if phys_null is None else int(phys_null), lattice_null_qubit=None if null_q is None else int(null_q),
+                                             reset_kind="none", L=L, k=k), patch, phys, edge, isa,
                                         isa_obs, np.stack([plus, minus]), theta, isa.depth(), two_qubit_count(isa), level, shots, seed + d, layout=layout))
         elif kind == "reset_error":
             layout = None
@@ -461,7 +509,7 @@ def _probe_length_us(pr: dict, dial_us: Dict[str, float]) -> float:
     if pr["kind"] == "reset_dial":
         return int(pr["L"]) * (LAYER_US + dial_us[rk])
     if pr["kind"] == "null_control":
-        return int(pr.get("L", 1)) * LAYER_US
+        return int(pr.get("L", 0)) * LAYER_US          # L = 0: SPAM only, rep_delay + t_meas + 10 us per execution (Deviation 43)
     return X_US + dial_us[rk]
 
 
@@ -493,10 +541,28 @@ def _probe_basis(pr: dict) -> str:
     return f"Z:{pr.get('qubits', pr.get('layout', pr.get('patch')))}"
 
 
-def budget_jobs(jl: dict, dial_us: Dict[str, float]) -> List[dict]:
+def _chunk_job(j: dict, max_pubs: int) -> List[dict]:
+    """Split a budget group into jobs of at most ``max_pubs`` circuits (``max_experiments``), consecutive over its items;
+    every chunk keeps the level, shots, bases (TREX learning is paid per job) and rep_delay_us."""
+    pieces = []
+    for c, sh, g in j["items"]:
+        while c > 0:
+            take = min(c, max_pubs)
+            pieces.append((take, sh, g))
+            c -= take
+    chunks: List[List[tuple]] = [[]]
+    for piece in pieces:
+        if sum(c for c, _, _ in chunks[-1]) + piece[0] > max_pubs and chunks[-1]:
+            chunks.append([])
+        chunks[-1].append(piece)
+    return [dict(j, tag=tag, items=items) for tag, items in zip(chunk_tags(j["tag"], len(chunks)), chunks)]
+
+
+def budget_jobs(jl: dict, dial_us: Dict[str, float], max_pubs: int | None = None) -> List[dict]:
     """The jobs the runner will submit for ``jl`` (same grouping as ``execute_joblist``: one per resilience level of the
-    gradient points, one per (level, shots, rep_delay_us) of the probes), each with its circuit items
-    ``(circuits, shots, gate_us)``, the number of distinct measurement bases and ``rep_delay_us`` (None: backend default)."""
+    gradient points, one per (level, shots, rep_delay_us) of the probes, each split into jobs of at most ``max_pubs``
+    circuits, the backend's ``max_experiments``), each with its circuit items ``(circuits, shots, gate_us)``, the number
+    of distinct measurement bases and ``rep_delay_us`` (None: backend default)."""
     by_level: Dict[int, dict] = {}
     for pt in jl.get("points", []) or []:
         lvl = int(pt["resilience"])
@@ -511,7 +577,9 @@ def budget_jobs(jl: dict, dial_us: Dict[str, float]) -> List[dict]:
                                           rep_delay_us=rd))
         j["items"].append((_probe_circuits(pr), int(pr["shots"]), _probe_length_us(pr, dial_us)))
         j["bases"].add(_probe_basis(pr))
-    return [by_level[k] for k in sorted(by_level)] + [by_probe[k] for k in sorted(by_probe)]
+    max_pubs = max_experiments(jl.get("backend")) if max_pubs is None else int(max_pubs)
+    groups = [by_level[k] for k in sorted(by_level)] + [by_probe[k] for k in sorted(by_probe)]
+    return [chunk for j in groups for chunk in _chunk_job(j, max_pubs)]
 
 
 def estimate_budget(jl: dict, rep_delays_us: Sequence[float] = BUDGET_REP_DELAYS_US, backend=None) -> dict:
@@ -533,7 +601,8 @@ def estimate_budget(jl: dict, rep_delays_us: Sequence[float] = BUDGET_REP_DELAYS
         return estimate_budget_sampler(jl, rep_delays_us, backend)
     dial_us = dial_durations_us(backend)
     t_meas, t_meas_source = readout_us(backend, jl.get("backend"))
-    jobs = budget_jobs(jl, dial_us)
+    max_pubs = max_experiments(jl.get("backend"), backend)
+    jobs = budget_jobs(jl, dial_us, max_pubs)
     per_job = []
     for j in jobs:
         zne = ZNE_NOISE_FACTORS if j["level"] == 2 else 1
@@ -558,7 +627,7 @@ def estimate_budget(jl: dict, rep_delays_us: Sequence[float] = BUDGET_REP_DELAYS
                trex_randomizations=TREX_RANDOMIZATIONS, zne_noise_factors=ZNE_NOISE_FACTORS,
                dial_durations_us={k: round(v, 3) for k, v in dial_us.items()},
                dial_durations_source=getattr(backend, "name", None) if backend is not None else "ibm_phoenix target (2026-09-19)",
-               jobs=len(jobs), circuits=sum(e["circuits"] for e in per_job), executions=sum(e["executions"] for e in per_job),
+               max_experiments=max_pubs, jobs=len(jobs), circuits=sum(e["circuits"] for e in per_job), executions=sum(e["executions"] for e in per_job),
                executions_with_zne=sum(e["executions"] * e["zne_factor"] for e in per_job),
                trex_executions=sum(e["trex_executions"] for e in per_job))
     for rd in rep_delays_us:
@@ -942,7 +1011,12 @@ def load_joblist(path: str) -> dict:
             need = {"n", "patch"}
         if pr["kind"] == "null_control":
             need = {"n", "patch", "M"}
-            if not (1 <= int(pr.get("k", 1)) <= int(pr.get("L", 1))):
+            L0 = int(pr.get("L", 0))
+            if L0 < 0:
+                raise JoblistError(f"probe {pr.get('id')}: L must be >= 0 (0 = SPAM-only pair, Deviation 43)")
+            if L0 == 0 and pr.get("k", 0) not in (0, None):
+                raise JoblistError(f"probe {pr.get('id')}: k must be absent or 0 for an L = 0 null control")
+            if L0 >= 1 and not (1 <= int(pr.get("k", 1)) <= L0):
                 raise JoblistError(f"probe {pr.get('id')}: k must be in 1..L")
         missing = need - set(pr)
         if missing:
@@ -1363,11 +1437,13 @@ def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int,
     built = build_pubs(points, backend, shapes=shapes)
     # one job per resilience level for the gradient points, then one per (level, shots) for the probes
     groups: List[Tuple[str, int, int, list]] = []          # (job tag, level, shots, pubs)
+    max_pubs = max_experiments(jl.get("backend"), backend)     # jobs hold at most max_experiments pubs (300 on ibm_phoenix; Deviation 27)
     by_level: Dict[int, List[BuiltPub]] = {}
     for b in built:
         by_level.setdefault(b.point.resilience_level, []).append(b)
     for level, group in sorted(by_level.items()):
-        groups.append((f"L{level}", level, shots, group))
+        for tag, chunk in zip(chunk_tags(f"L{level}", len(chunk_pubs(group, max_pubs))), chunk_pubs(group, max_pubs)):
+            groups.append((tag, level, shots, chunk))
     # probes: one job per (level, shots, rep_delay_us); a rep_delay ladder rung (Section 6, Deviation 23) is its own job
     # submitted with options.execution.rep_delay set and logged per job (rep_delay_submitted_s); a refused value fails that job only
     by_probe: Dict[Tuple[int, int, float], List[BuiltProbe]] = {}
@@ -1375,7 +1451,9 @@ def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int,
         rd = probe_rep_delay_us(b.probe)
         by_probe.setdefault((b.resilience_level, b.shots, -1.0 if rd is None else rd), []).append(b)
     for (level, pshots, _), group in sorted(by_probe.items()):
-        groups.append((probe_job_tag(level, pshots, probe_rep_delay_us(group[0].probe)), level, pshots, group))
+        base = probe_job_tag(level, pshots, probe_rep_delay_us(group[0].probe))
+        for tag, chunk in zip(chunk_tags(base, len(chunk_pubs(group, max_pubs))), chunk_pubs(group, max_pubs)):
+            groups.append((tag, level, pshots, chunk))
     job_rep_delay_s = {tag: (None if probe_rep_delay_us(g[0].probe) is None else probe_rep_delay_us(g[0].probe) / 1e6)
                        for tag, _, _, g in groups if g and isinstance(g[0], BuiltProbe)}
     rd_info = rep_delay_info(backend)
