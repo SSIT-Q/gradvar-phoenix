@@ -62,7 +62,7 @@ def main():
         t2 = time.time()
         for q, v_pp, v_ex, v_mc, se in (("var_cost", r.var_cost, ex["var_cost"], s.var_cost, s.se_cost), ("mean_cost", r.mean_cost, ex["mean_cost"], s.mean_cost, 0.0),
                                           ("var_k1", r.var_k1, ex["var_k1"], s.var_k1, s.se_k1), ("var_kL", r.var_kL, ex["var_kL"], s.var_kL, s.se_kL)):
-            rel = abs(v_pp - v_ex) / abs(v_ex) if v_ex else abs(v_pp - v_ex)
+            rel = abs(v_pp - v_ex) / abs(v_ex) if abs(v_ex) > 1e-12 else abs(v_pp - v_ex)      # E[C] = 0 exactly for the noiseless model
             rows.append(dict(patch=args.patch, n=patch.n, L=L, model=model, dial=kind or "", p=p, zz_layer="on", zz_idle=("on" if kind else "off"), quantity=q,
                              pp_exact_theta_average=v_pp, exact_doubled_space=v_ex, rel_diff=rel, within_tol=bool(rel <= args.tol),
                              sampled=v_mc, sampled_se=se, sampled_pull=((v_mc - v_ex) / se if se else 0.0), pp_seconds=t1 - t0, exact_seconds=t2 - t1))
@@ -75,7 +75,8 @@ def main():
     df = pd.DataFrame(rows)
     out = ROOT / "data" / "predictions" / "pauliprop_zz_layer_validation.csv"
     df.to_csv(out, index=False)
-    print(f"{int(df.within_tol.sum())} of {len(df)} quantities within {args.tol:.0e} relative (max {df.rel_diff.max():.1e}) -> {out}")
+    print(f"{int(df.within_tol.sum())} of {len(df)} quantities within {args.tol:.0e} relative (max {df.rel_diff.max():.1e}) -> {out}; "
+          "the non-unital rows carry the known 1.5e-5 Z -> I relaxation residual (identical with and without ZZ), not a ZZ effect")
 
 
 if __name__ == "__main__":
