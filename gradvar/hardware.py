@@ -35,7 +35,7 @@ from .lattice import DEFAULT_EXCLUDE, Patch, patch_for_n, rect_patch
 
 LOG_COLUMNS = [
     "backend", "job_id", "timestamp", "job_submit_time", "calibration_snapshot", "n", "patch_qubits", "observable_edge",
-    "L", "k", "resilience_level", "shots", "seed", "param_hash", "arm", "p", "K", "mask_seed", "rep_delay_granted",
+    "L", "k", "resilience_level", "shots", "seed", "param_hash", "arm", "p", "K", "mask_seed", "rep_delay_submitted", "rep_delay_submitted_us",
     "ev_plus", "ev_minus", "std_plus", "std_minus", "ensemble_se_plus", "ensemble_se_minus", "gradient",
     "transpiled_depth", "two_qubit_gates", "fractional_gates",
 ]
@@ -150,16 +150,24 @@ def rep_delay_info(backend) -> dict:
     return out
 
 
-def granted_rep_delay(options) -> float | str:
+def submitted_rep_delay(options) -> float | str:
     """The ``rep_delay`` the job was submitted with: ``options.execution.rep_delay`` in seconds when the runner set one
     (only for a probe job with ``rep_delay_us``, the Section 6 rep_delay ladder), else the string ``"default"`` (the
     backend applies ``default_rep_delay``, recorded in ``rep_delay_info``; every gradient-point job runs this way).
-    Logged per row (``rep_delay_granted``) and per job (``rep_delay_granted_s``)."""
+    This is the requested option, not a read-back: the runtime client does not validate it and IBM returns no granted
+    figure, so a value the backend refuses fails that job (bundle with ``error``), which is the observable outcome.
+    Logged per row (``rep_delay_submitted`` in seconds, ``rep_delay_submitted_us``) and per job (``rep_delay_submitted_s``)."""
     ex = getattr(options, "execution", None)
     rd = getattr(ex, "rep_delay", None) if ex is not None else None
     if isinstance(rd, (int, float)) and not isinstance(rd, bool):
         return float(rd)
     return "default"
+
+
+def submitted_rep_delay_us(options) -> float | str:
+    """``submitted_rep_delay`` in microseconds (pre-registration Section 7 quotes rep_delay in us), or ``"default"``."""
+    rd = submitted_rep_delay(options)
+    return rd if isinstance(rd, str) else round(rd * 1e6, 6)
 
 
 # ------------------------------------------------------------------------------------------------ probes and budget
@@ -1088,7 +1096,8 @@ def write_job_bundle(run_root: Path, job_id: str, group: List[BuiltPub], backend
         instance=jl.get("instance"), joblist_name=jl.get("name"), preflight_review=jl.get("preflight_review", ""),
         resilience_level=level, shots=shots, runner_git_commit=git_commit_hash(),
         qiskit_ibm_runtime_version=_runtime_version(), python=sys.version.split()[0],
-        rep_delay=rd_info, rep_delay_granted_s=granted_rep_delay(options), dynamic_reprate_enabled=rd_info["dynamic_reprate_enabled"],
+        rep_delay=rd_info, rep_delay_submitted_s=submitted_rep_delay(options), rep_delay_submitted_us=submitted_rep_delay_us(options),
+        dynamic_reprate_enabled=rd_info["dynamic_reprate_enabled"],
         rep_delay_probe=bool(jl.get("rep_delay_probe", False)),
         isa_instruction_names=sorted({n for s in summaries for n in s["isa_instruction_names"]}),
         joblist_entries=entries,
@@ -1171,7 +1180,7 @@ def _point_rows(backend, job_id: str, snapshot: str, group: List[BuiltPub], leve
             "arm": desc["reset_kind"] if probe else "grid",
             "p": desc.get("p", "") if probe else "", "K": desc.get("masks") if probe and desc.get("masks") is not None else "",
             "mask_seed": desc.get("mask_seed") if probe and desc.get("mask_seed") is not None else "",
-            "rep_delay_granted": granted_rep_delay(options),
+            "rep_delay_submitted": submitted_rep_delay(options), "rep_delay_submitted_us": submitted_rep_delay_us(options),
             "ev_plus": evs[0], "ev_minus": evs[1],
             "std_plus": stds[0], "std_minus": stds[1], "ensemble_se_plus": ens[0], "ensemble_se_minus": ens[1],
             "gradient": (evs[0] - evs[1]) / 2,
@@ -1189,8 +1198,10 @@ def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int,
     written against the given (fake) backend with job_id 'dryrun-<utc>-L<level>' and no PrimitiveResult.
 
     A job whose ``result()`` raises (for example the Estimator refusing a mid-circuit reset, kill rule (d)) gets a
-    bundle with ``error`` and ``job.error_message()`` and does not stop the others: rows of the succeeded jobs are
-    appended to ``log_path`` and a ``SystemExit`` naming the failed jobs is raised at the end (non-zero exit).
+    bundle with ``error`` and ``job.error_message()`` and does not stop the others; a job whose ``run()`` raises (refused
+    at submission, for example a ``rep_delay`` outside the range) gets a bundle ``not-submitted-<utc>-<tag>`` with the
+    error and its pub descriptions and the loop continues. Rows of the succeeded jobs are appended to ``log_path`` and a
+    ``SystemExit`` naming the failed jobs is raised at the end (non-zero exit).
 
     THIS FUNCTION IS THE ONLY PLACE THAT SUBMITS JOBS, and only when ``submit`` is True.
     """
@@ -1204,7 +1215,7 @@ def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int,
     for level, group in sorted(by_level.items()):
         groups.append((f"L{level}", level, shots, group))
     # probes: one job per (level, shots, rep_delay_us); a rep_delay ladder rung (Section 6, Deviation 23) is its own job
-    # submitted with options.execution.rep_delay set, so the granted value is read back per job (rep_delay_granted_s)
+    # submitted with options.execution.rep_delay set and logged per job (rep_delay_submitted_s); a refused value fails that job only
     by_probe: Dict[Tuple[int, int, float], List[BuiltProbe]] = {}
     for b in build_probes(jl, backend, shapes, calibration_csv):
         rd = probe_rep_delay_us(b.probe)
@@ -1268,7 +1279,16 @@ def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int,
                 est.options.default_shots = gshots
                 _apply_rep_delay(est, tag)
                 created = datetime.now(timezone.utc).isoformat()
-                job = est.run([b.pub() for b in group])
+                try:
+                    job = est.run([b.pub() for b in group])
+                except Exception as e:      # refused at submission (for example a rep_delay outside the range): this job only
+                    err = f"{type(e).__name__}: {e}"
+                    failures.append(f"not-submitted ({tag}): {err}")
+                    d = write_job_bundle(root, f"not-submitted-{stamp}-{tag}", group, backend, est.options, level, gshots, jl, error=err,
+                                         timestamps=dict(submit_attempted_local=created, failed_local=datetime.now(timezone.utc).isoformat()),
+                                         extra=extra)
+                    print(f"job {tag} NOT SUBMITTED: {err}; wrote {d}; continuing with the remaining jobs", file=sys.stderr)
+                    continue
                 jobs.append((tag, level, gshots, group, job, est.options, created))
                 print(f"submitted job {job.job_id()} ({tag}: resilience {level}, {len(group)} pubs, shots {gshots})")
             for tag, level, gshots, group, job, options, created in jobs:

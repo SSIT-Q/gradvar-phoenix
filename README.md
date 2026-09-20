@@ -411,7 +411,7 @@ submitted, and the file name is written into every log row.
 | param_hash | full SHA-256 (64 hex chars) of the float64 parameter vector (rows before 2026-09-19 carry its first 16 chars) |
 | arm | `grid` for a gradient point; the probe's reset kind (`reset`, `delay`, `measure_reset`, `measure_reset_2`, `none`) for a probe row |
 | p, K, mask_seed | dial probes: reset probability, number of masks, and the seed of this circuit's mask (`seed + 1 + mask_index`); empty for grid rows |
-| rep_delay_granted | the `rep_delay` the job was submitted with, in seconds, or `default` when the runner left it to the backend (`rep_delay.default_rep_delay_s` in `job.json`) |
+| rep_delay_submitted, rep_delay_submitted_us | the `rep_delay` the job was submitted with (`options.execution.rep_delay`), in seconds and in microseconds, or `default` when the runner left it to the backend (`rep_delay.default_rep_delay_s` in `job.json`). A requested option, not a read-back: a value the backend refuses fails that job |
 | ev_plus, ev_minus | `<O>` at `theta +/- pi/2 e_(k,q)` |
 | std_plus, std_minus | EstimatorV2 `stds` of the two expectation values (at resilience >= 1 the spread over the twirled randomisations, the conservative figure) |
 | ensemble_se_plus, ensemble_se_minus | EstimatorV2 `ensemble_standard_error` (the binomial figure; equals `stds` at resilience 0, up to 26 percent below it at resilience 1 on the Marrakesh run) |
