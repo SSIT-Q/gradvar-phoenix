@@ -1,29 +1,26 @@
 {
- "pre_registration": "Paper 1 pre-registration v0.12.0 (20 Sep 2026)",
+ "pre_registration": "Paper 1 pre-registration v0.13.1 (20 Sep 2026)",
  "budget_model_version": 3,
  "max_experiments": 300,
  "max_job_param_mb": 12.0,
  "m_rule": "baseline",
- "snapshot": "ibm_phoenix_2026-09-20T030813Z.csv",
- "properties": "ibm_phoenix_properties_20260920T030813Z.json.gz",
- "stamp": "2026-09-20T030813Z",
+ "snapshot": "ibm_phoenix_2026-09-20T141736Z.csv",
+ "properties": "ibm_phoenix_properties_2026-09-20T141736Z.json",
+ "stamp": "2026-09-20T141736Z",
  "rungs": {
   "n20": {
-   "n": 20,
+   "n": 19,
    "patch": "4x5",
    "origin": [
     8,
-    2
+    1
    ],
-   "edge": "94_104",
+   "edge": "93_103",
    "edge_rule": "interior_edge",
-   "broken_edges": [
-    [
-     95,
-     96
-    ]
-   ],
-   "holes": []
+   "broken_edges": [],
+   "holes": [
+    114
+   ]
   },
   "n40": {
    "n": 37,
@@ -32,8 +29,8 @@
     8,
     0
    ],
-   "edge": "94_104",
-   "edge_rule": "Deviation 46 cone-graph rule (Deviation 36 restated): intact 4x10 coupler whose L = 2 cone graph equals the 4x5 rung's (the 4x5 edge itself)",
+   "edge": "93_103",
+   "edge_rule": "Deviation 36's (93, 103) as written (its L = 2 cone graph differs from the 4x5 rung's on this snapshot; Deviation 46 fallback)",
    "broken_edges": [
     [
      86,
@@ -50,48 +47,48 @@
     [
      87,
      97
-    ],
-    [
-     100,
-     110
     ]
    ],
    "holes": [
-    91,
     107,
-    119
+    110,
+    114
    ]
   },
   "n60": {
    "n": 50,
    "patch": "6x10",
    "origin": [
-    3,
+    0,
     0
    ],
-   "edge": "43_44",
+   "edge": "35_36",
    "edge_rule": "interior_edge",
    "broken_edges": [
     [
-     86,
-     87
+     15,
+     16
     ],
     [
      31,
      32
+    ],
+    [
+     16,
+     26
     ]
    ],
    "holes": [
+    7,
+    8,
+    11,
+    17,
+    18,
+    24,
+    27,
     49,
     55,
-    59,
-    61,
-    62,
-    63,
-    67,
-    72,
-    73,
-    77
+    59
    ]
   },
   "n80": {
@@ -132,16 +129,16 @@
     61,
     62,
     63,
+    66,
     67,
     72,
     73,
     77,
-    91,
     107
    ]
   },
   "n100": {
-   "n": 85,
+   "n": 84,
    "patch": "10x10",
    "origin": [
     2,
@@ -169,10 +166,6 @@
     [
      87,
      97
-    ],
-    [
-     100,
-     110
     ]
    ],
    "holes": [
@@ -184,13 +177,14 @@
     61,
     62,
     63,
+    66,
     67,
     72,
     73,
     77,
-    91,
     107,
-    119
+    110,
+    114
    ]
   }
  },

@@ -1,4 +1,4 @@
-"""The Paper 1 production job lists (data/joblists/paper1/, pre-registration v0.12.0) and the runner extensions they need:
+"""The Paper 1 production job lists (data/joblists/paper1/, pre-registration v0.13.1) and the runner extensions they need:
 the Deviation 48 packing (one pub per dial mask carrying the draws as parameter rows; jobs of at most max_experiments pubs and
 MAX_JOB_PARAM_MB of parameter values), budget model v3 (Deviation 47), the edge override (Deviations 36 / 46), the L = 0
 null_control point type (Deviation 43), the reset_dial draws / unshifted / truncation / dephase / mask_p fields (Section 3b)
@@ -17,7 +17,8 @@ from gradvar.sim import HAS_AER
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 P1 = ROOT / "data" / "joblists" / "paper1"
-SNAP = str(ROOT / "data" / "calibrations" / "ibm_phoenix_2026-09-20T030813Z.csv")
+SNAP = str(ROOT / "data" / "calibrations" / "ibm_phoenix_2026-09-20T141736Z.csv")   # Deviation 53 (b): the 13:44Z calibration committed with the smoke-test retrieval
+SNAP20 = str(ROOT / "data" / "calibrations" / "ibm_phoenix_2026-09-20T030813Z.csv")   # a 20-qubit 4x5 (origin (8,2), edge 94_104) for the runner-mechanics tests below
 LISTS = ["grid_n20.json", "grid_n40.json", "grid_n60.json", "grid_n80.json", "grid_n100.json", "grid_n100_16384.json", "grid_n40_repeat.json",
          "dial_arm.json", "dial_arm_contingent.json", "references_gate1b.json", "null_controls.json", "day1_null_grid_n20.json"]
 MAIN = LISTS[:7]
@@ -51,13 +52,14 @@ def test_lists_validate_and_refuse_to_submit(name, tmp_path, monkeypatch):
     assert jl["dry_run"] is True and jl["rep_delay_probe"] is True and jl["layout_check"] == "enforce"
     assert jl["backend"] == "ibm_phoenix" and jl["instance"] == "flex"
     assert jl["preflight_review"] == "TBD: pre-flight review permalink" and not joblist_submittable(jl)
-    assert "pre-registration v0.12.0" in jl["notes"] and "Deviation 46" in jl["notes"] and "Deviation 47" in jl["notes"] and "Deviation 48" in jl["notes"]
+    assert "pre-registration v0.13.1" in jl["notes"] and "Deviation 53" in jl["notes"] and "Deviation 46" in jl["notes"] and "Deviation 47" in jl["notes"] and "Deviation 48" in jl["notes"]
     assert check_budget(jl) == [] and jl["budget"]["model_version"] == 3 and jl["campaign"]["budget_model_version"] == 3
     assert jl["campaign"]["max_experiments"] == max_experiments("ibm_phoenix") == 300 and jl["campaign"]["max_job_param_mb"] == MAX_JOB_PARAM_MB
     assert all(e["pubs"] <= 300 and e["param_mb"] <= MAX_JOB_PARAM_MB for e in jl["budget"]["per_job"])   # no job above max_experiments or the payload cap
     assert jl["budget"]["jobs"] == len(jl["budget"]["per_job"]) and jl["budget"]["trex_executions"] == 0   # v3: no TREX term at >= 1024 shots
     assert all(e["job_constant_seconds"] == (3.0 if e["resilience_level"] == 0 else 5.7) for e in jl["budget"]["per_job"])
-    assert jl["placement"]["stamp"] == "2026-09-20T030813Z" and jl["placement"]["properties"] == "ibm_phoenix_properties_20260920T030813Z.json.gz"
+    assert jl["placement"]["stamp"] == "2026-09-20T141736Z" and jl["placement"]["properties"] == "ibm_phoenix_properties_2026-09-20T141736Z.json"
+    assert jl["placement"]["rules"]["coherence_floor_us"] == 25.0 and 114 in jl["placement"]["excluded"]   # Deviation 53 (a): Q114 at T1 3.7 us
     monkeypatch.setenv("QISKIT_IBM_INSTANCE", "crn:fake")
     with pytest.raises(SystemExit, match="dry_run"):                     # refused before preflight / credentials
         run_joblist(str(P1 / name), submit=True, run_root=str(tmp_path / "r"), log_dir=str(tmp_path / "j"), calibration_csv=SNAP)
@@ -109,16 +111,18 @@ def test_budgets_against_the_section_6_ledger(generated):
 
 
 def test_placement_on_the_committed_snapshot(generated):
-    """Section 2 / Deviations 18, 22, 26, 46 on the 20 Sep 03:08Z snapshot (the newest committed): the ladder re-derives to n = 20 / 37 /
-    50 / 68 / 85 (Q91 at init error 1.05e-3, Q67 and Q119 newly excluded), every edge is an intact coupler, and the 4x10 edge is the coupler
-    whose L = 2 cone graph equals the 4x5 rung's (the Deviation 46 cone-graph rule, Deviation 36 restated; (93, 103) itself has hole 91 in
-    its cone here)."""
+    """Section 2 / Deviations 18, 22, 26, 46, 53 on the 20 Sep 13:44Z calibration (the newest committed calibration data, Deviation 53 (b)):
+    the Deviation 53 (a) coherence floor excludes Q114 (T1 3.7 us, T2 6.4 us), Q67 (2.7 / 4.4), Q7 and Q11 (T2 20 us); Q66 (readout 3.59e-2)
+    and Q110 (init 1.26e-3) are cut; Q91 and Q119 are released. The ladder re-derives to n = 19 / 37 / 50 / 68 / 84: the 4x5 sits at (8,1)
+    with hole 114 and edge 93_103 (no broken coupler), so the 4x10's Deviation 46 cone-graph rule finds no matching coupler and falls back to
+    Deviation 36's (93, 103) as written. The floor does not apply to earlier stamps (the frozen placements)."""
     from gradvar.circuits import light_cone
     from gradvar.hardware import properties_for_csv
-    from gradvar.noise import place_patch
+    from gradvar.noise import COHERENCE_FLOOR_SINCE, exclusion_from_calibration, place_patch
     gen, lists, pl = generated
-    assert {r: v["n"] for r, v in pl["rungs"].items()} == {"n20": 20, "n40": 37, "n60": 50, "n80": 68, "n100": 85}
-    assert 91 in pl["excluded"] and 67 in pl["excluded"] and 119 in pl["excluded"]
+    assert {r: v["n"] for r, v in pl["rungs"].items()} == {"n20": 19, "n40": 37, "n60": 50, "n80": 68, "n100": 84}
+    assert {114, 67, 7, 11, 66, 110}.issubset(pl["excluded"]) and 91 not in pl["excluded"] and 119 not in pl["excluded"]
+    assert pl["rules"]["coherence_floor_us"] == 25.0 and pl["stamp"] >= COHERENCE_FLOOR_SINCE
     for rung, v in pl["rungs"].items():
         r, c = gen.SHAPES[rung]
         patch = place_patch(r, c, SNAP, allow_holes=True, properties=properties_for_csv(SNAP))
@@ -126,11 +130,16 @@ def test_placement_on_the_committed_snapshot(generated):
         assert (a, b) in patch.edges() or (b, a) in patch.edges()
         assert [list(e) for e in patch.broken_edges] == v["broken_edges"] and list(patch.holes) == v["holes"]
         assert set(v["cone_L2_qubits"]) == set(light_cone(patch, 2, (a, b)))
-    n40 = pl["rungs"]["n40"]
-    assert n40["edge"] == "94_104" and n40["cone_L2_matches_4x5"] and n40["edge_rule"].startswith("Deviation 46")
+        assert 114 not in v["qubits"] and all(q not in pl["excluded"] for q in v["qubits"])
+    n20, n40 = pl["rungs"]["n20"], pl["rungs"]["n40"]
+    assert n20["origin"] == [8, 1] and n20["holes"] == [114] and n20["edge"] == "93_103" and n20["broken_edges"] == [] and n20["live_couplers"] == 28
+    assert n40["edge"] == "93_103" and not n40["cone_L2_matches_4x5"] and n40["edge_rule"].startswith("Deviation 36's (93, 103) as written")
     assert SNAP.endswith(sorted(p.name for p in (ROOT / "data" / "calibrations").glob("ibm_phoenix_2*.csv"))[-1])   # the newest committed snapshot
-    assert set(n40["cone_L2_qubits"]) == set(pl["rungs"]["n20"]["cone_L2_qubits"]) and n40["cone_L2_couplers"] == pl["rungs"]["n20"]["cone_L2_couplers"] == 24
-    assert pl["rungs"]["n20"]["edge"] == "94_104" and pl["rungs"]["n20"]["broken_edges"] == [[95, 96]]
+    assert properties_for_csv(SNAP).endswith("ibm_phoenix_properties_2026-09-20T141736Z.json")                 # the retrieval-stamped name (Deviation 53 (b))
+    # the floor is a run-day rule: on the 03:08Z snapshot the exclusion is the pre-Deviation-53 one (Q114 at T1 80 us there anyway) and the
+    # forced floor on the 19 Sep development CSV would move the frozen ladder, which is why it is keyed to the stamp
+    assert 114 not in exclusion_from_calibration(SNAP20, properties=properties_for_csv(SNAP20))
+    assert 114 in exclusion_from_calibration(SNAP, properties=properties_for_csv(SNAP)) and 114 not in exclusion_from_calibration(SNAP, properties=properties_for_csv(SNAP), coherence_floor_us=None)
     # every point / probe of every list names its rung's actual n, patch and edge
     for name, jl in lists.items():
         for e in jl["points"] + [p for p in jl["probes"] if "edge" in p]:
@@ -230,8 +239,15 @@ def test_day1_list_is_the_two_source_lists_pub_for_pub(generated, tmp_path):
 
 
 def _small(base: dict, **kw) -> dict:
+    """A reduced list for the runner-mechanics tests, run against SNAP20 (the 20 Sep 03:08Z snapshot): its 4x5 entries are mapped back to
+    that snapshot's 20-qubit placement (origin (8,2), edge 94_104) from the committed lists' 13:44Z placement (n = 19, hole 114, edge 93_103)."""
     d = dict(base, **kw)
     d.pop("budget", None)                                       # re-estimated by the test, or left out (not needed for a dry run)
+    for e in list(d.get("points", []) or []) + list(d.get("probes", []) or []):
+        if e.get("patch") == "4x5":
+            e["n"] = 20
+            if e.get("edge") == "93_103":
+                e["edge"] = "94_104"
     return d
 
 
@@ -243,7 +259,7 @@ def test_null_control_L0_dry_run(tmp_path):
     jl["budget"] = estimate_budget(jl)
     assert jl["budget"]["circuits"] == 10 and jl["budget"]["executions"] == 10 * 4096 and jl["budget"]["jobs"] == 2
     (tmp_path / "n.json").write_text(json.dumps(jl))
-    run_joblist(str(tmp_path / "n.json"), submit=False, run_root=str(tmp_path / "runs"), log_dir=str(tmp_path / "jobs"), calibration_csv=SNAP)
+    run_joblist(str(tmp_path / "n.json"), submit=False, run_root=str(tmp_path / "runs"), log_dir=str(tmp_path / "jobs"), calibration_csv=SNAP20)
     bundles = {d.name.split("-", 2)[2]: d for d in (tmp_path / "runs").glob("*/dryrun-*")}
     assert set(bundles) == {"L0-probes-s4096", "L1-probes-s4096"}
     job = json.loads((bundles["L0-probes-s4096"] / "job.json").read_text())
@@ -275,7 +291,7 @@ def test_max_experiments_packing_matches_between_budget_and_runner(tmp_path):
     jl["budget"] = estimate_budget(jl)
     assert [(e["tag"], e["pubs"], e["circuits"]) for e in jl["budget"]["per_job"]] == [("L0", 300, 600), ("L0-c2", 10, 20), ("L1", 10, 20)] and jl["budget"]["jobs"] == 3
     (tmp_path / "c.json").write_text(json.dumps(jl))
-    run_joblist(str(tmp_path / "c.json"), submit=False, run_root=str(tmp_path / "runs"), log_dir=str(tmp_path / "jobs"), calibration_csv=SNAP)
+    run_joblist(str(tmp_path / "c.json"), submit=False, run_root=str(tmp_path / "runs"), log_dir=str(tmp_path / "jobs"), calibration_csv=SNAP20)
     bundles = {d.name.split("-", 2)[2]: d for d in (tmp_path / "runs").glob("*/dryrun-*")}
     assert set(bundles) == {"L0", "L0-c2", "L1"}
     assert len(json.loads((bundles["L0"] / "job.json").read_text())["points"]) == 300 and len(json.loads((bundles["L0-c2"] / "job.json").read_text())["points"]) == 10
@@ -292,7 +308,7 @@ def test_max_experiments_packing_matches_between_budget_and_runner(tmp_path):
     old = hw.MAX_JOB_PARAM_MB
     try:
         hw.MAX_JOB_PARAM_MB = 0.1
-        run_joblist(str(tmp_path / "d.json"), submit=False, run_root=str(tmp_path / "runs_d"), log_dir=str(tmp_path / "jobs_d"), calibration_csv=SNAP)
+        run_joblist(str(tmp_path / "d.json"), submit=False, run_root=str(tmp_path / "runs_d"), log_dir=str(tmp_path / "jobs_d"), calibration_csv=SNAP20)
     finally:
         hw.MAX_JOB_PARAM_MB = old
     tags = sorted(d.name.split("-", 2)[2] for d in (tmp_path / "runs_d").glob("*/dryrun-*"))
@@ -306,7 +322,7 @@ def test_edge_override_accepts_intact_couplers_and_refuses_broken_ones(tmp_path)
     base = json.loads((P1 / "grid_n20.json").read_text())
     ok = _small(base, points=[dict(base["points"][0], M=1, edge="93_94")], probes=[])      # an intact 4x5 coupler that is not the interior edge
     (tmp_path / "ok.json").write_text(json.dumps(ok))
-    points, shapes, _ = joblist_points(load_joblist(str(tmp_path / "ok.json")), SNAP)
+    points, shapes, _ = joblist_points(load_joblist(str(tmp_path / "ok.json")), SNAP20)
     assert points[0].edge == (93, 94) and points[0].q == shapes[20].local(93)
     from gradvar.hardware import fake_backend
     b = build_pubs(points, fake_backend("ibm_phoenix"), shapes=shapes)[0]
@@ -314,12 +330,12 @@ def test_edge_override_accepts_intact_couplers_and_refuses_broken_ones(tmp_path)
     for edge, msg in (("95_96", "not an intact coupler"), ("82_84", "not an intact coupler"), ("x", "edge must be")):
         (tmp_path / "bad.json").write_text(json.dumps(_small(base, points=[dict(base["points"][0], M=1, edge=edge)], probes=[])))
         with pytest.raises(JoblistError, match=msg):
-            joblist_points(load_joblist(str(tmp_path / "bad.json")), SNAP)
+            joblist_points(load_joblist(str(tmp_path / "bad.json")), SNAP20)
     (tmp_path / "pb.json").write_text(json.dumps(_small(base, points=[], probes=[dict(base["probes"][0], M=1, edge="95_96")])))
     with pytest.raises(JoblistError, match="not an intact coupler"):
         from gradvar.hardware import build_probes
         jl = load_joblist(str(tmp_path / "pb.json"))
-        build_probes(jl, fake_backend("ibm_phoenix"), {}, SNAP)
+        build_probes(jl, fake_backend("ibm_phoenix"), {}, SNAP20)
 
 
 def test_reset_dial_extensions_dry_run(tmp_path):
@@ -336,7 +352,7 @@ def test_reset_dial_extensions_dry_run(tmp_path):
     jl["budget"] = estimate_budget(jl)
     assert jl["budget"]["pubs"] == 3 * 2 + 2 * 2 + 1 and jl["budget"]["circuits"] == 3 * 2 * 4 + 2 * 2 * 2 + 1 * 4   # 3 shifted probes, 2 unshifted, 1 unmasked reference
     (tmp_path / "d.json").write_text(json.dumps(jl))
-    run_joblist(str(tmp_path / "d.json"), submit=False, run_root=str(tmp_path / "runs"), log_dir=str(tmp_path / "jobs"), calibration_csv=SNAP)
+    run_joblist(str(tmp_path / "d.json"), submit=False, run_root=str(tmp_path / "runs"), log_dir=str(tmp_path / "jobs"), calibration_csv=SNAP20)
     bundles = {d.name.split("-", 2)[2]: d for d in (tmp_path / "runs").glob("*/dryrun-*")}
     assert set(bundles) == {"L0-probes-s16", "L0-probes-s64", "L0-probes-s32"}
     pts = json.loads((bundles["L0-probes-s16"] / "job.json").read_text())["points"]
@@ -389,7 +405,7 @@ def test_dry_run_sample_is_recorded_and_never_submits(tmp_path, monkeypatch):
     from gradvar.hardware import main, run_joblist
     base = json.loads((P1 / "grid_n20.json").read_text())
     (tmp_path / "s.json").write_text(json.dumps(base))
-    run_joblist(str(tmp_path / "s.json"), submit=False, run_root=str(tmp_path / "runs"), log_dir=str(tmp_path / "jobs"), calibration_csv=SNAP, dry_run_sample=3)
+    run_joblist(str(tmp_path / "s.json"), submit=False, run_root=str(tmp_path / "runs"), log_dir=str(tmp_path / "jobs"), calibration_csv=SNAP, dry_run_sample=3)   # the committed list on its own snapshot
     bundles = {d.name.split("-", 2)[2]: d for d in (tmp_path / "runs").glob("*/dryrun-*")}
     assert set(bundles) == {"L0", "L1", "L0-probes-s4096", "L1-probes-s4096"}                  # 3 pubs per group: one job each
     job = json.loads((bundles["L0"] / "job.json").read_text())

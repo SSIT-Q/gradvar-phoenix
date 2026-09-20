@@ -344,7 +344,7 @@ def test_synthetic_pipeline_recovers_planted_variances(passing):
     assert set(pts[pts.kind == "null_control"].point_id) == {"null n20 L0 k0 r0 s4096"}                          # Deviation 43: the L = 0 SPAM-only pair
     assert pts[(pts.kind == "grid") & (pts.L <= 8) & (pts.k == 1) & (pts.resilience_level <= 1)].claimable.all() and (pts[(pts.kind == "grid") & (pts.L == 12)].exploratory).all()
     assert not pts[(pts.kind == "grid") & (pts.L == 8) & (pts.n == 87) & (pts.resilience_level == 2)].claimable.any()     # ZNE shot variance x 4: eps_N >= 1 at L = 8
-    assert set(pts[pts.kind == "grid"].claim_bar_source) == {"measured null control"}
+    assert all(s.startswith("measured null control") for s in pts[pts.kind == "grid"].claim_bar_source)
     l2 = pts[(pts.kind == "grid") & (pts.resilience_level == 2)]
     assert len(l2) == 4 and (l2.n_repeats == 2).all() and l2.repeat_gradients.map(len).eq(2).all() and (l2.M == 400).all()   # 2 repeats x 200 draws pooled
 
@@ -372,7 +372,7 @@ def test_synthetic_passing_run_verdicts(passing):
     assert k["c"]["value"] == dict(mid_circuit_measures=0, dial_layer_us=pytest.approx(0.75)) and k["d"]["note"].startswith("levels probed: [0, 1]")
     g = passing["gate2"]
     assert {v["result"] for v in g.values()} == {"pass"}, {kk: (v["result"], v.get("note")) for kk, v in g.items()}
-    assert g["a"]["L"] == 8 and g["a"]["value"] > 3 and g["a"]["floor"]["source"] == "measured null control"
+    assert g["a"]["L"] == 8 and g["a"]["value"] > 3 and g["a"]["floor"]["source"].startswith("measured null control")
     assert g["b"]["value"] < 200 and g["b"]["booked_rep_delay_us"] == 1.0 and g["b"]["budget"]["jobs"] == g["d"]["grid"]["jobs"]
     assert g["c"]["value"] < g["c"]["threshold"] and g["c"]["logging_complete"] and g["d"]["value"] < 200
     assert g["e"]["value"]["readout_ratio_max"] == pytest.approx(1.0) and g["e"]["value"]["reset_error_max"] < 2e-2
@@ -415,6 +415,27 @@ def test_gate1b_fall_bars_distinguished(tmp_path, preds):
         assert r["counted"] and abs(r["fall"] - 2.0e-4) < 4e-5 and r["fall"] > 2 * r["two_sigma_8"]
         assert r["fall_bar_own_floor"] == pytest.approx(3 / (2 * 16384)) and r["fall_bar_governing"] == pytest.approx(3 / (2 * shots12)) and r["fall_bar_frozen_4096"] == pytest.approx(3 / 8192)
         assert r["fall_passes_own_floor"] and r["fall_passes"] is expect_gov and r["fall_passes_frozen_4096"] is False
+
+
+def test_null_floor_for_picks_the_L0_level_matched_null_control():
+    """Day 1 of the campaign carries four measured null controls at n = 20 and 4096 shots (Deviation 43 L = 0 at levels 0 and 1, the Section 2
+    control (a) L = 1 at levels 0 and 1): Gate 2 (a) takes the L = 0, level-0 one, not the first row; a level-1 point takes the level-1 L = 0
+    floor; another n at the same shots falls through to the other rungs' L = 0 floors; the simulated floor is used only without measured rows."""
+    def row(n, L, lvl, var):
+        return dict(kind="null_control", n=n, shots=4096, resilience_level=lvl, L=L, variance=var, ci_lo=0.8 * var, ci_hi=1.2 * var, M=200)
+    pts = pd.DataFrame([row(20, 1, 0, 9e-5), row(20, 1, 1, 7e-5), row(20, 0, 1, 1.5e-6), row(20, 0, 0, 2e-6), row(37, 0, 0, 2.5e-6)])
+    preds = {"null_control": {"points": [dict(n=20, shots=4096, var_null=8.99e-5, ci_lo=7.2e-5, ci_hi=1.08e-4, M=200)]}}
+    floors = gates.null_floors(pts, preds)
+    assert [f.get("L") for f in floors if f["source"].startswith("measured")] == [1, 1, 0, 0, 0] and len(floors) == 5   # the simulated n = 20 floor yields to the measured ones
+    f0 = gates.null_floor_for(floors, 20, 4096)
+    assert f0["var_null"] == 2e-6 and f0["L"] == 0 and f0["resilience_level"] == 0 and "L = 0, level 0" in f0["source"]
+    assert gates.null_floor_for(floors, 20, 4096, level=1)["var_null"] == 1.5e-6
+    assert gates.null_floor_for(floors, 37, 4096)["var_null"] == 2.5e-6
+    assert gates.null_floor_for(floors, 50, 4096)["var_null"] == 2e-6            # no floor at that n: the level-matched L = 0 floor of another rung at those shots
+    assert gates.null_floor_for(floors, 50, 4096, level=1)["var_null"] == 1.5e-6
+    assert gates.null_floor_for(floors, 20, 16384)["var_null"] == pytest.approx(2e-6 / 4) and "scaled" in gates.null_floor_for(floors, 20, 16384)["source"]
+    sim = gates.null_floor_for(gates.null_floors(pd.DataFrame(), preds), 20, 4096)
+    assert sim["var_null"] == 8.99e-5 and sim["source"].startswith("simulated")
 
 
 def test_gate2_e_reset_drift_reference(passing):

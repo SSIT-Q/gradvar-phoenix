@@ -185,14 +185,16 @@ def kill_rules(run: RunData, grid_level: int = GRID_LEVEL) -> Dict[str, Dict]:
 # ------------------------------------------------------------------------------------------------ null-control floors
 
 def null_floors(points: pd.DataFrame, preds: Dict) -> List[Dict]:
-    """The hardware noise floor per (n, shots, level): measured null-control points (Section 2 control (a), probe kind
-    ``null_control``, candidate Deviation 43) when the run has them, else the simulated floor of Gate 1 criterion (d),
-    labelled. ``sigma`` is the bootstrap standard deviation of the floor's variance estimate."""
+    """The hardware noise floor per (n, shots, level, L): measured null-control points (Section 2 control (a), probe kind
+    ``null_control``; the L = 0 SPAM-only form of Deviation 43 and the L = 1 out-of-cone form) when the run has them, else
+    the simulated floor of Gate 1 criterion (d), labelled. ``sigma`` is the bootstrap standard deviation of the floor's
+    variance estimate. ``L`` is recorded so ``null_floor_for`` can pick the Deviation 43 (L = 0) floor."""
     out = []
     if len(points):
         for r in points[points.kind == "null_control"].itertuples():
-            out.append(dict(n=int(r.n), shots=int(r.shots), resilience_level=int(r.resilience_level), var_null=float(r.variance),
-                            ci_lo=float(r.ci_lo), ci_hi=float(r.ci_hi), sigma=float((r.ci_hi - r.ci_lo) / (2 * Z95)), M=int(r.M), source="measured null control"))
+            out.append(dict(n=int(r.n), shots=int(r.shots), resilience_level=int(r.resilience_level), L=None if pd.isna(r.L) else int(r.L),
+                            var_null=float(r.variance), ci_lo=float(r.ci_lo), ci_hi=float(r.ci_hi), sigma=float((r.ci_hi - r.ci_lo) / (2 * Z95)),
+                            M=int(r.M), source="measured null control" + ("" if pd.isna(r.L) else f" (L = {int(r.L)}, level {int(r.resilience_level)})")))
     for q in preds.get("null_control", {}).get("points", []):
         if not any(o["n"] == int(q["n"]) and o["shots"] == int(q["shots"]) and o["source"].startswith("measured") for o in out):
             out.append(dict(n=int(q["n"]), shots=int(q["shots"]), resilience_level=None, var_null=float(q["var_null"]), ci_lo=float(q["ci_lo"]), ci_hi=float(q["ci_hi"]),
@@ -200,16 +202,27 @@ def null_floors(points: pd.DataFrame, preds: Dict) -> List[Dict]:
     return out
 
 
-def null_floor_for(floors: List[Dict], n: int, shots: int) -> Dict | None:
-    """The floor for a point: a measured one at the same shots, else a measured one rescaled by shots (the floor is shot
-    dominated; labelled 'scaled'), else the simulated floor at the same shots, else the simulated one rescaled."""
+def null_floor_for(floors: List[Dict], n: int, shots: int, level: int = 0) -> Dict | None:
+    """The floor for a point: the measured Deviation 43 null control (**L = 0**, the point's ``n``, the same resilience
+    ``level``, the same shots) first; then a measured L = 0 floor at that n and shots at another level, then any measured
+    floor at that n and shots, then an L = 0 floor at those shots on another rung, then any measured floor at those shots
+    (labelled by L and level in ``source``), else a
+    measured one rescaled by shots (the floor is shot dominated; labelled 'scaled'), else the simulated floor at the same
+    shots, else the simulated one rescaled. Day 1 of the campaign carries four measured null controls at n = 20 and 4096
+    shots (L = 0 at levels 0 and 1, L = 1 at levels 0 and 1) that differ by a factor of about 45, so the selection is
+    explicit rather than first-row."""
+    def prefer(rows):        # Deviation 43 L = 0 at the point's level, then L = 0 at another level, then anything
+        return ([f for f in rows if f.get("L") == 0 and f.get("resilience_level") == int(level)] or [f for f in rows if f.get("L") == 0] or rows)
+
     for measured in (True, False):
         cands = [f for f in floors if f["source"].startswith("measured") == measured]
-        same = [f for f in cands if f["shots"] == int(shots) and f["n"] == int(n)] or [f for f in cands if f["shots"] == int(shots)]
+        at_n = [f for f in cands if f["shots"] == int(shots) and f["n"] == int(n)]
+        at_shots = [f for f in cands if f["shots"] == int(shots)]
+        same = prefer(at_n) or prefer(at_shots)
         if same:
             return dict(same[0])
         if cands:
-            f = dict(cands[0])
+            f = dict((prefer([c for c in cands if c["n"] == int(n)]) or prefer(cands))[0])
             scale = f["shots"] / float(shots)
             f.update(var_null=f["var_null"] * scale, ci_lo=f["ci_lo"] * scale, ci_hi=f["ci_hi"] * scale, sigma=f["sigma"] * scale, source=f["source"] + f" (scaled from {f['shots']} shots)")
             return f
@@ -228,7 +241,7 @@ def gate2_a(points: pd.DataFrame, preds: Dict, floors: List[Dict] | None = None)
     if g.empty:
         return verdict("gate2_a", text, "not-evaluable", note="no n = 20, level 0, L > 1 grid point measured")
     shots = int(g.shots.iloc[0])
-    floor = null_floor_for(floors if floors is not None else null_floors(points, preds), 20, shots)
+    floor = null_floor_for(floors if floors is not None else null_floors(points, preds), 20, shots, level=0)
     if floor is None:
         return verdict("gate2_a", text, "not-evaluable", note=f"no null-control floor for n = 20 at {shots} shots (measured or simulated)")
     cands = []

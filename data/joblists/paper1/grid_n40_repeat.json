@@ -5,14 +5,16 @@
  "dry_run": true,
  "rep_delay_probe": true,
  "preflight_review": "TBD: pre-flight review permalink",
- "notes": "Paper 1 pre-registration v0.12.0 (20 Sep 2026), Section 2 control (d): repeat of the n = 40 ladder (4x10 rung, actual n = 37) on a second calendar day to estimate drift; L in [1, 2, 4, 8, 12], k = 1, resilience 0 and 1, M = 200 draws with their own seed block (fresh draws), 4096 shots. Run at least one day after grid_n40.json (order of runs, docs/PAPER1_JOBLISTS.md). Ledger: Section 6 main-grid line (the 10-point day-2 repeat of the Section 2 point count). Placement from snapshot 2026-09-20T030813Z (CSV plus raw properties; Deviations 22, 26 and 46): n40 = 4x10 n = 37 origin (8, 0) edge 94_104 broken [[86, 87], [100, 101], [95, 96], [87, 97], [100, 110]]. Deviation 46: the runner re-derives the placement and the observable edges from the run-day snapshot under the Deviation 22 / 26 cuts and the cone-graph edge rule (live re-check, layout_check enforce) and refuses a list whose n no longer matches; regenerate with scripts/make_paper1_joblists.py from the run-day snapshot and re-draw the Gate 1b reference predictions where the cone graph changed. Budget model v3 (Deviation 47: 3.0 s per job, +2.7 s at resilience >= 1, 5 us per execution, max(shots, 64) at resilience >= 1), jobs of at most 300 pubs (max_experiments; Deviation 48) and 12 MB of parameter values: 8 jobs, 2000 pubs, 4000 parameter sets, 16384000 executions (+0 TREX), 3.795 min at the booked 1 us rep_delay (71.789 min at 250 us). Nothing is submitted while dry_run is true and the pre-flight review permalink is the placeholder.",
+ "notes": "Paper 1 pre-registration v0.13.1 (20 Sep 2026), Section 2 control (d): repeat of the n = 40 ladder (4x10 rung, actual n = 37) on a second calendar day to estimate drift; L in [1, 2, 4, 8, 12], k = 1, resilience 0 and 1, M = 200 draws with their own seed block (fresh draws), 4096 shots. Run at least one day after grid_n40.json (order of runs, docs/PAPER1_JOBLISTS.md). Ledger: Section 6 main-grid line (the 10-point day-2 repeat of the Section 2 point count). Placement from snapshot 2026-09-20T141736Z (CSV plus raw properties; Deviations 22, 26 and 46 cuts plus the Deviation 53 coherence floor T1, T2 >= 25 us, on the newest committed calibration data): n40 = 4x10 n = 37 origin (8, 0) edge 93_103 broken [[86, 87], [100, 101], [95, 96], [87, 97]]. Deviation 46: the runner re-derives the placement and the observable edges from the run-day snapshot under the Deviation 22 / 26 cuts and the cone-graph edge rule (live re-check, layout_check enforce) and refuses a list whose n no longer matches; regenerate with scripts/make_paper1_joblists.py from the run-day snapshot and re-draw the Gate 1b reference predictions where the cone graph changed. Budget model v3 (Deviation 47: 3.0 s per job, +2.7 s at resilience >= 1, 5 us per execution, max(shots, 64) at resilience >= 1), jobs of at most 300 pubs (max_experiments; Deviation 48) and 12 MB of parameter values: 8 jobs, 2000 pubs, 4000 parameter sets, 16384000 executions (+0 TREX), 3.795 min at the booked 1 us rep_delay (71.789 min at 250 us). Nothing is submitted while dry_run is true and the pre-flight review permalink is the placeholder.",
  "layout_check": "enforce",
  "placement": {
-  "snapshot": "ibm_phoenix_2026-09-20T030813Z.csv",
-  "properties": "ibm_phoenix_properties_20260920T030813Z.json.gz",
-  "stamp": "2026-09-20T030813Z",
+  "snapshot": "ibm_phoenix_2026-09-20T141736Z.csv",
+  "properties": "ibm_phoenix_properties_2026-09-20T141736Z.json",
+  "stamp": "2026-09-20T141736Z",
   "excluded": [
+   7,
    8,
+   11,
    17,
    18,
    24,
@@ -23,19 +25,21 @@
    61,
    62,
    63,
+   66,
    67,
    72,
    73,
    77,
-   91,
    107,
-   119
+   110,
+   114
   ],
   "rules": {
    "readout_cut": 0.03,
    "init_error_cut": 0.0005,
    "zz_cut_mhz": 1.0,
-   "cz_cut": 0.005
+   "cz_cut": 0.005,
+   "coherence_floor_us": 25.0
   },
   "rungs": {
    "n40": {
@@ -46,9 +50,9 @@
      0
     ],
     "holes": [
-     91,
      107,
-     119
+     110,
+     114
     ],
     "qubits": [
      80,
@@ -62,6 +66,7 @@
      88,
      89,
      90,
+     91,
      92,
      93,
      94,
@@ -79,15 +84,14 @@
      106,
      108,
      109,
-     110,
      111,
      112,
      113,
-     114,
      115,
      116,
      117,
-     118
+     118,
+     119
     ],
     "broken_edges": [
      [
@@ -105,23 +109,18 @@
      [
       87,
       97
-     ],
-     [
-      100,
-      110
      ]
     ],
     "broken_edge_cz_errors": {
      "86_87": 0.014325750268637638,
      "100_101": 0.06256249368650205,
      "95_96": 0.030846394851280795,
-     "87_97": 0.017818620405217422,
-     "100_110": 0.005808608386658781
+     "87_97": 0.017818620405217422
     },
-    "live_couplers": 51,
-    "edge": "94_104",
-    "edge_rule": "Deviation 46 cone-graph rule (Deviation 36 restated): intact 4x10 coupler whose L = 2 cone graph equals the 4x5 rung's (the 4x5 edge itself)",
-    "edge_cz_error": 0.0017528170855031777,
+    "live_couplers": 53,
+    "edge": "93_103",
+    "edge_rule": "Deviation 36's (93, 103) as written (its L = 2 cone graph differs from the 4x5 rung's on this snapshot; Deviation 46 fallback)",
+    "edge_cz_error": 0.001446618301280539,
     "cone_L2_qubits": [
      82,
      83,
@@ -136,17 +135,15 @@
      104,
      105,
      112,
-     113,
-     114,
-     115
+     113
     ],
-    "cone_L2_couplers": 24,
-    "cone_L2_matches_4x5": true
+    "cone_L2_couplers": 20,
+    "cone_L2_matches_4x5": false
    }
   }
  },
  "campaign": {
-  "pre_registration": "Paper 1 pre-registration v0.12.0 (20 Sep 2026)",
+  "pre_registration": "Paper 1 pre-registration v0.13.1 (20 Sep 2026)",
   "ledger_line": "main",
   "budget_model_version": 3,
   "max_experiments": 300,
@@ -156,7 +153,7 @@
   {
    "n": 37,
    "patch": "4x10",
-   "edge": "94_104",
+   "edge": "93_103",
    "L": 1,
    "k": 1,
    "resilience": 0,
@@ -167,7 +164,7 @@
   {
    "n": 37,
    "patch": "4x10",
-   "edge": "94_104",
+   "edge": "93_103",
    "L": 1,
    "k": 1,
    "resilience": 1,
@@ -178,7 +175,7 @@
   {
    "n": 37,
    "patch": "4x10",
-   "edge": "94_104",
+   "edge": "93_103",
    "L": 2,
    "k": 1,
    "resilience": 0,
@@ -189,7 +186,7 @@
   {
    "n": 37,
    "patch": "4x10",
-   "edge": "94_104",
+   "edge": "93_103",
    "L": 2,
    "k": 1,
    "resilience": 1,
@@ -200,7 +197,7 @@
   {
    "n": 37,
    "patch": "4x10",
-   "edge": "94_104",
+   "edge": "93_103",
    "L": 4,
    "k": 1,
    "resilience": 0,
@@ -211,7 +208,7 @@
   {
    "n": 37,
    "patch": "4x10",
-   "edge": "94_104",
+   "edge": "93_103",
    "L": 4,
    "k": 1,
    "resilience": 1,
@@ -222,7 +219,7 @@
   {
    "n": 37,
    "patch": "4x10",
-   "edge": "94_104",
+   "edge": "93_103",
    "L": 8,
    "k": 1,
    "resilience": 0,
@@ -233,7 +230,7 @@
   {
    "n": 37,
    "patch": "4x10",
-   "edge": "94_104",
+   "edge": "93_103",
    "L": 8,
    "k": 1,
    "resilience": 1,
@@ -244,7 +241,7 @@
   {
    "n": 37,
    "patch": "4x10",
-   "edge": "94_104",
+   "edge": "93_103",
    "L": 12,
    "k": 1,
    "resilience": 0,
@@ -255,7 +252,7 @@
   {
    "n": 37,
    "patch": "4x10",
-   "edge": "94_104",
+   "edge": "93_103",
    "L": 12,
    "k": 1,
    "resilience": 1,

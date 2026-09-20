@@ -5,14 +5,16 @@
  "dry_run": true,
  "rep_delay_probe": true,
  "preflight_review": "TBD: pre-flight review permalink",
- "notes": "Paper 1 pre-registration v0.12.0 (20 Sep 2026); Deviation 50 (v0.13.0, campaign advanced to a target of 21-28 Sep 2026): campaign day 1 = the Deviation 43 L = 0 null_control points of null_controls.json (the five rungs at resilience 0 plus the level-1 check at n = 20; ledger: the 2.6-minute reserve item) followed by the n = 20 grid rung of grid_n20.json (Section 2 main grid, L in [1, 2, 4, 8, 12], k = 1, resilience 0 and 1, M = 200 draws, 4096 shots, plus the Section 2 control (a) L = 1 null controls; ledger: the 190.5-minute main-grid line), combined into one list so the day is one Batch, one pre-flight review and one arming step. Every point and probe is identical (n, patch, edge, L, k, M, shots, resilience, seed) to its entry in the two committed source lists, which stay on main as the fallback packaging. Gate 2 is decided from this day (Section 5): (a) on the n = 20 level-0 L = 8 point against the measured null floor of null_L0_n20_r0 at M = 200; (b) and (d) re-read from the logged rep_delay figures and the usage of this day's jobs; (c) stands from the smoke test's ladder; (e) per qubit against the same-day 03:00 UTC snapshot under Deviation 49; a Gate 2 failure pauses the campaign before day 2 (the remaining main grid) is armed. Job order inside the Batch: the runner submits the gradient-point jobs (L0, then L1) before the probe jobs (L0-probes, then L1-probes), so the null controls run after the n = 20 grid points on the same day; the live layout check covers the union of the five rungs' qubits (SPAM only on the n40 to n100 rungs: no CZ) and the n = 20 rung's 30 live couplers, so a failing qubit on any rung refuses the whole list (fallback: arm the two source lists instead). Pre-flight review: docs/preflight/03_paper1_day1_2026-09-21.md. Placement from snapshot 2026-09-20T030813Z (CSV plus raw properties; Deviations 22, 26 and 46): n20 = 4x5 n = 20 origin (8, 2) edge 94_104 broken [[95, 96]]; n40 = 4x10 n = 37 origin (8, 0) edge 94_104 broken [[86, 87], [100, 101], [95, 96], [87, 97], [100, 110]]; n60 = 6x10 n = 50 origin (3, 0) edge 43_44 broken [[86, 87], [31, 32]]; n80 = 8x10 n = 68 origin (3, 0) edge 75_85 broken [[86, 87], [100, 101], [31, 32], [95, 96], [87, 97]]; n100 = 10x10 n = 85 origin (2, 0) edge 75_85 broken [[86, 87], [100, 101], [31, 32], [95, 96], [87, 97], [100, 110]]. Deviation 46: the runner re-derives the placement and the observable edges from the run-day snapshot under the Deviation 22 / 26 cuts and the cone-graph edge rule (live re-check, layout_check enforce) and refuses a list whose n no longer matches; regenerate with scripts/make_paper1_joblists.py from the run-day snapshot and re-draw the Gate 1b reference predictions where the cone graph changed. Budget model v3 (Deviation 47: 3.0 s per job, +2.7 s at resilience >= 1, 5 us per execution, max(shots, 64) at resilience >= 1), jobs of at most 300 pubs (max_experiments; Deviation 48) and 12 MB of parameter values: 14 jobs, 3600 pubs, 7200 parameter sets, 29491200 executions (+0 TREX), 5.958 min at the booked 1 us rep_delay (128.347 min at 250 us). Nothing is submitted while dry_run is true and the pre-flight review permalink is the placeholder.",
+ "notes": "Paper 1 pre-registration v0.13.1 (20 Sep 2026); Deviation 50 (v0.13.0, campaign advanced to a target of 21-28 Sep 2026): campaign day 1 = the Deviation 43 L = 0 null_control points of null_controls.json (the five rungs at resilience 0 plus the level-1 check at n = 20; ledger: the 2.6-minute reserve item) followed by the n = 20 grid rung of grid_n20.json (Section 2 main grid, L in [1, 2, 4, 8, 12], k = 1, resilience 0 and 1, M = 200 draws, 4096 shots, plus the Section 2 control (a) L = 1 null controls; ledger: the 190.5-minute main-grid line), combined into one list so the day is one Batch, one pre-flight review and one arming step. Every point and probe is identical (n, patch, edge, L, k, M, shots, resilience, seed) to its entry in the two committed source lists, which stay on main as the fallback packaging. Gate 2 is decided from this day (Section 5): (a) on the n = 20 level-0 L = 8 point against the measured null floor of null_L0_n20_r0 at M = 200; (b) and (d) re-read from the logged rep_delay figures and the usage of this day's jobs; (c) stands from the smoke test's ladder; (e) per qubit against the same-day 03:00 UTC snapshot under Deviation 49; a Gate 2 failure pauses the campaign before day 2 (the remaining main grid) is armed. Job order inside the Batch: the runner submits the gradient-point jobs (L0, then L1) before the probe jobs (L0-probes, then L1-probes), so the null controls run after the n = 20 grid points on the same day; the live layout check covers the union of the five rungs' qubits (SPAM only on the n40 to n100 rungs: no CZ) and the n = 20 rung's 30 live couplers, so a failing qubit on any rung refuses the whole list (fallback: arm the two source lists instead). Pre-flight review: docs/preflight/03_paper1_day1_2026-09-21.md. Placement from snapshot 2026-09-20T141736Z (CSV plus raw properties; Deviations 22, 26 and 46 cuts plus the Deviation 53 coherence floor T1, T2 >= 25 us, on the newest committed calibration data): n20 = 4x5 n = 19 origin (8, 1) edge 93_103 broken []; n40 = 4x10 n = 37 origin (8, 0) edge 93_103 broken [[86, 87], [100, 101], [95, 96], [87, 97]]; n60 = 6x10 n = 50 origin (0, 0) edge 35_36 broken [[15, 16], [31, 32], [16, 26]]; n80 = 8x10 n = 68 origin (3, 0) edge 75_85 broken [[86, 87], [100, 101], [31, 32], [95, 96], [87, 97]]; n100 = 10x10 n = 84 origin (2, 0) edge 75_85 broken [[86, 87], [100, 101], [31, 32], [95, 96], [87, 97]]. Deviation 46: the runner re-derives the placement and the observable edges from the run-day snapshot under the Deviation 22 / 26 cuts and the cone-graph edge rule (live re-check, layout_check enforce) and refuses a list whose n no longer matches; regenerate with scripts/make_paper1_joblists.py from the run-day snapshot and re-draw the Gate 1b reference predictions where the cone graph changed. Budget model v3 (Deviation 47: 3.0 s per job, +2.7 s at resilience >= 1, 5 us per execution, max(shots, 64) at resilience >= 1), jobs of at most 300 pubs (max_experiments; Deviation 48) and 12 MB of parameter values: 14 jobs, 3600 pubs, 7200 parameter sets, 29491200 executions (+0 TREX), 5.958 min at the booked 1 us rep_delay (128.347 min at 250 us). Nothing is submitted while dry_run is true and the pre-flight review permalink is the placeholder.",
  "layout_check": "enforce",
  "placement": {
-  "snapshot": "ibm_phoenix_2026-09-20T030813Z.csv",
-  "properties": "ibm_phoenix_properties_20260920T030813Z.json.gz",
-  "stamp": "2026-09-20T030813Z",
+  "snapshot": "ibm_phoenix_2026-09-20T141736Z.csv",
+  "properties": "ibm_phoenix_properties_2026-09-20T141736Z.json",
+  "stamp": "2026-09-20T141736Z",
   "excluded": [
+   7,
    8,
+   11,
    17,
    18,
    24,
@@ -23,83 +25,78 @@
    61,
    62,
    63,
+   66,
    67,
    72,
    73,
    77,
-   91,
    107,
-   119
+   110,
+   114
   ],
   "rules": {
    "readout_cut": 0.03,
    "init_error_cut": 0.0005,
    "zz_cut_mhz": 1.0,
-   "cz_cut": 0.005
+   "cz_cut": 0.005,
+   "coherence_floor_us": 25.0
   },
   "rungs": {
    "n20": {
     "patch": "4x5",
-    "n": 20,
+    "n": 19,
     "origin": [
      8,
-     2
+     1
     ],
-    "holes": [],
+    "holes": [
+     114
+    ],
     "qubits": [
+     81,
      82,
      83,
      84,
      85,
-     86,
+     91,
      92,
      93,
      94,
      95,
-     96,
+     101,
      102,
      103,
      104,
      105,
-     106,
+     111,
      112,
      113,
-     114,
-     115,
-     116
-    ],
-    "broken_edges": [
-     [
-      95,
-      96
-     ]
-    ],
-    "broken_edge_cz_errors": {
-     "95_96": 0.030846394851280795
-    },
-    "live_couplers": 30,
-    "edge": "94_104",
-    "edge_rule": "interior_edge",
-    "edge_cz_error": 0.0017528170855031777,
-    "cone_L2_qubits": [
-     82,
-     83,
-     84,
-     85,
-     92,
-     93,
-     94,
-     95,
-     102,
-     103,
-     104,
-     105,
-     112,
-     113,
-     114,
      115
     ],
-    "cone_L2_couplers": 24,
+    "broken_edges": [],
+    "broken_edge_cz_errors": {},
+    "live_couplers": 28,
+    "edge": "93_103",
+    "edge_rule": "interior_edge",
+    "edge_cz_error": 0.001446618301280539,
+    "cone_L2_qubits": [
+     81,
+     82,
+     83,
+     84,
+     91,
+     92,
+     93,
+     94,
+     101,
+     102,
+     103,
+     104,
+     111,
+     112,
+     113
+    ],
+    "cone_L2_couplers": 22,
     "cone_L2_matches_4x5": true
    },
    "n40": {
@@ -110,9 +107,9 @@
      0
     ],
     "holes": [
-     91,
      107,
-     119
+     110,
+     114
     ],
     "qubits": [
      80,
@@ -126,6 +123,7 @@
      88,
      89,
      90,
+     91,
      92,
      93,
      94,
@@ -143,15 +141,14 @@
      106,
      108,
      109,
-     110,
      111,
      112,
      113,
-     114,
      115,
      116,
      117,
-     118
+     118,
+     119
     ],
     "broken_edges": [
      [
@@ -169,23 +166,18 @@
      [
       87,
       97
-     ],
-     [
-      100,
-      110
      ]
     ],
     "broken_edge_cz_errors": {
      "86_87": 0.014325750268637638,
      "100_101": 0.06256249368650205,
      "95_96": 0.030846394851280795,
-     "87_97": 0.017818620405217422,
-     "100_110": 0.005808608386658781
+     "87_97": 0.017818620405217422
     },
-    "live_couplers": 51,
-    "edge": "94_104",
-    "edge_rule": "Deviation 46 cone-graph rule (Deviation 36 restated): intact 4x10 coupler whose L = 2 cone graph equals the 4x5 rung's (the 4x5 edge itself)",
-    "edge_cz_error": 0.0017528170855031777,
+    "live_couplers": 53,
+    "edge": "93_103",
+    "edge_rule": "Deviation 36's (93, 103) as written (its L = 2 cone graph differs from the 4x5 rung's on this snapshot; Deviation 46 fallback)",
+    "edge_cz_error": 0.001446618301280539,
     "cone_L2_qubits": [
      82,
      83,
@@ -200,33 +192,54 @@
      104,
      105,
      112,
-     113,
-     114,
-     115
+     113
     ],
-    "cone_L2_couplers": 24,
-    "cone_L2_matches_4x5": true
+    "cone_L2_couplers": 20,
+    "cone_L2_matches_4x5": false
    },
    "n60": {
     "patch": "6x10",
     "n": 50,
     "origin": [
-     3,
+     0,
      0
     ],
     "holes": [
+     7,
+     8,
+     11,
+     17,
+     18,
+     24,
+     27,
      49,
      55,
-     59,
-     61,
-     62,
-     63,
-     67,
-     72,
-     73,
-     77
+     59
     ],
     "qubits": [
+     0,
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     9,
+     10,
+     12,
+     13,
+     14,
+     15,
+     16,
+     19,
+     20,
+     21,
+     22,
+     23,
+     25,
+     26,
+     28,
+     29,
      30,
      31,
      32,
@@ -253,65 +266,46 @@
      54,
      56,
      57,
-     58,
-     60,
-     64,
-     65,
-     66,
-     68,
-     69,
-     70,
-     71,
-     74,
-     75,
-     76,
-     78,
-     79,
-     80,
-     81,
-     82,
-     83,
-     84,
-     85,
-     86,
-     87,
-     88,
-     89
+     58
     ],
     "broken_edges": [
      [
-      86,
-      87
+      15,
+      16
      ],
      [
       31,
       32
+     ],
+     [
+      16,
+      26
      ]
     ],
     "broken_edge_cz_errors": {
-     "86_87": 0.014325750268637638,
-     "31_32": 0.015758235116513475
+     "15_16": 0.007618273780539836,
+     "31_32": 0.015758235116513475,
+     "16_26": 0.010046293237424841
     },
-    "live_couplers": 71,
-    "edge": "43_44",
+    "live_couplers": 73,
+    "edge": "35_36",
     "edge_rule": "interior_edge",
-    "edge_cz_error": 0.0012168408562782118,
+    "edge_cz_error": 0.002075956836076809,
     "cone_L2_qubits": [
-     32,
-     33,
+     25,
+     26,
      34,
      35,
-     42,
-     43,
+     36,
+     37,
      44,
      45,
-     52,
-     53,
-     54,
-     64,
-     65
+     46,
+     47,
+     56,
+     57
     ],
-    "cone_L2_couplers": 17,
+    "cone_L2_couplers": 16,
     "cone_L2_matches_4x5": false
    },
    "n80": {
@@ -328,11 +322,11 @@
      61,
      62,
      63,
+     66,
      67,
      72,
      73,
      77,
-     91,
      107
     ],
     "qubits": [
@@ -366,7 +360,6 @@
      60,
      64,
      65,
-     66,
      68,
      69,
      70,
@@ -387,6 +380,7 @@
      88,
      89,
      90,
+     91,
      92,
      93,
      94,
@@ -434,14 +428,13 @@
      "95_96": 0.030846394851280795,
      "87_97": 0.017818620405217422
     },
-    "live_couplers": 99,
+    "live_couplers": 100,
     "edge": "75_85",
     "edge_rule": "interior_edge",
     "edge_cz_error": 0.0011552518898373942,
     "cone_L2_qubits": [
      64,
      65,
-     66,
      74,
      75,
      76,
@@ -454,12 +447,12 @@
      105,
      106
     ],
-    "cone_L2_couplers": 19,
+    "cone_L2_couplers": 17,
     "cone_L2_matches_4x5": false
    },
    "n100": {
     "patch": "10x10",
-    "n": 85,
+    "n": 84,
     "origin": [
      2,
      0
@@ -473,13 +466,14 @@
      61,
      62,
      63,
+     66,
      67,
      72,
      73,
      77,
-     91,
      107,
-     119
+     110,
+     114
     ],
     "qubits": [
      20,
@@ -520,7 +514,6 @@
      60,
      64,
      65,
-     66,
      68,
      69,
      70,
@@ -541,6 +534,7 @@
      88,
      89,
      90,
+     91,
      92,
      93,
      94,
@@ -558,15 +552,14 @@
      106,
      108,
      109,
-     110,
      111,
      112,
      113,
-     114,
      115,
      116,
      117,
-     118
+     118,
+     119
     ],
     "broken_edges": [
      [
@@ -588,10 +581,6 @@
      [
       87,
       97
-     ],
-     [
-      100,
-      110
      ]
     ],
     "broken_edge_cz_errors": {
@@ -599,17 +588,15 @@
      "100_101": 0.06256249368650205,
      "31_32": 0.015758235116513475,
      "95_96": 0.030846394851280795,
-     "87_97": 0.017818620405217422,
-     "100_110": 0.005808608386658781
+     "87_97": 0.017818620405217422
     },
-    "live_couplers": 127,
+    "live_couplers": 126,
     "edge": "75_85",
     "edge_rule": "interior_edge",
     "edge_cz_error": 0.0011552518898373942,
     "cone_L2_qubits": [
      64,
      65,
-     66,
      74,
      75,
      76,
@@ -619,13 +606,13 @@
      94,
      95
     ],
-    "cone_L2_couplers": 15,
+    "cone_L2_couplers": 13,
     "cone_L2_matches_4x5": false
    }
   }
  },
  "campaign": {
-  "pre_registration": "Paper 1 pre-registration v0.12.0 (20 Sep 2026)",
+  "pre_registration": "Paper 1 pre-registration v0.13.1 (20 Sep 2026)",
   "ledger_line": "null_controls+main",
   "budget_model_version": 3,
   "max_experiments": 300,
@@ -644,9 +631,9 @@
  },
  "points": [
   {
-   "n": 20,
+   "n": 19,
    "patch": "4x5",
-   "edge": "94_104",
+   "edge": "93_103",
    "L": 1,
    "k": 1,
    "resilience": 0,
@@ -655,9 +642,9 @@
    "seed": 20262001
   },
   {
-   "n": 20,
+   "n": 19,
    "patch": "4x5",
-   "edge": "94_104",
+   "edge": "93_103",
    "L": 1,
    "k": 1,
    "resilience": 1,
@@ -666,9 +653,9 @@
    "seed": 20262001
   },
   {
-   "n": 20,
+   "n": 19,
    "patch": "4x5",
-   "edge": "94_104",
+   "edge": "93_103",
    "L": 2,
    "k": 1,
    "resilience": 0,
@@ -677,9 +664,9 @@
    "seed": 20272001
   },
   {
-   "n": 20,
+   "n": 19,
    "patch": "4x5",
-   "edge": "94_104",
+   "edge": "93_103",
    "L": 2,
    "k": 1,
    "resilience": 1,
@@ -688,9 +675,9 @@
    "seed": 20272001
   },
   {
-   "n": 20,
+   "n": 19,
    "patch": "4x5",
-   "edge": "94_104",
+   "edge": "93_103",
    "L": 4,
    "k": 1,
    "resilience": 0,
@@ -699,9 +686,9 @@
    "seed": 20282001
   },
   {
-   "n": 20,
+   "n": 19,
    "patch": "4x5",
-   "edge": "94_104",
+   "edge": "93_103",
    "L": 4,
    "k": 1,
    "resilience": 1,
@@ -710,9 +697,9 @@
    "seed": 20282001
   },
   {
-   "n": 20,
+   "n": 19,
    "patch": "4x5",
-   "edge": "94_104",
+   "edge": "93_103",
    "L": 8,
    "k": 1,
    "resilience": 0,
@@ -721,9 +708,9 @@
    "seed": 20292001
   },
   {
-   "n": 20,
+   "n": 19,
    "patch": "4x5",
-   "edge": "94_104",
+   "edge": "93_103",
    "L": 8,
    "k": 1,
    "resilience": 1,
@@ -732,9 +719,9 @@
    "seed": 20292001
   },
   {
-   "n": 20,
+   "n": 19,
    "patch": "4x5",
-   "edge": "94_104",
+   "edge": "93_103",
    "L": 12,
    "k": 1,
    "resilience": 0,
@@ -743,9 +730,9 @@
    "seed": 20302001
   },
   {
-   "n": 20,
+   "n": 19,
    "patch": "4x5",
-   "edge": "94_104",
+   "edge": "93_103",
    "L": 12,
    "k": 1,
    "resilience": 1,
@@ -758,54 +745,54 @@
   {
    "id": "null_L0_n20_r0",
    "kind": "null_control",
-   "n": 20,
+   "n": 19,
    "patch": "4x5",
-   "edge": "94_104",
+   "edge": "93_103",
    "L": 0,
    "M": 200,
    "shots": 4096,
    "resilience": 0,
    "seed": 20861001,
-   "purpose": "Deviation 43: L = 0 shifted-pair null control on the n20 rung (actual n = 20), state preparation and measurement of Z_i Z_j on edge 94_104 only, 200 draws x 2 identical circuits x 4096 shots; the variance of the logged gradient over draws is the measured null floor"
+   "purpose": "Deviation 43: L = 0 shifted-pair null control on the n20 rung (actual n = 19), state preparation and measurement of Z_i Z_j on edge 93_103 only, 200 draws x 2 identical circuits x 4096 shots; the variance of the logged gradient over draws is the measured null floor"
   },
   {
    "id": "null_L0_n20_r1",
    "kind": "null_control",
-   "n": 20,
+   "n": 19,
    "patch": "4x5",
-   "edge": "94_104",
+   "edge": "93_103",
    "L": 0,
    "M": 200,
    "shots": 4096,
    "resilience": 1,
    "seed": 20862001,
-   "purpose": "Deviation 43: L = 0 shifted-pair null control on the n20 rung (actual n = 20), state preparation and measurement of Z_i Z_j on edge 94_104 only, 200 draws x 2 identical circuits x 4096 shots; the variance of the logged gradient over draws is the measured null floor (level-1 check: the level-0 floor rescaled by the H4 factor)"
+   "purpose": "Deviation 43: L = 0 shifted-pair null control on the n20 rung (actual n = 19), state preparation and measurement of Z_i Z_j on edge 93_103 only, 200 draws x 2 identical circuits x 4096 shots; the variance of the logged gradient over draws is the measured null floor (level-1 check: the level-0 floor rescaled by the H4 factor)"
   },
   {
    "id": "null_L0_n40_r0",
    "kind": "null_control",
    "n": 37,
    "patch": "4x10",
-   "edge": "94_104",
+   "edge": "93_103",
    "L": 0,
    "M": 200,
    "shots": 4096,
    "resilience": 0,
    "seed": 21861001,
-   "purpose": "Deviation 43: L = 0 shifted-pair null control on the n40 rung (actual n = 37), state preparation and measurement of Z_i Z_j on edge 94_104 only, 200 draws x 2 identical circuits x 4096 shots; the variance of the logged gradient over draws is the measured null floor"
+   "purpose": "Deviation 43: L = 0 shifted-pair null control on the n40 rung (actual n = 37), state preparation and measurement of Z_i Z_j on edge 93_103 only, 200 draws x 2 identical circuits x 4096 shots; the variance of the logged gradient over draws is the measured null floor"
   },
   {
    "id": "null_L0_n60_r0",
    "kind": "null_control",
    "n": 50,
    "patch": "6x10",
-   "edge": "43_44",
+   "edge": "35_36",
    "L": 0,
    "M": 200,
    "shots": 4096,
    "resilience": 0,
    "seed": 22861001,
-   "purpose": "Deviation 43: L = 0 shifted-pair null control on the n60 rung (actual n = 50), state preparation and measurement of Z_i Z_j on edge 43_44 only, 200 draws x 2 identical circuits x 4096 shots; the variance of the logged gradient over draws is the measured null floor"
+   "purpose": "Deviation 43: L = 0 shifted-pair null control on the n60 rung (actual n = 50), state preparation and measurement of Z_i Z_j on edge 35_36 only, 200 draws x 2 identical circuits x 4096 shots; the variance of the logged gradient over draws is the measured null floor"
   },
   {
    "id": "null_L0_n80_r0",
@@ -823,7 +810,7 @@
   {
    "id": "null_L0_n100_r0",
    "kind": "null_control",
-   "n": 85,
+   "n": 84,
    "patch": "10x10",
    "edge": "75_85",
    "L": 0,
@@ -831,14 +818,14 @@
    "shots": 4096,
    "resilience": 0,
    "seed": 24861001,
-   "purpose": "Deviation 43: L = 0 shifted-pair null control on the n100 rung (actual n = 85), state preparation and measurement of Z_i Z_j on edge 75_85 only, 200 draws x 2 identical circuits x 4096 shots; the variance of the logged gradient over draws is the measured null floor"
+   "purpose": "Deviation 43: L = 0 shifted-pair null control on the n100 rung (actual n = 84), state preparation and measurement of Z_i Z_j on edge 75_85 only, 200 draws x 2 identical circuits x 4096 shots; the variance of the logged gradient over draws is the measured null floor"
   },
   {
    "id": "null_L1_n20_r0",
    "kind": "null_control",
-   "n": 20,
+   "n": 19,
    "patch": "4x5",
-   "edge": "94_104",
+   "edge": "93_103",
    "L": 1,
    "k": 1,
    "M": 200,
@@ -850,9 +837,9 @@
   {
    "id": "null_L1_n20_r1",
    "kind": "null_control",
-   "n": 20,
+   "n": 19,
    "patch": "4x5",
-   "edge": "94_104",
+   "edge": "93_103",
    "L": 1,
    "k": 1,
    "M": 200,
@@ -910,7 +897,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 3.0,
-    "param_mb": 0.128,
+    "param_mb": 0.122,
     "circuit_seconds_at_250us": 633.782,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 636.782,
@@ -931,7 +918,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 3.0,
-    "param_mb": 0.32,
+    "param_mb": 0.304,
     "circuit_seconds_at_250us": 637.272,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 640.272,
@@ -952,7 +939,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 3.0,
-    "param_mb": 0.896,
+    "param_mb": 0.851,
     "circuit_seconds_at_250us": 647.741,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 650.741,
@@ -973,7 +960,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 3.0,
-    "param_mb": 0.384,
+    "param_mb": 0.365,
     "circuit_seconds_at_250us": 217.465,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 220.465,
@@ -994,7 +981,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 5.7,
-    "param_mb": 0.128,
+    "param_mb": 0.122,
     "circuit_seconds_at_250us": 633.782,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 639.482,
@@ -1015,7 +1002,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 5.7,
-    "param_mb": 0.32,
+    "param_mb": 0.304,
     "circuit_seconds_at_250us": 637.272,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 642.972,
@@ -1036,7 +1023,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 5.7,
-    "param_mb": 0.896,
+    "param_mb": 0.851,
     "circuit_seconds_at_250us": 647.741,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 653.441,
@@ -1057,7 +1044,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 5.7,
-    "param_mb": 0.384,
+    "param_mb": 0.365,
     "circuit_seconds_at_250us": 217.465,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 223.165,
@@ -1141,7 +1128,7 @@
     "n_bases": 2,
     "trex_executions": 0,
     "job_constant_seconds": 3.0,
-    "param_mb": 0.064,
+    "param_mb": 0.061,
     "circuit_seconds_at_250us": 632.619,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 635.619,
@@ -1162,7 +1149,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 5.7,
-    "param_mb": 0.032,
+    "param_mb": 0.03,
     "circuit_seconds_at_250us": 632.037,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 637.737,
@@ -1183,7 +1170,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 5.7,
-    "param_mb": 0.032,
+    "param_mb": 0.03,
     "circuit_seconds_at_250us": 211.067,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 216.767,

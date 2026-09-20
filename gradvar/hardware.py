@@ -397,7 +397,10 @@ def properties_for_csv(csv_path: str) -> str | None:
     """The raw ``<backend>_properties_<stamp>.json[.gz]`` of the same snapshot as ``csv_path`` (same UTC stamp, same
     directory), or None when the CSV carries no stamp (the unstamped development CSV ``ibm_phoenix_2026-09-19.csv``) or
     no matching file exists: the placement then uses the CSV cut alone and stays reproducible, never a newer day's
-    properties. Passed to ``place_patch`` so the build-time cut applies the Deviation 22 rule (init error >= 5e-4,
+    properties. Both stamp spellings are accepted: the daily snapshot's ``properties_YYYYMMDDTHHMMSSZ.json.gz`` and the
+    retrieval path's ``properties_YYYY-MM-DDTHHMMSSZ.json`` (``snapshot_calibration``), whose CSV is written with
+    ``scripts/snapshot_calibration.py``'s ``write_snapshot(props, ..., received_at=<its _snapshot_utc>, write_properties=False)`` (Deviation 53 (b): the newest committed calibration data, including the
+    properties committed with a retrieval, are run-day data). Passed to ``place_patch`` so the build-time cut applies the Deviation 22 rule (init error >= 5e-4,
     |ZZ| >= 1 MHz to an excluded qubit) and the Deviation 26 coupler cut exactly as the live ``layout_check`` does
     (run-day finding of 20 Sep 2026: Q91 at init error 1.05e-3 sat in the CSV-only placement)."""
     path = Path(csv_path)
@@ -405,7 +408,9 @@ def properties_for_csv(csv_path: str) -> str | None:
     if not m:
         return None
     stamp = f"{m.group(1)}{m.group(2)}{m.group(3)}T{m.group(4)}Z"
-    for cand in (path.parent / f"ibm_phoenix_properties_{stamp}.json.gz", path.parent / f"ibm_phoenix_properties_{stamp}.json"):
+    dashed = f"{m.group(1)}-{m.group(2)}-{m.group(3)}T{m.group(4)}Z"     # the retrieval path's snapshot_calibration() name (Deviation 53 (b))
+    for cand in (path.parent / f"ibm_phoenix_properties_{stamp}.json.gz", path.parent / f"ibm_phoenix_properties_{stamp}.json",
+                 path.parent / f"ibm_phoenix_properties_{dashed}.json.gz", path.parent / f"ibm_phoenix_properties_{dashed}.json"):
         if cand.exists():
             return str(cand)
     return None

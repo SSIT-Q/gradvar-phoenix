@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import gzip
 import json
+import re
 from pathlib import Path
 from typing import Dict, Iterable, Sequence, Tuple
 
@@ -49,6 +50,9 @@ READOUT_CUT = 3e-2
 ZZ_CUT_MHZ = 1.0        # Deviation 22 (i): |ZZ| >= 1 MHz to an excluded or dead qubit
 INIT_ERROR_CUT = 5e-4   # Deviation 22 (ii): initialisation error >= 5e-4
 CZ_CUT = 5e-3           # Deviation 26: every coupler of the placed patch must have CZ error < 5e-3; a coupler above it is broken (no CZ)
+COHERENCE_FLOOR_US = 25.0   # Deviation 53 (a): T1 and T2 >= 25 us on every used qubit (about 3x the longest dial circuit); Q114 at T1 3.7 us, 20 Sep 13:44Z
+COHERENCE_FLOOR_SINCE = "2026-09-20T141736Z"   # first snapshot stamp the floor applies to (Deviation 53 adopted 20 Sep 2026 on the 13:44Z calibration);
+                                               # earlier stamps (the frozen 19 Sep and 20 Sep 03:08Z placements of Gate 1 / Gate 1b) stay reproducible
 NOISE_BASIS = BASIS + ["delay"]
 DEFAULT_CALIBRATION = Path(__file__).resolve().parents[1] / "data" / "calibrations" / "ibm_phoenix_2026-09-19.csv"
 
@@ -128,17 +132,30 @@ def extended_exclusion(props: dict, base: Iterable[int], zz_cut_mhz: float = ZZ_
 
 def exclusion_from_calibration(csv_path: str, readout_cut: float = READOUT_CUT,
                                fixed: Iterable[int] = DEFAULT_EXCLUDE, properties: str | Path | None = None,
-                               init_cut: float = INIT_ERROR_CUT, zz_cut_mhz: float = ZZ_CUT_MHZ) -> Tuple[int, ...]:
+                               init_cut: float = INIT_ERROR_CUT, zz_cut_mhz: float = ZZ_CUT_MHZ,
+                               coherence_floor_us: float | None | str = "auto") -> Tuple[int, ...]:
     """Pre-registered cut: fixed list (dead qubit 17 and the high-error cluster) plus every qubit whose readout
-    assignment error exceeds ``readout_cut`` or that is not operational on the snapshot. With ``properties`` (raw
-    ``backend.properties()`` JSON, optionally gzipped) the Deviation-22 rule is added: |ZZ| >= ``zz_cut_mhz`` MHz to
-    an excluded qubit, or initialisation error >= ``init_cut``. Without ``properties`` the rule is not applied (the
-    pre-registered cut alone), so earlier placements are reproducible."""
+    assignment error exceeds ``readout_cut`` or that is not operational on the snapshot, plus (Deviation 53 (a)) every
+    qubit whose T1 or T2 on the snapshot is below ``coherence_floor_us`` (``"auto"``, the default: ``COHERENCE_FLOOR_US``
+    = 25 us on every snapshot whose file-name stamp is at or after ``COHERENCE_FLOOR_SINCE``, the 20 Sep 13:44Z
+    calibration on which Deviation 53 was adopted, and no floor on earlier or unstamped snapshots, so the frozen Gate 1 /
+    Gate 1b placements reproduce; a number or ``None`` overrides). The generator, the runner's ``place_patch`` re-check
+    and the re-draw script all go through here, so they place by one rule. With ``properties`` (raw ``backend.properties()`` JSON, optionally gzipped) the
+    Deviation-22 rule is added: |ZZ| >= ``zz_cut_mhz`` MHz to an excluded qubit, or initialisation error >= ``init_cut``.
+    Without ``properties`` the rule is not applied (the pre-registered cut alone), so earlier placements are reproducible."""
     df = load_calibration(csv_path)
     bad = set(int(q) for q in fixed)
     bad |= set(int(q) for q in df.index[df["Readout assignment error"].astype(float) > readout_cut])
     if "Operational" in df:
         bad |= set(int(q) for q in df.index[df["Operational"].astype(str).str.strip().str.lower() != "yes"])
+    if isinstance(coherence_floor_us, str):          # "auto"
+        m = re.search(r"\d{4}-\d{2}-\d{2}T\d{6}Z", Path(csv_path).name)
+        coherence_floor_us = COHERENCE_FLOOR_US if (m and m.group(0) >= COHERENCE_FLOOR_SINCE) else None
+    if coherence_floor_us is not None:
+        for col in ("T1 (us)", "T2 (us)"):
+            if col in df:
+                v = pd.to_numeric(df[col], errors="coerce")
+                bad |= set(int(q) for q in df.index[v.notna() & (v < float(coherence_floor_us))])
     if properties is not None:
         ext = extended_exclusion(load_properties(properties), bad, zz_cut_mhz, init_cut)
         bad |= set(ext["zz"]) | set(ext["init"])

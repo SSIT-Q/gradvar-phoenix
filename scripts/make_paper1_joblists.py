@@ -1,14 +1,14 @@
 """Generate the Paper 1 production job lists (data/joblists/paper1/*.json) from a calibration snapshot, with budgets from
 gradvar.hardware.estimate_budget (model v3, Deviation 47) and a summary (data/joblists/paper1/summary.json).
 
-    python scripts/make_paper1_joblists.py [--snapshot data/calibrations/ibm_phoenix_2026-09-20T030813Z.csv]
+    python scripts/make_paper1_joblists.py [--snapshot data/calibrations/ibm_phoenix_2026-09-20T141736Z.csv]
                                            [--out data/joblists/paper1] [--m-rule baseline|dev17] [--check] [--day1]
 
 ``--day1`` writes (or, with ``--check``, checks) only data/joblists/paper1/day1_null_grid_n20.json, the Deviation 50 campaign
 day-1 list: the null_controls.json probes followed by the grid_n20.json points and probes, pub for pub the same as the two
 committed source lists, so that day is one Batch, one pre-flight review and one arming step (docs/preflight/03_paper1_day1_2026-09-21.md).
 Every list is written with dry_run: true and the placeholder preflight_review; nothing here touches credentials.
-Pre-registration: Paper 1 (preregistration_q1) v0.12.0, 20 Sep 2026: Section 2 (design), Section 3b (reset dial), Section 5
+Pre-registration: Paper 1 (preregistration_q1) v0.13.1, 20 Sep 2026 (Deviations 50-53 as adopted in the thread): Section 2 (design), Section 3b (reset dial), Section 5
 (Gate 2), Section 6 (minute budget), Deviations 17, 18, 22, 26, 27, 30, 33-49 (46: placement re-derived per run day under
 the cone-graph edge rule; 47: budget model v3; 48: dial-arm job packing; 49: Gate 2 (e) transient rule).
 
@@ -43,12 +43,12 @@ sys.path.insert(0, str(ROOT))
 from gradvar.circuits import light_cone                                    # noqa: E402
 from gradvar.hardware import BUDGET_MODEL_VERSION, MAX_JOB_PARAM_MB, estimate_budget, load_joblist, max_experiments, properties_for_csv   # noqa: E402
 from gradvar.lattice import interior_edge                                  # noqa: E402
-from gradvar.noise import CZ_CUT, READOUT_CUT, cz_errors_from_calibration, exclusion_from_calibration, load_calibration, place_patch   # noqa: E402
+from gradvar.noise import COHERENCE_FLOOR_SINCE, COHERENCE_FLOOR_US, CZ_CUT, READOUT_CUT, cz_errors_from_calibration, exclusion_from_calibration, load_calibration, place_patch   # noqa: E402
 
 PLACEHOLDER = "TBD: pre-flight review permalink"
-PREREG = "Paper 1 pre-registration v0.12.0 (20 Sep 2026)"
+PREREG = "Paper 1 pre-registration v0.13.1 (20 Sep 2026)"
 MAX_EXPERIMENTS = max_experiments("ibm_phoenix")   # 300 pubs per job (configuration ledger)
-DEFAULT_SNAPSHOT = "data/calibrations/ibm_phoenix_2026-09-20T030813Z.csv"
+DEFAULT_SNAPSHOT = "data/calibrations/ibm_phoenix_2026-09-20T141736Z.csv"   # Deviation 53 (b): the newest committed calibration data (retrieval properties 13:44Z calibration)
 SHAPES = {"n20": (4, 5), "n40": (4, 10), "n60": (6, 10), "n80": (8, 10), "n100": (10, 10)}   # Section 2 nominal ladder
 RUNGS = list(SHAPES)
 DEV36_EDGE = (93, 103)
@@ -89,10 +89,11 @@ def place_rungs(snapshot: str) -> dict:
         raise SystemExit(f"{snapshot}: no raw properties file with the same stamp; Deviation 22 needs them (properties_for_csv)")
     df = load_calibration(snapshot)
     cz = cz_errors_from_calibration(df)
-    out = dict(snapshot=Path(snapshot).name, properties=Path(props).name,
-               stamp=re.search(r"\d{4}-\d{2}-\d{2}T\d{6}Z", Path(snapshot).name).group(0),
+    out_stamp = re.search(r"\d{4}-\d{2}-\d{2}T\d{6}Z", Path(snapshot).name).group(0)
+    out = dict(snapshot=Path(snapshot).name, properties=Path(props).name, stamp=out_stamp,
                excluded=[int(q) for q in exclusion_from_calibration(snapshot, properties=props)],
-               rules=dict(readout_cut=READOUT_CUT, init_error_cut=5e-4, zz_cut_mhz=1.0, cz_cut=CZ_CUT), rungs={})
+               rules=dict(readout_cut=READOUT_CUT, init_error_cut=5e-4, zz_cut_mhz=1.0, cz_cut=CZ_CUT,
+                          coherence_floor_us=COHERENCE_FLOOR_US if out_stamp >= COHERENCE_FLOOR_SINCE else None), rungs={})
     patches = {}
     for rung, (r, c) in SHAPES.items():
         patches[rung] = place_patch(r, c, snapshot, allow_holes=True, properties=props)
@@ -138,7 +139,7 @@ def base_list(name: str, notes: str, placement: dict, rungs: list, ledger_line: 
               points=points, probes=probes)
     jl["budget"] = estimate_budget(jl)
     b = jl["budget"]
-    jl["notes"] = notes + (f" Placement from snapshot {placement['stamp']} (CSV plus raw properties; Deviations 22, 26 and 46): "
+    jl["notes"] = notes + (f" Placement from snapshot {placement['stamp']} (CSV plus raw properties; Deviations 22, 26 and 46 cuts plus the Deviation 53 coherence floor T1, T2 >= 25 us, on the newest committed calibration data): "
                            + "; ".join(f"{r} = {placement['rungs'][r]['patch']} n = {placement['rungs'][r]['n']} origin {tuple(placement['rungs'][r]['origin'])} "
                                        f"edge {placement['rungs'][r]['edge']} broken {placement['rungs'][r]['broken_edges']}" for r in rungs)
                            + f". Deviation 46: the runner re-derives the placement and the observable edges from the run-day snapshot under the Deviation 22 / 26 cuts and the cone-graph edge rule (live re-check, layout_check enforce) and refuses a list whose n no longer matches; regenerate with scripts/make_paper1_joblists.py from the run-day snapshot and re-draw the Gate 1b reference predictions where the cone graph changed. "
