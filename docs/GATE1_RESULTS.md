@@ -328,6 +328,90 @@ overall pass / fail is declared on the grid alone: (d) at L >= 8 depends on the 
 
 Criterion (d) at L >= 8 under Deviation 37 (the simulated null-control floor + 3 sigma of its bootstrap estimate in place of the 10x analytic allowance; branch `pp-zz-layer`): at 4096 shots the floor is 1.38e-04 and 20 of 40 L >= 8 noisy predictions lie above it (L = 8: 20/20, smallest 2.0e-04, L = 12: 0/20, smallest 4.4e-06); at 16384 shots the floor is 3.18e-05 and 22 of 40 L >= 8 noisy predictions lie above it (L = 8: 20/20, smallest 2.0e-04, L = 12: 2/20, smallest 4.4e-06). Every L = 8 noisy prediction clears the Deviation 37 floor at either shot count (smallest 2.0e-4 against 1.4e-4 / 3.2e-5); no L = 12 prediction does at 4096 shots and 2 of 20 at 16384, so L = 12 stays exploratory (Deviation 37). The Deviation 34 static-layer ZZ has so far been applied to the Gate 1b rows only (docs/PAULIPROP.md, 'Deviation 34'); the noisy main-grid rows at L = 8 / 12 are pending their recompute and the ZZ-free rows stand here.
 
+## Deviation 46 re-draw: Gate 1b references on the run-day placement (20 Sep 03:08Z snapshot)
+
+Deviation 46 (v0.12.0) re-derives the ladder placement from each run day's 03:00 UTC snapshot and re-draws the Gate 1b references
+(and the grid predictions whose cone graph changed) on it before the pre-flight; the 19 Sep predictions above stay the pre-registered
+record. `python scripts/redraw_gate1b.py` (procedure in `docs/HANDOVER.md`, Section 5, pre-flight step 1) places the five rungs with
+the production job-list generator's rule (`place_rungs` of `scripts/make_paper1_joblists.py`: Deviation 22 exclusion from the raw
+properties, Deviation 26 coupler cut, Deviation 36 cone-graph edge for the 4x10 rung; copied with attribution until that branch is
+merged), flags per rung and depth whether the Deviation 46 key (observable edge, cone qubits, intact and broken couplers inside the
+cone) changed against the 19 Sep record, and recomputes only the rows whose key changed with the Deviation 34 layer model (unital
+snapshot noise + static whole-layer ZZ `rzz(zeta tau_layer / 2)`, `ZZ_ANGLE_SCALE = 0.5`, tau_layer per coupler from
+`zz_layer_timing.json` + idle ZZ in the dial layer), the frozen seeds (sampler 0, pattern floor 7), 5e5 Pauli paths per row (2.5e5 per
+pattern-floor run; the frozen rows used 2e6 / 1e6). Regression: the frozen placement fed back with its own snapshot reproduces the
+frozen rows (truncated moments to 4e-14 relative on the six reset rows, `tests/test_redraw_gate1b.py`; the six references and one
+sampled value under the slow marker), and the readings rebuilt from the frozen CSV reproduce `pauliprop_summary.json` exactly.
+
+First run, 20 Sep 2026, on the newest committed snapshot `ibm_phoenix_2026-09-20T030813Z.csv` (outputs
+`data/predictions/gate1b_redraw_2026-09-20.json` / `.csv` / `.md`, 53 core-minutes): **the placement changed on every rung** (ladder
+20 / 37 / 50 / 68 / 85, as in list 02 and report Section 3; Q67, Q91, Q119 newly excluded; the 4x5 at origin (8, 2) with edge 94_104 and
+coupler 95_96 broken; the 4x10 edge follows the cone-graph rule to 94_104, the 6x10 moves to (3, 0) with edge 43_44, the 8x10 to
+(3, 0) with edge 75_85; the 10x10 keeps origin (2, 0) and edge 75_85 with new holes 67 / 91 / 119 and one broken coupler fewer, so its cone graph changes from L = 2 on), so all
+twelve Gate 1b rows were re-drawn and no frozen row stands. The 4x10 reference falls by 59% at L = 8 (edge 94_95, whose L = 2 cone
+carried the broken couplers 95_96 / 100_101, gives way to 94_104 with the intact 4x5-type 16-qubit / 24-coupler cone: more
+scrambling, lower k = L variance) and the 6x10 reference rises by 35% (edge 43_44 at origin (3, 0) has 2 broken couplers in its
+patch instead of 5); every separation ratio stays above 4 (4.49 / 4.49 / 4.00 at L = 8, 5.21 / 5.32 / 4.92 at L = 12) and the
+Deviation 45 clause (b) passes 3 of 3 with falls of 3.21 / 3.69 / 4.13 x the 9.16e-5 bar (frozen 7.80 / 2.77 / 3.92) and fall / 2 sigma
+2.50 / 2.49 / 2.47 at M = 350; the frozen Deviation 30 wording at 4096 shots is inconclusive (only the 10x10 rung, at 3.2 floors, is
+counted). The Deviation 33 floors on the run-day edges are 1.13e-3 / 1.17e-3 / 1.08e-3 (k = L, p = 0.25) with the dial predictions
+1.85 to 1.89x above them; H6 depth ratio V(12) / V(8) 0.998 for the dial against 0.028 to 0.037 for the references. 72 main-grid
+rows (48 propagation rows, about 130 core-minutes at the frozen sample counts; 24 exact rows for `scripts/gate1_ladder.py`) have a
+changed cone graph and were not recomputed in this run (`--main-grid`); the 19 Sep rows stand as the record until then. The
+Gate 1b verdict of the Gate 1 decision (PASS under Deviations 27 + 45) is unchanged by the re-draw.
+
+Snapshot `ibm_phoenix_2026-09-20T030813Z.csv` with raw properties `ibm_phoenix_properties_20260920T030813Z.json.gz`; excluded qubits [8, 17, 18, 24, 27, 49, 55, 59, 61, 62, 63, 67, 72, 73, 77, 91, 107, 119]. Placement rule: copy of scripts/make_paper1_joblists.py place_rungs / cone_graph (p1-production 92cf0ec); gradvar.hardware.properties_for_csv. Frozen numbers: the Deviation 34 layer-model Gate 1b rows drawn on the 19 Sep 19:25Z placement (`ladder_placements.json`; committed 20 Sep 2026 05:11 UTC). Model: unital snapshot noise + static whole-layer ZZ rzz(zeta tau_layer / 2) (ZZ_ANGLE_SCALE = 0.5) + idle ZZ rzz(zeta 400 ns / 2) in the dial layer; tau_layer per coupler from `zz_layer_timing.json`; Pauli-path sampler seed 0, 5e+05 paths (2e+05 per pattern-floor run, seed 7). Kurtosis 14.24 (measured), M = 350 on the references.
+
+| rung | role | 19 Sep record: n, origin, edge, broken | 20 Sep 03:08Z reference: n, origin, edge | run-day: n, origin, holes, broken, edge (rule) | cone L2 | cone graph changed vs record (L = 1 / 2 / 4 / 8 / 12) | same as 20 Sep reference |
+|---|---|---|---|---|---|---|---|
+| n20 (4x5) | main grid | 20, (8, 1), 93_103, 0 broken | 20, (8, 2), 94_104 | **20**, (8, 2), holes [], broken ['95_96'], edge **94_104** (interior_edge) | 16 | yes / yes / yes / yes / yes | yes |
+| n40 (4x10) | Gate 1b | 39, (8, 0), 94_95, 5 broken | 37, (8, 0), 94_104 | **37**, (8, 0), holes [91, 107, 119], broken ['86_87', '100_101', '95_96', '87_97', '100_110'], edge **94_104** (Deviation 36: intact 4x10 coupler whose L = 2 cone graph equals the 4x5 rung's (the 4x5 edge itself)) | 16 | yes / yes / yes / yes / yes | yes |
+| n60 (6x10) | dial arm + Gate 1b | 53, (6, 0), 84_85, 5 broken | 50, (3, 0), 43_44 | **50**, (3, 0), holes [49, 55, 59, 61, 62, 63, 67, 72, 73, 77], broken ['86_87', '31_32'], edge **43_44** (interior_edge) | 13 | yes / yes / yes / yes / yes | yes |
+| n80 (8x10) | main grid | 70, (4, 0), 84_85, 6 broken | 68, (3, 0), 75_85 | **68**, (3, 0), holes [49, 55, 59, 61, 62, 63, 67, 72, 73, 77, 91, 107], broken ['86_87', '100_101', '31_32', '95_96', '87_97'], edge **75_85** (interior_edge) | 14 | yes / yes / yes / yes / yes | yes |
+| n100 (10x10) | Gate 1b | 87, (2, 0), 75_85, 7 broken | 85, (2, 0), 75_85 | **85**, (2, 0), holes [24, 27, 49, 55, 59, 61, 62, 63, 67, 72, 73, 77, 91, 107, 119], broken ['86_87', '100_101', '31_32', '95_96', '87_97', '100_110'], edge **75_85** (interior_edge) | 11 | no / yes / yes / yes / yes | yes |
+
+Rows re-drawn: 12 of 12 Gate 1b rows (0 frozen rows stand); wall 16.6 min, 53 core-min. Frozen-reading regression (readings rebuilt from the frozen CSV against `pauliprop_summary.json`): max rel. diff 0.0e+00 (PASS at 1e-09).
+
+**Frozen 20 Sep vs redraw** (k = L; V(p = 0) delay-matched reference, V(p = 0.25) reset dial, separation / (shot + pattern floor) at 4096 shots and K = 256; fall = V_p0(L = 8) - V_p0(L = 12); Deviation 45 bar 3 x floor(16384) = 9.16e-05):
+
+| rung | n frozen -> redraw | L | V p=0 frozen | V p=0 redraw (+/- 2 sigma) | shift | V p=0.25 frozen | V p=0.25 redraw | sep/floor frozen -> redraw | >= 3x | pattern floor < sep/2 | status |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 4x10 | 39 -> 37 | 8 | 7.457e-04 | 3.027e-04 +/- 1.5e-05 | -59.4% | 2.111e-03 | 2.117e-03 | 3.33 -> 4.49 | True | True | re-drawn: edge 94_95 -> 94_104, cone 39 -> 37 qubits, couplers 57+5 broken -> 51+5 broken |
+| 6x10 | 53 -> 50 | 8 | 2.592e-04 | 3.495e-04 +/- 1.6e-05 | +34.9% | 1.979e-03 | 2.162e-03 | 4.24 -> 4.49 | True | True | re-drawn: edge 84_85 -> 43_44, cone 53 -> 50 qubits, couplers 79+5 broken -> 71+2 broken |
+| 10x10 | 87 -> 85 | 8 | 3.679e-04 | 3.928e-04 +/- 1.7e-05 | +6.8% | 2.009e-03 | 2.034e-03 | 4.03 -> 4.00 | True | True | re-drawn: cone 87 -> 85 qubits, couplers 132+7 broken -> 127+6 broken |
+| 4x10 | 39 -> 37 | 12 | 3.117e-05 | 8.578e-06 +/- 2.1e-06 | -72.5% | 2.108e-03 | 2.113e-03 | 5.07 -> 5.21 | True | True | re-drawn: edge 94_95 -> 94_104, cone 39 -> 37 qubits, couplers 57+5 broken -> 51+5 broken |
+| 6x10 | 53 -> 50 | 12 | 5.582e-06 | 1.144e-05 +/- 2.9e-06 | +104.9% | 1.975e-03 | 2.158e-03 | 4.86 -> 5.32 | True | True | re-drawn: edge 84_85 -> 43_44, cone 53 -> 50 qubits, couplers 79+5 broken -> 71+2 broken |
+| 10x10 | 87 -> 85 | 12 | 9.352e-06 | 1.458e-05 +/- 3.5e-06 | +55.9% | 2.026e-03 | 2.030e-03 | 4.96 -> 4.92 | True | True | re-drawn: cone 87 -> 85 qubits, couplers 132+7 broken -> 127+6 broken |
+
+| rung | fall frozen | fall redraw | fall / bar (Dev. 45) frozen -> redraw | ref / floor(16384) frozen -> redraw | fall / 2 sigma (M = 350) frozen -> redraw | counted | passes frozen -> redraw |
+|---|---|---|---|---|---|---|---|
+| 4x10 | 7.145e-04 | 2.941e-04 | 7.80 -> 3.21 | 24.4 -> 9.9 | 2.46 -> 2.50 | True | True -> True |
+| 6x10 | 2.536e-04 | 3.381e-04 | 2.77 -> 3.69 | 8.5 -> 11.5 | 2.51 -> 2.49 | True | True -> True |
+| 10x10 | 3.586e-04 | 3.782e-04 | 3.92 -> 4.13 | 12.1 -> 12.9 | 2.50 -> 2.47 | True | True -> True |
+
+| Gate 1b clause | frozen 20 Sep | redraw |
+|---|---|---|
+| separation >= 3x (shot + pattern floor) and pattern floor < sep / 2, L = 8 | PASS | PASS |
+| separation clause, L = 12 | PASS | PASS |
+| clause (b) fall, Deviation 45 (booked: all six references at 16384 shots) | PASS (PASS (3 of 3 counted rungs pass)) | **PASS** (PASS (3 of 3 counted rungs pass)) |
+| clause (b) fall, Deviation 44 (record) | PASS (PASS (3 of 3 counted rungs pass)) | PASS (PASS (3 of 3 counted rungs pass)) |
+| clause (b) fall, Deviation 35 (record) | PASS (PASS (2 of 3 counted rungs pass)) | PASS (PASS (2 of 2 counted rungs pass)) |
+| clause (b) fall, Deviation 30 frozen wording at 4096 shots (record) | FAIL (FAIL (1 of 2 counted rungs pass)) | inconclusive (inconclusive (1 rung counted; Deviation 35 (ii))) |
+| **Gate 1b under Deviations 27 + 45** | **PASS** | **PASS** |
+
+H5 / H6 predictions on the run-day placement (p = 0.25 reset dial vs delay-matched p = 0; Deviation 33 ansatz-specific floors from the run-day readout confusion, raw readout, on the rung's edge):
+
+| rung | n | L | Var[C_mix] p=0.25 | Var[C] p=0 | E[C_mix] | k=L V p=0.25 | k=L V p=0 | k=1 V p=0.25 | Dev. 33 k=L floor / Var[C] floor (p=0.25) | k=L / floor | Var[C] / floor | H6 V(12)/V(8) dial / reference |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 4x10 | 37 | 8 | 3.607e-03 | 3.027e-04 | 6.516e-02 | 2.117e-03 | 3.027e-04 | 3.205e-06 | 1.128e-03 / 2.184e-03 | 1.88 | 1.65 | 0.998 / 0.028 |
+| 4x10 | 37 | 12 | 3.601e-03 | 8.578e-06 | 6.516e-02 | 2.113e-03 | 8.578e-06 | 1.421e-08 | 1.128e-03 / 2.184e-03 | 1.87 | 1.65 |  |
+| 6x10 | 50 | 8 | 3.605e-03 | 3.504e-04 | 6.698e-02 | 2.162e-03 | 3.495e-04 | 3.622e-06 | 1.170e-03 / 2.229e-03 | 1.85 | 1.62 | 0.998 / 0.033 |
+| 6x10 | 50 | 12 | 3.599e-03 | 1.144e-05 | 6.698e-02 | 2.158e-03 | 1.144e-05 | 2.411e-08 | 1.170e-03 / 2.229e-03 | 1.84 | 1.61 |  |
+| 10x10 | 85 | 8 | 3.615e-03 | 3.944e-04 | 6.589e-02 | 2.034e-03 | 3.928e-04 | 3.279e-06 | 1.076e-03 / 2.225e-03 | 1.89 | 1.62 | 0.998 / 0.037 |
+| 10x10 | 85 | 12 | 3.609e-03 | 1.458e-05 | 6.589e-02 | 2.030e-03 | 1.458e-05 | 2.292e-08 | 1.076e-03 / 2.225e-03 | 1.89 | 1.62 |  |
+
+Main-grid rows whose cone graph changed on this snapshot: 72 (48 propagation rows, frozen cost 129 core-min at the frozen sample counts; 24 exact rows for `scripts/gate1_ladder.py`); not recomputed in this run (`--main-grid` runs them); the 19 Sep rows stand as the record.
+
 ## Figures and data
 
 * `figures/gate1_noiseless.png`, `figures/gate1_noiseless.csv` - criterion (a) chain n = 4..20 and the 4x3 / 4x4 HEA noiseless points.
