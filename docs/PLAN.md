@@ -1,6 +1,6 @@
 # Programme plan and tracker: gradient concentration on ibm_phoenix
 
-Two papers, one allocation. Version 13, 20 September 2026 (first version 19 September 2026); last updated 20 Sep 2026, 05:30 IST. Weekly review every Monday in #mitacs. Paper 2 direction decided 19 Sep 2026, 23:39 IST: the hybrid.
+Two papers, one allocation. Version 14, 20 September 2026 (first version 19 September 2026); last updated 20 Sep 2026, 08:00 IST. Weekly review every Monday in #mitacs. Paper 2 direction decided 19 Sep 2026, 23:39 IST: the hybrid.
 
 Owners: **O** = Mohammed Owais, **R** = Dr. Raviram V (PI), **C** = physics collaborator (anonymous for now), **T** = college theorist (Paper 2 companion, to be named), **Cl** = Claude.
 
@@ -117,6 +117,7 @@ Paper 1's arXiv date now floats, so applications after mid-November 2026 may sti
 | 20 Sep 2026 | Gate 1 branches merged to main (df0054e, 74 tests). Exact half complete (43 points); propagation rows (60) with Deviation 15 L = 8 / 12 and Gate 1b at K = 256 (separation 3.2–5.0× the floor; clause (b) 2 of 2 counted rungs pass at M = 350, rung 53 unresolvable). Criteria: (a) pass under Deviation 25, (b) pass, (c) part 1 pass, (c) part 2 not evaluated, (d) provisional, (e) pass, (f) reported; overall not evaluated (large-cone L = 4 groups deferred, about 30 core-minutes via propagation). Gate 1 report: https://claude.ai/artifact/1PRkEbpq7Hp987WTdtnM9Q; docs/GATE1_REPORT.md commit pending approval. |
 | 20 Sep 2026 | Two Gate 2 decisions put to the PI: (i) every L = 12 predicted variance (4.4e-6 to 6.6e-5) lies below the 4096-shot floor 1.22e-4; (ii) at L = 8 several k = L and k = 1 rows lie below the criterion (d) 10× allowance at 16384 shots (3.05e-4), so shots per point at L ≥ 8 and the allowance factor must be decided (P1.2.9, P1.2.10). Pre-Gate-2 actions: ZZ idle phase into the propagation model (P1.1.16), Deviation 24 table recompute (P1.1.15), large-cone L = 4 groups and cost-cut of noisy points (P1.1.17). |
 | 20 Sep 2026 | Pipeline hardening merged (bd15cd9): budget model v2 back-predicts the Marrakesh run at 21.1 s against 22 s measured; automated layout check; logging fields; snapshot configuration ledger. |
+| 20 Sep 2026 | 07:54 IST: Dr. Raviram countersigned Deviations 21–30 (Paper 1) and 1–2 (Paper 2), relayed by Owais; delegation of deviation decisions to Claude continues going forward, each recorded in the Deviations table for countersignature. Gate 1 report Markdown (docs/GATE1_REPORT.md) approved for commit to main; not yet on origin/main at this version, so P1.1.5 stays in progress. |
 
 ## 9. How to use this tracker
 
