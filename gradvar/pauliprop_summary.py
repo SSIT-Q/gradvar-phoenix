@@ -28,8 +28,13 @@ PP_JSON = ROOT / "data" / "predictions" / "pauliprop_summary.json"
 def _rows(csv_path=PP_CSV) -> pd.DataFrame:
     df = pd.read_csv(csv_path)
     df = df[(df.stage == "dev15") & df.model.isin(MODEL_NAMES) & (df.status != "pending") & df.var_k1_mc.notna()]
-    if "zz_idle" in df:      # the Deviation 15 rows carry no dial layer; the flag is 'off' on all of them
-        df = df[df.zz_idle.fillna("off") == "off"]
+    if "zz_layer" in df:
+        # Deviation 34: where a noisy (model, n, L) row exists with the static layer ZZ it replaces the ZZ-free row; the
+        # noiseless rows carry no ZZ
+        df = df.copy()
+        df["zz_layer"] = df["zz_layer"].fillna("off")
+        keys_on = {(r.model, int(r.n), int(r.L)) for r in df[df.zz_layer == "on"].itertuples()}
+        df = df[(df.zz_layer == "on") | ~df.apply(lambda r: (r.model, int(r.n), int(r.L)) in keys_on, axis=1)]
     return df.copy()
 
 
@@ -47,7 +52,8 @@ def load_pp_results(csv_path=PP_CSV) -> List[PointResult]:
                 eps_N_4096=sv1 / (4096 * mc) if mc > 0 else float("inf"), eps_N_16384=sv1 / (16384 * mc) if mc > 0 else float("inf"),
                 runtime_s=float(r.runtime_s), method="pauli_propagation", n_traj=0, n_cone=int(r.n_cone),
                 hi_lo=hi / lo if lo > 0 else float("inf"), patch=str(r.patch), edge=str(r.edge),
-                note=f"Pauli propagation ({r.status}); interval one-sided [V_trunc, V_MC + 2 sigma]; {r.placement}",
+                note=f"Pauli propagation ({r.status}); interval one-sided [V_trunc, V_MC + 2 sigma]; {r.placement}"
+                     + ("; static layer ZZ (Deviation 34)" if getattr(r, "zz_layer", "off") == "on" else ""),
                 gradients=None))
     return out
 

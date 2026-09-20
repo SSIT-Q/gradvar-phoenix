@@ -82,16 +82,32 @@ def run_point(job: dict) -> dict:
         raise RuntimeError(f"interior_edge {e} differs from the placed observable edge {edge} for {job['patch']}")
     dial = None
     zz = None
+    zz_layer = None
+    zz_mode = job.get("zz") or "off"          # "off" | "on" (idle-only, upper-bound angle; pp-zz-idle record) | "layer" (Deviation 34)
+    if zz_mode is True:
+        zz_mode = "on"
+    from gradvar.circuits import light_cone
+    cone = light_cone(patch, job["L"], e)
+    couplers = pp.cone_couplers(patch, cone)
+    props = properties_path(job.get("placements"))
     if job.get("dial"):
         dial = pp.dial_bloch_by_qubit(csv, patch.qubits, job["dial"], job.get("p", 0.0))
-        if job.get("zz"):
-            from gradvar.circuits import light_cone
-            cone = light_cone(patch, job["L"], e)
-            zz = pp.zz_phases(properties_path(job.get("placements")), pp.cone_couplers(patch, cone), fallback_hz=job.get("zz_fallback_hz"))
+        if zz_mode == "on":
+            zz = pp.zz_phases(props, couplers, fallback_hz=job.get("zz_fallback_hz"), scale=pp.ZZ_ANGLE_SCALE_UPPER_BOUND)
+        elif zz_mode == "layer":
+            zz = pp.zz_phases(props, couplers, fallback_hz=job.get("zz_fallback_hz"), scale=pp.ZZ_ANGLE_SCALE)
+    if zz_mode == "layer" and job["model"] != "noiseless":
+        zz_layer = pp.zz_phases(props, couplers, idle_ns=pp.layer_tau_ns(job["patch"], couplers), fallback_hz=job.get("zz_fallback_hz"),
+                                scale=pp.ZZ_ANGLE_SCALE)
     t0 = time.time()
     exempt = tuple(e) if job.get("exempt_obs") else ()
     out = pp.predict_point(patch, job["L"], job["L"], job["model"], csv, deltas=tuple(job["deltas"]), n_samples=job["n_samples"],
-                           dial=dial, seed=job.get("seed", 0), time_limit_s=job["time_limit_s"], n_cap=job["n_cap"], exempt_last_layer=exempt, zz=zz)
+                           dial=dial, seed=job.get("seed", 0), time_limit_s=job["time_limit_s"], n_cap=job["n_cap"], exempt_last_layer=exempt,
+                           zz=zz, zz_layer=zz_layer)
+    out["zz_convention"] = ("rzz(zeta*tau) (upper bound)" if zz_mode == "on" else pp.ZZ_CONVENTIONS[pp.ZZ_ANGLE_SCALE] if zz_mode == "layer" else "")
+    if zz_layer:
+        taus = list(pp.layer_tau_ns(job["patch"], couplers).values())
+        out.update(zz_layer_tau_ns_median=float(np.median(taus)), zz_layer_phi_median=float(np.median(np.abs(list(zz_layer.values())))))
     out.update(stage=job["stage"], patch=job["patch"], dial=job.get("dial", ""), p=job.get("p", float("nan")),
                ladder_n=patch.n, ladder_nominal_n=LADDER_NOMINAL.get(job["patch"], patch.n), placement=placement,
                calibration=Path(csv).name, n_broken_edges=len(patch.broken_edges), runtime_s=time.time() - t0)
@@ -100,8 +116,8 @@ def run_point(job: dict) -> dict:
         phis = np.abs(list(zz.values()))
         out.update(zz_properties=Path(properties_path(job.get("placements"))).name, zz_phi_median=float(np.median(phis)), zz_phi_max=float(phis.max()))
     if job.get("pattern"):
-        prog = pp.make_program(patch, job["L"], job["L"], job["model"], csv, dial=dial, exempt_last_layer=exempt, zz=zz)
-        pv = pp.pattern_variance(prog, job["n_samples"], seed=job.get("seed", 0) + 7)
+        prog = pp.make_program(patch, job["L"], job["L"], job["model"], csv, dial=dial, exempt_last_layer=exempt, zz=zz, zz_layer=zz_layer)
+        pv = pp.pattern_variance(prog, job.get("pattern_samples") or job["n_samples"], seed=job.get("seed", 0) + 7)
         out.update(var_mask=pv["var_mask"], var_mask_se=pv["se"], pattern_floor=pv["var_mask"] / (2 * K_MASKS), K_masks=K_MASKS,
                    pattern_runtime_s=pv["runtime_s"])
     return out
@@ -138,14 +154,17 @@ def status_of(r) -> str:
 
 def pending_rows(jobs):
     return [dict(stage=j["stage"], model=j["model"], patch=j["patch"], L=j["L"], dial=j.get("dial", ""), p=j.get("p", np.nan),
-                 ladder_nominal_n=LADDER_NOMINAL.get(j["patch"]), status="pending", zz_idle=("on" if j.get("zz") else "off")) for j in jobs]
+                 ladder_nominal_n=LADDER_NOMINAL.get(j["patch"]), status="pending",
+                 zz_idle=("on" if (j.get("zz") in ("on", "layer", True) and j.get("dial")) else "off"),
+                 zz_layer=("on" if (j.get("zz") == "layer" and j["model"] != "noiseless") else "off")) for j in jobs]
 
 
 def with_zz_column(df: pd.DataFrame) -> pd.DataFrame:
     """`zz_idle` = 'on' for dial rows propagated with the ZZ idle phase, 'off' otherwise (rows without a dial layer have no idle)."""
-    if "zz_idle" not in df:
-        df["zz_idle"] = "off"
-    df["zz_idle"] = df["zz_idle"].fillna("off")
+    for col in ("zz_idle", "zz_layer"):
+        if col not in df:
+            df[col] = "off"
+        df[col] = df[col].fillna("off")
     return df
 
 
@@ -156,7 +175,7 @@ def append_rows(rows):
     if OUT_CSV.exists():
         old = with_zz_column(pd.read_csv(OUT_CSV))
         df = pd.concat([old, df], ignore_index=True)
-        key = ["stage", "model", "patch", "L", "dial", "p", "zz_idle"]
+        key = ["stage", "model", "patch", "L", "dial", "p", "zz_idle", "zz_layer"]
         df["p"] = df["p"].fillna(-1.0)
         df["dial"] = df["dial"].fillna("")
         df = df.drop_duplicates(key, keep="last")
@@ -168,12 +187,14 @@ def append_rows(rows):
 def jobs_dev15(args):
     for spec in args.patches:
         for L in args.depths:
-            for model in ("noiseless", "unital", "nonunital"):
-                yield dict(stage="dev15", patch=spec, L=L, model=model)
+            for model in args.models:
+                if args.zz == "layer" and model == "noiseless":
+                    continue          # the noiseless rows carry no ZZ (hardware noise); the ZZ-free rows stand
+                yield dict(stage="dev15", patch=spec, L=L, model=model, zz=args.zz)
 
 
 def jobs_gate1b(args):
-    zz = args.zz == "on"
+    zz = args.zz
     for spec in ("4x10", "6x10", "10x10"):
         for L in args.depths:
             yield dict(stage="gate1b", patch=spec, L=L, model="unital", dial="delay", p=0.0, zz=zz)
@@ -181,7 +202,7 @@ def jobs_gate1b(args):
 
 
 def jobs_dial(args):
-    zz = args.zz == "on"
+    zz = args.zz
     for L in args.depths:
         for p in (0.25, 0.5):
             if p == 0.25 and args.reuse_gate1b:
@@ -196,8 +217,9 @@ def copy_gate1b_to_dial(args):
     """The 6x10 delay p = 0 and reset p = 0.25 rows of stage 'gate1b' are the same computation (same seed) as the dial-grid
     rows: copy them into stage 'dial' instead of recomputing."""
     df = with_zz_column(pd.read_csv(OUT_CSV))
-    zz = "on" if args.zz == "on" else "off"
-    src = df[(df.stage == "gate1b") & (df.patch == "6x10") & (df.zz_idle == zz) & df.L.isin(args.depths) & (df.status != "pending")]
+    zi = "on" if args.zz in ("on", "layer") else "off"
+    zl = "on" if args.zz == "layer" else "off"
+    src = df[(df.stage == "gate1b") & (df.patch == "6x10") & (df.zz_idle == zi) & (df.zz_layer == zl) & df.L.isin(args.depths) & (df.status != "pending")]
     rows = [dict(r, stage="dial") for r in src.to_dict("records")]
     if rows:
         append_rows(rows)
@@ -253,7 +275,8 @@ def dev28_readings(fall: float, var39: float, sf: float, kurtoses: dict, Ms=(200
     return out
 
 
-def verdicts(df: pd.DataFrame, K: int = K_MASKS, kurtosis: float = KURTOSIS_DEV17, M_p0: int = M_P0, zz_idle: str = "off") -> dict:
+def verdicts(df: pd.DataFrame, K: int = K_MASKS, kurtosis: float = KURTOSIS_DEV17, M_p0: int = M_P0, zz_idle: str = "off",
+             zz_layer: str = "off") -> dict:
     """Gate 1b per ladder point (pattern floor Var_mask / (2 K) for ``K`` pooled masks per (draw, shift)) and the
     Deviation 15 truncation rule, from the CSV. Clause (b) of Gate 1b is reported in three readings: the literal one
     (fall of the p = 0 series against the combined shot + pattern floor), against the shot floor only, and the
@@ -261,9 +284,12 @@ def verdicts(df: pd.DataFrame, K: int = K_MASKS, kurtosis: float = KURTOSIS_DEV1
     fall > 2 x the predicted M = ``M_p0`` draw 2 sigma at n = 39, with the gradient kurtosis ``kurtosis``)."""
     sf = shot_floor(4096)
     df = with_zz_column(df.copy())
-    # the dial rows (stages gate1b / dial) enter with the requested ZZ flag; the Deviation 15 rows carry no dial layer
-    df = df[(df.zz_idle == zz_idle) | ~df.stage.isin(["gate1b", "dial"])]
-    out = {"shot_floor_4096": sf, "K_masks": int(K), "kurtosis_assumed": kurtosis, "M_p0": int(M_p0), "zz_idle": zz_idle, "gate1b": [], "dev15": []}
+    # dial rows (stages gate1b / dial) enter with the requested flags; Deviation 15 rows with the requested static-ZZ flag
+    # (the noiseless rows carry no ZZ and enter always)
+    is_dial = df.stage.isin(["gate1b", "dial"])
+    df = df[(is_dial & (df.zz_idle == zz_idle) & (df.zz_layer == zz_layer)) | (~is_dial & ((df.zz_layer == zz_layer) | (df.model == "noiseless")))]
+    out = {"shot_floor_4096": sf, "K_masks": int(K), "kurtosis_assumed": kurtosis, "M_p0": int(M_p0), "zz_idle": zz_idle, "zz_layer": zz_layer,
+           "gate1b": [], "dev15": []}
     for stage_name in ("gate1b",):
       g = df[(df.stage == stage_name) & (df.get("status", "") != "pending") & df.n.notna()]
       out.setdefault(stage_name, [])
@@ -476,9 +502,11 @@ def shot_table(df: pd.DataFrame, kurtosis: float, M: int = 350) -> pd.DataFrame:
     df = with_zz_column(df)
     g = df[(df.stage == "gate1b") & (df.dial == "delay") & (df.status != "pending")]
     rows = []
-    for zz in ("off", "on"):
+    variants = {"off": (g.zz_idle == "off") & (g.zz_layer == "off"), "idle_upper_bound": (g.zz_idle == "on") & (g.zz_layer == "off"),
+                "layer": (g.zz_layer == "on")}
+    for zz, sel in variants.items():
         for spec in ("4x10", "6x10", "10x10"):
-            h = g[(g.patch == spec) & (g.zz_idle == zz)]
+            h = g[(g.patch == spec) & sel]
             r8, r12 = h[h.L == 8], h[h.L == 12]
             if r8.empty:
                 continue
@@ -489,7 +517,7 @@ def shot_table(df: pd.DataFrame, kurtosis: float, M: int = 350) -> pd.DataFrame:
             for L, v in ((8, v8), (12, v12)):
                 if not np.isfinite(v):
                     continue
-                rec = dict(patch=spec, n=int(r8.iloc[0].n), L=L, zz_idle=zz, var_p0=v, err_p0=err(r8.iloc[0] if L == 8 else r12.iloc[0], "kL"),
+                rec = dict(patch=spec, n=int(r8.iloc[0].n), L=L, zz_variant=zz, var_p0=v, err_p0=err(r8.iloc[0] if L == 8 else r12.iloc[0], "kL"),
                            shots_for_ref_ge_3_floors=int(np.ceil(1.5 / v)) if v > 0 else None,
                            fall_L8_to_L12=fall if L == 8 else float("nan"),
                            shots_for_fall_ge_3_floors=(int(np.ceil(1.5 / fall)) if (L == 8 and np.isfinite(fall) and fall > 0) else None),
@@ -506,17 +534,23 @@ def shot_table(df: pd.DataFrame, kurtosis: float, M: int = 350) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def zz_shift_table(df: pd.DataFrame) -> list:
-    """Every dial-row number with ZZ on against its ZZ-off counterpart: relative shift (on / off - 1) and its 2 sigma."""
+def zz_shift_table(df: pd.DataFrame, variant: str = "idle_upper_bound") -> list:
+    """Every ZZ-on number against its ZZ-off counterpart: relative shift (on / off - 1) and its 2 sigma. ``variant``:
+    'idle_upper_bound' (zz_idle on, zz_layer off; pp-zz-idle record) or 'layer' (Deviation 34: zz_layer on, and zz_idle on for dial rows)."""
     df = with_zz_column(df)
     rows = []
-    d = df[df.stage.isin(["gate1b", "dial"]) & (df.status != "pending")]
-    for key, g in d.groupby(["stage", "patch", "L", "dial", "p"], dropna=False):
-        on, off = g[g.zz_idle == "on"], g[g.zz_idle == "off"]
+    d = df[(df.status != "pending")]
+    for key, g in d.groupby(["stage", "model", "patch", "L", "dial", "p"], dropna=False):
+        off = g[(g.zz_idle == "off") & (g.zz_layer == "off")]
+        if variant == "layer":
+            on = g[g.zz_layer == "on"]
+        else:
+            on = g[(g.zz_idle == "on") & (g.zz_layer == "off")]
         if on.empty or off.empty:
             continue
         on, off = on.iloc[0], off.iloc[0]
-        rec = dict(stage=key[0], patch=key[1], n=int(on.n), L=int(key[2]), dial=key[3], p=(None if pd.isna(key[4]) else float(key[4])))
+        rec = dict(stage=key[0], model=key[1], patch=key[2], n=int(on.n), L=int(key[3]), dial=(None if pd.isna(key[4]) else key[4]),
+                   p=(None if pd.isna(key[5]) else float(key[5])), variant=variant)
         for which, lab in (("k1", "var_k1"), ("kL", "var_kL"), ("cost", "var_cost")):
             a, b = best(on, which), best(off, which)
             ea, eb = err(on, which), err(off, which)
@@ -563,18 +597,19 @@ def figure(df: pd.DataFrame):
     import matplotlib.pyplot as plt
     fig, axes = plt.subplots(1, 3, figsize=(15, 4.6))
     sf = shot_floor(4096)
-    d = df[df.stage == "dev15"]
+    d = df[(df.stage == "dev15") & (df.status != "pending")]
     ax = axes[0]
     for m, c in (("noiseless", "k"), ("unital", "C0"), ("nonunital", "C3")):
         for L, ls in ((8, "-"), (12, "--")):
-            g = d[(d.model == m) & (d.L == L)].sort_values("n")
-            if g.empty:
-                continue
-            for which, mk in (("k1", "o"), ("kL", "s")):
-                y = [best(r, which) for _, r in g.iterrows()]
-                e = [err(r, which) for _, r in g.iterrows()]
-                ax.errorbar(g.ladder_n, y, yerr=e, color=c, ls=ls, marker=mk, ms=4, capsize=2, lw=1,
-                            label=f"{m} L={L} k={'1' if which == 'k1' else 'L'}")
+            for zz, mfc, lw, suffix in (("off", None, 1.0, ""), ("on", "none", 0.7, " ZZ")):
+                g = d[(d.model == m) & (d.L == L) & (d.zz_layer == zz)].sort_values("n")
+                if g.empty:
+                    continue
+                for which, mk in (("k1", "o"), ("kL", "s")):
+                    y = [best(r, which) for _, r in g.iterrows()]
+                    e = [err(r, which) for _, r in g.iterrows()]
+                    ax.errorbar(g.ladder_n, y, yerr=e, color=c, ls=ls, marker=mk, mfc=mfc, ms=4, capsize=2, lw=lw,
+                                label=f"{m} L={L} k={'1' if which == 'k1' else 'L'}{suffix}")
     ax.axhline(sf, color="grey", ls=":", label="shot floor 1/(2*4096)")
     ax.set_yscale("log")
     ax.set_xlabel("placed n (ladder 20 / 40 / 60 / 80 / 100)")
@@ -582,17 +617,23 @@ def figure(df: pd.DataFrame):
     ax.set_title("Deviation 15: PP predictions", fontsize=10)
     ax.legend(fontsize=6, ncol=2)
     df = with_zz_column(df)
+    layer_on = bool((df.zz_layer == "on").any())
+    zz_label = "ZZ layer + idle (Dev. 34)" if layer_on else "idle-ZZ upper bound (2x Dev. 34 angle)"
+    def zz_sel(g, zz):
+        if zz == "off":
+            return (g.zz_idle == "off") & (g.zz_layer == "off")
+        return (g.zz_layer == "on") if layer_on else ((g.zz_idle == "on") & (g.zz_layer == "off"))
     ax = axes[1]
     g = df[(df.stage == "gate1b") & (df.status != "pending")]
     for L, ls in ((8, "-"), (12, "--")):
         for dial, c, lab in (("delay", "C0", "p = 0 (delay-matched)"), ("reset", "C3", "p = 0.25 reset dial")):
-            for zz, mk, mfc, suffix in (("off", "s", None, ""), ("on", "D", "none", ", idle-ZZ upper bound (2x Dev. 34 angle)")):
-                h = g[(g.L == L) & (g.dial == dial) & (g.zz_idle == zz)].sort_values("n")
+            for zz, mk, mfc, suffix in (("off", "s", None, ""), ("on", "D", "none", ", " + zz_label)):
+                h = g[(g.L == L) & (g.dial == dial) & zz_sel(g, zz)].sort_values("n")
                 if h.empty:
                     continue
                 ax.errorbar(h.ladder_n, [best(r, "kL") for _, r in h.iterrows()], yerr=[err(r, "kL") for _, r in h.iterrows()],
                             color=c, ls=ls, marker=mk, mfc=mfc, capsize=2, lw=(1.4 if zz == "off" else 0.8), label=f"{lab}, L={L}{suffix}")
-        g_off = g[g.zz_idle == "off"]
+        g_off = g[zz_sel(g, "off")]
         h = g_off[(g_off.L == L) & (g_off.dial == "reset")].sort_values("n")
         if not h.empty and "var_mask" in h:
             for K, mk in ((64, "x"), (256, "+")):
@@ -606,7 +647,7 @@ def figure(df: pd.DataFrame):
     g = df[(df.stage == "dial") & (df.status != "pending")]
     for dial, p, c in (("reset", 0.25, "C1"), ("reset", 0.5, "C3"), ("dephase", 0.5, "C2"), ("delay", 0.0, "C0")):
         for zz, mfc, suffix, lw in (("off", None, "", 1.4), ("on", "none", " ZZ", 0.8)):
-            h = g[(g.dial == dial) & ((g.p == p) | (g.p.isna() & (p == 0))) & (g.zz_idle == zz)].sort_values("L")
+            h = g[(g.dial == dial) & ((g.p == p) | (g.p.isna() & (p == 0))) & zz_sel(g, zz)].sort_values("L")
             if h.empty:
                 continue
             for which, mk, ls in (("k1", "o", "--"), ("kL", "s", "-")):
@@ -620,7 +661,9 @@ def figure(df: pd.DataFrame):
     ax.set_xlabel("L")
     ax.set_title(f"Dial grid on the 6x10 patch (n = {int(g.n.dropna().iloc[0]) if not g.empty and g.n.notna().any() else 60})", fontsize=10)
     ax.legend(fontsize=5, ncol=2)
-    if (df.zz_idle == "on").any():
+    if layer_on:
+        fig.suptitle("hollow markers / thin lines: static layer ZZ + idle ZZ, Deviation 34 convention (booked); filled: ZZ off (record)", fontsize=9)
+    elif (df.zz_idle == "on").any():
         fig.suptitle("hollow markers / thin lines: idle-ZZ, angle 2x the Deviation 34 convention (upper bound); filled: ZZ off (booked record)", fontsize=9)
     fig.tight_layout()
     OUT_FIG.parent.mkdir(parents=True, exist_ok=True)
@@ -642,9 +685,14 @@ def main():
     ap.add_argument("--out", default=None, help="override the output CSV path")
     ap.add_argument("--K", type=int, default=K_MASKS, help="pooled masks per (draw, shift) for the pattern floor (Deviation 27: 256)")
     ap.add_argument("--kurtosis", type=float, default=KURTOSIS_DEV17, help="gradient kurtosis for the M-draw 2 sigma (Deviation 28)")
-    ap.add_argument("--zz", choices=["on", "off"], default="off", help="ZZ idle phase in the dial layer (stages gate1b / dial)")
+    ap.add_argument("--zz", choices=["off", "on", "layer"], default="off",
+                    help="off: no ZZ; on: idle-only ZZ in the dial layer at the upper-bound angle rzz(zeta tau) (pp-zz-idle record); "
+                         "layer: Deviation 34, static whole-layer ZZ rzz(zeta tau_layer/2) in every layer of the noisy models plus the idle term rzz(zeta 400ns/2) in the dial layer")
+    ap.add_argument("--models", nargs="+", default=["noiseless", "unital", "nonunital"], help="dev15 stage models")
+    ap.add_argument("--pattern-samples", type=int, default=None, help="paths per pattern-floor run (default: --n-samples)")
     ap.add_argument("--zz-fallback-hz", type=float, default=None, help="zeta for couplers without a properties entry (default: median |zeta|)")
     ap.add_argument("--reuse-gate1b", action="store_true", help="dial stage: copy the 6x10 delay / reset-0.25 rows from stage gate1b")
+    ap.add_argument("--only-missing", action="store_true", help="skip jobs whose row (same stage, model, patch, L, dial, p, ZZ flags) is already computed")
     args = ap.parse_args()
     global OUT_CSV
     if args.out:
@@ -657,42 +705,84 @@ def main():
             df["K_masks"] = np.where(df["var_mask"].notna(), args.K, np.nan)
         df.to_csv(OUT_CSV, index=False)
         df = with_zz_column(df)
-        v_off = verdicts(df, K=args.K, kurtosis=args.kurtosis, zz_idle="off")
-        v_off["gate1b_K64"] = verdicts(df, K=64, zz_idle="off")["gate1b"]          # the Section 3b v0.5 pooling, for comparison
-        has_on = bool(((df.zz_idle == "on") & df.stage.isin(["gate1b", "dial"]) & (df.status != "pending")).any())
-        v = v_off
-        v["reading_note"] = "top-level keys: the booked reading without ZZ (pure T2 dephasing on the idle branch)"
-        if has_on:
-            # the idle-only ZZ rows at twice the Deviation 34 angle are an upper bound and live under their own key; they are not the
-            # booked reading (that awaits the Deviation 34 whole-layer recompute)
-            v_on = verdicts(df, K=args.K, kurtosis=args.kurtosis, zz_idle="on")
-            v["zz_on_upper_bound"] = {k: v_on[k] for k in DIAL_KEYS if k in v_on}
-            v["zz_on_upper_bound"]["gate1b_K64"] = verdicts(df, K=64, zz_idle="on")["gate1b"]
-            v["zz_on_upper_bound"].update(ZZ_CONVENTION)
-            v["zz_on_upper_bound"]["zz_shift"] = zz_shift_table(df)
-            v["zz_on_upper_bound"]["zz_model"] = dict(
+        done = df[df.status != "pending"]
+        v_off = verdicts(df, K=args.K, kurtosis=args.kurtosis, zz_idle="off", zz_layer="off")
+        v_off["gate1b_K64"] = verdicts(df, K=64, zz_idle="off", zz_layer="off")["gate1b"]          # the Section 3b v0.5 pooling, for comparison
+        has_idle = bool(((done.zz_idle == "on") & (done.zz_layer == "off") & done.stage.isin(["gate1b", "dial"])).any())
+        has_layer = bool((done.zz_layer == "on").any())
+        v_idle = None
+        if has_idle:
+            # the idle-only ZZ rows at twice the Deviation 34 angle are an upper bound (branch pp-zz-idle); never the booked reading
+            v_idle = {k: val for k, val in verdicts(df, K=args.K, kurtosis=args.kurtosis, zz_idle="on", zz_layer="off").items() if k in DIAL_KEYS}
+            v_idle["gate1b_K64"] = verdicts(df, K=64, zz_idle="on", zz_layer="off")["gate1b"]
+            v_idle.update(ZZ_CONVENTION)
+            v_idle["zz_shift"] = zz_shift_table(df, "idle_upper_bound")
+            sel_idle = (done.zz_idle == "on") & (done.zz_layer == "off")
+            v_idle["zz_model"] = dict(
                 rule="rzz(phi) on every coupler of the cone during the 400 ns dial idle, phi = 2 pi J tau (= zeta tau) with the signed per-edge J of the raw "
                      "backend properties (fallback: median |J|); applied only when both ends idle (non-reset branch); see docs/PAULIPROP.md",
-                properties=str(df[df.zz_idle == "on"].zz_properties.dropna().iloc[0]) if "zz_properties" in df and df[df.zz_idle == "on"].zz_properties.notna().any() else None,
-                phi_median_rad=float(df[df.zz_idle == "on"].zz_phi_median.dropna().median()) if "zz_phi_median" in df else None)
-            v["reading_note"] += ("; 'zz_on_upper_bound': the same readings with the idle-only ZZ at twice the Deviation 34 angle (upper bound; "
-                                  "the Deviation 30 reading there is inconclusive with one counted rung, Deviation 35 (ii)); the booked reading with "
-                                  "ZZ awaits the Deviation 34 whole-layer recompute")
+                properties=str(done[sel_idle].zz_properties.dropna().iloc[0]) if "zz_properties" in done and done[sel_idle].zz_properties.notna().any() else None,
+                phi_median_rad=float(done[sel_idle].zz_phi_median.dropna().median()) if "zz_phi_median" in done else None)
+        if has_layer:
+            # Deviation 34 (booked reading): static whole-layer ZZ rzz(zeta tau_layer / 2) in every layer of the noisy models plus
+            # the idle term rzz(zeta 400 ns / 2) in the dial layer; ZZ off and the idle-only upper bound are kept as records
+            v = verdicts(df, K=args.K, kurtosis=args.kurtosis, zz_idle="on", zz_layer="on")
+            v["gate1b_K64"] = verdicts(df, K=64, zz_idle="on", zz_layer="on")["gate1b"]
+            timing = json.loads((ROOT / "data" / "predictions" / "zz_layer_timing.json").read_text())
+            sel_layer = done.zz_layer == "on"
+            v["zz_model"] = dict(convention=pp.ZZ_CONVENTIONS[pp.ZZ_ANGLE_SCALE], angle_scale=pp.ZZ_ANGLE_SCALE,
+                                 rule="Deviation 34: rzz(zeta tau_layer / 2), zeta = 2 pi J (signed per-edge J of the raw properties), on every coupler of the cone in every "
+                                      "layer of the unital / non-unital models (static ZZ of the CZ block; tau_layer per coupler from zz_layer_timing.json), plus "
+                                      "rzz(zeta 400 ns / 2) on couplers whose both ends idle in the dial layer; the noiseless rows carry no ZZ",
+                                 tau_grid_ns_median=timing["tau_grid_ns_median_over_ladder"], tau_dial_conditional_ns=timing["tau_dial_conditional_ns"],
+                                 timing_source=str((ROOT / "data" / "predictions" / "zz_layer_timing.json").relative_to(ROOT)),
+                                 properties=str(done[sel_layer].zz_properties.dropna().iloc[0]) if "zz_properties" in done and done[sel_layer].zz_properties.notna().any() else None)
+            v["reading_note"] = ("top-level keys: the booked reading with the Deviation 34 ZZ model (static layer ZZ + idle ZZ). Records: 'zz_off_record' (no ZZ; the "
+                                 "reading booked before branch pp-zz-idle) and 'zz_idle_upper_bound_record' (idle-only ZZ at twice the Deviation 34 angle, branch pp-zz-idle)")
+            v["zz_shift"] = zz_shift_table(df, "layer")
+            v["zz_off_record"] = {k: v_off[k] for k in DIAL_KEYS if k in v_off}
+            v["zz_off_record"]["dev15"] = v_off["dev15"]
+            if v_idle is not None:
+                v["zz_idle_upper_bound_record"] = v_idle
+        else:
+            v = v_off
+            v["reading_note"] = "top-level keys: the booked reading without ZZ (pure T2 dephasing on the idle branch)"
+            if v_idle is not None:
+                v["zz_on_upper_bound"] = v_idle
+                v["reading_note"] += ("; 'zz_on_upper_bound': the same readings with the idle-only ZZ at twice the Deviation 34 angle (upper bound; "
+                                      "the Deviation 30 reading there is inconclusive with one counted rung, Deviation 35 (ii)); the booked reading with "
+                                      "ZZ awaits the Deviation 34 whole-layer recompute")
         st = shot_table(df, kurtosis=(measured_kurtosis() or {}).get("kurtosis", args.kurtosis))
         st.to_csv(SHOT_TABLE, index=False)
         v["shot_table"] = str(SHOT_TABLE.relative_to(ROOT))
         OUT_JSON.write_text(json.dumps(v, indent=2, default=float))
         figure(df)
-        print(json.dumps({k: val for k, val in v.items() if k not in ("gate1b_K64", "zz_on_upper_bound")}, indent=1, default=float))
+        print(json.dumps({k: val for k, val in v.items() if k not in ("gate1b_K64", "zz_on_upper_bound", "zz_off_record", "zz_idle_upper_bound_record")}, indent=1, default=float))
         return
     gen = {"dev15": jobs_dev15, "gate1b": jobs_gate1b, "dial": jobs_dial}[args.stage]
     jobs = []
     for j in gen(args):
         j.update(csv=args.csv, placements=args.placements, deltas=args.deltas, n_samples=args.n_samples, n_cap=args.n_cap,
-                 time_limit_s=args.time_limit, zz_fallback_hz=args.zz_fallback_hz)
+                 time_limit_s=args.time_limit, zz_fallback_hz=args.zz_fallback_hz, pattern_samples=args.pattern_samples)
         jobs.append(j)
     if args.stage == "dial" and args.reuse_gate1b:
         print(f"copied {copy_gate1b_to_dial(args)} gate1b 6x10 row(s) into stage dial")
+    if args.only_missing and OUT_CSV.exists():
+        have = with_zz_column(pd.read_csv(OUT_CSV))
+        have = have[have.status != "pending"]
+        def _done(j):
+            zi = "on" if (j.get("zz") in ("on", "layer") and j.get("dial")) else "off"
+            zl = "on" if (j.get("zz") == "layer" and j["model"] != "noiseless") else "off"
+            h = have[(have.stage == j["stage"]) & (have.model == j["model"]) & (have.patch == j["patch"]) & (have.L == j["L"]) &
+                     (have.dial.fillna("") == j.get("dial", "")) & (have.zz_idle == zi) & (have.zz_layer == zl)]
+            if "p" in j:
+                h = h[np.isclose(h.p.fillna(-1.0), j["p"])]
+            return not h.empty
+        skipped = [j for j in jobs if _done(j)]
+        jobs = [j for j in jobs if not _done(j)]
+        print(f"--only-missing: {len(skipped)} job(s) already computed, {len(jobs)} to run")
+        if not jobs:
+            return
     t0 = time.time()
     append_rows(pending_rows(jobs))
     rows = []

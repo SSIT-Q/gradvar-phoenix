@@ -88,7 +88,7 @@
       }
     ]
   },
-  "overall": "grid complete (exact points at L <= 4 where the cone allows, Pauli propagation elsewhere; M = 200 exact draws, M = 100 at the 23-qubit 4x10 L = 2 noiseless cone). (a) fail; (b) pass; (c) not-evaluated; (e) pass; (f) reported; (d) pass on the exact points (L <= 4); at L >= 8 every noisy prediction lies below the 10x allowance at 4096 shots and 12 of 20 L = 8 and all L = 12 predictions below it at 16384 shots: the literal clause fails there unless the hardware floor is shown closer to the analytic one; Gate 2 booking decision. (c) part 1 pass (20 of 25 (n, L) points exceed 2 x floor(16384); every L <= 8 point does, no L = 12 point does); (c) part 2 not-evaluated: the propagation yields moments, not paired draws, so the pre-registered paired-bootstrap D_lo > 0 at n = 39 / 87, L = 8 / 12 cannot be formed; its point estimates are listed and none is separated at 2 sigma, i.e. no predicted layer-index separation between the unital and non-unital models at native noise (the H3 hardware-only reading of Deviation 15 / 16). Stop rule ('failing (c) or (d) stops the hardware stage'): (c) is not failed (part 1 passes; part 2 is undecidable by simulation and goes to the hardware-only reading); (d) passes for the L <= 4 points and, at L >= 8, fails the literal 10x allowance at 4096 shots for every point and at 16384 shots for the smaller L = 8 points and all L = 12 points, so the L >= 8 rungs are claimable only with the shot count and floor reading fixed at Gate 2. No overall pass / fail is declared on the grid alone: (d) at L >= 8 and (c) part 2 are decided at Gate 2 / on hardware.",
+  "overall": "grid complete (exact points at L <= 4 where the cone allows, Pauli propagation elsewhere; M = 200 exact draws, M = 100 at the 23-qubit 4x10 L = 2 noiseless cone). (a) fail; (b) pass; (c) not-evaluated; (e) pass; (f) reported; (d) pass on the exact points (L <= 4); at L >= 8 every noisy prediction lies below the 10x allowance at 4096 shots and 12 of 20 L = 8 and all L = 12 predictions below it at 16384 shots: the literal clause fails there unless the hardware floor is shown closer to the analytic one; Gate 2 booking decision. (c) part 1 pass (20 of 25 (n, L) points exceed 2 x floor(16384); every L <= 8 point does, no L = 12 point does); (c) part 2 not-evaluated: the propagation yields moments, not paired draws, so the pre-registered paired-bootstrap D_lo > 0 at n = 39 / 87, L = 8 / 12 cannot be formed; its point estimates are listed and none is separated at 2 sigma, i.e. no predicted layer-index separation between the unital and non-unital models at native noise (the H3 hardware-only reading of Deviation 15 / 16). Stop rule ('failing (c) or (d) stops the hardware stage'): (c) is not failed (part 1 passes; part 2 is undecidable by simulation and goes to the hardware-only reading); (d) passes for the L <= 4 points and, at L >= 8, fails the literal 10x allowance at 4096 shots for every point and at 16384 shots for the smaller L = 8 points and all L = 12 points, so the L >= 8 rungs are claimable only with the shot count and floor reading fixed at Gate 2. No overall pass / fail is declared on the grid alone: (d) at L >= 8 and (c) part 2 are decided at Gate 2 / on hardware. Under Deviation 37 (null floor + 3 sigma instead of 10x): 4096 shots: floor 1.38e-04, 20 of 40 L >= 8 noisy predictions above it (L = 8: 20/20, min 2.0e-04, L = 12: 0/20, min 4.4e-06); 16384 shots: floor 3.18e-05, 22 of 40 L >= 8 noisy predictions above it (L = 8: 20/20, min 2.0e-04, L = 12: 2/20, min 4.4e-06)",
   "criteria": {
     "a": {
       "text": "The regression check reproduces 2^-n within bootstrap error for n = 4 to 20.",
@@ -1815,6 +1815,75 @@
           }
         ],
         "note": "with the propagation rows the grid is complete; the criterion's 'smallest signal to be claimed' is fixed by the Gate 2 booking (which rungs, how many shots), so the literal 10x reading is given per shot count and per L; the simulated null-control floor is 0.7-0.85 x the analytic 1/(2N), i.e. the 10x allowance is conservative by about an order of magnitude"
+      },
+      "deviation_37": {
+        "rule": "(d) at L >= 8: the simulated null-control floor (non-unital, parameter outside the light cone) plus 3 sigma of its bootstrap estimate, in place of the 10x analytic allowance; the propagation rows are the L >= 8 signals",
+        "readings": [
+          {
+            "shots": 4096,
+            "null_floors": [
+              {
+                "n": 20,
+                "var_null": 8.98692835515468e-05,
+                "se_null": 9.155442907189661e-06,
+                "floor_3sigma": 0.0001173356122731158
+              },
+              {
+                "n": 39,
+                "var_null": 0.00010393192869934005,
+                "se_null": 1.1190851003697018e-05,
+                "floor_3sigma": 0.0001375044817104311
+              }
+            ],
+            "floor_3sigma_used": 0.0001375044817104311,
+            "n_points_L_ge_8": 40,
+            "n_above": 20,
+            "by_L": {
+              "8": {
+                "n": 20,
+                "above": 20,
+                "min_var": 0.0001989679070416
+              },
+              "12": {
+                "n": 20,
+                "above": 0,
+                "min_var": 4.359779554080292e-06
+              }
+            }
+          },
+          {
+            "shots": 16384,
+            "null_floors": [
+              {
+                "n": 20,
+                "var_null": 2.0150407474843704e-05,
+                "se_null": 2.0842265889753756e-06,
+                "floor_3sigma": 2.640308724176983e-05
+              },
+              {
+                "n": 39,
+                "var_null": 2.456165503841549e-05,
+                "se_null": 2.4091797567237503e-06,
+                "floor_3sigma": 3.178919430858674e-05
+              }
+            ],
+            "floor_3sigma_used": 3.178919430858674e-05,
+            "n_points_L_ge_8": 40,
+            "n_above": 22,
+            "by_L": {
+              "8": {
+                "n": 20,
+                "above": 20,
+                "min_var": 0.0001989679070416
+              },
+              "12": {
+                "n": 20,
+                "above": 2,
+                "min_var": 4.359779554080292e-06
+              }
+            }
+          }
+        ]
       }
     },
     "e": {
@@ -3413,136 +3482,7 @@
         "n_rows_L8": 30
       },
       "booking_decision": "shots per point at L >= 8 (4096 vs 16384 or more) and whether the L = 12 rung is booked at all are a Gate 2 booking decision for the PI; the L = 12 rung cannot be resolved at 4096 shots",
-      "deviation_15_hardware_only_flags": [
-        {
-          "patch": "10x10",
-          "n": 87,
-          "L": 4,
-          "unital_minus_noiseless_k1": -0.0020351310136977,
-          "hardware_only": false,
-          "exceeds_2x_floor_16384": true
-        },
-        {
-          "patch": "10x10",
-          "n": 87,
-          "L": 8,
-          "unital_minus_noiseless_k1": -0.00012649100610860001,
-          "hardware_only": false,
-          "exceeds_2x_floor_16384": true
-        },
-        {
-          "patch": "10x10",
-          "n": 87,
-          "L": 12,
-          "unital_minus_noiseless_k1": -8.014104927749355e-06,
-          "hardware_only": false,
-          "exceeds_2x_floor_16384": false
-        },
-        {
-          "patch": "4x10",
-          "n": 39,
-          "L": 2,
-          "unital_minus_noiseless_k1": -0.008794827287480406,
-          "hardware_only": false,
-          "exceeds_2x_floor_16384": true
-        },
-        {
-          "patch": "4x10",
-          "n": 39,
-          "L": 4,
-          "unital_minus_noiseless_k1": -0.0026966081123092015,
-          "hardware_only": false,
-          "exceeds_2x_floor_16384": true
-        },
-        {
-          "patch": "4x10",
-          "n": 39,
-          "L": 8,
-          "unital_minus_noiseless_k1": -0.00020454660102180004,
-          "hardware_only": false,
-          "exceeds_2x_floor_16384": true
-        },
-        {
-          "patch": "4x10",
-          "n": 39,
-          "L": 12,
-          "unital_minus_noiseless_k1": -1.6832858850982074e-05,
-          "hardware_only": false,
-          "exceeds_2x_floor_16384": false
-        },
-        {
-          "patch": "4x5",
-          "n": 20,
-          "L": 4,
-          "unital_minus_noiseless_k1": -0.0022305065826793997,
-          "hardware_only": false,
-          "exceeds_2x_floor_16384": true
-        },
-        {
-          "patch": "4x5",
-          "n": 20,
-          "L": 8,
-          "unital_minus_noiseless_k1": -0.0001146538952507,
-          "hardware_only": false,
-          "exceeds_2x_floor_16384": true
-        },
-        {
-          "patch": "4x5",
-          "n": 20,
-          "L": 12,
-          "unital_minus_noiseless_k1": -7.547833835477219e-06,
-          "hardware_only": true,
-          "exceeds_2x_floor_16384": false
-        },
-        {
-          "patch": "6x10",
-          "n": 53,
-          "L": 4,
-          "unital_minus_noiseless_k1": -0.0021118163313167005,
-          "hardware_only": false,
-          "exceeds_2x_floor_16384": true
-        },
-        {
-          "patch": "6x10",
-          "n": 53,
-          "L": 8,
-          "unital_minus_noiseless_k1": -9.815385452250004e-05,
-          "hardware_only": false,
-          "exceeds_2x_floor_16384": true
-        },
-        {
-          "patch": "6x10",
-          "n": 53,
-          "L": 12,
-          "unital_minus_noiseless_k1": -3.5203265011682786e-06,
-          "hardware_only": false,
-          "exceeds_2x_floor_16384": false
-        },
-        {
-          "patch": "8x10",
-          "n": 70,
-          "L": 4,
-          "unital_minus_noiseless_k1": -0.002124321709887401,
-          "hardware_only": false,
-          "exceeds_2x_floor_16384": true
-        },
-        {
-          "patch": "8x10",
-          "n": 70,
-          "L": 8,
-          "unital_minus_noiseless_k1": -0.0001096368421485,
-          "hardware_only": false,
-          "exceeds_2x_floor_16384": true
-        },
-        {
-          "patch": "8x10",
-          "n": 70,
-          "L": 12,
-          "unital_minus_noiseless_k1": -3.771463878894858e-06,
-          "hardware_only": false,
-          "exceeds_2x_floor_16384": false
-        }
-      ],
+      "deviation_15_hardware_only_flags": [],
       "criterion_c_part2_at_L12": "every unital - noiseless separation at L = 12 (3.5e-6 to 1.7e-5) is below 2 x floor(16384) = 6.1e-5: (c) part 2 is unresolvable at L = 12 whatever the truncation"
     },
     "grid_after_propagation": {
