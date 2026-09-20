@@ -1,0 +1,76 @@
+% Theory companion: OUTLINE ONLY. Theorist-delegated draft, for countersignature.
+% Nothing here is proven or computed yet unless it cites docs/PAULIPROP.md or the Gate 1 report by section.
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{xcolor,hyperref}
+\newcommand{\tbd}[1]{\textcolor{orange!80!black}{[TBD: #1]}}
+\newcommand{\Var}{\mathrm{Var}}
+\newcommand{\Np}{\mathcal{N}_p}
+\title{Second-moment theory for a Ry/CZ ansatz under a controlled reset channel\\[1ex]\large Theory companion to the gradvar-phoenix papers: outline}
+\author{\tbd{college theorist} \and \tbd{programme authors}}
+\date{Outline of 20 September 2026. \textbf{Theorist-delegated draft, for countersignature.}}
+\begin{document}
+\maketitle
+
+\noindent\textbf{Status.} This is a section plan with the calculations to be done, the statements to prove or cite, and the data that feeds each. It was drafted under the standing delegation while the theorist is away (Paper 1 Deviation 31; Paper 2 Deviation 3) and becomes a draft only when the theorist has reviewed and countersigned it. No result is asserted here.
+
+\section{Purpose and scope}
+\begin{enumerate}
+\item State, for the specific ansatz of Paper 1 (one $R_y$ layer on every qubit of a rectangular square-lattice patch, four CZ sub-layers on the patch edges, $L$ layers, uniform angles), the exact second-moment map that gives $\Var_\theta[\partial_{(k,q)}\langle Z_iZ_j\rangle]$ and $\Var_\theta[\langle Z_iZ_j\rangle]$ under (i) no noise, (ii) local unital noise, (iii) local non-unital noise, (iv) the reset dial $\Np = p\,\mathrm{Reset} + (1-p)\,\mathrm{Idle}(400\,\mathrm{ns})$.
+\item Relate the functional forms measured in Paper 1 (H5--H7) to the ensemble theorems of Mele et al.\ (Nat.\ Phys.\ 22, 751; Corollary 6, Theorem 8, Proposition 10), Singkanipa and Lidar (Quantum 9, 1617) and the Pauli-propagation guarantees of Angrisani et al.\ (PRX Quantum 7, 020313), making precise what is and is not tested when the ansatz is not a local 2-design.
+\item Supply the two models Paper 2 needs from a theorist: the $ZZ$ phase during a reset whose effective emptying time $\tau_{\mathrm{eff}}$ is fitted, not assumed (Q2, Paper 2 Deviation 4), and the frame-tracked reset cycle benchmark for a reset without a classical register (Q3).
+\end{enumerate}
+
+\section{The second-moment calculation (to be done)}
+\subsection{Setting and notation}
+Heisenberg back-propagation of the readout-folded $O = Z_iZ_j$ through the transpiled circuit; Pauli-path expansion $\langle O\rangle(\theta) = \sum_{\text{paths}} c_{\text{path}}(\theta)$, $c_{\text{path}} = \text{const}\times\prod_g f_g(\theta_g)$ with $f_g \in \{1, \cos, \sin\}$. Definitions of the path set, branchings, the $\theta$-independent prefix.
+
+\subsection{Lemma 1: vanishing of cross terms under uniform angles}
+\textbf{To prove.} For $\theta$ uniform on $[0, 2\pi)^{nL}$, two distinct paths have zero covariance; the argument in \texttt{docs/PAULIPROP.md} (distinct paths differ in factor type at some rotation; given identical types the Cliffords, branch choices and noise branchings followed by a rotation on the same qubit reproduce the same path) is to be written as a proof, including the case of noise branchings not followed by a rotation (the prefix) and the two $Z \to I$ relaxation branches separated by a CZ that the code treats as distinct (recorded gap, relative $< 10^{-3}$). \emph{Referee brief Q1.}
+
+\subsection{Lemma 2: the derivative as a $\tfrac12$-weight mark}
+\textbf{To prove.} $\partial_{(k,q)}$ keeps exactly the paths whose Pauli does not commute with $Y_q$ at gate $(k, q)$, with the same $\tfrac12$ weight ($\partial\cos = -\sin$, $\partial\sin = \cos$), and $\mathbb{E}[\partial\langle O\rangle] = 0$. Show the cancellation of Lemma 1 survives differentiation and the channel maps.
+
+\subsection{Proposition 3: the second moment as a positive linear map}
+\textbf{To state and prove.} Rotation about axis $A$: $P \notin \{I, A\} \mapsto \tfrac12$ on each of the two other non-identity Paulis; Clifford: permutation; single-qubit channel $r \mapsto Dr + t$ (diagonal $D$): $P_a \mapsto D_a^2 P_a$, $t_a^2 \mapsto I$; Pauli channel: $(1-\lambda)^2$ on non-identity strings. Total weight non-increasing under every op, hence the truncation lower bound $V_{\mathrm{trunc}} \leq V$ (Proposition 4).
+
+\subsection{Proposition 4: rigorous lower bound and error statement}
+Deterministic truncation by coefficient is a lower bound; the discarded mass is not an error bound (85\% of the mass carries 3--5\% of the variance at $L \geq 8$); the unbiased Pauli-path sampler gives $V_{\mathrm{MC}} \pm 2\sigma$; the Deviation 15 error is $\max(2\sigma, V_{\mathrm{MC}} - V_{\mathrm{trunc}})$. \tbd{Can a two-sided bound be obtained from the weight of the truncated strings times a bound on their final factors?}
+
+\subsection{The dial channel}
+Bloch form of $\Np$ on top of the snapshot unital noise: $D = (1-p)(e^{-400/T_2}, e^{-400/T_2}, 1)$, $t_z = p$; contraction $c = (\|D\|_F^2 + \|t\|^2)/3$; delay-matched control $p = 0$; dephasing dial $t = 0$. \textbf{To do:} (a) the pattern-noise floor $\mathbb{E}_\theta\Var_{\mathrm{mask}}[C]$ as a second propagation with a deterministic reset per path, and why the pooled estimator's excess variance is $\Var_{\mathrm{mask}}[C]/(2K)$ (checked numerically at $K = 64, 256$: ratio $3.50 \pm 0.84$ against 4); (b) static $ZZ$ over the whole scheduled layer in both models (Paper 1 Deviation 34): rotation $e^{-i\zeta\tau Z_aZ_b/4}$ with $\zeta = 2\pi\times$ the reported coupling, propagated by the incoherent rule moving weight $\sin^2(\zeta\tau/2)$ per pair per layer, with the $O(p\sin^2(\zeta\tau/2))$ cross-term residual to be bounded; idle-branch $T_1$ ($t_z \sim 2\times10^{-3}$) still absent; (b$'$) the rigorous ansatz-specific floors of Deviation 33, $\Var[\partial_{k=L}C] \geq \tfrac12 c_i^2 g_i^2 p^2$ and $\Var[C] \geq \tfrac12 p^2(c_i^2 g_i^2 + c_j^2 g_j^2)$, to be re-derived with the cross-term cancellation under the last layer's independent uniform angles made explicit, and the mask-sharing statement of Deviation 38 ($\Var_\theta[C_{\mathrm{mix}}] = \Var_\theta[C_{\Phi_{\mathrm{mix}}}] + \mathbb{E}_\theta\Var_{\mathrm{mask}}[C]/K$; per-mask-difference gradient floor) to be proven; (c) $\mathbb{E}_\theta[C_{\mathrm{mix}}] = p^2$ before readout folding as an exact identity of the last reset layer. \emph{Referee brief Q2, Q6.}
+
+\subsection{Predictions the calculation must reproduce before it is trusted}
+Validation rows of \texttt{pauliprop\_validation.csv} (46 of 48 inside exact intervals); the $2\times2$, $L = 2$ exact-average test; the L = 8 / 12 ladder rows and the dial rows of the Gate 1 report Sections 6--8. \tbd{Independent re-derivation of at least one $L = 8$ row by hand or by a second code.}
+
+\section{Theorems to prove or cite}
+\begin{enumerate}
+\item \textbf{Cite.} Mele et al.: Corollary 6 (cost variance $\Theta(1)$ with floor $(\|t\|_2^2/3)^{|P|}$), Theorem 8 ($\Var[\partial_k C] = e^{-\Theta(L-k)}$), Proposition 10 (unital upper bound $e^{-\Omega(|P|+L)}$), Theorem 1 (noise-induced effective depth), Proposition 3 / Theorem 4 (average-case simulability); all on average over local 2-design gate layers. State explicitly that Ry/CZ is not a local 2-design (Uvarov--Biamonte Table 1, $\lambda_1 = 1.76$) so no constant is tested, only functional forms against the ansatz-specific curve.
+\item \textbf{Cite.} Singkanipa--Lidar: HS-contractive channels, the noisy parameter-shift rule; check that $\Np$ and the delay-matched idle channel are in the class and that the shift rule remains exact for the pooled estimator.
+\item \textbf{Cite.} Angrisani et al.: average-case Pauli-propagation simulability under arbitrary local noise; state the ensemble and precision the guarantee covers and that at Nighthawk noise levels and gradient-scale precision the runtime bound is not informative, so the classical baseline is demonstrated numerically (verification report, cross-cutting correction 7).
+\item \textbf{Prove (ansatz-specific).} Exact $n$-independence of the noiseless second moment while the patch contains the cone; its failure mode with broken couplers (the 39- and 87-qubit patches carry 5 and 7); whether a curve pre-drawn on the same broken geometry is a test or a tautology. \emph{Referee brief Q4.}
+\item \textbf{Prove or bound.} The $k = L$ flatness in $L$ and $n$ under $\Np$ for this ansatz: identify the terms of the second-moment map that survive the last reset layer and give the leading constant in $p$; compare with $p^4/9$.
+\item \textbf{Prove.} The truncation-arm statistic: $\mathrm{RMS}_\theta[C_{\mathrm{mix}} - C_{\mathrm{mix}}[L-\ell, L]] \approx c^{\ell/2}\,\mathrm{std}_\theta(C_{\mathrm{mix}})$ up to an ansatz constant; the residual pattern noise of the deleted layers and its subtraction.
+\item \textbf{Assess.} Is the noiseless-normalised layer-index ratio (Deviation 14) the cleanest separator of unital from non-unital noise at this shot cost, and what would be? \emph{Referee brief Q8.}
+\item \textbf{Assess.} Heavy tails: measured $k = L$ kurtosis 14.2 at $(n = 20, L = 8)$ noiseless; expected behaviour under noise and at larger $n$; implications for the $M = 350$ booking (2$\times$ margin to $\kappa \approx 21$). \emph{Referee brief Q9.}
+\end{enumerate}
+
+\section{Paper 2 models}
+\subsection{$ZZ$ during reset (Q2)}
+Model the spectator phase in the reset arm when the target's population decays with an effective emptying time $\tau_{\mathrm{eff}}$: $\phi_{\mathrm{reset}} = \zeta\int_0^{400\,\mathrm{ns}} n_t(t)\,dt$ against $\phi_{\mathrm{delay}} = \zeta\times400$\,ns$\times n_t(0)$, so the $|1\rangle$-arm excess is $\zeta(\tau_{\mathrm{eff}} - 400\,\mathrm{ns})$ at leading order; Paper 2 Deviation 4 fits $\tau_{\mathrm{eff}}$ as the slope of the excess phase against $\zeta$ across directed pairs (the fixed $0.9375$ coefficient is withdrawn). \tbd{Justify the linear-in-$\zeta$ regression and its residual test against 5\,mrad; state what the target-$|0\rangle$ arm cancels exactly; derive the Q3 common-mode weight $\sin^2(\zeta\tau/4)$ per cycle and the dense-minus-sparse residual of Paper 2 Deviation 5.} \emph{Referee brief Q7.}
+\subsection{Frame-tracked reset cycle benchmark (Q3)}
+Show that with a reset in place of the MCM the twirled channel on the reset qubit is the reset itself up to the final frame, that \texttt{expected\_z} is the correct frame bookkeeping, and that the spectator error is twirled to a Pauli channel whose per-cycle decay in $m$ is what the fit extracts; identify the learnable parameters under SPAM in the sense of Zhang et al.\ and the gauge freedom of Chu et al.
+
+\section{What data feeds the companion}
+\begin{itemize}
+\item Paper 1 main grid and layer-index sweep: $\Var[\partial C]$ per point with intervals (validates the unital and non-unital maps at $L \leq 8$).
+\item Dial arm: $k = L$ and $k = 1$ variances, $\Var[C_{\mathrm{mix}}]$, the per-mask means (pattern floor), the truncation-arm RMS, the dephasing-dial and delay-matched controls (validates the dial map and the flatness statement).
+\item Paper 2 Q4 Bloch maps ($D$, $t$, connected $\langle XX\rangle$): the actual channel to insert into the map if it differs from $\Np$.
+\item Paper 2 Q2 $\zeta$ per pair and Q1 reset error per qubit: inputs to the idle-phase and reset-fidelity terms.
+\item Calibration snapshots per hardware day: $T_1$, $T_2$, per-edge CZ error, readout confusion, raw $ZZ$.
+\end{itemize}
+
+\section{Authorship and countersignature}
+\tbd{Theorist named at submission; co-authorship a separate decision under options 2--4 of the referee brief; internal-referee credit in both acknowledgements otherwise.} Countersignature line: \tbd{name, date}.
+\end{document}
