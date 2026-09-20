@@ -212,7 +212,7 @@ def test_dry_run_every_list(name, tmp_path):
         assert j["job_kind"] == "sampler" and j["primitive"] == "sampler" and j["status"] == "dry-run" and j["dry_run"] is True
         assert j["init_qubits"] is job.get("init_qubits", True) and j["shots"] == job["shots"] and j["resilience_level"] == 0
         assert j["protocol"] == name and j["sampler_job"] == job["id"] and j["joblist_entries"] == [job] and j["simulated"] is False
-        assert j["rep_delay_granted_s"] == "default" and j["rep_delay"]["default_rep_delay_s"] == pytest.approx(250e-6)
+        assert j["rep_delay_submitted_s"] == "default" and j["rep_delay"]["default_rep_delay_s"] == pytest.approx(250e-6)
         assert j["budget"]["minutes_at_250us"] == jl["budget"]["minutes_at_250us"] and j["budget_estimate_with_target_durations"]["readout_us"] == pytest.approx(2.2)
         assert j["layout_check"]["enforced"] is False and j["layout_check"]["action"] == "logged" and j["layout_check"]["layout_couplers"] == []
         assert j["layout_check"]["policy"].startswith("Paper 2") and j["layout_check"]["snapshot_flags"]["readout"] == [24, 49, 55, 62, 73, 77, 107]
@@ -247,7 +247,7 @@ def test_dry_run_every_list(name, tmp_path):
     rows = pd.read_csv(next((tmp_path / "jobs").glob("*.csv")))
     assert list(rows.columns) == SAMPLER_LOG_COLUMNS and len(rows) == circuits
     assert set(rows.stage) == {name} and set(rows.init_qubits) == {j.get("init_qubits", True) for j in jl["sampler_jobs"]}
-    assert set(rows.rep_delay_granted) == {"default"} and rows.counts_path.isna().all() and rows.qpu_seconds.isna().all()
+    assert set(rows.rep_delay_submitted) == {"default"} and rows.counts_path.isna().all() and rows.qpu_seconds.isna().all()
     if name == "Q3":
         assert set(rows.protocol) == {"Q3"} and sorted(rows.reps.unique()) == [1, 16, 64] and rows.expected_z.notna().all()
     if name == "smoke":
@@ -444,12 +444,12 @@ def test_submit_path_under_mock_writes_bundles_and_applies_the_paper2_layout_pol
     with pytest.raises(SystemExit, match=r"NOT OPERATIONAL \[40\]"):
         execute_sampler_joblist(jl, backend, submit=True, run_root=str(tmp_path / "r3"), log_path=str(tmp_path / "l3.csv"), calibration_csv=CAL)
     assert len(created) == 1 and not (tmp_path / "l2.csv").exists()
-    # a job's own rep_delay_us (Deviation 1) reaches options.execution.rep_delay and the row's rep_delay_granted
+    # a job's own rep_delay_us (Deviation 1) reaches options.execution.rep_delay and the row's rep_delay_submitted
     own = dict(jl, sampler_jobs=[dict(jl["sampler_jobs"][0], rep_delay_us=5.0)])
     monkeypatch.setattr(backend, "properties", lambda: _Props(ro))
     rows = execute_sampler_joblist(own, backend, submit=True, run_root=str(tmp_path / "r4"), log_path=str(tmp_path / "l4.csv"), calibration_csv=CAL)
-    assert set(r["rep_delay_granted"] for r in rows) == {5e-6}
-    assert json.loads(next((tmp_path / "r4").glob("*/sjob*/job.json")).read_text())["rep_delay_granted_s"] == pytest.approx(5e-6)
+    assert set(r["rep_delay_submitted"] for r in rows) == {5e-6}
+    assert json.loads(next((tmp_path / "r4").glob("*/sjob*/job.json")).read_text())["rep_delay_submitted_s"] == pytest.approx(5e-6)
 
 
 def test_run_joblist_reaches_the_sampler_submit_branch_under_mock(tmp_path, monkeypatch):

@@ -1,6 +1,6 @@
 # Tracker: task lists and minute ledger
 
-Version 15, 20 September 2026 (first version 19 September 2026); last updated 20 Sep 2026, 08:30 IST. Version 15 changes: fast-tracked schedule under Deviation 31 (Paper 1 v0.9.9) and Deviation 3 (Paper 2 v0.4.2), approved by Owais 20 Sep 08:12 IST; Gate 1 decision 23 to 26 Sep, smoke test 27 to 29 Sep, Gate 2 by 30 Sep, campaign 1 to 12 Oct; P1.1.5 done (1549a12); rows P1.1.18, P1.1.19 and P1.2.11 added. Companion to [PLAN.md](PLAN.md). Statuses: done, in progress, todo, blocked. Live statuses are edited on the tracker artifact (db collection `status`, doc id = task id); this file mirrors the page's default statuses. Owners: **O** = Mohammed Owais, **R** = Dr. Raviram V (PI), **C** = physics collaborator (anonymous for now), **T** = college theorist (Paper 2 companion, to be named), **Cl** = Claude.
+Version 16, 20 September 2026 (first version 19 September 2026); last updated 20 Sep 2026, 09:00 IST. Version 16 changes: Paper 1 pre-registration v0.11.0 (Deviation 32, smoke test brought to 20 Sep; Deviations 33–40 from the delegated theorist referee pass and its independent second review) and Paper 2 pre-registration v0.4.3 (Deviations 4–5); P1.1.19 theorist referee pass done; P1.2.2 smoke test in progress 20 Sep (patch shifted to 82–116, edge 94_104); rows P1.1.20, P1.1.21, P1.1.22, P1.2.12, P1.4.9, P1.4.10 and P2.2.1 added; reserve itemised in the ledger. Companion to [PLAN.md](PLAN.md). Statuses: done, in progress, todo, blocked. Live statuses are edited on the tracker artifact (db collection `status`, doc id = task id); this file mirrors the page's default statuses. Owners: **O** = Mohammed Owais, **R** = Dr. Raviram V (PI), **C** = physics collaborator (anonymous for now), **T** = college theorist (Paper 2 companion, to be named), **Cl** = Claude.
 
 ## 2. Paper 1 task list
 
@@ -39,15 +39,18 @@ Pre-registered measurement of gradient variance on ibm_phoenix. Dates are due da
 | P1.1.16 | ZZ idle phase in the propagation model (pre-Gate-2) | Cl | Before Gate 2, 30 Sep 2026 | in progress | ZZ idle-phase term in the propagation model with tests on main; Gate 1 report rows refreshed |
 | P1.1.17 | Large-cone L = 4 propagation groups for n = 40 and 100 (about 30 core-minutes via propagation), then the cost-cut of noisy points | Cl | 23 Sep 2026, before the Gate 1 decision | in progress | Groups committed; overall Gate 1 verdict evaluated; cost-cut points listed for the job list |
 | P1.1.18 | Deviation 31 schedule: fast-tracked programme (Gate 1 decision 23 to 26 Sep, ibm_phoenix smoke test 27 to 29 Sep, Gate 2 by 30 Sep, main grid, dial arm and Paper 2 characterisation 1 to 12 Oct, all before the 15 Oct maintenance) | O, Cl | 20 Sep 2026 | done | Done 20 Sep 2026, 08:12 IST: approved by Owais, no waiting on the original dates. Deviation 31 in Paper 1 pre-registration v0.9.9; Deviation 3 in Paper 2 pre-registration v0.4.2; tracker Version 15 mirrors the new dates |
-| P1.1.19 | Theorist referee pass (delegated): Claude runs the referee pass on the Gate 1 report and pre-registration v0.9.9 in the theorist's stead; the theorist countersigns on return | Cl, then T | 20 to 22 Sep 2026 | in progress | In progress. Referee-pass notes posted in the thread and linked here; theorist countersignature recorded on the Gate 1 report |
+| P1.1.19 | Theorist referee pass (delegated): Claude runs the referee pass on the Gate 1 report and pre-registration v0.9.9 in the theorist's stead; the theorist countersigns on return | Cl, then T | 20 to 22 Sep 2026 | done | Done 20 Sep 2026. Referee pass: scratchpad/review/theorist_referee_pass.md (eight questions Q1–Q8 on pre-registration v0.9.8/v0.9.9, Paper 2 v0.4.1/v0.4.2 and the Gate 1 report); independent second review: scratchpad/review/theorist_referee_pass_review.md (Q1, Q3, Q8 adopt; Q2, Q4–Q7 modify). Outcome: Deviations 33–40 in Paper 1 v0.11.0 and Deviations 4–5 in Paper 2 v0.4.3. Both files indexed in docs/REVIEWS.md and copied to docs/reviews/; theorist countersignature on return
+| P1.1.20 | Whole-layer ZZ in both propagation models (Deviation 34) | Cl | 20 to 22 Sep 2026 | todo | Per-edge static ZZ over the whole layer, convention exp(−iζτ/4 ZZ) with weight sin²(ζτ/2), in both the unital and the non-unital propagation model; Gate 1 report rows refreshed |
+| P1.1.21 | Recompute n = 39 rows at edge (93,103) (Deviation 36) | Cl | 20 to 22 Sep 2026 | todo | 4×10 ladder rows recomputed with the observable edge at (93,103); Section 2 cone-graph wording; predictions and Gate 1 report rows refreshed |
+| P1.1.22 | Deviation 35 specific PI countersignature: clause (b) counted on the measured reference, ≥ 2 counted rungs, n = 53 L = 8 reference at 16384 shots | R | On Dr. Raviram's return | todo | Specific countersignature on Deviation 35 recorded in the pre-registration; the clause was frozen by Deviation 30, so a generic countersignature is not enough |
 
-### P1.2 Dry run (27 to 30 Sep 2026)
+### P1.2 Dry run (20 to 30 Sep 2026; smoke test brought to 20 Sep under Deviation 32)
 
 | ID | Task | Owner | Due | Status | Evidence |
 |---|---|---|---|---|---|
 | P1.2.0 | Pre-flight review of the dry run job list: exact jobs, shot counts, backend and instance signed off before any minute is spent | Cl reviews, R decides | 27 Sep 2026 | in progress | In progress. Code review stage complete (two passes, 19 Sep 2026); job-list sign-off still to come |
 | P1.2.1 | Pipeline checks on ibm_marrakesh under the open plan (dry-run list 01) | Cl, O | 7 Oct 2026 | done | Done 19 Sep 2026. Run 35463314834 (https://github.com/SSIT-Q/gradvar-phoenix/actions/runs/35463314834): 3 jobs, 22 QPU s of the open 10 minutes; reset accepted natively by the backend and by EstimatorV2; all 12 CSV rows recomputed exactly from result.json. Post-run review: scratchpad/review/marrakesh_postrun_review.md |
-| P1.2.2 | ibm_phoenix smoke test, about 5 Flex minutes: locked time per point, reset error and latency, depth ceiling, and the rep_delay ladder (P1.2.8) | O | 27 to 29 Sep 2026 | todo | Smoke-test summary in the thread; raw results committed |
+| P1.2.2 | ibm_phoenix smoke test, about 5 Flex minutes: locked time per point, reset error and latency, depth ceiling, and the rep_delay ladder (P1.2.8) | O | 20 Sep 2026 (Deviation 32) | in progress | In progress 20 Sep 2026 (Deviation 32: smoke test brought forward from 27 to 29 Sep by Owais, 08:24 IST). Dry-run list 02, about 0.66 Flex minutes at the 1 µs default. Patch shifted one column to 82–86 / 92–96 / 102–106 / 112–116, observable edge 94_104, after Q91's initialisation error (1.05e-3) rose above the 5e-4 cut on the 03:05 UTC snapshot; coupler 95–96 broken (a Section 2 logged shift, not a deviation; runner now places from the raw properties at build time). Smoke-test summary in the thread; raw results committed
 | P1.2.3 | Minute budget re-based on measured locked time and posted | Cl | 30 Sep 2026 | todo | Ledger below updated to version 2 |
 | P1.2.4 | Gate 2 check | R, O | 30 Sep 2026 | todo | Decision log entry |
 | P1.2.5 | Dry-run job lists (lists 01–03) committed with tests | Cl | 6 Oct 2026 | done | Done 19 Sep 2026. On main as 0e9dd26; 52 tests passing |
@@ -56,7 +59,8 @@ Pre-registered measurement of gradient variance on ibm_phoenix. Dates are due da
 | P1.2.10 | Gate 2 decision (ii) for the PI: at L = 8 several k = L and k = 1 rows lie below the criterion (d) 10× allowance at 16384 shots (3.05e-4); shots per point at L ≥ 8 and the allowance factor must be decided | R | Gate 2, 30 Sep 2026 | todo | Decision log entry; shots per point recorded in the pre-registration and the ledger |
 | P1.2.7 | Backend configuration snapshot (ibm_phoenix and open-plan backends): default rep_delay, range, dynamic reprate, Init/MEASURE columns | Cl | 22 Sep 2026 | done | Done 19 Sep 2026. Run 35464260397, commit 127337d: ibm_phoenix default rep_delay 1.0 µs, range 0–2000 µs (Deviation 23 criterion (a) met); ledger data/calibrations/backend_configurations.csv |
 | P1.2.8 | Smoke test of the rep_delay ladder 1 / 5 / 20 / 250 µs on ibm_phoenix: locked time and gradient agreement per setting, inside the P1.2.2 allowance | Cl, O | 27 to 29 Sep 2026 | todo | Ladder table in the thread; raw results committed; chosen rep_delay recorded in the pre-registration |
-| P1.2.11 | Gate 2 shot-budget decision (Deviation 32 candidate): shots per point at L ≥ 8 and the fate of the L = 12 points (P1.2.9, P1.2.10), settled before the smoke-test job list is signed | Cl proposes, R decides | 21 to 23 Sep 2026 | todo | Decision log entry; Deviation 32 recorded in the pre-registration if adopted; job list and ledger updated to match |
+| P1.2.11 | Gate 2 shot-budget decision (deviation candidate; Deviation 32 is now the smoke-test date): shots per point at L ≥ 8 and the fate of the L = 12 points (P1.2.9, P1.2.10), settled before the smoke-test job list is signed | Cl proposes, R decides | 21 to 23 Sep 2026 | todo | Decision log entry; recorded as a deviation in the pre-registration if adopted; job list and ledger updated to match |
+| P1.2.12 | L = 8 shot resolvability table (candidate Deviation 41) | Cl | 30 Sep 2026 | todo | Per-rung table of measured 2σ against the predicted L = 8 → 12 fall committed; Deviation 41 recorded if adopted |
 
 ### P1.3 Hardware campaign (1 to 12 Oct 2026, before the 15 Oct maintenance)
 
@@ -83,6 +87,8 @@ Pre-registered measurement of gradient variance on ibm_phoenix. Dates are due da
 | P1.4.6 | arXiv submission when done, endorsed by R | O, R | When analysis is done | todo | arXiv identifier |
 | P1.4.7 | Journal submission | R | After arXiv | todo | Submission confirmation |
 | P1.4.8 | Anomaly protocol: 60 reserve minutes earmarked; any anomaly re-measured on a different day and patch (≤20 min) and checked against calibrated noisy simulation before reporting; unreplicated anomalies reported as exploratory | Cl/O | With Paper 1 analysis | todo | Protocol section in the Paper 1 analysis notebook; replication and simulation checks recorded per anomaly |
+| P1.4.9 | Manuscript skeletons (Paper 1 and Paper 2) | Cl | Before analysis, 13 Oct 2026 | in progress | In progress on branch manuscripts; skeletons merged to main |
+| P1.4.10 | Analysis pipeline (fits, intervals, floors, figures from the logged bundles) | Cl | Before analysis, 13 Oct 2026 | in progress | In progress on branch analysis-p1; pipeline with tests merged to main and run on the smoke-test bundles |
 
 ## 3. Paper 2 task list
 
@@ -114,6 +120,7 @@ Hybrid decided 19 Sep 2026, 23:39 IST (Owais; Dr. Raviram agreed to Deviation 20
 | ID | Task | Owner | Due | Status | Evidence |
 |---|---|---|---|---|---|
 | P2.2 | Paper 2 pre-registration signed: PI countersignature and theorist signature on v0.4 | Cl, R | On Dr. Raviram's return | in progress | v0.4 adopted under delegated authority 20 Sep 2026; signed document linked from this page |
+| P2.2.1 | Sampler runner + Q1–Q5 job lists (SamplerV2, init_qubits as pre-registered) | Cl | 26 Sep 2026 | in progress | In progress on branch p2-runner; job lists with tests merged to main, each carrying a pre-flight review link (completes P2.1.3) |
 
 ### P2.3 Hardware (1 to 12 Oct 2026, alongside the Paper 1 campaign and before the 15 Oct maintenance; reserve spend until the Flex expiry, exact day to confirm)
 
@@ -155,8 +162,10 @@ Flex allocation of 360 minutes, ledger of pre-registration v0.9.7, Section 6 (De
 | Paper 1 main grid | about 56 | 200 | 0 | 200 | 20 Sep 2026 |
 | Reset-dial arm, Section 3b (Deviation 27, 171 jobs per point) | about 18 | 65 | 0 | 65 | 20 Sep 2026 |
 | Paper 2 characterisation | about 12 | 45 | 0 | 45 | 20 Sep 2026 |
-| Reserve (anomaly replications, referee-style checks) | about 14 | 50 | 0 | 50 | 20 Sep 2026 |
+| Reserve (itemised below: dry run, anomaly replications, clause-(b) reference, M-rule, unallocated) | about 14 | 50 | 0 | 50 | 20 Sep 2026 |
 | Total | 100 | 360 | 0 | 360 | 20 Sep 2026 |
+
+Reserve itemisation, 50 minutes: 10 dry run (smoke tests, Deviation 32); 20 anomaly replications (Deviation 19 protocol, P1.4.8); 2.7 clause-(b) reference point, n = 53 at L = 8 and 16384 shots (Deviation 35); up to 4.5 on-day M = 600 rule (Deviation 39, 1.5 min per rung); 12.8 unallocated. Reserve minutes are spent only on these items or on referee-style checks, never on new tests.
 
 Open-plan Heron r2 minutes (10 per month, separate instance) are tracked in section 3a and do not count against the 360. September: 22 QPU s spent on the Marrakesh pipeline check (run 35463314834).
 

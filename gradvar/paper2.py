@@ -56,7 +56,7 @@ RESET_NS_BY_QUBIT = {79: 2140.0}         # qubit 79's reset is 2140 ns (Section 
 SQ_GATE_US = 0.04                        # one physical single-qubit gate (sx / x, 40 ns) in the budget's gate length
 SAMPLER_LOG_COLUMNS = [
     "backend", "job_id", "timestamp", "job_submit_time", "calibration_snapshot", "stage", "protocol", "circuit_index", "label",
-    "reset_kind", "mask_id", "mask_hash", "frame_id", "reps", "prep", "meas_axis", "expected_z", "shots", "rep_delay_granted",
+    "reset_kind", "mask_id", "mask_hash", "frame_id", "reps", "prep", "meas_axis", "expected_z", "shots", "rep_delay_submitted",
     "init_qubits", "sched_ns", "reset_ns", "n_measured", "counts_path", "qpu_seconds", "transpiled_depth", "notes",
 ]
 _SYNTHETIC: Dict[int, Dict[str, Instruction]] = {}   # id(backend) -> {kind: synthetic instruction added to a fake target}
@@ -872,7 +872,7 @@ def write_counts(bundle_dir: Path, result, group: Sequence[BuiltSampler]) -> Tup
 def sampler_rows(backend, job_id: str, snapshot: str, stage: str, group: Sequence[BuiltSampler], shots: int, init_qubits: bool,
                  options=None, submit_time: str | None = None, counts_path: str | None = None, qpu_seconds=None, notes: str = "") -> List[dict]:
     """One CSV row per circuit (pre-registration Section 5 logging schema)."""
-    from .hardware import granted_rep_delay
+    from .hardware import submitted_rep_delay
     rows = []
     for i, b in enumerate(group):
         d = b.desc
@@ -883,7 +883,7 @@ def sampler_rows(backend, job_id: str, snapshot: str, stage: str, group: Sequenc
             "circuit_index": i, "label": d["label"], "reset_kind": d.get("reset_kind") or "", "mask_id": d.get("mask_id") or "",
             "mask_hash": d.get("mask_hash") or "", "frame_id": "" if d.get("frame_id") is None else d["frame_id"],
             "reps": "" if d.get("reps") is None else d["reps"], "prep": d.get("prep") or "", "meas_axis": d.get("meas_axis") or "",
-            "expected_z": ez or "", "shots": shots, "rep_delay_granted": granted_rep_delay(options), "init_qubits": init_qubits,
+            "expected_z": ez or "", "shots": shots, "rep_delay_submitted": submitted_rep_delay(options), "init_qubits": init_qubits,
             "sched_ns": "" if b.sched_ns is None else b.sched_ns,
             "reset_ns": " ".join(f"{v:g}" for v in d.get("reset_ns_assumed", [])), "n_measured": d["n_measured"],
             "counts_path": counts_path or "", "qpu_seconds": "" if qpu_seconds is None else qpu_seconds,

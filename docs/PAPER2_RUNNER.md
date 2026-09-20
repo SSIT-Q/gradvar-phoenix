@@ -142,7 +142,7 @@ distinct outcomes). In `circuits.json` the Estimator-era field `mid_circuit_meas
 readout included (Sampler circuits read out, Estimator pubs do not): kill rule (c) reads as `ops["measure"] > n_measured`.
 `data/jobs/<name>_<utc>.csv` has one row per circuit with `gradvar.paper2.SAMPLER_LOG_COLUMNS`
 (the Section 5 schema: `stage`, `protocol`, `label`, `reset_kind`, `mask_id`, `mask_hash`, `frame_id`, `reps`, `prep`,
-`meas_axis`, `expected_z`, `shots`, `rep_delay_granted`, `init_qubits`, `sched_ns`, `reset_ns`, `counts_path`,
+`meas_axis`, `expected_z`, `shots`, `rep_delay_submitted`, `init_qubits`, `sched_ns`, `reset_ns`, `counts_path`,
 `qpu_seconds`, ...). Size: Q3's m = 64 circuits make `circuits.qpy` tens of MB for that job; `bitarrays.npz` of the Q2 job
 is about 45 MB uncompressed (180 x 16,384 x 15 bytes) before compression.
 
