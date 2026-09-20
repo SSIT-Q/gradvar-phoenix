@@ -1,0 +1,458 @@
+{
+ "schema": "gradvar.hardware job ids v1",
+ "joblist": "data/joblists/paper1/day2_main_grid.json",
+ "joblist_name": "paper1_day2_main_grid",
+ "backend": "ibm_phoenix",
+ "instance": "flex",
+ "submission_run": 35530358790,
+ "runner_git_commit": "21b07ae869ab9232d53e146392f022ecd7da3c67",
+ "batch_id": "85b8f529-35ac-44fc-b85a-c50cef7606a4",
+ "calibration_csv": null,
+ "calibration_snapshot": "data/calibrations/ibm_phoenix_properties_2026-09-20T185318Z.json",
+ "written_utc": "2026-09-20T18:57:59.634784+00:00",
+ "notes": "written by execute_joblist right after submission (--submit-only: results not awaited)",
+ "discovery": null,
+ "jobs": [
+  {
+   "job_id": "dao2n878gn2s739na8cg",
+   "tag": "L0",
+   "level": 0,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:53:18.612801+00:00"
+  },
+  {
+   "job_id": "dao2n8opqrnc7399dvv0",
+   "tag": "L0-c2",
+   "level": 0,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:53:20.769985+00:00"
+  },
+  {
+   "job_id": "dao2naf8gn2s739na8f0",
+   "tag": "L0-c3",
+   "level": 0,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:53:23.483802+00:00"
+  },
+  {
+   "job_id": "dao2nb02fm4c73f4scg0",
+   "tag": "L0-c4",
+   "level": 0,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:53:29.390131+00:00"
+  },
+  {
+   "job_id": "dao2ncf8gn2s739na8hg",
+   "tag": "L0-c5",
+   "level": 0,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:53:34.533759+00:00"
+  },
+  {
+   "job_id": "dao2ndlr85ps73fen6q0",
+   "tag": "L0-c6",
+   "level": 0,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:53:37.500542+00:00"
+  },
+  {
+   "job_id": "dao2nf82fm4c73f4sclg",
+   "tag": "L0-c7",
+   "level": 0,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:53:43.088850+00:00"
+  },
+  {
+   "job_id": "dao2ngdr85ps73fen6t0",
+   "tag": "L0-c8",
+   "level": 0,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:53:50.923821+00:00"
+  },
+  {
+   "job_id": "dao2nhtr85ps73fen6ug",
+   "tag": "L0-c9",
+   "level": 0,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:53:53.549526+00:00"
+  },
+  {
+   "job_id": "dao2nkg2fm4c73f4scrg",
+   "tag": "L0-c10",
+   "level": 0,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:53:59.561999+00:00"
+  },
+  {
+   "job_id": "dao2nldr85ps73fen73g",
+   "tag": "L0-c11",
+   "level": 0,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:54:10.690635+00:00"
+  },
+  {
+   "job_id": "dao2nmlr85ps73fen750",
+   "tag": "L0-c12",
+   "level": 0,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:54:13.421513+00:00"
+  },
+  {
+   "job_id": "dao2np5r85ps73fen77g",
+   "tag": "L0-c13",
+   "level": 0,
+   "shots": 4096,
+   "pubs": 200,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:54:18.286333+00:00"
+  },
+  {
+   "job_id": "dao2nq0pqrnc7399e0k0",
+   "tag": "L1",
+   "level": 1,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:54:30.853915+00:00"
+  },
+  {
+   "job_id": "dao2nqopqrnc7399e0lg",
+   "tag": "L1-c2",
+   "level": 1,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:54:32.511215+00:00"
+  },
+  {
+   "job_id": "dao2ns78gn2s739na920",
+   "tag": "L1-c3",
+   "level": 1,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:54:35.297296+00:00"
+  },
+  {
+   "job_id": "dao2ntgpqrnc7399e0pg",
+   "tag": "L1-c4",
+   "level": 1,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:54:40.905028+00:00"
+  },
+  {
+   "job_id": "dao2nuv8gn2s739na96g",
+   "tag": "L1-c5",
+   "level": 1,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:54:46.707055+00:00"
+  },
+  {
+   "job_id": "dao2o078gn2s739na990",
+   "tag": "L1-c6",
+   "level": 1,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:54:51.612066+00:00"
+  },
+  {
+   "job_id": "dao2o1v8gn2s739na9cg",
+   "tag": "L1-c7",
+   "level": 1,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:54:56.713947+00:00"
+  },
+  {
+   "job_id": "dao2o3lr85ps73fen7j0",
+   "tag": "L1-c8",
+   "level": 1,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:55:03.668147+00:00"
+  },
+  {
+   "job_id": "dao2o4o2fm4c73f4sdg0",
+   "tag": "L1-c9",
+   "level": 1,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:55:10.828367+00:00"
+  },
+  {
+   "job_id": "dao2o5g2fm4c73f4sdgg",
+   "tag": "L1-c10",
+   "level": 1,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:55:16.099276+00:00"
+  },
+  {
+   "job_id": "dao2o6gpqrnc7399e14g",
+   "tag": "L1-c11",
+   "level": 1,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:55:18.421955+00:00"
+  },
+  {
+   "job_id": "dao2o8tr85ps73fen7qg",
+   "tag": "L1-c12",
+   "level": 1,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:55:23.047591+00:00"
+  },
+  {
+   "job_id": "dao2o9n8gn2s739na9m0",
+   "tag": "L1-c13",
+   "level": 1,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:55:31.645687+00:00"
+  },
+  {
+   "job_id": "dao2oag2fm4c73f4sdlg",
+   "tag": "L1-c14",
+   "level": 1,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:55:34.480251+00:00"
+  },
+  {
+   "job_id": "dao2od0pqrnc7399e1ag",
+   "tag": "L1-c15",
+   "level": 1,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:55:38.630320+00:00"
+  },
+  {
+   "job_id": "dao2oe8pqrnc7399e1cg",
+   "tag": "L1-c16",
+   "level": 1,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:55:48.616250+00:00"
+  },
+  {
+   "job_id": "dao2ofgpqrnc7399e1f0",
+   "tag": "L1-c17",
+   "level": 1,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:55:54.144672+00:00"
+  },
+  {
+   "job_id": "dao2oin8gn2s739na9v0",
+   "tag": "L1-c18",
+   "level": 1,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:55:58.274138+00:00"
+  },
+  {
+   "job_id": "dao2ol0pqrnc7399e1l0",
+   "tag": "L1-c19",
+   "level": 1,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:56:10.585196+00:00"
+  },
+  {
+   "job_id": "dao2onopqrnc7399e1p0",
+   "tag": "L1-c20",
+   "level": 1,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:56:21.069420+00:00"
+  },
+  {
+   "job_id": "dao2or5r85ps73fen8e0",
+   "tag": "L1-c21",
+   "level": 1,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:56:31.725571+00:00"
+  },
+  {
+   "job_id": "dao2outr85ps73fen8i0",
+   "tag": "L1-c22",
+   "level": 1,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:56:44.378925+00:00"
+  },
+  {
+   "job_id": "dao2p2g2fm4c73f4sehg",
+   "tag": "L1-c23",
+   "level": 1,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:56:59.617727+00:00"
+  },
+  {
+   "job_id": "dao2p3v8gn2s739naak0",
+   "tag": "L1-c24",
+   "level": 1,
+   "shots": 4096,
+   "pubs": 100,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:57:14.469246+00:00"
+  },
+  {
+   "job_id": "dao2p4dr85ps73fen8pg",
+   "tag": "L2",
+   "level": 2,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:57:19.752204+00:00"
+  },
+  {
+   "job_id": "dao2p5n8gn2s739naao0",
+   "tag": "L2-c2",
+   "level": 2,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:57:22.349735+00:00"
+  },
+  {
+   "job_id": "dao2p6lr85ps73fen8s0",
+   "tag": "L2-c3",
+   "level": 2,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:57:26.560486+00:00"
+  },
+  {
+   "job_id": "dao2p7g2fm4c73f4seo0",
+   "tag": "L2-c4",
+   "level": 2,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:57:31.152969+00:00"
+  },
+  {
+   "job_id": "dao2pa0pqrnc7399e2fg",
+   "tag": "L2-c5",
+   "level": 2,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:57:34.629299+00:00"
+  },
+  {
+   "job_id": "dao2pb0pqrnc7399e2h0",
+   "tag": "L2-c6",
+   "level": 2,
+   "shots": 4096,
+   "pubs": 100,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:57:45.140839+00:00"
+  },
+  {
+   "job_id": "dao2pbg2fm4c73f4set0",
+   "tag": "L0-probes-s4096",
+   "level": 0,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:57:48.954677+00:00"
+  },
+  {
+   "job_id": "dao2pc5r85ps73fen940",
+   "tag": "L0-probes-s4096-c2",
+   "level": 0,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:57:50.818672+00:00"
+  },
+  {
+   "job_id": "dao2pcgpqrnc7399e2ig",
+   "tag": "L0-probes-s4096-c3",
+   "level": 0,
+   "shots": 4096,
+   "pubs": 200,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:57:52.697624+00:00"
+  },
+  {
+   "job_id": "dao2pctr85ps73fen960",
+   "tag": "L1-probes-s4096",
+   "level": 1,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:57:54.322162+00:00"
+  },
+  {
+   "job_id": "dao2pddr85ps73fen97g",
+   "tag": "L1-probes-s4096-c2",
+   "level": 1,
+   "shots": 4096,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:57:55.921595+00:00"
+  },
+  {
+   "job_id": "dao2pdopqrnc7399e2l0",
+   "tag": "L1-probes-s4096-c3",
+   "level": 1,
+   "shots": 4096,
+   "pubs": 200,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-09-20T18:57:57.991218+00:00"
+  }
+ ]
+}
