@@ -26,3 +26,4 @@ packages = ["gradvar"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["slow: takes more than a minute (deselect with -m 'not slow')"]
