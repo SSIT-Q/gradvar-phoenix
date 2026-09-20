@@ -299,7 +299,7 @@ python scripts/gate1_pauliprop.py --stage dev15 --depths 8 12   # ladder patches
 python scripts/gate1_pauliprop.py --stage gate1b                 # p = 0 (delay-matched) vs p = 0.25 at n = 39 / 56 / 90
 python scripts/gate1_pauliprop.py --stage dial                   # dial grid at n = 56 + controls
 python scripts/gate1_pauliprop.py --stage summary                # verdicts JSON + figures/pauliprop_predictions.png
-python scripts/gate1_pauliprop.py --stage gate1b --zz on         # the same with the ZZ idle phase in the dial layer (booked reading)
+python scripts/gate1_pauliprop.py --stage gate1b --zz on         # the same with the idle-ZZ term at rzz(zeta tau): an upper bound, not the booked reading
 python scripts/gate1_pauliprop.py --stage dial --zz on --reuse-gate1b
 python scripts/gate1_pauliprop.py --stage dev15 --depths 4       # the large-cone L = 4 groups of the Gate 1 grid (then scripts/gate1_resummary.py)
 python scripts/pauliprop_validate.py                             # PP vs exact (CSV at n = 12, 16; fresh density matrix at n <= 10)
@@ -316,10 +316,11 @@ density-matrix reference exactly (tests: 3-point angle grid on a 2x2 patch, exac
 non-unital and reset-dial rules). Two engines: truncation by coefficient (and optionally Pauli weight) with the
 discarded weight recorded (a rigorous lower bound), and an unbiased Pauli-path sampler with standard errors; the
 prediction is `V_MC +/- 2 sigma`, the truncation error is the deficit `V_MC - V_trunc` (3-5% at L = 8), and the
-Deviation 15 error is `max(2 sigma, V_MC - V_trunc)`. The dial layer carries the ZZ idle phase (`--zz on`: rzz(phi) on
-every coupler of the cone during the 400 ns idle, phi = 2 pi zeta tau from the raw properties, both ends idle; exact
+Deviation 15 error is `max(2 sigma, V_MC - V_trunc)`. The dial layer can carry the ZZ idle phase (`--zz on`: rzz(phi) on
+every coupler of the cone during the 400 ns idle, both ends idle, phi = zeta tau = 2 pi J tau with the raw-properties J,
+i.e. twice Deviation 34's rzz(zeta tau / 2), so these rows are an upper bound on the 400 ns idle term only; exact
 second-moment rule validated against a doubled-space computation, `scripts/pauliprop_zz_validate.py`); still not
-modelled: T1 on the idle branch (see `docs/PAULIPROP.md`). Rules: unital depolarizing factors, T1/T2 relaxation (`Z -> (1-gamma) Z + gamma I`, `X, Y -> e^{-t/T2}`),
+modelled here: the static ZZ of the CZ block (Deviation 34) and T1 on the idle branch (see `docs/PAULIPROP.md`). Rules: unital depolarizing factors, T1/T2 relaxation (`Z -> (1-gamma) Z + gamma I`, `X, Y -> e^{-t/T2}`),
 reset dial `N_p = p Reset + (1-p) Idle(400 ns)` (`D = (1-p)`, `t_z = p`), delay-matched `p = 0`, dephasing dial.
 Pattern-noise floor `Var_mask[C]/(2K)` from a sampled propagation with a fresh reset mask per path. Method,
 validation table, results and runtimes: `docs/PAULIPROP.md`; numbers: `data/predictions/pauliprop_predictions.csv`.

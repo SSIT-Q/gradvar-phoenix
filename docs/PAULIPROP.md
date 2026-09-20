@@ -116,7 +116,7 @@ sampling error). **Convention (Deviation 34, adopted 20 Sep 2026 after these row
 Deviation 34 fixes the physics: `H = (zeta/4) Z_a Z_b`, so the pair unitary over `tau` is `exp(-i zeta tau/4 ZZ) = rzz(zeta tau/2)`,
 the conditional phase one qubit accrues is `zeta tau` (0.068 rad over 400 ns at 27 kHz) and the incoherent weight moved per pair
 is `sin^2(zeta tau/2)`. **Every ZZ-on row of this branch therefore carries twice the angle, about 4x the rerouted weight per pair
-and layer, and is an upper bound** on the idle-ZZ effect; the CSV / JSON label them `zz_convention = "rzz(zeta*tau)"`,
+and layer, and is an upper bound** on the 400 ns idle-ZZ term (the only ZZ term modelled here; the static ZZ of the CZ block is Deviation 34's separate term); the CSV / JSON label them `zz_convention = "rzz(zeta*tau)"`,
 "idle-ZZ, angle 2x Deviation 34 convention (upper bound)". The corrected angle, the whole-layer static ZZ (`tau` = scheduled
 layer time outside the pair's own CZ, about 0.71 us, both noise models) and the recompute of the noisy rows are the next task.
 
@@ -149,7 +149,7 @@ the 2x3 patch at L = 4 (`data/predictions/pauliprop_zz_validation.csv`):
 **Remaining model gap (dial channel).** T1 relaxation on the idle branch (`t_z ~ 2e-3` per layer, two orders below the
 dial's `t_z = p`) is still not modelled; the ZZ to a neighbour *during its reset* (a mask-dependent single-qubit Z
 rotation of order `phi/2` on the idle qubit) is not modelled either, since the reset qubit's Z is undefined during the
-operation; its second-moment effect is `< p (phi/2)^2 ~ 3e-4` per coupler and layer, a fraction of the modelled term.
+operation; its second-moment effect is about `p (1 - p) phi^2 ~ 8e-4` per coupler and layer at p = 0.25, phi = 0.067 (a fraction of the modelled idle term `(1-p)^2 sin^2 phi ~ 2.5e-3`).
 
 **Placement.** All ladder rows were computed on the patches returned by `noise.place_patch` before Deviation 26
 (no CZ cut): the 4x10 (n = 39) cone contains CZ (95, 96) at 4.9e-2 and (100, 101) at 5.9e-2 depolarizing (median
@@ -417,7 +417,7 @@ Shifts are `on / off - 1` with the two rows' errors combined.
 | 6x10 | 53 | 2.555e-04 (2.1) | 5.431e-06 | 2.501e-04 | 0.68 | 2.13 | 2.52 | <= 21.9 | unresolvable at 4096 shots (L = 8 reference below 3 shot floors); not counted | None | False |
 | 10x10 | 87 | 3.565e-04 (2.9) | 1.020e-05 | 3.463e-04 | 0.95 | 2.11 | 2.50 | <= 21.6 | unresolvable at 4096 shots (L = 8 reference below 3 shot floors); not counted | None | False |
 
-Deviation 30 clause, idle-ZZ upper bound: 1 of 1 counted rungs pass at M = 250 (1 of 1 at M = 350) -> **FAIL** (M = 350 reading: **FAIL**).
+Deviation 30 clause, idle-ZZ upper bound: **inconclusive (1 rung counted; Deviation 35 (ii))** at M = 250 and at M = 350 (one counted rung passes; with fewer than two counted rungs clause (b) is neither passed nor failed, Deviation 35 (ii)).
 
 *Deviation 35 reading (n = 53 L = 8 reference booked at 16384 shots, floor 3.05e-5; rungs counted on the measured-reference rule), idle-ZZ upper bound:*
 
@@ -429,7 +429,17 @@ Deviation 30 clause, idle-ZZ upper bound: 1 of 1 counted rungs pass at M = 250 (
 
 Deviation 35 reading, idle-ZZ upper bound: 2 of 2 counted rungs pass -> **PASS**.
 
-Gate 1b clauses with the idle-ZZ upper bound: separation L = 8 True, L = 12 True; fall clause Deviation 30 False, Deviation 35 True. Neither is the booked reading: the Deviation 34 recompute (corrected angle, whole-layer static ZZ) decides.
+*Deviation 44 reading (all three L = 8 references at 16384 shots, floor 3.05e-5), idle-ZZ upper bound:*
+
+| rung | n | shots | shot floor | Var p=0 L=8 (/ floor) | Var p=0 L=12 | fall | fall / (3 floors) | fall / 2 sigma (M=350) | status | passes |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 4x10 | 39 | 16384 | 3.05e-05 | 7.190e-04 (23.6) | 2.918e-05 | 6.898e-04 | 7.53 | 2.47 | counted | True |
+| 6x10 | 53 | 16384 | 3.05e-05 | 2.555e-04 (8.4) | 5.431e-06 | 2.501e-04 | 2.73 | 2.52 | counted | True |
+| 10x10 | 87 | 16384 | 3.05e-05 | 3.565e-04 (11.7) | 1.020e-05 | 3.463e-04 | 3.78 | 2.50 | counted | True |
+
+Deviation 44 reading, idle-ZZ upper bound: **PASS (3 of 3 counted rungs pass)**.
+
+Gate 1b clauses with the idle-ZZ upper bound: separation L = 8 True, L = 12 True; fall clause Deviation 30 inconclusive (1 rung counted; Deviation 35 (ii)), Deviation 35 PASS (2 of 2 counted rungs pass), Deviation 44 PASS (3 of 3 counted rungs pass). None of these is the booked reading (the top-level keys of `pauliprop_summary.json` hold the ZZ-off record, the upper bound lives under `zz_on_upper_bound`): the Deviation 34 recompute (corrected angle, whole-layer static ZZ) decides.
 
 *ZZ-off record (the reading booked before this branch):*
 
@@ -448,6 +458,14 @@ Deviation 30 clause without ZZ (record): 2 of 2 counted rungs pass at M = 250 (2
 | 10x10 | 87 | 4096 | 1.22e-04 | 3.994e-04 (3.3) | 1.376e-05 | 3.856e-04 | 1.05 | 2.48 | counted | True |
 
 Deviation 35 reading without ZZ (record): 3 of 3 counted rungs pass -> **PASS**.
+
+| rung | n | shots | shot floor | Var p=0 L=8 (/ floor) | Var p=0 L=12 | fall | fall / (3 floors) | fall / 2 sigma (M=350) | status | passes |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 4x10 | 39 | 16384 | 3.05e-05 | 7.840e-04 (25.7) | 3.439e-05 | 7.496e-04 | 8.19 | 2.46 | counted | True |
+| 6x10 | 53 | 16384 | 3.05e-05 | 2.821e-04 (9.2) | 6.404e-06 | 2.756e-04 | 3.01 | 2.51 | counted | True |
+| 10x10 | 87 | 16384 | 3.05e-05 | 3.994e-04 (13.1) | 1.376e-05 | 3.856e-04 | 4.21 | 2.48 | counted | True |
+
+Deviation 44 reading without ZZ (record): **PASS (3 of 3 counted rungs pass)**.
 
 Shot table for the p = 0 references (`data/predictions/gate1b_shot_table.csv`, input to Deviation 44): shots needed for the
 reference to sit at >= 3 shot floors and for the depth fall to exceed 3 shot floors, the fall against 2 x the L = 8 draw 2 sigma

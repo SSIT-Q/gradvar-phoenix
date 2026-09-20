@@ -372,11 +372,13 @@ def verdicts(df: pd.DataFrame, K: int = K_MASKS, kurtosis: float = KURTOSIS_DEV1
     counted = [r for r in dev30["rungs"] if r["counted"]]
     dev30["n_counted"], dev30["n_passing"] = len(counted), sum(1 for r in counted if r["passes"])
     dev30["all_present"] = bool(len(dev30["rungs"]) == 3 and all(r["L12_row_present"] for r in dev30["rungs"]))
-    dev30["passes"] = bool(dev30["all_present"] and dev30["n_passing"] >= 2)
+    dev30["passes"], dev30["reading"] = clause_b_reading(dev30["all_present"], dev30["n_counted"], dev30["n_passing"])
     dev30["M350_reading"] = dict(note="the pre-registration books the p = 0 points at M = 350; ratio = (1 - V12/V8) / (2 sqrt((kappa - (M-3)/(M-1)) / M)), "
-                                      "so M >= ~17.5 (kappa - 1) at (1 - V12/V8) ~ 0.96 and M = 350 covers kappa <= ~21",
-                                 n_passing=sum(1 for r in counted if r["M350"]["passes"]), n_counted=len(counted),
-                                 passes=bool(dev30["all_present"] and sum(1 for r in counted if r["M350"]["passes"]) >= 2))
+                                      "so M >= ~17.5 (kappa - 1) for 2x at (1 - V12/V8) ~ 0.96; the pre-registered booking rule is M = 17.5 (1.3 kappa - 1) "
+                                      "(Deviation 30 correction: 30% margin on kappa), 306 at kappa 14.2, booked 350, which covers kappa <= ~21",
+                                 n_passing=sum(1 for r in counted if r["M350"]["passes"]), n_counted=len(counted))
+    dev30["M350_reading"]["passes"], dev30["M350_reading"]["reading"] = clause_b_reading(
+        dev30["all_present"], len(counted), sum(1 for r in counted if r["M350"]["passes"]))
     out["deviation_30"] = dev30
     # Deviation 35 (adopted 20 Sep 2026, before the ZZ-on numbers): the n = 53, L = 8 p = 0 reference is booked at 16384 shots
     # (floor 3.05e-5), the other rungs at 4096; a rung is counted when its L = 8 reference is >= 3 x its own shot floor
@@ -400,17 +402,39 @@ def verdicts(df: pd.DataFrame, K: int = K_MASKS, kurtosis: float = KURTOSIS_DEV1
     c35 = [r for r in dev35["rungs"] if r["counted"]]
     dev35["n_counted"], dev35["n_passing"] = len(c35), sum(1 for r in c35 if r["passes"])
     dev35["all_present"] = bool(len(dev35["rungs"]) == 3 and all(q["L12_row_present"] for q in pts29))
-    dev35["passes"] = bool(dev35["all_present"] and dev35["n_passing"] >= 2)
+    dev35["passes"], dev35["reading"] = clause_b_reading(dev35["all_present"], dev35["n_counted"], dev35["n_passing"])
     out["deviation_35"] = dev35
+    # Deviation 44: every L = 8 p = 0 reference at 16384 shots (floor 3.05e-5; the 4096-shot values above are the record)
+    dev44 = dict(rule="the three L = 8 p = 0 references run at 16384 shots (superseding Deviation 35's n = 53-only clause); per rung: counted if the "
+                      "L = 8 reference is >= 3 x 1/(2 x 16384); passes if the depth fall exceeds 3 x that floor and 2 x the L = 8 draw 2 sigma at "
+                      "M = 350; clause (b) passes with >= 2 of 3 counted rungs, inconclusive with fewer than 2 counted (Deviation 35 (ii))",
+                 shots=16384, kurtosis=kappa29, M=350, rungs=[])
+    sf16 = shot_floor(16384)
+    for q in pts29:
+        v8, fall = q["var_p0_L8"], q["fall"]
+        ts = draw_two_sigma(v8, 350, kappa29)
+        counted = bool(v8 >= 3 * sf16)
+        dev44["rungs"].append(dict(patch=q["patch"], n=q["n"], shots=16384, shot_floor=sf16, var_p0_L8=v8, var_p0_L12=q["var_p0_L12"],
+                                   var_p0_L8_over_shot_floor=v8 / sf16, fall=fall, fall_over_3sf=fall / (3 * sf16), draw_2sigma_L8_M350=ts,
+                                   fall_over_2sigma=(fall / ts if ts > 0 else float("nan")), counted=counted,
+                                   status=("counted" if counted else "unresolvable at 16384 shots (L = 8 reference below 3 shot floors); not counted"),
+                                   passes=(bool(np.isfinite(fall) and fall > 3 * sf16 and fall >= 2 * ts) if counted else None)))
+    c44 = [r for r in dev44["rungs"] if r["counted"]]
+    dev44["n_counted"], dev44["n_passing"] = len(c44), sum(1 for r in c44 if r["passes"])
+    dev44["all_present"] = dev35["all_present"]
+    dev44["passes"], dev44["reading"] = clause_b_reading(dev44["all_present"], dev44["n_counted"], dev44["n_passing"])
+    out["deviation_44"] = dev44
     sep_ok = {blk["L"]: bool(blk["all_separated_3x"] and all(q["pattern_floor_below_half_sep"] for q in blk["points"])) for blk in out["gate1b"]}
     out["gate1b_booked_reading"] = dict(clauses="(a) PP predictions at every ladder point; (b-sep) separation >= 3 x (shot + Var_mask/(2 K)) at K = 256 "
                                                 "(Deviation 27) and pattern floor < separation / 2 at L = 8; (b-fall) Deviation 30: depth fall of the "
                                                 "p = 0 reference (M = 250) on >= 2 of 3 resolvable rungs",
                                         separation_clause_L8=sep_ok.get(8), separation_clause_L12=sep_ok.get(12),
                                         fall_clause_deviation_30=dev30["passes"], fall_clause_deviation_29_for_record=dev29["passes"],
-                                        fall_clause_deviation_35=dev35["passes"],
-                                        passes=bool(sep_ok.get(8) and dev30["passes"]),
-                                        passes_deviation_35=bool(sep_ok.get(8) and dev35["passes"]))
+                                        fall_clause_deviation_35=dev35["passes"], fall_clause_deviation_44=dev44["passes"],
+                                        fall_clause_reading_deviation_30=dev30["reading"],
+                                        passes=(bool(sep_ok.get(8) and dev30["passes"]) if dev30["passes"] is not None else None),
+                                        passes_deviation_35=(bool(sep_ok.get(8) and dev35["passes"]) if dev35["passes"] is not None else None),
+                                        passes_deviation_44=(bool(sep_ok.get(8) and dev44["passes"]) if dev44["passes"] is not None else None))
     d = df[(df.stage == "dev15") & (df.get("status", "") != "pending") & df.n.notna()]
     for (spec, L), grp in d.groupby(["patch", "L"]):
         rec = dict(patch=spec, n=int(grp.n.iloc[0]), L=int(L))
@@ -431,7 +455,17 @@ def verdicts(df: pd.DataFrame, K: int = K_MASKS, kurtosis: float = KURTOSIS_DEV1
     return out
 
 
-DIAL_KEYS = ("gate1b", "deviation_29", "deviation_30", "deviation_35", "gate1b_booked_reading", "gate1b_K64")
+DIAL_KEYS = ("gate1b", "deviation_29", "deviation_30", "deviation_35", "deviation_44", "gate1b_booked_reading", "gate1b_K64")
+
+
+def clause_b_reading(all_present: bool, n_counted: int, n_passing: int):
+    """Gate 1b clause (b) per Deviation 30 with the Deviation 35 (ii) clarification: PASS with >= 2 counted rungs passing; FAIL with
+    >= 2 counted and fewer than 2 passing; with fewer than 2 counted rungs the clause is inconclusive (passes = None)."""
+    if not all_present:
+        return None, "incomplete (a rung is missing)"
+    if n_counted < 2:
+        return None, f"inconclusive ({n_counted} rung counted; Deviation 35 (ii))"
+    return bool(n_passing >= 2), ("PASS" if n_passing >= 2 else "FAIL") + f" ({n_passing} of {n_counted} counted rungs pass)"
 
 
 def shot_table(df: pd.DataFrame, kurtosis: float, M: int = 350) -> pd.DataFrame:
@@ -626,29 +660,30 @@ def main():
         v_off = verdicts(df, K=args.K, kurtosis=args.kurtosis, zz_idle="off")
         v_off["gate1b_K64"] = verdicts(df, K=64, zz_idle="off")["gate1b"]          # the Section 3b v0.5 pooling, for comparison
         has_on = bool(((df.zz_idle == "on") & df.stage.isin(["gate1b", "dial"]) & (df.status != "pending")).any())
+        v = v_off
+        v["reading_note"] = "top-level keys: the booked reading without ZZ (pure T2 dephasing on the idle branch)"
         if has_on:
-            # ZZ-on readings are the current ones (pre-Gate-2 action of Deviation 30); the ZZ-off readings stay as record
-            v = verdicts(df, K=args.K, kurtosis=args.kurtosis, zz_idle="on")
-            v["gate1b_K64"] = verdicts(df, K=64, zz_idle="on")["gate1b"]
-            v["zz_off_record"] = {k: v_off[k] for k in DIAL_KEYS if k in v_off}
-            v["zz_off_record"]["note"] = "Gate 1b / dial readings without the ZZ idle phase (pure T2 dephasing on the idle branch), kept for the record"
-            v["zz_shift"] = zz_shift_table(df)
-            v.update(ZZ_CONVENTION)
-            v["reading_note"] = ("the ZZ-on rows are an upper bound (angle 2x the Deviation 34 convention); the Deviation 30 fall clause is reported "
-                                 "with ZZ off (record) and with the ZZ upper bound, and the Deviation 35 reading (n = 53 reference at 16384 shots) is "
-                                 "given for both; the booked reading awaits the Deviation 34 recompute")
-            v["zz_model"] = dict(rule="rzz(phi) on every coupler of the cone during the 400 ns dial idle, phi = 2 pi J tau (= zeta tau) with the signed per-edge J of the raw "
-                                      "backend properties (fallback: median |J|); applied only when both ends idle (non-reset branch); see docs/PAULIPROP.md",
-                                 properties=str(df[df.zz_idle == "on"].zz_properties.dropna().iloc[0]) if "zz_properties" in df and df[df.zz_idle == "on"].zz_properties.notna().any() else None,
-                                 phi_median_rad=float(df[df.zz_idle == "on"].zz_phi_median.dropna().median()) if "zz_phi_median" in df else None)
-        else:
-            v = v_off
+            # the idle-only ZZ rows at twice the Deviation 34 angle are an upper bound and live under their own key; they are not the
+            # booked reading (that awaits the Deviation 34 whole-layer recompute)
+            v_on = verdicts(df, K=args.K, kurtosis=args.kurtosis, zz_idle="on")
+            v["zz_on_upper_bound"] = {k: v_on[k] for k in DIAL_KEYS if k in v_on}
+            v["zz_on_upper_bound"]["gate1b_K64"] = verdicts(df, K=64, zz_idle="on")["gate1b"]
+            v["zz_on_upper_bound"].update(ZZ_CONVENTION)
+            v["zz_on_upper_bound"]["zz_shift"] = zz_shift_table(df)
+            v["zz_on_upper_bound"]["zz_model"] = dict(
+                rule="rzz(phi) on every coupler of the cone during the 400 ns dial idle, phi = 2 pi J tau (= zeta tau) with the signed per-edge J of the raw "
+                     "backend properties (fallback: median |J|); applied only when both ends idle (non-reset branch); see docs/PAULIPROP.md",
+                properties=str(df[df.zz_idle == "on"].zz_properties.dropna().iloc[0]) if "zz_properties" in df and df[df.zz_idle == "on"].zz_properties.notna().any() else None,
+                phi_median_rad=float(df[df.zz_idle == "on"].zz_phi_median.dropna().median()) if "zz_phi_median" in df else None)
+            v["reading_note"] += ("; 'zz_on_upper_bound': the same readings with the idle-only ZZ at twice the Deviation 34 angle (upper bound; "
+                                  "the Deviation 30 reading there is inconclusive with one counted rung, Deviation 35 (ii)); the booked reading with "
+                                  "ZZ awaits the Deviation 34 whole-layer recompute")
         st = shot_table(df, kurtosis=(measured_kurtosis() or {}).get("kurtosis", args.kurtosis))
         st.to_csv(SHOT_TABLE, index=False)
         v["shot_table"] = str(SHOT_TABLE.relative_to(ROOT))
         OUT_JSON.write_text(json.dumps(v, indent=2, default=float))
         figure(df)
-        print(json.dumps({k: val for k, val in v.items() if k not in ("gate1b_K64", "zz_off_record")}, indent=1, default=float))
+        print(json.dumps({k: val for k, val in v.items() if k not in ("gate1b_K64", "zz_on_upper_bound")}, indent=1, default=float))
         return
     gen = {"dev15": jobs_dev15, "gate1b": jobs_gate1b, "dial": jobs_dial}[args.stage]
     jobs = []
