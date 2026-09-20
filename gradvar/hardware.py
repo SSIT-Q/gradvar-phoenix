@@ -151,9 +151,10 @@ def rep_delay_info(backend) -> dict:
 
 
 def granted_rep_delay(options) -> float | str:
-    """The ``rep_delay`` the job was submitted with: ``options.execution.rep_delay`` in seconds when the runner set one,
-    else the string ``"default"`` (the backend applies ``default_rep_delay``; the runner never sets it today, so the
-    granted value is the backend default recorded in ``rep_delay_info``). Logged per row (``rep_delay_granted``)."""
+    """The ``rep_delay`` the job was submitted with: ``options.execution.rep_delay`` in seconds when the runner set one
+    (only for a probe job with ``rep_delay_us``, the Section 6 rep_delay ladder), else the string ``"default"`` (the
+    backend applies ``default_rep_delay``, recorded in ``rep_delay_info``; every gradient-point job runs this way).
+    Logged per row (``rep_delay_granted``) and per job (``rep_delay_granted_s``)."""
     ex = getattr(options, "execution", None)
     rd = getattr(ex, "rep_delay", None) if ex is not None else None
     if isinstance(rd, (int, float)) and not isinstance(rd, bool):
@@ -385,6 +386,19 @@ def _probe_circuits(pr: dict) -> int:
     return 2 * int(pr.get("masks", 1)) if pr["kind"] == "reset_dial" else 1
 
 
+def probe_rep_delay_us(pr: dict) -> float | None:
+    """The probe's own ``rep_delay_us`` (pre-registration Section 6 rep_delay ladder, Deviation 23), or None when the
+    probe runs at the backend default like every gradient point. Probes with different values go in different jobs,
+    each submitted with ``options.execution.rep_delay`` set to its value (seconds)."""
+    rd = pr.get("rep_delay_us")
+    return None if rd is None else float(rd)
+
+
+def probe_job_tag(level: int, shots: int, rep_delay_us: float | None) -> str:
+    """Job tag of a probe group: ``L<level>-probes-s<shots>`` plus ``-rd<value>us`` for a ladder rung."""
+    return f"L{level}-probes-s{shots}" + ("" if rep_delay_us is None else f"-rd{rep_delay_us:g}us")
+
+
 def _probe_basis(pr: dict) -> str:
     """Key of the measurement basis a probe's observables need (TREX learns one set of calibration circuits per basis)."""
     if pr["kind"] == "reset_dial":
@@ -394,18 +408,20 @@ def _probe_basis(pr: dict) -> str:
 
 def budget_jobs(jl: dict, dial_us: Dict[str, float]) -> List[dict]:
     """The jobs the runner will submit for ``jl`` (same grouping as ``execute_joblist``: one per resilience level of the
-    gradient points, one per (level, shots) of the probes), each with its circuit items ``(circuits, shots, gate_us)``
-    and the number of distinct measurement bases."""
+    gradient points, one per (level, shots, rep_delay_us) of the probes), each with its circuit items
+    ``(circuits, shots, gate_us)``, the number of distinct measurement bases and ``rep_delay_us`` (None: backend default)."""
     by_level: Dict[int, dict] = {}
     for pt in jl.get("points", []) or []:
         lvl = int(pt["resilience"])
-        j = by_level.setdefault(lvl, dict(tag=f"L{lvl}", level=lvl, shots=int(pt["shots"]), items=[], bases=set()))
+        j = by_level.setdefault(lvl, dict(tag=f"L{lvl}", level=lvl, shots=int(pt["shots"]), items=[], bases=set(), rep_delay_us=None))
         j["items"].append((2 * int(pt["M"]), int(pt["shots"]), int(pt["L"]) * LAYER_US))
         j["bases"].add(f"ZZ:{pt.get('edge')}")
-    by_probe: Dict[Tuple[int, int], dict] = {}
+    by_probe: Dict[Tuple[int, int, float], dict] = {}
     for pr in jl.get("probes", []) or []:
-        key = (int(pr.get("resilience", 0)), int(pr["shots"]))
-        j = by_probe.setdefault(key, dict(tag=f"L{key[0]}-probes-s{key[1]}", level=key[0], shots=key[1], items=[], bases=set()))
+        rd = probe_rep_delay_us(pr)
+        key = (int(pr.get("resilience", 0)), int(pr["shots"]), -1.0 if rd is None else rd)
+        j = by_probe.setdefault(key, dict(tag=probe_job_tag(key[0], key[1], rd), level=key[0], shots=key[1], items=[], bases=set(),
+                                          rep_delay_us=rd))
         j["items"].append((_probe_circuits(pr), int(pr["shots"]), _probe_length_us(pr, dial_us)))
         j["bases"].add(_probe_basis(pr))
     return [by_level[k] for k in sorted(by_level)] + [by_probe[k] for k in sorted(by_probe)]
@@ -417,12 +433,14 @@ def estimate_budget(jl: dict, rep_delays_us: Sequence[float] = BUDGET_REP_DELAYS
         T_job = 2 s + (rep_delay + L x 0.71 us + t_meas + 10 us [+ dial durations]) x N_exec x (3 if resilience 2)
                 + [resilience >= 1] x 32 x shots x n_bases x (rep_delay + t_meas + 10 us)
 
-    summed over the jobs the runner submits (one per resilience level of the gradient points, one per (level, shots) of
-    the probes). ``t_meas`` and the dial durations come from ``backend.target`` when ``backend`` is given, else from the
-    per-backend fallbacks (``jl['backend']``). ``executions`` counts circuit executions before the ZNE factor;
+    summed over the jobs the runner submits (one per resilience level of the gradient points, one per (level, shots,
+    rep_delay_us) of the probes). ``t_meas`` and the dial durations come from ``backend.target`` when ``backend`` is given,
+    else from the per-backend fallbacks (``jl['backend']``). ``executions`` counts circuit executions before the ZNE factor;
     ``executions_with_zne`` and ``trex_executions`` are the two terms actually timed; ``per_job`` gives the breakdown
     (``circuit_seconds_*`` + ``trex_seconds_*`` is what ``job.metrics()['circuits_execution_time_ns']`` times; the 2 s per job is on top).
-    Compile latency and queueing are not in the formula."""
+    The ``seconds_at_<rd>`` figures sweep the backend-default rep_delay over ``rep_delays_us`` for the jobs that run at the
+    default; a probe job with its own ``rep_delay_us`` (the Section 6 rep_delay ladder) is timed at that value in every
+    column (``per_job[].rep_delay_us``). Compile latency and queueing are not in the formula."""
     dial_us = dial_durations_us(backend)
     t_meas, t_meas_source = readout_us(backend, jl.get("backend"))
     jobs = budget_jobs(jl, dial_us)
@@ -431,12 +449,14 @@ def estimate_budget(jl: dict, rep_delays_us: Sequence[float] = BUDGET_REP_DELAYS
         zne = ZNE_NOISE_FACTORS if j["level"] == 2 else 1
         n_bases = max(1, len(j["bases"]))
         trex = TREX_RANDOMIZATIONS * j["shots"] * n_bases if j["level"] >= 1 else 0
-        entry = dict(tag=j["tag"], resilience_level=j["level"], shots=j["shots"], circuits=sum(c for c, _, _ in j["items"]),
+        entry = dict(tag=j["tag"], resilience_level=j["level"], shots=j["shots"], rep_delay_us=j.get("rep_delay_us"),
+                     circuits=sum(c for c, _, _ in j["items"]),
                      executions=sum(c * s for c, s, _ in j["items"]), zne_factor=zne, n_bases=n_bases, trex_executions=trex)
-        for rd in rep_delays_us:
+        for rd_sweep in rep_delays_us:
+            rd = rd_sweep if j.get("rep_delay_us") is None else float(j["rep_delay_us"])
             circ = sum(c * s * zne * (rd + g + t_meas + EXEC_OVERHEAD_US) for c, s, g in j["items"]) * 1e-6
             learn = trex * (rd + t_meas + EXEC_OVERHEAD_US) * 1e-6
-            tag = f"{rd:g}us"
+            tag = f"{rd_sweep:g}us"
             entry[f"circuit_seconds_at_{tag}"] = round(circ, 3)
             entry[f"trex_seconds_at_{tag}"] = round(learn, 3)
             entry[f"seconds_at_{tag}"] = round(2.0 + circ + learn, 3)
@@ -824,6 +844,10 @@ def load_joblist(path: str) -> dict:
             raise JoblistError(f"probe {pr.get('id')}: missing {sorted(missing)}")
         if pr["kind"] == "reset_dial" and not (0.0 <= float(pr["p"]) <= 1.0):
             raise JoblistError(f"probe {pr.get('id')}: p must lie in [0, 1]")
+        if "rep_delay_us" in pr:
+            rd = pr["rep_delay_us"]
+            if isinstance(rd, bool) or not isinstance(rd, (int, float)) or not (0.0 < float(rd) <= 2000.0):
+                raise JoblistError(f"probe {pr.get('id')}: rep_delay_us must be a number in (0, 2000] microseconds")
     for i, pt in enumerate(jl["points"]):
         missing = JOBLIST_POINT_KEYS - set(pt)
         if missing:
@@ -983,6 +1007,7 @@ def _describe(b) -> dict:
                  masks=b.probe.get("masks", 1) if b.probe.get("kind") == "reset_dial" else None,
                  mask_seed=(b.seed + 1 + int(b.probe["mask_index"])) if b.probe.get("mask_index") is not None else None,
                  dial_delay_ns=DIAL_DELAY_NS if str(b.probe.get("reset_kind", "reset")) == "delay" else None,
+                 rep_delay_us=probe_rep_delay_us(b.probe),
                  synthetic_target_instructions=list(b.synthetic_target_instructions))
         if b.patch is not None:
             d.update(patch=f"{b.patch.n_rows}x{b.patch.n_cols}", origin=list(b.patch.origin), holes=list(b.patch.holes), broken_edges=[list(e) for e in b.patch.broken_edges],
@@ -1178,12 +1203,25 @@ def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int,
         by_level.setdefault(b.point.resilience_level, []).append(b)
     for level, group in sorted(by_level.items()):
         groups.append((f"L{level}", level, shots, group))
-    by_probe: Dict[Tuple[int, int], List[BuiltProbe]] = {}
+    # probes: one job per (level, shots, rep_delay_us); a rep_delay ladder rung (Section 6, Deviation 23) is its own job
+    # submitted with options.execution.rep_delay set, so the granted value is read back per job (rep_delay_granted_s)
+    by_probe: Dict[Tuple[int, int, float], List[BuiltProbe]] = {}
     for b in build_probes(jl, backend, shapes, calibration_csv):
-        by_probe.setdefault((b.resilience_level, b.shots), []).append(b)
-    for (level, pshots), group in sorted(by_probe.items()):
-        groups.append((f"L{level}-probes-s{pshots}", level, pshots, group))
-    rd = rep_delay_info(backend)
+        rd = probe_rep_delay_us(b.probe)
+        by_probe.setdefault((b.resilience_level, b.shots, -1.0 if rd is None else rd), []).append(b)
+    for (level, pshots, _), group in sorted(by_probe.items()):
+        groups.append((probe_job_tag(level, pshots, probe_rep_delay_us(group[0].probe)), level, pshots, group))
+    job_rep_delay_s = {tag: (None if probe_rep_delay_us(g[0].probe) is None else probe_rep_delay_us(g[0].probe) / 1e6)
+                       for tag, _, _, g in groups if g and isinstance(g[0], BuiltProbe)}
+    rd_info = rep_delay_info(backend)
+
+    def _apply_rep_delay(est, tag):
+        rd_s = job_rep_delay_s.get(tag)
+        if rd_s is not None:
+            est.options.execution.rep_delay = rd_s
+            print(f"job {tag}: options.execution.rep_delay = {rd_s:g} s (rep_delay ladder rung; the backend default is "
+                  f"{rd_info['default_rep_delay_s']} s, dynamic_reprate_enabled={rd_info['dynamic_reprate_enabled']})")
+    rd = rd_info
     if jl.get("rep_delay_probe"):
         print(f"rep_delay probe: {getattr(backend, 'name', backend)} default_rep_delay={rd['default_rep_delay_s']} s, "
               f"rep_delay_range={rd['rep_delay_range_s']} s, dynamic_reprate_enabled={rd['dynamic_reprate_enabled']} (source: {rd['source']})")
@@ -1211,6 +1249,7 @@ def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int,
             est = EstimatorV2(mode=backend)
             est.options.resilience_level = level
             est.options.default_shots = gshots
+            _apply_rep_delay(est, tag)
             job_id = f"dryrun-{stamp}-{tag}"
             created = datetime.now(timezone.utc).isoformat()
             d = write_job_bundle(root, job_id, group, backend, est.options, level, gshots, jl, dry=True,
@@ -1227,6 +1266,7 @@ def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int,
                 est = EstimatorV2(mode=batch)
                 est.options.resilience_level = level
                 est.options.default_shots = gshots
+                _apply_rep_delay(est, tag)
                 created = datetime.now(timezone.utc).isoformat()
                 job = est.run([b.pub() for b in group])
                 jobs.append((tag, level, gshots, group, job, est.options, created))
