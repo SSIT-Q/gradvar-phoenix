@@ -8,7 +8,7 @@ gradvar.hardware.estimate_budget (model v3, Deviation 47) and a summary (data/jo
 day-1 list: the null_controls.json probes followed by the grid_n20.json points and probes, pub for pub the same as the two
 committed source lists, so that day is one Batch, one pre-flight review and one arming step (docs/preflight/03_paper1_day1_2026-09-21.md).
 Every list is written with dry_run: true and the placeholder preflight_review; nothing here touches credentials.
-Pre-registration: Paper 1 (preregistration_q1) v0.13.1, 20 Sep 2026 (Deviations 50-53 as adopted in the thread): Section 2 (design), Section 3b (reset dial), Section 5
+Pre-registration: Paper 1 (preregistration_q1) v0.13.2, 20 Sep 2026 (Deviations 50-53): Section 2 (design), Section 3b (reset dial), Section 5
 (Gate 2), Section 6 (minute budget), Deviations 17, 18, 22, 26, 27, 30, 33-49 (46: placement re-derived per run day under
 the cone-graph edge rule; 47: budget model v3; 48: dial-arm job packing; 49: Gate 2 (e) transient rule).
 
@@ -46,7 +46,7 @@ from gradvar.lattice import interior_edge                                  # noq
 from gradvar.noise import COHERENCE_FLOOR_SINCE, COHERENCE_FLOOR_US, CZ_CUT, READOUT_CUT, cz_errors_from_calibration, exclusion_from_calibration, load_calibration, place_patch   # noqa: E402
 
 PLACEHOLDER = "TBD: pre-flight review permalink"
-PREREG = "Paper 1 pre-registration v0.13.1 (20 Sep 2026)"
+PREREG = "Paper 1 pre-registration v0.13.2 (20 Sep 2026)"
 MAX_EXPERIMENTS = max_experiments("ibm_phoenix")   # 300 pubs per job (configuration ledger)
 DEFAULT_SNAPSHOT = "data/calibrations/ibm_phoenix_2026-09-20T141736Z.csv"   # Deviation 53 (b): the newest committed calibration data (retrieval properties 13:44Z calibration)
 SHAPES = {"n20": (4, 5), "n40": (4, 10), "n60": (6, 10), "n80": (8, 10), "n100": (10, 10)}   # Section 2 nominal ladder

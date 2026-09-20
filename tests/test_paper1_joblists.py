@@ -1,4 +1,4 @@
-"""The Paper 1 production job lists (data/joblists/paper1/, pre-registration v0.13.1) and the runner extensions they need:
+"""The Paper 1 production job lists (data/joblists/paper1/, pre-registration v0.13.2) and the runner extensions they need:
 the Deviation 48 packing (one pub per dial mask carrying the draws as parameter rows; jobs of at most max_experiments pubs and
 MAX_JOB_PARAM_MB of parameter values), budget model v3 (Deviation 47), the edge override (Deviations 36 / 46), the L = 0
 null_control point type (Deviation 43), the reset_dial draws / unshifted / truncation / dephase / mask_p fields (Section 3b)
@@ -52,7 +52,7 @@ def test_lists_validate_and_refuse_to_submit(name, tmp_path, monkeypatch):
     assert jl["dry_run"] is True and jl["rep_delay_probe"] is True and jl["layout_check"] == "enforce"
     assert jl["backend"] == "ibm_phoenix" and jl["instance"] == "flex"
     assert jl["preflight_review"] == "TBD: pre-flight review permalink" and not joblist_submittable(jl)
-    assert "pre-registration v0.13.1" in jl["notes"] and "Deviation 53" in jl["notes"] and "Deviation 46" in jl["notes"] and "Deviation 47" in jl["notes"] and "Deviation 48" in jl["notes"]
+    assert "pre-registration v0.13.2" in jl["notes"] and "Deviation 53" in jl["notes"] and "Deviation 46" in jl["notes"] and "Deviation 47" in jl["notes"] and "Deviation 48" in jl["notes"]
     assert check_budget(jl) == [] and jl["budget"]["model_version"] == 3 and jl["campaign"]["budget_model_version"] == 3
     assert jl["campaign"]["max_experiments"] == max_experiments("ibm_phoenix") == 300 and jl["campaign"]["max_job_param_mb"] == MAX_JOB_PARAM_MB
     assert all(e["pubs"] <= 300 and e["param_mb"] <= MAX_JOB_PARAM_MB for e in jl["budget"]["per_job"])   # no job above max_experiments or the payload cap
