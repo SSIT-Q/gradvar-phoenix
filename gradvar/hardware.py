@@ -17,6 +17,7 @@ import csv
 import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 from dataclasses import asdict, dataclass, field, is_dataclass
@@ -269,11 +270,31 @@ def _placed_patch(entry: dict, calibration_csv: str | None, label: str) -> Tuple
     if layout is not None:
         patch = rect_patch(r, c, exclude=(), origin=(0, 0))
     else:
-        patch = place_patch(r, c, calibration_csv or latest_calibration_csv(), allow_holes=True)
+        csv = calibration_csv or latest_calibration_csv()
+        # the raw properties of the same snapshot carry the Deviation 22 rule (init error, ZZ) and the Deviation 26
+        # coupler cut (broken edges), so the build-time placement agrees with the live layout re-check
+        patch = place_patch(r, c, csv, allow_holes=True, properties=properties_for_csv(csv))
     if patch.n != n:
         raise JoblistError(f"{label}: {entry['patch']} placed under the calibration cut has {patch.n} qubits "
                            f"(origin {patch.origin}, holes {list(patch.holes)}); set n={patch.n}")
     return patch, layout
+
+
+def properties_for_csv(csv_path: str) -> str | None:
+    """The raw ``<backend>_properties_<stamp>.json[.gz]`` of the same snapshot as ``csv_path`` (same UTC stamp, same
+    directory), else the newest one in that directory, else None. Passed to ``place_patch`` so the build-time cut applies
+    the Deviation 22 rule (init error >= 5e-4, |ZZ| >= 1 MHz to an excluded qubit) and the Deviation 26 coupler cut
+    exactly as the live ``layout_check`` does (run-day finding of 20 Sep 2026: Q91 at init error 1.05e-3 sat in the
+    CSV-only placement)."""
+    from .noise import latest_properties_file
+    path = Path(csv_path)
+    m = re.search(r"(\d{4})-(\d{2})-(\d{2})T(\d{6})Z", path.stem)
+    if m:
+        stamp = f"{m.group(1)}{m.group(2)}{m.group(3)}T{m.group(4)}Z"
+        for cand in (path.parent / f"ibm_phoenix_properties_{stamp}.json.gz", path.parent / f"ibm_phoenix_properties_{stamp}.json"):
+            if cand.exists():
+                return str(cand)
+    return latest_properties_file(path.parent)
 
 
 def _probe_patch(pr: dict, shapes: dict, calibration_csv: str | None) -> Tuple[Patch, Tuple[int, ...] | None]:

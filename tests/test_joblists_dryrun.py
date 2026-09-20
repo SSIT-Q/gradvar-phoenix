@@ -13,6 +13,9 @@ from gradvar.sim import HAS_AER
 
 ROOT = Path(__file__).resolve().parents[1]
 CAL = str(ROOT / "data" / "calibrations" / "ibm_phoenix_2026-09-19T155931Z.csv")
+CAL02 = str(ROOT / "data" / "calibrations" / "ibm_phoenix_2026-09-20T030546Z.csv")   # the snapshot list 02 was placed on (run day, 20 Sep 2026)
+PATCH02 = [82, 83, 84, 85, 86, 92, 93, 94, 95, 96, 102, 103, 104, 105, 106, 112, 113, 114, 115, 116]
+CONE02 = [82, 83, 84, 85, 92, 93, 94, 95, 102, 103, 104, 105, 112, 113, 114, 115]
 DRYRUN = ROOT / "data" / "joblists" / "dryrun"
 LISTS = ["01_marrakesh_pipeline_check.json", "02_phoenix_smoke_test.json", "03_paper2_smoke.json"]
 pytestmark = pytest.mark.skipif(not HAS_AER, reason="qiskit-aer not installed")
@@ -31,11 +34,11 @@ def test_dryrun_lists_validate_and_refuse_to_submit(name, tmp_path, monkeypatch)
     monkeypatch.setenv("QISKIT_IBM_INSTANCE", "crn:fake")
     monkeypatch.setenv("QISKIT_IBM_INSTANCE_OPEN", "crn:fake-open")
     with pytest.raises(SystemExit, match="dry_run"):                     # refused before preflight / credentials
-        run_joblist(str(DRYRUN / name), submit=True, run_root=str(tmp_path / "r"), log_dir=str(tmp_path / "j"), calibration_csv=CAL)
+        run_joblist(str(DRYRUN / name), submit=True, run_root=str(tmp_path / "r"), log_dir=str(tmp_path / "j"), calibration_csv=CAL02)
     reviewed = dict(jl, dry_run=False, preflight_review="https://x.slack.com/archives/C1/p1", budget=dict(jl["budget"], executions=1))
     (tmp_path / "b.json").write_text(json.dumps(reviewed))
     with pytest.raises(SystemExit, match="budget"):                      # stale budget field refuses too
-        run_joblist(str(tmp_path / "b.json"), submit=True, run_root=str(tmp_path / "r"), log_dir=str(tmp_path / "j"), calibration_csv=CAL)
+        run_joblist(str(tmp_path / "b.json"), submit=True, run_root=str(tmp_path / "r"), log_dir=str(tmp_path / "j"), calibration_csv=CAL02)
 
 
 def test_marrakesh_list_is_enabled_with_review_permalink(tmp_path, monkeypatch):
@@ -200,7 +203,7 @@ def test_marrakesh_list_dry_runs_on_fake_marrakesh(tmp_path):
 
 def test_phoenix_smoke_dry_run_bundles_probes_separately(tmp_path):
     from gradvar.hardware import run_joblist
-    run_joblist(str(DRYRUN / LISTS[1]), submit=False, run_root=str(tmp_path / "runs"), log_dir=str(tmp_path / "jobs"), calibration_csv=CAL)
+    run_joblist(str(DRYRUN / LISTS[1]), submit=False, run_root=str(tmp_path / "runs"), log_dir=str(tmp_path / "jobs"), calibration_csv=CAL02)
     bundles = {d.name.split("-", 2)[2]: d for d in (tmp_path / "runs").glob("*/dryrun-*")}
     assert set(bundles) == {"L0", "L1", "L2", "L0-probes-s16", "L1-probes-s16", "L0-probes-s1024",
                             "L0-probes-s4096-rd1us", "L0-probes-s4096-rd5us", "L0-probes-s4096-rd20us", "L0-probes-s4096-rd250us"}
@@ -211,10 +214,13 @@ def test_phoenix_smoke_dry_run_bundles_probes_separately(tmp_path):
         assert job["rep_delay_submitted_s"] == "default"                                              # grid jobs run at the backend default
         assert job["layout_check"]["enforced"] is False and job["layout_check"]["action"] == "logged"   # Deviation 26, logged on the dry run
         assert job["layout_check"]["readout_cut"] == 3e-2 and job["layout_check"]["cz_cut"] == 5e-3 and job["layout_check"]["init_error_cut"] == 5e-4
-        assert job["layout_check"]["layout_qubits"] == [81, 82, 83, 84, 85, 91, 92, 93, 94, 95, 101, 102, 103, 104, 105, 111, 112, 113, 114, 115]
-        assert len(job["layout_check"]["layout_couplers"]) == 31 and job["layout_check"]["verdict"] in ("pass", "fail")
-        assert job["layout_check"]["edge_cone_qubits"] == [81, 82, 83, 84, 91, 92, 93, 94, 101, 102, 103, 104, 111, 112, 113, 114]
-        assert job["points"][0]["edge"] == "93_103"
+        assert job["layout_check"]["layout_qubits"] == PATCH02
+        assert len(job["layout_check"]["layout_couplers"]) == 30 and job["layout_check"]["verdict"] in ("pass", "fail")   # 31 patch couplers, 95-96 broken
+        assert [95, 96] not in job["layout_check"]["layout_couplers"]                                                   # no CZ on the broken coupler, so it is not checked
+        assert job["layout_check"]["edge_cone_qubits"] == CONE02
+        assert job["points"][0]["edge"] == "94_104" and job["points"][0]["origin"] == [8, 2] and job["points"][0]["broken_edges"] == [[95, 96]]
+        circs = json.loads((bundles[tag] / "circuits.json").read_text())
+        assert {(c["L"], c["two_qubit_gates"]) for c in circs} == {(2, 60), (8, 240)}                                    # L x 30 live couplers
     # dial probes: reset arm and delay-matched control at resilience 0 and 1 (kill rule d at level 1), 16 masks x 16 shots
     for level in (0, 1):
         dial = json.loads((bundles[f"L{level}-probes-s16"] / "job.json").read_text())
@@ -245,7 +251,7 @@ def test_phoenix_smoke_dry_run_bundles_probes_separately(tmp_path):
         assert job["rep_delay"]["default_rep_delay_s"] is not None and job["dynamic_reprate_enabled"] is not None
         pts = {p["prep"]: p for p in job["points"]}
         assert set(pts) == {"0", "1"} and all(p["reset_kind"] == "none" and p["rep_delay_us"] == rd and len(p["qubits"]) == 20 for p in pts.values())
-        assert pts["0"]["qubits"] == [81, 82, 83, 84, 85, 91, 92, 93, 94, 95, 101, 102, 103, 104, 105, 111, 112, 113, 114, 115]
+        assert pts["0"]["qubits"] == PATCH02
         circs = {c["probe_id"]: c for c in json.loads((bundles[f"L0-probes-s4096-rd{rd}us"] / "circuits.json").read_text())}
         assert circs[f"ladder_rd{rd}us_prep0"]["ops"] == {} and circs[f"ladder_rd{rd}us_prep1"]["ops"] == {"x": 20}
         assert len(job["points"][0]["observables"]) == 20                                            # one Z per patch qubit
@@ -348,7 +354,7 @@ def test_dry_run_false_with_placeholder_review_is_refused(tmp_path, monkeypatch)
     jl = json.loads((DRYRUN / LISTS[1]).read_text())                                  # 02 still carries the placeholder
     (tmp_path / "p.json").write_text(json.dumps(dict(jl, dry_run=False)))          # placeholder still in place
     with pytest.raises(SystemExit, match="preflight_review"):
-        run_joblist(str(tmp_path / "p.json"), submit=True, run_root=str(tmp_path / "r"), log_dir=str(tmp_path / "j"), calibration_csv=CAL)
+        run_joblist(str(tmp_path / "p.json"), submit=True, run_root=str(tmp_path / "r"), log_dir=str(tmp_path / "j"), calibration_csv=CAL02)
 
 
 class _Service:
@@ -562,6 +568,50 @@ def test_refused_submission_does_not_lose_the_other_bundles(tmp_path, monkeypatc
     assert ok["status"] == "completed" and ok["timestamps"]["finished"] == "t2"
     rows = pd.read_csv(log)
     assert len(rows) == 10 and set(rows.job_id) == {"okjob1", "okjob2"} and set(rows.rep_delay_submitted) == {"default"}
+
+
+def test_properties_for_csv_matches_the_snapshot_stamp():
+    from gradvar.hardware import properties_for_csv
+    assert properties_for_csv(CAL).endswith("ibm_phoenix_properties_20260919T155931Z.json.gz")
+    assert properties_for_csv(CAL02).endswith("ibm_phoenix_properties_20260920T030546Z.json.gz")
+    assert properties_for_csv(str(ROOT / "data" / "calibrations" / "ibm_phoenix_2026-09-19.csv")).endswith(".json.gz")   # no stamp: newest
+
+
+def test_build_time_placement_agrees_with_the_live_layout_check_on_the_committed_snapshot():
+    """Run-day finding, 20 Sep 2026: with the CSV alone `place_patch` kept Q91 (init error 1.05e-3 >= 5e-4) in the 4x5 patch and
+    the live Deviation 26 re-check would have refused it with no override (Q91 in the cone of 93_103). The placement now takes
+    the snapshot's raw properties, so `layout_check` against those same properties passes on every placed qubit and live
+    coupler, coupler 95-96 (CZ 3.1e-2) is a broken edge that carries no CZ, and the CSV-only rectangle at (8,1) is what fails."""
+    import gzip
+    from types import SimpleNamespace
+    from qiskit_ibm_runtime.models import BackendProperties
+    import gradvar.hardware as hw
+    from gradvar.lattice import rect_patch
+    from gradvar.noise import init_errors, load_properties
+    raw = load_properties(hw.properties_for_csv(CAL02))
+    assert init_errors(raw)[91] == pytest.approx(1.05e-3, rel=0.02)
+    backend = SimpleNamespace(name="ibm_phoenix-snapshot", properties=lambda: BackendProperties.from_dict({k: v for k, v in raw.items() if not k.startswith("_")}))
+    jl = hw.load_joblist(str(DRYRUN / LISTS[1]))
+    points, shapes, shots = hw.joblist_points(jl, CAL02)
+    patch = shapes[20]
+    assert list(patch.qubits) == PATCH02 and patch.origin == (8, 2) and [list(e) for e in patch.broken_edges] == [[95, 96]]
+    fake = hw.fake_backend("ibm_phoenix")
+    built = hw.build_pubs(points[:1], fake, shapes=shapes) + hw.build_probes(dict(jl, probes=jl["probes"][:1]), fake, shapes, CAL02)
+    couplers = sorted({tuple(c) for b in built for c in hw.pub_couplers(b)})
+    assert len(couplers) == 30 and (95, 96) not in couplers
+    chk = hw.layout_check(backend, PATCH02, couplers)
+    assert chk["verdict"] == "pass" and chk["failing_qubits"] == [] and chk["failing_couplers"] == []
+    assert all(v["init_error"] is not None and v["init_error"] < 5e-4 for v in chk["qubits"].values())
+    assert hw.edge_cone_qubits(built) == CONE02
+    # the 19 Sep placement fails today's properties on Q91, inside the protected cone, and 95-96 would fail as a live coupler
+    old = rect_patch(4, 5, exclude=(), origin=(8, 1))
+    bad = hw.layout_check(backend, old.qubits, old.edges() + [(95, 96)])
+    assert bad["verdict"] == "fail" and bad["failing_qubits"] == [91] and bad["failing_couplers"] == [[95, 96]]
+    assert "init error 1.05e-03 >= 0.0005" in bad["qubits"]["91"]["fails"][0]
+    assert 91 in hw.edge_cone_qubits([SimpleNamespace(patch=old, edge=(93, 103), layout=None)])
+    # and the CSV-only placement (no properties) is exactly that rectangle
+    from gradvar.noise import place_patch
+    assert place_patch(4, 5, CAL02, allow_holes=True).origin == (8, 1)
 
 
 class _Props:
