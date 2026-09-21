@@ -171,3 +171,34 @@ def test_frozen_placement_reproduces_frozen_reference_rows_to_1e9_slow():
                             n_samples=int(fz.mc_samples), seed=R.SEED, deltas=(float(fz.delta_coarse), float(fz.delta_fine)), time_limit_s=1200.0)
     for key in ("var_kL_mc", "se_kL_mc", "var_cost_mc", "var_k1_mc"):
         assert abs(out[key] - float(fz[key])) <= 1e-9 * abs(float(fz[key])), (key, out[key], float(fz[key]))
+
+
+# --------------------------------------------------------------------------- --checkpoint (per-row resume)
+
+def test_checkpoint_round_trip_and_partition_on_toy_jobs(tmp_path):
+    ck = tmp_path / "ck.jsonl"
+    stamp = "2026-09-20T175012Z"
+    rung = dict(patch="4x10", n=17, origin=[8, 1], holes=[], edge="93_103", broken_edges=[])
+    mk = lambda kind, L, model, k=None: dict(rung_name="n40", rung=rung, spec="4x10", L=L, model=model, stamp=stamp, **({"k": k} if k is not None else {}))
+    ejobs = [mk("exact", 1, "unital", 1), mk("exact", 2, "noiseless", 1)]
+    mjobs = [mk("pp", 2, "unital"), mk("pp", 12, "nonunital")]
+    assert R.load_checkpoint(ck) == {}                                   # missing file: empty checkpoint
+    e_todo, m_todo, e_done, m_done = R.partition_jobs(ejobs, mjobs, {})
+    assert (len(e_todo), len(m_todo), e_done, m_done) == (2, 2, [], [])
+    # two rows finish (one of each kind), with numpy scalars and NaNs as the real rows carry
+    row_e = dict(stage="exact", patch="4x10", n=np.int64(17), L=1, k=1, model="unital", var=np.float64(0.2235), status="computed")
+    row_m = dict(stage="dev15", patch="4x10", n=17, L=12, model="nonunital", var_k1_mc=float("nan"), status="lower bound only", pp_capped=np.bool_(True))
+    R.append_checkpoint(ck, "exact", R.checkpoint_key("exact", ejobs[0]), row_e)
+    R.append_checkpoint(ck, "pp", R.checkpoint_key("pp", mjobs[1]), row_m)
+    ck.write_text(ck.read_text() + '{"key": "torn", "kind": "pp", "row": {"pat')      # a line cut off by a restart
+    done = R.load_checkpoint(ck)
+    assert len(done) == 2
+    e_todo, m_todo, e_done, m_done = R.partition_jobs(ejobs, mjobs, done)
+    assert [j["L"] for j in e_todo] == [2] and [j["L"] for j in m_todo] == [2]
+    assert e_done[0]["var"] == pytest.approx(0.2235) and e_done[0]["n"] == 17 and e_done[0]["k"] == 1
+    assert np.isnan(m_done[0]["var_k1_mc"]) and m_done[0]["pp_capped"] is True and m_done[0]["L"] == 12
+    # the key separates kind, stamp, rung, patch, L, model and (exact) k; a different snapshot is a different row
+    assert R.checkpoint_key("pp", mjobs[0]) != R.checkpoint_key("pp", mjobs[1])
+    assert R.checkpoint_key("exact", ejobs[0]) != R.checkpoint_key("exact", dict(ejobs[0], k=4))
+    assert R.checkpoint_key("pp", dict(mjobs[0], stamp="2026-09-20T030813Z")) != R.checkpoint_key("pp", mjobs[0])
+    assert R.checkpoint_key("exact", ejobs[0]).split("|")[0] == "exact" and R.checkpoint_key("pp", mjobs[0]).split("|")[0] == "pp"

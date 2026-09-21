@@ -38,10 +38,11 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import sys
 import time
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -557,6 +558,59 @@ def _run_main_grid_job(job: dict) -> dict:
     return out
 
 
+# --------------------------------------------------------------------------- per-row checkpoint (--checkpoint)
+
+def checkpoint_key(kind: str, job: dict) -> str:
+    """Identity of one main-grid job: kind (``pp`` / ``exact``), snapshot stamp, rung, patch, L, model and (exact rows) k. The
+    Pauli-path count and the time limit are settings of the run, not of the row, so a resumed run must use the same flags."""
+    parts = [kind, str(job["stamp"]), str(job["rung_name"]), str(job["spec"]), str(job["L"]), str(job["model"])]
+    if kind == "exact":
+        parts.append(str(job["k"]))
+    return "|".join(parts)
+
+
+def load_checkpoint(path) -> dict:
+    """The finished rows of an earlier run, ``{key: (kind, row)}``; a missing file is an empty checkpoint, a torn last line is skipped."""
+    done = {}
+    path = Path(path)
+    if not path.exists():
+        return done
+    for line in path.read_text().splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            rec = json.loads(line)
+        except json.JSONDecodeError:
+            continue                                     # a row cut off by a restart while being written
+        if isinstance(rec, dict) and {"key", "kind", "row"} <= set(rec):
+            done[rec["key"]] = (rec["kind"], rec["row"])
+    return done
+
+
+def append_checkpoint(path, kind: str, key: str, row: dict) -> None:
+    """Append one finished row as a JSON line and flush it to disk."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a") as f:
+        f.write(json.dumps(dict(key=key, kind=kind, row=row), default=_json_default) + "\n")
+        f.flush()
+        os.fsync(f.fileno())
+
+
+def partition_jobs(ejobs: list, mjobs: list, done: dict) -> tuple[list, list, list, list]:
+    """Split the planned jobs into those still to run and the rows restored from the checkpoint:
+    ``(ejobs_todo, mjobs_todo, exact_rows_done, pp_rows_done)``."""
+    e_todo, m_todo, e_done, m_done = [], [], [], []
+    for j in ejobs:
+        k = checkpoint_key("exact", j)
+        (e_done.append(done[k][1]) if k in done else e_todo.append(j))
+    for j in mjobs:
+        k = checkpoint_key("pp", j)
+        (m_done.append(done[k][1]) if k in done else m_todo.append(j))
+    return e_todo, m_todo, e_done, m_done
+
+
 def main_grid_comparison(rows: list, exact_rows: list) -> list:
     """Frozen vs redraw per (patch, L, k, model): the frozen value (exact row's ``var`` where one exists, else the frozen ZZ-off
     propagation row's sampled value) against the re-drawn one (exact where rerun exactly, else the propagation row's k = 1 / k = L value)."""
@@ -779,6 +833,8 @@ def main(argv=None) -> int:
     ap.add_argument("--frozen-samples", action="store_true", help="main grid: the frozen row's Pauli-path count per row instead of --n-samples")
     ap.add_argument("--exact", action="store_true", help="main grid: also rerun the exactly simulated frozen rows (gate1_ladder.py settings) on the run-day placement")
     ap.add_argument("--main-grid-tag", default=None, help="file tag of the main-grid outputs (default: main_grid_redraw_<snapshot date>)")
+    ap.add_argument("--checkpoint", default=None, help="main grid: JSON-lines file; every finished row is appended as it completes and rows already in it are "
+                                                       "not recomputed on a restart (same snapshot and flags); the outputs merge the checkpoint rows")
     args = ap.parse_args(argv)
     rungs = None
     if args.rungs:
@@ -861,10 +917,19 @@ def main(argv=None) -> int:
         # slowest first so the pool stays full: the exact noisy L = 2 rows and the L = 12 propagations
         mjobs.sort(key=lambda j: -j["L"])
         ejobs.sort(key=lambda j: (j["model"] == "noiseless", -j["L"]))
+        if args.checkpoint:
+            done = load_checkpoint(args.checkpoint)
+            ejobs, mjobs, mg_exact_rows, mg_rows = partition_jobs(ejobs, mjobs, done)
+            print(f"checkpoint {args.checkpoint}: {len(mg_exact_rows)} exact and {len(mg_rows)} propagation rows restored; "
+                  f"{len(ejobs)} exact and {len(mjobs)} propagation rows to run", flush=True)
         with ProcessPoolExecutor(max_workers=args.workers) as ex:
-            futs = [(ex.submit(_run_exact_job, j), "exact") for j in ejobs] + [(ex.submit(_run_main_grid_job, j), "pp") for j in mjobs]
-            for fut, kind in futs:
+            futs = {ex.submit(_run_exact_job, j): ("exact", j) for j in ejobs}
+            futs.update({ex.submit(_run_main_grid_job, j): ("pp", j) for j in mjobs})
+            for fut in as_completed(futs):
+                kind, job = futs[fut]
                 out = fut.result()
+                if args.checkpoint:
+                    append_checkpoint(args.checkpoint, kind, checkpoint_key(kind, job), out)
                 if kind == "pp":
                     mg_rows.append(out)
                     print(f"  main grid {out['patch']:6} L={out['L']:2} {out['model']:10}: k1={out.get('var_k1_mc', float('nan')):.3e}+/-{2 * out.get('se_k1_mc', float('nan')):.1e} "
@@ -887,7 +952,8 @@ def main(argv=None) -> int:
                     snapshot=dict(csv=Path(snapshot).name, properties=Path(props).name, stamp=stamp, excluded=runday["excluded"]),
                     placement_source=PLACEMENT_SOURCE + "; " + PLACEMENT_SOURCE_PROPERTIES, placement=ptable, runday_placement=runday, record_placement=record,
                     settings=dict(frozen_samples=args.frozen_samples, n_samples=args.n_samples, n_cap=args.n_cap, time_limit_s=args.time_limit, seed=SEED, exact=args.exact,
-                                  exact_seed=EXACT_SEED, exact_M=EXACT_M, exact_traj=EXACT_TRAJ, zz_angle_scale=pp.ZZ_ANGLE_SCALE, layer_timing=str(LAYER_TIMING.relative_to(ROOT))),
+                                  exact_seed=EXACT_SEED, exact_M=EXACT_M, exact_traj=EXACT_TRAJ, zz_angle_scale=pp.ZZ_ANGLE_SCALE, layer_timing=str(LAYER_TIMING.relative_to(ROOT)),
+                                  checkpoint=(str(args.checkpoint) if args.checkpoint else None)),
                     main_grid=mg_res, runtime_s=wall)
         (out_dir / f"{mtag}.json").write_text(json.dumps(mres, indent=1, default=_json_default))
         pd.DataFrame(mg_rows + mg_exact_rows).to_csv(out_dir / f"{mtag}.csv", index=False)
