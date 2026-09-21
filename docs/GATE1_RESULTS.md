@@ -399,6 +399,33 @@ rows and 3 exact rows, 191 core-minutes, 51 min wall (shared cores). Exact L = 2
 sampled runs hit the 2400 s sampler cap under the shared load, so those four values are the truncated lower bounds without an error bar; exploratory in any case).
 The day-2 comparison joins on patch, edge 75_85, L, k; the run-day n100 rows are within 8% of the frozen ones at every confirmatory depth.
 
+### Deviation 46 re-draw for campaign day 3 (dial arm): Gate 1b references on the 21 Sep 02:27Z placement
+
+`python scripts/redraw_gate1b.py --snapshot data/calibrations/ibm_phoenix_2026-09-21T022722Z.csv --tag 2026-09-21T0227 --workers 4 --checkpoint ...`
+(pre-flight 06 Section 2.5; the 02:27Z and 03:08Z snapshots of 21 Sep give the same placement). All 12 Gate 1b rows re-drawn, 55 core-minutes, 17 min wall;
+outputs `data/predictions/gate1b_redraw_2026-09-21T0227.json` / `.csv` / `.md` (frozen-vs-redraw table, Deviation 33 floors, H5 / H6, clause verdicts) plus the
+`.ckpt.jsonl` checkpoint. Computed from the committed code, placement and frozen seeds before any day-3 data exist (pre-data rows). Placement vs the 20 Sep
+03:08Z re-draw (ad8742e): n40 n 37 -> 36 (hole 105 added, coupler 118-119 broken), edge 94_104 -> 93_103; n60 same 50 qubits and edge 43_44, coupler 41-51
+broken; n100 n 85 -> 84 (hole 105), 118-119 and 41-51 broken.
+
+| rung | L | V(p = 0) frozen record | V(p = 0) ad8742e (03:08Z) | V(p = 0) 02:27Z (+/- 2 sigma) | V(p = 0.25) 02:27Z | separation / floor: record -> ad8742e -> 02:27Z |
+|---|---|---|---|---|---|---|
+| n40 (4x10, n 36) | 8 | 7.457e-4 | 3.027e-4 | 4.536e-4 +/- 1.7e-5 | 2.038e-3 | 3.33 -> 4.49 -> 3.91 |
+| n60 (6x10, n 50) | 8 | 2.592e-4 | 3.495e-4 | 3.810e-4 +/- 1.7e-5 | 2.049e-3 | 4.24 -> 4.49 -> 4.14 |
+| n100 (10x10, n 84) | 8 | 3.679e-4 | 3.928e-4 | 4.684e-4 +/- 1.8e-5 | 2.060e-3 | 4.03 -> 4.00 -> 3.91 |
+| n40 | 12 | 3.117e-5 | 8.578e-6 | 2.081e-5 +/- 2.9e-6 | 2.034e-3 | 5.07 -> 5.21 -> 4.97 |
+| n60 | 12 | 5.582e-6 | 1.144e-5 | 1.147e-5 +/- 2.1e-6 | 2.045e-3 | 4.86 -> 5.32 -> 5.06 |
+| n100 | 12 | 9.352e-6 | 1.458e-5 | 1.483e-5 +/- 2.3e-6 | 2.056e-3 | 4.96 -> 4.92 -> 5.02 |
+
+Separation clause: PASS at L = 8 and L = 12 on all three rungs (>= 3x the shot + pattern floor, pattern floor < sep / 2). Clause (b) fall V(8) - V(12) at
+p = 0: n40 4.33e-4, n60 3.70e-4, n100 4.54e-4 = 4.73x / 4.04x / 4.95x the Deviation 45 bar 9.16e-5 (ad8742e: 3.21x / 3.69x / 4.13x); references at 14.9 / 12.5 /
+15.3x the 16384-shot floor; fall / 2 sigma (M = 350) 2.45-2.49. **Deviation 45: PASS 3 of 3; Deviation 44 PASS 3 of 3; Deviation 35 PASS 3 of 3; the frozen
+Deviation 30 wording at 4096 shots now passes too (3 of 3). Gate 1b under Deviations 27 + 45: PASS.** The n40 reference rose from ad8742e's 3.03e-4 because the
+edge moved back to 93_103 with a 36-qubit cone (the frozen record on 94_95 had 7.46e-4); the L = 12 references remain not converged (truncation deficit >= 10%),
+as before. Deviation 33 floors (p = 0.25, k = L / Var[C]): 1.11e-3 / 2.12e-3 (n40), 1.09e-3 / 2.18e-3 (n60), 1.11e-3 / 2.19e-3 (n100); the dial k = L variance sits
+1.83-1.89x its floor and Var[C_mix] 1.62-1.64x; H6 V(12) / V(8) = 0.998 on the dial vs 0.030-0.046 on the reference. The day-3 post-run review reads clause (b)
+against these rows.
+
 | rung | role | 19 Sep record: n, origin, edge, broken | 20 Sep 03:08Z reference: n, origin, edge | run-day: n, origin, holes, broken, edge (rule) | cone L2 | cone graph changed vs record (L = 1 / 2 / 4 / 8 / 12) | same as 20 Sep reference |
 |---|---|---|---|---|---|---|---|
 | n20 (4x5) | main grid | 20, (8, 1), 93_103, 0 broken | 20, (8, 2), 94_104 | **20**, (8, 2), holes [], broken ['95_96'], edge **94_104** (interior_edge) | 16 | yes / yes / yes / yes / yes | yes |
