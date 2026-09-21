@@ -24,6 +24,7 @@ LISTS = ["grid_n20.json", "grid_n40.json", "grid_n60.json", "grid_n80.json", "gr
 MAIN = LISTS[:7]
 DAY1 = "day1_null_grid_n20.json"      # Deviation 50 campaign day 1: null_controls + grid_n20 in one list (armed and run 20 Sep: a record, kept as committed)
 DAY2 = "day2_main_grid.json"          # Deviation 50 campaign day 2: grid_n40 + n60 + n80 + n100 in one list
+ARMED = {DAY1, DAY2, "grid_n100_16384.json"}   # armed and run (20 Sep 23:03 IST; 21 Sep 00:20 IST both day-2 lists): records, kept as committed
 
 
 def _armed(name: str) -> bool:
@@ -44,7 +45,7 @@ def test_committed_lists_equal_the_generator_output(generated):
     assert set(lists) == set(LISTS)
     for name, jl in lists.items():
         if _armed(name):                                            # a run record: its placement block is the snapshot it ran on
-            assert name == DAY1
+            assert name in ARMED
             continue
         assert json.loads((P1 / name).read_text()) == jl, name
     summary = json.loads((P1 / "summary.json").read_text())
@@ -271,7 +272,10 @@ def test_day2_list_is_the_four_grid_lists_pub_for_pub(generated, tmp_path):
     s = json.loads((P1 / "summary.json").read_text())
     assert s["day2"]["list"] == DAY2 and s["day2"]["jobs"] == b["jobs"] and s["totals"]["main"]["minutes_at_1us"] == pytest.approx(sum(lists[n]["budget"]["minutes_at_1us"] for n in MAIN), abs=0.01)
     assert gen.main(["--day2", "--out", str(tmp_path)]) == 0 and sorted(p.name for p in tmp_path.iterdir()) == [DAY2]
-    assert json.loads((tmp_path / DAY2).read_text()) == d2 == json.loads((P1 / DAY2).read_text())
+    assert json.loads((tmp_path / DAY2).read_text()) == d2
+    committed = json.loads((P1 / DAY2).read_text())                       # armed and run 21 Sep 00:20 IST: the generator keeps it as the record
+    assert committed["dry_run"] is False and committed["preflight_review"].startswith("https://ssitcrew.slack.com/")
+    assert committed == dict(d2, dry_run=False, preflight_review=committed["preflight_review"])
 
 
 def _small(base: dict, **kw) -> dict:

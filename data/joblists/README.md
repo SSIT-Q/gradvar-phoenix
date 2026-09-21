@@ -115,6 +115,14 @@ succeeded jobs, and exits non-zero naming the failed jobs (the Action commits th
    pub count and `rep_delay_us` per job, the Batch id, the calibration CSV and snapshot, the Action run id), which the
    commit step keeps even when the run is cancelled later. Dispatch with `submit_only: true` to submit, write that file
    and exit without waiting (`--submit-only`), then dispatch `retrieve_jobs.yml` with `ids_file` set to it.
+   A job that failed (day 2, 21 Sep 2026: `L2-c5`, IBM error 1336, runtime out of memory) is resubmitted from the same armed
+   list with the inputs `only_job_tag` (its tag) and `max_pubs` (pubs per job, e.g. 100): the runner rebuilds the list on the
+   calibration CSV of the original submission (found through its ids file, so a newer daily snapshot does not move the
+   placement), keeps only that job's pubs and submits them as `<tag>-r1`, `-r2`, ... writing
+   `data/runs/<date>/<list name>_resubmit_<tag>_job_ids.json`, which `retrieve_jobs.yml` collects like any other ids file
+   (`resubmission` in the ids file and in every job.json). An Estimator bundle whose `circuits.qpy` exceeds 45 MB keeps it as
+   an Action artefact with its SHA-256 in job.json (GitHub's 100 MB limit rejected the first day-2 retrieval push), as
+   Sampler bundles always do.
 6. `retrieve_jobs.yml` (`workflow_dispatch`, input `ids_file`) runs `python -m gradvar.hardware --retrieve <ids_file>`:
    for every job, `service.job(id)`, wait for a final state, and write the same bundle as the live path (PrimitiveResult,
    `usage()`, `metrics()`, the options read back from `job.inputs`, `backend.properties(datetime=job.creation_date)`

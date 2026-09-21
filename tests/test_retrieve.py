@@ -312,3 +312,136 @@ def test_submit_only_cli_needs_yes_submit():
     import gradvar.hardware as hw
     with pytest.raises(SystemExit):
         hw.main(["--joblist", str(LIST01), "--submit-only"])
+
+
+# ------------------------------------------------------------------ resubmission of one failed job (--only-job-tag / --max-pubs, 21 Sep 2026)
+def _bound_circuits(b):
+    """The circuits IBM executes for one pub: the ISA circuit with each row of bound parameter values assigned. Compared
+    structurally (QuantumCircuit equality plus the instruction list); the unbound circuits' qpy bytes differ between builds
+    only by the UUIDs qiskit gives fresh Parameter objects and by the copy's name counter, which carry no physics."""
+    return [b.isa_circuit.assign_parameters(row) for row in np.atleast_2d(np.asarray(b.param_values, dtype=float))]
+
+
+def _instructions(circ):
+    return [(ci.operation.name, tuple(circ.find_bit(q).index for q in ci.qubits), tuple(round(float(x), 12) for x in ci.operation.params)) for ci in circ.data]
+
+
+def test_resubmission_groups_carry_the_failed_jobs_pubs_unchanged(tmp_path):
+    """``--only-job-tag L0 --max-pubs 2`` on list 01 rebuilds the five L0 pubs the full build submits, in order, with the same
+    seeds, parameter values (param_hash), bound ISA circuits (gate for gate) and observables, as L0-r1 (2), L0-r2 (2), L0-r3 (1)."""
+    import gradvar.hardware as hw
+    jl = hw.load_joblist(str(LIST01))
+    points, shapes, shots = hw.joblist_points(jl, CAL)
+    backend = hw.fake_backend("ibm_marrakesh")
+    full, full_rd = hw.job_groups(jl, points, shapes, shots, backend, CAL)
+    orig = next(g for t, _, _, g in full if t == "L0")
+    resub, rd = hw.job_groups(jl, points, shapes, shots, backend, CAL, only_tag="L0", resubmit_max_pubs=2)
+    assert [(t, lvl, s, len(g)) for t, lvl, s, g in resub] == [("L0-r1", 0, 1024, 2), ("L0-r2", 0, 1024, 2), ("L0-r3", 0, 1024, 1)] and rd == {}
+    rebuilt = [b for _, _, _, g in resub for b in g]
+    assert [b.point.seed for b in rebuilt] == [b.point.seed for b in orig]
+    assert [hw.param_hash(b.theta) for b in rebuilt] == [hw.param_hash(b.theta) for b in orig]
+    assert [[p.name for p in b.isa_circuit.parameters] for b in rebuilt] == [[p.name for p in b.isa_circuit.parameters] for b in orig]
+    assert [np.asarray(b.param_values).tolist() for b in rebuilt] == [np.asarray(b.param_values).tolist() for b in orig]
+    for x, y in zip(rebuilt, orig):
+        bx, by = _bound_circuits(x), _bound_circuits(y)
+        assert len(bx) == len(by) == 2 and all(cx == cy for cx, cy in zip(bx, by))                 # the shifted pair, gate for gate
+        assert [_instructions(c) for c in bx] == [_instructions(c) for c in by] and bx[0].layout.initial_layout == by[0].layout.initial_layout
+    assert [b.isa_observable.to_list() for b in rebuilt] == [b.isa_observable.to_list() for b in orig]
+    # one job when --max-pubs is absent; a probe job keeps its rep_delay entry under the new tags; unknown tags refuse
+    one, _ = hw.job_groups(jl, points, shapes, shots, backend, CAL, only_tag="L1")
+    assert [(t, len(g)) for t, _, _, g in one] == [("L1-r1", 5)]
+    probes, prd = hw.job_groups(jl, points, shapes, shots, backend, CAL, only_tag="L0-probes-s1024", resubmit_max_pubs=1)
+    assert [t for t, _, _, _ in probes] == ["L0-probes-s1024-r1", "L0-probes-s1024-r2"] and set(prd) == set(t for t, _, _, _ in probes)
+    assert prd["L0-probes-s1024-r1"] == full_rd["L0-probes-s1024"]
+    with pytest.raises(hw.JoblistError, match="no job of this list carries that tag"):
+        hw.job_groups(jl, points, shapes, shots, backend, CAL, only_tag="L7")
+    assert hw.resubmit_tags("L2-c5", 3) == ["L2-c5-r1", "L2-c5-r2", "L2-c5-r3"]
+
+
+def test_calibration_csv_not_after_pins_the_csv_in_force_at_submission():
+    import gradvar.hardware as hw
+    cal = ROOT / "data" / "calibrations"
+    assert hw.calibration_csv_not_after("2026-09-20T18:57:59.634784+00:00", cal).endswith("ibm_phoenix_2026-09-20T175012Z.csv")   # day-2 ids file written_utc
+    assert hw.calibration_csv_not_after("2026-09-20T03:07:00Z", cal).endswith("ibm_phoenix_2026-09-20T030546Z.csv")
+    assert hw.calibration_csv_not_after("2099-01-01T00:00:00Z", cal) == hw.calibration_csv_not_after(None, cal)
+    with pytest.raises(FileNotFoundError):
+        hw.calibration_csv_not_after("2000-01-01T00:00:00Z", cal)
+
+
+def test_resubmission_ids_file_round_trips_through_retrieve(tmp_path, monkeypatch, capsys):
+    """Live path: the original --submit-only run writes the ids file; the resubmission of its L1 job finds it, pins the CSV, submits
+    L1-r1 / L1-r2 / L1-r3 and writes <list>_resubmit_L1_job_ids.json with the resubmission record; --retrieve on that file rebuilds
+    the same three chunks and matches the stored inputs; every bundle's job.json carries the record."""
+    import gradvar.hardware as hw
+    import qiskit_ibm_runtime as rt
+    jl, points, shapes, shots, backend, _ = _live_run(hw, monkeypatch, tmp_path, wait=False)
+    with pytest.raises(SystemExit, match="no original ids file"):
+        hw.resubmission_context(jl, str(LIST01), "L1", 2, str(tmp_path / "elsewhere"), None, submit=True)
+    ctx, csv = hw.resubmission_context(jl, str(LIST01), "L1", 2, str(tmp_path / "runs"), None, submit=True)
+    assert csv == CAL and ctx["calibration_csv"] == CAL and ctx["of_job_id"] == "fakejob2" and ctx["of_pubs"] == 5 and ctx["max_pubs"] == 2
+    assert ctx["of_tag"] == "L1" and ctx["of_submission_run"] == 35489912431 and ctx["of_ids_file"].endswith("dryrun_01_marrakesh_pipeline_check_job_ids.json")
+    with pytest.raises(SystemExit, match="no job tagged 'L9'"):
+        hw.resubmission_context(jl, str(LIST01), "L9", None, str(tmp_path / "runs"), None, submit=True)
+    monkeypatch.setattr(rt, "EstimatorV2", FakeEstimator)
+    monkeypatch.setattr(rt, "Batch", FakeBatch)
+    monkeypatch.chdir(tmp_path)                                  # a resubmission logs a fresh properties snapshot under <cwd>/data/calibrations
+    hw.execute_joblist(jl, points, shapes, shots, backend, submit=True, run_root=str(tmp_path / "runs"), log_path=str(tmp_path / "jobs" / "live.csv"),
+                       calibration_csv=csv, instance_plan="open", wait=False, joblist_path=str(LIST01), run_id=77,
+                       only_tag="L1", resubmit_max_pubs=2, resubmission=ctx)
+    assert list((tmp_path / "data" / "calibrations").glob("fake_marrakesh_properties_*.json"))
+    out = capsys.readouterr().out
+    assert "resubmission of job L1: 5 pubs in 3 job(s) of at most 2 pubs (L1-r1, L1-r2, L1-r3)" in out
+    ids_path = next((tmp_path / "runs").glob("*/dryrun_01_marrakesh_pipeline_check_resubmit_L1_job_ids.json"))
+    ids = hw.load_ids_file(ids_path)
+    assert [(j["tag"], j["level"], j["shots"], j["pubs"]) for j in ids["jobs"]] == [("L1-r1", 1, 1024, 2), ("L1-r2", 1, 1024, 2), ("L1-r3", 1, 1024, 1)]
+    assert ids["resubmission"] == ctx and ids["calibration_csv"] == CAL and ids["submission_run"] == 77 and "resubmission of job L1 (fakejob2)" in ids["notes"]
+    bad = dict(ids, jobs=[dict(ids["jobs"][0], tag="L0")])
+    (tmp_path / "bad.json").write_text(json.dumps(bad))
+    with pytest.raises(hw.JoblistError, match="carries tags L1-r1"):
+        hw.load_ids_file(tmp_path / "bad.json")
+    # retrieval of the resubmission: the fake service holds the three jobs under the ids the runner recorded
+    groups, _ = hw.job_groups(jl, points, shapes, shots, backend, CAL, only_tag="L1", resubmit_max_pubs=2)
+    jobs = [FakeJob([b.pub() for b in g], level, gshots, job_id=j["job_id"]) for j, (tag, level, gshots, g) in zip(ids["jobs"], groups)]
+    _wire_service(hw, monkeypatch, FakeService(jobs), backend)
+    assert hw.main(["--retrieve", str(ids_path), "--joblist", str(LIST01), "--run-root", str(tmp_path / "retr"), "--log-dir", str(tmp_path / "retrjobs")]) == 0
+    out = capsys.readouterr().out
+    assert "resubmission of L1 in jobs of at most 2 pubs" in out and out.count("inputs match") == 3 and "MISMATCH" not in out
+    bundles = sorted((tmp_path / "retr").glob("*/fakejob*"))
+    assert len(bundles) == 3
+    for d in bundles:
+        j = json.loads((d / "job.json").read_text())
+        assert j["resubmission"] == ctx and j["job_tag"].startswith("L1-r") and j["status"] == "completed" and j["retrieval"]["inputs_verification"]["match"] is True
+    rows = pd.read_csv(next((tmp_path / "retrjobs").glob("*_retrieved_*.csv")))
+    assert len(rows) == 5 and set(rows.resilience_level) == {1}
+
+
+def test_cli_guards_for_the_resubmission_flags():
+    import gradvar.hardware as hw
+    with pytest.raises(SystemExit):
+        hw.main(["--joblist", str(LIST01), "--max-pubs", "2"])                      # --max-pubs needs --only-job-tag
+    with pytest.raises(SystemExit):
+        hw.main(["--joblist", str(LIST01), "--only-job-tag", "L0", "--dry-run-sample", "1"])
+    with pytest.raises(SystemExit):
+        hw.main(["--only-job-tag", "L0"])                                             # needs --joblist
+
+
+def test_large_estimator_qpy_goes_to_the_artefact_dir(tmp_path, monkeypatch):
+    """Run 35551684219 (21 Sep 2026): GitHub rejected the day-2 retrieval push over two 112 MB circuits.qpy. Above QPY_COMMIT_LIMIT_MB an
+    Estimator bundle keeps only the SHA-256 / size / versions and the file goes under <run_root>/../artifacts/ like the Sampler QPY."""
+    import gradvar.hardware as hw
+    jl = hw.load_joblist(str(LIST01))
+    points, shapes, shots = hw.joblist_points(jl, CAL)
+    backend = hw.fake_backend("ibm_marrakesh")
+    monkeypatch.setattr(hw, "QPY_COMMIT_LIMIT_MB", 0.0)
+    hw.execute_joblist(jl, points, shapes, shots, backend, submit=False, run_root=str(tmp_path / "runs"), calibration_csv=CAL, only_tag="L0", resubmit_max_pubs=3)
+    bundles = sorted((tmp_path / "runs").glob("*/dryrun-*"))
+    assert [d.name.split("-", 2)[2] for d in bundles] == ["L0-r1", "L0-r2"]
+    for d in bundles:
+        j = json.loads((d / "job.json").read_text())
+        art = tmp_path / "artifacts" / d.parent.name / d.name / "circuits.qpy"
+        assert not (d / "circuits.qpy").exists() and art.exists() and j["circuits_qpy"]["committed"] is False and j["circuits_qpy"]["path"] == str(art)
+        assert j["circuits_qpy"]["bytes"] == art.stat().st_size and "QPY_COMMIT_LIMIT_MB" in j["circuits_qpy"]["policy"] and j["resubmission"] is None
+    monkeypatch.setattr(hw, "QPY_COMMIT_LIMIT_MB", 45.0)
+    hw.execute_joblist(jl, points, shapes, shots, backend, submit=False, run_root=str(tmp_path / "runs2"), calibration_csv=CAL, only_tag="L0")
+    d = next((tmp_path / "runs2").glob("*/dryrun-*"))
+    assert (d / "circuits.qpy").exists() and json.loads((d / "job.json").read_text())["circuits_qpy"]["committed"] is True

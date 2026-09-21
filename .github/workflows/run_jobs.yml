@@ -17,6 +17,16 @@ on:
         required: false
         type: boolean
         default: false
+      only_job_tag:
+        description: "Resubmission of one failed job: its tag (e.g. L2-c5); empty = submit the whole list. Writes <list name>_resubmit_<tag>_job_ids.json"
+        required: false
+        type: string
+        default: ""
+      max_pubs:
+        description: "With only_job_tag: pubs per resubmitted job (e.g. 100); empty = one job"
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: write
@@ -50,7 +60,13 @@ jobs:
         if: ${{ inputs.dry_run }}
         env:
           JOBLIST: ${{ inputs.joblist }}
-        run: python -m gradvar.hardware --joblist "$JOBLIST"
+          ONLY_JOB_TAG: ${{ inputs.only_job_tag }}
+          MAX_PUBS: ${{ inputs.max_pubs }}
+        run: |
+          set --
+          if [ -n "$ONLY_JOB_TAG" ]; then set -- "$@" --only-job-tag "$ONLY_JOB_TAG"; fi
+          if [ -n "$MAX_PUBS" ]; then set -- "$@" --max-pubs "$MAX_PUBS"; fi
+          python -m gradvar.hardware --joblist "$JOBLIST" "$@"
       - name: Submit the job list
         if: ${{ !inputs.dry_run }}
         env:
@@ -59,8 +75,12 @@ jobs:
           QISKIT_IBM_INSTANCE: ${{ secrets.QISKIT_IBM_INSTANCE }}
           QISKIT_IBM_INSTANCE_OPEN: ${{ secrets.QISKIT_IBM_INSTANCE_OPEN }}
           SUBMIT_ONLY: ${{ inputs.submit_only }}
+          ONLY_JOB_TAG: ${{ inputs.only_job_tag }}
+          MAX_PUBS: ${{ inputs.max_pubs }}
         run: |
           if [ "$SUBMIT_ONLY" = "true" ]; then set -- --submit-only; else set --; fi
+          if [ -n "$ONLY_JOB_TAG" ]; then set -- "$@" --only-job-tag "$ONLY_JOB_TAG"; fi
+          if [ -n "$MAX_PUBS" ]; then set -- "$@" --max-pubs "$MAX_PUBS"; fi
           python -m gradvar.hardware --joblist "$JOBLIST" --yes-submit "$@"
       - name: "Upload the ISA circuits of Sampler jobs (Paper 2 Deviation 7 (vii); kept as an artefact, not committed)"
         if: ${{ always() }}

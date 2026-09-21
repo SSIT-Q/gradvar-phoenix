@@ -264,6 +264,44 @@ def chunk_tags(tag: str, n_chunks: int) -> List[str]:
     return [tag] + [f"{tag}-c{i}" for i in range(2, n_chunks + 1)]
 
 
+def resubmit_tags(tag: str, n_chunks: int) -> List[str]:
+    """Job tags of a resubmitted job (``--only-job-tag``) split into ``n_chunks`` smaller jobs: ``<tag>-r1``, ``<tag>-r2``, ..."""
+    return [f"{tag}-r{i}" for i in range(1, n_chunks + 1)]
+
+
+def resubmission_groups(groups: list, job_rep_delay_s: dict, only_tag: str, max_pubs: int | None = None, max_bytes: int | None = None):
+    """The job groups of a resubmission (``--only-job-tag`` / ``--max-pubs``): the one group tagged ``only_tag``, exactly as the
+    full build grouped and chunked it (so its pubs are the failed job's pubs in the same order, with the same seeds and
+    parameter values), re-split into consecutive chunks of at most ``max_pubs`` pubs (default: one job) tagged ``<tag>-r1``,
+    ``<tag>-r2``, ...; a probe job's rep_delay carries over to every chunk. An unknown tag raises ``JoblistError``."""
+    sel = [g for g in groups if g[0] == only_tag]
+    if not sel:
+        raise JoblistError(f"--only-job-tag {only_tag!r}: no job of this list carries that tag (jobs: {[g[0] for g in groups]})")
+    tag, level, gshots, group = sel[0]
+    k = len(group) if max_pubs is None else int(max_pubs)
+    if k < 1:
+        raise JoblistError("--max-pubs must be at least 1")
+    chunks = chunk_pubs(group, k, sizes=[pub_param_bytes(b) for b in group], max_bytes=max_bytes)
+    new = [(t, level, gshots, c) for t, c in zip(resubmit_tags(tag, len(chunks)), chunks)]
+    rd = {t: job_rep_delay_s[tag] for t, _, _, _ in new} if tag in job_rep_delay_s else {}
+    return new, rd
+
+
+def calibration_csv_not_after(when: str | None, directory: str | Path | None = None) -> str:
+    """The newest committed ``ibm_phoenix*.csv`` whose stamp is not after ``when`` (UTC ISO; None: the newest of all), i.e.
+    the calibration the runner placed a job list on when it submitted at ``when``. A rebuild of submitted pubs (retrieval,
+    resubmission) must use it: the daily 03:00 UTC snapshot commit would otherwise move the placement under the rebuild."""
+    from .noise import DEFAULT_CALIBRATION, latest_calibration_csv
+    if not when:
+        return latest_calibration_csv(directory)
+    limit = "".join(ch for ch in str(when)[:19] if ch.isdigit())
+    d = Path(directory) if directory else DEFAULT_CALIBRATION.parent
+    ok = [p for p in sorted(d.glob("ibm_phoenix*.csv")) if "".join(ch for ch in p.stem if ch.isdigit())[:14] <= limit]
+    if not ok:
+        raise FileNotFoundError(f"no calibration CSV in {d} stamped at or before {when}")
+    return str(ok[-1])
+
+
 def chunk_pubs(pubs: list, max_pubs: int, sizes: Sequence[int] | None = None, max_bytes: int | None = None) -> List[list]:
     """Split a job group's pub list into consecutive chunks of at most ``max_pubs`` pubs (the backend's ``max_experiments``;
     Deviation 48 counts pubs, whatever their parameter rows) whose ``sizes`` (bound parameter bytes per pub) sum to at
@@ -1519,6 +1557,8 @@ def write_job_bundle(run_root: Path, job_id: str, group: List[BuiltPub], backend
 
 
 QPY_ARTIFACT_DIR = "artifacts"       # <run_root>/../artifacts/<date>/<job_id>/circuits.qpy: uploaded by the Action, never committed
+QPY_COMMIT_LIMIT_MB = 45.0           # an Estimator bundle's circuits.qpy above this goes to the artefact dir too: GitHub refuses files over
+                                     # 100 MB (day-2 retrieval run 35551684219, 21 Sep 2026: two 112 MB files, push rejected) and warns from 50 MB
 LFS_DIR = "lfs"                      # <run_root>/../lfs/<date>/<job_id>/: files above BITARRAYS_COMMIT_LIMIT_MB go here (Git LFS)
 BITARRAYS_COMMIT_LIMIT_MB = 20.0
 
@@ -1536,12 +1576,16 @@ def _qpy_policy(root: Path, day: str, job_id: str, bundle_dir: Path, group, samp
     data = buf.getvalue()
     info = dict(sha256=hashlib.sha256(data).hexdigest(), bytes=len(data), circuits=len(group), qiskit_version=qiskit.__version__,
                 qiskit_ibm_runtime_version=_runtime_version(), qpy_version=getattr(qpy, "QPY_VERSION", None))
-    if sampler:
+    large = len(data) > QPY_COMMIT_LIMIT_MB * 1e6
+    if sampler or large:
         art = Path(root).parent / QPY_ARTIFACT_DIR / day / job_id
         art.mkdir(parents=True, exist_ok=True)
         (art / "circuits.qpy").write_bytes(data)
-        info.update(committed=False, path=str(art / "circuits.qpy"),
-                    policy="Paper 2 Deviation 7 (vii): ISA circuits are not committed for Sampler jobs; kept as an Action artefact")
+        policy = ("Paper 2 Deviation 7 (vii): ISA circuits are not committed for Sampler jobs; kept as an Action artefact" if sampler else
+                  f"circuits.qpy above QPY_COMMIT_LIMIT_MB = {QPY_COMMIT_LIMIT_MB:g} MB is not committed (GitHub's 100 MB file limit rejected the "
+                  "day-2 retrieval push, run 35551684219); kept as an Action artefact and rebuildable from the job list, the calibration CSV, "
+                  "the seeds and the qiskit version")
+        info.update(committed=False, path=str(art / "circuits.qpy"), policy=policy)
         print(f"  circuits.qpy ({len(data) / 1e6:.1f} MB) written to {art} (Action artefact, not committed); sha256 {info['sha256'][:16]}")
     else:
         (bundle_dir / "circuits.qpy").write_bytes(data)
@@ -1640,14 +1684,17 @@ def dry_run_sample_info(jl: dict, points: List[GridPoint], pubs_per_group: int) 
 
 
 def job_groups(jl: dict, points: List[GridPoint], shapes: dict, shots: int, backend, calibration_csv: str | None = None,
-               dry_run_sample: int | None = None) -> Tuple[List[Tuple[str, int, int, list]], Dict[str, float | None]]:
+               dry_run_sample: int | None = None, only_tag: str | None = None,
+               resubmit_max_pubs: int | None = None) -> Tuple[List[Tuple[str, int, int, list]], Dict[str, float | None]]:
     """Build and transpile the job list against ``backend`` and group the pubs into the jobs the runner submits:
     ``[(job tag, resilience level, shots, pubs)]`` (one group per resilience level of the gradient points, then one per
     (level, shots, rep_delay_us) of the probes, each split in build order at ``max_experiments`` pubs and at
     ``MAX_JOB_PARAM_MB`` of bound parameter values, tags ``L0``, ``L0-c2``, ...; the same packing as ``budget_jobs``) and
     ``{tag: rep_delay_s}`` for the probe jobs (None: backend default). Deterministic from the job list, the calibration
     CSV, the seeds and the qiskit version, so the retrieval path (``retrieve_jobs``) rebuilds exactly what
-    ``execute_joblist`` submitted. ``dry_run_sample`` (dry runs only) keeps the first that many pubs of every group."""
+    ``execute_joblist`` submitted. ``dry_run_sample`` (dry runs only) keeps the first that many pubs of every group.
+    ``only_tag`` keeps only the group with that tag, re-split at ``resubmit_max_pubs`` pubs into ``<tag>-r1``, ``-r2``, ...
+    (``resubmission_groups``: the same pubs the job carried, for a resubmission of a failed job)."""
     if dry_run_sample is not None:
         lim, kept, per_level = int(dry_run_sample), [], {}
         for p in points:
@@ -1681,13 +1728,16 @@ def job_groups(jl: dict, points: List[GridPoint], shapes: dict, shots: int, back
         split(probe_job_tag(level, pshots, probe_rep_delay_us(group[0].probe)), level, pshots, group)
     job_rep_delay_s = {tag: (None if probe_rep_delay_us(g[0].probe) is None else probe_rep_delay_us(g[0].probe) / 1e6)
                        for tag, _, _, g in groups if g and isinstance(g[0], BuiltProbe)}
+    if only_tag is not None:
+        groups, job_rep_delay_s = resubmission_groups(groups, job_rep_delay_s, only_tag, resubmit_max_pubs, max_bytes)
     return groups, job_rep_delay_s
 
 
 def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int, backend, submit: bool,
                     run_root: str = "data/runs", log_path: str | None = None, calibration_csv: str | None = None,
                     instance_plan: str | None = None, wait: bool = True, joblist_path: str | None = None,
-                    run_id: int | str | None = None, dry_run_sample: int | None = None) -> List[dict]:
+                    run_id: int | str | None = None, dry_run_sample: int | None = None, only_tag: str | None = None,
+                    resubmit_max_pubs: int | None = None, resubmission: dict | None = None) -> List[dict]:
     """Build the PUBs, run one EstimatorV2 job per resilience level (inside a Batch when submitting), write one bundle
     per job under ``run_root`` and append one row per point to ``log_path``. With ``submit=False`` the same layout is
     written against the given (fake) backend with job_id 'dryrun-<utc>-L<level>' and no PrimitiveResult.
@@ -1703,6 +1753,11 @@ def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int,
     Action limit (smoke test run 35489912431, 20 Sep 2026) can be completed by ``retrieve_jobs``. With ``wait=False``
     (``--submit-only``) the function returns after writing that file without waiting for any result.
 
+    ``only_tag`` / ``resubmit_max_pubs`` (``--only-job-tag`` / ``--max-pubs``) build the whole list, keep the one job tagged
+    ``only_tag`` and submit its pubs as jobs of at most ``resubmit_max_pubs`` pubs tagged ``<tag>-r1``, ``-r2``, ...; the ids
+    file is then ``<list name>_resubmit_<tag>_job_ids.json`` and carries ``resubmission`` (the original job and ids file, the
+    chunk size, the calibration CSV the pubs were placed on), as does every bundle's job.json.
+
     THIS FUNCTION IS THE ONLY PLACE THAT SUBMITS JOBS, and only when ``submit`` is True.
     """
     from qiskit_ibm_runtime import EstimatorV2
@@ -1711,7 +1766,11 @@ def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int,
         print(f"dry-run sample: building the first {sampled['pubs_per_group']} pubs of each group ({sampled['full_pubs']} pubs in full); "
               "budget figures below are for the full list")
     groups, job_rep_delay_s = job_groups(jl, points, shapes, shots, backend, calibration_csv,
-                                         dry_run_sample=None if sampled is None else sampled["pubs_per_group"])
+                                         dry_run_sample=None if sampled is None else sampled["pubs_per_group"],
+                                         only_tag=only_tag, resubmit_max_pubs=resubmit_max_pubs)
+    if only_tag is not None:
+        print(f"resubmission of job {only_tag}: {sum(len(g) for _, _, _, g in groups)} pubs in {len(groups)} job(s) of at most "
+              f"{max(len(g) for _, _, _, g in groups)} pubs ({', '.join(t for t, _, _, _ in groups)}); the other jobs of the list are not built again", flush=True)
     rd_info = rep_delay_info(backend)
 
     def _apply_rep_delay(est, tag):
@@ -1738,7 +1797,7 @@ def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int,
         raise SystemExit(f"refusing to submit: {_layout_check_message(chk)}; {remedy}")
     extra = dict(instance_plan=instance_plan, budget=jl.get("budget"), budget_estimate_with_target_durations=budget_target,
                  layout_check=chk, max_experiments=max_experiments(jl.get("backend"), backend), max_job_param_mb=MAX_JOB_PARAM_MB,
-                 dry_run_sample=sampled)
+                 dry_run_sample=sampled, resubmission=resubmission)
     root = Path(run_root)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     rows: List[dict] = []
@@ -1760,7 +1819,8 @@ def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int,
                   f"{sum(pub_param_bytes(b) for b in group) / 1e6:.2f} MB of parameter values, resilience {level}, shots {gshots}, ISA ops {names}); nothing submitted")
     else:
         from qiskit_ibm_runtime import Batch
-        snapshot = calibration_csv or snapshot_calibration(backend)
+        # a resubmission is placed on the original submission's CSV (calibration_csv) but logs a fresh properties snapshot
+        snapshot = snapshot_calibration(backend) if (calibration_csv is None or resubmission is not None) else calibration_csv
         with Batch(backend=backend) as batch:
             jobs = []
             for tag, level, gshots, group in groups:
@@ -1783,13 +1843,17 @@ def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int,
                 print(f"submitted job {job.job_id()} ({tag}: resilience {level}, {len(group)} pubs, shots {gshots})", flush=True)
             # the ids go to disk before any result is awaited (run 35489912431 lost them to stdout buffering and the 6-hour limit)
             batch_id = getattr(batch, "session_id", None)
+            list_name = jl.get("name") or (Path(joblist_path).stem if joblist_path else "joblist")
+            ids_name = list_name if resubmission is None else f"{list_name}_resubmit_{resubmission['of_tag']}"
             ids_file = write_ids_file(
-                ids_file_path(root, datetime.now(timezone.utc).strftime("%Y-%m-%d"), jl.get("name") or (Path(joblist_path).stem if joblist_path else "joblist")),
+                ids_file_path(root, datetime.now(timezone.utc).strftime("%Y-%m-%d"), ids_name),
                 jl, joblist_path, [dict(job_id=job.job_id(), tag=tag, level=level, shots=gshots, pubs=len(group),
                                         rep_delay_us=None if job_rep_delay_s.get(tag) is None else round(job_rep_delay_s[tag] * 1e6, 6),
                                         submitted_utc=created) for tag, level, gshots, group, job, _, created in jobs],
                 batch_id=None if batch_id is None else str(batch_id), calibration_csv=calibration_csv, calibration_snapshot=snapshot,
-                run_id=run_id, notes="written by execute_joblist right after submission" + ("" if wait else " (--submit-only: results not awaited)"))
+                run_id=run_id, notes="written by execute_joblist right after submission" + ("" if wait else " (--submit-only: results not awaited)")
+                + ("" if resubmission is None else f"; resubmission of job {resubmission['of_tag']} ({resubmission.get('of_job_id')}) of {resubmission.get('of_ids_file')}"),
+                resubmission=resubmission)
             print(f"job ids written to {ids_file}" + ("" if wait else f"; retrieve with: python -m gradvar.hardware --retrieve {ids_file}"), flush=True)
             if not wait:
                 jobs = []
@@ -1819,11 +1883,52 @@ def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int,
     return rows
 
 
+def resubmission_context(jl: dict, path: str, only_tag: str, max_pubs: int | None, run_root: str, calibration_csv: str | None,
+                         submit: bool) -> Tuple[dict, str | None]:
+    """What a resubmission (``--only-job-tag``) is built on: the original submission's ids file ``<run_root>/<day>/<list name>_job_ids.json``
+    (exactly one; ``_resubmit_`` ids files do not match), that job's id in it, and the calibration CSV the original pubs were
+    placed on (the ids file's ``calibration_csv``, else the newest CSV stamped not after its ``written_utc``), so the rebuilt
+    pubs are the failed job's pubs whatever snapshots landed since. Returns ``(resubmission record, calibration_csv)``. A dry
+    run without an original ids file proceeds on ``calibration_csv`` (default: the newest CSV) and says so; a submission refuses."""
+    from .noise import latest_calibration_csv
+    name = jl.get("name") or Path(path).stem
+    found = sorted(Path(run_root).glob(f"*/{name}_job_ids.json")) or sorted(Path("data/runs").glob(f"*/{name}_job_ids.json"))   # a dry run with a scratch --run-root still pins the CSV
+    ctx: Dict[str, Any] = dict(of_tag=str(only_tag), max_pubs=None if max_pubs is None else int(max_pubs), of_ids_file=None, of_job_id=None,
+                               of_submission_run=None, of_pubs=None, calibration_csv=None)
+    if not found:
+        if submit:
+            raise SystemExit(f"refusing to resubmit {only_tag}: no original ids file {run_root}/<day>/{name}_job_ids.json "
+                             "(a resubmission repeats a submission that wrote one)")
+        ctx["calibration_csv"] = calibration_csv or latest_calibration_csv()
+        ctx["note"] = "dry run without an original ids file: pubs placed on the newest calibration CSV"
+        print(f"resubmission dry run of {only_tag}: no original ids file under {run_root}; pubs placed on {ctx['calibration_csv']}", flush=True)
+        return ctx, ctx["calibration_csv"]
+    if len(found) > 1:
+        raise SystemExit(f"{len(found)} ids files for {name} under {run_root}: {[str(p) for p in found]}; a resubmission needs exactly one")
+    ids = load_ids_file(found[0])
+    orig = [j for j in ids["jobs"] if str(j["tag"]) == str(only_tag)]
+    if not orig:
+        raise SystemExit(f"{found[0]} has no job tagged {only_tag!r} (tags: {[j['tag'] for j in ids['jobs']]})")
+    csv = calibration_csv or ids.get("calibration_csv") or calibration_csv_not_after(ids.get("written_utc"))
+    ctx.update(of_ids_file=str(found[0]), of_job_id=orig[0].get("job_id"), of_submission_run=ids.get("submission_run"), of_pubs=orig[0].get("pubs"),
+               calibration_csv=csv)
+    print(f"resubmission of {only_tag}: job {orig[0].get('job_id')} of run {ids.get('submission_run')} ({orig[0].get('pubs')} pubs, {found[0]}); "
+          f"pubs placed on {csv}" + (f" (the newest CSV not after the ids file's written_utc {ids.get('written_utc')})" if not ids.get("calibration_csv") and not calibration_csv else ""),
+          flush=True)
+    return ctx, csv
+
+
 def run_joblist(path: str, submit: bool, log_dir: str = "data/jobs", run_root: str = "data/runs",
                 calibration_csv: str | None = None, simulate: bool = False, simulate_shots: int | None = None,
-                submit_only: bool = False, dry_run_sample: int | None = None) -> int:
+                submit_only: bool = False, dry_run_sample: int | None = None, only_tag: str | None = None,
+                max_pubs: int | None = None) -> int:
     jl = load_joblist(path)
     sampler = str(jl.get("primitive", "estimator")) == "sampler"
+    resubmission = None
+    if only_tag is not None:
+        if sampler:
+            raise SystemExit("--only-job-tag is not implemented for Sampler lists (gradvar.paper2)")
+        resubmission, calibration_csv = resubmission_context(jl, path, only_tag, max_pubs, run_root, calibration_csv, submit)
     points, shapes, shots = ([], {}, None) if sampler else joblist_points(jl, calibration_csv)
     stem = Path(path).stem
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
@@ -1851,7 +1956,7 @@ def run_joblist(path: str, submit: bool, log_dir: str = "data/jobs", run_root: s
             return 0
         execute_joblist(jl, points, shapes, shots, backend, submit=False, run_root=run_root,
                         log_path=str(Path(log_dir) / f"{stem}_dryrun_{stamp}.csv"), calibration_csv=calibration_csv,
-                        dry_run_sample=dry_run_sample)
+                        dry_run_sample=dry_run_sample, only_tag=only_tag, resubmit_max_pubs=max_pubs, resubmission=resubmission)
         return 0
     if jl.get("dry_run", False) is True:
         raise SystemExit(f"refusing to submit: {path} carries dry_run: true; set it to false after the pre-flight review")
@@ -1871,7 +1976,8 @@ def run_joblist(path: str, submit: bool, log_dir: str = "data/jobs", run_root: s
         execute_sampler_joblist(jl, backend, submit=True, run_root=run_root, log_path=log_path, instance_plan=plan)
         return 0
     execute_joblist(jl, points, shapes, shots, backend, submit=True, run_root=run_root, log_path=log_path, instance_plan=plan,
-                    wait=not submit_only, joblist_path=path, run_id=github_run_id())
+                    wait=not submit_only, joblist_path=path, run_id=github_run_id(), calibration_csv=calibration_csv,
+                    only_tag=only_tag, resubmit_max_pubs=max_pubs, resubmission=resubmission)
     return 0
 
 
@@ -1898,17 +2004,18 @@ def ids_file_path(run_root: str | Path, day: str, name: str) -> Path:
 
 def write_ids_file(path: str | Path, jl: dict, joblist_path: str | None, jobs: List[dict], batch_id: str | None = None,
                    calibration_csv: str | None = None, calibration_snapshot: str | None = None, run_id: int | str | None = None,
-                   notes: str | None = None, discovery: dict | None = None) -> Path:
+                   notes: str | None = None, discovery: dict | None = None, resubmission: dict | None = None) -> Path:
     """Write the ids file: the job list it belongs to, the Action run that submitted (``submission_run``), the Batch id,
     the calibration CSV the patch was placed on and the snapshot taken before submission, and one entry per job
     ``{job_id, tag, level, shots, pubs, rep_delay_us, submitted_utc}`` (``job_id`` may be null with a ``discovery``
-    window, see ``retrieve_jobs``). No secret and no CRN."""
+    window, see ``retrieve_jobs``). ``resubmission`` (``--only-job-tag``): ``{of_tag, max_pubs, of_ids_file, of_job_id,
+    of_submission_run, of_pubs, calibration_csv}``, so ``retrieve_jobs`` rebuilds the same chunks. No secret and no CRN."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     _dump(path, dict(schema=IDS_SCHEMA, joblist=joblist_path, joblist_name=jl.get("name"), backend=jl.get("backend"), instance=jl.get("instance"),
                      submission_run=run_id, runner_git_commit=git_commit_hash(), batch_id=batch_id, calibration_csv=calibration_csv,
                      calibration_snapshot=calibration_snapshot, written_utc=datetime.now(timezone.utc).isoformat(), notes=notes,
-                     discovery=discovery, jobs=jobs))
+                     discovery=discovery, resubmission=resubmission, jobs=jobs))
     return path
 
 
@@ -1940,6 +2047,16 @@ def load_ids_file(path: str | Path) -> dict:
         tags.append(str(j["tag"]))
     if len(set(tags)) != len(tags):
         raise JoblistError(f"{path}: job tags must be unique")
+    resub = ids.get("resubmission")
+    if resub is not None:
+        if not isinstance(resub, dict) or not str(resub.get("of_tag", "")).strip():
+            raise JoblistError(f"{path}: resubmission must be an object with of_tag")
+        mp = resub.get("max_pubs")
+        if mp is not None and (isinstance(mp, bool) or not isinstance(mp, int) or mp < 1):
+            raise JoblistError(f"{path}: resubmission.max_pubs must be null or a positive integer")
+        bad = [t for t in tags if not t.startswith(f"{resub['of_tag']}-r")]
+        if bad:
+            raise JoblistError(f"{path}: a resubmission of {resub['of_tag']} carries tags {resub['of_tag']}-r1, -r2, ...; found {bad}")
     if need_discovery:
         disc = ids.get("discovery") or {}
         try:
@@ -2110,7 +2227,6 @@ def retrieve_jobs(ids_path: str, joblist_path: str | None = None, run_root: str 
     identified in the ids file's discovery window by its signature (``match_jobs_by_signature``) and the ids file is
     rewritten with the ids found. A calibration snapshot at retrieval time goes to ``snapshot_dir`` (metadata only, no QPU
     time). Submits nothing; the token and CRN are read as on the live path and never written."""
-    from .noise import latest_calibration_csv
     ids = load_ids_file(ids_path)
     joblist_path = joblist_path or ids.get("joblist")
     if not joblist_path:
@@ -2118,7 +2234,9 @@ def retrieve_jobs(ids_path: str, joblist_path: str | None = None, run_root: str 
     jl = load_joblist(joblist_path)
     if str(jl.get("primitive", "estimator")) == "sampler":
         raise SystemExit("retrieval of Sampler lists (gradvar.paper2) is not implemented")
-    csv = calibration_csv or ids.get("calibration_csv") or latest_calibration_csv()
+    resub = ids.get("resubmission")
+    csv = calibration_csv or ids.get("calibration_csv") or calibration_csv_not_after(ids.get("written_utc"))   # the CSV in force at submission
+    print(f"pubs rebuilt on {csv}" + (f" (resubmission of {resub['of_tag']} in jobs of at most {resub.get('max_pubs')} pubs)" if resub else ""), flush=True)
     resolve_instance(jl["instance"])
     service = get_service(jl["instance"])
     try:
@@ -2128,7 +2246,8 @@ def retrieve_jobs(ids_path: str, joblist_path: str | None = None, run_root: str 
         print(f"instance plan not verified (nothing is submitted): {e}", flush=True)
     backend = get_backend(jl["backend"], service=service)
     points, shapes, shots = joblist_points(jl, csv)
-    groups, job_rep_delay_s = job_groups(jl, points, shapes, shots, backend, csv)
+    groups, job_rep_delay_s = job_groups(jl, points, shapes, shots, backend, csv, only_tag=None if not resub else str(resub["of_tag"]),
+                                         resubmit_max_pubs=None if not resub else resub.get("max_pubs"))
     by_tag = {tag: (level, gshots, group) for tag, level, gshots, group in groups}
     tags = [str(j["tag"]) for j in ids["jobs"]]
     if set(tags) != set(by_tag):
@@ -2207,7 +2326,7 @@ def retrieve_jobs(ids_path: str, joblist_path: str | None = None, run_root: str 
         submitted = j.get("submitted_utc") or created_iso
         extra = dict(instance_plan=plan, budget=jl.get("budget"), budget_estimate_with_target_durations=budget_target, layout_check=chk,
                      max_experiments=max_experiments(jl.get("backend"), backend), max_job_param_mb=MAX_JOB_PARAM_MB, dry_run_sample=None,
-                     job_tag=tag, retrieved=True, submission_run=ids.get("submission_run"),
+                     resubmission=resub, job_tag=tag, retrieved=True, submission_run=ids.get("submission_run"),
                      retrieval=dict(ids_file=str(ids_path), retrieval_run=run_id, retrieved_utc=now, job_status=status, submitted_utc=submitted,
                                     properties_source=props_label, calibration_csv=csv, calibration_snapshot=snapshot,
                                     calibration_snapshot_at_retrieval=snapshot_now, inputs_verification=verif))
@@ -2269,6 +2388,12 @@ def main(argv=None):
                                                                         "--submit-only, or hand-written with job_id null and a discovery window) "
                                                                         "into the same bundles and CSV rows as the live path; submits nothing")
     p.add_argument("--timeout", type=float, default=None, help="with --retrieve: seconds to wait per job for a final state (default: no limit)")
+    p.add_argument("--only-job-tag", default=None, metavar="TAG",
+                   help="resubmission of one failed job: build the list as submitted (on the calibration CSV of the original submission, found "
+                        "through its ids file under --run-root), keep only the job tagged TAG (e.g. L2-c5) and submit its pubs as jobs "
+                        "TAG-r1, TAG-r2, ... of at most --max-pubs pubs; the ids file is <list name>_resubmit_<TAG>_job_ids.json. "
+                        "Works with the dry run too (nothing submitted)")
+    p.add_argument("--max-pubs", type=int, default=None, metavar="K", help="with --only-job-tag: pubs per resubmitted job (default: all in one job)")
     a = p.parse_args(argv)
     try:
         sys.stdout.reconfigure(line_buffering=True)     # the Action log must show each job id as it is submitted (run 35489912431 lost them)
@@ -2279,6 +2404,10 @@ def main(argv=None):
         return 0
     if a.submit_only and not (a.joblist and a.yes_submit):
         p.error("--submit-only needs --joblist and --yes-submit")
+    if a.max_pubs is not None and a.only_job_tag is None:
+        p.error("--max-pubs needs --only-job-tag")
+    if a.only_job_tag is not None and (not a.joblist or a.dry_run_sample is not None):
+        p.error("--only-job-tag needs --joblist and cannot be combined with --dry-run-sample")
     if a.joblist and a.budget:
         print(json.dumps(estimate_budget(load_joblist(a.joblist)), indent=1))
         return 0
@@ -2288,7 +2417,7 @@ def main(argv=None):
         if a.yes_submit and a.dry_run_sample is not None:
             p.error("--dry-run-sample is a dry-run option and cannot be combined with --yes-submit")
         return run_joblist(a.joblist, submit=a.yes_submit, log_dir=a.log_dir, run_root=a.run_root, simulate=a.simulate, simulate_shots=a.simulate_shots,
-                           submit_only=a.submit_only, dry_run_sample=a.dry_run_sample)
+                           submit_only=a.submit_only, dry_run_sample=a.dry_run_sample, only_tag=a.only_job_tag, max_pubs=a.max_pubs)
     if a.yes_submit:
         p.error("ad-hoc submission is disabled: hardware jobs run only from a reviewed job list (--joblist)")
     dry_run(a.n, a.L, a.k)
