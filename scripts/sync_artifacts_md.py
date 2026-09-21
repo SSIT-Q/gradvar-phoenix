@@ -180,7 +180,7 @@ REGISTRY: list[Entry] = [
         "Phoenix programme handover",
         "https://claude.ai/artifact/97fbLq6XfiAYZ2Q3SKn4dq",
         source="handover.html",
-        page_version="8",
+        page_version="9",
         note="Rendered from `docs/HANDOVER.md` (the source of truth) by `scratchpad/render_handover_v6.py`; this generated mirror is the shareable copy of the published page.",
     ),
 ]
