@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 
 from . import predictions as P
-from .estimators import Z95, fit_exponential_vs_powerlaw, layer_index_ratio, paired_ratio
+from .estimators import Z95, ZNE_SHOT_INFLATION, fit_exponential_vs_powerlaw, layer_index_ratio, paired_ratio
 
 H_TEXT = {
     "H1": "Noiseless structure. Refuted if the noiseless simulation at L = 4 on patches of at least 7x7 (the 8x10 and 10x10 patches) shows a "
@@ -33,7 +33,7 @@ H_TEXT = {
 }
 SWEEP_N = {39, 40, 87, 90, 100}          # n = 40 / 100 nominal, 39 / 90 (Deviation 18), 39 / 87 (Deviations 22 + 26)
 LARGE_PATCH_N = {70, 71, 80, 87, 90, 100}   # 8x10 and 10x10 patches
-ZNE_INFLATION = 4.0                      # ||c||_1^2 for the linear extrapolator from gains 1 and 3
+ZNE_INFLATION = ZNE_SHOT_INFLATION       # ||c||_1^2 for the linear extrapolator from gains 1 and 3 (one constant, gradvar.analysis.estimators)
 
 
 def verdict(hid: str, text: str, result: str, value=None, threshold=None, comparison: str = "", note: str = "", **details) -> Dict:

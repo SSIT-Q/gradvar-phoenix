@@ -438,6 +438,18 @@ def test_null_floor_for_picks_the_L0_level_matched_null_control():
     assert sim["var_null"] == 8.99e-5 and sim["source"].startswith("simulated")
 
 
+def test_level2_points_use_the_preregistered_zne_shot_floor(passing):
+    """Level-2 (ZNE) points: the shot floor is ||c||_1^2 = 4 x 1/(2N), not the Estimator's reported std (which is the extrapolator's conservative
+    error and exceeded the draw variance on day 2, giving a spurious negative signal); levels 0 and 1 keep the reported per-draw std^2."""
+    pts = passing["points"]
+    l2 = pts[(pts.kind == "grid") & (pts.resilience_level == 2)]
+    assert len(l2) and np.allclose(l2.shot_variance, 4.0 / (2 * l2.shots)) and l2.shot_variance_source.str.contains(r"\|\|c\|\|_1\^2 = 4").all()
+    assert np.allclose(l2.signal_variance, l2.variance - l2.shot_variance)
+    l0 = pts[(pts.kind == "grid") & (pts.resilience_level == 0)]
+    assert l0.shot_variance_source.str.startswith("mean of the Estimator").all() and E.level2_shot_variance(4096) == pytest.approx(4 / 8192)
+    assert hypotheses.ZNE_INFLATION == E.ZNE_SHOT_INFLATION == 4.0
+
+
 def test_gate2_a_is_keyed_to_the_placed_n20_rung(passing, preds):
     """Deviation 46: the n20 rung ran at n = 19 on day 1; gate2_a keys the filter, the null floor and the prediction lookup to the placed n."""
     pts = passing["points"].copy()

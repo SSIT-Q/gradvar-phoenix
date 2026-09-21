@@ -160,3 +160,35 @@ Open items for the PI (not resolved by the code): Gate 1b clause (b) on the day 
 decided on the predictions before booking); the H4 part 2 "grows with cone size" clause is read on point estimates while
 "differs from 4" uses the bootstrap interval, so the two clauses together admit only modest growth (a pre-registration
 tension, not a code choice); the truncation arm (H7) has no job-list probe kind yet.
+
+## Which prediction row is compared to what (21 Sep 2026, after the day-2 review)
+
+Three kinds of pre-drawn number exist for a main-grid point, and they answer different questions:
+
+- **Propagation rows** (`pauliprop_predictions.csv`, the `main_grid_redraw_*` propagation rows; `var_mc`, and `var_k1_mc` of a k = L row for the
+  k = 1 point): the **ensemble** second moment, standard error 1e-4 relative or better when converged. **This is the population value every
+  measured variance is compared with** (ratio, z, the Deviation 19 single-point flag), on the run-day placement (Deviation 46) where it exists,
+  the 19 Sep frozen row marked "frozen" otherwise.
+- **Exact rows** (`gate1_predictions.csv`, the `main_grid_redraw_*` statevector / density-matrix rows): the same model evaluated on the
+  `gate1_ladder` seed-2026 draw set, **M = 200 draws**, with a bootstrap interval. A sample variance of M = 200 draws of a distribution with
+  kurtosis kappa has relative standard error sqrt((kappa - 1) / M): 0.10 at L = 1 (kappa 2.3), 0.12 at L = 2 (3.9), 0.16 at L = 4 to 8
+  (6 to 7). An exact row is therefore a **sample check of the propagation row** (a pipeline and light-cone check, and the only prediction where no
+  propagation row exists: L = 1, and L = 2 where the cone is small), not a tighter population value; it is compared with the measurement only
+  when no propagation row exists.
+- **The same-draw noiseless rebuild** (the hardware draws' `param_values` re-evaluated by statevector on the light cone, `scratchpad/day1_noiseless*.py`,
+  `day2_noiseless.py`): the **paired reference** for the draws that ran; hardware / rebuild is the device attenuation, rebuild / propagation is the
+  draw-sampling term of the population comparison. Its M = 200 sample has the same relative error as an exact row.
+
+Applied to the day-2 rows: the n40 (n = 37) L = 2 noiseless exact row of 1cce692, 0.1024 [0.081, 0.125], and the propagation row of 8e74e67,
+0.0781 +/- 0.0001, use the same cone (14 qubits) and edge (93_103); the exact row is +2.2 sigma from the ensemble, the same-draw rebuild of the
+200 hardware seeds (0.0685, kappa 3.8) is -1.2 sigma from it, and the two M = 200 samples are 2.4 sigma apart (independent draw sets: seed 2026
+versus the list's seeds 21272001 + d). No row is wrong; the population value is 0.0781 and the day-2 comparison used it. Every other pair with
+both rows agrees within 0.7 sigma (frozen n = 39 L = 2 -0.1, n = 20 L = 4 +0.7, day-1 n = 19 L = 4 -0.3). `predictions.predicted_point` still
+prefers the exact row where both exist; the reviews apply this rule by hand until the join is changed (follow-up).
+
+**Level-2 (ZNE) shot floor.** The pre-registration fixes the extrapolator (linear from gains 1 and 3, c = (3/2, -1/2), ||c||_1 = 2) and its
+shot-variance inflation ||c||_1^2 = 4 at equal shots per circuit (Section 2 "Mitigation", H4 part 2). The pipeline's level-2 shot floor is
+therefore `estimators.level2_shot_variance` = 4 x 1/(2N) per draw (4.9e-4 at 4096 shots), recorded in `shot_variance_source`; the Estimator's
+reported per-draw std at level 2 is the extrapolator's conservative error (2.1e-3 to 2.6e-3 on day 2, above the draw variance itself) and is
+not subtracted (it produced a negative "signal" and a spurious z = -7.9 on the n = 85 L = 8 level-2 point in the first day-2 run). H4's
+inflation reading still uses the two repeats where they exist and the reported std ratio only as a labelled proxy.

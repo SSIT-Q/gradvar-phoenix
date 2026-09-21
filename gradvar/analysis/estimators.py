@@ -42,6 +42,17 @@ def kurtosis(g: np.ndarray) -> float:
     return float(np.mean((g - g.mean()) ** 4) / np.mean((g - g.mean()) ** 2) ** 2)
 
 
+ZNE_SHOT_INFLATION = 4.0   # ||c||_1^2 of the pre-registered linear extrapolator from gains 1 and 3, c = (3/2, -1/2) (Section 2 "Mitigation", Deviation 42)
+
+
+def level2_shot_variance(shots: int) -> float:
+    """The per-draw shot variance of a level-2 (ZNE) gradient estimate as pre-registered: the single-circuit floor 1/(2N) inflated by
+    ||c||_1^2 = 4 (Banchi, Branford and Waghela Eqs. 17-19). The Estimator's reported std at level 2 is the extrapolator's conservative error
+    (day 2, 21 Sep 2026: 2.1e-3 to 2.6e-3 per draw against a draw variance of 6e-4 to 7e-4 at n = 37 / 85, L = 8), so subtracting it gave a
+    negative signal and a spurious z = -7.9; it is not used as the floor."""
+    return ZNE_SHOT_INFLATION * shot_floor(int(shots))
+
+
 def variance_point(grads, shot_vars=None, shots: int | None = None, L: int | None = None, n_boot: int = N_BOOT,
                    seed: int = 0) -> Dict:
     """Section 3 "Estimate" for one point. ``grads`` are the M per-draw gradient estimates, ``shot_vars`` their
@@ -331,7 +342,12 @@ def point_table(rows: pd.DataFrame, n_boot: int = N_BOOT) -> pd.DataFrame:
                     properties_file=first.properties_file, backend=first.backend, jobs=sorted(set(g.job_id.astype(str))), n_rows=int(len(g)),
                     status=",".join(sorted(set(g.status.astype(str)))))
         if first.kind == "grid":
-            est = variance_point(g.gradient.astype(float), g.shot_var.astype(float), int(first.shots), int(first.L), n_boot=n_boot)
+            level2 = int(first.resilience_level) == 2
+            sv = np.full(len(g), level2_shot_variance(int(first.shots))) if level2 else g.shot_var.astype(float)
+            est = variance_point(g.gradient.astype(float), sv, int(first.shots), int(first.L), n_boot=n_boot)
+            est["shot_variance_source"] = (f"pre-registered ZNE inflation ||c||_1^2 = {ZNE_SHOT_INFLATION:g} x 1/(2N) (the Estimator's reported std at level 2 is the "
+                                           f"extrapolator's conservative error, mean {float(np.nanmean(g.shot_var.astype(float))):.3g} here, and is not subtracted)"
+                                           if level2 else "mean of the Estimator's reported per-draw std^2")
             g0 = g[g.repeat == 0].sort_values("draw") if "repeat" in g.columns else g.sort_values("draw")
             est["gradients"] = g0.gradient.astype(float).tolist()
             est["shot_vars"] = g0.shot_var.astype(float).tolist()
