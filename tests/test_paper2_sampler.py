@@ -24,6 +24,10 @@ SMOKE_SNAPSHOT = "ibm_phoenix_2026-09-21T030827Z.csv"
 SMOKE_READOUT_FLAGS = [24, 55, 62, 67, 77, 105, 107]   # 73 fell to 2.8e-2, 105 rose to 6.5e-2 (the day-2 post-run excursion)
 SMOKE_Q4_EDGES = [[5, 6], [12, 13], [25, 26], [31, 32], [46, 47], [50, 51], [68, 69], [75, 76], [81, 82], [94, 95], [100, 101], [115, 116]]
 SMOKE_Q4_EXCLUDED = [7, 8, 11, 17, 18, 24, 27, 49, 55, 59, 61, 62, 63, 67, 72, 73, 77, 79, 105, 107, 110, 114]   # incl. the Deviation 53 coherence floor
+SMOKE_PERMALINK = "https://ssitcrew.slack.com/archives/C0C29EYR0GZ/p1789960975545879?thread_ts=1789669318.385169&cid=C0C29EYR0GZ"
+COHERENCE_FLAGS = [7, 11, 67, 114]                      # T1 or T2 < 25 us on the 21 Sep 03:08Z snapshot (Deviations 10-14 map column)
+# v0.6.0 (Deviations 9-14, 21 Sep 2026): Q1-Q5 are placed on the 21 Sep 03:08Z snapshot too, Q3 with the echo on, Q2 with the echo job at r = 16.
+CAMPAIGN_SNAPSHOT = SMOKE_SNAPSHOT
 CZ_CLUSTER = [55, 61, 62, 63, 72, 73]
 Q4_EDGES = [[0, 1], [15, 16], [20, 21], [38, 39], [42, 43], [57, 58], [64, 65], [70, 71], [85, 86], [92, 93], [108, 109], [115, 116]]
 P2 = ROOT / "data" / "joblists" / "paper2"
@@ -32,17 +36,18 @@ LISTS = {"Q1": P2 / "Q1.json", "Q2": P2 / "Q2.json", "Q3": P2 / "Q3.json", "Q4":
 # Section 3 table (v0.4.4): (circuits, jobs, executions, minutes at 250 us, seconds at 1 us); Q5 is one of four days. Q1 includes the
 # Deviation 6 qubit-79 job (3 circuits, 196,608 executions, 0.9 min / 3 s). The 1 us seconds of the table omit the 2 s per-job charge
 # for the smoke test and the qubit-79 job (3 s each there; 5.3 and 5.0 s with the charge), so that column is checked to 3 s.
-TABLE = {"Q1": (20, 3, 1_114_112 + 196_608, 5.0 + 0.9, 20 + 3), "Q2": (180, 1, 2_949_120, 13.1, 49), "Q3": (156, 1, 1_916_928, 8.8, 52),
-         "Q4": (384, 1, 786_432, 3.5, 13), "Q5": (8, 1, 262_144, 4.7 / 4, 23 / 4), "smoke": (40, 2, 81_920, 0.43, 5)}
-CAMPAIGN = dict(executions=8_093_696, minutes_at_250us=36.3, minutes_at_1us=2.7)      # v0.4.4 Section 3 table total, cap 45
+# v0.6.0 Section 3 table (Deviations 10-14: Q2 + 60 echo circuits in their own job, Q3 echo cycle 520 ns, Sampler model v3 = 3.0 s per job +
+# 6.5 us per execution): (circuits, jobs, executions, minutes at 250 us, seconds at 1 us); Q5 is one of four days; the smoke row is the
+# list-03 run record under model v2 (0.43 min / 5.3 s, Deviation 7 (iii)).
+TABLE = {"Q1": (20, 3, 1_114_112 + 196_608, 5.82, 22.9), "Q2": (240, 2, 2_949_120 + 983_040, 17.29, 58.5), "Q3": (156, 1, 1_916_928, 8.76, 48.2),
+         "Q4": (384, 1, 786_432, 3.44, 10.8), "Q5": (8, 1, 262_144, 1.18, 5.6), "smoke": (40, 2, 81_920, 0.43, 5.3)}
+CAMPAIGN = dict(executions=9_076_736, minutes_at_250us=40.5, minutes_at_1us=2.81)      # v0.6.0 total incl. the spent smoke test, cap 45
 pytestmark = pytest.mark.skipif(not HAS_AER, reason="qiskit-aer not installed")
 
 
 def expected_placement(name: str) -> dict:
-    """(snapshot, readout flags, Q4 edges, backtracks) the committed list ``name`` must carry."""
-    if name == "smoke":
-        return dict(snapshot=SMOKE_SNAPSHOT, flags=SMOKE_READOUT_FLAGS, edges=SMOKE_Q4_EDGES, backtracked=[])
-    return dict(snapshot=SNAPSHOT, flags=READOUT_FLAGS, edges=Q4_EDGES, backtracked=[dict(row=5, greedy=[56, 57], chosen=[57, 58])])
+    """(snapshot, readout flags, Q4 edges, backtracks) the committed list ``name`` must carry: every list is on the 21 Sep 03:08Z snapshot."""
+    return dict(snapshot=SMOKE_SNAPSHOT, flags=SMOKE_READOUT_FLAGS, edges=SMOKE_Q4_EDGES, backtracked=[])
 
 
 @pytest.mark.parametrize("name", sorted(LISTS))
@@ -50,10 +55,19 @@ def test_lists_validate_and_refuse_to_submit(name, tmp_path, monkeypatch):
     from gradvar.hardware import check_budget, joblist_submittable, load_joblist, run_joblist
     jl = load_joblist(str(LISTS[name]))
     assert jl["primitive"] == "sampler" and jl["backend"] == "ibm_phoenix" and jl["instance"] == "flex"
-    assert jl["dry_run"] is True and jl["rep_delay_probe"] is True and jl["layout_check"] == "enforce"
-    assert jl["preflight_review"] == "TBD: pre-flight review permalink" and not joblist_submittable(jl)
-    assert "pre-registration v0.4.4" in jl["notes"] and jl["protocol"] == name
-    assert check_budget(jl) == [] and jl["budget"]["model_version"] == 2 and jl["budget"]["primitive"] == "sampler"
+    assert jl["rep_delay_probe"] is True and jl["layout_check"] == "enforce" and jl["protocol"] == name
+    if name == "smoke":       # the 21 Sep run record (armed aba9412): v0.4.4 layout, model v2 budget; the runner refuses to resubmit it under v3
+        assert jl["dry_run"] is False and jl["preflight_review"] == SMOKE_PERMALINK and joblist_submittable(jl)
+        assert "pre-registration v0.4.4" in jl["notes"] and "flagged_coherence" not in jl["qubit_set"]
+        assert check_budget(jl) == ["budget.model_version: job list says 2, runner computes 3"] and jl["budget"]["model_version"] == 2
+    else:
+        assert jl["dry_run"] is True and jl["preflight_review"] == "TBD: pre-flight review permalink" and not joblist_submittable(jl)
+        assert "pre-registration v0.6.0" in jl["notes"] and "Deviations 1-14" in jl["notes"]
+        assert check_budget(jl) == [] and jl["budget"]["model_version"] == 3 and jl["budget"]["job_seconds"] == 3.0 and jl["budget"]["exec_overhead_us"] == 6.5
+        assert jl["qubit_set"]["flagged_coherence"] == COHERENCE_FLAGS and jl["qubit_set"]["coherence_flag_us"] == 25.0
+        assert jl["budget"]["bitarrays_commit_limit_mb"] == 45.0 and jl["budget"]["bitarrays_raw_mb_max"] < 45.0
+        assert all(e["bitarrays_raw_mb"] < 45.0 and e["job_constant_seconds"] == 3.0 for e in jl["budget"]["per_job"])
+    assert jl["budget"]["primitive"] == "sampler"
     want = expected_placement(name)
     assert jl["qubit_set"]["snapshot"] == want["snapshot"] and len(jl["qubit_set"]["qubits"]) == 118 and jl["qubit_set"]["separate"] == [79]
     assert 17 not in jl["qubit_set"]["qubits"] and 79 not in jl["qubit_set"]["qubits"] and jl["qubit_set"]["flagged_readout"] == want["flags"]
@@ -62,7 +76,7 @@ def test_lists_validate_and_refuse_to_submit(name, tmp_path, monkeypatch):
         assert jl["q4_patches"]["exclusion"] == SMOKE_Q4_EXCLUDED and {105, 114} <= set(jl["qubit_set"]["qubits"])
         assert "Deviation 8" in jl["notes"] and "dryrun_03_paper2_smoke_job_ids.json" in jl["notes"]
     monkeypatch.setenv("QISKIT_IBM_INSTANCE", "crn:fake")
-    with pytest.raises(SystemExit, match="dry_run"):                     # refused before preflight / credentials
+    with pytest.raises(SystemExit, match="budget.model_version" if name == "smoke" else "dry_run"):   # refused before credentials
         run_joblist(str(LISTS[name]), submit=True, run_root=str(tmp_path / "r"), log_dir=str(tmp_path / "j"), calibration_csv=CAL)
     reviewed = dict(jl, dry_run=False, preflight_review="https://x.slack.com/archives/C1/p1", budget=dict(jl["budget"], executions=1))
     (tmp_path / "b.json").write_text(json.dumps(reviewed))
@@ -71,12 +85,13 @@ def test_lists_validate_and_refuse_to_submit(name, tmp_path, monkeypatch):
 
 
 def test_budgets_match_the_preregistration_table():
-    """Section 3 'Minute budget' (v0.4.4) and Deviations 2 / 6: Sampler at resilience 0, no TREX; 8,093,696 executions, 36.3 min at
-    250 us (1 percent tolerance), 2.7 min at 1 us, cap 45. The 1 us total is checked to 2 percent: the table's seconds column
-    leaves out the 2 s job charge of the smoke test and of the qubit-79 job (about 4 s of the 165 s total)."""
-    from gradvar.hardware import EXEC_OVERHEAD_US, estimate_budget, load_joblist
-    from gradvar.paper2 import SamplerContext, circuit_gate_us, expand_job
+    """Section 3 'Minute budget' (v0.6.0) and Deviations 2 / 6 / 10-14: Sampler at resilience 0, no TREX; 9,076,736 executions (the smoke
+    test's 81,920 included), 40.5 min at 250 us (1 percent tolerance), 2.7 min at 1 us, cap 45 (headroom 4.5 min, 1.11x). Model v3 for Q1-Q5
+    (3.0 s per job, 6.5 us per execution); the smoke row is the run record under v2."""
+    from gradvar.hardware import estimate_budget, load_joblist
+    from gradvar.paper2 import SAMPLER_BUDGET_MODELS, SamplerContext, circuit_gate_us, expand_job
     from gradvar.hardware import DIAL_US
+    EXEC_OVERHEAD_US, JOB_S = SAMPLER_BUDGET_MODELS[3]["overhead_us"], SAMPLER_BUDGET_MODELS[3]["job_s"]
     total_250 = total_1 = 0.0
     for name, (circuits, jobs, execs, minutes, seconds_1us) in TABLE.items():
         jl = load_joblist(str(LISTS[name]))
@@ -84,7 +99,7 @@ def test_budgets_match_the_preregistration_table():
         assert b["circuits"] == circuits and b["jobs"] == jobs and b["executions"] == execs, name
         assert b["trex_executions"] == 0 and b["executions_with_zne"] == execs and all(e["trex_executions"] == 0 for e in b["per_job"])
         assert b["minutes_at_250us"] == pytest.approx(minutes, abs=0.06), name
-        assert b["seconds_at_1us"] == pytest.approx(seconds_1us, abs=3.0), name
+        assert b["seconds_at_1us"] == pytest.approx(seconds_1us, abs=0.5), name
         assert b["readout_us"] == pytest.approx(1.94) and all(e["resilience_level"] == 0 and e["primitive"] == "sampler" for e in b["per_job"])
         days = 4 if name == "Q5" else 1
         total_250 += days * b["minutes_at_250us"]
@@ -92,21 +107,32 @@ def test_budgets_match_the_preregistration_table():
     total_exec = sum((4 if n == "Q5" else 1) * load_joblist(str(LISTS[n]))["budget"]["executions"] for n in TABLE)
     assert total_exec == CAMPAIGN["executions"]
     assert total_250 == pytest.approx(CAMPAIGN["minutes_at_250us"], rel=0.01) and total_250 <= 45.0
-    assert total_1 == pytest.approx(CAMPAIGN["minutes_at_1us"], rel=0.02)
-    # the formula per job: 2 s + shots x sum over circuits of (rep_delay + gate length + t_meas + 10 us)
+    assert total_1 == pytest.approx(CAMPAIGN["minutes_at_1us"], rel=0.03)
+    # the formula per job (v3): 3.0 s + shots x sum over circuits of (rep_delay + gate length + t_meas + 6.5 us); v2 reproduces the smoke record
+    smoke = load_joblist(str(SMOKE))
+    fresh = estimate_budget(smoke)                                  # the runner's estimate is v3 (6 s of floors, 6.5 us); the record stays v2
+    assert fresh["model_version"] == 3 and fresh["seconds_at_1us"] == pytest.approx(6.0 + sum(
+        e["circuit_seconds_at_1us"] for e in smoke["budget"]["per_job"]) - 81920 * 3.5e-6, abs=0.02)
+    from gradvar.paper2 import estimate_budget_sampler
+    assert estimate_budget_sampler(smoke, (250.0, 1.0), model_version=2) == smoke["budget"]
     jl = load_joblist(str(LISTS["Q1"]))
     ctx = SamplerContext.from_joblist(jl, verify=False)
     per = {e["tag"]: e for e in jl["budget"]["per_job"]}
     assert per["Q1-init_true"]["init_qubits"] is True and per["Q1-init_false"]["init_qubits"] is False and per["Q1-q79"]["init_qubits"] is True
     assert per["Q1-init_true"]["circuits"] == 14 and per["Q1-init_false"]["circuits"] == 3 and per["Q1-q79"]["circuits"] == 3
-    assert per["Q1-q79"]["executions"] == 196_608 and per["Q1-q79"]["seconds_at_250us"] == pytest.approx(53.9, abs=0.2)   # 0.9 min, Deviation 6
+    assert per["Q1-q79"]["executions"] == 196_608 and per["Q1-q79"]["seconds_at_250us"] == pytest.approx(54.24, abs=0.2)  # 0.9 min, Deviation 6 (v3: 3 s floor)
     assert per["Q1-q79"]["mean_gate_us"] == pytest.approx(2.18, abs=0.01)                                       # 2.14 us reset on qubit 79 (S3)
     assert jl["budget"]["mcm_executions"] == 8 * 65536                         # a, b, f x measure_reset(_2) + arm (b) again
     for job in jl["sampler_jobs"]:
         lengths = [circuit_gate_us(c, DIAL_US, ctx) for c in expand_job(job, ctx)]
         for rd, tag in ((250.0, "250us"), (1.0, "1us")):
-            expect = 2.0 + sum(65536 * (rd + g + 1.94 + EXEC_OVERHEAD_US) for g, _ in lengths) * 1e-6
+            expect = JOB_S + sum(65536 * (rd + g + 1.94 + EXEC_OVERHEAD_US) for g, _ in lengths) * 1e-6
             assert per[job["id"]][f"seconds_at_{tag}"] == pytest.approx(expect, abs=0.01)
+    q2 = load_joblist(str(LISTS["Q2"]))
+    per2 = {e["tag"]: e for e in q2["budget"]["per_job"]}
+    assert per2["Q2"]["circuits"] == 180 and per2["Q2-echo"]["circuits"] == 60 and per2["Q2-echo"]["executions"] == 60 * 16384
+    assert per2["Q2"]["bitarrays_raw_mb"] == pytest.approx(44.237, abs=0.01) and per2["Q2-echo"]["bitarrays_raw_mb"] == pytest.approx(14.746, abs=0.01)
+    assert circuit_gate_us(dict(kind="q2", reps=16, axis="X", target_prep="0", arm="delay", echo=True), DIAL_US) == (pytest.approx(0.08 + 16 * 0.44), 0)
     assert circuit_gate_us(dict(kind="q1", arm="a", reset_kind="measure_reset"), DIAL_US) == (pytest.approx(0.04 + 1.94), 1)
     assert circuit_gate_us(dict(kind="q3", cycles=64), DIAL_US) == (pytest.approx(0.08 + 64 * 0.48), 0)   # 480 ns cycle idle (Deviation 7 (vi))
     assert circuit_gate_us(dict(kind="q3", cycles=64, echo=True), DIAL_US) == (pytest.approx(0.08 + 64 * 0.52), 0)   # echo: delay 200, X, delay 200
@@ -188,8 +214,14 @@ def test_qubit_sets_masks_and_patches():
     assert ctx.group("separate") == [79] and ctx.separate_suffix() == "_q79" and len(ctx.group("parallel")) == 118
     with pytest.raises(p2.Paper2Error, match="parallel"):
         ctx.group("all")
-    jl = json.loads(LISTS["Q4"].read_text())
-    assert p2.SamplerContext.from_joblist(jl).q4_edges == edges["edges"]           # the stored list matches the snapshot
+    assert ops["flagged_coherence"] == [2, 7, 11, 67] and ops["coherence_flag_us"] == 25.0 and ctx.flagged_coherence == [2, 7, 11, 67]   # 20 Sep 03:08Z (Q2 T2 22 us then)
+    jl = json.loads(LISTS["Q4"].read_text())                                        # the committed lists are on the 21 Sep 03:08Z snapshot
+    stored = p2.SamplerContext.from_joblist(jl)                                     # verified against the snapshot it names
+    assert stored.snapshot == CAMPAIGN_SNAPSHOT and stored.q4_edges == SMOKE_Q4_EDGES and stored.flagged_coherence == COHERENCE_FLAGS
+    assert stored.q4_edges == p2.q4_row_edges(ROOT / "data" / "calibrations" / CAMPAIGN_SNAPSHOT, stored.exclusion)["edges"]
+    bad_coh = dict(jl, qubit_set=dict(jl["qubit_set"], flagged_coherence=[7]))
+    with pytest.raises(p2.Paper2Error, match="flagged_coherence"):
+        p2.SamplerContext.from_joblist(bad_coh)
     stale = dict(jl, qubit_set=dict(jl["qubit_set"], qubits=jl["qubit_set"]["qubits"][:-1]))
     with pytest.raises(p2.Paper2Error, match="differs from the"):
         p2.SamplerContext.from_joblist(stale)
@@ -217,8 +249,13 @@ def test_spec_expansion_counts():
     assert len(p2.expand_spec(dict(kind="q2"), ctx)) == 5 * 3 * 3 * 2 * 2 == 180
     assert len(p2.expand_spec(dict(kind="q3"), ctx)) == 13 * 4 * 3 == 156
     assert len(p2.expand_spec(dict(kind="q4"), ctx)) == 2 * 16 * 4 * 3 == 384
+    q2e = p2.expand_spec(dict(kind="q2", reps=[16], echo=True), ctx)
+    assert len(q2e) == 60 and all(c["echo"] and c["label"].endswith("_echo") and c["reps"] == 16 for c in q2e)
+    assert all(c["echo"] is False for c in p2.expand_spec(dict(kind="q2"), ctx))
+    assert p2.bitarrays_raw_mb(dict(id="x", shots=16384, circuits=[dict(kind="q2")]), ctx) == pytest.approx(44.237, abs=0.01)
+    assert p2.bitarrays_raw_mb(dict(id="x", shots=16384, circuits=[dict(kind="q2"), dict(kind="q2", reps=[16], echo=True)]), ctx) > 45.0
     for bad in (dict(kind="q6"), dict(kind="q1", arm="g"), dict(kind="q2", axes=["W"]), dict(kind="q3", masks=["dense9"]), dict(kind="q4", p=[0.3]),
-                dict(kind="q1", qubits="all"), dict(kind="q3", echo="yes")):
+                dict(kind="q1", qubits="all"), dict(kind="q3", echo="yes"), dict(kind="q2", echo=1)):
         with pytest.raises(p2.Paper2Error):
             p2.expand_spec(bad, ctx)
     with pytest.raises(p2.Paper2Error, match="repeated"):
@@ -316,12 +353,20 @@ def test_dry_run_every_list(name, tmp_path):
                 assert "mcm" not in pt["registers"] and pt["sched_ns"] > 0
             if pt["kind"] == "q3":
                 assert len(pt["expected_z_string"]) == len(pt["mask_qubits"]) and set(pt["expected_z_string"]) <= {"0", "1"}
-                assert c["reset_count"] == pt["reps"] * len(pt["mask_qubits"]) and c["delay_count"] == pt["reps"] * len(pt["spectators"])
-                assert pt["echo"] is False and pt["spectator_idle_ns"] == 400.0 and 79 not in pt["mask_qubits"] + pt["spectators"]
+                echo_on = name == "Q3"                                                             # Deviations 10-14: the campaign Q3 runs echoed
+                assert c["reset_count"] == pt["reps"] * len(pt["mask_qubits"]) and c["delay_count"] == (2 if echo_on else 1) * pt["reps"] * len(pt["spectators"])
+                assert pt["echo"] is echo_on and pt["spectator_idle_ns"] == 400.0 and 79 not in pt["mask_qubits"] + pt["spectators"]
+                assert pt["label"].endswith("_echo") == echo_on
             if pt["kind"] == "q4":
                 assert pt["n_measured"] == 24 and c["reset_count"] + c["delay_count"] == 24 and len(pt["patterns"]) == 12
-            if pt["kind"] == "q2" and pt["reset_kind"] == "delay":
-                assert c["delay_count"] == pt["reps"] * len(pt["targets"]) and c["delay_durations_ns"] == [400.0] and 79 not in pt["targets"]
+            if pt["kind"] == "q2":
+                n_others = 118 - len(pt["targets"])
+                if pt["echo"]:                                                                     # Deviations 10-14: Q2-echo job, r = 16 only
+                    assert pt["reps"] == 16 and pt["label"].endswith("_echo") and pt["spectator_idle_ns"] == 400.0 and pt["echo_delay_ns"] == 200.0
+                    assert c["delay_count"] == 2 * 16 * n_others + (16 * len(pt["targets"]) if pt["reset_kind"] == "delay" else 0)
+                    assert c["delay_durations_ns"] == ([200.0, 400.0] if pt["reset_kind"] == "delay" else [200.0])
+                elif pt["reset_kind"] == "delay":
+                    assert c["delay_count"] == pt["reps"] * len(pt["targets"]) and c["delay_durations_ns"] == [400.0] and 79 not in pt["targets"]
     assert circuits == TABLE[name][0] and ops == EXPECT_OPS[name]
     rows = pd.read_csv(next((tmp_path / "jobs").glob("*.csv")))
     assert list(rows.columns) == SAMPLER_LOG_COLUMNS and len(rows) == circuits
@@ -329,9 +374,13 @@ def test_dry_run_every_list(name, tmp_path):
     assert set(rows.rep_delay_submitted) == {"default"} and rows.counts_path.isna().all() and rows.qpu_seconds.isna().all()
     if name == "Q3":
         assert set(rows.protocol) == {"Q3"} and sorted(rows.reps.unique()) == [1, 16, 64] and rows.expected_z.notna().all()
-        assert set(rows.echo) == {False}
+        assert set(rows.echo) == {True}
+    elif name == "Q2":
+        assert rows.echo.value_counts().to_dict() == {False: 180, True: 60} and rows.label.str.endswith("_echo").sum() == 60
     else:
         assert rows.echo.isna().all() or set(rows.echo.dropna()) == {False}
+    assert bundles and all(json.loads((d / "job.json").read_text())["layout_check"]["snapshot_flags"]["coherence"] == (COHERENCE_FLAGS if name != "smoke" else [])
+                           for d in bundles.values())
     if name == "Q1":
         assert rows.n_measured.value_counts().to_dict() == {118: 17, 1: 3}
     if name == "smoke":
@@ -356,7 +405,7 @@ def test_simulated_dry_run_captures_every_register(tmp_path):
     labels = {i: p["label"] for i, p in enumerate(j["points"])}
     by_label = {labels[int(i)]: c["registers"] for i, c in counts.items()}
     assert len(counts) == 37 and all(f"pub{i}__meas" in arrays for i in range(37))
-    assert j["bitarrays"]["in_bundle"] is True and j["bitarrays"]["path"] == str(d / "bitarrays.npz") and j["bitarrays"]["limit_mb"] == 20.0
+    assert j["bitarrays"]["in_bundle"] is True and j["bitarrays"]["path"] == str(d / "bitarrays.npz") and j["bitarrays"]["limit_mb"] == 45.0
     assert j["bitarrays"]["bytes"] == (d / "bitarrays.npz").stat().st_size and len(j["bitarrays"]["sha256"]) == 64
     assert json.loads((d / "counts.json").read_text())["bitarrays"] == j["bitarrays"] and not (d / "circuits.qpy").exists()
     mcm_pubs = [i for i, p in enumerate(j["points"]) if p["reset_kind"] in ("measure_reset", "measure_reset_2")]
@@ -444,14 +493,16 @@ def test_q3_echo_builder_and_folded_pauli():
 
 
 def test_large_file_placement(tmp_path):
-    """Deviation 7 (vii): bitarrays under 20 MB stay in the bundle, larger ones go to <run_root>/../lfs/<date>/<job_id>/ and are flagged."""
-    from gradvar.hardware import place_large_file
+    """Deviations 10-14: bitarrays under 45 MB stay in the bundle, larger ones go to <run_root>/../artifacts/<date>/<job_id>/ (the Action
+    artefact, as the qpy) and are flagged; the Git LFS path is withdrawn."""
+    from gradvar.hardware import BITARRAYS_COMMIT_LIMIT_MB, place_large_file
+    assert BITARRAYS_COMMIT_LIMIT_MB == 45.0
     bundle = tmp_path / "data" / "runs" / "2026-10-01" / "job1"
     bundle.mkdir(parents=True)
     small = place_large_file(bundle, "bitarrays.npz", b"x" * 1000)
     assert small["in_bundle"] is True and (bundle / "bitarrays.npz").read_bytes() == b"x" * 1000 and small["bytes"] == 1000
     big = place_large_file(bundle, "big.npz", b"y" * 3000, limit_mb=0.002)
-    assert big["in_bundle"] is False and big["path"] == str(tmp_path / "data" / "lfs" / "2026-10-01" / "job1" / "big.npz")
+    assert big["in_bundle"] is False and big["path"] == str(tmp_path / "data" / "artifacts" / "2026-10-01" / "job1" / "big.npz")
     assert Path(big["path"]).stat().st_size == 3000 and not (bundle / "big.npz").exists() and len(big["sha256"]) == 64
 
 
@@ -578,14 +629,14 @@ def test_submit_path_under_mock_writes_bundles_and_applies_the_paper2_layout_pol
     assert csv_rows.counts_path.str.endswith("bitarrays.npz").all() and set(csv_rows.stage) == {"Q5"}
     # Q4: a failing patch qubit refuses; the override is denied for it; a non-operational used qubit refuses everywhere
     q4 = hw.load_joblist(str(LISTS["Q4"]))
-    ro[0] = 0.06                                                              # qubit 0 is in the row-0 edge [0, 1]
-    with pytest.raises(SystemExit, match=r"refusing to submit: .*Q4 patch qubits failing \[0\]"):
+    ro[5] = 0.06                                                              # qubit 5 is in the row-0 edge [5, 6] (21 Sep 03:08Z placement)
+    with pytest.raises(SystemExit, match=r"refusing to submit: .*Q4 patch qubits failing \[5\]"):
         execute_sampler_joblist(q4, backend, submit=True, run_root=str(tmp_path / "r2"), log_path=str(tmp_path / "l2.csv"), calibration_csv=CAL)
     assert len(created) == 1
-    over = dict(q4, layout_check="override", layout_check_reason="qubit 0 is fine")
+    over = dict(q4, layout_check="override", layout_check_reason="qubit 5 is fine")
     with pytest.raises(SystemExit, match="override not accepted for failing Q4 patch qubit"):
         execute_sampler_joblist(over, backend, submit=True, run_root=str(tmp_path / "r2"), log_path=str(tmp_path / "l2.csv"), calibration_csv=CAL)
-    ro[0] = 0.005
+    ro[5] = 0.005
     monkeypatch.setattr(backend, "properties", lambda: _Props(ro, dead=[40]))
     with pytest.raises(SystemExit, match=r"NOT OPERATIONAL \[40\]"):
         execute_sampler_joblist(jl, backend, submit=True, run_root=str(tmp_path / "r3"), log_path=str(tmp_path / "l3.csv"), calibration_csv=CAL)
@@ -630,19 +681,24 @@ def test_make_paper2_joblists_is_reproducible(tmp_path):
     spec = importlib.util.spec_from_file_location("mk", ROOT / "scripts" / "make_paper2_joblists.py")
     mk = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mk)
-    by_snapshot = {}
+    gen = mk.make_lists(str(ROOT / "data" / "calibrations" / CAMPAIGN_SNAPSHOT))                 # v0.6.0, model v3
     for name, path in LISTS.items():
         committed = json.loads(path.read_text())
-        snap = committed["qubit_set"]["snapshot"]
-        assert snap == expected_placement(name)["snapshot"]
-        if snap not in by_snapshot:
-            by_snapshot[snap] = mk.make_lists(str(ROOT / "data" / "calibrations" / snap))
+        assert committed["qubit_set"]["snapshot"] == expected_placement(name)["snapshot"]
         rel = str(path.relative_to(ROOT / "data" / "joblists"))
-        assert committed == by_snapshot[snap][rel], rel
-    # --lists writes a subset (the smoke list is regenerated alone on its run day's calibration, Q1-Q5 on theirs)
-    assert mk.main(["--snapshot", str(ROOT / "data" / "calibrations" / SMOKE_SNAPSHOT), "--lists", "dryrun/03_paper2_smoke.json", "--out", str(tmp_path)]) == 0
-    assert [p.relative_to(tmp_path).as_posix() for p in sorted(tmp_path.rglob("*.json"))] == ["dryrun/03_paper2_smoke.json"]
-    assert json.loads((tmp_path / "dryrun" / "03_paper2_smoke.json").read_text()) == json.loads(SMOKE.read_text())
+        if name != "smoke":
+            assert committed == gen[rel], rel
+    # the smoke list is the 21 Sep run record: the v0.4.4 layout under model v2 plus its two armed fields
+    record = mk.make_lists(str(ROOT / "data" / "calibrations" / SMOKE_SNAPSHOT), model_version=2)["dryrun/03_paper2_smoke.json"]
+    record.update(dry_run=False, preflight_review=SMOKE_PERMALINK)
+    assert json.loads(SMOKE.read_text()) == record
+    # the CLI default writes the five campaign lists only; --lists names a subset; --model-version 2 reproduces the record's layout
+    assert mk.main(["--out", str(tmp_path)]) == 0
+    assert [p.relative_to(tmp_path).as_posix() for p in sorted(tmp_path.rglob("*.json"))] == [f"paper2/Q{i}.json" for i in range(1, 6)]
+    assert mk.main(["--snapshot", str(ROOT / "data" / "calibrations" / SMOKE_SNAPSHOT), "--lists", "dryrun/03_paper2_smoke.json", "--model-version", "2",
+                    "--out", str(tmp_path / "rec")]) == 0
+    rec = json.loads((tmp_path / "rec" / "dryrun" / "03_paper2_smoke.json").read_text())
+    assert rec["dry_run"] is True and dict(rec, dry_run=False, preflight_review=SMOKE_PERMALINK) == json.loads(SMOKE.read_text())
 
 
 def _fake_runtime_retrievable(monkeypatch, created):
@@ -793,7 +849,7 @@ def test_run_joblist_submit_only_reaches_the_sampler_path_with_wait_false(tmp_pa
     monkeypatch.setattr(hw, "get_backend", lambda name, service=None, instance_alias=None: "fake-backend")
     monkeypatch.setattr(hw, "github_run_id", lambda: 789)
     monkeypatch.setattr(p2, "execute_sampler_joblist", lambda jl, backend, submit, **kw: seen.update(backend=backend, submit=submit, **kw) or [])
-    jl = json.loads(SMOKE.read_text())
+    jl = json.loads(LISTS["Q1"].read_text())                                 # a v3 list; the smoke record would be refused at check_budget (v2)
     (tmp_path / "ok.json").write_text(json.dumps(dict(jl, dry_run=False, preflight_review="https://x.slack.com/archives/C1/p1")))
     assert hw.run_joblist(str(tmp_path / "ok.json"), submit=True, run_root=str(tmp_path / "r"), log_dir=str(tmp_path / "j"), submit_only=True) == 0
     assert seen["backend"] == "fake-backend" and seen["submit"] is True and seen["wait"] is False and seen["run_id"] == 789

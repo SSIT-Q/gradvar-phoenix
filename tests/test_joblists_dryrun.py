@@ -21,19 +21,19 @@ LISTS = ["01_marrakesh_pipeline_check.json", "02_phoenix_smoke_test.json", "03_p
 pytestmark = pytest.mark.skipif(not HAS_AER, reason="qiskit-aer not installed")
 
 
-@pytest.mark.parametrize("name", LISTS[2:])   # 03 is still dry_run: true; 01 (19 Sep) and 02 (20 Sep, Deviation 32) are armed after their pre-flight reviews
-def test_dryrun_lists_validate_and_refuse_to_submit(name, tmp_path, monkeypatch):
+@pytest.mark.parametrize("name", LISTS[2:])   # 03 was armed (aba9412) and run 21 Sep 2026 (Paper 2 smoke, 7 QPU s): a record under Sampler model v2,
+def test_dryrun_lists_validate_and_refuse_to_submit(name, tmp_path, monkeypatch):   # like 01 (19 Sep) and 02 (20 Sep, Deviation 32)
     from gradvar.hardware import check_budget, joblist_submittable, load_joblist, run_joblist
     jl = load_joblist(str(DRYRUN / name))
-    assert jl["dry_run"] is True and jl["rep_delay_probe"] is True
-    assert jl["preflight_review"] == "TBD: pre-flight review permalink" and not joblist_submittable(jl)
+    assert jl["dry_run"] is False and jl["rep_delay_probe"] is True
+    assert jl["preflight_review"].startswith("https://ssitcrew.slack.com/archives/C0C29EYR0GZ/p1789960975545879") and joblist_submittable(jl)
     assert "pre-registration" in jl["notes"].lower() or "pre-registration" in jl["notes"]
-    assert check_budget(jl) == []                                        # stored budget matches estimate_budget (the Sampler model's own version)
+    assert check_budget(jl) == ["budget.model_version: job list says 2, runner computes 3"]   # the numbers match under its own (v2) Sampler model
     for key in ("executions", "jobs", "minutes_at_250us", "minutes_at_1us"):
         assert key in jl["budget"]
     monkeypatch.setenv("QISKIT_IBM_INSTANCE", "crn:fake")
     monkeypatch.setenv("QISKIT_IBM_INSTANCE_OPEN", "crn:fake-open")
-    with pytest.raises(SystemExit, match="dry_run"):                     # refused before preflight / credentials
+    with pytest.raises(SystemExit, match="budget.model_version"):        # a run record cannot be resubmitted under the new model; before credentials
         run_joblist(str(DRYRUN / name), submit=True, run_root=str(tmp_path / "r"), log_dir=str(tmp_path / "j"), calibration_csv=CAL02)
     reviewed = dict(jl, dry_run=False, preflight_review="https://x.slack.com/archives/C1/p1", budget=dict(jl["budget"], executions=1))
     (tmp_path / "b.json").write_text(json.dumps(reviewed))

@@ -888,8 +888,13 @@ def check_budget(jl: dict, tolerance: float = 0.05, model_version: int | None = 
     if stored_v != want:
         diffs.append(f"budget.model_version: job list says {stored.get('model_version', 1)}, runner computes {want}")
     ref = fresh
-    if stored_v != int(fresh["model_version"]) and stored_v in BUDGET_MODELS and str(jl.get("primitive", "estimator")) != "sampler":
-        ref = estimate_budget(jl, model_version=stored_v)
+    if stored_v != int(fresh["model_version"]):
+        if str(jl.get("primitive", "estimator")) == "sampler":          # a Sampler run record budgeted under an older Sampler model (list 03, v2)
+            from .paper2 import SAMPLER_BUDGET_MODELS, estimate_budget_sampler
+            if stored_v in SAMPLER_BUDGET_MODELS:
+                ref = estimate_budget_sampler(jl, BUDGET_REP_DELAYS_US, model_version=stored_v)
+        elif stored_v in BUDGET_MODELS:
+            ref = estimate_budget(jl, model_version=stored_v)
     for key in ("executions", "jobs") + tuple(k for k in ref if k.startswith("minutes_at_")):
         if key in stored:
             a, b = float(stored[key]), float(ref[key])
@@ -1616,8 +1621,9 @@ def write_job_bundle(run_root: Path, job_id: str, group: List[BuiltPub], backend
 QPY_ARTIFACT_DIR = "artifacts"       # <run_root>/../artifacts/<date>/<job_id>/circuits.qpy: uploaded by the Action, never committed
 QPY_COMMIT_LIMIT_MB = 45.0           # an Estimator bundle's circuits.qpy above this goes to the artefact dir too: GitHub refuses files over
                                      # 100 MB (day-2 retrieval run 35551684219, 21 Sep 2026: two 112 MB files, push rejected) and warns from 50 MB
-LFS_DIR = "lfs"                      # <run_root>/../lfs/<date>/<job_id>/: files above BITARRAYS_COMMIT_LIMIT_MB go here (Git LFS)
-BITARRAYS_COMMIT_LIMIT_MB = 20.0
+BITARRAYS_COMMIT_LIMIT_MB = 45.0     # Paper 2 Deviations 10-14 (v0.6.0, 21 Sep 2026): bit arrays committed under 45 MB (GitHub's limit is 100 MB, warnings
+                                     # from 50), above that kept as an Action artefact (plus Zenodo) like the qpy; the Git LFS path of Deviation 7 (vii) is
+                                     # withdrawn (nothing installs LFS). A job whose raw packed bit arrays would exceed the limit is split at generation.
 
 
 def _qpy_policy(root: Path, day: str, job_id: str, bundle_dir: Path, group, sampler: bool) -> dict:
@@ -1651,19 +1657,19 @@ def _qpy_policy(root: Path, day: str, job_id: str, bundle_dir: Path, group, samp
 
 
 def place_large_file(bundle_dir: Path, name: str, data: bytes, limit_mb: float = BITARRAYS_COMMIT_LIMIT_MB) -> dict:
-    """Write ``data`` as ``name`` into the bundle when it is under ``limit_mb``, else under ``<run_root>/../lfs/<date>/<job_id>/``
-    (to be tracked with Git LFS before committing); returns path, size, SHA-256 and whether it sits in the bundle
-    (Paper 2 Deviation 7 (vii): per-shot bit arrays committed under 20 MB)."""
+    """Write ``data`` as ``name`` into the bundle when it is under ``limit_mb``, else under ``<run_root>/../artifacts/<date>/<job_id>/``
+    (the Action's upload-artifact directory, as for ``circuits.qpy``; Zenodo for the archive); returns path, size, SHA-256 and
+    whether it sits in the bundle (Paper 2 Deviations 10-14: per-shot bit arrays committed under 45 MB, Git LFS withdrawn)."""
     size_mb = len(data) / 1e6
     if size_mb < limit_mb:
         path = bundle_dir / name
         in_bundle = True
     else:
         run_root = bundle_dir.parents[1]
-        path = run_root.parent / LFS_DIR / bundle_dir.parent.name / bundle_dir.name / name
+        path = run_root.parent / QPY_ARTIFACT_DIR / bundle_dir.parent.name / bundle_dir.name / name
         path.parent.mkdir(parents=True, exist_ok=True)
         in_bundle = False
-        print(f"  {name} is {size_mb:.1f} MB (limit {limit_mb:g} MB): written to {path} for Git LFS, not in the bundle")
+        print(f"  {name} is {size_mb:.1f} MB (limit {limit_mb:g} MB): written to {path} (Action artefact, not committed)")
     path.write_bytes(data)
     return dict(path=str(path), bytes=len(data), sha256=hashlib.sha256(data).hexdigest(), in_bundle=in_bundle, limit_mb=limit_mb)
 

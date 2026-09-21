@@ -53,15 +53,18 @@ SEPARATE_Q1_ARMS = ("a", "b", "f")       # Deviation 6: the separate job runs th
 ECHO_DELAY_NS = 200.0                    # Deviation 5 / 7 spectator echo: delay(200) X delay(200) in place of delay(400), X folded into P
 CZ_CLUSTER = tuple(q for q in DEFAULT_EXCLUDE if q not in DEAD_QUBITS)   # 55, 61, 62, 63, 72, 73: flagged on the maps, kept
 READOUT_FLAG_CUT = 3e-2                  # Section 3: readout outliers above 3e-2 are flagged, not dropped (Q2: excluded as spectators)
+COHERENCE_FLAG_US = 25.0                 # Deviations 10-14: T1 or T2 below this is a map flag (Paper 1 Deviation 53's floor), kept in the parallel arms
 Q2_MIN_DISTANCE = 3
 DEFAULT_SEED = 20260919                  # Section 3 "Randomness": Q3 dense masks and Pauli frames, Q4 mask shuffles
 Q3_MAX_CYCLES = 64
 RESET_NS_DEFAULT = 400.0                 # native reset on 119 qubits; the delay reference and the Q3 spectator delay
 RESET_NS_BY_QUBIT = {79: 2140.0}         # qubit 79's reset is 2140 ns (Section 1); its delay reference matches
 SQ_GATE_US = 0.04                        # one physical single-qubit gate (sx / x, 40 ns) in the budget's gate length
-SAMPLER_BUDGET_MODEL_VERSION = 2   # the Paper 2 Sampler budget model (Deviation 24 constants: 2 s per job, 10 us overhead); Paper 1's
-                                   # gradvar.hardware model moved to v3 (Deviation 47) on the 20 Sep 2026 smoke test, the Sampler model
-                                   # is re-based under Paper 2's own pre-registration
+SAMPLER_BUDGET_MODELS = {          # the Paper 2 Sampler budget models: T_job = job_s + shots x (rep_delay + gate + t_meas + overhead_us) per circuit
+    2: dict(job_s=2.0, overhead_us=10.0),   # Deviation 2 (Deviation 24 constants); the 21 Sep 2026 smoke test (list 03) was budgeted under it
+    3: dict(job_s=3.0, overhead_us=6.5),    # Deviations 10-14 (v0.6.0): measured on the smoke test, 3.0 s per-job floor, 6.5 us per execution
+}
+SAMPLER_BUDGET_MODEL_VERSION = 3   # the version in force for Q1-Q5; list 03 keeps its v2 budget as a run record (check_budget compares under it)
 SAMPLER_LOG_COLUMNS = [
     "backend", "job_id", "timestamp", "job_submit_time", "calibration_snapshot", "stage", "protocol", "circuit_index", "label",
     "reset_kind", "mask_id", "mask_hash", "frame_id", "reps", "prep", "meas_axis", "expected_z", "echo", "shots", "rep_delay_submitted",
@@ -107,7 +110,21 @@ def operational_qubits(csv_path: str | Path) -> dict:
     flagged_readout = sorted(int(q) for q in df.index[ro > READOUT_FLAG_CUT] if int(q) in qubits)
     return dict(rule="all_operational_minus_separate", snapshot=Path(csv_path).name, qubits=qubits, separate=separate, excluded=sorted(reasons),
                 reasons={str(q): v for q, v in sorted(reasons.items())}, flagged_readout=flagged_readout,
-                flagged_cz_cluster=sorted(q for q in CZ_CLUSTER if q in qubits), readout_flag_cut=READOUT_FLAG_CUT)
+                flagged_cz_cluster=sorted(q for q in CZ_CLUSTER if q in qubits), readout_flag_cut=READOUT_FLAG_CUT,
+                flagged_coherence=coherence_flags(df, qubits), coherence_flag_us=COHERENCE_FLAG_US)
+
+
+def coherence_flags(df, qubits: Sequence[int]) -> List[int]:
+    """Deviations 10-14 (v0.6.0): qubits of the set whose T1 or T2 on the snapshot is below ``COHERENCE_FLAG_US`` (Paper 1's Deviation 53
+    floor), a **map column** with the CZ-cluster treatment of Deviation 7 (iv): flagged and kept in the parallel arms, never excluded.
+    (Smoke test 21 Sep 2026: Q114 at a calibration T1 of 3.7 us behaved like a healthy qubit; the flag is logged, not acted on.)"""
+    out = []
+    for q in qubits:
+        row = df.loc[q]
+        vals = [float(row[c]) for c in ("T1 (us)", "T2 (us)") if c in df]
+        if any(not np.isnan(v) and v < COHERENCE_FLAG_US for v in vals):
+            out.append(int(q))
+    return sorted(out)
 
 
 def q2_masks() -> List[List[int]]:
@@ -285,6 +302,7 @@ class SamplerContext:
     snapshot: str | None = None
     exclusion: Tuple[int, ...] = ()
     separate: List[int] = field(default_factory=list)   # Deviation 6: operational qubits kept out of the parallel arms (79)
+    flagged_coherence: List[int] = field(default_factory=list)   # Deviations 10-14: T1 / T2 < 25 us map flag, kept
     _cache: Dict[str, Any] = field(default_factory=dict, repr=False)
 
     @property
@@ -337,7 +355,8 @@ class SamplerContext:
         ops = operational_qubits(csv_path)
         edges = q4_row_edges(csv_path, ex)
         return cls(qubits=ops["qubits"], flagged_readout=ops["flagged_readout"], flagged_cz_cluster=ops["flagged_cz_cluster"],
-                   q4_edges=edges["edges"], snapshot=Path(csv_path).name, exclusion=tuple(ex), separate=ops["separate"], **kw)
+                   q4_edges=edges["edges"], snapshot=Path(csv_path).name, exclusion=tuple(ex), separate=ops["separate"],
+                   flagged_coherence=ops["flagged_coherence"], **kw)
 
     @classmethod
     def from_joblist(cls, jl: dict, calibration_dir: str | Path | None = None, verify: bool = True) -> "SamplerContext":
@@ -350,7 +369,8 @@ class SamplerContext:
                   n_dense=int(rnd.get("q3_dense_masks", 8)), dense_p=float(rnd.get("q3_dense_p", 0.5)),
                   n_frames=int(rnd.get("q3_frames", 4)), q4_K=int(rnd.get("q4_masks_per_p", 16)),
                   q4_ps=tuple(float(p) for p in rnd.get("q4_p", (0.25, 0.5))), snapshot=qs.get("snapshot"),
-                  exclusion=tuple(int(q) for q in q4.get("exclusion", ())), separate=[int(q) for q in qs.get("separate", [])])
+                  exclusion=tuple(int(q) for q in q4.get("exclusion", ())), separate=[int(q) for q in qs.get("separate", [])],
+                  flagged_coherence=[int(q) for q in qs.get("flagged_coherence", [])])
         if verify and ctx.snapshot:
             d = Path(calibration_dir) if calibration_dir else Path(__file__).resolve().parents[1] / "data" / "calibrations"
             csv_path = d / ctx.snapshot
@@ -363,6 +383,8 @@ class SamplerContext:
                                   f"snapshot gives {len(fresh.qubits)} + {fresh.separate} (regenerate the list with scripts/make_paper2_joblists.py)")
             if fresh.flagged_readout != ctx.flagged_readout or fresh.flagged_cz_cluster != ctx.flagged_cz_cluster:
                 raise Paper2Error(f"qubit_set flags differ from the {ctx.snapshot} snapshot")
+            if "flagged_coherence" in qs and fresh.flagged_coherence != ctx.flagged_coherence:   # lists written before v0.6.0 (list 03) lack the column
+                raise Paper2Error(f"qubit_set.flagged_coherence differs from the {ctx.snapshot} snapshot: list {ctx.flagged_coherence}, snapshot {fresh.flagged_coherence}")
             if ctx.q4_edges and fresh.q4_edges != ctx.q4_edges:
                 raise Paper2Error(f"q4_patches.edges differ from the {ctx.snapshot} snapshot: list {ctx.q4_edges}, snapshot {fresh.q4_edges}")
         return ctx
@@ -370,7 +392,8 @@ class SamplerContext:
     def as_joblist_fields(self) -> dict:
         ops = dict(rule="all_operational_minus_separate", snapshot=self.snapshot, qubits=list(self.qubits), separate=list(self.separate),
                    excluded=sorted(set(range(N_QUBITS)) - self.qubit_set - set(self.separate)),
-                   flagged_readout=list(self.flagged_readout), flagged_cz_cluster=list(self.flagged_cz_cluster), readout_flag_cut=READOUT_FLAG_CUT)
+                   flagged_readout=list(self.flagged_readout), flagged_cz_cluster=list(self.flagged_cz_cluster), readout_flag_cut=READOUT_FLAG_CUT,
+                   flagged_coherence=list(self.flagged_coherence), coherence_flag_us=COHERENCE_FLAG_US)
         return dict(qubit_set=ops,
                     q4_patches=dict(rule="row_edges", snapshot=self.snapshot, min_column_gap=3, exclusion=list(self.exclusion), edges=[list(e) for e in self.q4_edges]),
                     randomness=dict(seed=self.seed, q3_dense_masks=self.n_dense, q3_dense_p=self.dense_p, q3_frames=self.n_frames,
@@ -389,7 +412,8 @@ def expand_spec(spec: dict, ctx: SamplerContext) -> List[dict]:
 
     ``q1``: ``arm`` a-f (plus ``d0`` / ``d1`` for one of the two (d) circuits), ``reset_kind`` (a, b, f; default all three), ``m``
     (c; default [2, 4]), ``qubits`` ``"parallel"`` (default) or ``"separate"`` (the Deviation 6 qubits; labels get ``_q79``).
-    ``q2``: product of ``masks`` (0-4), ``reps`` (1, 4, 16), ``axes`` (X, Y, Z), ``target_prep`` ("0", "1"), ``arms`` (reset, delay).
+    ``q2``: product of ``masks`` (0-4), ``reps`` (1, 4, 16), ``axes`` (X, Y, Z), ``target_prep`` ("0", "1"), ``arms`` (reset, delay); ``echo``
+    (bool, default False; Deviations 10-14: the non-targets get delay(200) X delay(200) per repetition instead of idling, label suffix ``_echo``).
     ``q3``: product of ``masks`` (names of the mask table, default all 13), ``frames`` (0-3), ``cycles`` (1, 16, 64); ``echo``
     (bool, default False; Deviation 5 / 7 spectator echo, label suffix ``_echo``).
     ``q4``: product of ``p`` (0.25, 0.5), ``masks`` (0-15), ``inputs`` (0, 1, +, +i), ``axes`` (X, Y, Z).
@@ -423,13 +447,16 @@ def expand_spec(spec: dict, ctx: SamplerContext) -> List[dict]:
             else:  # e
                 out.append(dict(protocol=proto, kind="q1", arm="e", reset_kind="delay", m=1, qubits=group, label=f"Q1e_x_delay_measure{sfx}"))
     elif kind == "q2":
+        echo = spec.get("echo", False)
+        if not isinstance(echo, bool):
+            raise Paper2Error("q2 echo must be a JSON boolean")
         for s, r, ax, tp, arm in product(_as_list(spec.get("masks"), range(5)), _as_list(spec.get("reps"), (1, 4, 16)),
                                          _as_list(spec.get("axes"), AXES), _as_list(spec.get("target_prep"), ("0", "1")),
                                          _as_list(spec.get("arms"), ("reset", "delay"))):
             if int(s) not in range(5) or ax not in AXES or str(tp) not in ("0", "1") or arm not in ("reset", "delay"):
                 raise Paper2Error(f"q2 spec value out of range: mask {s}, axis {ax}, target_prep {tp}, arm {arm}")
-            out.append(dict(protocol=proto, kind="q2", mask=int(s), reps=int(r), axis=ax, target_prep=str(tp), arm=arm,
-                            label=f"Q2_M{int(s)}_r{int(r)}_{ax}_t{tp}_{arm}"))
+            out.append(dict(protocol=proto, kind="q2", mask=int(s), reps=int(r), axis=ax, target_prep=str(tp), arm=arm, echo=echo,
+                            label=f"Q2_M{int(s)}_r{int(r)}_{ax}_t{tp}_{arm}" + ("_echo" if echo else "")))
     elif kind == "q3":
         names = _as_list(spec.get("masks"), list(ctx.q3_masks))
         echo = spec.get("echo", False)
@@ -506,7 +533,10 @@ def circuit_gate_us(c: dict, dial_us: Dict[str, float], ctx: SamplerContext | No
     if kind == "q2":
         prep = SQ_GATE_US if (c["axis"] != "Z" or c["target_prep"] == "1") else 0.0
         read = SQ_GATE_US if c["axis"] != "Z" else 0.0
-        return prep + c["reps"] * (native if c["arm"] == "reset" else delay) + read, 0
+        per_rep = native if c["arm"] == "reset" else delay
+        if c.get("echo"):                                     # Deviations 10-14: non-targets do delay 200, X, delay 200 per repetition
+            per_rep = max(per_rep, 2 * ECHO_DELAY_NS / 1e3 + SQ_GATE_US)
+        return prep + c["reps"] * per_rep + read, 0
     if kind == "q3":
         cycle = 2 * SQ_GATE_US + max(native, (2 * ECHO_DELAY_NS / 1e3 + SQ_GATE_US) if c.get("echo") else 0.0)
         return SQ_GATE_US + c["cycles"] * cycle + SQ_GATE_US, 0
@@ -515,18 +545,41 @@ def circuit_gate_us(c: dict, dial_us: Dict[str, float], ctx: SamplerContext | No
     return prep + native + read, 0
 
 
-def estimate_budget_sampler(jl: dict, rep_delays_us: Sequence[float], backend=None) -> dict:
-    """Budget model version 2 for a Sampler list (pre-registration Deviation 2 with the TREX term identically zero: every
-    Paper 2 job is SamplerV2 at resilience 0, no twirling, no measurement-noise learning):
+def bitarrays_raw_mb(job: dict, ctx: SamplerContext) -> float:
+    """Upper bound (uncompressed packed bits) of the job's ``bitarrays.npz``: shots x ceil(bits / 8) summed over every register of every
+    circuit (``meas`` on the measured qubits; ``mcm`` on the reset qubits of a measurement-based reset). Deviations 10-14: a job above
+    ``gradvar.hardware.BITARRAYS_COMMIT_LIMIT_MB`` (45 MB) is split at generation (the Q2 echo arm is its own job for this reason)."""
+    shots = int(job["shots"])
+    total = 0
+    for c in expand_job(job, ctx):
+        if c["kind"] == "q1":
+            n = len(ctx.group(c.get("qubits", "parallel")))
+            regs = [n, n] if c["reset_kind"] in ("measure_reset", "measure_reset_2") else [n]
+        elif c["kind"] == "q4":
+            regs = [2 * len(ctx.q4_edges)]
+        else:
+            regs = [len(ctx.qubits)]
+        total += sum(shots * int(np.ceil(b / 8)) for b in regs)
+    return round(total / 1e6, 3)
 
-        T_job = 2 s + sum over circuits of shots x (rep_delay + gate length + t_meas + 10 us)
+
+def estimate_budget_sampler(jl: dict, rep_delays_us: Sequence[float], backend=None, model_version: int | None = None) -> dict:
+    """Budget model for a Sampler list (pre-registration Deviation 2 with the TREX term identically zero: every Paper 2 job is
+    SamplerV2 at resilience 0, no twirling, no measurement-noise learning), version ``SAMPLER_BUDGET_MODEL_VERSION`` by default:
+
+        v3 (Deviations 10-14, from the 21 Sep 2026 smoke test): T_job = 3.0 s + sum over circuits of shots x (rep_delay + gate length + t_meas + 6.5 us)
+        v2 (Deviation 2):                                       T_job = 2 s + sum over circuits of shots x (rep_delay + gate length + t_meas + 10 us)
 
     with t_meas counted once for the terminal readout of every circuit and once more for each mid-circuit
     measure_reset through its own target duration, and the reset / matched-delay duration at ``max(reset_ns)`` over the
     circuit's reset qubits (``circuit_gate_us``). Same keys as ``gradvar.hardware.estimate_budget``
-    plus ``primitive`` and per-job ``init_qubits`` / ``mcm_executions``. A job with its own ``rep_delay_us`` is timed at
-    that value in every column."""
-    from .hardware import EXEC_OVERHEAD_US, TREX_RANDOMIZATIONS, ZNE_NOISE_FACTORS, dial_durations_us, readout_us
+    plus ``primitive`` and per-job ``init_qubits`` / ``mcm_executions`` (v3 also ``bitarrays_raw_mb`` per job and the commit limit). A job
+    with its own ``rep_delay_us`` is timed at that value in every column."""
+    from .hardware import BITARRAYS_COMMIT_LIMIT_MB, TREX_RANDOMIZATIONS, ZNE_NOISE_FACTORS, dial_durations_us, readout_us
+    version = SAMPLER_BUDGET_MODEL_VERSION if model_version is None else int(model_version)
+    if version not in SAMPLER_BUDGET_MODELS:
+        raise Paper2Error(f"Sampler budget model version {version} is not implemented (known: {sorted(SAMPLER_BUDGET_MODELS)})")
+    JOB_S, EXEC_OVERHEAD_US = SAMPLER_BUDGET_MODELS[version]["job_s"], SAMPLER_BUDGET_MODELS[version]["overhead_us"]
     dial_us = dial_durations_us(backend)
     t_meas, t_meas_source = readout_us(backend, jl.get("backend"))
     ctx = SamplerContext.from_joblist(jl, verify=False)
@@ -547,12 +600,16 @@ def estimate_budget_sampler(jl: dict, rep_delays_us: Sequence[float], backend=No
             tag = f"{rd_sweep:g}us"
             entry[f"circuit_seconds_at_{tag}"] = round(circ, 3)
             entry[f"trex_seconds_at_{tag}"] = 0.0
-            entry[f"seconds_at_{tag}"] = round(2.0 + circ, 3)
+            entry[f"seconds_at_{tag}"] = round(JOB_S + circ, 3)
+        if version >= 3:
+            entry["job_constant_seconds"] = JOB_S
+            entry["bitarrays_raw_mb"] = bitarrays_raw_mb(job, ctx)
         per_job.append(entry)
-    out = dict(model_version=SAMPLER_BUDGET_MODEL_VERSION, primitive="sampler",
-               formula="2 s per job + (rep_delay + gate length + t_meas + 10 us) x executions; SamplerV2 at resilience 0: "
+    out = dict(model_version=version, primitive="sampler",
+               formula=f"{JOB_S:g} s per job + (rep_delay + gate length + t_meas + {EXEC_OVERHEAD_US:g} us) x executions; SamplerV2 at resilience 0: "
                        "no ZNE, no TREX term; t_meas once per terminal readout plus each measure_reset's own duration; reset and "
-                       "matched delay at max(reset_ns) over the circuit's reset qubits; Q3 cycle 480 ns (520 ns with echo)",
+                       "matched delay at max(reset_ns) over the circuit's reset qubits; Q3 cycle 480 ns (520 ns with echo)"
+                       + ("; Q2 repetition 400 ns (440 ns with echo)" if version >= 3 else ""),
                readout_us=round(t_meas, 3), readout_source=t_meas_source, exec_overhead_us=EXEC_OVERHEAD_US,
                trex_randomizations=TREX_RANDOMIZATIONS, zne_noise_factors=ZNE_NOISE_FACTORS, sq_gate_us=SQ_GATE_US,
                dial_durations_us={k: round(v, 3) for k, v in dial_us.items()},
@@ -560,6 +617,9 @@ def estimate_budget_sampler(jl: dict, rep_delays_us: Sequence[float], backend=No
                jobs=len(per_job), circuits=sum(e["circuits"] for e in per_job), executions=sum(e["executions"] for e in per_job),
                executions_with_zne=sum(e["executions"] for e in per_job), trex_executions=0,
                mcm_executions=sum(e["mcm_executions"] for e in per_job))
+    if version >= 3:
+        out.update(job_seconds=JOB_S, bitarrays_commit_limit_mb=BITARRAYS_COMMIT_LIMIT_MB,
+                   bitarrays_raw_mb_max=max((e["bitarrays_raw_mb"] for e in per_job), default=0.0))
     for rd in rep_delays_us:
         tag = f"{rd:g}us"
         secs = sum(e[f"seconds_at_{tag}"] for e in per_job)
@@ -610,6 +670,11 @@ def validate_sampler_joblist(jl: dict) -> None:
             raise Paper2Error(f"sampler job {j.get('id')}: circuits must be a non-empty list of specs")
         specs = expand_job(j, ctx)
         needs_q4 = needs_q4 or any(c["kind"] == "q4" for c in specs)
+        from .hardware import BITARRAYS_COMMIT_LIMIT_MB
+        raw = bitarrays_raw_mb(j, ctx)
+        if raw > BITARRAYS_COMMIT_LIMIT_MB:
+            raise Paper2Error(f"sampler job {j.get('id')}: its per-shot bit arrays would be {raw:g} MB raw, above the {BITARRAYS_COMMIT_LIMIT_MB:g} MB "
+                              "commit limit (Deviations 10-14): split the job")
     if needs_q4 and len(ctx.q4_edges) != N_ROWS:
         raise Paper2Error(f"q4_patches.edges must hold one edge per row ({N_ROWS}), got {len(ctx.q4_edges)}")
 
@@ -717,10 +782,12 @@ def build_circuit(c: dict, ctx: SamplerContext, backend) -> Tuple[QuantumCircuit
         targets, spect = roles["targets"], roles["spectators"]
         others = [q for q in ctx.qubits if q not in set(targets)]         # spectators (kept and excluded) and controls
         measured, reset_q = list(ctx.qubits), (targets if arm == "reset" else [])
+        echo = bool(c.get("echo", False))
         d.update(reset_kind=arm, mask_id=f"M{s}", mask_hash=mask_hash(targets), reps=r, prep=("+" if ax != "Z" else "0") + f"/t{tp}",
                  meas_axis=ax, targets=targets, spectators=spect, excluded_spectators=roles["excluded_spectators"],
                  controls=roles["controls"], directed_pairs=len(roles["pairs"]), pairs=[list(p) for p in roles["pairs"]],
-                 spectator_prep="+" if ax != "Z" else "0", target_prep=tp,
+                 spectator_prep="+" if ax != "Z" else "0", target_prep=tp, echo=echo,
+                 spectator_idle_ns=(2 * ECHO_DELAY_NS if echo else None), echo_delay_ns=(ECHO_DELAY_NS if echo else None),
                  delay_ns_by_target={str(t): reset_ns(t) for t in targets} if arm == "delay" else None)
         qc = QuantumCircuit(qr, ClassicalRegister(len(measured), "meas"), name=c["label"])
         if ax != "Z":
@@ -734,6 +801,12 @@ def build_circuit(c: dict, ctx: SamplerContext, backend) -> Tuple[QuantumCircuit
         for _ in range(r):
             for t in targets:
                 apply(qc, qr[t])
+            if echo:                      # Deviations 10-14: every non-target does delay 200, X, delay 200 per repetition (r even in the list:
+                for q in others:          # the X gates cancel, so the readout rotation is unchanged; matched between the reset and delay arms)
+                    qc.delay(ECHO_DELAY_NS, qr[q], unit="ns")
+                    qc.x(qr[q])
+                    qc.delay(ECHO_DELAY_NS, qr[q], unit="ns")
+                qc.barrier(qr)
         qc.barrier(qr)
         for q in others:
             _rotate_to_axis(qc, qr[q], ax)
@@ -1029,7 +1102,8 @@ def sampler_layout_check(jl: dict, ctx: SamplerContext, groups: Sequence[Tuple[d
         denied = f"override not accepted for failing Q4 patch qubit(s) {protected_failing}: the pair is the measured observable (Deviation 26)"
     chk.update(enforced=bool(enforce), override=override, layout_qubits=used, layout_couplers=[], edge_cone_qubits=q4_used, separate_qubits=list(ctx.separate),
                failing_protected_qubits=protected_failing, non_operational_qubits=dead_live, flagged_live_qubits=flagged_live,
-               snapshot_flags=dict(readout=list(ctx.flagged_readout), cz_cluster=list(ctx.flagged_cz_cluster)), override_denied=denied,
+               snapshot_flags=dict(readout=list(ctx.flagged_readout), cz_cluster=list(ctx.flagged_cz_cluster), coherence=list(ctx.flagged_coherence)),
+               override_denied=denied,
                policy="Paper 2: readout failures are flagged, not dropped; refuse on a non-operational used qubit or a failing Q4 patch qubit")
     if not enforce:
         chk["action"] = "logged"
@@ -1111,7 +1185,7 @@ def execute_sampler_joblist(jl: dict, backend, submit: bool, run_root: str = "da
     extra_base = dict(instance_plan=instance_plan, budget=jl.get("budget"), budget_estimate_with_target_durations=budget_target,
                       layout_check=chk, primitive="sampler", protocol=stage,
                       qubit_set=dict(qubits=list(ctx.qubits), separate=list(ctx.separate), flagged_readout=list(ctx.flagged_readout),
-                                     flagged_cz_cluster=list(ctx.flagged_cz_cluster), snapshot=ctx.snapshot, exclusion=list(ctx.exclusion)),
+                                     flagged_cz_cluster=list(ctx.flagged_cz_cluster), flagged_coherence=list(ctx.flagged_coherence), snapshot=ctx.snapshot, exclusion=list(ctx.exclusion)),
                       q4_patches=[list(e) for e in ctx.q4_edges], randomness=jl.get("randomness"))
     root = Path(run_root)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
@@ -1313,7 +1387,7 @@ def retrieve_sampler_jobs(ids: dict, ids_path: str | Path, jl: dict, joblist_pat
         extra = dict(instance_plan=instance_plan, budget=jl.get("budget"), budget_estimate_with_target_durations=budget_target, layout_check=chk,
                      primitive="sampler", protocol=stage,
                      qubit_set=dict(qubits=list(ctx.qubits), separate=list(ctx.separate), flagged_readout=list(ctx.flagged_readout),
-                                    flagged_cz_cluster=list(ctx.flagged_cz_cluster), snapshot=ctx.snapshot, exclusion=list(ctx.exclusion)),
+                                    flagged_cz_cluster=list(ctx.flagged_cz_cluster), flagged_coherence=list(ctx.flagged_coherence), snapshot=ctx.snapshot, exclusion=list(ctx.exclusion)),
                      q4_patches=[list(e) for e in ctx.q4_edges], randomness=jl.get("randomness"), init_qubits=init, sampler_job=tag, simulated=False,
                      synthetic_target_instructions=sorted({s for b in group for s in b.synthetic_target_instructions}),
                      retrieved=True, submission_run=ids.get("submission_run"),

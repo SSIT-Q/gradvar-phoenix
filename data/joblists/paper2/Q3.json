@@ -8,7 +8,7 @@
   "rep_delay_probe": true,
   "preflight_review": "TBD: pre-flight review permalink",
   "init_qubits": true,
-  "notes": "Paper 2 pre-registration v0.4.4 (20 Sep 2026), Section 2 Q3 / H3 and 'Order of runs' item 6: the frame-tracked reset cycle benchmark. m in {1, 16, 64} cycles of [random Pauli on every qubit -> native reset on the mask, delay(400 ns) elsewhere -> the same Pauli] (per-cycle spectator idle 480 ns with the two 40 ns Pauli layers, Deviation 7 (vi); the optional echo flag, delay 200 / X / delay 200 with the X folded into the closing Pauli, is off in this list and switched on only if the Deviation 5 prediction exceeds 5e-5); reset qubits enter in |1> and are read in Z with expected_z = 1 when the final cycle's Pauli is X or Y, else 0; spectators enter in |+> and are read in X. Masks: the five sparse Q2 masks (about 20 percent) and eight random 50 percent masks; four Pauli frames per mask, dense masks then frames drawn once from default_rng(20260919) over the 118 parallel qubits (Deviation 6; mask hashes in randomness); a circuit with m cycles uses the first m cycles of its 64-cycle frame (Deviation 7 (v)). H3's mean runs over the 111 qubits neither readout-flagged nor 79. 156 circuits x 12,288 shots = 1,916,928 executions (Section 3 table: 8.8 min at 250 us, 52 s at 1 us). Execution (Section 3): SamplerV2 in job mode, resilience 0 (no twirling, no dynamical decoupling, no TREX term), init_qubits True unless the job says otherwise, rep_delay at the backend default (Deviation 1: the granted value follows Paper 1's Deviation 23 gate; budgets quoted at 250 us and 1 us). One Sampler job per stage (Section 3 'Job packing'). Per-shot bitstrings of every classical register are written to bitarrays.npz with a counts.json summary in each bundle; one CSV row per circuit follows the Section 5 logging schema. Qubit sets from the ibm_phoenix_2026-09-20T030813Z.csv snapshot: the 118 parallel qubits (qubit 17 excluded everywhere; qubit 79 with its 2140 ns reset isolated in its own Q1 job, Deviation 6), readout flags above 3e-2 [24, 55, 62, 67, 73, 77, 107] and the CZ cluster [55, 61, 62, 63, 72, 73] flagged and kept (Section 3, Deviation 7 (iv): separate columns); the runner re-derives them from the named snapshot and refuses a stale list, and the live Deviation 26 re-check flags (Q1/Q2/Q3/Q5) or refuses (Q4 patch qubit, non-operational qubit) at submission. Budget model v2 for the Sampler (Deviation 2 with the TREX term zero): 8.819 min at 250 us, 0.863 min at 1 us. Data policy (Deviation 7 (vii)): no circuits.qpy in the committed bundle (SHA-256 and versions in job.json, qpy under data/artifacts/ for the Action artefact), bitarrays.npz committed under 20 MB else under data/lfs/ and flagged, counts.json / job.json / CSV always. Nothing is submitted while dry_run is true and the pre-flight review permalink is the placeholder.",
+  "notes": "Paper 2 pre-registration v0.6.0 (21 Sep 2026, Deviations 1-14), Section 2 Q3 / H3 and 'Order of runs' item 6: the frame-tracked reset cycle benchmark. m in {1, 16, 64} cycles of [random Pauli on every qubit -> native reset on the mask, delay(400 ns) elsewhere -> the same Pauli] (per-cycle spectator idle 480 ns with the two 40 ns Pauli layers, Deviation 7 (vi); the optional echo flag, delay 200 / X / delay 200 with the X folded into the closing Pauli, is ON in this list (Deviations 10-14: the 21 Sep smoke test measured a spectator per-cycle error of 4e-3 at m = 64, eighty times the Deviation 5 trigger of 5e-5; cycle 520 ns)); reset qubits enter in |1> and are read in Z with expected_z = 1 when the final cycle's Pauli is X or Y, else 0; spectators enter in |+> and are read in X. Masks: the five sparse Q2 masks (about 20 percent) and eight random 50 percent masks; four Pauli frames per mask, dense masks then frames drawn once from default_rng(20260919) over the 118 parallel qubits (Deviation 6; mask hashes in randomness); a circuit with m cycles uses the first m cycles of its 64-cycle frame (Deviation 7 (v)). H3's mean runs over the 111 qubits neither readout-flagged nor 79. 156 circuits x 12,288 shots = 1,916,928 executions (Section 3 table: 8.8 min at 250 us, 52 s at 1 us). Execution (Section 3): SamplerV2 in job mode, resilience 0 (no twirling, no dynamical decoupling, no TREX term), init_qubits True unless the job says otherwise, rep_delay at the backend default (Deviation 1: the granted value follows Paper 1's Deviation 23 gate; budgets quoted at 250 us and 1 us). One Sampler job per stage (Section 3 'Job packing'). Per-shot bitstrings of every classical register are written to bitarrays.npz with a counts.json summary in each bundle; one CSV row per circuit follows the Section 5 logging schema. Qubit sets from the ibm_phoenix_2026-09-21T030827Z.csv snapshot: the 118 parallel qubits (qubit 17 excluded everywhere; qubit 79 with its 2140 ns reset isolated in its own Q1 job, Deviation 6), readout flags above 3e-2 [24, 55, 62, 67, 77, 105, 107] and the CZ cluster [55, 61, 62, 63, 72, 73] flagged and kept (Section 3, Deviation 7 (iv): separate columns); the runner re-derives them from the named snapshot and refuses a stale list, and the live Deviation 26 re-check flags (Q1/Q2/Q3/Q5) or refuses (Q4 patch qubit, non-operational qubit) at submission. Budget model v3 for the Sampler (Deviations 10-14, from the 21 Sep smoke test: 3.0 s per job + 6.5 us per execution, TREX term zero): 8.758 min at 250 us, 0.803 min at 1 us. Data policy (Deviations 10-14 amending 7 (vii)): no circuits.qpy in the committed bundle (SHA-256 and versions in job.json, qpy under data/artifacts/ for the Action artefact and Zenodo), bitarrays.npz committed under 45 MB else under data/artifacts/ too and flagged (Git LFS withdrawn; a job whose raw bit arrays would exceed 45 MB is split at generation, budget.per_job[].bitarrays_raw_mb), counts.json / job.json / CSV always. Coherence flag (T1 or T2 below 25 us, qubit_set.flagged_coherence [7, 11, 67, 114]) is a map column with the CZ-cluster treatment, kept in the parallel arms. Nothing is submitted while dry_run is true and the pre-flight review permalink is the placeholder.",
   "layout_check": "enforce",
   "points": [],
   "sampler_jobs": [
@@ -16,17 +16,18 @@
       "id": "Q3",
       "shots": 12288,
       "init_qubits": true,
-      "purpose": "Section 2 Q3: 13 masks x 4 frames x 3 depths",
+      "purpose": "Section 2 Q3: 13 masks x 4 frames x 3 depths, spectator echo on",
       "circuits": [
         {
-          "kind": "q3"
+          "kind": "q3",
+          "echo": true
         }
       ]
     }
   ],
   "qubit_set": {
     "rule": "all_operational_minus_separate",
-    "snapshot": "ibm_phoenix_2026-09-20T030813Z.csv",
+    "snapshot": "ibm_phoenix_2026-09-21T030827Z.csv",
     "qubits": [
       0,
       1,
@@ -158,8 +159,8 @@
       55,
       62,
       67,
-      73,
       77,
+      105,
       107
     ],
     "flagged_cz_cluster": [
@@ -170,14 +171,23 @@
       72,
       73
     ],
-    "readout_flag_cut": 0.03
+    "readout_flag_cut": 0.03,
+    "flagged_coherence": [
+      7,
+      11,
+      67,
+      114
+    ],
+    "coherence_flag_us": 25.0
   },
   "q4_patches": {
     "rule": "row_edges",
-    "snapshot": "ibm_phoenix_2026-09-20T030813Z.csv",
+    "snapshot": "ibm_phoenix_2026-09-21T030827Z.csv",
     "min_column_gap": 3,
     "exclusion": [
+      7,
       8,
+      11,
       17,
       18,
       24,
@@ -193,172 +203,161 @@
       73,
       77,
       79,
-      91,
+      105,
       107,
-      119
+      110,
+      114
     ],
     "edges": [
       [
-        0,
-        1
+        5,
+        6
       ],
       [
-        15,
-        16
+        12,
+        13
       ],
       [
-        20,
-        21
+        25,
+        26
       ],
       [
-        38,
-        39
+        31,
+        32
       ],
       [
-        42,
-        43
+        46,
+        47
       ],
       [
-        57,
-        58
+        50,
+        51
       ],
       [
-        64,
-        65
+        68,
+        69
       ],
       [
-        70,
-        71
+        75,
+        76
       ],
       [
-        85,
-        86
+        81,
+        82
       ],
       [
-        92,
-        93
+        94,
+        95
       ],
       [
-        108,
-        109
+        100,
+        101
       ],
       [
         115,
         116
       ]
     ],
-    "backtracked": [
-      {
-        "row": 5,
-        "greedy": [
-          56,
-          57
-        ],
-        "chosen": [
-          57,
-          58
-        ]
-      }
-    ],
+    "backtracked": [],
     "per_row": [
       {
         "row": 0,
         "edge": [
-          0,
-          1
+          5,
+          6
         ],
-        "readout_sum": 0.014404,
-        "n_candidates": 7
+        "readout_sum": 0.012329,
+        "n_candidates": 6
       },
       {
         "row": 1,
         "edge": [
-          15,
-          16
+          12,
+          13
         ],
-        "readout_sum": 0.022217,
-        "n_candidates": 6
+        "readout_sum": 0.024536,
+        "n_candidates": 4
       },
       {
         "row": 2,
         "edge": [
-          20,
-          21
+          25,
+          26
         ],
-        "readout_sum": 0.010498,
+        "readout_sum": 0.012573,
         "n_candidates": 5
       },
       {
         "row": 3,
         "edge": [
-          38,
-          39
+          31,
+          32
         ],
-        "readout_sum": 0.013916,
+        "readout_sum": 0.014404,
         "n_candidates": 9
       },
       {
         "row": 4,
         "edge": [
-          42,
-          43
+          46,
+          47
         ],
-        "readout_sum": 0.016968,
+        "readout_sum": 0.019775,
         "n_candidates": 8
       },
       {
         "row": 5,
         "edge": [
-          57,
-          58
+          50,
+          51
         ],
-        "readout_sum": 0.013672,
+        "readout_sum": 0.015259,
         "n_candidates": 6
       },
       {
         "row": 6,
         "edge": [
-          64,
-          65
+          68,
+          69
         ],
-        "readout_sum": 0.026367,
+        "readout_sum": 0.010254,
         "n_candidates": 3
       },
       {
         "row": 7,
         "edge": [
-          70,
-          71
+          75,
+          76
         ],
-        "readout_sum": 0.020996,
+        "readout_sum": 0.011475,
         "n_candidates": 3
       },
       {
         "row": 8,
         "edge": [
-          85,
-          86
+          81,
+          82
         ],
-        "readout_sum": 0.011475,
+        "readout_sum": 0.012207,
         "n_candidates": 9
       },
       {
         "row": 9,
         "edge": [
-          92,
-          93
+          94,
+          95
         ],
-        "readout_sum": 0.014282,
-        "n_candidates": 7
+        "readout_sum": 0.011719,
+        "n_candidates": 9
       },
       {
         "row": 10,
         "edge": [
-          108,
-          109
+          100,
+          101
         ],
-        "readout_sum": 0.009644,
-        "n_candidates": 7
+        "readout_sum": 0.006226,
+        "n_candidates": 5
       },
       {
         "row": 11,
@@ -366,8 +365,8 @@
           115,
           116
         ],
-        "readout_sum": 0.009399,
-        "n_candidates": 8
+        "readout_sum": 0.007324,
+        "n_candidates": 6
       }
     ]
   },
@@ -399,12 +398,12 @@
     }
   },
   "budget": {
-    "model_version": 2,
+    "model_version": 3,
     "primitive": "sampler",
-    "formula": "2 s per job + (rep_delay + gate length + t_meas + 10 us) x executions; SamplerV2 at resilience 0: no ZNE, no TREX term; t_meas once per terminal readout plus each measure_reset's own duration; reset and matched delay at max(reset_ns) over the circuit's reset qubits; Q3 cycle 480 ns (520 ns with echo)",
+    "formula": "3 s per job + (rep_delay + gate length + t_meas + 6.5 us) x executions; SamplerV2 at resilience 0: no ZNE, no TREX term; t_meas once per terminal readout plus each measure_reset's own duration; reset and matched delay at max(reset_ns) over the circuit's reset qubits; Q3 cycle 480 ns (520 ns with echo); Q2 repetition 400 ns (440 ns with echo)",
     "readout_us": 1.94,
     "readout_source": "ibm_phoenix properties readout_length (2026-09-19)",
-    "exec_overhead_us": 10.0,
+    "exec_overhead_us": 6.5,
     "trex_randomizations": 32,
     "zne_noise_factors": 3,
     "sq_gate_us": 0.04,
@@ -422,10 +421,13 @@
     "executions_with_zne": 1916928,
     "trex_executions": 0,
     "mcm_executions": 0,
-    "seconds_at_250us": 529.12,
-    "minutes_at_250us": 8.819,
-    "seconds_at_1us": 51.8,
-    "minutes_at_1us": 0.863,
+    "job_seconds": 3.0,
+    "bitarrays_commit_limit_mb": 45.0,
+    "bitarrays_raw_mb_max": 28.754,
+    "seconds_at_250us": 525.48,
+    "minutes_at_250us": 8.758,
+    "seconds_at_1us": 48.16,
+    "minutes_at_1us": 0.803,
     "per_job": [
       {
         "tag": "Q3",
@@ -440,13 +442,15 @@
         "n_bases": 1,
         "trex_executions": 0,
         "mcm_executions": 0,
-        "mean_gate_us": 13.04,
-        "circuit_seconds_at_250us": 527.117,
+        "mean_gate_us": 14.12,
+        "circuit_seconds_at_250us": 522.478,
         "trex_seconds_at_250us": 0.0,
-        "seconds_at_250us": 529.117,
-        "circuit_seconds_at_1us": 49.802,
+        "seconds_at_250us": 525.478,
+        "circuit_seconds_at_1us": 45.163,
         "trex_seconds_at_1us": 0.0,
-        "seconds_at_1us": 51.802
+        "seconds_at_1us": 48.163,
+        "job_constant_seconds": 3.0,
+        "bitarrays_raw_mb": 28.754
       }
     ]
   }
