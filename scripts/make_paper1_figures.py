@@ -175,11 +175,16 @@ class Predictions:
         if d.empty:
             return None
         r = d.iloc[-1]
-        col, se = ("var_k1_mc", "se_k1_mc") if k == 1 else (("var_mc", "se_mc") if k == L else (None, None))
-        if col is None or not np.isfinite(float(r[col])):
+        col, se, ppcol = ("var_k1_mc", "se_k1_mc", "var_k1_pp") if k == 1 else (("var_mc", "se_mc", "var_pp") if k == L else (None, None, None))
+        if col is None:
             return None
         conv = r.get("pp_converged", True)
-        return dict(var=float(r[col]), sigma=float(r[se]), kind="propagation", converged=bool(conv) if pd.notna(conv) else True)
+        conv = bool(conv) if pd.notna(conv) else True
+        if np.isfinite(float(r[col])):
+            return dict(var=float(r[col]), sigma=float(r[se]), kind="propagation", converged=conv)
+        if ppcol in r and np.isfinite(float(r[ppcol])):          # sampler timed out: the truncated propagation value is a lower bound (Deviation 15)
+            return dict(var=float(r[ppcol]), sigma=0.0, kind="propagation (lower bound only, sampler time cap)", converged=False)
+        return None
 
     def row(self, n: int, L: int, k: int, model: str = "nonunital", edge: str | None = None) -> dict | None:
         """The prediction row for one point under the rule in the module docstring."""
@@ -479,7 +484,7 @@ def fig1(cmp: pd.DataFrame, nulls: pd.DataFrame, preds: Predictions, out: Path):
     handles = [Line2D([], [], marker="o", color=C["hw"], ls="none", ms=4.2, label="hardware, level 0 (95% bootstrap CI)"),
                Line2D([], [], marker="^", color=C["hw"], ls="none", ms=4.8, label="hardware, level 0, 16384 shots"),
                Line2D([], [], marker="s", color=C["pred"], ms=3.2, lw=1.2, label="non-unital model, run-day re-draw"),
-               Line2D([], [], marker="s", color=C["pred"], mfc=C["surface"], ms=3.2, lw=1.2, ls="--", label="non-unital model, 19 Sep frozen row"),
+               *([Line2D([], [], marker="s", color=C["pred"], mfc=C["surface"], ms=3.2, lw=1.2, ls="--", label="non-unital model, 19 Sep frozen row")] if cmp.pred_frozen.any() else []),
                Line2D([], [], color=C["nl"], lw=1.0, ls=(0, (1, 1.2)), label="noiseless"),
                Line2D([], [], marker="o", color=C["flag"], mfc="none", ls="none", ms=7, label="Deviation 19 flag")]
     fig.legend(handles=handles, loc="lower center", ncol=6, bbox_to_anchor=(0.5, -0.09), handlelength=1.6, columnspacing=1.2)
@@ -521,7 +526,7 @@ def fig2(cmp: pd.DataFrame, fits: dict, out: Path):
     from matplotlib.lines import Line2D
     handles = [Line2D([], [], marker="o", color=C["hw"], ls="none", ms=4.2, label="hardware, level 0 (95% CI); 16384-shot point moved to the 4096 floor (triangle)"),
                Line2D([], [], color=C["hw"], lw=1.0, label=r"log-log fit Var $\propto n^{\alpha}$ (SE from the CIs)"),
-               Line2D([], [], marker="s", color=C["pred"], ms=3.2, lw=1.1, label="non-unital model (open: 19 Sep frozen row)"),
+               Line2D([], [], marker="s", color=C["pred"], ms=3.2, lw=1.1, label="non-unital model" + (" (open: 19 Sep frozen row)" if cmp.pred_frozen.any() else "")),
                Line2D([], [], color=C["muted"], lw=0.7, ls=(0, (3, 2)), label="shot floor")]
     fig.legend(handles=handles, loc="lower center", ncol=4, bbox_to_anchor=(0.5, -0.1), handlelength=1.6, columnspacing=1.2)
     save(fig, out, "fig2_variance_vs_n_per_L")
@@ -578,7 +583,7 @@ def fig3(cmp: pd.DataFrame, out: Path):
     bot.set_ylabel("z = (meas. - pred.) / σ")
     bot.set_ylim(-6.5, 4.5)
     bot.set_xticks(ticks); bot.set_xticklabels(tlabels)
-    bot.set_xlabel("qubits n, grouped by depth L   (f: prediction is a 19 Sep frozen row on another placement)")
+    bot.set_xlabel("qubits n, grouped by depth L" + ("   (f: prediction is a 19 Sep frozen row on another placement)" if d.pred_frozen.any() else ""))
     from matplotlib.lines import Line2D
     handles = [Line2D([], [], marker="o", color=LEVEL_COLOR[0], ls="none", ms=4, label="level 0 (raw variance, 95% CI)"),
                Line2D([], [], marker="s", color=LEVEL_COLOR[1], ls="none", ms=4, label="level 1 (TREX)"),
