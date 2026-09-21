@@ -1,0 +1,48 @@
+{
+ "backend_name": "ibm_phoenix",
+ "backend_version": "1.0.0",
+ "num_qubits": 120,
+ "dt": 4e-09,
+ "operation_names": [
+  "cz",
+  "delay",
+  "id",
+  "if_else",
+  "measure",
+  "measure_2",
+  "measure_reset",
+  "measure_reset_2",
+  "reset",
+  "rz",
+  "sx",
+  "x",
+  "xslow"
+ ],
+ "coupling_map_edges": 436,
+ "granularity": 1,
+ "min_length": 2,
+ "instructions": {
+  "delay": 120,
+  "rz": 120,
+  "measure_2": 120,
+  "cz": 436,
+  "id": 120,
+  "if_else": 1,
+  "sx": 120,
+  "measure_reset": 120,
+  "xslow": 120,
+  "measure": 120,
+  "reset": 120,
+  "measure_reset_2": 120,
+  "x": 120
+ },
+ "rep_delay": {
+  "default_rep_delay_s": 1e-06,
+  "rep_delay_range_s": [
+   0.0,
+   0.002
+  ],
+  "dynamic_reprate_enabled": true,
+  "source": "backend"
+ }
+}
