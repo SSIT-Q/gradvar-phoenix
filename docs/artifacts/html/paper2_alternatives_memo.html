@@ -1,0 +1,199 @@
+<title>Phoenix Paper 2 Redirect</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Mono:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
+<style>
+:root{
+  --ground:#F3F5F8; --surface:#FFFFFF; --ink:#16202A; --muted:#5D6C7B; --rule:#D5DCE4;
+  --accent:#2447C9; --accent-soft:#E4EAFB; --warn:#A86A11; --warn-soft:#FBF1DF;
+  --good:#1E7A5A; --nat:#7A2E8E; --nat-soft:#F3E9F7; --grid:rgba(36,71,201,.10);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#0F151B; --surface:#161E27; --ink:#E6EBF0; --muted:#9AA8B5; --rule:#2B3743;
+    --accent:#7F9AF4; --accent-soft:#1D2740; --warn:#E3AA4E; --warn-soft:#2B2416;
+    --good:#5CC79A; --nat:#C58AD6; --nat-soft:#2A1C31; --grid:rgba(127,154,244,.12);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0F151B; --surface:#161E27; --ink:#E6EBF0; --muted:#9AA8B5; --rule:#2B3743;
+  --accent:#7F9AF4; --accent-soft:#1D2740; --warn:#E3AA4E; --warn-soft:#2B2416;
+  --good:#5CC79A; --nat:#C58AD6; --nat-soft:#2A1C31; --grid:rgba(127,154,244,.12);
+}
+body{background:var(--ground);color:var(--ink);font-family:"Source Serif 4",Georgia,"Times New Roman",serif;font-size:16.5px;line-height:1.55;padding-block:0 64px;padding-inline:16px}
+.wrap{max-width:76ch;margin:0 auto}
+h1,h2,h3{font-family:"IBM Plex Sans Condensed","Arial Narrow",Arial,sans-serif;text-wrap:balance;line-height:1.15;margin:0}
+h1{font-size:clamp(30px,5vw,42px);font-weight:600;letter-spacing:-.01em}
+h2{font-size:24px;font-weight:600;margin-top:44px;padding-top:14px;border-top:2px solid var(--ink)}
+h3{font-size:20px;font-weight:600}
+p{margin:.7em 0}
+.eyebrow,.mono{font-family:"IBM Plex Mono",Menlo,Consolas,monospace}
+.eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+header{padding-block:36px 24px;background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:24px 24px;margin-inline:-16px;padding-inline:16px;border-bottom:1px solid var(--rule)}
+header .wrap p{color:var(--muted);max-width:60ch}
+.verdict{background:var(--surface);border-left:4px solid var(--accent);padding:16px 20px;margin-top:22px}
+.verdict p{margin:.4em 0;color:var(--ink)}
+.budget{background:var(--warn-soft);border-left:4px solid var(--warn);padding:14px 20px;margin-top:22px}
+.dir{background:var(--surface);border:1px solid var(--rule);margin-top:22px;padding:18px 20px 12px}
+.dir .head{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.rank{font-family:"IBM Plex Mono",monospace;font-size:13px;color:var(--accent);background:var(--accent-soft);padding:2px 8px;border-radius:3px}
+.rank.nat{color:var(--nat);background:var(--nat-soft)}
+.hyp{margin-top:10px;font-weight:600}
+dl{display:grid;grid-template-columns:9.5em 1fr;gap:6px 14px;margin:12px 0 0;font-size:15.5px}
+dt{font-family:"IBM Plex Mono",monospace;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding-top:3px}
+dt.nat{color:var(--nat)}
+dd{margin:0}
+.odds{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
+.ref{margin-top:12px;padding:10px 14px;background:var(--ground);border-left:3px solid var(--muted);font-style:italic}
+.tablewrap{overflow-x:auto;margin-top:16px;border:1px solid var(--rule);background:var(--surface)}
+table{border-collapse:collapse;min-width:980px;width:100%;font-size:14px}
+th,td{padding:8px 10px;text-align:left;vertical-align:top;border-bottom:1px solid var(--rule)}
+th{font-family:"IBM Plex Sans Condensed",Arial,sans-serif;font-weight:600;background:var(--ground)}
+th.nat{color:var(--nat)}
+td.n{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums;white-space:nowrap}
+tr:last-child td{border-bottom:none}
+.rec{background:var(--surface);border:1px solid var(--rule);border-top:4px solid var(--good);padding:18px 20px;margin-top:22px}
+footer{margin-top:40px;color:var(--muted);font-size:14px}
+@media (max-width:520px){dl{grid-template-columns:1fr}dt{padding-top:6px}}
+</style>
+
+<header><div class="wrap">
+<div class="eyebrow">gradvar-phoenix · Paper 2, second pass · 19 Sept 2026 · for Owais and Dr. Raviram</div>
+<h1>Six directions for the remaining 100 to 150 minutes on ibm_phoenix</h1>
+<p>The reset-beats-plateaus claim is dead (memo §1–4; review BLOCKER-1, MAJOR-1..4). Six survivors, ranked twice: expected publishable outcome (blue) and Nature-family upside (purple).</p>
+<div class="verdict">
+<p><strong>Verdict.</strong> Build Paper 2 around the reset element as a <em>calibrated non-unitality dial</em> (expected rank 1). Keep the classical-surrogate stress test (Nature-upside rank 1) as a gated arm; promote it only if a tensor-network partner signs by mid-November. The rest are Paper 1 figures or the bin.</p>
+<p>Recommended paper, stand-alone: <span class="odds">20%</span> PRX Quantum or Quantum, <span class="odds">60%</span> QST or npj QI, <span class="odds">85%</span> as a Paper 1 section, <span class="odds">2%</span> Nature family.</p>
+</div>
+</div></header>
+
+<div class="wrap">
+
+<div class="budget">
+<p><strong>One number governs every row.</strong> A standard point is 100 draws × 2 shift circuits × 4096 shots = 819,200 executions. IBM's run-time formula is <span class="mono">2 s + (rep_delay + circuit length) × executions</span>. At the default <span class="mono">rep_delay</span> of 250 µs that is <strong>3.5 to 3.7 min per point</strong> (4.8 min by IBM's 0.35 ms shortcut, kept as the upper figure in the table). At the ~1 µs idle the Nighthawk r2 release advertises it is <strong>0.12 min</strong> with a fast dissipative reset (~5 µs circuit) to <strong>0.33 min</strong> with measure-based reset (~21 µs), so 2 to 5 min for direction 1's 15-point grid. A factor 15 to 30 separates the two regimes. The 1 µs figure presupposes the dissipative reset element works at every shot start, since T1 = 178 µs rules out passive relaxation in 1 µs: the budget and direction 1 share that one risk. <span class="mono">backend.rep_delay_range</span> may not permit 1 µs at all. Nothing is booked until the dry run reads <span class="mono">default_rep_delay</span> and <span class="mono">rep_delay_range</span>, measures locked time per point, and confirms Paper 1's own budget, which an earlier review found already tight in 180 min at default rep_delay; direction 1 fits in the remaining minutes only after that confirmation.</p>
+</div>
+
+<h2>Directions</h2>
+
+<section class="dir">
+<div class="head"><span class="rank">EXPECTED 1</span><span class="rank nat">NATURE 2</span><h3>The non-unitality dial</h3></div>
+<p class="hyp">Hypothesis. Realise the i.i.d. mixture channel N<sub>p</sub>(ρ) = (1−p)ρ + p|0⟩⟨0| on every qubit after every layer of a 6×10 Ry/CZ circuit: a fresh random reset mask is drawn per layer <em>and</em> per circuit, the observed pair is in the lottery, and K = 64 masks are pooled per parameter draw (64 shots each, same 4096-shot execution count), so the estimator targets C<sub>mix</sub>(θ), the pattern-averaged cost. For this channel t = (0,0,p), D = (1−p)I, c = (1−p)² + p²/3. Two separate hypotheses, p ∈ {0.1, 0.25, 0.5}, p = 0 being Paper 1's grid. <strong>H-A (Mele Cor. 6):</strong> Var<sub>θ</sub>[C<sub>mix</sub>] is unchanged between L = 8 and 12 and ≥ (1/3)p⁴ (3×10⁻⁵, 1.3×10⁻³, 2.1×10⁻²). <strong>H-B (Mele Thm 8):</strong> Var[∂<sub>k</sub>C<sub>mix</sub>] ∝ exp(−α(p)(L−k)) with α rising in p and the k = L point L-independent; at p = 0 every k decays with L. Pooling adds a pattern-noise floor: Var<sub>mask</sub>[C]/K on C<sub>mix</sub> beside the shot floor 1/4096, and Var<sub>mask</sub>[C]/(2K) on the gradient beside 1/(2·4096), both drawn on every plot. Var<sub>mask</sub>[C] is estimated per draw from the spread of the 64 per-mask 64-shot means minus their shot variance.</p>
+<dl>
+<dt>Why this form</dt><dd>With one mask per draw the per-qubit channel is identity or replacer, second moments do not factorise (E[N⊗N] ≠ N<sub>p</sub>⊗N<sub>p</sub>), the floor is nearer (1/3)p² and the theorems do not apply; the killed memo's <span class="mono">dissrand</span> ansatz was that configuration and showed a flat k-profile. Per-shot randomness is unavailable in a static circuit, so pooled per-circuit masks are the practical approximation.</dd>
+<dt>Theory</dt><dd>Mele et al. 2403.13927 Thm 1 (effective log depth), Thm 5/Cor. 6, Thm 8 (2-design layers, average case); Singkanipa–Lidar 2402.08721; Angrisani et al. 2501.13101 cover constant-rate dynamic non-unitary operations, so the baseline is cheap.</dd>
+<dt>Truncation arm</dt><dd>Per draw at p ∈ {0.25, 0.5}, also run the circuit with its first L−ℓ layers deleted and all qubits started in |0⟩, ℓ ∈ {2, 4}, one circuit per draw at 16384 shots, and report the RMS over the 100 draws of C<sub>mix</sub> − C<sub>mix</sub><sup>[L−ℓ,L]</sup> against ℓ and p. This is Theorem 1's "noise-induced shallow circuit" statement measured at 60 qubits as an observable difference rather than a gradient variance: the RMS difference falls roughly as c(p)<sup>ℓ/2</sup>·std<sub>θ</sub>(C<sub>mix</sub>). Resolvability sets the shot count: std<sub>θ</sub>(C<sub>mix</sub>) is at least 0.036 (p = 0.25) and 0.14 (p = 0.5) from the Cor. 6 floor, against a shot std of 0.016 at 4096 shots and 0.008 at 16384, so at 4096 shots only p = 0.5, ℓ = 2 is resolved, while 16384 resolves both p at ℓ = 2 and p = 0.5 at ℓ = 4; p = 0.1 (std ≥ 0.0055) is invisible and is not run. There is no clean p = 0 control at this depth: by Paper 1's own hypothesis the p = 0 cost at n = 60, L = 8 is in a plateau and both circuits sit at the shot floor. With the resolved shot budget this is the figure that lifts a QST confirmation to PRX Quantum, because it is the headline claim of a Nature Physics theory paper shown on hardware with the non-unitality dialled.</dd>
+<dt>Why hardware</dt><dd>Native T1 cannot test any of this: one layer is 0.35 µs against T1 = 178 µs, γ ≈ 2×10⁻³, and the Cor. 6 floor (1/3)γ⁴ ≈ 5×10⁻¹² is what Paper 1's H3 tests; p = 0.1 is the point that rescues H3. Schmitt et al. 2602.22851 blame T1 for their saturation with no knob to turn; the 120 reset elements are that knob, unique to this device, with real Pauli, readout and reset error on top.</dd>
+<dt>Cost</dt><dd>Gradient grid at n = 60: 3 p × L = 8 × k ∈ {L, L−1, L−2, L−4} (12 points) plus k = L at L = 12 for each p (3 points, needed for the L-independence claims in H-A and H-B; Var[C<sub>mix</sub>] at L = 8 comes free from the shift circuits): 15 points, <strong>53–55 min at 250 µs (72 by the shortcut), 2–5 min at 1 µs</strong>. Truncation arm: 2 p × 2 ℓ × 100 draws = 400 circuits at 16384 shots, <strong>~28 min at 250 µs, 0.7–2.4 min at 1 µs</strong>. Reset-error characterisation ~3 min, rep_delay-independent (duration is read from <span class="mono">backend.target["reset"][(q,)].duration</span>; only the error needs measuring). <strong>Total 84–86 min at 250 µs (103 by the shortcut), 6–10 min at 1 µs.</strong> Extension if minutes allow: n = 100 at p = 0.5, 4 points, +15 min.</dd>
+<dt>Baseline</dt><dd>Pauli propagation with the mixture rule (Z→(1−p)Z, X,Y→(1−p)X,Y, plus p·I from the trace term); exact to 12 qubits (memo code, extended from the reset rule). Nearest: 2403.13927, 2402.08721, 2602.22851, 2507.02043. No fetched paper has done this; "uncontested" is unconfirmed by an arXiv search, not established.</dd>
+<dt>Main risk</dt><dd>Mid-circuit reset compiled as measure + conditional X (~2 µs per layer, uncontrolled γ ≈ 10⁻²). Kill if reset error exceeds 2×10⁻² or the pattern-noise floor at K = 64 exceeds the predicted p = 0.1 separation, unless simulation with measured values still separates the p levels by twice the combined floor.</dd>
+<dt>Odds</dt><dd class="odds">20 / 60 / 85</dd>
+<dt class="nat">Nature-worthy</dt><dd>α(p) or the floor at 100 qubits departs from the average-case prediction and noisy simulation cannot reproduce it: an engineered non-unital circuit trainable beyond Mele's effective depth. <span class="odds">P ≈ 2%</span>. Lift: an NQM-hub theorist (IISc) for the non-2-design prediction; variable-strength reset from IBM; +100 min for a full (n, L, p) grid.</dd>
+<dt>Theorist's additions (19 Sep 2026)</dt><dd>From the <a href="https://claude.ai/artifact/7WLx5wkkAz1f8AYMXxsVJj">theorist's second opinion</a>. (1) <strong>Add a qubit-number ladder</strong>: n ∈ {40, 60, 100} at p = 0.25, L = 8, k = L. Corollaries 6 and 9 are statements about n and the grid above has no n axis; drop the k = L−4 points to pay for it. (2) <strong>Frame H-A and H-B as a second-moment prediction for this Ry/CZ ansatz</strong>, drawn before data, not as a test of Theorem 8: the ansatz is not a local 2-design (Ry leaves Y-strings unrotated, so Y-paths form a separate slow mode), so the theorem supplies the form, not the constants. (3) <strong>The truncation arm is the headline figure</strong>: Theorem 1 measured as an observable difference at 60–100 qubits with no ensemble variance. (4) <strong>Subtract the pattern-noise term</strong> Var<sub>mask</sub>[C]/K (and /(2K) on the gradient) like shot noise, rather than quoting it as a floor. (5) <strong>Report p = 0.1 as exploratory</strong>; its floors sit at the shot floor. (6) <strong>Run a rotation-survival check for measure + X reset at p &gt; 0</strong>: the reset noise is θ-independent only if the measurement is.</dd>
+</dl>
+<p class="ref">Referee: "You mixed a reset channel into a circuit and confirmed the circuit forgets its early layers; a density-matrix simulation gives the same curve to three digits."</p>
+</section>
+
+<section class="dir">
+<div class="head"><span class="rank">EXPECTED 2</span><span class="rank nat">NATURE 1</span><h3>Classical-surrogate stress test</h3></div>
+<p class="hyp">Hypothesis. Sweep angle width σ (θ ~ N(0,σ²) about identity; σ ∈ {0.1, 0.3, 0.6, 1.0} plus uniform) on 6×10 and 10×10 at L = 8, and L = 12 at n = 100. Per-draw correlation between hardware gradients and truncated Pauli propagation (weights 4–8, δ-sweep after 2507.10771) and MPS (χ ≤ 512) exceeds 0.95 at small σ, is undefined at uniform (all at the floor), and dips in a σ window where Var[∂C] is still ≥ 10× the floor; device noise narrows the window (2501.13101) but does not close it at L = 8. Absorbs brief candidates 2 and 3.</p>
+<dl>
+<dt>Theory</dt><dd>2409.01706, 2501.13101 (locally scrambling and noisy circuits simulable on average); 2411.19896 (patch surrogates); 2312.09121 (the dichotomy); 2508.06358 (low-weight propagation an unreliable estimator).</dd>
+<dt>Why hardware</dt><dd><s>Inside the window no classical method is converged, so hardware is the only reference, with real rather than assumed noise.</s> [Struck 19 Sep 2026 after theorist review: a truncation residual does not imply hardness; average-case simulability is proven (Angrisani et al. 2501.13101).] Clifford-anchored controls (some angles at multiples of π/2, exact value known) calibrate hardware accuracy at the same depth, after 2603.14485.</dd>
+<dt>Cost</dt><dd>5 σ × 2 n + 3 at L = 12 + 4 anchors = 17 points, <strong>82 min at 250 µs, ~4 min at 1 µs</strong>.</dd>
+<dt>Baseline</dt><dd>Heavy: PauliPropagation.jl (2505.21606) with Paper 1's learned Pauli–Lindblad model; MPS on 6×10 only; PEPS at depth 8 is out of reach on four cores. Nearest: 2603.14485 (49 q, no gradients), 2602.04676 (classical half), 2607.17804 (classical gradients, 100 q).</dd>
+<dt>Main risk</dt><dd>Without anchors a discrepancy is indistinguishable from noise-model error; 2308.05077 shows classical methods catching up within a year.</dd>
+<dt>Odds</dt><dd class="odds">25 / 55 / 70 with a tensor-network partner; 10–15 / 45 / 70 without</dd>
+<dt class="nat">Nature-worthy</dt><dd><s>At 100 qubits, L ≥ 8: an anchored σ window with gradients ≥ 10× the floor where Pauli propagation and MPS both fail to converge.</s> [Struck 19 Sep 2026 after theorist review: a truncation residual does not imply hardness; average-case simulability is proven (Angrisani et al. 2501.13101).] <span class="odds">P ≈ 3%</span>, lower without a classical partner. Lift: a tensor-network group (IISc, TIFR, ICTS) for PEPS and belief-propagation baselines; a 156-qubit Heron cross-check; +150 min for 16384-shot per-draw correlations.</dd>
+</dl>
+<p class="ref">Referee: "Angrisani et al. prove the average case simulable, so your window is a truncation artefact."</p>
+</section>
+
+<section class="dir">
+<div class="head"><span class="rank">EXPECTED 3</span><span class="rank nat">NATURE 4</span><h3>Mitigation inflation as the object</h3></div>
+<p class="hyp">Hypothesis. At fixed total shots, ZNE via probabilistic error amplification (gains 1, 1.3, 1.6) inflates gradient-estimator variance by a factor growing exponentially in n·L while draw-to-draw signal variance is unchanged: mitigation moves the mean, not the resolvability. TREX inflates by the readout factor only.</p>
+<dl>
+<dt>Theory</dt><dd>Wang et al. 2109.01051; Quek et al. 2210.11505; Tsubouchi et al. 2208.09385; van den Berg et al. 2201.09866 (γ²); 2012.09738 (TREX).</dd>
+<dt>Why hardware</dt><dd>γ for a 2D 100-qubit sparse Pauli–Lindblad layer is unreported; 2604.19426 saw 3–5× inflation at p = 1 QAOA on ibm_fez with no depth or size scan.</dd>
+<dt>Cost</dt><dd>{40, 100} × {L = 4, 8} × (TREX + 3 gains) = 16 sets, <strong>77 min at 250 µs, ~3 min at 1 µs</strong>, plus 5–10 min noise learning; fractional gates off.</dd>
+<dt>Main risk</dt><dd>Paper 1's H4 already holds 8 level-2 points.</dd>
+<dt>Odds</dt><dd class="odds">10 / 55 / 80</dd>
+<dt class="nat">Nature-worthy</dt><dd>None foreseeable; the bounds are worst-case and the factor is bookkeeping. <span class="odds">P &lt; 1%</span>.</dd>
+</dl>
+<p class="ref">Referee: "The inflation factor is γ², fixed by the noise model you already learned; you are checking IBM's bookkeeping against a 2021 theorem."</p>
+</section>
+
+<section class="dir">
+<div class="head"><span class="rank">EXPECTED 4</span><span class="rank nat">NATURE 3</span><h3>The falsification arm (memo §6, cut to 8 points)</h3></div>
+<p class="hyp">Hypothesis. Ancilla-row reset at 2×W, W ∈ {6, 10}, L ∈ {4, 8}, k ∈ {1, L}: Var[∂<sub>k</sub>C] decays as exp(−α(L−k)), α ≈ 0.8, Var[C] within 2× of noiseless; the matched HEA has smaller α.</p>
+<dl>
+<dt>Theory</dt><dd>Zapusek et al. 2507.02043; Shirgure et al. 2606.23751 (anti-concentration without trainability).</dd>
+<dt>Cost</dt><dd>8 points, <strong>38 min at 250 µs, ~2 min at 1 µs</strong>; baseline already run to 12 qubits.</dd>
+<dt>Main risk</dt><dd>The review showed the simulated effect is a depth-2 cost by observable placement, and the k-profile was never simulated. This is the p = 1-on-one-row endpoint of the dial; run it only as that.</dd>
+<dt>Odds</dt><dd class="odds">5 / 25 / 70</dd>
+<dt class="nat">Nature-worthy</dt><dd><s>α<sub>anc</sub> &lt; α<sub>hea</sub> at every W with the propagation residual outside the CI at two or more points, reopening the trainable-and-hard question.</s> [Struck 19 Sep 2026 after theorist review: a truncation residual does not imply hardness; average-case simulability is proven (Angrisani et al. 2501.13101).] <span class="odds">P ≈ 1%</span>. Lift: a theory partner; feedforward variant (iv).</dd>
+</dl>
+<p class="ref">Referee: "You measured that a circuit whose output depends on two layers has gradients that depend on two layers."</p>
+</section>
+
+<section class="dir">
+<div class="head"><span class="rank">EXPECTED 5</span><span class="rank nat">NATURE 6</span><h3>Initialisation families at fixed shots</h3></div>
+<p class="hyp">Hypothesis. Identity-block (Grant et al. 1903.05076), Gaussian (Zhang et al. 2203.09376) and a shifted first-moment-distinct family (Kulshrestha et al. 2606.18515) differ in Var[∂C] at n = 100, L = 8 by more than 10× at 4096 shots, in the order the first-moment diagnostic predicts.</p>
+<dl>
+<dt>Why hardware</dt><dd>Little: all three sit inside 2409.01706's small-angle regime; warm-start theory (Puig et al. 2404.10044) concerns small regions around a point.</dd>
+<dt>Cost</dt><dd>3 families × {40, 100} × k ∈ {1, L} = 12 points, <strong>58 min at 250 µs, ~2.5 min at 1 µs</strong>.</dd>
+<dt>Odds</dt><dd class="odds">5 / 35 / 75</dd>
+<dt class="nat">Nature-worthy</dt><dd>None foreseeable. <span class="odds">P &lt; 1%</span>.</dd>
+</dl>
+<p class="ref">Referee: "Every curve here is reproducible on a laptop." Fold into the σ axis above.</p>
+</section>
+
+<section class="dir">
+<div class="head"><span class="rank">EXPECTED 6</span><span class="rank nat">NATURE 5</span><h3>Square lattice versus heavy-hex</h3></div>
+<p class="hyp">Hypothesis. Same Ry/CZ brickwork and local Z<sub>i</sub>Z<sub>j</sub> at n = 40–60: plateau onset in depth is later on heavy-hex (degree 3) than on the square lattice (degree 4) by the ratio of light-cone growth rates in Uvarov–Biamonte 2011.10530 and Cerezo et al. 2001.00550.</p>
+<dl>
+<dt>Why hardware</dt><dd>Little: a noiseless cone count, and two devices means two noise models against one geometry variable.</dd>
+<dt>Cost</dt><dd>Open plan gives 10 min per month: ~6 Heron points at 250 µs over November–January (Heron has no 1 µs mode); phoenix side free from Paper 1. Related (no geometry comparison in either): 2404.17560 (MBL initialisation on a 127-qubit heavy-hex chain), 2602.22851.</dd>
+<dt>Odds</dt><dd class="odds">3 / 20 / 60</dd>
+<dt class="nat">Nature-worthy</dt><dd>Onset moving opposite to the light-cone prediction: implausible. <span class="odds">P &lt; 1%</span>.</dd>
+</dl>
+<p class="ref">Referee: "Two devices, two noise models, one geometry variable: confounded, and the geometry is a laptop calculation." One figure in Paper 1.</p>
+</section>
+
+<h2>Comparison</h2>
+<div class="tablewrap">
+<table>
+<thead><tr><th>Exp. rank</th><th class="nat">Nat. rank</th><th>Direction</th><th>Points</th><th>Min @250 µs (shortcut figures for rows 2–5)</th><th>Min @1 µs</th><th>Classical baseline</th><th>PRXQ / Quantum</th><th>QST / npj QI</th><th>Companion</th><th class="nat">Nature-worthy result</th><th class="nat">P(Nature)</th><th class="nat">What raises it</th></tr></thead>
+<tbody>
+<tr><td class="n">1</td><td class="n">2</td><td>Non-unitality dial (i.i.d. mixture channel, p ∈ {0.1, 0.25, 0.5}) + truncation arm</td><td class="n">15 + 400 circ. + 3 char.</td><td class="n">84–86 (103 shortcut)</td><td class="n">6–10</td><td>Cheap: PP with mixture rule</td><td class="n">20%</td><td class="n">60%</td><td class="n">85%</td><td>α(p) or floor departs from average-case theory at 100 q, unreproduced by noisy simulation</td><td class="n">2%</td><td>NQM theorist; variable-strength reset; +100 min</td></tr>
+<tr><td class="n">2</td><td class="n">1</td><td>Surrogate stress test (σ window, anchors)</td><td class="n">17</td><td class="n">82</td><td class="n">4</td><td>Heavy: noisy PP δ-sweep, MPS, CPU-weeks</td><td class="n">25% (10–15% no partner)</td><td class="n">55%</td><td class="n">70%</td><td><s>Anchored 100 q window with measurable gradients where PP and MPS both fail to converge</s> [Struck 19 Sep 2026 after theorist review: a truncation residual does not imply hardness; average-case simulability is proven (Angrisani et al. 2501.13101).]</td><td class="n">3%</td><td>Tensor-network partner (IISc/TIFR/ICTS); Heron cross-check; +150 min</td></tr>
+<tr><td class="n">3</td><td class="n">4</td><td>Mitigation inflation (TREX, PEA gains)</td><td class="n">16 sets + learning</td><td class="n">77 + 5–10</td><td class="n">3 + 5–10</td><td>Moderate: γ² from learned model</td><td class="n">10%</td><td class="n">55%</td><td class="n">80%</td><td>None foreseeable</td><td class="n">&lt;1%</td><td>None realistic</td></tr>
+<tr><td class="n">4</td><td class="n">3</td><td>Falsification arm (ancilla-row reset)</td><td class="n">8</td><td class="n">38</td><td class="n">2</td><td>Cheap, already run</td><td class="n">5%</td><td class="n">25%</td><td class="n">70%</td><td><s>α_anc &lt; α_hea with PP residual outside CI</s> [Struck 19 Sep 2026 after theorist review: a truncation residual does not imply hardness; average-case simulability is proven (Angrisani et al. 2501.13101).]</td><td class="n">1%</td><td>Theory partner; feedforward variant</td></tr>
+<tr><td class="n">5</td><td class="n">6</td><td>Initialisation families</td><td class="n">12</td><td class="n">58</td><td class="n">2.5</td><td>Cheap: small-angle PP</td><td class="n">5%</td><td class="n">35%</td><td class="n">75%</td><td>None foreseeable</td><td class="n">&lt;1%</td><td>None</td></tr>
+<tr><td class="n">6</td><td class="n">5</td><td>Square vs heavy-hex (open-plan Heron)</td><td class="n">~6 Heron</td><td class="n">30 open-plan</td><td class="n">n/a</td><td>Cheap: noiseless cone count</td><td class="n">3%</td><td class="n">20%</td><td class="n">60%</td><td>Onset opposite to light-cone prediction</td><td class="n">&lt;1%</td><td>None</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Recommendation</h2>
+<div class="rec">
+<p><strong>Primary: the non-unitality dial.</strong> Only this device can run it; native T1 leaves the non-unital regime twelve orders of magnitude below the shot floor. It pre-registers two functional forms (H-A floor, H-B layer-index decay) and a direct Theorem 1 truncation test rather than a search, its baseline is deliverable on four cores by January, and its p = 0 arm is Paper 1's grid while p = 0.1 rescues Paper 1's H3, so if Paper 1 runs short the dial folds in as its non-unital arm and the merged paper is stronger than either. Budget 84–86 min at default rep_delay at n = 60 (53–55 gradient grid, 28 truncation arm, 3 characterisation), after Paper 1's budget is confirmed; at ~1 µs, add n = 100 at all p and the p = 1 endpoint.</p>
+<p><strong>The trade-off.</strong> The rankings disagree at the top. <s>The surrogate test has the higher Nature ceiling (3% against 2%): a measurable gradient where every classical method fails is a claim Nature Physics has published before.</s> [Struck 19 Sep 2026 after theorist review: a truncation residual does not imply hardness; average-case simulability is proven (Angrisani et al. 2501.13101).] Reaching it needs a tensor-network partner and CPU-weeks the team lacks; without them its PRX Quantum odds are 10–15%, below the dial's 20%. The dial's ceiling is lower because a deviation from an average-case theorem invites "your ansatz is not a 2-design", which only a theorist co-author turns into a result. Nothing here exceeds 3%.</p>
+<p><strong>Decision rule.</strong> Pre-register the dial now. <s>If by 15 November an NQM-hub tensor-network group has agreed to co-author and PauliPropagation.jl δ-sweeps on the 10×10 patch at L = 8 fail to converge for some σ with predicted Var[∂C] ≥ 10× the floor, swap: surrogate test primary (80 min), dial reduced to p ∈ {0.1, 0.5} at L = 8 plus the two L = 12 points and the p = 0.5 truncation arm (~50 min).</s> [Struck 19 Sep 2026 after theorist review: a truncation residual does not imply hardness; average-case simulability is proven (Angrisani et al. 2501.13101).] Otherwise the dial runs in full and the last 30–40 min go to the σ window with anchors or to Paper 1 repeats. Ranks 3–6 are not pre-registered as papers.</p>
+</div>
+
+<h2>Review</h2>
+<div class="rec" style="border-top-color:var(--muted)">
+<p>Versions 3 and 4 follow an independent adversarial review (scratchpad/review/paper2_alt_review.md, 19 Sept 2026). Citations were found clean. Changes made:</p>
+<p><strong>Estimand (blocker).</strong> Direction 1 previously fixed one reset mask per draw, which is not Mele's i.i.d. mixture channel; the (1/3)p⁴ floor did not apply, and the killed memo's dissrand ansatz was that configuration and showed no Theorem 8 profile. Rewritten as a test of the mixture channel: fresh mask per layer and per circuit, observed pair in the lottery, K = 64 pooled masks per draw, estimator C<sub>mix</sub>(θ), 1/K pattern-noise floor quoted beside the shot floor. Cor. 6 (H-A) and Thm 8 (H-B) are now separate hypotheses.</p>
+<p><strong>Grid.</strong> p = 0.75 (near-product state, floor 0.105) replaced by p = 0.1, the point that rescues Paper 1's H3; grid p ∈ {0.1, 0.25, 0.5}, n = 60 first.</p>
+<p><strong>Budget.</strong> Full IBM formula with rep_delay and circuit length; 3.5–3.7 min per point at 250 µs (4.8 by the shortcut, kept as the upper figure); 0.12–0.33 min at 1 µs depending on reset type; the 1 µs figure and the dial share the dissipative-reset risk; rep_delay_range may forbid 1 µs; direction 1 fits only after Paper 1's budget is confirmed. "Factor 30" is now 15–30.</p>
+<p><strong>Reset duration</strong> is read from backend.target, not measured; only the error is measured.</p>
+<p><strong>Truncation arm added</strong> to direction 1 (Mele Theorem 1, ℓ ∈ {2, 4}, one circuit per draw).</p>
+<p><strong>Minor.</strong> 2508.06358 was fetched from arXiv directly, not in the batch files; 2404.17560 is "related", not "nearest"; direction 2's 25% is the with-partner figure, 10–15% without; direction 2's referee line replaced.</p>
+<p><strong>Version 4 (re-check of Version 3).</strong> H-A and H-B claimed L-independence but every gradient point was at L = 8: k = L at L = 12 added for each p (3 points, +11 min). The truncation arm's "p = 0 control stays O(1)" was wrong at n = 60, L = 8 (the p = 0 cost is in a plateau by Paper 1's own hypothesis) and "no variance estimate, no ensemble fit" was also wrong; the arm is restated as an RMS-over-draws test at p ∈ {0.25, 0.5}, ℓ ∈ {2, 4}, 16384 shots (400 circuits, ~28 min), with the resolvability argument stated and p = 0.1 dropped as unresolvable. The gradient-level pattern-noise floor is Var<sub>mask</sub>[C]/(2K), and the estimator of Var<sub>mask</sub>[C] is stated. Header "16-point grid" corrected; the 1 µs total now includes the rep_delay-independent characterisation. Direction 1 total is 84–86 min at default rep_delay (was 55–58).</p>
+<p><strong>Version 5 (19 Sep 2026, theorist second opinion, <a href="https://claude.ai/artifact/7WLx5wkkAz1f8AYMXxsVJj">link</a>).</strong> Every sentence that read a Pauli-propagation residual or a failure of PP/MPS to converge as reopening or suggesting hardness is struck in place with a dated note: direction 2 (why hardware; Nature-worthy), direction 4 (Nature-worthy), both comparison-table cells, and the recommendation's trade-off and decision-rule sentences. The inference ran the wrong way: average-case simulability is proven (2501.13101), so a residual is a truncation or noise-model artefact. A "Theorist's additions" entry is added to direction 1: n-ladder 40/60/100 at p = 0.25, L = 8, k = L (k = L−4 dropped); H-A/H-B as a second-moment prediction for this non-2-design ansatz rather than a Theorem 8 test; truncation arm as headline; pattern noise subtracted, not quoted as a floor; p = 0.1 exploratory; rotation-survival check for measure + X reset. Recommendation now reads: A with the n-ladder; B not without a tensor-network partner. Decision with Owais and Dr. Raviram.</p>
+</div>
+
+<footer>
+<p>All arXiv ids fetched on 19 September 2026: 28 via the arXiv API batches, 2508.06358 from its arXiv abstract page. Run-time formula and rep_delay default from quantum.cloud.ibm.com. Device figures from the 19 Sept calibration snapshot. Odds are judgement, not measurement.</p>
+</footer>
+
+</div>

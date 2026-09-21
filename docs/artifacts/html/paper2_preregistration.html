@@ -1,0 +1,634 @@
+<title>Phoenix Reset Pre-registration</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --ground:#f4f6f8; --paper:#ffffff; --ink:#1b232c; --muted:#5c6874; --rule:#cfd7de;
+  --accent:#0e5a6c; --accent-ink:#0b4655; --tint:#e3eef1; --stripe:#f0f4f6; --warn:#8a4b12; --warn-tint:#f7ede1;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --serif:"Source Serif 4",Georgia,"Times New Roman",serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#12181e; --paper:#181f26; --ink:#e4e9ee; --muted:#9aa6b2; --rule:#33404b;
+    --accent:#6fc0d3; --accent-ink:#8ed0e0; --tint:#1c2e34; --stripe:#1d252d; --warn:#e0a565; --warn-tint:#2a2218;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#12181e; --paper:#181f26; --ink:#e4e9ee; --muted:#9aa6b2; --rule:#33404b;
+  --accent:#6fc0d3; --accent-ink:#8ed0e0; --tint:#1c2e34; --stripe:#1d252d; --warn:#e0a565; --warn-tint:#2a2218;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--serif);font-size:17px;line-height:1.55;-webkit-text-size-adjust:100%}
+.sheet{max-width:760px;margin:0 auto;padding-block:28px 56px;padding-inline:16px}
+@media (min-width:640px){.sheet{padding-block:40px 72px;padding-inline:32px}}
+a{color:var(--accent);text-decoration:none;border-bottom:1px solid var(--rule)}
+a:hover,a:focus-visible{border-bottom-color:var(--accent);outline:none}
+a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+header.doc{border-top:4px solid var(--accent);padding-top:18px;margin-bottom:34px}
+.eyebrow{font-family:var(--sans);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 18px;margin:0 0 14px}
+h1{font-family:var(--sans);font-weight:600;font-size:clamp(24px,4.6vw,32px);line-height:1.2;letter-spacing:-.01em;margin:0 0 10px;text-wrap:balance}
+.sub{font-size:19px;line-height:1.4;color:var(--muted);margin:0 0 18px;font-style:italic;text-wrap:balance}
+.meta{font-family:var(--sans);font-size:14px;color:var(--muted);display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:0;border-top:1px solid var(--rule);padding-top:12px}
+.meta dt{font-weight:500;color:var(--ink)}
+.meta dd{margin:0}
+
+section{margin-bottom:34px}
+h2{font-family:var(--sans);font-weight:600;font-size:20px;line-height:1.25;margin:0 0 12px;padding-top:12px;border-top:1px solid var(--rule);display:flex;gap:12px;align-items:baseline}
+h2 .n{font-family:var(--mono);font-weight:500;font-size:14px;color:var(--accent);min-width:1.6em}
+h3{font-family:var(--sans);font-weight:600;font-size:16px;margin:18px 0 6px}
+p{margin:0 0 12px;max-width:66ch}
+ul,ol{margin:0 0 12px;padding-left:1.3em;max-width:66ch}
+li{margin-bottom:6px}
+li::marker{color:var(--muted)}
+.refute{display:block;margin-top:4px;color:var(--muted);font-size:15.5px}
+.refute b{font-family:var(--sans);font-weight:500;font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink);margin-right:6px}
+.hyp{border-left:3px solid var(--accent);padding:2px 0 2px 14px;margin:0 0 16px;max-width:66ch}
+.hyp .tag{font-family:var(--sans);font-weight:600;font-size:13px;letter-spacing:.04em;color:var(--accent-ink);display:block;margin-bottom:2px}
+.note{background:var(--tint);border-radius:4px;padding:12px 14px;margin:14px 0 6px;font-size:15.5px;max-width:66ch}
+.gate{background:var(--warn-tint);border-left:3px solid var(--warn);padding:10px 14px;margin:12px 0;font-size:15.5px;max-width:66ch}
+.gate b{font-family:var(--sans);color:var(--warn)}
+
+.tw{overflow-x:auto;margin:8px 0 16px;border:1px solid var(--rule);border-radius:4px;background:var(--paper)}
+table{border-collapse:collapse;width:100%;font-size:14.5px;font-family:var(--sans);min-width:520px}
+th,td{text-align:left;vertical-align:top;padding:8px 10px;border-bottom:1px solid var(--rule)}
+th{font-weight:600;font-size:12.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);background:var(--stripe)}
+tbody tr:last-child td{border-bottom:none}
+tfoot td{border-top:2px solid var(--rule);font-weight:600}
+td.k{font-weight:500;white-space:nowrap;width:26%}
+code,.mono{font-family:var(--mono);font-size:.92em;background:var(--stripe);padding:0 4px;border-radius:3px}
+td .mono{background:transparent;padding:0}
+.num,td.num{font-variant-numeric:tabular-nums}
+table.schema td{font-size:13.5px}
+table.schema td:first-child{font-family:var(--mono);font-size:13px;white-space:nowrap}
+table.empty td{color:var(--muted);font-style:italic;text-align:center;padding:18px}
+
+figure.lat{margin:14px 0 18px;display:flex;flex-wrap:wrap;gap:14px 26px;align-items:flex-start}
+figure.lat svg{width:236px;max-width:100%;height:auto;display:block}
+figure.lat figcaption{font-family:var(--sans);font-size:13.5px;color:var(--muted);flex:1 1 220px;max-width:44ch;line-height:1.45}
+figure.lat .lg{display:inline-block;width:11px;height:11px;border-radius:50%;vertical-align:-1px;margin-right:5px;border:1px solid var(--rule)}
+.lq{fill:var(--paper);stroke:var(--rule);stroke-width:1}
+.lq.t{fill:var(--accent);stroke:var(--accent-ink)}
+.lq.x{fill:var(--warn-tint);stroke:var(--warn);stroke-width:1.5}
+.lq.d{fill:var(--muted);stroke:var(--muted)}
+.le{stroke:var(--rule);stroke-width:1}
+.ll{font-family:var(--mono);font-size:8.5px;fill:var(--muted)}
+
+.sig{margin-top:40px;border-top:1px solid var(--rule);padding-top:18px}
+.sig h2{border-top:none;padding-top:0}
+.sigrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:22px 28px;margin-top:20px}
+.sigcell{font-family:var(--sans);font-size:13.5px;color:var(--muted)}
+.sigcell .line{border-bottom:1px solid var(--ink);height:38px;margin-bottom:6px}
+.sigcell .who{color:var(--ink);font-weight:500}
+.version{font-family:var(--mono);font-size:12.5px;color:var(--muted);margin-top:30px;border-top:1px solid var(--rule);padding-top:10px}
+@media (max-width:640px){body{font-size:16px}.meta{grid-template-columns:1fr}.meta dt{margin-top:6px}}
+@media print{body{background:#fff;color:#000}.sheet{max-width:none;padding:0}.tw{border:none}a{color:inherit;border:none}}
+</style>
+
+<div class="sheet">
+<header class="doc">
+  <p class="eyebrow"><span>Pre-registration</span><span>Paper 2 of the gradvar-phoenix programme</span><span>SSIT Tumakuru</span></p>
+  <h1>Pre-registration: reset and mid-circuit-measurement characterisation of ibm_phoenix (Paper 2, v0.5.1)</h1>
+  <p class="sub">A 120-qubit map of the reset elements of Nighthawk r2. Fixed before any allocation minute is spent.</p>
+  <dl class="meta">
+    <dt>Status</dt><dd>v0.5.1, 21 Sep 2026: erratum, Flex instance cap 210 minutes (not 220), no new Deviation; v0.5.0, 20 Sep 2026: Deviation 8, schedule advanced with Paper 1 Deviation 50 (Sampler smoke on campaign day 2, target 22 Sep; Q1–Q5 on days 4–5, target 24–25 Sep; 29 Sep – 12 Oct buffer); v0.4.6, 20 September 2026: Deviations 3–7 countersigned by the PI 20 Sep 2026 20:10 IST (relayed by Owais), the theorist's countersignature of Deviations 4–5 pending on return; no new Deviation (budget-table erratum under Deviation 7 in v0.4.5); qubit 79 isolated and Q4 edge rule made feasible (Deviations 6–7, runner review); Deviations 4–5 from the delegated theorist referee pass (Q2 τ<sub>eff</sub> fit, Q3 ZZ prediction); hardware window brought forward to 27 Sep–12 Oct 2026 (Deviation 3; advanced again by Deviation 8); v0.2 adopted for circulation under the PI's delegated authority (Dr. Raviram V, relayed by M. Owais 19 Sep 23:52 IST) after independent review (fixes 1–7, Section 8); Deviations 1–2 adopted 20 Sep 2026 under the same authority; signatures of PI and theorist pending. Deviations 1–2 countersigned by Dr. Raviram V, 20 Sep 2026 (relayed by M. Owais, 07:54 IST); further deviations adopted under standing delegated authority, countersignature on the PI's next review.</dd>
+    <dt>Device</dt><dd>ibm_phoenix, IBM Nighthawk r2, 120 qubits on a 12 by 10 square lattice, calibration snapshot of 19 September 2026 11:13 UTC</dd>
+    <dt>Budget</dt><dd>45 QPU minutes cap on the Flex instance at the default 250 µs rep_delay (estimate 36.34 min, 2.75 min at 1 µs; Deviation 2 formula with Deviation 6's qubit-79 job); one line of the programme's 360-minute ledger (Section 3)</dd>
+    <dt>Authors</dt><dd>Mohammed Owais, Dr. Raviram V, physics collaborator to be decided</dd>
+  </dl>
+</header>
+
+<section id="motivation">
+<h2><span class="n">1</span>Motivation and novelty</h2>
+<p>Nighthawk r2 adds a dissipative reset element to each of its 120 qubits. On ibm_phoenix this appears as a native <code>reset</code> instruction of 400 ns on 119 qubits (qubit 79: 2140 ns) alongside two measurement-based variants, <code>measure_reset</code> (1940 ns) and <code>measure_reset_2</code> (1140 ns). The target reports no <code>gate_error</code> for any of the three; the nearest calibration figure is the initialisation error, median 2e-5, which bounds the reset error only on the assumption, not verified, that IBM measures it with the reset element engaged. Nothing has been published on Nighthawk r2 or ibm_phoenix (arXiv metadata search, 19 September 2026; all six Nighthawk papers found used r1). A per-qubit map of reset error, of dissipative against measurement-based reset, and of what a reset does to idle neighbours would be the first independent characterisation of this device class; IBM will publish its own.</p>
+<p>The reset is also a resource. Paper 1's non-unital arm uses pooled random-mask resets as a dial on the non-unital strength of the noise; the dial is only meaningful if the reset realises the intended channel (Q4) and leaves the other qubits alone (Q2, Q3). Schmitt et al. (<a href="https://arxiv.org/abs/2602.22851">2602.22851</a>) attribute the saturation of gradient magnitudes on IBM hardware to T1-dominated non-unital noise; there the strength was set by the device's T1, not by a knob, and a calibrated reset is what turns that observation into a controlled experiment. Dynamic circuits reuse auxiliary qubits by resetting them mid-circuit, and the disturbance a mid-circuit operation inflicts on spectators is an open characterisation problem (for one recent framing, Sramek, <a href="https://arxiv.org/abs/2603.18381">2603.18381</a>, tested on a synthetic harness).</p>
+<p>The protocols come from the mid-circuit-measurement (MCM) literature. Govia et al. (<a href="https://arxiv.org/abs/2207.04836">2207.04836</a>): a randomized-benchmarking suite that detects measurement-induced errors on spectator qubits and entangling errors between measured and spectator qubits, run on an IBM Falcon device. Hines and Proctor (<a href="https://arxiv.org/abs/2406.09299">2406.09299</a>): MCM cycle benchmarking, learning Pauli error rates in randomly compiled layers of MCMs and Clifford gates, including correlated errors. Zhang et al. (<a href="https://arxiv.org/abs/2406.02669">2406.02669</a>): a generalised cycle-benchmarking algorithm and a theory of which MCM noise parameters are learnable under SPAM noise. Chu et al. (<a href="https://arxiv.org/abs/2606.00433">2606.00433</a>): three repeated MCMs on a maximally mixed input determine all learnable parameters of a Z-twirled single-qubit MCM instrument up to one gauge freedom, with T1-decay-dominated backaction found on IBM processors. None has been applied to a dissipative (non-measurement) reset or to a square-lattice device; adapting them is this paper's methodological content.</p>
+</section>
+
+<section id="hypotheses">
+<h2><span class="n">2</span>Questions and hypotheses</h2>
+<p>Every statistic and threshold below is fixed before data. ⟨Z⟩ = +1 for |0⟩. "Per qubit" means each of the 119 operational qubits; qubit 17 (no T1 or T2, readout error 0.51, no calibrated coupler) is excluded everywhere.</p>
+
+<div class="hyp"><span class="tag">Q1. Reset-error map: native reset against measure_reset and measure_reset_2</span>
+Protocol, 118 qubits in parallel per circuit (qubit 79, whose reset is 2140 ns, runs its native-reset arms (a), (b) and (f) in a separate 3-circuit job at the same shots so that no parallel circuit is padded to it; Deviation 6): (a) X → reset → measure and (b) reset → measure for each of the three reset kinds; (c) X → reset<sup>m</sup> → measure for m = 2 and 4 (native); (d) X → measure and measure alone, the day's readout confusion; (e) X → delay → measure, the no-reset reference, with delay 400 ns (2140 ns on qubit 79); (f) |+⟩ → reset → measure in X for each kind, the residual coherence. Sampler <code>init_qubits</code> is True (the device's own pre-shot initialisation) for these 14 circuits, so arm (b) measures the residual after initialisation plus one reset and is reported as such; a second job repeats arm (b) with <code>init_qubits</code> False (3 circuits), logged, as the only look at the pre-shot state. The reset error is ε<sub>q</sub> = P(1 | X, reset, measure) − P(1 | measure), assuming a preceding reset leaves the readout error unchanged; raw probabilities are reported alongside, since Zhang et al. show some MCM noise parameters are inseparable from SPAM and Chu et al. find a one-parameter gauge. The m-dependence separates per-attempt failure (residual falls geometrically) from steady-state heating (residual constant), the analogue of Chu et al.'s repeated-measurement design.
+<span class="refute"><b>H1</b> Primary, a device-level test: the median native reset error over the 119 qubits is ≤ 3e-4 (predicted ≤ 1e-4 from the initialisation error; median floor 3.2e-5, so the prediction itself is resolvable at 3×). Secondary: ε<sub>q</sub> ≤ 1e-3 on at least 108 of 119 qubits (per-qubit floor 2.8e-4). Ordering of medians native &lt; measure_reset_2 &lt; measure_reset, predicted from P(0|1) = 1.4e-2 and the MEASURE_2 error 6.4e-3. <b>Refuted if</b> the median's 95% interval lies above 3e-4, or fewer than 108 point estimates fall at or below 1e-3, or the ordering is violated outside the intervals.</span></div>
+
+<div class="hyp"><span class="tag">Q2. Spectator backaction of a reset on idle neighbours</span>
+Protocol: five target masks M<sub>s</sub> = {q = 10i + j : (i + 2j) mod 5 = s}, s = 0…4. Each mask holds exactly 24 nominal targets, no two within lattice distance 3, so every non-target has at most one target neighbour and each qubit is a target in one mask; M<sub>0</sub> has 22 acting targets, since dead qubit 17 and qubit 79 (removed from the parallel arms by Deviation 6) both fall in it, and the five masks cover the 422 directed neighbour pairs among the 118 remaining qubits once, the 6 directed pairs involving qubit 79 being unmeasured in Q2. Neighbours are prepared in |+⟩ (|0⟩ for the excitation channel), the target in |0⟩ or |1⟩; r ∈ {1, 4, 16} repetitions of <code>reset</code> or <code>delay</code> (400 ns; 2140 ns for target 79) act on the target while the neighbours idle; neighbours are read in X, Y or Z. Four arms per (mask, r, axis): {target |0⟩, |1⟩} × {reset, delay}. <b>Primary statistic:</b> the target-|0⟩ excess, reset arm minus delay arm, per reset from the slope in r; here the target is in |0⟩ throughout both arms, so the state-dependent ZZ phase cancels and any excess is backaction. <b>Secondary:</b> the target-|1⟩ excess after subtracting the ZZ mismatch: a working reset empties the target after an effective time τ<sub>eff</sub> (about 25 ns if IBM's figure holds), so the spectator accrues ζ × (400 ns − τ<sub>eff</sub>) less ZZ phase than in the delay arm, up to 12 mrad at ζ = 2π × 5 kHz and 118 mrad at 2π × 50 kHz. This mismatch is not backaction, and τ<sub>eff</sub> is what this paper measures rather than assumes (Deviation 4): ζ is measured per pair from the two delay arms, φ<sub>delay</sub>(1) − φ<sub>delay</sub>(0) = ζ × 400 ns (ζ convention: ζ = 2π × the ZZ coupling in Hz, interaction exp(−i ζτ/4 ZZ), conditional phase ζτ, shared with Paper 1 Deviation 34), the |1⟩-arm excess phase is regressed on ζ across the directed pairs, the slope is τ<sub>eff</sub> − 400 ns (a new deliverable, with its interval), and the residual about that fit is tested against the 5 mrad bound with propagated uncertainty (floor 1.16 mrad per reset). The fixed 0.9375 = 375/400 coefficient of v0.1–v0.4.2 is withdrawn. Non-targets with no target neighbour (8 or 9 per mask) are distance-2 controls.
+<span class="refute"><b>H2</b> Per reset, on at least 90% of directed pairs, in the target-|0⟩ arm: excess phase |Δφ| ≤ 5 mrad, excess loss of Bloch-vector length ≤ 2.5e-3, excess excitation ≤ 2e-4 (floors at 16,384 shots and r = 16: 0.69 mrad, 6.9e-4, 3.1e-5). The ζ-corrected target-|1⟩ excess phase is reported against the same 5 mrad bound as a consistency check. <b>Refuted if</b> fewer than 90% of pairs meet all three primary bounds, or the distance-2 controls show any excess beyond 3σ.</span></div>
+
+<div class="hyp"><span class="tag">Q3. Crosstalk at scale: simultaneous against isolated resets</span>
+Protocol, a frame-tracked reset cycle benchmark adapted from MCM cycle benchmarking (Hines and Proctor; Zhang et al.), whose classical register a reset lacks: m ∈ {1, 16, 64} cycles of [random Pauli P<sub>q</sub> on every qubit → <code>reset</code> on the mask, delay(400 ns) elsewhere → P<sub>q</sub><sup>†</sup>], over the 118 qubits of Deviation 6; the three depths nest, m = 1 and m = 16 sharing the first cycles of the m = 64 frame (Deviation 7); the per-cycle idle seen by a spectator is 480 ns, the 400 ns reset or delay plus the two 40 ns Pauli layers. Reset qubits enter in |1⟩ and are read in Z; because reset erases history, only the final cycle's frame matters for them, and the expected outcome is 0 for P ∈ {I, Z} and 1 for P ∈ {X, Y}, recorded per circuit as <code>expected_z</code>. Without this tracking the twirled reset is I/2 and the Z readout is uninformative. The reset residual per qubit is ε = P(outcome ≠ expected) − readout error, a single-cycle quantity read at every m and required m-independent. Spectators enter in |+⟩ and are read in X; the frames twirl their error into a Pauli channel, and the per-cycle spectator error is the decay of ⟨X⟩ in m. Masks: the five sparse masks of Q2 (20%, isolated) and eight random 50% masks (dense), four Pauli frames each; each qubit is reset in one sparse mask and in about four dense masks.
+Static ZZ is not removed by the frame twirl, only converted into a Pauli channel: per cycle each idle neighbour pair moves weight sin²(ζτ/4) ≈ 4.1e-4 at the 27 kHz median over the 480 ns cycle idle (Paper 1 Deviation 34 convention; Deviation 7 corrects the 400 ns, 2.9e-4 figure of v0.4.3), common-mode between reset and idle neighbours at leading order, so the predicted dense − sparse residual from the Q2 ζ map is about 4e-5 (1.4e-4 at 50 kHz), at the 1.0e-4 floor and below the 1e-3 bound; it is predicted per qubit from the ζ map, reported beside H3, and a mid-cycle spectator echo, delay(200 ns) → X → delay(200 ns) on the spectators with the X folded into P<sub>q</sub><sup>†</sup> and the echo flag logged per circuit, is added to the cycle only if the predicted residual exceeds half the floor, 5e-5 (Deviations 5 and 7). 
+<span class="refute"><b>H3</b> At fixed m, the reset residual under dense masks exceeds that under sparse masks by ε<sub>dense</sub> − ε<sub>sparse</sub> ≤ 1e-4, mean over the 111 qubits that are neither readout-flagged nor qubit 79 (floor 2.7e-5; the CZ-cluster flag is logged separately and does not exclude from this mean, Deviation 7); the per-cycle spectator error under dense masks exceeds that under sparse masks by ≤ 1e-3 at m = 64 (floor 1.0e-4). <b>Refuted if</b> the mean difference's 95% interval lies above 1e-4 at any m, or the spectator excess exceeds 1e-3 on more than 10% of qubits.</span></div>
+
+<div class="hyp"><span class="tag">Q4. Reset-as-channel: does the pooled random-mask dial realise N<sub>p</sub>?</span>
+Protocol: twelve two-qubit patches (one horizontal edge per row, by the rule in Section 3), run in parallel. For p ∈ {0.25, 0.5}, 16 <b>stratified</b> masks per p realise N<sub>p</sub> ⊗ N<sub>p</sub> exactly on every patch: the four reset patterns (R<sub>a</sub>, R<sub>b</sub>) ∈ {00, 10, 01, 11} appear 9/3/3/1 times at p = 0.25 and 4/4/4/4 times at p = 0.5, so the realised per-qubit p̂<sub>q</sub> equals p and the pattern floor on the pooled statistics is zero. (Random masks would not do: with K = 16 the pooled t<sub>z</sub> has a pattern s.d. of 0.108 at p = 0.25, above the bound, and Paper 1's K = 64 random masks carry a pattern s.d. of 0.054, which Q4 does not remove and Paper 1 must propagate.) Four inputs (|0⟩, |1⟩, |+⟩, |+i⟩) and three readout axes give the affine Bloch map r ↦ D r + t pooled over masks; the ⟨XX⟩ correlator on |+⟩|+⟩ tests for a correlated part. Intended: N<sub>p</sub> = (1 − p) I + p Reset, so D = (1 − p) I<sub>3</sub>, t = (0, 0, p). Every bound is tested against p and, as the general rule for any mask set, against the realised p̂<sub>q</sub>.
+<span class="refute"><b>H4</b> On every patch qubit: |t<sub>z</sub> − p̂<sub>q</sub>| &lt; 0.05, |t<sub>x</sub>|, |t<sub>y</sub>| &lt; 0.02, |D<sub>ii</sub> − (1 − p̂<sub>q</sub>)| &lt; 0.05, off-diagonal |D<sub>ij</sub>| &lt; 0.02, connected |⟨XX⟩ − ⟨X⟩⟨X⟩| &lt; 0.02 (shot floors at 32,768 pooled shots: 5.5e-3 for t and ⟨XX⟩, 3.9e-3 for D). <b>Refuted if</b> any bound fails on more than one of the 24 qubits at either p; the dial is then not used in Paper 1 without a recorded deviation.</span></div>
+
+<div class="hyp"><span class="tag">Q5. Time stability across the campaign</span>
+Protocol: the native-reset subset of Q1 (eight circuits, 32,768 shots, <code>init_qubits</code> True) repeated on four further Paper 1 hardware days within 1–12 October 2026 (Deviation 3), each with that day's snapshot.
+<span class="refute"><b>H5</b> The device median native reset error changes by less than 2e-4 in absolute terms between any two days (floor 5.6e-5). Per-qubit changes are reported as a map and as the count of qubits moving by more than 1.5e-3 (3σ on a two-day difference at 32,768 shots), without a threshold: even the single-arm 3σ of 1.1e-3 is ten times the expected ε, so a per-qubit test would be vacuous. <b>Refuted if</b> the median drift's 95% interval lies above 2e-4 for any pair of days.</span></div>
+</section>
+
+<section id="design">
+<h2><span class="n">3</span>Design</h2>
+<div class="tw"><table>
+<thead><tr><th>Element</th><th>Fixed choice</th></tr></thead>
+<tbody>
+<tr><td class="k">Qubit sets</td><td>Q1: all 119 operational qubits, qubit 79 in its own job (Deviation 6). Q5: the 118 parallel qubits (Deviation 6 names Q1–Q4; qubit 79 is not tracked in Q5). Q3: the 118 qubits other than 79. The readout outliers above 3e-2 (24, 55, 62, 67, 73, 77, 107 on the 2026-09-20T03:08:13Z snapshot; 24, 49, 55, 62, 73, 77, 107 on 19 Sep) and the CZ cluster 55, 61, 62, 63, 72, 73 are flagged on the maps, not dropped; the two flags are logged as separate columns (Deviation 7). Q2: the 118 qubits other than 79 as targets; spectators above 3e-2 readout excluded. Q4 (Deviation 7): the exclusion set is the programme's (<code>exclusion_from_calibration</code> on the snapshot's properties: qubit 17, the CZ cluster, readout above 3e-2, Paper 1 Deviation 22) plus qubit 79; per row, admissible horizontal edges have both qubits outside that set and lie at least three columns from the previous row's edge, ordered by (summed readout error, column); the assignment is the first complete one in depth-first order, backtracking to the previous row's next-best edge when a row has none, and backtracks are recorded in the job list (<code>q4_patches.backtracked</code>). On the 19–20 Sep snapshots the greedy rule of v0.1–v0.4.3 was infeasible (row 5's best edge left row 6 with no admissible edge). Regenerated on the 2026-09-20T03:08:13Z snapshot with Deviation 22 and qubit 79 applied, the assignment is 0-1, 15-16, 20-21, 38-39, 42-43, 57-58, 64-65, 70-71, 85-86, 92-93, 108-109, 115-116 (rows 7–10 moved because qubits 91 and 119 joined the Deviation 22 exclusion set and 78-79 is out); the runner's <code>q4_patches</code> on the run-day snapshot remains authoritative.</td></tr>
+<tr><td class="k">Reset kinds</td><td><code>reset</code> (400 ns; 2140 ns on qubit 79, reported separately), <code>measure_reset</code> (1940 ns), <code>measure_reset_2</code> (1140 ns), <code>delay(400 ns)</code> as reference. Fractional gates disabled. The scheduled duration of every reset instruction is logged from the transpiled circuit (kill criterion 1).</td></tr>
+<tr><td class="k">Circuits and shots</td><td class="num">Q1: 17 circuits at 65,536 shots in two jobs (init_qubits True: 14; False: 3) over 118 qubits, plus a separate 3-circuit job for qubit 79 at the same shots (Deviation 6). Q2: 180 circuits at 16,384. Q3: 156 circuits at 12,288 (13 masks × 4 frames × 3 m). Q4: 384 circuits at 2,048 (32,768 pooled per Bloch entry). Q5: 8 circuits at 32,768 per day. Smoke test: two Sampler jobs (init_qubits True and False) sharing 40 circuits (Q1 17, Q2 8, Q3 6, Q4 9) at 2,048 shots, about 0.43 min at 250 µs (Deviation 7). Total 8.09 million executions (7.90 million before the qubit-79 job).</td></tr>
+<tr><td class="k">Randomness</td><td>Q3 dense masks and Pauli frames drawn once from seed 20260919; Q4 stratified mask lists constructed deterministically and shuffled with the same seed; all committed before the smoke test; masks and frames redrawn over the 118 qubits of Deviation 6 with the same seed rule before the smoke test.</td></tr>
+<tr><td class="k">Execution</td><td>Sampler V2, job mode, default rep_delay 250 µs, <code>init_qubits</code> True except the one Q1 job noted above; both logged per job. <b>Job packing:</b> one Sampler job per stage (Q5: one per day), pre-registered because per-circuit jobs would add 782 × 2 s ≈ 26 min of overhead. <b>Primitive:</b> the Marrakesh dry-run list 03 currently estimates the reset-error map as EstimatorV2 ⟨Z⟩; the production lists will use SamplerV2 with <code>init_qubits</code> as pre-registered here, so that raw counts and the init_qubits flag are logged, or a Deviation is recorded before October. See Deviation 1 for rep_delay. <b>Marrakesh finding (20 Sep 2026):</b> a bare <code>reset</code> survived transpilation on ibm_marrakesh as a distinct instruction and EstimatorV2 accepted it at resilience 0, so Q3's reset-in-place-of-MCM cycles are executable as written; the production Sampler runs need no measurement-based rewrite. No protocol depends on rep_delay, so a 1 µs rep_delay, if honoured, only shortens the run. The Paper 1 hardware runner is reused: job lists with a pre-flight review link, one metadata bundle per job.</td></tr>
+<tr><td class="k">Order of runs</td><td>0. Full job list on ibm_marrakesh under the open plan (no Flex cost). Heron r2's <code>reset</code> is measurement-based (2.72 µs = measure plus conditional X on FakeMarrakesh) and it has no <code>measure_reset</code> or <code>measure_reset_2</code>, so this dry run checks only job packaging, logging, parsing, and that <code>reset</code> survives transpilation as a distinct instruction; the measure_reset arms are skipped there and reset durations are not tested. 1. ibm_phoenix smoke test. 2. Gate P2-2. 3. Q1. 4. Q4 (Paper 1 depends on it). 5. Q2. 6. Q3. 7. Q5 on Paper 1's remaining days. <b>Schedule (Deviation 3, 20 Sep 2026):</b> Marrakesh dry run complete (list 03 pending re-run with the Sampler lists); ibm_phoenix smoke test 27–29 September 2026, shared with Paper 1's smoke test; Gate P2-2 the same week; Q1 and Q4 in the first Paper 1 hardware days from 1 October, Q2 and Q3 by 8 October, Q5 on four further Paper 1 days within 1–12 October 2026, all before the 15 October maintenance pause. <b>Deviation 8 (20 Sep 2026, 21:00 IST):</b> following Paper 1 Deviation 50, the Sampler smoke (list 03) runs on Paper 1 campaign day 2 (target 22 Sep) and the Q1–Q5 characterisation on days 4–5 (target 24–25 Sep), with 29 Sep – 12 Oct as buffer.</td></tr>
+</tbody></table></div>
+
+<figure class="lat">
+<svg viewBox="0 0 246 270" role="img" aria-label="12 by 10 qubit lattice of ibm_phoenix with mask M0 targets, flagged qubits and the dead qubit 17 marked">
+<line class="le" x1="30" y1="12" x2="52" y2="12"/>
+<line class="le" x1="30" y1="12" x2="30" y2="34"/>
+<line class="le" x1="52" y1="12" x2="74" y2="12"/>
+<line class="le" x1="52" y1="12" x2="52" y2="34"/>
+<line class="le" x1="74" y1="12" x2="96" y2="12"/>
+<line class="le" x1="74" y1="12" x2="74" y2="34"/>
+<line class="le" x1="96" y1="12" x2="118" y2="12"/>
+<line class="le" x1="96" y1="12" x2="96" y2="34"/>
+<line class="le" x1="118" y1="12" x2="140" y2="12"/>
+<line class="le" x1="118" y1="12" x2="118" y2="34"/>
+<line class="le" x1="140" y1="12" x2="162" y2="12"/>
+<line class="le" x1="140" y1="12" x2="140" y2="34"/>
+<line class="le" x1="162" y1="12" x2="184" y2="12"/>
+<line class="le" x1="162" y1="12" x2="162" y2="34"/>
+<line class="le" x1="184" y1="12" x2="206" y2="12"/>
+<line class="le" x1="206" y1="12" x2="228" y2="12"/>
+<line class="le" x1="206" y1="12" x2="206" y2="34"/>
+<line class="le" x1="228" y1="12" x2="228" y2="34"/>
+<line class="le" x1="30" y1="34" x2="52" y2="34"/>
+<line class="le" x1="30" y1="34" x2="30" y2="56"/>
+<line class="le" x1="52" y1="34" x2="74" y2="34"/>
+<line class="le" x1="52" y1="34" x2="52" y2="56"/>
+<line class="le" x1="74" y1="34" x2="96" y2="34"/>
+<line class="le" x1="74" y1="34" x2="74" y2="56"/>
+<line class="le" x1="96" y1="34" x2="118" y2="34"/>
+<line class="le" x1="96" y1="34" x2="96" y2="56"/>
+<line class="le" x1="118" y1="34" x2="140" y2="34"/>
+<line class="le" x1="118" y1="34" x2="118" y2="56"/>
+<line class="le" x1="140" y1="34" x2="162" y2="34"/>
+<line class="le" x1="140" y1="34" x2="140" y2="56"/>
+<line class="le" x1="162" y1="34" x2="162" y2="56"/>
+<line class="le" x1="206" y1="34" x2="228" y2="34"/>
+<line class="le" x1="206" y1="34" x2="206" y2="56"/>
+<line class="le" x1="228" y1="34" x2="228" y2="56"/>
+<line class="le" x1="30" y1="56" x2="52" y2="56"/>
+<line class="le" x1="30" y1="56" x2="30" y2="78"/>
+<line class="le" x1="52" y1="56" x2="74" y2="56"/>
+<line class="le" x1="52" y1="56" x2="52" y2="78"/>
+<line class="le" x1="74" y1="56" x2="96" y2="56"/>
+<line class="le" x1="74" y1="56" x2="74" y2="78"/>
+<line class="le" x1="96" y1="56" x2="118" y2="56"/>
+<line class="le" x1="96" y1="56" x2="96" y2="78"/>
+<line class="le" x1="118" y1="56" x2="140" y2="56"/>
+<line class="le" x1="118" y1="56" x2="118" y2="78"/>
+<line class="le" x1="140" y1="56" x2="162" y2="56"/>
+<line class="le" x1="140" y1="56" x2="140" y2="78"/>
+<line class="le" x1="162" y1="56" x2="184" y2="56"/>
+<line class="le" x1="162" y1="56" x2="162" y2="78"/>
+<line class="le" x1="184" y1="56" x2="206" y2="56"/>
+<line class="le" x1="184" y1="56" x2="184" y2="78"/>
+<line class="le" x1="206" y1="56" x2="228" y2="56"/>
+<line class="le" x1="206" y1="56" x2="206" y2="78"/>
+<line class="le" x1="228" y1="56" x2="228" y2="78"/>
+<line class="le" x1="30" y1="78" x2="52" y2="78"/>
+<line class="le" x1="30" y1="78" x2="30" y2="100"/>
+<line class="le" x1="52" y1="78" x2="74" y2="78"/>
+<line class="le" x1="52" y1="78" x2="52" y2="100"/>
+<line class="le" x1="74" y1="78" x2="96" y2="78"/>
+<line class="le" x1="74" y1="78" x2="74" y2="100"/>
+<line class="le" x1="96" y1="78" x2="118" y2="78"/>
+<line class="le" x1="96" y1="78" x2="96" y2="100"/>
+<line class="le" x1="118" y1="78" x2="140" y2="78"/>
+<line class="le" x1="118" y1="78" x2="118" y2="100"/>
+<line class="le" x1="140" y1="78" x2="162" y2="78"/>
+<line class="le" x1="140" y1="78" x2="140" y2="100"/>
+<line class="le" x1="162" y1="78" x2="184" y2="78"/>
+<line class="le" x1="162" y1="78" x2="162" y2="100"/>
+<line class="le" x1="184" y1="78" x2="206" y2="78"/>
+<line class="le" x1="184" y1="78" x2="184" y2="100"/>
+<line class="le" x1="206" y1="78" x2="228" y2="78"/>
+<line class="le" x1="206" y1="78" x2="206" y2="100"/>
+<line class="le" x1="228" y1="78" x2="228" y2="100"/>
+<line class="le" x1="30" y1="100" x2="52" y2="100"/>
+<line class="le" x1="30" y1="100" x2="30" y2="122"/>
+<line class="le" x1="52" y1="100" x2="74" y2="100"/>
+<line class="le" x1="52" y1="100" x2="52" y2="122"/>
+<line class="le" x1="74" y1="100" x2="96" y2="100"/>
+<line class="le" x1="74" y1="100" x2="74" y2="122"/>
+<line class="le" x1="96" y1="100" x2="118" y2="100"/>
+<line class="le" x1="96" y1="100" x2="96" y2="122"/>
+<line class="le" x1="118" y1="100" x2="140" y2="100"/>
+<line class="le" x1="118" y1="100" x2="118" y2="122"/>
+<line class="le" x1="140" y1="100" x2="162" y2="100"/>
+<line class="le" x1="140" y1="100" x2="140" y2="122"/>
+<line class="le" x1="162" y1="100" x2="184" y2="100"/>
+<line class="le" x1="162" y1="100" x2="162" y2="122"/>
+<line class="le" x1="184" y1="100" x2="206" y2="100"/>
+<line class="le" x1="184" y1="100" x2="184" y2="122"/>
+<line class="le" x1="206" y1="100" x2="228" y2="100"/>
+<line class="le" x1="206" y1="100" x2="206" y2="122"/>
+<line class="le" x1="228" y1="100" x2="228" y2="122"/>
+<line class="le" x1="30" y1="122" x2="52" y2="122"/>
+<line class="le" x1="30" y1="122" x2="30" y2="144"/>
+<line class="le" x1="52" y1="122" x2="74" y2="122"/>
+<line class="le" x1="52" y1="122" x2="52" y2="144"/>
+<line class="le" x1="74" y1="122" x2="96" y2="122"/>
+<line class="le" x1="74" y1="122" x2="74" y2="144"/>
+<line class="le" x1="96" y1="122" x2="118" y2="122"/>
+<line class="le" x1="96" y1="122" x2="96" y2="144"/>
+<line class="le" x1="118" y1="122" x2="140" y2="122"/>
+<line class="le" x1="118" y1="122" x2="118" y2="144"/>
+<line class="le" x1="140" y1="122" x2="162" y2="122"/>
+<line class="le" x1="140" y1="122" x2="140" y2="144"/>
+<line class="le" x1="162" y1="122" x2="184" y2="122"/>
+<line class="le" x1="162" y1="122" x2="162" y2="144"/>
+<line class="le" x1="184" y1="122" x2="206" y2="122"/>
+<line class="le" x1="184" y1="122" x2="184" y2="144"/>
+<line class="le" x1="206" y1="122" x2="228" y2="122"/>
+<line class="le" x1="206" y1="122" x2="206" y2="144"/>
+<line class="le" x1="228" y1="122" x2="228" y2="144"/>
+<line class="le" x1="30" y1="144" x2="52" y2="144"/>
+<line class="le" x1="30" y1="144" x2="30" y2="166"/>
+<line class="le" x1="52" y1="144" x2="74" y2="144"/>
+<line class="le" x1="52" y1="144" x2="52" y2="166"/>
+<line class="le" x1="74" y1="144" x2="96" y2="144"/>
+<line class="le" x1="74" y1="144" x2="74" y2="166"/>
+<line class="le" x1="96" y1="144" x2="118" y2="144"/>
+<line class="le" x1="96" y1="144" x2="96" y2="166"/>
+<line class="le" x1="118" y1="144" x2="140" y2="144"/>
+<line class="le" x1="118" y1="144" x2="118" y2="166"/>
+<line class="le" x1="140" y1="144" x2="162" y2="144"/>
+<line class="le" x1="140" y1="144" x2="140" y2="166"/>
+<line class="le" x1="162" y1="144" x2="184" y2="144"/>
+<line class="le" x1="162" y1="144" x2="162" y2="166"/>
+<line class="le" x1="184" y1="144" x2="206" y2="144"/>
+<line class="le" x1="184" y1="144" x2="184" y2="166"/>
+<line class="le" x1="206" y1="144" x2="228" y2="144"/>
+<line class="le" x1="206" y1="144" x2="206" y2="166"/>
+<line class="le" x1="228" y1="144" x2="228" y2="166"/>
+<line class="le" x1="30" y1="166" x2="52" y2="166"/>
+<line class="le" x1="30" y1="166" x2="30" y2="188"/>
+<line class="le" x1="52" y1="166" x2="74" y2="166"/>
+<line class="le" x1="52" y1="166" x2="52" y2="188"/>
+<line class="le" x1="74" y1="166" x2="96" y2="166"/>
+<line class="le" x1="74" y1="166" x2="74" y2="188"/>
+<line class="le" x1="96" y1="166" x2="118" y2="166"/>
+<line class="le" x1="96" y1="166" x2="96" y2="188"/>
+<line class="le" x1="118" y1="166" x2="140" y2="166"/>
+<line class="le" x1="118" y1="166" x2="118" y2="188"/>
+<line class="le" x1="140" y1="166" x2="162" y2="166"/>
+<line class="le" x1="140" y1="166" x2="140" y2="188"/>
+<line class="le" x1="162" y1="166" x2="184" y2="166"/>
+<line class="le" x1="162" y1="166" x2="162" y2="188"/>
+<line class="le" x1="184" y1="166" x2="206" y2="166"/>
+<line class="le" x1="184" y1="166" x2="184" y2="188"/>
+<line class="le" x1="206" y1="166" x2="228" y2="166"/>
+<line class="le" x1="206" y1="166" x2="206" y2="188"/>
+<line class="le" x1="228" y1="166" x2="228" y2="188"/>
+<line class="le" x1="30" y1="188" x2="52" y2="188"/>
+<line class="le" x1="30" y1="188" x2="30" y2="210"/>
+<line class="le" x1="52" y1="188" x2="74" y2="188"/>
+<line class="le" x1="52" y1="188" x2="52" y2="210"/>
+<line class="le" x1="74" y1="188" x2="96" y2="188"/>
+<line class="le" x1="74" y1="188" x2="74" y2="210"/>
+<line class="le" x1="96" y1="188" x2="118" y2="188"/>
+<line class="le" x1="96" y1="188" x2="96" y2="210"/>
+<line class="le" x1="118" y1="188" x2="140" y2="188"/>
+<line class="le" x1="118" y1="188" x2="118" y2="210"/>
+<line class="le" x1="140" y1="188" x2="162" y2="188"/>
+<line class="le" x1="140" y1="188" x2="140" y2="210"/>
+<line class="le" x1="162" y1="188" x2="184" y2="188"/>
+<line class="le" x1="162" y1="188" x2="162" y2="210"/>
+<line class="le" x1="184" y1="188" x2="206" y2="188"/>
+<line class="le" x1="184" y1="188" x2="184" y2="210"/>
+<line class="le" x1="206" y1="188" x2="228" y2="188"/>
+<line class="le" x1="206" y1="188" x2="206" y2="210"/>
+<line class="le" x1="228" y1="188" x2="228" y2="210"/>
+<line class="le" x1="30" y1="210" x2="52" y2="210"/>
+<line class="le" x1="30" y1="210" x2="30" y2="232"/>
+<line class="le" x1="52" y1="210" x2="74" y2="210"/>
+<line class="le" x1="52" y1="210" x2="52" y2="232"/>
+<line class="le" x1="74" y1="210" x2="96" y2="210"/>
+<line class="le" x1="74" y1="210" x2="74" y2="232"/>
+<line class="le" x1="96" y1="210" x2="118" y2="210"/>
+<line class="le" x1="96" y1="210" x2="96" y2="232"/>
+<line class="le" x1="118" y1="210" x2="140" y2="210"/>
+<line class="le" x1="118" y1="210" x2="118" y2="232"/>
+<line class="le" x1="140" y1="210" x2="162" y2="210"/>
+<line class="le" x1="140" y1="210" x2="140" y2="232"/>
+<line class="le" x1="162" y1="210" x2="184" y2="210"/>
+<line class="le" x1="162" y1="210" x2="162" y2="232"/>
+<line class="le" x1="184" y1="210" x2="206" y2="210"/>
+<line class="le" x1="184" y1="210" x2="184" y2="232"/>
+<line class="le" x1="206" y1="210" x2="228" y2="210"/>
+<line class="le" x1="206" y1="210" x2="206" y2="232"/>
+<line class="le" x1="228" y1="210" x2="228" y2="232"/>
+<line class="le" x1="30" y1="232" x2="52" y2="232"/>
+<line class="le" x1="30" y1="232" x2="30" y2="254"/>
+<line class="le" x1="52" y1="232" x2="74" y2="232"/>
+<line class="le" x1="52" y1="232" x2="52" y2="254"/>
+<line class="le" x1="74" y1="232" x2="96" y2="232"/>
+<line class="le" x1="74" y1="232" x2="74" y2="254"/>
+<line class="le" x1="96" y1="232" x2="118" y2="232"/>
+<line class="le" x1="96" y1="232" x2="96" y2="254"/>
+<line class="le" x1="118" y1="232" x2="140" y2="232"/>
+<line class="le" x1="118" y1="232" x2="118" y2="254"/>
+<line class="le" x1="140" y1="232" x2="162" y2="232"/>
+<line class="le" x1="140" y1="232" x2="140" y2="254"/>
+<line class="le" x1="162" y1="232" x2="184" y2="232"/>
+<line class="le" x1="162" y1="232" x2="162" y2="254"/>
+<line class="le" x1="184" y1="232" x2="206" y2="232"/>
+<line class="le" x1="184" y1="232" x2="184" y2="254"/>
+<line class="le" x1="206" y1="232" x2="228" y2="232"/>
+<line class="le" x1="206" y1="232" x2="206" y2="254"/>
+<line class="le" x1="228" y1="232" x2="228" y2="254"/>
+<line class="le" x1="30" y1="254" x2="52" y2="254"/>
+<line class="le" x1="52" y1="254" x2="74" y2="254"/>
+<line class="le" x1="74" y1="254" x2="96" y2="254"/>
+<line class="le" x1="96" y1="254" x2="118" y2="254"/>
+<line class="le" x1="118" y1="254" x2="140" y2="254"/>
+<line class="le" x1="140" y1="254" x2="162" y2="254"/>
+<line class="le" x1="162" y1="254" x2="184" y2="254"/>
+<line class="le" x1="184" y1="254" x2="206" y2="254"/>
+<line class="le" x1="206" y1="254" x2="228" y2="254"/>
+<circle class="lq t" cx="30" cy="12" r="7"/>
+<circle class="lq" cx="52" cy="12" r="7"/>
+<circle class="lq" cx="74" cy="12" r="7"/>
+<circle class="lq" cx="96" cy="12" r="7"/>
+<circle class="lq" cx="118" cy="12" r="7"/>
+<circle class="lq t" cx="140" cy="12" r="7"/>
+<circle class="lq" cx="162" cy="12" r="7"/>
+<circle class="lq" cx="184" cy="12" r="7"/>
+<circle class="lq" cx="206" cy="12" r="7"/>
+<circle class="lq" cx="228" cy="12" r="7"/>
+<circle class="lq" cx="30" cy="34" r="7"/>
+<circle class="lq" cx="52" cy="34" r="7"/>
+<circle class="lq t" cx="74" cy="34" r="7"/>
+<circle class="lq" cx="96" cy="34" r="7"/>
+<circle class="lq" cx="118" cy="34" r="7"/>
+<circle class="lq" cx="140" cy="34" r="7"/>
+<circle class="lq" cx="162" cy="34" r="7"/>
+<circle class="lq d" cx="184" cy="34" r="7"/>
+<circle class="lq" cx="206" cy="34" r="7"/>
+<circle class="lq" cx="228" cy="34" r="7"/>
+<circle class="lq" cx="30" cy="56" r="7"/>
+<circle class="lq" cx="52" cy="56" r="7"/>
+<circle class="lq" cx="74" cy="56" r="7"/>
+<circle class="lq" cx="96" cy="56" r="7"/>
+<circle class="lq t" cx="118" cy="56" r="7"/>
+<circle class="lq" cx="140" cy="56" r="7"/>
+<circle class="lq" cx="162" cy="56" r="7"/>
+<circle class="lq" cx="184" cy="56" r="7"/>
+<circle class="lq" cx="206" cy="56" r="7"/>
+<circle class="lq t" cx="228" cy="56" r="7"/>
+<circle class="lq" cx="30" cy="78" r="7"/>
+<circle class="lq t" cx="52" cy="78" r="7"/>
+<circle class="lq" cx="74" cy="78" r="7"/>
+<circle class="lq" cx="96" cy="78" r="7"/>
+<circle class="lq" cx="118" cy="78" r="7"/>
+<circle class="lq" cx="140" cy="78" r="7"/>
+<circle class="lq t" cx="162" cy="78" r="7"/>
+<circle class="lq" cx="184" cy="78" r="7"/>
+<circle class="lq" cx="206" cy="78" r="7"/>
+<circle class="lq" cx="228" cy="78" r="7"/>
+<circle class="lq" cx="30" cy="100" r="7"/>
+<circle class="lq" cx="52" cy="100" r="7"/>
+<circle class="lq" cx="74" cy="100" r="7"/>
+<circle class="lq t" cx="96" cy="100" r="7"/>
+<circle class="lq" cx="118" cy="100" r="7"/>
+<circle class="lq" cx="140" cy="100" r="7"/>
+<circle class="lq" cx="162" cy="100" r="7"/>
+<circle class="lq" cx="184" cy="100" r="7"/>
+<circle class="lq t" cx="206" cy="100" r="7"/>
+<circle class="lq x" cx="228" cy="100" r="7"/>
+<circle class="lq t" cx="30" cy="122" r="7"/>
+<circle class="lq" cx="52" cy="122" r="7"/>
+<circle class="lq" cx="74" cy="122" r="7"/>
+<circle class="lq" cx="96" cy="122" r="7"/>
+<circle class="lq" cx="118" cy="122" r="7"/>
+<circle class="lq t" cx="140" cy="122" r="7"/>
+<circle class="lq" cx="162" cy="122" r="7"/>
+<circle class="lq" cx="184" cy="122" r="7"/>
+<circle class="lq" cx="206" cy="122" r="7"/>
+<circle class="lq" cx="228" cy="122" r="7"/>
+<circle class="lq" cx="30" cy="144" r="7"/>
+<circle class="lq x" cx="52" cy="144" r="7"/>
+<circle class="lq t" cx="74" cy="144" r="7"/>
+<circle class="lq x" cx="96" cy="144" r="7"/>
+<circle class="lq" cx="118" cy="144" r="7"/>
+<circle class="lq" cx="140" cy="144" r="7"/>
+<circle class="lq" cx="162" cy="144" r="7"/>
+<circle class="lq t" cx="184" cy="144" r="7"/>
+<circle class="lq" cx="206" cy="144" r="7"/>
+<circle class="lq" cx="228" cy="144" r="7"/>
+<circle class="lq" cx="30" cy="166" r="7"/>
+<circle class="lq" cx="52" cy="166" r="7"/>
+<circle class="lq x" cx="74" cy="166" r="7"/>
+<circle class="lq x" cx="96" cy="166" r="7"/>
+<circle class="lq t" cx="118" cy="166" r="7"/>
+<circle class="lq" cx="140" cy="166" r="7"/>
+<circle class="lq" cx="162" cy="166" r="7"/>
+<circle class="lq x" cx="184" cy="166" r="7"/>
+<circle class="lq" cx="206" cy="166" r="7"/>
+<circle class="lq t" cx="228" cy="166" r="7"/>
+<circle class="lq" cx="30" cy="188" r="7"/>
+<circle class="lq t" cx="52" cy="188" r="7"/>
+<circle class="lq" cx="74" cy="188" r="7"/>
+<circle class="lq" cx="96" cy="188" r="7"/>
+<circle class="lq" cx="118" cy="188" r="7"/>
+<circle class="lq" cx="140" cy="188" r="7"/>
+<circle class="lq t" cx="162" cy="188" r="7"/>
+<circle class="lq" cx="184" cy="188" r="7"/>
+<circle class="lq" cx="206" cy="188" r="7"/>
+<circle class="lq" cx="228" cy="188" r="7"/>
+<circle class="lq" cx="30" cy="210" r="7"/>
+<circle class="lq" cx="52" cy="210" r="7"/>
+<circle class="lq" cx="74" cy="210" r="7"/>
+<circle class="lq t" cx="96" cy="210" r="7"/>
+<circle class="lq" cx="118" cy="210" r="7"/>
+<circle class="lq" cx="140" cy="210" r="7"/>
+<circle class="lq" cx="162" cy="210" r="7"/>
+<circle class="lq" cx="184" cy="210" r="7"/>
+<circle class="lq t" cx="206" cy="210" r="7"/>
+<circle class="lq" cx="228" cy="210" r="7"/>
+<circle class="lq t" cx="30" cy="232" r="7"/>
+<circle class="lq" cx="52" cy="232" r="7"/>
+<circle class="lq" cx="74" cy="232" r="7"/>
+<circle class="lq" cx="96" cy="232" r="7"/>
+<circle class="lq" cx="118" cy="232" r="7"/>
+<circle class="lq t" cx="140" cy="232" r="7"/>
+<circle class="lq" cx="162" cy="232" r="7"/>
+<circle class="lq x" cx="184" cy="232" r="7"/>
+<circle class="lq" cx="206" cy="232" r="7"/>
+<circle class="lq" cx="228" cy="232" r="7"/>
+<circle class="lq" cx="30" cy="254" r="7"/>
+<circle class="lq" cx="52" cy="254" r="7"/>
+<circle class="lq t" cx="74" cy="254" r="7"/>
+<circle class="lq" cx="96" cy="254" r="7"/>
+<circle class="lq" cx="118" cy="254" r="7"/>
+<circle class="lq" cx="140" cy="254" r="7"/>
+<circle class="lq" cx="162" cy="254" r="7"/>
+<circle class="lq t" cx="184" cy="254" r="7"/>
+<circle class="lq" cx="206" cy="254" r="7"/>
+<circle class="lq" cx="228" cy="254" r="7"/>
+<text class="ll" x="18" y="15" text-anchor="end">0</text>
+<text class="ll" x="18" y="37" text-anchor="end">10</text>
+<text class="ll" x="18" y="59" text-anchor="end">20</text>
+<text class="ll" x="18" y="81" text-anchor="end">30</text>
+<text class="ll" x="18" y="103" text-anchor="end">40</text>
+<text class="ll" x="18" y="125" text-anchor="end">50</text>
+<text class="ll" x="18" y="147" text-anchor="end">60</text>
+<text class="ll" x="18" y="169" text-anchor="end">70</text>
+<text class="ll" x="18" y="191" text-anchor="end">80</text>
+<text class="ll" x="18" y="213" text-anchor="end">90</text>
+<text class="ll" x="18" y="235" text-anchor="end">100</text>
+<text class="ll" x="18" y="257" text-anchor="end">110</text>
+</svg>
+<figcaption>ibm_phoenix as a 12 by 10 lattice, qubit q at row ⌊q/10⌋, column q mod 10. <span class="lg" style="background:var(--accent)"></span>the 24 targets of mask M<sub>0</sub>; every other qubit touches at most one. <span class="lg" style="background:var(--warn-tint);border-color:var(--warn)"></span>readout above 3e-2 or CZ cluster (flagged, kept). <span class="lg" style="background:var(--muted)"></span>qubit 17, dead.</figcaption>
+</figure>
+
+<h3>Minute budget</h3>
+<p>Locked time per job (Deviation 2): T<sub>job</sub> = 2 s + (rep_delay + circuit length + t<sub>meas</sub> + 10 µs) × N<sub>exec</sub> + [resilience ≥ 1] × 32 × shots × n<sub>bases</sub> × (rep_delay + t<sub>meas</sub> + 10 µs), with t<sub>meas</sub> = 1.94 µs read from the ibm_phoenix target and circuit length the gate-only duration: 0.5 to 3 µs, and 0.5, 7.7 and 30.7 µs for the three Q3 depths (mean 13 µs). <b>Every Paper 2 stage runs SamplerV2 at resilience 0</b>, so the TREX term is zero throughout and the totals below differ from v0.3 only through the explicit t<sub>meas</sub> and 10 µs per-execution overhead.</p>
+<div class="tw"><table>
+<thead><tr><th>Stage</th><th>Executions</th><th>At 250 µs</th><th>At 1 µs</th></tr></thead>
+<tbody>
+<tr><td class="k">Smoke test (2 jobs)</td><td class="num">81,920</td><td class="num">0.4 min</td><td class="num">5.3 s</td></tr>
+<tr><td class="k">Q1 reset-error map (3 jobs, 20 circuits: 2 jobs over 118 qubits plus the qubit-79 job of Deviation 6)</td><td class="num">1,310,720</td><td class="num">5.9 min</td><td class="num">24.5 s</td></tr>
+<tr><td class="k">Q2 spectator backaction</td><td class="num">2,949,120</td><td class="num">13.1 min</td><td class="num">48.6 s</td></tr>
+<tr><td class="k">Q3 crosstalk at scale</td><td class="num">1,916,928</td><td class="num">8.8 min</td><td class="num">51.8 s</td></tr>
+<tr><td class="k">Q4 reset-as-channel</td><td class="num">786,432</td><td class="num">3.5 min</td><td class="num">12.5 s</td></tr>
+<tr><td class="k">Q5 stability (4 further days, 5.5 s per day)</td><td class="num">1,048,576</td><td class="num">4.7 min</td><td class="num">22 s</td></tr>
+</tbody>
+<tfoot><tr><td>Total (cap 45 min)</td><td class="num">8,093,696</td><td class="num">36.34 min</td><td class="num">2.75 min (165 s)</td></tr></tfoot>
+</table></div>
+<p>The 45-minute cap is hard. The 8.7-minute gap absorbs a locked-time overrun of up to 1.24× the Deviation 2 model; if the smoke test measures more than that per execution, Q2 reverts to its v0.1 setting of 8,192 shots (6.5 min, total 28.9 min) with bounds 5 mrad, 3e-3 and 2e-4 (floors 0.98 mrad, 9.8e-4, 4.4e-5), a pre-registered fallback, not a deviation. Unspent minutes return to the reserve.</p>
+<h3>Programme ledger (360 Flex minutes)</h3>
+<div class="tw"><table>
+<thead><tr><th>Line</th><th>Minutes</th><th>Condition</th></tr></thead>
+<tbody>
+<tr><td class="k">Paper 1 main grid</td><td class="num">200</td><td>Paper 1 pre-registration v0.4, Gates 1 and 2</td></tr>
+<tr><td class="k">Paper 1 dial arm, core</td><td class="num">45</td><td>Paper 1 Deviation 20; the full 70-minute arm is contingent on reserve</td></tr>
+<tr><td class="k">Paper 2 characterisation (this document)</td><td class="num">45 cap</td><td>Estimate 36.34 min (Deviation 6; 2.75 min at 1 µs)</td></tr>
+<tr><td class="k">Reserve</td><td class="num">60</td><td>20 earmarked for Deviation 19 replications (either paper)</td></tr>
+</tbody>
+<tfoot><tr><td>Total</td><td class="num">350</td><td>10 unallocated. Both pre-registrations reference this one table.</td></tr></tfoot>
+</table></div>
+<p>The Flex instance's allocation limit for ibm_phoenix is currently 210 minutes (raised from 180 on 19 September 2026; earlier versions of this document said 220 in error) and the open-plan instance holds 10 minutes; the 210 covers Paper 2 and the dial arm, and must be raised before Paper 1's main grid is booked.</p>
+</section>
+
+<section id="gates">
+<h2><span class="n">4</span>Predictions, gates and kill criteria</h2>
+<h3>Gate P2-1: before any Flex minute</h3>
+<ol type="a">
+<li>A prediction for every statistic in Section 2 from the snapshot: Q1 median ε ≤ 1e-4 and measure_reset ε ≈ P(0|1); Q2 delay-arm phases from T2 and an assumed ZZ up to 2π × 50 kHz, reset excess zero; Q3 null, ε(dense) = ε(sparse); Q4 exact simulation of N<sub>p</sub> with snapshot readout and 1Q errors; Q5 from Paper 1's snapshot-to-snapshot readout drift.</li>
+<li>Every bound sits at least 3× above its recomputed 1σ shot floor at the pre-registered shot counts (readout P(1|0) taken as 2e-3 where it enters):
+<div class="tw"><table>
+<thead><tr><th>Statistic</th><th>Bound</th><th>Floor</th><th>Ratio</th></tr></thead>
+<tbody>
+<tr><td>H1 device median ε, native (65,536 shots)</td><td class="num">3e-4</td><td class="num">3.2e-5</td><td class="num">9.4</td></tr>
+<tr><td>H1 per-qubit ε on ≥ 90% of qubits</td><td class="num">1e-3</td><td class="num">2.8e-4</td><td class="num">3.6</td></tr>
+<tr><td>H2 excess phase, target |0⟩, per reset (16,384 shots, r = 16)</td><td class="num">5 mrad</td><td class="num">0.69 mrad</td><td class="num">7.2</td></tr>
+<tr><td>H2 excess phase, target |1⟩, ζ-corrected (τ<sub>eff</sub> fitted, Deviation 4)</td><td class="num">5 mrad</td><td class="num">1.16 mrad</td><td class="num">4.3</td></tr>
+<tr><td>H2 excess Bloch-length loss per reset</td><td class="num">2.5e-3</td><td class="num">6.9e-4</td><td class="num">3.6</td></tr>
+<tr><td>H2 excess excitation per reset</td><td class="num">2e-4</td><td class="num">3.1e-5</td><td class="num">6.5</td></tr>
+<tr><td>H3 ε<sub>dense</sub> − ε<sub>sparse</sub>, mean over 112 qubits</td><td class="num">1e-4</td><td class="num">2.7e-5</td><td class="num">3.7</td></tr>
+<tr><td>H3 spectator per-cycle excess at m = 64 (4 frames pooled)</td><td class="num">1e-3</td><td class="num">1.0e-4</td><td class="num">10</td></tr>
+<tr><td>H4 D entries (32,768 pooled shots)</td><td class="num">0.02</td><td class="num">3.9e-3</td><td class="num">5.1</td></tr>
+<tr><td>H4 t<sub>z</sub> entry</td><td class="num">0.05</td><td class="num">5.5e-3</td><td class="num">9.1</td></tr>
+<tr><td>H4 |t<sub>x</sub>|, |t<sub>y</sub>| entries</td><td class="num">0.02</td><td class="num">5.5e-3</td><td class="num">3.6</td></tr>
+<tr><td>H4 connected ⟨XX⟩ (pattern floor 0 by stratification)</td><td class="num">0.02</td><td class="num">5.5e-3</td><td class="num">3.6</td></tr>
+<tr><td>H5 device-median drift between days (32,768 shots)</td><td class="num">2e-4</td><td class="num">5.6e-5</td><td class="num">3.6</td></tr>
+</tbody></table></div></li>
+<li>The Marrakesh dry run completes end to end (measure_reset arms skipped), every row parses, and <code>reset</code> survives transpilation as a distinct instruction. Reset durations are not tested on Marrakesh.</li>
+<li>Independent reviewer sign-off on this document and the job list.</li>
+</ol>
+<div class="gate"><b>Stop rule.</b> Failing (b) or (c) stops the hardware stage until the shot counts or pipeline are fixed and re-reviewed.</div>
+<h3>Gate P2-2: after the smoke test, before Q1</h3>
+<ul>
+<li>On at least 90% of qubits the smoke-test P(1 | X, reset, measure) lies within 3σ of P(1 | measure), and P(1 | X, delay, measure) exceeds 0.9: the reset acted and the delay did not.</li>
+<li>Scheduled native reset duration on ibm_phoenix is 400 ns (2140 ns on qubit 79) and the three reset kinds transpile to three distinct instructions; readout error on the day within 1.5× of the snapshot.</li>
+<li>Measured locked time per execution within 1.5× of the Section 3 estimate.</li>
+</ul>
+<div class="gate"><b>Kill criteria.</b> (1) In the ibm_phoenix smoke test (not on Marrakesh, where it fires by design), <code>reset</code> compiles to <code>measure_reset</code> or any 1940 ns instruction; (2) native reset error median above 2e-2 in the smoke test; (3) locked time above 1.5× the Deviation 2 estimate in the smoke test. Any one ends the hardware stage; the minutes return to the reserve.</div>
+</section>
+
+<section id="analysis">
+<h2><span class="n">5</span>Analysis plan</h2>
+<ul>
+<li><b>Estimates.</b> Per-qubit probabilities, phases and Bloch entries with 95% bootstrap intervals over shots (10,000 resamples); Q2 and Q3 slopes in r or m by weighted least squares; H3's mean difference ε<sub>dense</sub> − ε<sub>sparse</sub> by bootstrap over qubits.</li>
+<li><b>Maps.</b> Every per-qubit quantity on the 12 by 10 lattice with the flags; directed-pair quantities (Q2) on the edges.</li>
+<li><b>Comparison to IBM figures.</b> ε<sub>q</sub> against the day's initialisation error and readout confusion; measure_reset ε against P(0|1); reported as found.</li>
+<li><b>Multiplicity.</b> The 90%-of-qubits thresholds are the statistics; per-qubit outliers go to Section 6, never to post-hoc exclusion.</li>
+<li><b>Data.</b> All raw results, snapshots and metadata bundles retained per the programme's logging rule; one row per circuit, written before analysis. Policy (Deviation 7): ISA circuits are not committed for Sampler jobs (they are deterministic from the job list, snapshot, seed and Qiskit version; their SHA-256 and the versions are recorded in job.json and the qpy kept as an Action artefact and on Zenodo); per-shot bit arrays are committed when under 20 MB and otherwise through Git LFS with their SHA-256 in job.json; counts and job metadata are always committed.</li>
+</ul>
+<div class="tw"><table class="schema">
+<thead><tr><th>Field</th><th>Content</th></tr></thead>
+<tbody>
+<tr><td>backend, job_id, timestamp, calib_file</td><td>As in Paper 1: ibm_phoenix, IBM job id, UTC ISO 8601, calibration snapshot saved for this job</td></tr>
+<tr><td>protocol</td><td>smoke, Q1, Q2, Q3, Q4 or Q5</td></tr>
+<tr><td>reset_kind</td><td>reset, measure_reset, measure_reset_2 or delay</td></tr>
+<tr><td>mask_id, mask_hash, frame_id</td><td>Mask label and SHA-256 of the qubit list; Pauli frame index (Q3)</td></tr>
+<tr><td>reps, prep, meas_axis, expected_z</td><td>Repeat count m or r; input state; readout axis; Q3 frame-tracked expected Z outcome per reset qubit</td></tr>
+<tr><td>shots, rep_delay, init_qubits, sched_ns</td><td>Shots, rep_delay, Sampler init_qubits flag, scheduled circuit and reset durations from the transpiled circuit</td></tr>
+<tr><td>counts_path, qpu_seconds</td><td>Path of the raw counts file; usage reported by the job</td></tr>
+<tr><td>notes</td><td>Free text: retries, day-of-run exclusions, anomalies</td></tr>
+</tbody></table></div>
+</section>
+
+<section id="anomaly">
+<h2><span class="n">6</span>Anomaly protocol</h2>
+<p>Mirrors Paper 1's Deviation 19. An anomaly is (i) a qubit or directed pair whose statistic deviates from its Gate P2-1 prediction by more than 3σ, σ combining shot floor and bootstrap interval, or (ii) a spatially correlated deviation: three or more mutually adjacent qubits, or a full row or column, deviating in the same direction by more than 2σ each. Confirmation requires re-measurement on a different calendar day, using at most 20 of the 60 reserve minutes shared with Paper 1, and failure of the calibrated simulation (snapshot T1, T2, readout and 1Q errors, fitted ZZ) to reproduce it within confidence intervals. An unreplicated anomaly is reported as exploratory and labelled so; a replicated one triggers a separate pre-registered follow-up before any claim beyond this paper.</p>
+</section>
+
+<section id="deliverables">
+<h2><span class="n">7</span>Deliverables</h2>
+<ul>
+<li>Open dataset: reset-error map for three reset kinds, directed-pair backaction map, dense-versus-sparse crosstalk table, N<sub>p</sub> Bloch maps, daily stability series, raw counts and snapshots; Zenodo DOI at submission.</li>
+<li>Reusable characterisation package in the gradvar-phoenix repository (Apache 2.0): mask generator, circuit builders, job lists and analysis notebooks, runnable on any Qiskit backend exposing <code>reset</code>.</li>
+<li>arXiv preprint. Current odds (independent reviewer, after the v0.2 fixes): PRA, QST or PR Applied 50 to 55%, PRX Quantum 5%, Nature family about 0; the reasons given are that the study is student-run, the physics model is thin, and IBM's own Nighthawk r2 paper is the scoop risk. The earlier, pre-review figure from the judges of 19 September 2026 was 60 to 65% and 10 to 15%. Both are recorded so they can be checked.</li>
+</ul>
+</section>
+
+<section id="governance">
+<h2><span class="n">8</span>Review rule, authorship, revisions and deviations</h2>
+<p><b>Review rule.</b> An independent reviewer (not an author) reads this document and the job list before any QPU spend, and the logged data and analysis after each stage before the next is submitted; their notes are committed.</p>
+<p><b>Authorship.</b> Mohammed Owais (third-year CSE, SSIT Tumakuru): design, code, runs, analysis, first draft. Dr. Raviram V (Professor, CSE, SSIT Tumakuru): PI, supervision, arXiv endorsement. Physics collaborator (to be decided): review of the MCM-protocol adaptation and the ZZ model in Q2. <b>Theorist's first tasks:</b> the ZZ model behind Q2's ζ subtraction (fix 2) and the frame-tracked reset cycle benchmark of Q3 (fix 3).</p>
+<p><b>Revision v0.1 → v0.2</b> (independent review, 19 Sep 2026; no minute spent). 1. Q4 masks stratified so N<sub>p</sub> ⊗ N<sub>p</sub> is exact per patch, tested against p̂<sub>q</sub>. 2. Q2 primary statistic moved to the target-|0⟩ arm; ζ subtraction for the |1⟩ arm. 3. Q3 rewritten with frame tracking, m ∈ {1, 16, 64}, absolute difference in place of the ratio. 4. Every bound at ≥ 3× its floor; Q2 to 16,384 shots; H1 as a device-median test; H5 as an absolute median drift. 5. Marrakesh dry run rescoped; kill criterion 1 scoped to the Phoenix smoke test; init_qubits pre-registered. 6. Programme ledger and job packing added. 7. Qubit 79 delay reference, |+⟩ arm, initialisation-error assumption, 2603.18381 downgraded, "first independent".</p>
+<p><b>Deviations.</b> Any change after signature is recorded here with the date, reason and approver's initials. The signed v1.0 is committed as a PDF and not edited.</p>
+<div class="tw"><table class="devs">
+<thead><tr><th>No.</th><th>Change</th><th>Reason</th><th>Approved</th></tr></thead>
+<tbody><tr><td class="num">1</td><td>Execution rep_delay follows Paper 1's granted value once Paper 1's Deviation 23 gate has passed (ibm_phoenix's <code>rep_delay_range</code> read from <code>backend.configuration()</code> before the dry run; smoke-test bias ladder). Budgets are quoted at the default 250 µs (35.4 min under Deviation 2) and at the granted value (2.7 min at 1 µs, Section 3 table, including 2 s per job); shot counts are unchanged either way. The reset-error and backaction statistics carry the <code>rep_delay</code> column of the logging schema so Q1 and Q2 can be compared across delays.</td><td>Consistency with Paper 1, which budgets at a granted ~1 µs while v0.2 of this document fixed 250 µs (Nighthawk r2 review, 20 Sep 2026).</td><td>Adopted 20 Sep 2026 under delegated authority; countersigned: Dr. Raviram V, 20 Sep 2026 (relayed by M. Owais in the project thread, 07:54 IST).</td></tr>
+<tr><td class="num">2</td><td>Budget formula gains the TREX term: T<sub>job</sub> = 2 s + (rep_delay + circuit length + t<sub>meas</sub> + 10 µs) × N<sub>exec</sub> + [resilience ≥ 1] × 32 × shots × n<sub>bases</sub> × (rep_delay + t<sub>meas</sub> + 10 µs), with t<sub>meas</sub> read from the target (ibm_phoenix 1.94 µs); kill criterion 3 (1.5× estimate) is evaluated against this model. All Paper 2 stages are SamplerV2 at resilience 0, so the TREX term is zero and the total moves from 34.2 to 35.4 min at 250 µs (2.7 min at 1 µs) through t<sub>meas</sub> and the 10 µs overhead only; shot counts unchanged; overrun tolerance to the cap becomes 1.27×.</td><td>Marrakesh post-run review, section 4: TREX measurement-noise learning circuits (32 randomisations × shots per basis) are billed as QPU usage at resilience ≥ 1, and measure duration must come from the target.</td><td>Adopted 20 Sep 2026 under delegated authority; countersigned: Dr. Raviram V, 20 Sep 2026 (relayed by M. Owais in the project thread, 07:54 IST).</td></tr>
+<tr><td class="num">3</td><td>Schedule brought forward, aligned with Paper 1's Deviation 31: ibm_phoenix smoke test 27–29 September 2026 (shared with Paper 1), Gate P2-2 the same week, Q1 and Q4 from 1 October, Q2 and Q3 by 8 October, Q5 on four Paper 1 days within 1–12 October, all before the 15 October maintenance pause. No protocol, bound, shot count, mask, seed or budget line changes; the gates are decided in order before any minute is booked, and a missed gate date slips the window rather than relaxing the gate. The theorist's review of the Q2 ZZ model and the Q3 frame-tracked benchmark is delegated to Claude's review process while the theorist is away (20 Sep 2026, 08:10 IST), theorist countersignature on return.</td><td>The pre-October simulation, review and pipeline work closed on 20 Sep 2026; Owais and Dr. Raviram asked for the fast track (20 Sep 2026, 08:04 and 08:10 IST).</td><td>Adopted 20 Sep 2026 under standing delegated authority; countersigned by the PI 20 Sep 2026 20:10 IST (relayed by Owais).</td></tr>
+<tr><td class="num">4</td><td>Q2 backaction: the fixed 0.9375 = 375/400 coefficient, which presumed the reset's 25 ns emptying time, is replaced by a fitted effective emptying time τ<sub>eff</sub>: the target-|1⟩-arm excess phase is regressed on the per-pair ζ (from the delay arms, conditional phase ζ × 400 ns), the slope is τ<sub>eff</sub> − 400 ns and becomes a deliverable with its interval, and the residual about the fit is tested against the 5 mrad bound; Gate P2-1 table row updated. ζ convention shared with Paper 1 Deviation 34 (ζ = 2π × coupling in Hz, interaction exp(−i ζτ/4 ZZ), conditional phase ζτ).</td><td>Theorist referee pass Q7, confirmed by the second review: the emptying time is what Paper 2 measures, so it cannot be assumed in the correction.</td><td>Adopted 20 Sep 2026 under delegated authority (theorist role delegated 20 Sep 08:10 IST); countersigned by the PI 20 Sep 2026 20:10 IST (relayed by Owais); theorist countersignature on return.</td></tr>
+<tr><td class="num">5</td><td>Q3 crosstalk: the frame twirl converts static ZZ into a Pauli channel but does not remove it. The common-mode per-cycle spectator error sin²(ζτ/4) per neighbour (2.9e-4 at 27 kHz over the 400 ns idle) and the dense − sparse residual (about 4e-5 at the median, 1.4e-4 at 50 kHz, against the 1.0e-4 floor) are predicted per qubit from the Q2 ζ map before the run and reported beside H3; a mid-cycle spectator echo is added to the cycle only if the predicted residual exceeds half the floor (5e-5). The 1e-3 bound is unchanged.</td><td>Theorist referee pass Q7 as corrected by the second review: the per-cycle weight is sin²(ζτ/4), not sin²(ζτ/2), and it is common-mode, so the residual sits at the floor, not at the bound.</td><td>Adopted 20 Sep 2026 under delegated authority (theorist role delegated 20 Sep 08:10 IST); countersigned by the PI 20 Sep 2026 20:10 IST (relayed by Owais); theorist countersignature on return.</td></tr>
+<tr><td class="num">6</td><td>Qubit 79 isolation. ibm_phoenix's native reset on qubit 79 is 2140 ns against 400 ns on every other qubit; with barriers every parallel circuit would be padded by 1.74 µs to it, giving Q3 reset qubits with final P ∈ {X, Y} a T1 loss of about 1.0e-2 (2.2e-2 at the worst decile) against the 1e-4 H3 bound and raising the per-cycle ZZ weight from 4.1e-4 to about 8.8e-3, a mask-dependent Deviation 4 slope in Q2 (spectators of every M<sub>0</sub> target accruing ζ × 2140 ns in the delay arm), and a 2.14 µs I branch on all 24 Q4 patch qubits (D<sub>xx</sub> bias about 1.8 percent). Remedy: qubit 79 is removed from the parallel arms of Q1–Q4 (Q2 target set, Q3 masks, Q4 exclusion set); its Q1 native-reset arms (a), (b), (f) run as a separate 3-circuit job at 65,536 shots (196,608 executions, about 0.9 min at 250 µs, 3 s at 1 µs), so the campaign estimate becomes 36.3 min at 250 µs (8.09 million executions), inside the 45-minute cap with an overrun tolerance of 1.24×; Q2, Q3 and Q4 masks and frames are redrawn over the 118 remaining qubits with the same seed rule before the smoke test; M<sub>0</sub> has 22 acting targets and Q2 covers 422 directed pairs; H3's mean runs over the 111 qubits neither readout-flagged nor 79. Code: a <code>SEPARATE_QUBITS = (79,)</code> filter in the Sampler context.</td><td>Runner review S2 and S3 (scratchpad/review/p2_runner_review.md): docs/PAPER2_RUNNER.md §6.5 understated the padding.</td><td>Adopted 20 Sep 2026 under delegated authority (theorist role delegated 20 Sep 08:10 IST); countersigned by the PI 20 Sep 2026 20:10 IST (relayed by Owais); theorist countersignature on return.</td></tr>
+<tr><td class="num">7</td><td>Q4 edge rule and protocol clarifications. (i) The greedy per-row rule ("lowest summed readout error, at least three columns from the previous row's edge") is infeasible on the 19–20 Sep snapshots (row 6 has no admissible edge after row 5's best); it becomes depth-first with backtracking to the previous row's next-best edge, evaluated on the programme's exclusion set with Paper 1 Deviation 22 applied plus qubit 79, admissible edges ordered by (summed readout error, column), backtracks recorded in the job list. (ii) Q2 mask M<sub>0</sub> has 22 acting targets (dead qubit 17 and separated qubit 79). (iii) Smoke list 03 runs as two Sampler jobs (init_qubits true and false) sharing 40 circuits (Q1 17, Q2 8, Q3 6, Q4 9) at 2,048 shots, about 0.43 min at 250 µs, 5 s at 1 µs. (iv) The CZ-cluster flag is logged as a column separate from the readout flags; H3's "non-flagged" means not readout-flagged. (v) Q3 frames nest: m = 1 and 16 share the first cycles of the m = 64 frame. (vi) The Q3 per-cycle spectator idle is 480 ns (400 ns reset or delay plus two 40 ns Pauli layers), so the Deviation 5 predicted common-mode weight is sin²(ζτ/4) at τ = 480 ns, about 4.1e-4 per neighbour at 27 kHz (not 2.9e-4); the optional spectator echo is delay(200 ns), X, delay(200 ns) on the spectators with the X folded into P<sup>†</sup>, carried as an <code>echo</code> flag in the Q3 spec, builder and CSV and logged per circuit. (vii) Data policy: ISA circuits are not committed for Sampler jobs (SHA-256 and versions recorded; qpy kept as Action artefacts), per-shot bit arrays committed when under 20 MB else through Git LFS, counts and job metadata always committed. No bound, shot count or seed changes. <b>Erratum, 20 Sep 2026 (v0.4.5, no new Deviation):</b> the 1 µs column of the Section 3 budget table omitted the 2 s per-job charge for the smoke test and the qubit-79 job; corrected totals are 2.75 min at 1 µs (165 s) and 36.34 min at 250 µs for 8,093,696 executions, per list at 1 µs: Q1 including the qubit-79 job 24.5 s (3 jobs, 20 circuits), Q2 48.6 s, Q3 51.8 s, Q4 12.5 s, Q5 5.5 s per day, smoke test 5.3 s (2 jobs). The Q4 assignment quoted at adoption predated the regeneration; the regenerated list on the 2026-09-20T03:08:13Z snapshot is in Section 3, the run-day <code>q4_patches</code> remaining authoritative. Readout flags on that snapshot: 24, 55, 62, 67, 73, 77, 107. Q5 runs over the 118 parallel qubits.</td><td>Runner build and review, 20 Sep 2026 (docs/PAPER2_RUNNER.md §6; scratchpad/review/p2_runner_review.md S4, S5 and notes).</td><td>Adopted 20 Sep 2026 under delegated authority (theorist role delegated 20 Sep 08:10 IST); countersigned by the PI 20 Sep 2026 20:10 IST (relayed by Owais); theorist countersignature on return.</td></tr><tr><td class="num">8</td><td>Schedule advanced, following Paper 1 Deviation 50 (20 Sep 2026, 21:00 IST): the Sampler smoke (list 03) runs on Paper 1 campaign day 2 (target 22 Sep) from the shared dry-run/smoke reserve; the Q1–Q5 characterisation on days 4–5 (target 24–25 Sep) after the Paper 1 dial arm; 29 Sep – 12 Oct buffer. rep_delay stays 1 μs (Deviation 1).</td><td>Paper 1 Deviation 50: Gate 1 (PASS, 20 Sep) and the 20 Sep smoke test closed the work booked for 23–29 Sep, so the campaign moves to a target of 21–28 Sep.</td><td>Adopted under delegated authority, PI countersignature on return.</td></tr></tbody>
+</table></div>
+</section>
+
+<section id="signatures" class="sig">
+<h2><span class="n">9</span>Signatures</h2>
+<div class="sigrow">
+  <div class="sigcell"><div class="line"></div><span class="who">Dr. Raviram V</span><br>Principal investigator</div>
+  <div class="sigcell"><div class="line"></div><span class="who">Mohammed Owais</span><br>Student investigator</div>
+  <div class="sigcell"><div class="line"></div><span class="who">Theorist / physics collaborator</span><br>To be decided</div>
+  <div class="sigcell"><div class="line"></div><span class="who">Date</span><br>Signed at SSIT Tumakuru</div>
+</div>
+<p class="sigcell" style="margin-top:18px">v0.2 adopted for circulation under the PI's delegated authority (Dr. Raviram V, relayed by M. Owais 19 Sep 23:52 IST).<br>v0.3 (Deviation 1) and v0.4 (Deviation 2): adopted 20 Sep 2026 under the same delegated authority; countersigned by Dr. Raviram V, 20 Sep 2026 (relayed by M. Owais in the project thread, 07:54 IST); theorist signature pending.<br>v0.4.1: countersignature recorded, 20 Sep 2026.<br>v0.4.2 (Deviation 3, schedule brought forward): adopted 20 Sep 2026 under standing delegated authority; countersigned by the PI 20 Sep 2026 20:10 IST (relayed by Owais).<br>v0.4.3 (Deviations 4–5): adopted 20 Sep 2026 under delegated authority (theorist role delegated 20 Sep 08:10 IST); countersigned by the PI 20 Sep 2026 20:10 IST (relayed by Owais); theorist countersignature on return.<br>v0.4.4 (Deviations 6–7, from the runner build and review): adopted 20 Sep 2026 under delegated authority (theorist role delegated 20 Sep 08:10 IST); countersigned by the PI 20 Sep 2026 20:10 IST (relayed by Owais); theorist countersignature on return.<br>v0.4.5 (erratum under Deviation 7: budget-table job charges, regenerated Q4 edges, 20 Sep snapshot flags; no new Deviation).<br>v0.4.6: PI countersignature, 20 Sep 2026 20:10 IST (relayed by M. Owais, ts 1789915243.616679): Dr. Raviram V agrees with all deviations adopted so far (Deviations 3–7, with 1–2 countersigned earlier) and asks Claude to keep acting on his behalf, reviewing periodically; the theorist's countersignature of Deviations 4–5 remains pending on return; no new Deviation.<br>v0.5.0 (Deviation 8, schedule advanced with Paper 1 Deviation 50): adopted 20 Sep 2026 21:00 IST under delegated authority; PI countersignature on return.<br>v0.5.1 (erratum, 21 Sep 2026: the Flex instance cap is 210 minutes, not 220; no new Deviation).<br>Delegated theorist review: referee pass and independent second review completed 20 Sep 2026 (scratchpad files named in the repo docs/REVIEWS.md to follow); Deviations 4–5 adopted; countersignature on return.<br>Theorist review: delegated to Claude's review process 20 Sep 2026 (theorist away), theorist countersignature on return.<br>Standing delegation from 20 Sep 2026: deviations are decided by Claude under the PI's delegated authority and recorded for countersignature at the PI's next review. Renewed 20 Sep 2026 20:10 IST (relayed by M. Owais): the PI agrees with all deviations adopted so far and asks Claude to keep acting on his behalf, reviewing periodically.</p>
+<p class="version">v0.5.1, 21 Sep 2026: erratum, Flex instance cap 210 minutes (not 220), no new Deviation; v0.5.0, 20 Sep 2026: Deviation 8, schedule advanced (Sampler smoke target 22 Sep, characterisation target 24–25 Sep, buffer 29 Sep – 12 Oct); supersedes v0.4.6, 20 Sep 2026 (Deviations 3–7 countersigned by the PI 20 Sep 2026 20:10 IST (relayed by Owais), theorist countersignature of 4–5 pending; erratum under Deviation 7 in v0.4.5; Deviations 6–7, qubit 79 isolation and Q4 edge rule, campaign estimate 36.34 min at 250 µs, 2.75 min at 1 µs; Deviations 4–5, delegated theorist review; hardware window 27 Sep–12 Oct 2026, Deviation 3); supersedes v0.4.5, v0.4.2, v0.4.1, v0.4, v0.3 and v0.2 (19–20 Sep 2026, adopted under delegated authority) and v0.1 (drafted 19 Sep 2026, reviewed, not signed); Deviations 1–2 adopted 20 Sep 2026 and countersigned by Dr. Raviram V the same day; further deviations adopted under standing delegated authority, countersignature on the PI's next review; theorist signature pending</p>
+</section>
+</div>

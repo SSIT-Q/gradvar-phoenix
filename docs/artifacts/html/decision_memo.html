@@ -1,0 +1,337 @@
+<title>Phoenix 360 Decision Memo</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --paper:#f5f6f3;
+  --paper-2:#eceee9;
+  --ink:#1b2430;
+  --ink-2:#48525c;
+  --ink-3:#727c86;
+  --rule:#d3d8d2;
+  --accent:#0f6b6e;
+  --accent-ink:#0b5558;
+  --accent-wash:#e2eeec;
+  --warn:#a3452b;
+  --warn-wash:#f5e6df;
+  --hi:#0f6b6e; --hi-bg:#dcecea;
+  --md:#8a6a1f; --md-bg:#f1e8cf;
+  --lo:#6b7480; --lo-bg:#e6e9e6;
+  --code-bg:#e9ece7;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#151a1e; --paper-2:#1d2328;
+    --ink:#e6e9e4; --ink-2:#b4bcc0; --ink-3:#83909a;
+    --rule:#30393f;
+    --accent:#5fb8b4; --accent-ink:#7ccbc7; --accent-wash:#1b2f30;
+    --warn:#e0805f; --warn-wash:#33221c;
+    --hi:#5fb8b4; --hi-bg:#1b2f30;
+    --md:#d3b25f; --md-bg:#30291a;
+    --lo:#9aa4ad; --lo-bg:#242b30;
+    --code-bg:#20272c;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#151a1e; --paper-2:#1d2328;
+  --ink:#e6e9e4; --ink-2:#b4bcc0; --ink-3:#83909a;
+  --rule:#30393f;
+  --accent:#5fb8b4; --accent-ink:#7ccbc7; --accent-wash:#1b2f30;
+  --warn:#e0805f; --warn-wash:#33221c;
+  --hi:#5fb8b4; --hi-bg:#1b2f30;
+  --md:#d3b25f; --md-bg:#30291a;
+  --lo:#9aa4ad; --lo-bg:#242b30;
+  --code-bg:#20272c;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;background:var(--paper);color:var(--ink);
+  font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:16px;line-height:1.55;
+  padding-block:0 4rem;padding-inline:16px;
+}
+.wrap{max-width:78ch;margin:0 auto}
+a{color:var(--accent-ink);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:2px}
+a:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px}
+a.arx{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.92em;text-decoration-color:var(--rule);white-space:nowrap}
+a.arx:hover{text-decoration-color:var(--accent)}
+header{padding-block:2.5rem 1.5rem;border-bottom:1px solid var(--rule);margin-bottom:2rem}
+.eyebrow{font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);font-weight:500;margin:0 0 .75rem}
+h1{font-family:"Source Serif 4",Georgia,"Times New Roman",serif;font-weight:600;font-size:clamp(1.65rem,4.5vw,2.35rem);line-height:1.15;margin:0 0 .9rem;text-wrap:balance;letter-spacing:-.01em}
+.sub{color:var(--ink-2);margin:0;font-size:1rem;max-width:65ch}
+h2{font-family:"Source Serif 4",Georgia,serif;font-weight:600;font-size:1.45rem;line-height:1.2;margin:2.75rem 0 1rem;text-wrap:balance;display:flex;gap:.7rem;align-items:baseline}
+h2 .n{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.8rem;color:var(--accent);font-weight:500;letter-spacing:.04em;flex:none;position:relative;top:-.1em}
+h3{font-family:"IBM Plex Sans",system-ui,sans-serif;font-weight:600;font-size:1rem;margin:1.6rem 0 .4rem}
+p{margin:0 0 1rem;max-width:68ch}
+ul{padding-left:1.2rem;margin:0 0 1rem}
+li{margin-bottom:.45rem;max-width:66ch}
+strong{font-weight:600}
+.summary{border:1px solid var(--rule);border-left:4px solid var(--accent);background:var(--paper-2);padding:1.1rem 1.2rem;border-radius:4px;margin:0 0 .5rem}
+.summary ol{margin:0;padding-left:1.3rem;counter-reset:s}
+.summary li{margin:0 0 .75rem;max-width:none;padding-left:.2rem}
+.summary li:last-child{margin-bottom:0}
+.summary li b{color:var(--accent-ink);font-weight:600}
+.note{border-left:3px solid var(--warn);background:var(--warn-wash);padding:.7rem .9rem;border-radius:0 4px 4px 0;margin:1rem 0;color:var(--ink)}
+.note p{margin:0}
+.tblwrap{overflow-x:auto;margin:1rem 0 1.25rem;border:1px solid var(--rule);border-radius:4px;background:var(--paper)}
+table{border-collapse:collapse;width:100%;font-size:.88rem;line-height:1.45}
+th,td{text-align:left;vertical-align:top;padding:.55rem .7rem;border-bottom:1px solid var(--rule)}
+th{background:var(--paper-2);font-weight:600;font-size:.78rem;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-2);white-space:nowrap;position:sticky;top:0}
+tr:last-child td{border-bottom:none}
+td.k{font-weight:500;min-width:13ch}
+.gap td{min-width:16ch}
+.gap td:first-child{min-width:20ch;font-weight:500}
+.none{color:var(--ink-3);font-style:italic}
+.rank td:nth-child(2){min-width:20ch;font-weight:500}
+.rank td{min-width:14ch}
+.rank td.num{font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pill{display:inline-block;font-size:.72rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;padding:.1rem .5rem;border-radius:999px;white-space:nowrap}
+.pill.hi{color:var(--hi);background:var(--hi-bg)}
+.pill.md{color:var(--md);background:var(--md-bg)}
+.pill.lo{color:var(--lo);background:var(--lo-bg)}
+.date{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.85rem;white-space:nowrap;font-variant-numeric:tabular-nums}
+.gate{font-weight:600;color:var(--accent-ink)}
+code{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.9em;background:var(--code-bg);padding:.05em .3em;border-radius:3px}
+.tight p{margin-bottom:.6rem}
+footer{margin-top:3.5rem;padding-top:1.2rem;border-top:1px solid var(--rule);color:var(--ink-3);font-size:.85rem;max-width:68ch}
+@media (max-width:480px){
+  h2{font-size:1.3rem}
+  th,td{padding:.5rem .55rem}
+}
+</style>
+
+<div class="wrap">
+<header>
+  <p class="eyebrow">QARC, SSIT Tumakuru. Internal decision memo</p>
+  <h1>Decision memo: what the literature says to do with 360 minutes on ibm_phoenix</h1>
+  <p class="sub">Literature sweep of about 90 papers (2021 to September 2026), 19 September 2026. Prepared for Mohammed Owais and Dr. Raviram V, QARC, SSIT. Revised 19 September 2026 for ibm_phoenix (Nighthawk r2).</p>
+</header>
+
+<h2><span class="n">1</span>The answer in seven lines</h2>
+<div class="summary">
+<ol>
+<li><b>Recommendation.</b> Make the paper a careful hardware measurement of gradient concentration on ibm_phoenix, IBM's Nighthawk r2 processor (Question 1 below), with the disorder question (Question 2) and the ancilla-reset question (Question 3) as gated arms that run only if simulation clears them, and the initialisation comparison (Question 4) folded in as a section.</li>
+<li><b>The speckle idea is already published.</b> Cao et al. ran a kicked hardware-efficient ansatz with narrowed random single-qubit angles on ibm_brisbane at 13 to 31 qubits (2404.17560, Quantum 2025). What remains open is specific and is Question 2.</li>
+<li><b>The empty cells.</b> Nobody has published parameter-shift gradient variance measured on more than 9 physical qubits, nobody has swept error-mitigation level against gradient variance at fixed shots, nothing has been published on Nighthawk r2 and no gradient measurement exists on any Nighthawk, and no hardware barren-plateau paper reports confidence intervals on a measured variance (Uvarov and Biamonte give standard errors in numerics). Those four empty cells are the paper.</li>
+<li><b>Honest odds.</b> This is a rigorous measurement paper, credible for Quantum Science and Technology or npj Quantum Information, not a quantum-advantage result. A "new mitigation that is not classically simulable" (the breakthrough direction) is not achievable by November and is not recommended.</li>
+<li><b>Two gates stand.</b> Simulation must separate the competing predictions by more than the shot-noise floor before any hardware minute; hardware data must sit above a measured noise floor.</li>
+<li><b>Device confirmed.</b> The allocation instance can reach ibm_phoenix (19 September 2026).</li>
+<li><b>Still needed from Owais.</b> Allocation expiry date, physics co-author, API key rotated.</li>
+</ol>
+</div>
+
+<h2><span class="n">2</span>Where the field stands in September 2026</h2>
+<p><strong>Theory.</strong> For deep hardware-efficient circuits the gradient variance is set by the dimension of the circuit's Lie algebra and is exponentially small in the qubit count (2309.09342, 2309.07902; review 2405.00781). For shallow circuits with local observables the decay is only polynomial up to depth about log n (2001.00550). The shallow, local regime is therefore the one where a signal can sit above a shot-noise floor.</p>
+<p><strong>Noise.</strong> Under Pauli-type noise, gradients decay exponentially with depth (2007.14384). Its Theorem 1 bounds the derivative itself, for all parameters, by sqrt(8 ln 2) N_O ||omega||_inf ||eta||_1 sqrt(n) q^(cL+1) with c = 1/(2 ln 2) = 0.7213. At n = 100 and q = 0.998 that is about 23 for every L up to 12, so it is uninformative on our ladder because of the sqrt(n) prefactor and the weak per-layer noise, not because of any 2^(n/2) factor (an earlier version of this memo said so and was wrong). The tighter unital bound is Mele et al. Proposition 10: Var[dC] at most exp(-Omega(|P| + L)) under any unital noise, with no n prefactor. Quantitative predictions for ibm_phoenix still come from our own noisy simulation with the device calibration. Under non-unital noise (T1 amplitude damping, which Heron and Nighthawk both have), Mele et al. (2403.13927, Nature Physics 2026) show that, on average over 2-design gate ensembles, local non-unital noise acting after every layer leaves local-observable costs with order-1 variance and only the parameters in the last order-log-n layers with non-vanishing gradient variance. Singkanipa and Lidar (2402.08721, Quantum 2025) reach the same conclusion for amplitude damping. An earlier draft of this memo said these two papers disagree; on reading them they agree, so there is no theory dispute for hardware to adjudicate. The only 50+ qubit hardware gradient study, Schmitt et al. (2602.22851, preprint), measured a gradient-norm proxy at 8 to 102 qubits, mostly on Eagle devices, and saw saturation rather than decay.</p>
+<p><strong>Simulability.</strong> Cerezo et al. (2312.09121, a perspective) present case-by-case evidence that structures which remove plateaus also tend to permit classical simulation; they do not claim a theorem. Pauli propagation now simulates typical circuits under local noise, with a 121-qubit demonstration that is heuristic and outside the theorem's regime (2409.01706, 2501.13101, 2411.19896). A referee will ask for a classical baseline beside any hardware claim.</p>
+<p><strong>Scale.</strong> Every 100+ qubit variational result in the literature is gradient-free (2508.13557, 2312.00997, 2405.09169, 2405.05068, 2412.07915). Gradient-based training at that scale is currently unaffordable, which is part of why the measurement is worth making.</p>
+
+<h2><span class="n">3</span>The disorder idea, specifically</h2>
+<p>Published in outline on hardware by 2404.17560 (31 qubits, 1D ring and circulant graphs, 4096 shots per gradient) and as noiseless numerics by Li and Yin (Frontiers of Physics 20, 023202, 2025: variance constant in n to 18 qubits and in depth to 250 layers for a narrow-kick Floquet circuit with full-range random Z and ZZ angles; no exponent fit, no error bars; their Fig. 2b shows that full-width quenched randomness with a thermal kick still gives exponential decay with depth). Theory by Park, Kang and Huh (2403.04844): the small-angle condition is a theorem, and its Theorem 1 already covers heavy-hex; the localisation condition is argued, not proven. Numerics by 2407.11589 (6 to 16 qubits) and 2506.13865 (5 to 10 qubits, analog quench ansatz, two disorder values: localisation delays the onset of the plateau in depth, but the variance saturates to the same small value in both phases).</p>
+<p>Open: whether quenched site-to-site randomness matters at fixed angle width, the fitted exponent as a function of window width, any 2D graph (heavy-hex or square lattice), anything above 31 qubits, and a matched MPS baseline.</p>
+
+<h2><span class="n">4</span>The device: ibm_phoenix (Nighthawk r2)</h2>
+<p>ibm_phoenix is IBM's Nighthawk r2 processor: 120 programmable qubits on a 12 by 10 square lattice joined by 218 tunable couplers, so a qubit has up to four neighbours rather than the two or three of heavy-hex. The 458 physical elements are the 120 qubits, the 218 couplers and a dissipative reset element on every qubit. Basis gates are cz, id, rx, rz, sx, x and xslow. Mid-circuit reset and dynamic circuits are supported. With fractional rx gates enabled, ZNE via probabilistic error amplification and gate twirling are unsupported, so keep fractional gates off for the mitigation sweep.</p>
+<div class="tblwrap">
+<table>
+<thead><tr><th>Quantity</th><th>ibm_phoenix, 19 Sep 2026</th><th>Note</th></tr></thead>
+<tbody>
+<tr><td class="k">CZ error, median</td><td>1.94e-3</td><td>best 8.2e-4, layered 3.7e-3; ibm_torino fake-backend median 4.2e-3</td></tr>
+<tr><td class="k">Single-qubit error, median</td><td>2.2e-4</td><td>40 ns gate</td></tr>
+<tr><td class="k">Readout error, median</td><td>8.2e-3</td><td>1940 ns readout</td></tr>
+<tr><td class="k">T1 / T2, median</td><td>178 us / 131 us</td><td>CZ duration 68 ns</td></tr>
+<tr><td class="k">Throughput</td><td>2.0M CLOPS, about 110k circuits/s</td><td>Heron about 4k circuits/s</td></tr>
+<tr><td class="k">Maintenance pause</td><td>15 Oct 2026, 18:30 to 23:30</td><td>US Eastern presumed; inside the hardware window</td></tr>
+</tbody>
+</table>
+</div>
+<p><strong>Defects on 19 September 2026.</strong> Qubit 17 is dead (readout error 0.51). 21 CZ edges sit above 1e-2, clustered around qubits 55, 61, 62, 63, 72 and 73 (worst 0.127). Readout is above 5e-2 on qubits 17, 24, 55, 62 and 77. Dropping CZ edges above 5e-3 and qubits with readout above 3e-2 leaves a 107-qubit connected component, and a clean 100-qubit chain exists with mean CZ error 2.1e-3 (worst edge 6.6e-3). This is why the qubit ladder in Question 1 stops at 100.</p>
+<p><strong>What changes in the budget.</strong> At about 110k circuits per second the shot count is no longer the binding constraint; usage is metered as QPU-locked time per instance, so locked time per point must be measured in the dry run before booking. Calibration drifts on a new device: snapshot backend properties with every job and report them beside the data.</p>
+<p><strong>Literature.</strong> Six arXiv papers report Nighthawk r1 experiments (2603.12236, 2606.02574, 2606.09469, 2605.00118, 2601.19762, 2607.11637). None measures gradients, and none mentions ibm_phoenix or Nighthawk r2.</p>
+
+<h2><span class="n">5</span>Gap map</h2>
+<p>Columns: what exists as theory, as numerics (classical simulation), and as hardware at 50+ qubits. Cells name arXiv ids from the seven bucket reports (re-verified against the arXiv API where flagged) or say "none found". A sub-50-qubit hardware result is named in brackets so the reader can see how far the frontier actually reaches.</p>
+<div class="tblwrap">
+<table class="gap">
+<thead><tr><th>Direction / mitigation idea</th><th>Theory</th><th>Numerics</th><th>Hardware, 50+ qubits</th></tr></thead>
+<tbody>
+<tr><td>Deep-limit exact variance (DLA / irrep) for hardware-efficient ansatz</td><td>2309.09342, 2309.07902, 2310.11505 (matchgates), 2609.04462 (Sept 2026, arbitrary states/observables), 2101.02138</td><td>2602.03291 (3 to 10 q, 10^4 draws), 2001.00550 (100 q autoencoder, noiseless)</td><td class="none">none found</td></tr>
+<tr><td>Causal-cone / locality bounds evaluated on the heavy-hex coupling map</td><td>2011.10530, 2001.00550 (generic lattices only)</td><td class="none">none found for heavy-hex</td><td class="none">none found</td></tr>
+<tr><td>Classically efficient variance predictors confronted with measurement</td><td>2309.12681, 2203.06174</td><td>2309.12681 (16 q qGAN)</td><td class="none">none found</td></tr>
+<tr><td>Noise-induced BP under unital (Pauli) noise</td><td>2007.14384, 2310.08405, 2210.11505, 2009.05532</td><td>small QAOA numerics in 2007.14384, 2310.08405</td><td>2602.22851 (ICLA gradient-norm proxy, 8 to 102 q, mostly Eagle), 2604.19426 (p=1 QAOA span metric, ibm_fez) [9 q parameter-shift in 2007.14384]</td></tr>
+<tr><td>Non-unital (T1) noise: plateau or no plateau</td><td>Under local non-unital noise acting after every layer, local-observable costs keep Theta(1) variance and only parameters in the last Theta(log n) layers have non-vanishing gradient variance; both on average over 2-design gate ensembles (2403.13927; 2402.08721 agrees for amplitude damping)</td><td>8 q density-matrix sims in 2602.22851</td><td>2602.22851 (saturation observed, attributed to T1)</td></tr>
+<tr><td>Error mitigation level vs gradient variance at fixed shots</td><td>2109.01051, 2208.09178, 2208.09385, 2210.11505</td><td>2109.01051 (5 q)</td><td>2604.19426 (ZNE only, p=1, no depth scan, no gradients); none for a gradient-variance-vs-level surface</td></tr>
+<tr><td>Parameter-shift Var[dC] vs n and depth, measured</td><td>2008.06517, 2107.12390, 2510.05289 (estimators); 2104.05868 (cost-concentration equivalence)</td><td>2602.03291</td><td class="none">none found (2602.22851 is not parameter-shift)</td></tr>
+<tr><td>Disorder / MBL-phase hardware-efficient ansatz ("speckle" idea)</td><td>2403.04844, 2302.08529</td><td>2407.11589 (6 to 16 q), 2506.13865 (5 to 13 q, exponent reduced not removed), 2207.02346 (8 q), Li and Yin Front. Phys. 2025 (4 to 18 q, depth to 250, variance claimed constant, no exponent fit)</td><td><span class="none">none found</span> [2404.17560: 13 to 31 q on ibm_brisbane, 1D ring / circulant graph, 4096 shots]</td></tr>
+<tr><td>Small-angle / Gaussian / identity / first-moment initialisations</td><td>2203.09376, 1903.05076, 2606.18515 (June 2026)</td><td>same papers, at most tens of qubits</td><td class="none">none found</td></tr>
+<tr><td>Entanglement-controlled and measurement-induced landscape transitions</td><td>2010.15968, 2211.01477</td><td>2012.12658 (9 q), 2102.12534 (20 q), 2206.02474 (50 q MPS, entropy only), 2111.08035, 2312.09135 (18 q), 2201.08194 (16 q)</td><td class="none">none found</td></tr>
+<tr><td>Dissipative / ancilla-reset / dynamic (mid-circuit measurement) ansaetze</td><td>2507.02043, 2411.05760</td><td>same papers, small</td><td class="none">none found</td></tr>
+<tr><td>Tensor-network pretraining and warm starts</td><td>2404.10044</td><td>2208.13673 (100 q MPS), 2602.04676 (127 q heavy-hex PEPS, classical only)</td><td class="none">none found</td></tr>
+<tr><td>Symmetry / equivariant, ADAPT, layerwise</td><td>2210.09974, 2204.07179, 2006.14904</td><td>same papers, 4 to 20 q</td><td class="none">none found</td></tr>
+<tr><td>Classical simulability baselines (Pauli propagation, patch surrogates)</td><td>2409.01706, 2501.13101, 2411.19896, 2312.09121</td><td>2505.21606, 2507.10771, 2308.05077 (127 q), 2408.12739 (1024 q), 2508.06358</td><td><span class="none">none co-designed with a gradient measurement</span> [2603.14485: 49 q QuEPP on Heron]</td></tr>
+<tr><td>Trainable yet not classically simulable regimes</td><td>2402.08606, 2406.07072, 2608.02325, 2603.27532</td><td>2608.02325 (80 q), 2603.27532</td><td class="none">none found</td></tr>
+<tr><td>What actually runs at 100+ qubits (all gradient-free)</td><td class="none">n/a</td><td class="none">n/a</td><td>2508.13557 (109 q CVaR), 2312.00997 (127/414 q angle transfer), 2405.09169 (109 q linear ramp), 2405.05068 (77 q SQD), 2412.07915 (156 q kernel concentration), 2202.09372 (289 Rydberg atoms)</td></tr>
+<tr><td>Statistical methodology: confidence intervals on Var, shot-noise decomposition, M vs R split</td><td class="none">none found</td><td>Uvarov and Biamonte (2011.10530) give standard errors on variance differences (Fig. 7); 2602.22851 has a null model but no interval</td><td class="none">none found</td></tr>
+<tr><td>Usable depth ceiling on 133-qubit Heron</td><td class="none">n/a</td><td class="none">n/a</td><td>2404.08053: full 133-qubit ibm_torino heavy-hex run reached two-qubit depth 18 with about 900 CZ gates; the often-quoted depth 28 / 1386 gates was a 100-qubit chain on ibm_sherbrooke; no depth benchmark exists for Nighthawk r2 and the ceiling must be measured</td></tr>
+<tr><td>Nighthawk hardware experiments</td><td class="none">n/a</td><td class="none">n/a</td><td>six r1 papers (2603.12236, 2606.02574, 2606.09469, 2605.00118, 2601.19762, 2607.11637), none gradient-related; none on r2</td></tr>
+</tbody>
+</table>
+</div>
+<h3>Reading the map</h3>
+<p>Every mitigation row has an empty hardware column above 50 qubits. The only 50+ qubit measurements of anything gradient-like are 2602.22851 (a gradient-norm proxy, not Var[dC], mostly on Eagle) and 2604.19426 (a landscape-span metric at p=1). Nothing at all has been published on Nighthawk r2, and no gradient measurement exists on any Nighthawk. The non-unital row is not a dispute: 2403.13927 and 2402.08721 agree that under local non-unital noise after every layer local-observable costs keep order-1 variance on average, with only the last order-log-n layers carrying non-vanishing gradients. At Nighthawk noise (T1 about 178 us, about 0.3 us per layer) the proven floor is about 1e-11, so the floor itself is not hardware-testable; the layer-index dependence is. The usable two-qubit depth on the full ibm_torino lattice is about 18, not 28; no such benchmark exists for Nighthawk r2, so the Question 1 depth ceiling is measured in the dry run. The disorder row, which is the team's original idea, is not empty: 2404.17560 did the kicked, disorder-narrowed HEA on IBM hardware to 31 qubits and 2407.11589 and 2506.13865 confirm it numerically, so the idea itself is published. What remains open there is the confound between small angles and quenched randomness, the fitted exponent b(W), the 2D case, 40 to 120 qubits, and a matched classical baseline.</p>
+
+<h2><span class="n">6</span>Ranked questions</h2>
+<div class="tblwrap">
+<table class="rank">
+<thead><tr><th>Rank</th><th>Question</th><th>Why it is open</th><th>Breakthrough potential</th><th>Minutes</th><th>Kill criterion</th><th>Venue</th></tr></thead>
+<tbody>
+<tr><td class="num">1</td><td>Noise-induced gradient concentration on Nighthawk r2, measured by parameter shift</td><td>No parameter-shift Var[dC] above 9 physical qubits; no mitigation-level sweep at fixed shots; nothing on Nighthawk r2; no confidence intervals in any hardware BP paper</td><td>Moderate</td><td>Well under the torino estimate; measure locked time in the dry run</td><td>Simulation: predictions separated by less than twice the 16384-shot floor at every affordable point. Hardware: level-0 variance at n = 20 within one standard error of the null model</td><td>QST or npj QI; PRX Quantum or Quantum as a stretch</td></tr>
+<tr><td class="num">2</td><td>Disorder or small angles: separating the two on heavy-hex</td><td>2404.17560 stops at 31 qubits on 1D graphs; no paper varies quenched offsets at fixed angle width; no 2D-lattice numerics; no matched MPS baseline</td><td>Moderate (lowered after Li and Yin)</td><td class="num">90 to 100</td><td>Simulation: exponent unchanged within fit error when offsets are switched on at fixed width, or predicted variance at n = 60 below the shot floor wherever the hypotheses differ</td><td>Quantum or QST; PRR if the result is the negative reclassification</td></tr>
+<tr><td class="num">3</td><td>Ancilla-reset dissipative ansatz versus matched unitary ansatz</td><td>2507.02043 and 2411.05760 are theory with small numerics; no simulability theorem either way; nothing run on hardware; ibm_phoenix has a reset element on every qubit</td><td>High if positive</td><td class="num">60 to 80, only if simulation clears</td><td>Advantage disappears once measured reset error and latency (dry run) enter the noise model; non-unital simulation too costly; simulation not done by mid October</td><td>Quantum or PRX Quantum if clean; otherwise a Q1 discussion point</td></tr>
+<tr><td class="num">4</td><td>Initialisation families head to head at fixed shot budget</td><td>2606.18515 is analytic with no hardware; 1903.05076 and 2203.09376 have no hardware at any scale; no fixed-shot comparison exists</td><td>Moderate</td><td class="num">40 to 50</td><td>Simulation: predicted variances at n = 80 differ by less than twice the shot floor</td><td>Section of the Q1 paper, or a short PRA / QMI note</td></tr>
+<tr><td class="num">5</td><td>A new mitigation argued not to be classically simulable</td><td>Existence proofs only (2402.08606, 2406.07072); candidates 2603.27532, 2411.05760, 2608.02325 have no hardness proof and no noise</td><td>High in principle, very low odds by November</td><td class="num">not budgetable</td><td>Delta-sweep converges or MPS baseline tracks the target at 60 qubits under the device noise model</td><td>PRX Quantum or Nature Physics if it worked; not credible for November</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="tight">
+<h3>Question 1. Noise-induced gradient concentration on Nighthawk r2, measured by parameter shift</h3>
+<p>For a Ry/CZ ansatz on the 12 by 10 square lattice with a two-local ZZ observable on ibm_phoenix: how does parameter-shift Var[dC] scale with depth (1 to about 12 two-qubit layers; the lower CZ error may allow deeper, so set the ceiling from the dry run, since no depth benchmark exists for Nighthawk r2), qubit count (20, 40, 60, 80, 100) and error-mitigation level (resilience 0, 1, 2) at matched total shots? The measured curve is compared with three predictions: the noiseless light-cone value from simulation, which is n-independent at fixed depth once the patch contains the observable's causal cone, so L = 1 and 2 are n-independent by construction and L of 8 or more covers every patch on the ladder (2011.10530); the unital-noise simulation calibrated to ibm_phoenix, which decays exponentially in depth (Mele et al. Proposition 10); and the non-unital layer-index signature, in which the variance depends on the layer index k at fixed L and the last order-log-n layers decay more slowly (2403.13927, 2402.08721). 2602.22851 saw saturation of a gradient-norm proxy and is the nearest hardware comparison. Nearest existing work: 2602.22851 measures a gradient-norm proxy to 102 qubits, mostly on Eagle, with no mitigation sweep and no confidence intervals; 2604.19426 measures a landscape-span metric on ibm_fez at p=1 with ZNE but no depth scan and no gradients; 2007.14384's own hardware data stops at 9 qubits.</p>
+<p>Budget: 5 qubit counts by 4 depths by 3 resilience levels, 60 points (the torino grid had 72 with a 127-qubit rung); M = 200 parameter draws by 2 shift circuits by 4096 shots per point, about 1e8 shots in total, with ZNE at level 2 on a reduced grid. ZNE inflates the shot variance of the gradient estimator by the squared 1-norm of its coefficients, 4x for linear and about 12x for Richardson extrapolation (Banchi et al.), while level-1 readout mitigation rescales landscape and shot variance by the same factor and leaves the signal-to-shot ratio unchanged (Aghaei Saem et al.), so the mitigation arm is stated as a ratio. The locked-time cost should be well under the earlier torino estimate given the 25x higher circuit throughput; measure locked time per point in the dry run before booking, and keep a reserve for calibration snapshots, reruns and the null-model control. No simulability defence is needed: the paper is a hardware characterisation, the regime is heuristically expected to be Pauli-propagation simulable, the average-case guarantees (2403.13927 Proposition 3, 2501.13101) do not cover our ensemble or precision, so the baseline is demonstrated numerically and reported as a feature, which is what 2312.09121 asks for. Breakthrough potential: moderate. It will not be a quantum-advantage result and should not be framed as one.</p>
+
+<h3>Question 2. Disorder or small angles: separating the two on heavy-hex</h3>
+<p>When the single-qubit angles of the same ansatz are drawn from a narrow window (the prescription of 2403.04844 and 2404.17560), is the preserved gradient variance due to quenched site-to-site randomness or simply to near-identity angles? 2404.17560 used a 1D ring and circulant graphs, so a 2D square lattice is new geometry for the disorder question, though 2403.04844's Theorem 1 already covers it; the contribution remains controlled numerics and hardware evidence. Following 2506.13865, fit both the decay exponent b(W) in Var[dC] ~ b(W)^-n and the depth at which the plateau sets in, as functions of window width W, on the 12 by 10 square lattice at 20 to 100 qubits. Hardware reuses the Question 1 ladder with three angle distributions (uniform, narrow, narrow plus fixed offsets) at levels 0 and 1, about 36 points, 90 to 100 minutes, with the memory-effect control suggested by 2409.16180. Report an MPS simulation at the same W, depth and n beside every hardware point and frame the result as locating where the classical surrogate stops converging; do not claim advantage. If quenched randomness turns out not to matter, the result reclassifies a Quantum-published mitigation as a small-angle initialisation, which is also publishable. Li and Yin (Frontiers of Physics 20, 023202, 2025; authors Xin Li and Zhang-qi Yin) add peer-reviewed noiseless numerics at 4 to 18 qubits and depth to 250 claiming variance constant in n and depth for a narrow-kick MBL Floquet ansatz, with no exponent fit and no error bars. Their Fig. 2b shows full-width angles with a thermal kick still decaying exponentially with depth, and their Fig. 6 shows MBL initialisation reaching worse minima. This narrows Question 2 toward the small-angle explanation and lowers its odds from moderate to high to moderate.</p>
+
+<h3>Question 3. Ancilla-reset dissipative ansatz versus matched unitary ansatz</h3>
+<p>Does an ansatz with periodic mid-circuit measurement-and-reset of ancillas (2507.02043) retain a larger parameter-shift gradient variance than a gate-count-matched unitary ansatz at 40 to 80 qubits, once reset error and added runtime are counted? This is the one escape route on the map with neither a simulability theorem against it nor any hardware data, and the same non-unital physics is what 2403.13927 says prevents a plateau for local costs, though because the circuit becomes effectively shallow; the same paper lists mid-circuit measurement and feedforward as outside its theorems. ibm_phoenix has a dissipative reset element on every qubit and supports mid-circuit reset, so the earlier kill criterion (reset not exposed on the device) no longer applies. The remaining kill criteria are reset error and latency, which are not in the calibration CSV and must be measured in the dry run before they enter the noise model; the simulation cost of non-unital ansaetze (density-matrix or trajectory to about 16 to 20 qubits, MPO beyond); and the mid-October deadline. Breakthrough potential: high if positive. It competes with Question 2 for the same gated minutes.</p>
+
+<h3>Question 4. Initialisation families head to head at fixed shot budget</h3>
+<p>Do identity-block (1903.05076), Gaussian (2203.09376) and a first-moment-distinct shifted family (2606.18515) initialisations of the same circuit give measurably different initial gradient variances and first-step descent directions at 40 to 100 qubits under a fixed shot budget? 2606.18515 proves exponentially many inequivalent plateau-free initialisation families analytically and has no hardware runs; its first-moment diagnostic screens families out rather than ranking them, so the simulation stage picks which three to run. Three initialisations by 3 qubit counts by 2 depths at level 1, 18 points, about 40 to 50 minutes, sharing circuits and calibration snapshots with Question 1. Near-identity circuits are within Pauli-propagation reach; state that openly and give the baseline.</p>
+
+<h3>Question 5. A new mitigation argued not to be classically simulable</h3>
+<p>Is there an ansatz or parameter regime that keeps gradients non-vanishing at 100+ qubits while demonstrably escaping the average-case Pauli-propagation theorems (2409.01706, 2501.13101) and the patch-surrogate construction (2411.19896)? The simulation stage would have to show a non-converging Pauli-path delta-sweep (2507.10771), a failing MPS baseline and a variance above the shot floor at 100 qubits, all under a realistic Heron noise model, which 2501.13101 gives strong reason to think will restore simulability. No team has met that burden. Not recommended as a paper; reserve the argument for the discussion section of Question 1.</p>
+
+<p><strong>Recommendation.</strong> One campaign with shared circuits: Question 1 is the main arm, about 60 percent of minutes. Questions 2 and 3 are gated arms, about 20 percent to whichever clears simulation first (both if minutes allow); 20 percent reserve. Question 4 shares Question 1's circuits and calibration snapshots.</p>
+</div>
+
+<h2><span class="n">7</span>What the simulation stage must show before any QPU minute</h2>
+<ul>
+<li>A noiseless Var[dC] versus n curve at 4 to 24 qubits with 10^4 parameter draws, reproducing the standard of 2602.03291.</li>
+<li>Noisy predictions from the ibm_phoenix calibration snapshot for every planned (n, depth) point, with the 4096- and 16384-shot floors drawn on the same plot, so the competing predictions are separated by more than the floor at the points booked.</li>
+<li>A Pauli-propagation delta sweep (2507.10771) on the same circuits, which becomes the classical baseline in the paper.</li>
+<li>For Question 2, evidence that varying only the quenched offsets at fixed angle width changes the fitted exponent by more than the fit uncertainty.</li>
+</ul>
+<p>Two gates follow from this. <span class="gate">Gate 1:</span> no hardware minute is booked until the simulation separates the predictions. <span class="gate">Gate 2:</span> hardware points that sit within the measured noise floor (the null model of 2602.22851, cost replaced by random spectrum draws) are reported as floor, not as signal.</p>
+
+<h2><span class="n">8</span>Corrections made after reading the papers</h2>
+<div class="tblwrap">
+<table>
+<thead><tr><th>arXiv id</th><th>What the draft claimed</th><th>What the paper says</th></tr></thead>
+<tbody>
+<tr><td class="k">2007.14384</td><td>First draft: a q^(cL+1) law with an exp(-0.14 L) prediction at 100 qubits and hardware data. First check: q^(L+1) with a 2^(n/2) prefactor, vacuous at n = 100. The first check was itself wrong</td><td>Theorem 1 bounds the derivative for all parameters by sqrt(8 ln 2) N_O ||omega||_inf ||eta||_1 sqrt(n) q^(cL+1), c = 1/(2 ln 2) = 0.7213; the n-dependence is sqrt(n), not 2^(n/2). At n = 100, q = 0.998 it is about 23 for every L up to 12, so uninformative because of sqrt(n) and weak per-layer noise. No hardware data (numerics only). Mele et al. Proposition 10 (Var at most exp(-Omega(|P|+L)) under any unital noise, no n prefactor) is the tighter unital bound</td></tr>
+<tr><td class="k">2403.13927</td><td>Per-circuit result predicting T1-specific saturation</td><td>Results are on average over 2-design ensembles, not per circuit; global observables still concentrate; no T1-specific saturation prediction</td></tr>
+<tr><td class="k">2402.08721</td><td>Contradicts 2403.13927</td><td>Agrees (Theorem 3: amplitude-damping last layers give no noise-induced plateau). Cite v6, not the v1 abstract</td></tr>
+<tr><td class="k">2109.01051</td><td>Impossibility for error mitigation in general</td><td>Covers ZNE, virtual distillation, PEC and CDR as "exponential resources"; numerics at 5 and 8 simulated qubits; CDR is neutral for resolvability</td></tr>
+<tr><td class="k">2403.04844</td><td>MBL argument phenomenological and 1D-flavoured; heavy-hex is new</td><td>The small-angle result is a theorem (angles scale as 1/(p n)); the localisation condition is argued; Theorem 1 already covers heavy-hex</td></tr>
+<tr><td class="k">2506.13865</td><td>5 to 13 qubits; exponent reduced, not removed</td><td>Analog quench ansatz, 5 to 10 qubits, two disorder values; localisation delays plateau onset but the variance saturates to the same value; no exponent fit</td></tr>
+<tr><td class="k">2312.09121</td><td>Plateau-free implies simulable</td><td>A perspective with case-by-case evidence; the authors do not claim plateau-free implies simulable</td></tr>
+<tr><td class="k">2404.08053</td><td>About 28 two-qubit layers and 1396 gates on 133-qubit Heron</td><td>Depth 28 was a 100-qubit chain on ibm_sherbrooke; the full ibm_torino run reached depth 18, about 900 CZ</td></tr>
+<tr><td class="k">2501.13101</td><td>121-qubit lattice simulated under the theorem</td><td>The 121-qubit run is heuristic and outside the theorem; the guarantee is average-case over locally scrambling ensembles</td></tr>
+<tr><td class="k">2606.18515</td><td>Exponentially many families shown only in small numerics</td><td>The result is proven analytically, not numerically; no hardware</td></tr>
+</tbody>
+</table>
+</div>
+<p>The attributions that survived checking unchanged were 2602.22851, 2404.17560, 2104.05868 and 2001.00550.</p>
+<p><strong>Second pass, 19 September 2026:</strong> all 12 uploaded papers read in full; 34 citation uses checked; further corrections applied as listed.</p>
+<ul>
+<li>2007.14384: the first-pass correction was wrong; Theorem 1 has a sqrt(n) prefactor and q^(cL+1), and Mele et al. Proposition 10 is cited as the tighter unital bound (section 2 and the table above).</li>
+<li>Non-unital row: restated as order-1 variance with only the last order-log-n layers trainable, on average over 2-design ensembles; the proven floor at Nighthawk noise is about 1e-11 and not testable, the layer-index dependence is (section 5).</li>
+<li>Question 1: the comparison is now noiseless light cone versus unital-noise simulation versus non-unital layer-index signature; L = 1, 2 are n-independent by construction; M = 200 draws; ZNE inflation 4x linear, about 12x Richardson; readout mitigation leaves the signal-to-shot ratio unchanged.</li>
+<li>Question 2: Li and Yin (Front. Phys. 2025) added; author name corrected from "Xin and Yin"; odds lowered from moderate to high to moderate.</li>
+<li>Kim et al.: the shot accounting is in the main text and captions (2,000 to 3,200 twirled instances x 64 shots per gain, three gains, 384,000 to 614,400 shots per mitigated value); Methods gives only gamma^2.</li>
+<li>van den Berg et al.: gamma^2 is the PEC overhead; level-2 ZNE/PEA cost is set by gains and instances. Quek et al.: worst-case asymptotic bounds for scrambling two-design families, context not a shot count.</li>
+<li>Arrasmith et al.: equivalence holds up to a factor m^2 L^2, so cost differences classify but do not give the exponent. Uvarov and Biamonte: proof in the main text; a lower bound for two-design blocks; they report standard errors in numerics, so the "no confidence intervals" claim is restricted to hardware papers.</li>
+<li>Banchi et al.: no hardware or transpilation content; gives the ZNE inflation ||c||_1^2. Aghaei Saem et al.: one ratio criterion (epsilon_N below 1, Eq. 12); nothing on the initialisation question.</li>
+<li>Kim and Oz: title is "Entanglement diagnostics for efficient VQA optimization"; a 1D noiseless depth-selection rule, relevant to Question 1 as well as Question 2.</li>
+<li>Larocca et al.: one paragraph plus Box 2 on diagnosis and shot cost; no sample-count rule or reporting standard.</li>
+</ul>
+
+<h2><span class="n">9</span>Papers for Owais to download via ONOS</h2>
+<p><strong>Update 19 September 2026:</strong> Owais has uploaded the papers he could obtain; the list below stands for the remainder.</p>
+<p>Through One Nation One Subscription; upload the PDFs to the thread. Quantum, Nature Communications, npj QI and Science Advances items are open access and are not listed; 2402.08721 (Quantum) needs no download.</p>
+<div class="tblwrap">
+<table>
+<thead><tr><th>Priority</th><th>Paper</th><th>DOI</th><th>Why</th></tr></thead>
+<tbody>
+<tr><td><span class="pill hi">high</span></td><td class="k">Larocca et al., Barren plateaus in variational quantum computing, Nature Reviews Physics 7, 174 (2025)</td><td><a href="https://doi.org/10.1038/s42254-025-00813-9">10.1038/s42254-025-00813-9</a></td><td>Version of record; its only methodological guidance on measuring plateaus is the "Methods for analysing variance" paragraph and Box 2 (p. 177), which give no sample counts or reporting standards</td></tr>
+<tr><td><span class="pill hi">high</span></td><td class="k">Mele et al., Noise-induced shallow circuits and absence of barren plateaus, Nature Physics 22, 751 (2026)</td><td><a href="https://doi.org/10.1038/s41567-026-03245-z">10.1038/s41567-026-03245-z</a></td><td>Published constants in the order-log-n effective depth and variance statements, needed to turn the prediction into a number of layers at Heron error rates</td></tr>
+<tr><td><span class="pill hi">high</span></td><td class="k">Kim et al., Evidence for the utility of quantum computing before fault tolerance, Nature 618, 500 (2023), with SI</td><td><a href="https://doi.org/10.1038/s41586-023-06096-3">10.1038/s41586-023-06096-3</a></td><td>No arXiv version. The instance and shot counts for one ZNE-mitigated expectation value are in the main text and figure captions (2,000 to 3,200 twirled instances x 64 shots per gain, three gains, plus a readout set: 384,000 to 614,400 shots per value, 68 percent bootstrap intervals); Methods gives only the PEC overhead gamma^2</td></tr>
+<tr><td><span class="pill hi">high</span></td><td class="k">van den Berg et al., Probabilistic error cancellation with sparse Pauli-Lindblad models, Nature Physics 19, 1116 (2023)</td><td><a href="https://doi.org/10.1038/s41567-023-02042-2">10.1038/s41567-023-02042-2</a></td><td>gamma^2 sampling-overhead analysis for PEC; the cost of resilience level 2 (ZNE with probabilistic error amplification) is set by gain set and instance count (Kim et al.), not by gamma^2; also gives the noise-learning cost per unique layer (100 instances x 256 shots x 9 bases x several depths)</td></tr>
+<tr><td><span class="pill hi">high</span></td><td class="k">Quek et al., Exponentially tighter bounds on limitations of quantum error mitigation, Nature Physics 20, 1648 (2024), with SI</td><td><a href="https://doi.org/10.1038/s41567-024-02536-7">10.1038/s41567-024-02536-7</a></td><td>Worst-case sample-complexity lower bounds for weak error mitigation on scrambling (two-design) circuit families, asymptotic only in the main text; context for the discussion, not a shot count for the mitigation arm</td></tr>
+<tr><td><span class="pill md">medium</span></td><td class="k">Arrasmith et al., Equivalence of quantum barren plateaus to cost concentration and narrow gorges, QST 7, 045015 (2022)</td><td><a href="https://doi.org/10.1088/2058-9565/ac7d06">10.1088/2058-9565/ac7d06</a></td><td>Precise equivalence theorem behind the cost-difference fallback if parameter shift does not fit the budget; target-journal template. The equivalence holds up to a factor m^2 L^2, so cost differences give the exponential-versus-polynomial classification, not the fitted exponent</td></tr>
+<tr><td><span class="pill md">medium</span></td><td class="k">Mari, Bromley and Killoran, Estimating the gradient and higher-order derivatives on quantum hardware, PRA 103, 012405 (2021)</td><td><a href="https://doi.org/10.1103/PhysRevA.103.012405">10.1103/PhysRevA.103.012405</a></td><td>Mean-squared-error expressions for parameter-shift versus finite-difference under shot noise, for the per-derivative shot floor</td></tr>
+<tr><td><span class="pill md">medium</span></td><td class="k">Uvarov and Biamonte, On barren plateaus and cost function locality, J. Phys. A 54, 245301 (2021)</td><td><a href="https://doi.org/10.1088/1751-8121/abfac7">10.1088/1751-8121/abfac7</a></td><td>Causal-cone lower bound (Theorem 2, proof in section 3 of the paper, for two-design blocks) and the light-cone argument that fixes the null control and the n-independence of the noiseless variance at fixed depth; the noiseless prediction itself comes from simulation</td></tr>
+<tr><td><span class="pill md">medium</span></td><td class="k">Banchi, Branford and Waghela, Overshifted parameter-shift rules, QST 11, 035031 (2026)</td><td><a href="https://doi.org/10.1088/2058-9565/ae73ad">10.1088/2058-9565/ae73ad</a></td><td>General criterion for an exact two-term rule (generator with two distinct eigenvalues, Eqs. 3 to 8) and optimal shot allocation across shifts (Eqs. 17 to 19), which give the ZNE inflation ||c||_1^2; no hardware or transpilation content, so the shift rule's exactness on the transpiled circuit is checked by transpiling with unbound parameters</td></tr>
+<tr><td><span class="pill md">medium</span></td><td class="k">Aghaei Saem et al., Pitfalls when tackling the exponential concentration of parameterized quantum models, QST (2026)</td><td><a href="https://doi.org/10.1088/2058-9565/ae2202">10.1088/2058-9565/ae2202</a></td><td>Resolution criterion epsilon_N = shot variance / (N x landscape variance) below 1 (Eq. 12) and the proof that post-processing cannot restore distinguishability under polynomial shots (Theorem 1, Corollary 1); used for the fixed-shot comparisons of Q1; nothing on the initialisation question</td></tr>
+<tr><td><span class="pill lo">low</span></td><td class="k">Yao and Hasegawa, Direct gradient computation for barren plateaus, PRA 112, 062443 (2025)</td><td><a href="https://doi.org/10.1103/PhysRevA.112.062443">10.1103/PhysRevA.112.062443</a></td><td>Size of the claimed non-zero gradient mean, which decides whether E[(dC)^2] is an acceptable proxy for Var[dC]; cite with care</td></tr>
+<tr><td><span class="pill lo">low</span></td><td class="k">Angrisani et al., Classically estimating observables of noiseless quantum circuits, PRL 135, 170602 (2025), Supplemental Material</td><td><a href="https://doi.org/10.1103/PhysRevLett.135.170602">10.1103/PhysRevLett.135.170602</a></td><td>Exact wording of the single-qubit-rotation-invariance hypothesis for the simulability paragraph</td></tr>
+<tr><td><span class="pill lo">low</span></td><td class="k">Li and Yin, Improve variational quantum eigensolver by many-body localization, Frontiers of Physics 20, 023202 (2025)</td><td><a href="https://doi.org/10.15302/frontphys.2025.023202">10.15302/frontphys.2025.023202</a></td><td>Peer-reviewed noiseless variance figures (n = 4 to 18, depth to 250) for a kicked-Ising Floquet circuit with narrow X kick and full-range random Z and ZZ angles; the differentiated parameter is a ZZ angle and the observable a Hamiltonian sum. Uploaded and read</td></tr>
+<tr><td><span class="pill lo">low</span></td><td class="k">Ebadi et al., Quantum optimization of maximum independent set using Rydberg atom arrays, Science 376, 1209 (2022), Supplementary Material</td><td><a href="https://doi.org/10.1126/science.abo6587">10.1126/science.abo6587</a></td><td>Per-shot and iteration counts for the only 100+ qubit closed-loop variational optimisation</td></tr>
+<tr><td><span class="pill lo">low</span></td><td class="k">Kim and Oz, Entanglement diagnostics for efficient VQA optimization, J. Stat. Mech. (2022) 073101</td><td><a href="https://doi.org/10.1088/1742-5468/ac7791">10.1088/1742-5468/ac7791</a></td><td>Entanglement velocity about 0.35 bits per brickwork layer and saturation depth proportional to n for a 1D Ry/CZ ansatz (noiseless, n at most 20), the same gate set as Q1; used to place the Q1 depth ladder relative to entanglement saturation on the square lattice, and for Q2</td></tr>
+<tr><td><span class="pill lo">low</span></td><td class="k">Werner et al., DisQu: investigating the impact of disorder in quantum generative models, IJCNN 2025 (IEEE)</td><td><a href="https://doi.org/10.1109/IJCNN64981.2025.11227841">10.1109/IJCNN64981.2025.11227841</a></td><td>Check whether the proceedings version added gradient or entropy data; disorder memory-effect control for Q2</td></tr>
+</tbody>
+</table>
+</div>
+<div class="note"><p>Buckets disagreed on the DOI of 2312.09121 (<a href="https://doi.org/10.1038/s41467-025-63099-6">10.1038/s41467-025-63099-6</a> versus <a href="https://doi.org/10.1038/s41467-025-62986-2">10.1038/s41467-025-62986-2</a>); please confirm from the journal page.</p></div>
+
+<h2><span class="n">10</span>Next steps and dates</h2>
+<div class="tblwrap">
+<table>
+<thead><tr><th>Dates (2026)</th><th>Step</th><th>Owner</th></tr></thead>
+<tbody>
+<tr><td class="date">19 to 25 Sep</td><td>Choose the question (recommendation: Q1 with Q2 and Q3 as gated arms) and name the physics co-author</td><td>Owais, Dr. Raviram</td></tr>
+<tr><td class="date">22 Sep</td><td>Upload the high-priority PDFs from section 9 to the thread</td><td>Owais</td></tr>
+<tr><td class="date">25 Sep to 5 Oct</td><td>Pre-registration document and simulation stage (<span class="gate">Gate 1</span>)</td><td>Owais, with Claude</td></tr>
+<tr><td class="date">5 Oct</td><td>MSR application due, in parallel</td><td>Owais</td></tr>
+<tr><td class="date">6 to 10 Oct</td><td>Dry run: pipeline checks on an open-plan Heron device, then a short smoke test on ibm_phoenix from the allocation to measure locked time per point, reset error and the depth ceiling</td><td>Owais</td></tr>
+<tr><td class="date">11 to 25 Oct</td><td>Hardware runs, subject to allocation expiry (<span class="gate">Gate 2</span>)</td><td>Owais, Dr. Raviram</td></tr>
+<tr><td class="date">15 Oct</td><td>ibm_phoenix maintenance pause (18:30 to 23:30, US Eastern presumed), no runs</td><td>IBM</td></tr>
+<tr><td class="date">26 Oct to 15 Nov</td><td>Analysis, figures, code and data release with Zenodo DOI, arXiv submission</td><td>All authors</td></tr>
+<tr><td class="date">1 Nov</td><td>Max Planck CIS application cites the manuscript in preparation</td><td>Owais</td></tr>
+</tbody>
+</table>
+</div>
+
+<footer>Prepared by Claude in the #mitacs channel, 19 September 2026, from a seven-bucket literature sweep with citation checks. Every arXiv id above was fetched during the sweep; the ten corrections in section 8 came from reading the papers against the draft.</footer>
+</div>
+
+<script>
+(function(){
+  var re=/\b(\d{4}\.\d{5})\b/g;
+  var walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT,{
+    acceptNode:function(n){
+      if(!re.test(n.nodeValue)){re.lastIndex=0;return NodeFilter.FILTER_REJECT;}
+      re.lastIndex=0;
+      var p=n.parentNode;
+      while(p&&p!==document.body){
+        if(p.nodeName==='A'||p.nodeName==='SCRIPT'||p.nodeName==='STYLE'||p.nodeName==='TITLE')return NodeFilter.FILTER_REJECT;
+        p=p.parentNode;
+      }
+      return NodeFilter.FILTER_ACCEPT;
+    }
+  });
+  var nodes=[];while(walker.nextNode())nodes.push(walker.currentNode);
+  nodes.forEach(function(n){
+    var text=n.nodeValue,frag=document.createDocumentFragment(),last=0,m;
+    re.lastIndex=0;
+    while((m=re.exec(text))){
+      if(m.index>last)frag.appendChild(document.createTextNode(text.slice(last,m.index)));
+      var a=document.createElement('a');
+      a.className='arx';a.href='https://arxiv.org/abs/'+m[1];a.textContent=m[1];
+      a.target='_blank';a.rel='noopener';
+      frag.appendChild(a);last=m.index+m[0].length;
+    }
+    if(last<text.length)frag.appendChild(document.createTextNode(text.slice(last)));
+    n.parentNode.replaceChild(frag,n);
+  });
+})();
+</script>

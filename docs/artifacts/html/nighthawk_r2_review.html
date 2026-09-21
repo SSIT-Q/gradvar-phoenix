@@ -1,0 +1,235 @@
+<title>Phoenix r2 Review</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Public+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#f3f5f7;--surface:#ffffff;--ink:#17202a;--ink-2:#4b5866;--ink-3:#7a8794;--rule:#d5dce3;
+  --accent:#0f6f7e;--accent-ink:#0b5560;--accent-soft:#dcedf0;
+  --adopt:#1f7a3e;--adopt-soft:#dff2e5;--test:#9a6400;--test-soft:#fbefd0;--reject:#a8352a;--reject-soft:#f9e1de;
+  --code-bg:#e8edf1;--warn-bg:#fff6df;--warn-rule:#e3b94f;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#12171c;--surface:#1a2129;--ink:#e6ebf0;--ink-2:#b3bec9;--ink-3:#7f8b97;--rule:#2d3742;
+  --accent:#4fb3c3;--accent-ink:#8fd3de;--accent-soft:#13343b;
+  --adopt:#5fcf85;--adopt-soft:#153524;--test:#e9b84a;--test-soft:#3a2d0c;--reject:#f08a7d;--reject-soft:#3f1a17;
+  --code-bg:#232c36;--warn-bg:#2d2610;--warn-rule:#a8842a;
+}}
+:root[data-theme="dark"]{
+  --bg:#12171c;--surface:#1a2129;--ink:#e6ebf0;--ink-2:#b3bec9;--ink-3:#7f8b97;--rule:#2d3742;
+  --accent:#4fb3c3;--accent-ink:#8fd3de;--accent-soft:#13343b;
+  --adopt:#5fcf85;--adopt-soft:#153524;--test:#e9b84a;--test-soft:#3a2d0c;--reject:#f08a7d;--reject-soft:#3f1a17;
+  --code-bg:#232c36;--warn-bg:#2d2610;--warn-rule:#a8842a;
+}
+body{background:var(--bg);color:var(--ink);font-family:"Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif;font-size:15px;line-height:1.55;margin:0}
+.wrap{max-width:1040px;margin:0 auto;padding-block:32px 64px;padding-inline:16px}
+h1,h2,h3{font-family:"Newsreader",Georgia,"Times New Roman",serif;text-wrap:balance;margin:0}
+h1{font-size:clamp(30px,4.5vw,44px);font-weight:600;line-height:1.1}
+h2{font-size:26px;font-weight:600;margin-block:48px 12px;padding-top:20px;border-top:1px solid var(--rule)}
+h3{font-size:19px;font-weight:600;margin-block:24px 8px}
+p{margin:0 0 12px;max-width:72ch}
+.lede{font-size:17px;color:var(--ink-2);max-width:78ch}
+.eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent-ink);font-weight:600;margin-bottom:10px}
+.meta{display:flex;flex-wrap:wrap;gap:8px 20px;color:var(--ink-3);font-size:13px;margin-top:14px}
+.mono,code,td.num,.num{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;font-variant-numeric:tabular-nums}
+code{background:var(--code-bg);padding:1px 5px;border-radius:3px;font-size:13px}
+.tbl{overflow-x:auto;border:1px solid var(--rule);border-radius:6px;background:var(--surface);margin-block:12px 18px}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{text-align:left;vertical-align:top;padding:9px 12px;border-bottom:1px solid var(--rule)}
+th{font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3);font-weight:600;background:var(--bg)}
+tr:last-child td{border-bottom:none}
+td.num{text-align:right;white-space:nowrap}
+.pill{display:inline-block;font-size:12px;font-weight:600;letter-spacing:.03em;padding:2px 9px;border-radius:999px;white-space:nowrap}
+[data-status="adopt"] .pill{background:var(--adopt-soft);color:var(--adopt)}
+[data-status="test"] .pill{background:var(--test-soft);color:var(--test)}
+[data-status="reject"] .pill{background:var(--reject-soft);color:var(--reject)}
+[data-status="adopt"] td:first-child{border-left:4px solid var(--adopt)}
+[data-status="test"] td:first-child{border-left:4px solid var(--test)}
+[data-status="reject"] td:first-child{border-left:4px solid var(--reject)}
+.callout{background:var(--warn-bg);border-left:4px solid var(--warn-rule);padding:14px 16px;border-radius:4px;margin-block:18px;max-width:none}
+.callout p{max-width:none}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-block:16px}
+.tile{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:14px 16px}
+.tile .k{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+.tile .v{font-family:"JetBrains Mono",monospace;font-size:22px;margin-top:4px;color:var(--ink)}
+.tile .s{font-size:12.5px;color:var(--ink-2);margin-top:4px}
+ul,ol{padding-left:22px;margin:0 0 14px;max-width:78ch}
+li{margin-bottom:6px}
+.src{font-size:12.5px;color:var(--ink-2)}
+.src li{margin-bottom:3px;word-break:break-word}
+a{color:var(--accent-ink);text-decoration-thickness:1px;text-underline-offset:2px}
+.tally{font-size:13px;color:var(--ink-2);margin-top:-8px;margin-bottom:14px}
+.small{font-size:13px;color:var(--ink-2)}
+sup a{text-decoration:none;font-family:"JetBrains Mono",monospace;font-size:11px}
+@media (max-width:520px){h2{font-size:22px}.tile .v{font-size:19px}}
+</style>
+
+<div class="wrap">
+<div class="eyebrow">gradvar-phoenix &middot; device review &middot; 19 September 2026</div>
+<h1>IBM Nighthawk r2 (ibm_phoenix): what changes the plan, and what saves minutes</h1>
+<p class="lede">A read of the calibration snapshots, the raw backend properties, the two pre-registrations and IBM's public documentation, aimed at one question: which settings on this processor improve the pre-registered measurements or cut QPU minutes without moving an estimand. Every device fact carries a source; every candidate carries a Deviation verdict.</p>
+<div class="meta"><span>Snapshots: CSV 11:13 UTC (Slack upload F0C3WJ98DPA) &middot; raw properties 14:08 UTC (repo Action)</span><span>Ledger: 360 Flex minutes; instance cap 220 min for ibm_phoenix</span><span>Pre-registrations Q1 v0.6 and P2 v0.2 read, not edited</span></div>
+
+<div class="callout">
+<p><strong>The headline is not an optimisation, it is arithmetic.</strong> Paper 1's pre-registered grid is about 2.9&times;10<sup>8</sup> executions (Section 2: "shot total of order 2e8"). At the 250 &micro;s rep_delay the Section 3b and Paper 2 budgets assume, IBM's own formula gives roughly <strong>1,210 minutes</strong> for Paper 1 (main grid alone 584 min) against the 200 booked. At a 1 &micro;s rep_delay it is about 27 minutes; at the 9.1 &micro;s per circuit implied by the dashboard's 109.7 kHz maximum circuit rate, about 43 minutes. The Q1 text silently assumes the fast rate for Paper 1 ("110k circuits per second, so the shot budget is not expected to be binding") while the dial arm and Paper 2 book at 250 &micro;s. The plan is feasible only if <code>backend.rep_delay_range</code> on ibm_phoenix reaches the microsecond floor. Reading that field costs zero QPU minutes and should happen before anything else.</p>
+</div>
+
+<h2>1. Device facts</h2>
+<div class="grid">
+<div class="tile"><div class="k">Lattice</div><div class="v">12 &times; 10</div><div class="s">120 qubits, 218 tunable couplers, degree &le; 4; confirmed from the CSV edge list<sup><a href="#s1">[1]</a><a href="#s3">[3]</a></sup></div></div>
+<div class="tile"><div class="k">Native reset</div><div class="v">400 ns</div><div class="s">119 qubits; qubit 79 is 2140 ns (its measure_reset 2140 ns, measure_reset_2 1340 ns)<sup><a href="#s3">[3]</a></sup></div></div>
+<div class="tile"><div class="k">Readout</div><div class="v">1940 / 1140 ns</div><div class="s"><code>measure</code> 1940 ns (median err 8.2e-3); <code>measure_2</code> 1140 ns (median 6.3e-3, lower on 78 of 120 qubits)<sup><a href="#s3">[3]</a></sup></div></div>
+<div class="tile"><div class="k">1Q / CZ</div><div class="v">40 / 68 ns</div><div class="s">1Q median 2.2e-4; CZ median 1.94e-3, 205 of 218 edges at 68 ns, max 208 ns<sup><a href="#s2">[2]</a></sup></div></div>
+<div class="tile"><div class="k">xslow</div><div class="v">1000 ns</div><div class="s">A 1 &micro;s &pi; pulse; CSV reports the same error as sx (one 1Q figure per qubit). Used by runtime bit-flip checks only<sup><a href="#s3">[3]</a><a href="#s14">[14]</a></sup></div></div>
+<div class="tile"><div class="k">Throughput</div><div class="v">109.7 kHz</div><div class="s">Dashboard max circuits/s (screenshot, via notes); CLOPS 2.0M. Implies ~9.1 &micro;s per H+measure circuit including reset<sup><a href="#s4">[4]</a><a href="#s9">[9]</a></sup></div></div>
+</div>
+
+<div class="tbl"><table>
+<tr><th>Fact</th><th>Value</th><th>Source</th></tr>
+<tr><td>Nighthawk r2 released; backend name</td><td>31 Aug / 2 Sep 2026; <code>ibm_phoenix</code>; "120 programmable qubits and 458 physical qubits, including a high speed reset on each qubit"</td><td><a href="#s1">[1]</a> <a href="#s5">[5]</a></td></tr>
+<tr><td>Reset mechanism</td><td>Dissipative reset gadget: tunable coupler to a cold bath; effective T1 ~200 &micro;s &rarr; ~25 ns during reset; "neighbor-safe"; ~25&times; lower initialisation error; inter-circuit idle "as little as a single microsecond"; 100,000+ circuits/s</td><td><a href="#s1">[1]</a></td></tr>
+<tr><td>rep_delay semantics</td><td>"delay between a measurement and the subsequent quantum circuit"; only if <code>dynamic_reprate_enabled</code>; must lie in <code>backend.rep_delay_range</code>; default <code>backend.default_rep_delay</code>, "250 microseconds on most IBM Quantum backends"; lower rep_delay raises state-preparation error</td><td><a href="#s6">[6]</a> <a href="#s7">[7]</a> <a href="#s8">[8]</a></td></tr>
+<tr><td>Nighthawk r1 rep_delay (fake_nighthawk config, r1 snapshot)</td><td>default 250 &micro;s, <code>rep_delay_range [20, 500]</code> &micro;s; ibm_marrakesh (Heron r2): default 250, range [0, 500]. <strong>ibm_phoenix's range is not published anywhere I could fetch.</strong> Loaded in qiskit-ibm-runtime 0.49.0: FakeNighthawk's <code>reset</code> is a 2.232 &micro;s instruction (measurement-based, r1) against 400 ns on r2; FakeMiami (ibm_miami r1 snapshot) has no <code>reset</code> in its target and reports default_rep_delay 0.004 s with range [0.001, 0.004] s as loaded, which looks like a unit inconsistency in the snapshot and is not relied on.</td><td><a href="#s10">[10]</a> <a href="#s11">[11]</a></td></tr>
+<tr><td>Usage metering</td><td>Job: QPU-locked time. Batch: cumulative locked time of all jobs (queue gaps free). Session: wall-clock while active. Formula: ~2 s per sub-job + (rep_delay + circuit length) &times; executions; quick form 2 + 0.00035 &times; executions</td><td><a href="#s6">[6]</a></td></tr>
+<tr><td>Limits</td><td>Per job 3 h QPU usage hard cap; 10M executions per Sampler job; batch TTL 8 h paid, 10 min Open; interactive TTL 1 min; Open plan 10 min per 28 days, no sessions; ~5 classical jobs in parallel</td><td><a href="#s12">[12]</a> <a href="#s13">[13]</a> <a href="#s15">[15]</a> <a href="#s16">[16]</a></td></tr>
+<tr><td>Fractional gates</td><td><code>rx</code> exposed on ibm_phoenix (target); "reduce the duration and error for single-qubit rotations of arbitrary angle by up to a factor of two"; incompatible with Pauli twirling, PEC, ZNE-via-PEA (TREX still allowed); docs list Heron only</td><td><a href="#s17">[17]</a> <a href="#s3">[3]</a></td></tr>
+<tr><td>Estimator vs dynamic circuits</td><td>"Since Estimator does not support dynamic circuits, you can use Sampler"; reset/measure inside conditionals unsupported. Whether a plain non-terminal <code>reset</code> (mapped by <code>ConvertToMidCircuitResetAndMeasure</code>, runtime 0.49.0) counts as dynamic for Estimator is not documented: this is Q1 kill criterion 3b(d)</td><td><a href="#s18">[18]</a> <a href="#s14">[14]</a></td></tr>
+<tr><td>Twirling / DD / ZNE defaults</td><td>Twirling <code>num_randomizations</code> auto = ceil(shots/shots_per_randomization), <code>shots_per_randomization</code> auto = max(64, ceil(shots/32)); DD off by default (XX, alap, <code>skip_reset_qubits</code> False); ZNE noise factors (1,3,5), extrapolators (exponential, linear); PEA "gate twirling will always be used"; level 1 = TREX, level 2 = TREX + gate twirling + ZNE</td><td><a href="#s19">[19]</a> <a href="#s20">[20]</a> <a href="#s21">[21]</a> <a href="#s22">[22]</a></td></tr>
+<tr><td>Roadmap</td><td>2026: "Nighthawk processor will run circuits with 7,500 gates in up to three 120-qubit modules"; 2028: 15,000 gates on up to 1080 qubits; Nighthawk revisions at 5,000 / 7,500 / 10,000 / 15,000 gates</td><td><a href="#s23">[23]</a> <a href="#s24">[24]</a></td></tr>
+<tr><td>Papers on Nighthawk</td><td>Six arXiv papers (2601.19762, 2603.12236, 2605.00118, 2606.02574, 2606.09469, 2607.11637), all r1 or unnamed Nighthawk. No paper on r2/ibm_phoenix found in the arXiv API for Aug&ndash;Sep 2026. Physics reference for dissipative-bath reset: 2411.02950 (88 ns reset, residual excitation &lt; 0.13%)</td><td><a href="#s25">[25]</a> <a href="#s26">[26]</a></td></tr>
+</table></div>
+
+<h3>Raw properties (gz) versus the CSV: what the CSV cannot tell you</h3>
+<ul>
+<li><strong>Per-edge ZZ and J couplings.</strong> <code>general</code> carries <code>zz_</code> and <code>jq_</code> for all 218 edges: median |ZZ| 26.7 kHz, J median 0.46 MHz. The dial's 400 ns idle therefore accrues a mask-dependent phase of about 0.07 rad per idle neighbour pair; Section 3b names this contaminant without a number. Use these values in the noisy simulation instead of a guess.</li>
+<li><strong>Qubit 17 is not just dead, it is collided.</strong> ZZ fits of &minus;4.96 MHz to qubit 18 and +4.29 MHz to qubit 27 (200&times; the median). Qubit 27 sits in row 2, inside the 10&times;10 ladder patch (n = 90), with T1 56 &micro;s, T2 42 &micro;s, 1Q error 1.1e-3 (5&times; median) and CZ errors 7.5&ndash;8.1e-3 on all three edges. It passes every pre-registered cut. Qubit 18 (T2 29 &micro;s) is outside the patches.</li>
+<li><strong>Initialisation error outliers.</strong> Median 2.0e-5, but qubits 8, 22, 49, 77 sit at 1e-3 to 8e-3, and 17, 24, 47, 62 have no value. Qubit 22 (row 2) is inside the n = 90 patch and has no pre-registered cut against it. For an experiment whose estimand is a variance of expectation values, a 400&times;-median state-preparation error on one patch qubit is a small bias but a logged one.</li>
+<li><strong>IBM's own layer-fidelity chains.</strong> <code>general_qlists</code> lists lf_4 &hellip; lf_100, the chains IBM used for the EPLG figure; lf_100 is a ready-made 100-qubit path through the clean region (bottom rows, avoiding 55/62/63/72/73). The team's 45-second heuristic chain search can be checked against it.</li>
+<li><strong>Snapshot drift.</strong> T1 in the 14:08 properties differs from the 11:13 CSV by a median 14 &micro;s and a maximum 107 &micro;s on one qubit. The repo's 15:54 and 15:59 CSVs have blank Init error and MEASURE/MEASURE_2 columns, so the CSV path loses information the gz keeps.</li>
+</ul>
+
+<h2>2. What Owais uploaded</h2>
+<p><strong>CSV</strong> (<code>ibm_phoenix_calibrations_2026-09-19T11_13_06Z.csv</code>, 48,417 bytes, posted 11:56 UTC with the text "i wanted to use this qpu, research more about it"): identical in name and size to the repo's <code>data/calibrations/ibm_phoenix_2026-09-19.csv</code>, so everything above and in <code>calibration_summary.md</code> is already derived from it: 120 rows, all Operational = Yes, one 1Q error figure repeated across ID/RX/sx/X/XSLOW columns, rz error 0, MEASURE = readout assignment error, MEASURE_2 a second lower figure, no reset-duration column, qubit 17 with no T1/T2 and readout 0.506.</p>
+<p><strong>Screenshot</strong> (<code>image.png</code>, 380,812 bytes, same message): <em>not retrievable in this session</em>. The Slack read tool returns file ids without download URLs and no file-fetch tool is exposed, so I could not view it. The notes record it as the ibm_phoenix dashboard: CLOPS 2.0M, 109.7 kHz max circuits/s, 2Q best 8.168e-4, median 1.937e-3, layered 3.695e-3, medians T1 177.7 &micro;s, T2 131.47 &micro;s, readout 8.179e-3, SX 2.195e-4, init 2.028e-5, and a 15 October maintenance entry in an unstated timezone. Those medians match the CSV to four figures, which corroborates the transcription. Three later screenshots from Owais (13:05 "See they are already connected", 13:20, 16:09 "How much qpu costs in each case") were likewise not viewable.</p>
+<p class="small">What the notes missed from the upload: the CSV's MEASURE_2 column corresponds to a 1140 ns readout in the raw target (a second, shorter measurement variant), and the dashboard's 109.7 kHz figure is itself a measurement of the achievable inter-shot period (about 9.1 &micro;s for H + measure + reset), which is the most trustworthy per-execution constant available for the ledger.</p>
+
+<h2>3. Candidates</h2>
+<p class="small">Savings are for the whole 360-minute programme unless stated. "250 &micro;s" and "1 &micro;s" are the two rep_delay worlds of the pre-registrations. Estimand risk names which of the three pre-registered quantities (gradient variance over draws; reset-dial mixture channel; reset characterisation) could move.</p>
+<div class="tbl"><table id="cands">
+<tr><th>Candidate</th><th>Saving at 250 &micro;s</th><th>Saving at 1 &micro;s</th><th>Estimand risk</th><th>Deviation?</th><th>Verdict</th></tr>
+<tr data-status="adopt"><td><strong>(a) rep_delay at the device minimum</strong><br><span class="small">Read <code>rep_delay_range</code>, set <code>execution.rep_delay</code> to its floor for Paper 1 and the dial</span></td><td class="num">Paper 1: 1,210 &rarr; 27&ndash;43 min<br>dial: 45.6 &rarr; 4.8<br>Paper 2: 33.6 &rarr; 0.9</td><td class="num">(is the 1 &micro;s world)</td><td>State-prep bias from residual excitation is &theta;-independent, so the shift rule and the mean-zero null test survive; it enters as an initial mixture that lowers Var[&part;C] by O(&delta;&middot;|cone|), negligible against CZ error 2e-3 if &delta; stays near the 2e-5 init figure. Real risk: readout-resonator ring-down at 1 &micro;s dephasing the first Ry layer (L = 1 points most exposed), and shot-to-shot correlation if reset is incomplete. Not measurable from the CSV.</td><td>Paper 1 and 3b: no (both already budget "a granted 1 &micro;s rep_delay"; log the value per job, field <code>rep_delay</code>). Paper 2: <strong>yes</strong>, its Execution row fixes "default rep_delay 250 &micro;s" for Q1&ndash;Q5.</td><td><span class="pill">Adopt after smoke test</span></td></tr>
+<tr data-status="adopt"><td><strong>(d&prime;) Spend the freed minutes on M, not on cuts</strong><br><span class="small">Deviation 17 already pre-registers M = 400 at L = 2 and 700 at L &ge; 4 "where the shot budget allows"</span></td><td class="num">n/a (nothing is affordable)</td><td class="num">costs +50 to +70 min; Paper 1 total ~80&ndash;110 min at 1&ndash;9 &micro;s</td><td>Only improves interval widths (hi/lo 2.1 &rarr; 1.5 at L &ge; 4). Same circuits, same shots per circuit.</td><td>No: pre-registered conditional. Re-tuning shots per point downward (d) would be a Deviation and buys nothing at &micro;s rep_delay.</td><td><span class="pill">Adopt if floor &le; 10 &micro;s</span></td></tr>
+<tr data-status="adopt"><td><strong>(c) Batch mode, few large jobs, parametrised PUBs</strong><br><span class="small">One EstimatorV2 job per resilience level per Batch (as <code>hardware.py</code> does); one PUB per grid point with a (2M &times; nL) parameter array instead of one PUB per draw</span></td><td class="num">80 jobs &rarr; 6: 2.7 &rarr; 0.2 min. Also avoids a 3 h per-job cap breach: one level's grid at 250 &micro;s is 260 min in one job and would fail</td><td class="num">~0.2 min; main gain is payload size and compile time (classical, unmetered in Batch)</td><td>None: identical circuits, identical executions. Keep the per-draw <code>param_expr</code> single-rz check and <code>theta_hash</code> per row.</td><td>No</td><td><span class="pill">Adopt; test in Marrakesh dry run</span></td></tr>
+<tr data-status="adopt"><td><strong>(h) Use the raw properties for placement and simulation</strong><br><span class="small">Per-edge ZZ, per-qubit init_error, measure/measure_2, reset durations, T1/T2 at job time; snapshot script to also dump <code>configuration()</code></span></td><td class="num">0</td><td class="num">0</td><td>Improves the noisy baseline (dial idle ZZ phase, state-prep error). Adding qubits 27 and 22 to the exclusion list changes the n = 90 patch by two qubits (90 &rarr; 88) and its light cone not at all (both are far from the observable edge).</td><td>Exclusion-rule addition (init_error &gt; 1e-3; anomalous ZZ to a dead qubit) is a <strong>Deviation</strong> to Section 2's fixed list; using ZZ in the simulation is not.</td><td><span class="pill">Adopt; Deviation for 27/22</span></td></tr>
+<tr data-status="test"><td><strong>(g) Per-execution constant from the dashboard</strong><br><span class="small">Replace "rep_delay + circuit length" with a measured &micro;s/execution from <code>job.usage()</code> in the smoke test</span></td><td class="num">Ledger accuracy only</td><td class="num">Changes the 1 &micro;s estimates by ~2&times;: 109.7 kHz implies ~9 &micro;s per execution, not 3&ndash;4</td><td>None</td><td>No (Section 2 says locked time per point is measured in the dry run before booking)</td><td><span class="pill">Test in smoke</span></td></tr>
+<tr data-status="test"><td><strong>(f&prime;) <code>measure_2</code> (1140 ns readout)</strong><br><span class="small">Shorter, slightly better readout on 78/120 qubits; how to request it is undocumented</span></td><td class="num">0.8 &micro;s of 250 &micro;s: nil</td><td class="num">0.8 &micro;s of ~5&ndash;9: up to 10&ndash;15% of Paper 1's 27&ndash;43 min</td><td>Changes the readout confusion matrix used by TREX and by the noisy simulation; a different measurement instruction is a change of the measured channel for Paper 2's Q1&ndash;Q3.</td><td>Yes for both papers if adopted</td><td><span class="pill">Check target only; do not adopt in October</span></td></tr>
+<tr data-status="reject"><td><strong>(b) Co-run disjoint patches in one circuit</strong><br><span class="small">20 + 39 together, counting executions once</span></td><td class="num">n = 20 grid points: ~104 min (only matters in the infeasible world)</td><td class="num">~2.3 min</td><td>Concrete placement exists: 5&times;4 at rows 0&ndash;4, cols 0&ndash;3 (qubits 0&ndash;3, 10&ndash;13, 20&ndash;23, 30&ndash;33, 40&ndash;43) with row 5 or 7 as an idle buffer and 24&ndash;44 kHz static ZZ across it. But its mean CZ error is 2.96e-3 with a 1.83e-2 edge (31,32) and T1 31 &micro;s on qubit 41, against 1.8e-3 for the best standalone 4&times;5 (rows 8&ndash;11, cols 1&ndash;5), which overlaps the 4&times;10 patch. The n = 20 rung would carry 60% more per-gate noise than the rest of the ladder, confounding n-dependence with noise level; simultaneous readout of 59 qubits adds crosstalk the calibration does not report.</td><td>Yes (Section 2 patch rule and "same patch shapes are simulated")</td><td><span class="pill">Reject at &micro;s rep_delay</span></td></tr>
+<tr data-status="reject"><td><strong>(e) Fractional Rx for the Ry rotations</strong></td><td class="num">40 ns per layer per execution: 0.7 min over 2e8 executions</td><td class="num">0.7 min</td><td>Breaks the logging check "param_expr must be a single rz with unit coefficient"; halves 1Q error per layer, so the pre-drawn unital curves would be for the wrong channel; disables gate twirling and ZNE-via-PEA (level 2 points); docs list Heron only.</td><td>Yes ("Fractional gates disabled throughout")</td><td><span class="pill">Reject</span></td></tr>
+<tr data-status="reject"><td><strong>(f) DD or <code>xslow</code> during the reset layer</strong></td><td class="num">0 (adds pulses)</td><td class="num">0</td><td>DD (XX in the 400 ns idle) would partly echo the mask-dependent ZZ phase and change the unital noise of the dial layer, whose delay-matched control is defined with a bare <code>delay(400 ns)</code>. Pulses on neighbours of a resetting qubit during reset are untested. <code>xslow</code> is a 1 &micro;s &pi; pulse for bit-flip checks; it has no role here.</td><td>Yes</td><td><span class="pill">Reject for Paper 1; note for Paper 2 spectator question</span></td></tr>
+<tr data-status="reject"><td><strong>Session mode</strong></td><td class="num">negative</td><td class="num">negative</td><td>Bills wall-clock including the compile of 12,800 distinct circuits per dial point.</td><td>n/a</td><td><span class="pill">Reject</span></td></tr>
+</table></div>
+<div class="tally" id="tally"></div>
+
+<h3>Ledger at the two rep_delays (IBM formula, 2 s per job)</h3>
+<div class="tbl"><table>
+<tr><th>Block</th><th>Executions</th><th>At 250 &micro;s</th><th>At 9.1 &micro;s/execution (dashboard-implied)</th><th>At 1 &micro;s</th><th>Booked</th></tr>
+<tr><td>Paper 1 main grid, 50 points (M = 200, 3 circuits, 4096 shots; 16384 at n = 90, L = 8)</td><td class="num">1.38e8</td><td class="num">584 min</td><td class="num">21 min</td><td class="num">13 min</td><td class="num" rowspan="4">200 min</td></tr>
+<tr><td>Level-2 reduced grid, 8 points &times; 2, ZNE &times;3</td><td class="num">5.9e7</td><td class="num">250 min</td><td class="num">9 min</td><td class="num">4.9 min</td></tr>
+<tr><td>Layer-index sweep, 16 points</td><td class="num">3.9e7</td><td class="num">168 min</td><td class="num">6 min</td><td class="num">4.8 min</td></tr>
+<tr><td>Controls (null, day-2 repeat), ~20 points</td><td class="num">4.9e7</td><td class="num">208 min</td><td class="num">7.5 min</td><td class="num">4.0 min</td></tr>
+<tr><td>Dial arm core (Section 3b table)</td><td class="num">1.03e7</td><td class="num">45.6 min</td><td class="num">4.6 min</td><td class="num">4.8 min</td><td class="num">45 min</td></tr>
+<tr><td>Paper 2 (7.90M executions, ~6 jobs)</td><td class="num">7.9e6</td><td class="num">33.6 min</td><td class="num">1.4 min</td><td class="num">0.9 min</td><td class="num">45 min</td></tr>
+<tr><td><strong>Programme</strong></td><td class="num">3.0e8</td><td class="num"><strong>~1,290 min</strong></td><td class="num"><strong>~50 min</strong></td><td class="num"><strong>~33 min</strong></td><td class="num">350 + 10</td></tr>
+</table></div>
+<p class="small">Per point (M = 200, 4096 shots): 10.4 min at 250 &micro;s, 2.2 min at 50 &micro;s, 0.95 min at 20 &micro;s (the r1 floor), 0.6 min at 10 &micro;s, 0.2&ndash;0.3 min at 1 &micro;s. Nineteen points fit in 200 minutes at 250 &micro;s. If the floor turns out to be 20 &micro;s, Paper 1 costs ~110 min and the dial ~5.5 min: still feasible. If it is 250 &micro;s, the pre-registered grid cannot be run as written.</p>
+
+<h2>4. Test plan inside the planned dry runs</h2>
+<h3>Zero-minute checks (do first, any day)</h3>
+<ol>
+<li>With the Flex token, read <code>backend.configuration().default_rep_delay</code>, <code>rep_delay_range</code>, <code>dynamic_reprate_enabled</code>, <code>timing_constraints</code>, and <code>backend.target.operation_names</code> for ibm_phoenix. This is a properties call, not a job. Extend <code>scripts/snapshot_calibration.py</code> to save these with each daily snapshot.</li>
+<li>Transpile the dial circuit against the live target and confirm <code>reset</code> maps to the 400 ns instruction, not <code>measure_reset</code> (P2 kill 1, Q1 kill 3b(c)).</li>
+</ol>
+<h3>ibm_marrakesh tonight, &le; 3 Open-plan minutes (Heron r2; fake config: rep_delay range [0, 500] &micro;s)</h3>
+<div class="tbl"><table>
+<tr><th>Test</th><th>Circuits &times; shots</th><th>Cost</th><th>Decides</th></tr>
+<tr><td>T1 rep_delay pair: n = 20, L = 1 and 4, level 0, 5 draws, in one Batch as two jobs, <code>execution.rep_delay</code> = default and = range minimum</td><td class="num">2 &times; 30 &times; 1024</td><td class="num">~10 s at 250 &micro;s, ~2 s at minimum, + 4 s overhead</td><td>Whether the option is honoured, whether <code>job.usage()</code> matches the formula, the per-job overhead figure; expectation values agree within shot error</td></tr>
+<tr><td>T2 PUB shape: same 30 circuits as one parametrised PUB versus 5 PUBs</td><td class="num">30 &times; 1024</td><td class="num">~10 s</td><td>Identical results; <code>param_expr</code> still a single rz per row; usage equal</td></tr>
+<tr><td>T3 Estimator + non-terminal reset: one dial circuit (n = 20, L = 2, p = 0.5, 2 masks) at levels 0 and 1</td><td class="num">4 &times; 1024</td><td class="num">~3 s</td><td>Kill 3b(d): does EstimatorV2 accept it; does level 1 (TREX) accept it</td></tr>
+<tr><td>T4 <code>init_qubits=False</code> with rep_delay minimum, |1&rang; prepared, Sampler</td><td class="num">2 &times; 4096</td><td class="num">~3 s</td><td>Pipeline for Paper 2 Q1's pre-registered init_qubits job</td></tr>
+</table></div>
+<p class="small">Total under 1 minute of the 3; Marrakesh has no dissipative reset, so T3 tests acceptance, not physics.</p>
+<h3>ibm_phoenix smoke, &le; 5 Flex minutes (October)</h3>
+<div class="tbl"><table>
+<tr><th>Test</th><th>Circuits &times; shots</th><th>Cost</th><th>Decides</th></tr>
+<tr><td>P1 rep_delay ladder on n = 20, L = 1 (and L = 4), level 0, 10 draws: rep_delay &isin; {minimum, 20 &micro;s, default}</td><td class="num">3 &times; 60 &times; 4096 = 737k</td><td class="num">~3 min at 250 &micro;s default, else ~0.5 min</td><td>Bias check: |&Delta;E| &lt; 2&sigma;<sub>shot</sub> between minimum and default on every circuit; per-execution &micro;s from usage (candidate g)</td></tr>
+<tr><td>P2 residual excitation: |1&rang; &rarr; measure and |+&rang; &rarr; measure with implicit reset at the minimum rep_delay, 20 patch qubits</td><td class="num">2 &times; 4096</td><td class="num">seconds</td><td>P(1) against the 2e-5 init figure; feeds 3b characterisation and Gate 2(c)</td></tr>
+<tr><td>P3 dial acceptance and duration: one p = 0.5 circuit, n = 20, L = 2, 4 masks, Estimator level 0/1; log <code>target["reset"]</code> durations</td><td class="num">8 &times; 1024</td><td class="num">seconds</td><td>Kill 3b(c),(d); P2 kill 1</td></tr>
+<tr><td>P4 target inventory: <code>measure_2</code>, <code>xslow</code>, <code>rx</code> present? (no job)</td><td class="num">0</td><td class="num">0</td><td>Whether f&prime; is even selectable; record only</td></tr>
+</table></div>
+<p class="small">Run P1 at the default first so a 250 &micro;s default cannot blow the 5-minute cap; if the default is already microsecond-scale, P1 costs under a minute and the remaining budget covers the pre-registered Gate 2(a) n = 20 point.</p>
+
+<h2>5. r2-specific items that change the plan</h2>
+<ul>
+<li><strong>Qubit 17</strong>: dead (no T1/T2, readout 0.506, no calibrated CZ, 4 blank init) and collided with 18 and 27 (ZZ fits of &plusmn;5 MHz). Exclude 27 from the n = 90 patch by Deviation; 18 is already outside every patch.</li>
+<li><strong>High-error edges</strong>: 21 edges above 1e-2; cluster 55/61/62/63/72/73 already excluded; (100,101) 0.044, (95,96) 0.037, (98,99) 0.018, (87,97) 0.019, (86,87) 0.013 all sit inside the bottom-anchored ladder patches and are not excluded by the rule. Their contribution is in the pre-drawn curves if the simulation uses the run-day edge list, which it must.</li>
+<li><strong>Qubit 79 reset 2140 ns</strong>: row 7, column 9; inside the 6&times;10, 8&times;10 and 10&times;10 patches. The dial excludes it from dial patches (Section 3b); the Paper 1 grid does not need to. If the dial's n = 60 patch is 6&times;10 rows 6&ndash;11, qubit 79 is in it and the patch becomes 55 qubits, not 56.</li>
+<li><strong>Initialisation outliers</strong> 8, 22, 49, 77: 22 is inside the n = 90 patch (Deviation to add init_error &gt; 1e-3 to the run-day cut).</li>
+<li><strong>xslow</strong> (1000 ns) and <strong>measure_2</strong> (1140 ns) exist in the target; neither is documented; neither is used by the plan.</li>
+<li><strong>Fractional rx</strong> exposed: <code>hardware.py</code> loads with <code>use_fractional_gates=False</code>, which is right; keep it.</li>
+<li><strong>rep_delay floor unknown</strong>: r1's fake config says 20 &micro;s; IBM's r2 marketing says 1 &micro;s; nothing fetched gives ibm_phoenix's range. The whole ledger turns on this number.</li>
+<li><strong>Estimator and reset</strong>: docs say Estimator does not support dynamic circuits; a bare reset may or may not be classed as one. Kill 3b(d) is live and testable on Marrakesh tonight.</li>
+<li><strong>15 October maintenance</strong>: timezone unconfirmed; keep the day and its neighbours free.</li>
+<li><strong>3-hour per-job cap</strong>: any single job above 180 min QPU usage fails and is charged; split jobs at &le; 60 min.</li>
+</ul>
+
+<h2>6. Do not do</h2>
+<ul>
+<li>Do not book the Paper 1 grid at a 250 &micro;s rep_delay; it costs six times the allocation.</li>
+<li>Do not co-run patches to save minutes; at microsecond rep_delay it saves 2 minutes and costs the ladder's noise homogeneity.</li>
+<li>Do not enable fractional gates, dynamical decoupling, or <code>xslow</code> anywhere in Paper 1 or the dial.</li>
+<li>Do not use session mode; do not put more than ~60 QPU-minutes in one job.</li>
+<li>Do not cut shots or M; if minutes are freed, spend them on Deviation 17's M increase and on the Section 3b cut-order items in their fixed order.</li>
+<li>Do not use <code>init_qubits=False</code> outside Paper 2's one pre-registered Q1 job.</li>
+<li>Do not switch to <code>measure_2</code> in October, even if selectable; it changes the readout channel under test.</li>
+<li>Do not plan patches from the 11:13 CSV alone; re-derive from the run-day properties (T1 drift up to 107 &micro;s in three hours) and keep the gz.</li>
+<li>Do not read the 25&times; initialisation claim as a reset-error figure; the target has no reset gate_error, and Paper 2 exists to measure it.</li>
+</ul>
+
+<h2>Sources</h2>
+<ol class="src">
+<li id="s1">IBM Quantum blog, "IBM Quantum Nighthawk r2, more circuits, faster" (31 Aug 2026): https://www.ibm.com/quantum/blog/nighthawk-r2</li>
+<li id="s2">Calibration CSV 2026-09-19T11:13:06Z (Slack F0C3WJ98DPA = repo data/calibrations/ibm_phoenix_2026-09-19.csv); parsed statistics in scratchpad/phoenix/calibration_summary.md</li>
+<li id="s3">Raw backend properties, repo data/calibrations/ibm_phoenix_properties_20260919T155931Z.json.gz (last_update 2026-09-19 14:08:12 UTC): gates cz/id/measure/measure_2/measure_reset/measure_reset_2/reset/rx/rz/sx/x/xslow; general zz_/jq_; general_qlists lf_4..lf_100</li>
+<li id="s4">ibm_phoenix dashboard screenshot (Slack F0C2W13EH7D), as transcribed in scratchpad/phoenix/nighthawk_notes.md; not viewable in this session</li>
+<li id="s5">IBM Quantum docs, Processor types: https://quantum.cloud.ibm.com/docs/en/guides/processor-types</li>
+<li id="s6">IBM Quantum docs, Workload usage and run-time estimation: https://quantum.cloud.ibm.com/docs/en/guides/estimate-job-run-time</li>
+<li id="s7">IBM Quantum docs, Qubit initialization / repetition rate: https://quantum.cloud.ibm.com/docs/en/guides/repetition-rate-execution</li>
+<li id="s8">IBM Quantum docs, ExecutionOptionsV2: https://quantum.cloud.ibm.com/docs/en/api/qiskit-ibm-runtime/options-execution-options-v2</li>
+<li id="s9">IBM Quantum docs, QPU information (CLOPS, EPLG, MCPS definitions): https://quantum.cloud.ibm.com/docs/en/guides/qpu-information</li>
+<li id="s10">qiskit-ibm-runtime fake_provider conf_nighthawk.json (Nighthawk r1 snapshot): https://raw.githubusercontent.com/Qiskit/qiskit-ibm-runtime/main/qiskit_ibm_runtime/fake_provider/backends/nighthawk/conf_nighthawk.json</li>
+<li id="s11">qiskit-ibm-runtime fake_provider conf_marrakesh.json: https://raw.githubusercontent.com/Qiskit/qiskit-ibm-runtime/main/qiskit_ibm_runtime/fake_provider/backends/marrakesh/conf_marrakesh.json</li>
+<li id="s12">IBM Quantum docs, Maximum execution time: https://quantum.cloud.ibm.com/docs/en/guides/max-execution-time</li>
+<li id="s13">IBM Quantum docs, Job limits: https://quantum.cloud.ibm.com/docs/en/guides/dynamic-circuits-considerations</li>
+<li id="s14">qiskit-ibm-runtime release notes (0.49.0: MidCircuitReset, ConvertToMidCircuitResetAndMeasure, bit_flip_checks): https://quantum.cloud.ibm.com/docs/en/api/qiskit-ibm-runtime/release-notes ; xslow as x_pulse_type in bit-flip-check options; https://github.com/Qiskit/qiskit-ibm-runtime/issues/3311</li>
+<li id="s15">IBM Quantum docs, Run jobs in a batch: https://quantum.cloud.ibm.com/docs/en/guides/run-jobs-batch</li>
+<li id="s16">IBM Quantum docs, Choose execution mode; Execution modes; Plans overview: https://quantum.cloud.ibm.com/docs/en/guides/choose-execution-mode ; https://quantum.cloud.ibm.com/docs/en/guides/execution-modes ; https://quantum.cloud.ibm.com/docs/en/guides/plans-overview</li>
+<li id="s17">IBM Quantum docs, Fractional gates: https://quantum.cloud.ibm.com/docs/en/guides/fractional-gates</li>
+<li id="s18">IBM Quantum docs, Execute dynamic circuits: https://quantum.cloud.ibm.com/docs/en/guides/execute-dynamic-circuits</li>
+<li id="s19">IBM Quantum docs, TwirlingOptions: https://quantum.cloud.ibm.com/docs/en/api/qiskit-ibm-runtime/options-twirling-options</li>
+<li id="s20">IBM Quantum docs, DynamicalDecouplingOptions: https://quantum.cloud.ibm.com/docs/en/api/qiskit-ibm-runtime/options-dynamical-decoupling-options</li>
+<li id="s21">IBM Quantum docs, ZneOptions: https://quantum.cloud.ibm.com/docs/en/api/qiskit-ibm-runtime/options-zne-options</li>
+<li id="s22">IBM Quantum docs, Error mitigation and suppression techniques; Estimator options: https://quantum.cloud.ibm.com/docs/en/guides/error-mitigation-and-suppression-techniques ; https://quantum.cloud.ibm.com/docs/en/guides/estimator-options</li>
+<li id="s23">IBM Quantum roadmap: https://www.ibm.com/roadmaps/quantum/</li>
+<li id="s24">IBM Quantum blog, QDC 2025: https://www.ibm.com/quantum/blog/qdc-2025 ; IBM hardware page (Nighthawk EPLG 3.7e-3, MCPS 100+ kHz): https://www.ibm.com/quantum/hardware</li>
+<li id="s25">arXiv API query all:Nighthawk AND all:quantum (19 Sep 2026): 2607.11637, 2606.02574, 2605.00118, 2603.12236, 2601.19762; plus 2606.09469 from the notes. Query for "dissipative reset" OR "ibm_phoenix" OR "Nighthawk r2", Aug&ndash;Sep 2026: none relevant (2609.13935 is Heron).</li>
+<li id="s26">Kim et al., "Fast Unconditional Reset and Leakage Reduction of a Tunable Superconducting Qubit via an Engineered Dissipative Bath", arXiv:2411.02950</li>
+<li id="s27">Secondary press on r2 (numbers consistent with [1]): https://quantumcomputingreport.com/ibm-releases-nighthawk-r2-qpu-featuring-active-dissipative-qubit-reset-and-25x-circuit-throughput/ ; https://thequantuminsider.com/2026/09/03/ibms-nighthawk-r2-quantum-processor-targets-a-25-fold-increase-in-circuit-speed/</li>
+<li id="s28">Pre-registrations read: scratchpad/prereg/preregistration_q1.html (v0.6; Sections 2, 3b, 6, Deviations 14&ndash;21) and preregistration_p2.html (v0.2; Budget, Execution, Programme ledger, kill criteria). Not edited.</li>
+</ol>
+</div>
+<script>
+(function(){
+  var rows=document.querySelectorAll('#cands tr[data-status]');var c={adopt:0,test:0,reject:0};
+  rows.forEach(function(r){c[r.getAttribute('data-status')]++;});
+  var t=document.getElementById('tally');
+  if(t) t.textContent=rows.length+' candidates: '+c.adopt+' adopt, '+c.test+' test first, '+c.reject+' reject.';
+})();
+</script>

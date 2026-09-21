@@ -1,0 +1,126 @@
+<title>Theorist's second opinion</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,600&family=Public+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap">
+<style>
+:root{
+  --bg:#f3f4f2; --paper:#fbfbf9; --ink:#1c2326; --muted:#5b6669; --rule:#d6dad7;
+  --accent:#0f5f6b; --accent-ink:#0b4650; --flag:#a4620e; --flag-bg:#f7efe1; --verdict-bg:#e6eff0;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  --serif:"Newsreader",Georgia,"Times New Roman",serif;
+  --sans:"Public Sans",system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#141a1c; --paper:#1b2224; --ink:#e6e9e7; --muted:#9aa5a7; --rule:#2e393c;
+  --accent:#6cc3cf; --accent-ink:#8fd6df; --flag:#e0a75a; --flag-bg:#2a2319; --verdict-bg:#1f2f33;
+}}
+:root[data-theme="dark"]{
+  --bg:#141a1c; --paper:#1b2224; --ink:#e6e9e7; --muted:#9aa5a7; --rule:#2e393c;
+  --accent:#6cc3cf; --accent-ink:#8fd6df; --flag:#e0a75a; --flag-bg:#2a2319; --verdict-bg:#1f2f33;
+}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.55;margin:0;padding-block:32px 64px;padding-inline:16px}
+main{max-width:72ch;margin:0 auto;background:var(--paper);padding:32px clamp(16px,4vw,44px) 40px;border:1px solid var(--rule)}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+h1{font-family:var(--serif);font-weight:600;font-size:clamp(30px,5vw,40px);line-height:1.1;margin:6px 0 10px;text-wrap:balance}
+.lede{color:var(--muted);margin:0 0 22px;font-size:15px}
+h2{font-family:var(--serif);font-weight:600;font-size:23px;margin:34px 0 10px;line-height:1.2;text-wrap:balance;display:flex;gap:12px;align-items:baseline}
+h2 .n{font-family:var(--mono);font-size:13px;color:var(--accent);font-weight:400}
+p{margin:0 0 12px}
+.verdict{background:var(--verdict-bg);border-left:3px solid var(--accent);padding:14px 16px;margin:0 0 8px}
+.verdict p:last-child{margin:0}
+.q{font-style:italic;color:var(--muted);margin-bottom:10px}
+ol.sketch{padding-left:22px;margin:6px 0 12px}
+ol.sketch li{margin-bottom:4px}
+ul{padding-left:20px;margin:6px 0 12px}
+li{margin-bottom:5px}
+.flag{background:var(--flag-bg);border-left:3px solid var(--flag);padding:10px 14px;margin:12px 0}
+.id{font-family:var(--mono);font-size:.86em;color:var(--accent-ink)}
+a{color:var(--accent-ink)}
+a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.tbl{overflow-x:auto;margin-top:8px}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--rule);vertical-align:top}
+th{font-weight:600;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+td.id{white-space:nowrap}
+.sig{margin-top:30px;color:var(--muted);font-size:14px;border-top:1px solid var(--rule);padding-top:12px}
+@media (prefers-reduced-motion: no-preference){ a{transition:color .15s} }
+</style>
+<main>
+<div class="eyebrow">gradvar-phoenix · Paper 2 · 19 September 2026 · for Owais and Dr. Raviram</div>
+<h1>Theorist's second opinion</h1>
+<p class="lede">First person, no softening; every arXiv id was fetched today.</p>
+
+<div class="verdict">
+<p><strong>Short version.</strong> The trainable-and-hard question is not open as the thread poses it, and the reset ansatz was never a candidate. I would co-author A with an <em>n</em>-ladder added and Theorem 8 demoted to motivation; not B without a tensor-network group. Paper 1 is sound but thin. Nature-family odds 1–2%; do not design for them.</p>
+</div>
+
+<h2><span class="n">1</span>The open question, stated precisely</h2>
+<p><strong>Status.</strong> Cerezo et al. (<span class="id">2312.09121</span>) state no theorem. Two claims: architectures that provably avoid barren plateaus at random initialisation live in classically identifiable polynomial subspaces, and such subspaces are simulable, sometimes only "quantum-enhanced" after a data-acquisition phase on the device. They exclude warm starts and "very special parts of the landscape", and their SI has contrived non-concentrated, non-simulable losses built from cryptographic hardness.</p>
+<p><strong>Proven, simulable side.</strong> Angrisani et al. (<span class="id">2409.01706</span>): noiseless locally scrambling random circuits, any observable, constant error in polynomial time, inverse-polynomial error in quasi-polynomial time, any geometry. Angrisani et al. (<span class="id">2501.13101</span>): the same under any incoherent local noise, amplitude damping with γ up to 1 and constant-rate dynamic operations included; Appendix F says the average-case assumption is essential (quantum refrigerator). Mele et al. (<span class="id">2403.13927</span>): non-unital noise gives Θ(1) local-cost variance and gradient norm, and the same paper gives an efficient estimator to constant accuracy with effective log depth. The most-cited escape is the cleanest instance of the dichotomy.</p>
+<p><strong>Dynamic circuits.</strong> Deshpande et al. (<span class="id">2411.05760</span>) prove their DPQCs BP-free and concede Pauli-path simulability at random initialisation. Shirgure et al. (<span class="id">2606.23751</span>) give the mechanism: anti-concentration from ancilla-supported Pauli terms while upstream parameters stay stranded (Lemmas 2–3); their "at least as hard as BP-free unitaries" is a purification argument, not a theorem. Zapusek et al. (<span class="id">2507.02043</span>): 1/poly variance only within O(log n) layers of a reset.</p>
+<p><strong>Structure and warm starts.</strong> Ragone et al. (<span class="id">2309.09342</span>) give the deep-circuit variance from the Lie algebra; Goh et al. (<span class="id">2308.01432</span>) simulate exactly when it is polynomial. Puig et al. (<span class="id">2404.10044</span>) guarantee gradients near a warm start; Lerch et al. (<span class="id">2411.19896</span>) give every such patch a quantum-enhanced surrogate. Bermejo et al. (<span class="id">2408.12739</span>): QCNNs are effectively simulable on the data they succeed on.</p>
+<p><strong>The other direction.</strong> Simulable does not imply trainable (deep depolarised Clifford circuits are simulable and flat). Trainable, non-dequantizable models exist by construction: Gil-Fuster et al. (<span class="id">2406.07072</span>) give recipes; Anschuetz and Gao (<span class="id">2402.08606</span>) prove polynomial memory separations for trainable QNNs. Both put the hardness in a fixed, non-variational block; neither touches a random hardware-efficient ansatz.</p>
+<p><strong>A proof needs</strong> trainable defined as Var<sub>θ</sub>[∂C] ≥ 1/poly over the whole parameter distribution, and a demonstration that this forces the second-moment weight of the Heisenberg-evolved observable onto a polynomial subspace for layers that are <em>not</em> 2-designs; known only for 2-designs. <strong>A counterexample needs</strong> 1/poly variance at random initialisation plus average-case hardness of estimating one local expectation to 1/poly accuracy, in the gap Pauli propagation leaves: constant versus inverse-polynomial accuracy in two dimensions, or non-2-design layers whose second moment does not contract. Local expectation values of random circuits are exactly what is easy; low odds from any hardware-efficient family.</p>
+<p><strong>Tractable project? Yes, not the conjecture.</strong> Six to nine months:</p>
+<ol class="sketch">
+<li>Write the second-moment (Pauli-transfer) map of one dial layer for Ry/CZ with (a) the i.i.d. mixture reset and (b) a mask fixed per circuit.</li>
+<li>Diagonalise it on the light cone: α(p) and the variance floor for both; conjecture (1/3)p⁴ versus roughly (1/3)p² and a slower rate for (b).</li>
+<li>Treat the non-2-design correction: Ry leaves Y-strings unrotated, so Y-paths form a separate slow mode; decide whether Theorem 8's form survives.</li>
+<li>Pauli-propagation numerics to 60 qubits with truncation error, checked exactly to 12.</li>
+<li>Paper 2's hardware points as the test. Output: a Quantum/PRA paper on the trainability–simulability exchange rate under a non-unital dial; the theory half of Paper 2.</li>
+</ol>
+
+<h2><span class="n">2</span>Options A, B, C</h2>
+<p>I would co-author <strong>A</strong>. Not B: a noisy device is not a reference, so a hardware–classical residual is a noise-model statement, and Angrisani et al. already prove the average case; without a PEPS group the memo's own referee line is fatal. C collapses to A.</p>
+<p><strong>Changes I would insist on.</strong></p>
+<ul>
+<li><strong>Add an <em>n</em>-ladder</strong>: n ∈ {40, 60, 100} at p = 0.25, L = 8, k = L. Corollaries 6 and 9 are statements about <em>n</em>; the grid has no <em>n</em> axis. Drop k = L−4 to pay for it.</li>
+<li><strong>Demote "test of Theorem 8".</strong> Ry/CZ is not a local 2-design (the pre-registration says so). The theorem supplies the form, not the constants; the pre-registered curve must be the second-moment calculation for this ansatz, drawn before data.</li>
+<li><strong>Make the truncation arm the headline.</strong> It measures Theorem 1 as an observable difference at 60–100 qubits with no ensemble variance; the redirect's resolved version is right.</li>
+<li><strong>Delete every sentence in which a Pauli-propagation residual "reopens the trainable-and-hard question".</strong> Disagreement with a truncated classical method is evidence of noise-model or truncation error, never of hardness.</li>
+<li>Report p = 0.1 as exploratory; its floors sit at the shot floor.</li>
+</ul>
+<p><strong>Is the dial clean?</strong> On the estimand, yes after the reviewer's fix: by linearity the pooled-mask estimator targets Tr(PΦ<sub>mix</sub>(ρ)). Not clean on three counts: the 2-design gap; the pattern-noise term Var<sub>mask</sub>[C]/K, to be subtracted like shot noise; and a reset compiled to measure-plus-X, whose noise is θ-independent only if the measurement is (run the rotation-survival identity at p &gt; 0).</p>
+<p><strong>A PRX Quantum referee accepts</strong> α(p) monotone in log(1/c(p)) across three p, k = L variance flat in n, truncation RMS falling as c<sup>ℓ/2</sup>, all pre-registered against the theorist's curve. <strong>Rejects</strong> one n, a k-profile only, residuals framed as hardness, or "a density-matrix simulation reproduces our curves".</p>
+
+<h2><span class="n">3</span>Paper 1</h2>
+<p>The Gate 1 reviewer is right: L‖t‖ ≈ 0.02 and a floor of 3×10⁻¹² make H3 untestable at native noise. Drop it; keep the k-sweep as an H2 check. Of the rest, H1 is a simulation claim, H2 is expected (Wang et al. <span class="id">2007.14384</span>; Mele Prop. 10), H4 is bookkeeping, though unreported at 100 qubits. I would sign it as a pre-registered hardware characterisation, QST or PRA class.</p>
+<p><strong>The single addition:</strong> the dial's <em>n</em>-ladder at L = 8 for p ∈ {0, 0.25}, same day, same patches. One figure: unital variance falling toward the floor with <em>n</em> beside the non-unital k = L curve flat in <em>n</em>, both against the second-moment prediction. That turns a decay catalogue into the hardware companion to Mele et al. Failing that, report ε<sub>N</sub> and the count of resolvable parameters per point.</p>
+
+<h2><span class="n">4</span>The Nature question</h2>
+<p>No confirmation framing reaches referees at Nature Physics: the editor reads "hardware check of ref. 24", published there already. Nature Communications might send out "controllable non-unitality shows trainability and classical simulability rising together at 100 qubits" with a named theorist and a 100-qubit truncation figure: 20–30% to referees, 5% through, 1–2% overall. The only route up is a surprise, an α(p) or floor departing from second-moment theory and surviving noisy simulation; my first suspect would be the reset element. Design for a result you will defend, not for a journal.</p>
+
+<h2><span class="n">5</span>What the memos got wrong or missed</h2>
+<ul>
+<li>No <em>n</em> axis anywhere in Paper 2. A barren plateau is a statement about <em>n</em>.</li>
+<li>Theorem 8 used as a quantitative form for an ansatz that is not a 2-design; the redirect never says so.</li>
+<li>Both memos read a residual outside the CI as "reopening hardness": wrong direction of inference.</li>
+<li>Neither cites Gil-Fuster et al. or Anschuetz–Gao: trainable, non-dequantizable models exist by construction, hardness in a non-variational block.</li>
+<li>The killed memo's 2×W patches at n ≤ 12 concentrate toward 1/(2ⁿ+1) for every ansatz; they could never show a plateau or its absence. Mele et al.'s SI already has QAOA numerics, so "untested beyond 2-design" is inaccurate.</li>
+<li>Pattern noise is quoted as a floor, not subtracted; and the dial budget presupposes Paper 1's unconfirmed budget. Fold the dial into Paper 1.</li>
+</ul>
+<div class="flag"><strong>Overall.</strong> Run A as Paper 1's non-unital arm with the <em>n</em>-ladder and the truncation figure; give the theory to the five-line project; forget Nature; aim at PRX Quantum at an honest 20%, QST as the floor.</div>
+
+<h2><span class="n">·</span>Verified citations</h2>
+<div class="tbl"><table>
+<thead><tr><th>arXiv</th><th>Paper</th><th>Used for</th></tr></thead>
+<tbody>
+<tr><td class="id"><a href="https://arxiv.org/abs/2312.09121">2312.09121</a></td><td>Cerezo et al., Nat. Commun. 16, 7907 (2025)</td><td>Claims 1–2, quantum-enhanced qualifier, warm-start caveat, SI counterexamples</td></tr>
+<tr><td class="id"><a href="https://arxiv.org/abs/2409.01706">2409.01706</a></td><td>Angrisani et al., PRL 135, 170602 (2025)</td><td>Noiseless random circuits simulable on average</td></tr>
+<tr><td class="id"><a href="https://arxiv.org/abs/2501.13101">2501.13101</a></td><td>Angrisani et al., PRX Quantum 7, 020313 (2026)</td><td>Any local noise incl. γ ≤ 1; constant-rate dynamic ops; App. F</td></tr>
+<tr><td class="id"><a href="https://arxiv.org/abs/2403.13927">2403.13927</a></td><td>Mele et al., Nat. Phys. 22, 751 (2026)</td><td>Thm 1, Cor. 6, Thm 8, Cor. 9, Prop. 10</td></tr>
+<tr><td class="id"><a href="https://arxiv.org/abs/2606.23751">2606.23751</a></td><td>Shirgure, Kökcü, Niu (v2, Aug 2026)</td><td>Lemmas 1–3; purification argument</td></tr>
+<tr><td class="id"><a href="https://arxiv.org/abs/2411.05760">2411.05760</a></td><td>Deshpande et al. (v3, 2025)</td><td>BP-free DPQCs; own simulability note</td></tr>
+<tr><td class="id"><a href="https://arxiv.org/abs/2507.02043">2507.02043</a></td><td>Zapusek, Rojkov, Reiter (2025)</td><td>Reset within O(log n) layers</td></tr>
+<tr><td class="id"><a href="https://arxiv.org/abs/2309.09342">2309.09342</a></td><td>Ragone et al., Nat. Commun. 15, 7172 (2024)</td><td>Lie-algebraic exact variance</td></tr>
+<tr><td class="id"><a href="https://arxiv.org/abs/2308.01432">2308.01432</a></td><td>Goh et al., Phys. Rev. Research 7, 033266 (2025)</td><td>g-sim efficient for polynomial algebras</td></tr>
+<tr><td class="id"><a href="https://arxiv.org/abs/2404.10044">2404.10044</a></td><td>Puig et al., PRX Quantum 6, 010317 (2025)</td><td>Warm-start gradient guarantees</td></tr>
+<tr><td class="id"><a href="https://arxiv.org/abs/2411.19896">2411.19896</a></td><td>Lerch et al., PRX Quantum 7, 020359 (2026)</td><td>Patch surrogates</td></tr>
+<tr><td class="id"><a href="https://arxiv.org/abs/2408.12739">2408.12739</a></td><td>Bermejo et al., PRX Quantum 7, 020304 (2026)</td><td>QCNNs effectively simulable</td></tr>
+<tr><td class="id"><a href="https://arxiv.org/abs/2406.07072">2406.07072</a></td><td>Gil-Fuster et al., ICLR 2025</td><td>Trainable and non-dequantizable recipes</td></tr>
+<tr><td class="id"><a href="https://arxiv.org/abs/2402.08606">2402.08606</a></td><td>Anschuetz, Gao, Quantum 10, 1976 (2026)</td><td>Polynomial separations, trainable QNNs</td></tr>
+<tr><td class="id"><a href="https://arxiv.org/abs/2402.08721">2402.08721</a></td><td>Singkanipa, Lidar, Quantum 9, 1617 (2025)</td><td>Non-unital NIBP; noisy parameter shift</td></tr>
+<tr><td class="id"><a href="https://arxiv.org/abs/2007.14384">2007.14384</a></td><td>Wang et al., Nat. Commun. 12, 6961 (2021)</td><td>Noise-induced barren plateaus</td></tr>
+<tr><td class="id"><a href="https://arxiv.org/abs/2001.00550">2001.00550</a></td><td>Cerezo et al., Nat. Commun. 12, 1791 (2021)</td><td>Local cost, log depth trainable</td></tr>
+</tbody></table></div>
+
+<p class="sig">Theorist collaborator (anonymity requested), 19 September 2026. Sources: both Paper 2 memos and reviews, Gate 1 review §(d), pre-registration v0.3, Mele et al. in Nature Physics, the arXiv pages listed. Odds are judgement.</p>
+</main>

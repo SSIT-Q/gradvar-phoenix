@@ -1,0 +1,124 @@
+<title>Phoenix Referee Brief</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Source+Sans+3:wght@400;600&display=swap">
+<style>
+:root{
+  --bg:#f6f7f5; --ink:#1b2128; --muted:#5b6670; --rule:#d5dbd7; --panel:#eceeea;
+  --accent:#1e6b74; --accent-ink:#ffffff; --num:#1e6b74;
+  --serif:"Newsreader",Georgia,"Times New Roman",serif;
+  --sans:"Source Sans 3","Segoe UI",Helvetica,Arial,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#14181b; --ink:#e4e8e6; --muted:#98a3aa; --rule:#2b3237; --panel:#1c2226;
+    --accent:#63b5bd; --accent-ink:#0f1a1c; --num:#63b5bd;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#14181b; --ink:#e4e8e6; --muted:#98a3aa; --rule:#2b3237; --panel:#1c2226;
+  --accent:#63b5bd; --accent-ink:#0f1a1c; --num:#63b5bd;
+}
+body{background:var(--bg);color:var(--ink);font-family:var(--serif);font-size:17px;line-height:1.5;margin:0;padding-block:40px 64px;padding-inline:16px}
+.wrap{max-width:72ch;margin:0 auto}
+.eyebrow{font-family:var(--sans);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 10px}
+h1{font-weight:500;font-size:clamp(28px,5vw,38px);line-height:1.12;margin:0 0 10px;text-wrap:balance;letter-spacing:-.01em}
+.lede{font-size:19px;color:var(--muted);margin:0 0 26px;font-style:italic}
+.meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);margin:0 0 34px;font-family:var(--sans)}
+.meta div{padding:12px 14px 12px 0;border-right:1px solid var(--rule)}
+.meta div:last-child{border-right:0}
+.meta div+div{padding-left:14px}
+.meta dt{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 3px}
+.meta dd{margin:0;font-size:15px;font-weight:600}
+@media (max-width:520px){.meta{grid-template-columns:1fr 1fr}.meta div:nth-child(2n){border-right:0}.meta div:nth-child(n+3){border-top:1px solid var(--rule)}.meta div:nth-child(2n+1){padding-left:0}.meta div:nth-child(2n){padding-left:14px}}
+h2{font-family:var(--sans);font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);font-weight:600;margin:36px 0 12px;padding-top:14px;border-top:1px solid var(--rule)}
+h2:first-of-type{margin-top:0}
+p{margin:0 0 12px}
+p b{font-weight:600}
+.papers{display:grid;gap:12px;margin:0 0 6px}
+.paper{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:baseline}
+.tag{font-family:var(--sans);font-size:12px;font-weight:600;letter-spacing:.04em;color:var(--accent);white-space:nowrap;padding-top:3px}
+.paper p{margin:0}
+table{border-collapse:collapse;width:100%;font-size:15.5px;margin:0 0 8px}
+td{padding:7px 0;vertical-align:top;border-bottom:1px solid var(--rule)}
+td:first-child{font-family:var(--sans);font-weight:600;font-size:14px;padding-right:16px;white-space:nowrap;width:1%}
+tr:last-child td{border-bottom:0}
+.checked{background:var(--panel);padding:12px 16px;font-size:15.5px;margin:12px 0 0;border-radius:2px}
+.checked p{margin:0}
+ol.q{list-style:none;counter-reset:q;padding:0;margin:0}
+ol.q li{counter-increment:q;display:grid;grid-template-columns:2.2em 1fr;gap:6px 0;padding:12px 0;border-bottom:1px solid var(--rule)}
+ol.q li:last-child{border-bottom:0}
+ol.q li::before{content:"Q" counter(q);font-family:var(--sans);font-weight:600;color:var(--num);font-size:14px;padding-top:4px;font-variant-numeric:tabular-nums}
+ol.q li b{font-weight:600;display:block;margin-bottom:2px}
+ol.q li p{margin:0;font-size:16px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+@media (max-width:600px){.two{grid-template-columns:1fr}}
+.two p{font-size:16px}
+.links{font-family:var(--sans);font-size:14px;line-height:1.7;margin-top:8px}
+.links a{color:var(--accent);text-decoration:none;border-bottom:1px solid var(--rule)}
+.links a:hover,.links a:focus-visible{border-bottom-color:var(--accent);outline:none}
+a{color:var(--accent)}
+a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.88em;background:var(--panel);padding:1px 4px;border-radius:2px}
+.small{font-size:14px;color:var(--muted);font-family:var(--sans);margin-top:28px}
+</style>
+
+<div class="wrap">
+<p class="eyebrow">gradvar-phoenix · internal referee · before Gate 2</p>
+<h1>Referee brief for the college theorist</h1>
+<p class="lede">What to read and what to attack this week, before any ibm_phoenix minute is booked.</p>
+
+<dl class="meta">
+  <div><dt>Device</dt><dd>ibm_phoenix, Nighthawk r2</dd></div>
+  <div><dt>Hardware window</dt><dd>11–25 October 2026</dd></div>
+  <div><dt>Minutes spent</dt><dd>None</dd></div>
+  <div><dt>Your reply</dt><dd>This week</dd></div>
+</dl>
+
+<h2>The programme</h2>
+<div class="papers">
+  <div class="paper"><span class="tag">Paper 1</span><p>Variance of one parameter-shift gradient of Z<sub>i</sub>Z<sub>j</sub> for a Ry/CZ ansatz on 20–87 qubits at depth 1–12: does unital gate noise or a controlled non-unital reset dial (Section 3b) predict the depth and layer-index dependence? Every prediction is drawn before data.</p></div>
+  <div class="paper"><span class="tag">Paper 2</span><p>First independent characterisation of Nighthawk r2's native reset: per-qubit error, spectator backaction, crosstalk, and whether pooled random-mask resets realise the channel N<sub>p</sub> that Paper 1's dial assumes.</p></div>
+</div>
+
+<h2>What we ask you to read</h2>
+<table>
+  <tr><td>Paper 1</td><td>Sections 1–3b and 6; Deviations 16–30.</td></tr>
+  <tr><td>Gate 1 report</td><td>Sections 1, 5, 7 and 10; tables 6 and 8 for numbers.</td></tr>
+  <tr><td>Paper 2</td><td>Sections 2–4. Q2 and Q3 are your first written task.</td></tr>
+  <tr><td>Repository</td><td><code>docs/PAULIPROP.md</code>, <code>gradvar/pauliprop.py</code>, <code>docs/GATE1_REPORT.md</code>.</td></tr>
+</table>
+<div class="checked"><p><b>Already checked by code review</b> (spot-check only): propagation against exact density-matrix points (46 of 48 rows inside the exact intervals), the Aer noise rules, the truncation lower bound, sampler unbiasedness, the criterion (a) repair, placements and cones. Notes are in the thread.</p></div>
+
+<h2>Ten questions we most want challenged</h2>
+<ol class="q">
+  <li><b>Is the second-moment Pauli-propagation derivation correct?</b><p>Cross terms are said to vanish under uniform θ because distinct paths differ in factor type (1, cos, sin) at some rotation; the derivative is a ½-weight mark at gate (k, q). Does the cancellation survive the derivative and the channels?</p></li>
+  <li><b>Is the noise model adequate for a 10% prediction at L = 8?</b><p>Depolarising from per-edge CZ and 1Q errors, T1/T2 per CZ sub-layer, readout confusion, the dial N<sub>p</sub> = p·Reset + (1−p)·Idle(400 ns), and the per-edge ZZ idle phase now being added (worth 10–20% on the p = 0 reference). What is missing at that level?</p></li>
+  <li><b>Is the Gate 1b clause (b) history defensible?</b><p>The unital-reference clause was rewritten three times before any datum (Deviations 28→30), each time because prediction showed the previous wording unresolvable. Is the frozen criterion, the L = 8→12 fall of the delay-matched p = 0 series judged per rung with 2 of 3 passing, the right one?</p></li>
+  <li><b>Does the light-cone argument survive broken couplers?</b><p>Couplers with CZ error ≥ 5e-3 are absent edges; the 39- and 87-qubit patches carry 5 and 7, so the predicted p = 0 series is non-monotone in n. Does n-independence at L ≤ 4 hold, and is a curve pre-drawn on the same broken geometry a test or a tautology?</p></li>
+  <li><b>Depth 12 and the criterion (d) allowance.</b><p>Every predicted L = 12 variance lies below the 4096-shot floor, and the 10× hardware-floor allowance sits above every L = 8 prediction. More shots, drop L = 12, or a different observable?</p></li>
+  <li><b>Does the reset dial realise the i.i.d. non-unital channel?</b><p>A fresh mask per layer and circuit, pooled over K = 256 masks, gives N<sub>p</sub> in the mean; the lottery's variance is subtracted as a pattern floor Var<sub>mask</sub>[C]/(2K). Is that right, and since Ry/CZ is not a local 2-design, what exactly do H5–H7 test?</p></li>
+  <li><b>Is Paper 2's backaction and ZZ design under-specified?</b><p>Q2: target-|0⟩ primary arm, ζ-corrected |1⟩ arm with the 375/400 coefficient. Q3: frame-tracked reset cycle benchmark. Is the ZZ model right when a working reset empties the target in about 25 ns, and does the twirl hold for a reset that erases the frame?</p></li>
+  <li><b>Is the layer-index ratio the discriminating statistic?</b><p>Is the noiseless-normalised ratio Var(k = L)/Var(k = 1) (Deviation 14) the cleanest separator of unital from non-unital noise at this shot cost?</p></li>
+  <li><b>Heavy tails and draw counts.</b><p>The k = L gradient kurtosis measured 14.2 against the 8.4 assumed; M = 350 keeps the 2× margin to κ ≈ 21. Any reason to expect heavier tails under noise or at larger n?</p></li>
+  <li><b>What would a PRX Quantum referee attack first?</b><p>If the data came out exactly as predicted: the simulability conclusion of Section 3b, the gap to the 2-design theorems, the pre-data amendments, or something we have not seen?</p></li>
+</ol>
+
+<h2>How to respond, and what changes on a yes</h2>
+<div class="two">
+  <div>
+    <p><b>Respond</b> in the Slack thread, or send a marked-up copy to Owais. Number points by question; mark each blocker, should-fix or note. Q1, Q2 and Q7 matter most.</p>
+  </div>
+  <div>
+    <p><b>On a yes</b>, each comment becomes a Deviation, recorded with your attribution and countersigned by the PI. You are credited as internal referee in both acknowledgements (anonymity honoured); co-authorship is a separate decision under options 2–4.</p>
+  </div>
+</div>
+
+<p class="links">
+  <a href="https://claude.ai/artifact/C2RMiQMPq5qonMAYNaEqex">Paper 1</a> ·
+  <a href="https://claude.ai/artifact/RCTX4qqws9xiZRxMZd22Xh">Paper 2</a> ·
+  <a href="https://claude.ai/artifact/1PRkEbpq7Hp987WTdtnM9Q">Gate 1 report</a> ·
+  <a href="https://claude.ai/artifact/GGfQevTfZafHCbpvPEUYzq">Tracker</a> ·
+  <a href="https://github.com/SSIT-Q/gradvar-phoenix">SSIT-Q/gradvar-phoenix</a>
+</p>
+
+<p class="small">SSIT Tumakuru · Mohammed Owais, Dr. Raviram V · 20 September 2026</p>
+</div>

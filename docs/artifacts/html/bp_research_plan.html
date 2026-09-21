@@ -1,0 +1,214 @@
+<title>Torino Barren-Plateau Plan</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#f4f6f7; --surface:#ffffff; --ink:#18232c; --muted:#5a6873; --rule:#d6dde2;
+  --accent:#1d5b7a; --accent-soft:#e3eef4; --gate:#8a5a00; --gate-soft:#f6ecd6;
+  --warn:#7a2e2e; --warn-soft:#f6e4e4; --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#12181d; --surface:#1a2229; --ink:#e6ebef; --muted:#9aa8b2; --rule:#2e3a43;
+    --accent:#7db8d6; --accent-soft:#1c2f3a; --gate:#e0b25c; --gate-soft:#33290f;
+    --warn:#e39a9a; --warn-soft:#3a2020;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#12181d; --surface:#1a2229; --ink:#e6ebef; --muted:#9aa8b2; --rule:#2e3a43;
+  --accent:#7db8d6; --accent-soft:#1c2f3a; --gate:#e0b25c; --gate-soft:#33290f;
+  --warn:#e39a9a; --warn-soft:#3a2020;
+}
+body{background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:16px;line-height:1.55;padding-block:32px 56px;padding-inline:16px;}
+main{max-width:760px;margin:0 auto;}
+h1,h2,h3{font-family:"Source Serif 4",Georgia,"Times New Roman",serif;text-wrap:balance;line-height:1.2;margin:0;}
+h1{font-size:clamp(1.6rem,4.5vw,2.25rem);font-weight:700;}
+h2{font-size:1.3rem;font-weight:600;margin-block:44px 12px;padding-top:14px;border-top:1px solid var(--rule);}
+h3{font-size:1.05rem;font-weight:600;margin-block:20px 6px;}
+p{margin-block:0 12px;max-width:68ch;}
+.sub{color:var(--muted);margin-block:8px 0;font-size:.95rem;}
+.eyebrow{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:10px;}
+ul,ol{padding-left:1.25rem;margin-block:0 12px;max-width:70ch;}
+li{margin-bottom:6px;}
+.box{background:var(--surface);border:1px solid var(--rule);border-left:4px solid var(--accent);padding:16px 18px;margin-block:24px 0;}
+.box ul{margin:0;}
+.box li{margin-bottom:8px;}
+.box b{color:var(--accent);font-weight:600;}
+.gatebox{border-left-color:var(--gate);}
+.tablewrap{overflow-x:auto;margin-block:12px 16px;-webkit-overflow-scrolling:touch;}
+table{border-collapse:collapse;width:100%;min-width:560px;font-size:.92rem;background:var(--surface);}
+th,td{text-align:left;vertical-align:top;padding:9px 10px;border-bottom:1px solid var(--rule);}
+th{font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;background:var(--accent-soft);}
+td.k{font-weight:600;white-space:nowrap;}
+td.num{font-variant-numeric:tabular-nums;white-space:nowrap;}
+.tag{display:inline-block;font-size:.72rem;font-weight:600;letter-spacing:.04em;padding:2px 7px;border-radius:3px;white-space:nowrap;}
+.tag.low{background:var(--warn-soft);color:var(--warn);}
+.tag.mod{background:var(--gate-soft);color:var(--gate);}
+.tag.unk{background:var(--accent-soft);color:var(--accent);}
+.gate{color:var(--gate);font-weight:600;}
+code{font-family:var(--mono);font-size:.88em;background:var(--accent-soft);padding:1px 5px;border-radius:3px;}
+.tl{overflow-x:auto;margin-block:8px 20px;}
+.tl svg{display:block;min-width:600px;width:100%;height:auto;}
+.tl .lab{font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:11px;fill:var(--ink);}
+.tl .tick{font-family:var(--mono);font-size:10px;fill:var(--muted);}
+.tl .bar{fill:var(--accent);}
+.tl .bar.owais{fill:var(--muted);}
+.tl .grid{stroke:var(--rule);stroke-width:1;}
+.tl .gline{stroke:var(--gate);stroke-width:2;stroke-dasharray:3 3;}
+.tl .glab{font-family:var(--mono);font-size:10px;fill:var(--gate);font-weight:500;}
+.small{font-size:.9rem;color:var(--muted);}
+footer{margin-top:48px;padding-top:14px;border-top:1px solid var(--rule);font-size:.85rem;color:var(--muted);}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+</style>
+<main>
+<div class="eyebrow">Research plan, draft for discussion</div>
+<h1>From literature to a hardware paper: plan for the ibm_torino barren-plateau allocation</h1>
+<p class="sub">Prepared 19 September 2026 for Mohammed Owais and Dr. Raviram V, QARC, SSIT</p>
+
+<div class="box">
+<ul>
+<li><b>Goal.</b> An arXiv preprint by about 15 November 2026, fit for a Q1 quantum journal (section 7), built on a real result from the 360 QPU minutes on ibm_torino.</li>
+<li><b>Method.</b> A literature sweep by parallel research agents in one pass, then a gap map, then one question chosen with the PI, then a simulation gate before any hardware minute is spent.</li>
+<li><b>Two hard gates.</b> (1) The effect appears in simulation with confidence intervals and the analytic baseline is recovered. (2) Hardware results sit above a measured noise floor. Failing either gate stops the hardware spend.</li>
+<li><b>Breakthrough.</b> Section 3 says what would count and gives honest odds. The likely outcome is a rigorous measurement paper, not a theory result.</li>
+<li><b>Open now.</b> Owais must settle the allocation expiry date, a physics co-author, and confirm the API key is rotated.</li>
+</ul>
+</div>
+
+<h2>1. Why the earlier preliminary results cannot be used</h2>
+<p>These are the facts as they stand in the earlier notebook and figures. They are listed so the protocol in section 6 can prevent each one.</p>
+<ul>
+<li>The speckle rotations were appended after the entangling layer, immediately before a Z measurement. <code>rz</code> commutes with Z, and the <code>rx</code> angle had no strength factor, so the strength parameter could not change the measured quantity.</li>
+<li>The baseline circuit (one Ry layer, a linear CX chain, Z on the last qubit) has gradient variance exactly 2<sup>-n</sup>. This is a textbook shallow-circuit result, not a finding.</li>
+<li>Three parameter samples per point. A variance estimate from three samples varies by about 60 times by chance alone.</li>
+<li>All 64-qubit values (1.7e-5 to 3.1e-4) lie within the shot-noise floor of EstimatorV2 defaults, about 1e-4.</li>
+<li>No error bars, and no backend, shot count or job IDs recorded. Fig 2 and Fig 4 disagreed by 5 to 8 times on identical points.</li>
+</ul>
+
+<h2>2. What would count as a breakthrough, and honest odds</h2>
+<p>Three candidate directions. The sweep in section 4 keeps all three in view; the choice is made with the PI after the gap map exists.</p>
+<div class="tablewrap">
+<table>
+<thead><tr><th>Direction</th><th>What it would show</th><th>Why it is hard</th><th>Odds of a Q1-grade result</th><th>Minutes</th></tr></thead>
+<tbody>
+<tr><td class="k">A. Trainable and not classically simulable</td><td>A mitigation that keeps gradients non-vanishing at 100+ qubits and is argued not to be classically simulable.</td><td>The open problem of the field. Work from 2023 to 2024 showing provable absence of barren plateaus tends to imply classical simulability. The best theorists are stuck here.</td><td><span class="tag low">Low</span></td><td class="num">Most of the allocation, only if simulation supports it</td></tr>
+<tr><td class="k">B. Noise-induced concentration on Heron</td><td>The first systematic hardware measurement of noise-induced gradient concentration on a 100+ qubit Heron processor, as a function of depth, qubit count and error-mitigation level, tested against noise-induced barren plateau theory.</td><td>Needs large sample counts, a measured noise floor and careful metering. Rigorous rather than novel in concept.</td><td><span class="tag mod">Moderate</span><br><span class="small">Credible for Quantum Science and Technology or Quantum, possibly npj Quantum Information</span></td><td class="num">200 to 250</td></tr>
+<tr><td class="k">C. Disorder-interleaved ansatze</td><td>The original localisation idea done properly: disorder layers between entangling layers, depth of order n. Simulation first, for whether gradient-variance scaling changes; if it does, hardware measurement and a simulability analysis.</td><td>Nobody knows yet whether it has been tried. If the sweep finds it explored and negative, it is dead.</td><td><span class="tag unk">Unknown until the sweep</span><br><span class="small">If unexplored and positive in simulation, the most interesting of the three</span></td><td class="num">100 to 150</td></tr>
+</tbody>
+</table>
+</div>
+<p><strong>Recommendation.</strong> Run the sweep with all three in view. Expect the final choice to be B, or C if the gap map shows it is open and simulation is positive. Choose A only if the literature reveals a specific unexploited opening.</p>
+
+<h2>3. Literature sweep design</h2>
+<p>Seven research agents run in parallel, one per bucket. Each produces structured records with these fields: title, arXiv id or DOI, year, venue, main claim, method, largest system size, sample counts and shot budgets, hardware used, relevance to our question, stated limitations, and one quotable sentence.</p>
+<p>One synthesis agent then builds the gap map and a ranked list of candidate questions. Before anything is shown to the PI, Claude verifies the top citations by reading the papers directly.</p>
+<p><strong>Sources.</strong> arXiv quant-ph is primary; nearly all of this literature is open access there. Semantic Scholar and Google Scholar supply citation chains. Publisher sites, via ONOS (One Nation One Subscription) where needed, are used only for the final published versions of a few APS papers.</p>
+<p><strong>Credentials.</strong> Claude does not need, and should not be given, Owais's ONOS login or any other login. If a specific paywalled PDF is needed, Owais downloads it and uploads it to the thread.</p>
+
+<h3>The seven buckets</h3>
+<p class="small">Anchor works are starting points to verify in the sweep, not confirmed citations.</p>
+<div class="tablewrap">
+<table>
+<thead><tr><th>Bucket</th><th>What it covers</th><th>Anchor works to verify</th><th>Question it must answer for us</th></tr></thead>
+<tbody>
+<tr><td class="k">A. Theory</td><td>Unified Lie-algebraic theory of gradient concentration; cost-function locality; expressibility.</td><td>Ragone et al. 2024; Fontana et al. 2024; the 2025 Nature Reviews Physics review; Cerezo et al. 2021; Holmes et al. 2022</td><td>What does theory predict for the exact ansatz families we might run?</td></tr>
+<tr><td class="k">B. Noise-induced barren plateaus</td><td>What error mitigation can and cannot restore; scaling with depth and gate error.</td><td>Wang et al. 2021 and follow-ups</td><td>What should gradient variance look like on Heron-class hardware at 50 to 133 qubits, and has anyone measured it?</td></tr>
+<tr><td class="k">C. Simulability trade-off</td><td>Pauli-propagation and classical-surrogate papers 2024 to 2026; any counterexamples.</td><td>Cerezo et al. 2023, "Does provable absence of barren plateaus imply classical simulability?"</td><td>Which trainable regimes are still argued to be classically hard?</td></tr>
+<tr><td class="k">D. Mitigation strategies</td><td>Initialisation and warm starts, layerwise training, local cost functions, parameter correlation, symmetry and equivariant ansatze, tensor-network pretraining, 2025 to 2026 proposals.</td><td>To be found in the sweep</td><td>Which have hardware evidence at scale, and which have none?</td></tr>
+<tr><td class="k">E. Disorder and localisation</td><td>Many-body-localised random circuits, area-law regimes, entanglement-induced barren plateaus, disorder strength versus gradient variance.</td><td>Ortiz Marrero et al. 2021</td><td>Has the disorder-to-trainability idea been tested, and with what outcome?</td></tr>
+<tr><td class="k">F. Hardware-scale experiments</td><td>IBM utility-scale experiments; 100+ qubit variational or QML runs; reported QPU time; mitigation used (TREX, ZNE, PEA); sample sizes.</td><td>Kim et al. 2023 and later</td><td>What does a credible 100+ qubit gradient measurement look like, and what did it cost?</td></tr>
+<tr><td class="k">G. Methods and statistics</td><td>How gradient variance is estimated (parameter draws, shots); parameter-shift versus finite differences; bootstrap intervals; reporting standards.</td><td>To be found in the sweep</td><td>What sample sizes and reporting will a referee expect?</td></tr>
+</tbody>
+</table>
+</div>
+<p><strong>Window and volume.</strong> 2021 to September 2026, weighted to 2024 to 2026. Target 8 to 15 papers per bucket, about 60 to 80 in total after deduplication.</p>
+<p><strong>Deliverables.</strong> A records file; seven bucket summaries; a gap map (mitigation idea against evidence type: theory, simulation, hardware at 50+ qubits); ranked candidate questions, each with kill criteria; a two-page decision memo for the PI.</p>
+
+<h2>4. Timeline</h2>
+<div class="tl">
+<svg viewBox="0 0 720 196" role="img" aria-label="Timeline from 19 September to 15 November 2026 with two gates on 5 October and 25 October">
+  <line class="grid" x1="130" y1="14" x2="130" y2="170"/>
+  <line class="grid" x1="250" y1="14" x2="250" y2="170"/>
+  <line class="grid" x1="560" y1="14" x2="560" y2="170"/>
+  <line class="grid" x1="700" y1="14" x2="700" y2="170"/>
+  <text class="tick" x="130" y="184">19 Sep</text>
+  <text class="tick" x="250" y="184" text-anchor="middle">1 Oct</text>
+  <text class="tick" x="560" y="184" text-anchor="middle">1 Nov</text>
+  <text class="tick" x="700" y="184" text-anchor="end">15 Nov</text>
+
+  <text class="lab" x="0" y="30">Sweep and synthesis</text>
+  <rect class="bar" x="140" y="20" width="30" height="14"/>
+  <text class="lab" x="0" y="54">Question chosen</text>
+  <rect class="bar owais" x="160" y="44" width="30" height="14"/>
+  <text class="lab" x="0" y="78">Pre-reg and simulation</text>
+  <rect class="bar owais" x="190" y="68" width="100" height="14"/>
+  <text class="lab" x="0" y="102">Free-plan dry run</text>
+  <rect class="bar owais" x="300" y="92" width="40" height="14"/>
+  <text class="lab" x="0" y="126">Hardware runs</text>
+  <rect class="bar owais" x="350" y="116" width="140" height="14"/>
+  <text class="lab" x="0" y="150">Analysis and arXiv</text>
+  <rect class="bar owais" x="500" y="140" width="200" height="14"/>
+
+  <line class="gline" x1="290" y1="8" x2="290" y2="170"/>
+  <text class="glab" x="294" y="12">Gate 1, 5 Oct</text>
+  <line class="gline" x1="490" y1="8" x2="490" y2="170"/>
+  <text class="glab" x="494" y="12">Gate 2, 25 Oct</text>
+</svg>
+</div>
+<p class="small">Blue: Claude. Grey: Owais and the PI, with Claude in support. Dashed lines are the two gates.</p>
+<div class="tablewrap">
+<table>
+<thead><tr><th>Dates</th><th>Step</th><th>Owner</th><th>Output or gate</th></tr></thead>
+<tbody>
+<tr><td class="num">19 Sep</td><td>Decisions: allocation expiry, co-author, key rotated. Repository created with this plan.</td><td>Owais</td><td>Repository with PLAN.md</td></tr>
+<tr><td class="num">20 to 21 Sep</td><td>Literature sweep in one pass; synthesis.</td><td>Claude</td><td>Records file, bucket summaries, gap map</td></tr>
+<tr><td class="num">22 Sep</td><td>Verification of top citations.</td><td>Claude</td><td>Decision memo posted</td></tr>
+<tr><td class="num">22 to 25 Sep</td><td>PI and co-author choose the question.</td><td>Owais, Dr. Raviram</td><td>One question, one kill criterion</td></tr>
+<tr><td class="num">25 Sep to 5 Oct</td><td>Pre-registration document (two pages: hypothesis, ansatz, observable, qubit ladder, sample counts, noise-floor protocol, analysis code, success and failure criteria). Simulation study: statevector to about 20 to 24 qubits, MPS or Pauli propagation beyond. MSR application due 5 Oct in parallel.</td><td>Owais with Claude</td><td class="gate">Gate 1</td></tr>
+<tr><td class="num">6 to 10 Oct</td><td>End-to-end dry run on the free plan on a 100+ qubit device at small n. Noise-floor protocol tested.</td><td>Owais</td><td>Working pipeline, logged CSVs</td></tr>
+<tr><td class="num">11 to 25 Oct</td><td>Hardware runs on the allocation (subject to expiry date).</td><td>Owais</td><td class="gate">Gate 2</td></tr>
+<tr><td class="num">26 Oct to 15 Nov</td><td>Analysis, figures, draft, code and data release with a Zenodo DOI, arXiv submission (quant-ph endorsement arranged in advance).</td><td>Owais, Dr. Raviram, co-author; Claude drafting support</td><td>arXiv preprint</td></tr>
+<tr><td class="num">1 Nov</td><td>Max Planck CIS application cites "manuscript in preparation" plus the repository.</td><td>Owais</td><td>Application submitted</td></tr>
+<tr><td class="num">After arXiv</td><td>Submit to the chosen journal.</td><td>Dr. Raviram, Owais</td><td>Submission</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>5. Hardware protocol</h2>
+<p>These rules fix the problems in section 1. They are not negotiable once the allocation clock starts.</p>
+<ul>
+<li>Nothing runs on the allocation that has not run end to end on the simulator and on the free plan.</li>
+<li>At least 100 parameter draws per point, 200 for headline points. Bootstrap confidence intervals. Error bars on every figure.</li>
+<li>The noise floor is measured explicitly on hardware at a point where the ideal gradient is provably zero, and drawn on every plot. Nothing below it is claimed.</li>
+<li>Minute budget: about 60 percent main sweep, 25 percent independent repeat, 15 percent reserve for a referee's request. Batch mode so queue time is not charged; confirm metering with IBM first.</li>
+<li>Every CSV row logs backend name, job id, timestamp, shots, resilience level, seed, transpiled depth and two-qubit gate count.</li>
+<li>Observable indexing checked deliberately. Qiskit Pauli strings are little-endian.</li>
+<li>API key from an environment variable. Never in source, PDFs or Slack.</li>
+</ul>
+
+<h2>6. Target journals</h2>
+<div class="tablewrap">
+<table>
+<thead><tr><th>Journal</th><th>Why it fits</th><th>Open access</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td class="k">Quantum Science and Technology</td><td>IOP; experimental and methods papers; Q1.</td><td>Hybrid</td><td>Natural home for Direction B.</td></tr>
+<tr><td class="k">Quantum</td><td>Rigorous, well regarded, community run.</td><td>Yes</td><td>Charges a modest fee that can be waived.</td></tr>
+<tr><td class="k">npj Quantum Information</td><td>Nature portfolio; high bar.</td><td>Yes</td><td>Needs a clear headline result.</td></tr>
+<tr><td class="k">PRX Quantum</td><td>Top of the field.</td><td>Yes</td><td>Only for Direction A or a very strong B.</td></tr>
+<tr><td class="k">Physical Review A, Physical Review Research</td><td>Solid fallbacks.</td><td>Hybrid / Yes</td><td>If the above decline.</td></tr>
+</tbody>
+</table>
+</div>
+<p class="small">All journal decisions take months. The arXiv preprint is what the fellowship applications will cite.</p>
+
+<h2>7. What Owais does this week</h2>
+<ol>
+<li>Rotate the IBM Quantum API key, if not already done.</li>
+<li>Report the allocation expiry date.</li>
+<li>Propose a physics co-author (QIntern mentor Mohit Sajwan, or a faculty physicist) and confirm Dr. Raviram as PI and arXiv endorser.</li>
+<li>Create a GitHub repository for the project with this plan as <code>PLAN.md</code>.</li>
+<li>Reply in Slack with "go" so the sweep starts.</li>
+<li>Keep the MSR application on track for 5 October.</li>
+</ol>
+
+<footer>Prepared by Claude in the #mitacs channel, 19 September 2026. Claims about specific papers will be verified in the sweep before any are relied on.</footer>
+</main>
