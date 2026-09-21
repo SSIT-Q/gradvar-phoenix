@@ -214,13 +214,14 @@ def predict_variance(template: QuantumCircuit, index: int, M: int, runner: Expva
 def hea_point(patch: Patch, L: int, k: int, model: str, M: int, csv_path: str, n_traj: int = 32, seed: int = 2026,
               dm_max: int = 10, sv_max: int = 24, mps_rows: int = 4, mps_max: int = 40, n_boot: int = 10_000,
               mps_bond: int | None = None, mps_max_L: int = 4, traj_max: int | None = None,
-              max_exact_L: int | None = None) -> PointResult:
-    """One (n, L, k) point under one model on the light cone of the interior edge. k is 1-based.
+              max_exact_L: int | None = None, edge: tuple | None = None) -> PointResult:
+    """One (n, L, k) point under one model on the light cone of the interior edge (or of ``edge``, a physical (i, j) coupler
+    of the patch, when given: the run-day cone-graph-rule edge of Deviations 36 / 46). k is 1-based.
     The parameter draws depend only on (seed, cone size, L), so the three models and both k share theta."""
     if not 1 <= k <= L:
         raise ValueError(f"k must be in 1..L, got k={k}, L={L}")
     n = patch.n
-    _, edge = hea_observable(patch)
+    _, edge = hea_observable(patch, tuple(edge) if edge is not None else None)
     cone = snake_order(light_cone(patch, L, edge))
     if L == 1 and model != "noiseless":
         # the last layer's CZs commute with Z_i Z_j, but their noise channels do not: simulate the edge plus its patch

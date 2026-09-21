@@ -202,3 +202,14 @@ def test_checkpoint_round_trip_and_partition_on_toy_jobs(tmp_path):
     assert R.checkpoint_key("exact", ejobs[0]) != R.checkpoint_key("exact", dict(ejobs[0], k=4))
     assert R.checkpoint_key("pp", dict(mjobs[0], stamp="2026-09-20T030813Z")) != R.checkpoint_key("pp", mjobs[0])
     assert R.checkpoint_key("exact", ejobs[0]).split("|")[0] == "exact" and R.checkpoint_key("pp", mjobs[0]).split("|")[0] == "pp"
+
+
+def test_exact_row_follows_the_run_day_edge_when_it_differs_from_interior_edge():
+    """``predict.hea_point(..., edge=)`` puts the observable on the given coupler (the L = 1 noiseless point is a 2-qubit statevector)."""
+    from gradvar import predict
+    csv = str(R.ROOT / "data" / "calibrations" / "ibm_phoenix_2026-09-20T175012Z.csv")
+    p = _toy()
+    r = predict.hea_point(p, 1, 1, "noiseless", 20, csv, n_traj=1, seed=2026, edge=(93, 103))
+    row = r.row()
+    assert row["edge"] == "93_103" and row["n_cone"] == 2 and np.isfinite(row["var"])
+    assert predict.hea_point(p, 1, 1, "noiseless", 20, csv, n_traj=1, seed=2026, edge=(94, 104)).row()["edge"] == "94_104"

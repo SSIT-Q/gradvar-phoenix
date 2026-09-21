@@ -4,10 +4,10 @@ Rungs ['n40']; 12 propagation rows (Deviation 34 layer model on the noisy rows, 
 
 | rung | n frozen -> redraw | L | k | model | method frozen -> redraw | var frozen | var redraw | rel. change | ZZ frozen / redraw | edge frozen -> redraw |
 |---|---|---|---|---|---|---|---|---|---|---|
-| 4x10 | - | 1 | 1 | noiseless | exact | - | - | - | - | skipped: interior_edge differs from the run-day edge |
-| 4x10 | - | 1 | 1 | nonunital | exact | - | - | - | - | skipped: interior_edge differs from the run-day edge |
-| 4x10 | - | 1 | 1 | unital | exact | - | - | - | - | skipped: interior_edge differs from the run-day edge |
-| 4x10 | - | 2 | 1 | noiseless | exact | - | - | - | - | skipped: interior_edge differs from the run-day edge |
+| 4x10 | 39 -> 37 | 1 | 1 | noiseless | statevector -> statevector | 2.421e-01 [2.029e-01, 2.796e-01] | 2.421e-01 [2.029e-01, 2.796e-01] | +0.0% | off / off | 94_95 -> 93_103 |
+| 4x10 | 39 -> 37 | 1 | 1 | nonunital | density_matrix -> density_matrix | 2.303e-01 [1.922e-01, 2.672e-01] | 2.279e-01 [1.902e-01, 2.644e-01] | -1.1% | off / off | 94_95 -> 93_103 |
+| 4x10 | 39 -> 37 | 1 | 1 | unital | density_matrix -> density_matrix | 2.299e-01 [1.917e-01, 2.667e-01] | 2.267e-01 [1.891e-01, 2.630e-01] | -1.4% | off / off | 94_95 -> 93_103 |
+| 4x10 | 39 -> 37 | 2 | 1 | noiseless | statevector -> statevector | 7.702e-02 [5.305e-02, 1.021e-01] | 1.024e-01 [8.062e-02, 1.248e-01] | +33.0% | off / off | 94_95 -> 93_103 |
 | 4x10 | 39 -> 37 | 2 | 1 | noiseless | pauli_propagation -> pauli_propagation | 7.811e-02 +/- 1.4e-04 | 7.808e-02 +/- 1.4e-04 | -0.0% | off / off | 94_95 -> 93_103 |
 | 4x10 | 39 -> 37 | 2 | 1 | nonunital | pauli_propagation -> pauli_propagation | 6.976e-02 +/- 1.3e-04 | 6.936e-02 +/- 1.3e-04 | -0.6% | off / on | 94_95 -> 93_103 |
 | 4x10 | 39 -> 37 | 2 | 1 | unital | pauli_propagation -> pauli_propagation | 6.931e-02 +/- 1.3e-04 | 6.854e-02 +/- 1.3e-04 | -1.1% | off / on | 94_95 -> 93_103 |

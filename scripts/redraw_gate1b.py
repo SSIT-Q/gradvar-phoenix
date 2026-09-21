@@ -533,20 +533,21 @@ def main_grid_plan(record: dict, runday: dict, rungs=None) -> list:
 
 def _run_exact_job(job: dict) -> dict:
     """One exactly simulated main-grid row on the run-day placement with the frozen ``gate1_ladder.py`` settings (seed 2026, M = 200, 32
-    trajectories, density matrix <= 10 qubits, statevector <= 24). ``predict.hea_point`` takes the observable from ``interior_edge``, which
-    is the run-day edge for every rung but the 4x10 (cone-graph rule); a mismatch is recorded, not simulated."""
+    trajectories, density matrix <= 10 qubits, statevector <= 24). The observable is the run-day edge (the cone-graph rule of Deviations
+    36 / 46, the edge the production job list measures); where that differs from ``interior_edge`` (the 4x10 rung) it is passed to
+    ``predict.hea_point`` as ``edge`` and the override is recorded in ``edge_override``."""
     from gradvar import predict
     from gradvar.circuits import hea_observable
     patch = rung_patch(job["rung"])
     _, e = hea_observable(patch)
-    if tuple(e) != rung_edge(job["rung"]):
-        return dict(stage="exact", patch=job["spec"], n=patch.n, L=job["L"], k=job["k"], model=job["model"], status="skipped: interior_edge differs from the run-day edge",
-                    edge=job["rung"]["edge"], rung=job["rung_name"], snapshot_stamp=job["stamp"])
+    edge = rung_edge(job["rung"])
     t0 = time.time()
-    r = predict.hea_point(patch, job["L"], job["k"], job["model"], EXACT_M, job["csv"], n_traj=EXACT_TRAJ, seed=EXACT_SEED, traj_max=24, max_exact_L=4, mps_max=0)
+    r = predict.hea_point(patch, job["L"], job["k"], job["model"], EXACT_M, job["csv"], n_traj=EXACT_TRAJ, seed=EXACT_SEED, traj_max=24, max_exact_L=4, mps_max=0,
+                          edge=edge)
     out = dict(r.row())
     out.update(stage="exact", status=("computed" if r.method != "not_implemented" else r.note), placement=job["placement_label"], snapshot_stamp=job["stamp"],
-               cone_key_sha=job["cone_sha"], rung=job["rung_name"], calibration=Path(job["csv"]).name, runtime_s=time.time() - t0, zz_layer="off", zz_idle="off")
+               cone_key_sha=job["cone_sha"], rung=job["rung_name"], calibration=Path(job["csv"]).name, runtime_s=time.time() - t0, zz_layer="off", zz_idle="off",
+               edge_override=(f"interior_edge {e[0]}_{e[1]} -> run-day edge {edge[0]}_{edge[1]}" if tuple(e) != tuple(edge) else ""))
     return out
 
 
