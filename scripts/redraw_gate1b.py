@@ -939,10 +939,10 @@ def main(argv=None) -> int:
                     print(f"  exact     {out['patch']:6} L={out['L']:2} k={out['k']} {out['model']:10}: var={out.get('var', float('nan')):.3e} [{out.get('ci_lo', float('nan')):.3e}, "
                           f"{out.get('ci_hi', float('nan')):.3e}] {out.get('method', '')} cone {out.get('n_cone', '')} {out['status']} ({out.get('runtime_s', 0):.0f}s)", flush=True)
     wall = time.time() - t0
-    core_s = sum(r["runtime_s"] + r.get("pattern_runtime_s", 0.0) for r in rows + mg_rows + mg_exact_rows)
+    core_s = sum(r.get("runtime_s", 0.0) + r.get("pattern_runtime_s", 0.0) for r in rows + mg_rows + mg_exact_rows)
     mg_res = dict(rungs=sorted(rungs) if rungs else "all", n_rows=len(mg_plan), n_pp_rows=len(mg_pp), n_exact_rows=len(mg_ex),
                   frozen_core_minutes=sum(m["frozen_runtime_s"] for m in mg_pp) / 60, plan=mg_plan, n_recomputed=len(mg_rows), n_exact_recomputed=len(mg_exact_rows),
-                  rows=mg_rows, exact_rows=mg_exact_rows, core_minutes=sum(r["runtime_s"] for r in mg_rows + mg_exact_rows) / 60,
+                  rows=mg_rows, exact_rows=mg_exact_rows, core_minutes=sum(r.get("runtime_s", 0.0) for r in mg_rows + mg_exact_rows) / 60,
                   comparison=(main_grid_comparison(mg_rows, mg_exact_rows) if (mg_rows or mg_exact_rows) else []))
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)

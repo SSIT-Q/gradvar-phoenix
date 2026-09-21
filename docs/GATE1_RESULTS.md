@@ -372,7 +372,17 @@ where the frozen rows are ZZ off); 44 core-minutes; outputs `data/predictions/ma
 below the 4096-shot floor and stays exploratory). The exact noiseless L = 4 k = 1 row moves 1.322e-2 -> 8.39e-3 (-37%) while its propagation value moves
 1.131e-2 -> 1.160e-2 (+2.6%): the exact M = 200 estimate has hi / lo = 2.3 at L = 4 (criterion (b) bound 2.5) and both draws bracket the propagated
 value, so this is draw noise, not a placement effect. The Gate 2 (a) comparison on day 1 uses the re-drawn rows (join on patch, edge 94_104, L, k).
-The remaining 39 propagation rows and 19 exact rows of the n = 40 / 60 / 80 / 100 rungs run detached after this commit and are committed when done.
+The remaining rows of the n = 40 / 60 / 80 / 100 rungs were re-drawn on the campaign day-2 placement (17:50Z snapshot), below; two detached runs on the
+03:08Z placement died with container restarts before writing anything.
+
+**Main-grid rows on the day-2 placement (snapshot 2026-09-20T175012Z, `--checkpoint` per-row resume, rung by rung).** Same command with
+`--snapshot data/calibrations/ibm_phoenix_2026-09-20T175012Z.csv --time-limit 2400 --rungs <rung>`; computed from the committed code (b5e948e / 4cf655d), the
+committed placement and the frozen seeds, with no day-2 run data read; outputs `data/predictions/main_grid_redraw_2026-09-20T1750_<rung>.json` / `.csv` / `.md`
+and the `.ckpt.jsonl` checkpoint. **n40** (4x10: frozen n = 39, edge 94_95 -> run-day n = 37, edge 93_103, 4 broken couplers): 12 propagation rows and 4 exact
+rows, 46 core-minutes; the four exact rows are skipped (`interior_edge` gives 94_104 on this patch, not the cone-graph-rule edge 93_103, so `predict.hea_point`
+cannot reproduce them there). Every propagated row falls: L = 2 k = 1 -0 to -1%, k = 2 -14 to -15%; L = 4 -24 to -34%; L = 8 -50 to -55%; L = 12 -59 to -67%
+(largest: unital k = 1, 2.188e-5 -> 7.226e-6; L = 12 rows are not converged, truncation deficit >= 10%, and stay exploratory). The two-qubit-smaller patch with the
+edge moved from the interior 94_95 to the 93_103 coupler sees a smaller cone at every depth; the day-2 post-run comparison joins on patch, edge 93_103, L, k.
 
 | rung | role | 19 Sep record: n, origin, edge, broken | 20 Sep 03:08Z reference: n, origin, edge | run-day: n, origin, holes, broken, edge (rule) | cone L2 | cone graph changed vs record (L = 1 / 2 / 4 / 8 / 12) | same as 20 Sep reference |
 |---|---|---|---|---|---|---|---|
