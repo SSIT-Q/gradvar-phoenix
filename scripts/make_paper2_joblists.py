@@ -5,7 +5,7 @@ data/joblists/dryrun/03_paper2_smoke.json) from a calibration snapshot, with bud
 
 Each list is regenerated on its own run day's newest committed calibration (Paper 1 Deviation 53 (b) by analogy; Paper 2 Deviation 8
 puts the smoke test on campaign day 2 and Q1-Q5 on days 4-5), so ``--lists`` writes a subset: the smoke list was placed on
-ibm_phoenix_2026-09-21T022722Z.csv (docs/preflight/07_paper2_smoke_2026-09-21.md), Q1-Q5 stay on the 20 Sep 03:08Z snapshot until
+ibm_phoenix_2026-09-21T030827Z.csv (docs/preflight/07_paper2_smoke_2026-09-21.md), Q1-Q5 stay on the 20 Sep 03:08Z snapshot until
 their pre-flight. tests/test_paper2_sampler.py holds every committed list to the generator's output on the snapshot it names.
 
 Every list is written with dry_run: true and the placeholder preflight_review; nothing here touches credentials.

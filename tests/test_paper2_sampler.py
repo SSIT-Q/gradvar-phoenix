@@ -17,10 +17,10 @@ ROOT = Path(__file__).resolve().parents[1]
 CAL = str(ROOT / "data" / "calibrations" / "ibm_phoenix_2026-09-20T030813Z.csv")
 SNAPSHOT = "ibm_phoenix_2026-09-20T030813Z.csv"
 READOUT_FLAGS = [24, 55, 62, 67, 73, 77, 107]          # above 3e-2 on the 20 Sep 03:08Z snapshot (49 fell below it, 67 rose above it)
-# The smoke list (Deviation 8: campaign day 2) is placed on the newest committed calibration of its pre-flight, the 21 Sep 02:05Z
-# calibration committed with the day-2 re-retrieval (docs/preflight/07_paper2_smoke_2026-09-21.md); Q1-Q5 stay on the 03:08Z snapshot
-# until their own pre-flight (days 4-5). Per list: snapshot, readout flags, Q4 edges, recorded backtracks.
-SMOKE_SNAPSHOT = "ibm_phoenix_2026-09-21T022722Z.csv"
+# The smoke list (Deviation 8: campaign day 2) is placed on the newest committed calibration of its pre-flight, the 21 Sep 03:08Z
+# snapshot (docs/preflight/07_paper2_smoke_2026-09-21.md; identical sets and edges to the 02:05Z calibration of the day-2 re-retrieval);
+# Q1-Q5 stay on the 20 Sep 03:08Z snapshot until their own pre-flight (days 4-5). Per list: snapshot, readout flags, Q4 edges, backtracks.
+SMOKE_SNAPSHOT = "ibm_phoenix_2026-09-21T030827Z.csv"
 SMOKE_READOUT_FLAGS = [24, 55, 62, 67, 77, 105, 107]   # 73 fell to 2.8e-2, 105 rose to 6.5e-2 (the day-2 post-run excursion)
 SMOKE_Q4_EDGES = [[5, 6], [12, 13], [25, 26], [31, 32], [46, 47], [50, 51], [68, 69], [75, 76], [81, 82], [94, 95], [100, 101], [115, 116]]
 SMOKE_Q4_EXCLUDED = [7, 8, 11, 17, 18, 24, 27, 49, 55, 59, 61, 62, 63, 67, 72, 73, 77, 79, 105, 107, 110, 114]   # incl. the Deviation 53 coherence floor
