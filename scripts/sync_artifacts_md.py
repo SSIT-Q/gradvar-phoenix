@@ -69,7 +69,7 @@ REGISTRY: list[Entry] = [
         "Paper 1 pre-registration (gradient concentration on ibm_phoenix)",
         "https://claude.ai/artifact/C2RMiQMPq5qonMAYNaEqex",
         source="prereg/preregistration_q1.html",
-        page_version="42",
+        page_version="43",
         version_re=r"Status\s+(v\d+\.\d+\.\d+,\s*\d{1,2} \w+ \d{4})",
         note="Deviations table in Section 9; signatures in Section 10.",
     ),

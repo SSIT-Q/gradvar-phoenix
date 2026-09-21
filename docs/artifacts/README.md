@@ -8,7 +8,7 @@ Markdown copies of the programme's claude.ai artifacts, for readers without acce
 
 | Slug | Title | Version | Artifact URL | Markdown | HTML source | Last sync |
 |---|---|---|---|---|---|---|
-| `paper1_preregistration` | Paper 1 pre-registration (gradient concentration on ibm_phoenix) | v0.15.0, 21 Sep 2026 (artifact page Version 42) | https://claude.ai/artifact/C2RMiQMPq5qonMAYNaEqex | [paper1_preregistration.md](paper1_preregistration.md) | [html/paper1_preregistration.html](html/paper1_preregistration.html) | 2026-09-21 |
+| `paper1_preregistration` | Paper 1 pre-registration (gradient concentration on ibm_phoenix) | v0.15.1, 21 Sep 2026 (artifact page Version 43) | https://claude.ai/artifact/C2RMiQMPq5qonMAYNaEqex | [paper1_preregistration.md](paper1_preregistration.md) | [html/paper1_preregistration.html](html/paper1_preregistration.html) | 2026-09-21 |
 | `paper2_preregistration` | Paper 2 pre-registration (reset ansatz) | v0.6.0, 21 Sep 2026 (artifact page Version 15) | https://claude.ai/artifact/RCTX4qqws9xiZRxMZd22Xh | [paper2_preregistration.md](paper2_preregistration.md) | [html/paper2_preregistration.html](html/paper2_preregistration.html) | 2026-09-21 |
 | `programme_tracker` | Programme plan and tracker | version 24, last updated 21 September 2026, 10:30 IST (artifact page Version 24) | https://claude.ai/artifact/GGfQevTfZafHCbpvPEUYzq | [programme_tracker.md](programme_tracker.md) | [html/programme_tracker.html](html/programme_tracker.html) | 2026-09-21 |
 | `gate1_report` | Gate 1 report v2 and decision | Gate 1 report v2 and decision, 20 Sep 2026 (artifact page Version 4) | https://claude.ai/artifact/1PRkEbpq7Hp987WTdtnM9Q | [gate1_report.md](gate1_report.md) | [html/gate1_report.html](html/gate1_report.html) | 2026-09-21 |
