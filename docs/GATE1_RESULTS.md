@@ -389,6 +389,10 @@ edge moved from the interior 94_95 to the 93_103 coupler sees a smaller cone at 
 reference): 9 propagation rows and 6 exact rows, 59 core-minutes, 15.6 min wall. Exact L = 1 unchanged to +0.6%; exact L = 2 k = 1 -14 to -16% (the new cone has
 13 qubits); propagation L = 4 +2.4 to +6.8%; L = 8 +21 to +25% at k = 1 and +35 to +42% at k = L (placement plus the static ZZ); L = 12 +103 to +159%
 (largest: noiseless k = 12, 1.269e-5 -> 3.288e-5; not converged, truncation deficit >= 10%, exploratory). The day-2 comparison joins on patch, edge 43_44, L, k.
+**n80** (8x10: frozen n = 70, origin (4, 0), edge 84_85 -> run-day n = 69, origin (3, 0), edge 75_85, five broken couplers): 9 propagation rows and 6 exact rows,
+106 core-minutes, 28.2 min wall. Exact L = 1 +0.0% (noiseless) / +2.6% (noisy); exact L = 2 k = 1 -6 to -10%; propagation L = 4 +6 to +11%; L = 8 +44 to +51%
+at k = 1 and +54 to +60% at k = L; L = 12 +90 to +154% (largest: noiseless k = 12, 1.232e-5 -> 3.132e-5; not converged, exploratory). The day-2 comparison
+joins on patch, edge 75_85, L, k.
 
 | rung | role | 19 Sep record: n, origin, edge, broken | 20 Sep 03:08Z reference: n, origin, edge | run-day: n, origin, holes, broken, edge (rule) | cone L2 | cone graph changed vs record (L = 1 / 2 / 4 / 8 / 12) | same as 20 Sep reference |
 |---|---|---|---|---|---|---|---|
