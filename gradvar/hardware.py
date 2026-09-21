@@ -2028,10 +2028,9 @@ def run_joblist(path: str, submit: bool, log_dir: str = "data/jobs", run_root: s
     backend = get_backend(jl["backend"], service=service)
     log_path = str(Path(log_dir) / f"{stem}_{stamp}.csv")
     if sampler:
-        if submit_only:
-            raise SystemExit("--submit-only is not implemented for Sampler lists (gradvar.paper2)")
         from .paper2 import execute_sampler_joblist
-        execute_sampler_joblist(jl, backend, submit=True, run_root=run_root, log_path=log_path, instance_plan=plan)
+        execute_sampler_joblist(jl, backend, submit=True, run_root=run_root, log_path=log_path, instance_plan=plan,
+                                wait=not submit_only, joblist_path=path, run_id=github_run_id())
         return 0
     execute_joblist(jl, points, shapes, shots, backend, submit=True, run_root=run_root, log_path=log_path, instance_plan=plan,
                     wait=not submit_only, joblist_path=path, run_id=github_run_id(), calibration_csv=calibration_csv,
@@ -2290,11 +2289,11 @@ def retrieve_jobs(ids_path: str, joblist_path: str | None = None, run_root: str 
     if not joblist_path:
         raise SystemExit(f"{ids_path} names no joblist; pass --joblist")
     jl = load_joblist(joblist_path)
-    if str(jl.get("primitive", "estimator")) == "sampler":
-        raise SystemExit("retrieval of Sampler lists (gradvar.paper2) is not implemented")
+    sampler = str(jl.get("primitive", "estimator")) == "sampler"      # Paper 2 lists: gradvar.paper2.retrieve_sampler_jobs after the instance checks
     resub = ids.get("resubmission")
     csv = calibration_csv or ids.get("calibration_csv") or calibration_csv_not_after(ids.get("written_utc"))   # the CSV in force at submission
-    print(f"pubs rebuilt on {csv}" + (f" (resubmission of {resub['of_tag']} in jobs of at most {resub.get('max_pubs')} pubs)" if resub else ""), flush=True)
+    if not sampler:
+        print(f"pubs rebuilt on {csv}" + (f" (resubmission of {resub['of_tag']} in jobs of at most {resub.get('max_pubs')} pubs)" if resub else ""), flush=True)
     resolve_instance(jl["instance"])
     service = get_service(jl["instance"])
     try:
@@ -2303,6 +2302,10 @@ def retrieve_jobs(ids_path: str, joblist_path: str | None = None, run_root: str 
         plan = None
         print(f"instance plan not verified (nothing is submitted): {e}", flush=True)
     backend = get_backend(jl["backend"], service=service)
+    if sampler:
+        from .paper2 import retrieve_sampler_jobs
+        return retrieve_sampler_jobs(ids, ids_path, jl, joblist_path, service, backend, plan, run_root=run_root, log_dir=log_dir,
+                                     run_id=run_id, timeout=timeout, snapshot_dir=snapshot_dir)
     points, shapes, shots = joblist_points(jl, csv)
     groups, job_rep_delay_s = job_groups(jl, points, shapes, shots, backend, csv, only_tag=None if not resub else str(resub["of_tag"]),
                                          resubmit_max_pubs=None if not resub else resub.get("max_pubs"))

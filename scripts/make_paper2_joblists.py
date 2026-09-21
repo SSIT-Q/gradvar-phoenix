@@ -1,7 +1,12 @@
 """Generate the Paper 2 Sampler job lists (data/joblists/paper2/Q1..Q5.json and the shared smoke list
 data/joblists/dryrun/03_paper2_smoke.json) from a calibration snapshot, with budgets from gradvar.hardware.estimate_budget.
 
-    python scripts/make_paper2_joblists.py [--snapshot data/calibrations/ibm_phoenix_2026-09-20T030813Z.csv]
+    python scripts/make_paper2_joblists.py [--snapshot data/calibrations/ibm_phoenix_2026-09-20T030813Z.csv] [--lists dryrun/03_paper2_smoke.json,...]
+
+Each list is regenerated on its own run day's newest committed calibration (Paper 1 Deviation 53 (b) by analogy; Paper 2 Deviation 8
+puts the smoke test on campaign day 2 and Q1-Q5 on days 4-5), so ``--lists`` writes a subset: the smoke list was placed on
+ibm_phoenix_2026-09-21T022722Z.csv (docs/preflight/07_paper2_smoke_2026-09-21.md), Q1-Q5 stay on the 20 Sep 03:08Z snapshot until
+their pre-flight. tests/test_paper2_sampler.py holds every committed list to the generator's output on the snapshot it names.
 
 Every list is written with dry_run: true and the placeholder preflight_review; nothing here touches credentials.
 Pre-registration: Paper 2 v0.4.4 (20 Sep 2026), Sections 2-3; Deviations 1-7.
@@ -153,7 +158,10 @@ def make_lists(snapshot: str) -> dict:
         "four arms: 8), a Q3 slice (sparse0 and dense0, frame 0, m in {{1, 16, 64}}: 6) and a Q4 slice (p = 0.25, masks 0-2, "
         "|0> read in Z and |+> read in X and Y: 9); job smoke-init_false (3) = Q1 arm (b) with init_qubits False. measure_reset "
         "and measure_reset_2 come from backend.target on ibm_phoenix; the fake backend of the dry run lacks them, so the runner "
-        "adds synthetic one-qubit one-clbit stand-ins (measure + reset definition), flagged as synthetic_target_instructions.",
+        "adds synthetic one-qubit one-clbit stand-ins (measure + reset definition), flagged as synthetic_target_instructions. "
+        "Deviation 8 (v0.5.0, 20 Sep 2026): this smoke test runs on Paper 1 campaign day 2 from the shared 10-minute dry-run / smoke "
+        "reserve (0.87 min spent by the 20 Sep Paper 1 smoke test), the Q1-Q5 characterisation on days 4-5; submitted with --submit-only "
+        "(ids file data/runs/<UTC date>/dryrun_03_paper2_smoke_job_ids.json) and collected with --retrieve.",
         [dict(id="smoke-init_true", shots=2048, init_qubits=True, purpose="Gate P2-2: Q1 arms plus Q2 / Q3 / Q4 slices",
               circuits=[dict(kind="q1"),
                         dict(kind="q2", masks=[0], reps=[1, 16], axes=["X"]),
@@ -169,8 +177,15 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--snapshot", default=str(ROOT / "data" / "calibrations" / "ibm_phoenix_2026-09-20T030813Z.csv"))
     ap.add_argument("--out", default=str(ROOT / "data" / "joblists"))
+    ap.add_argument("--lists", default=None, help="comma-separated relative paths to write (default: all six), e.g. dryrun/03_paper2_smoke.json")
     a = ap.parse_args(argv)
     lists = make_lists(a.snapshot)
+    if a.lists:
+        want = [s.strip() for s in a.lists.split(",") if s.strip()]
+        unknown = [w for w in want if w not in lists]
+        if unknown:
+            ap.error(f"unknown list(s) {unknown}; known: {sorted(lists)}")
+        lists = {rel: lists[rel] for rel in want}
     total_250 = total_1 = 0.0
     for rel, jl in lists.items():
         path = Path(a.out) / rel

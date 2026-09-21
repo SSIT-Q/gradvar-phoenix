@@ -1006,15 +1006,18 @@ def configure_sampler(sampler, job: dict, jl: dict):
     return init
 
 
-def sampler_layout_check(jl: dict, ctx: SamplerContext, groups: Sequence[Tuple[dict, List[BuiltSampler]]], backend, enforce: bool) -> dict:
+def sampler_layout_check(jl: dict, ctx: SamplerContext, groups: Sequence[Tuple[dict, List[BuiltSampler]]], backend, enforce: bool,
+                         props=None, source: str | None = None) -> dict:
     """Paper 1 Deviation 26 live re-check over every qubit the list uses (no couplers: no two-qubit gate in any Paper 2
     circuit), with the Paper 2 policy: qubits failing the readout cut are *flagged* (Section 3: outliers are flagged on
     the maps, not dropped; Q2 spectators above the cut are already excluded at build time from the snapshot), a
     non-operational used qubit or a failing Q4 patch qubit refuses on the submitting path (the pre-registered sets must
-    be regenerated from the day's snapshot; ``layout_check: "override"`` is never accepted for a Q4 patch qubit)."""
+    be regenerated from the day's snapshot; ``layout_check: "override"`` is never accepted for a Q4 patch qubit).
+    ``props`` / ``source`` replace the live ``backend.properties()`` (the retrieval path passes the properties at the job's
+    creation time, as ``gradvar.hardware.layout_check`` does)."""
     from .hardware import layout_check
     used = sorted({q for _, g in groups for b in g for q in b.qubits})
-    chk = layout_check(backend, used, couplers=())
+    chk = layout_check(backend, used, couplers=(), props=props, source=source)
     q4_used = sorted(set(ctx.q4_qubits) & set(used)) if any(b.desc["kind"] == "q4" for _, g in groups for b in g) else []
     failing = set(chk["failing_qubits"])
     dead_live = sorted(q for q in used if chk["qubits"].get(str(q), {}).get("operational") is False)
@@ -1076,15 +1079,20 @@ def simulate_group(group: Sequence[BuiltSampler], shots: int):
 
 def execute_sampler_joblist(jl: dict, backend, submit: bool, run_root: str = "data/runs", log_path: str | None = None,
                             calibration_csv: str | None = None, instance_plan: str | None = None, simulate: bool = False,
-                            simulate_shots: int | None = None) -> List[dict]:
+                            simulate_shots: int | None = None, wait: bool = True, joblist_path: str | None = None,
+                            run_id: int | str | None = None) -> List[dict]:
     """Build every ``sampler_jobs`` entry, run one SamplerV2 job per entry (one Batch when submitting), write one bundle per
     job (``gradvar.hardware.write_job_bundle`` layout plus ``bitarrays.npz`` / ``counts.json`` when a result exists) and
     append one row per circuit to ``log_path``. ``submit=False`` writes the same layout against the fake backend with job
     ids ``dryrun-<utc>-<job id>``; ``simulate`` additionally executes each job on the Aer stabilizer simulator (at
-    ``simulate_shots`` if given) so the result files are exercised. A job whose ``result()`` raises gets a bundle with the
-    error; the runner continues and exits non-zero at the end. THIS FUNCTION SUBMITS ONLY WHEN ``submit`` IS TRUE."""
+    ``simulate_shots`` if given) so the result files are exercised. On the submitting path the job ids go to
+    ``<run_root>/<UTC date>/<list name>_job_ids.json`` (``gradvar.hardware.write_ids_file``) right after the last
+    submission and before any result is awaited; with ``wait=False`` (``--submit-only``) the function returns there and
+    ``retrieve_sampler_jobs`` (``--retrieve <ids file>``) completes the bundles and CSV rows later. A job whose ``result()``
+    raises gets a bundle with the error; the runner continues and exits non-zero at the end. THIS FUNCTION SUBMITS ONLY
+    WHEN ``submit`` IS TRUE."""
     from qiskit_ibm_runtime import SamplerV2
-    from .hardware import estimate_budget, rep_delay_info, snapshot_calibration, write_job_bundle
+    from .hardware import estimate_budget, ids_file_path, rep_delay_info, snapshot_calibration, write_ids_file, write_job_bundle
     cal_dir = Path(calibration_csv).parent if calibration_csv else None
     ctx = SamplerContext.from_joblist(jl, calibration_dir=cal_dir, verify=True)
     stage = str(jl.get("protocol", "smoke"))
@@ -1152,7 +1160,20 @@ def execute_sampler_joblist(jl: dict, backend, submit: bool, run_root: str = "da
                 created = datetime.now(timezone.utc).isoformat()
                 rj = sampler.run([b.pub() for b in group])
                 jobs.append((job, group, rj, sampler.options, created, init, shots))
-                print(f"submitted job {rj.job_id()} ({job['id']}: sampler, {len(group)} circuits, shots {shots}, init_qubits {init})")
+                print(f"submitted job {rj.job_id()} ({job['id']}: sampler, {len(group)} circuits, shots {shots}, init_qubits {init})", flush=True)
+            # the ids go to disk before any result is awaited (Paper 1 run 35489912431 lost them to the 6-hour Action limit)
+            batch_id = getattr(batch, "session_id", None)
+            list_name = jl.get("name") or (Path(joblist_path).stem if joblist_path else "joblist")
+            ids_file = write_ids_file(
+                ids_file_path(root, datetime.now(timezone.utc).strftime("%Y-%m-%d"), list_name), jl, joblist_path,
+                [dict(job_id=rj.job_id(), tag=str(job["id"]), level=0, shots=shots, pubs=len(group),
+                      rep_delay_us=None if job.get("rep_delay_us") is None else float(job["rep_delay_us"]), init_qubits=init, submitted_utc=created)
+                 for job, group, rj, _, created, init, shots in jobs],
+                batch_id=None if batch_id is None else str(batch_id), calibration_csv=calibration_csv, calibration_snapshot=snapshot, run_id=run_id,
+                notes="written by execute_sampler_joblist right after submission" + ("" if wait else " (--submit-only: results not awaited)"))
+            print(f"job ids written to {ids_file}" + ("" if wait else f"; retrieve with: python -m gradvar.hardware --retrieve {ids_file}"), flush=True)
+            if not wait:
+                jobs = []
             for job, group, rj, options, created, init, shots in jobs:
                 job_id = rj.job_id()
                 extra = dict(extra_base, init_qubits=init, sampler_job=job["id"], simulated=False,
@@ -1176,10 +1197,164 @@ def execute_sampler_joblist(jl: dict, backend, submit: bool, run_root: str = "da
                     pass
                 finish(d, job_id, job, group, result, shots, init, options, created, qpu=qpu)
                 print(f"wrote {d}")
-    if log_path:
+    if log_path and wait:            # --submit-only logs nothing: the retrieve step writes the rows
         append_sampler_rows(log_path, rows)
         print(f"logged {len(rows)} rows to {log_path}")
     if failures:
         raise SystemExit(f"{len(failures)} of {len(groups)} jobs failed (bundles written, rows of the succeeded jobs logged):\n  "
                          + "\n  ".join(failures))
+    return rows
+
+
+# ------------------------------------------------------------------------------------------------ retrieval
+
+def verify_sampler_inputs(inputs: dict, group: Sequence[BuiltSampler]) -> dict:
+    """Compare the pubs IBM stored for a Sampler job (``job.inputs['pubs']``) with the circuits rebuilt from the list: the
+    pub count and, when the stored pubs decode (RuntimeDecoder), each pub's ISA op counts and qubit count (a Sampler pub
+    carries no observables or parameter values). Same keys as ``gradvar.hardware.verify_job_inputs``."""
+    out: Dict[str, Any] = dict(pubs_stored=None, pubs_rebuilt=len(group), decoded=False, match=None, mismatches=[])
+    pubs = inputs.get("pubs") if isinstance(inputs, dict) else None
+    if pubs is None:
+        out.update(error="job inputs carry no pubs", match=False)
+        return out
+    out["pubs_stored"] = len(pubs)
+    if len(pubs) != len(group):
+        out["mismatches"].append(f"pub count: stored {len(pubs)}, rebuilt {len(group)}")
+    try:
+        from qiskit_ibm_runtime import RuntimeDecoder
+        decoded = json.loads(json.dumps(pubs), cls=RuntimeDecoder)
+        out["decoded"] = True
+    except Exception as e:
+        out["error"] = f"could not decode the stored pubs: {type(e).__name__}: {e}"
+        out["match"] = not out["mismatches"]
+        return out
+    for i, (pub, b) in enumerate(zip(decoded, group)):
+        circ = pub[0] if isinstance(pub, (list, tuple)) else pub
+        if hasattr(circ, "count_ops"):
+            got, want = {k: int(v) for k, v in circ.count_ops().items()}, {k: int(v) for k, v in b.isa_circuit.count_ops().items()}
+            if got != want or circ.num_qubits != b.isa_circuit.num_qubits:
+                out["mismatches"].append(f"pub {i}: circuit ops {got} ({circ.num_qubits} qubits) vs rebuilt {want} ({b.isa_circuit.num_qubits})")
+        else:
+            out["mismatches"].append(f"pub {i}: stored circuit did not decode to a QuantumCircuit ({type(circ).__name__})")
+    out["match"] = not out["mismatches"]
+    return out
+
+
+def retrieve_sampler_jobs(ids: dict, ids_path: str | Path, jl: dict, joblist_path: str, service, backend, instance_plan: str | None,
+                          run_root: str = "data/runs", log_dir: str = "data/jobs", run_id: int | str | None = None,
+                          timeout: float | None = None, snapshot_dir: str = "data/calibrations") -> List[dict]:
+    """The Sampler half of ``gradvar.hardware.retrieve_jobs`` (reached from it after the same instance checks): for every
+    job of the ids file written by ``execute_sampler_joblist``, ``service.job(id)``, wait for a final state and write the
+    same bundle as the live path (``write_job_bundle`` with the PrimitiveResult, ``usage()``, the options read back from
+    ``job.inputs``, the properties at the job's creation time and the Paper 2 layout check recomputed from them,
+    ``bitarrays.npz`` / ``counts.json``) and the same CSV rows (``sampler_rows``), under ``<run_root>/<creation day>/<job_id>/``.
+    The circuits are rebuilt from the list and the snapshot it names (``qubit_set.snapshot``, not the newest CSV: the
+    qubit sets are pinned to that snapshot) and checked against the stored inputs (``verify_sampler_inputs``; a mismatch
+    fails the run after everything is written). Submits nothing."""
+    from .hardware import _utc_iso, estimate_budget, options_from_inputs, properties_at, snapshot_calibration, write_job_bundle
+    ctx = SamplerContext.from_joblist(jl, verify=True)
+    stage = str(jl.get("protocol", "smoke"))
+    by_tag = {str(job["id"]): (job, build_job(job, ctx, backend)) for job in jl["sampler_jobs"]}
+    tags = [str(j["tag"]) for j in ids["jobs"]]
+    if set(tags) != set(by_tag):
+        raise SystemExit(f"ids file tags {sorted(tags)} differ from the job list's sampler jobs {sorted(by_tag)}")
+    for j in ids["jobs"]:
+        job, group = by_tag[str(j["tag"])]
+        if (int(j["shots"]), int(j["pubs"])) != (int(job["shots"]), len(group)):
+            raise SystemExit(f"ids file job {j['tag']}: (shots, pubs) {(j['shots'], j['pubs'])} differ from the rebuilt job {(int(job['shots']), len(group))}")
+        if j["job_id"] is None:
+            raise SystemExit(f"ids file job {j['tag']}: job_id is null; discovery by signature is not implemented for Sampler jobs, fill it in from the run log")
+    snapshot_now = snapshot_calibration(backend, snapshot_dir)
+    snapshot = ids.get("calibration_snapshot") or snapshot_now
+    budget_target = estimate_budget(jl, backend=backend)
+    root = Path(run_root)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    log_path = Path(log_dir) / f"{Path(joblist_path).stem}_retrieved_{stamp}.csv"
+    rows: List[dict] = []
+    failures: List[str] = []
+    for j in ids["jobs"]:
+        tag, job_id = str(j["tag"]), str(j["job_id"])
+        job, group = by_tag[tag]
+        shots = int(job["shots"])
+        rj = service.job(job_id)
+        try:
+            rj.wait_for_final_state(timeout=timeout)
+        except Exception as e:
+            failures.append(f"{job_id} ({tag}): no final state: {type(e).__name__}: {e}")
+            print(f"job {job_id} ({tag}) not final: {type(e).__name__}: {e}; skipped", file=sys.stderr, flush=True)
+            continue
+        status = str(rj.status())
+        input_error = None
+        try:
+            inputs = rj.inputs
+        except Exception as e:
+            inputs, input_error = {}, f"{type(e).__name__}: {e}"
+        options = options_from_inputs(inputs, 0, shots)
+        init_stored = getattr(getattr(options, "execution", None), "init_qubits", None)
+        init = bool(job.get("init_qubits", jl.get("init_qubits", True))) if init_stored is None else bool(init_stored)
+        created = getattr(rj, "creation_date", None)
+        created_iso = _utc_iso(created)
+        day = created_iso[:10] if created_iso else datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        props, props_label = properties_at(backend, created)
+        chk = sampler_layout_check(jl, ctx, [(job, group)], backend, enforce=False, props=props, source=props_label)
+        verif = verify_sampler_inputs(inputs, group)
+        if input_error:
+            verif["error"] = input_error
+        if not verif.get("match"):
+            failures.append(f"{job_id} ({tag}): rebuilt circuits differ from the stored inputs: {verif.get('mismatches') or verif.get('error')}")
+        props_dict = None
+        if props is not None:
+            try:
+                props_dict = dict(props.to_dict(), _source=props_label)
+            except Exception as e:  # pragma: no cover
+                props_dict = dict(error=str(e), _source=props_label)
+        now = datetime.now(timezone.utc).isoformat()
+        submitted = j.get("submitted_utc") or created_iso
+        extra = dict(instance_plan=instance_plan, budget=jl.get("budget"), budget_estimate_with_target_durations=budget_target, layout_check=chk,
+                     primitive="sampler", protocol=stage,
+                     qubit_set=dict(qubits=list(ctx.qubits), separate=list(ctx.separate), flagged_readout=list(ctx.flagged_readout),
+                                    flagged_cz_cluster=list(ctx.flagged_cz_cluster), snapshot=ctx.snapshot, exclusion=list(ctx.exclusion)),
+                     q4_patches=[list(e) for e in ctx.q4_edges], randomness=jl.get("randomness"), init_qubits=init, sampler_job=tag, simulated=False,
+                     synthetic_target_instructions=sorted({s for b in group for s in b.synthetic_target_instructions}),
+                     retrieved=True, submission_run=ids.get("submission_run"),
+                     retrieval=dict(ids_file=str(ids_path), retrieval_run=run_id, retrieved_utc=now, job_status=status, submitted_utc=submitted,
+                                    properties_source=props_label, calibration_snapshot=snapshot, calibration_snapshot_at_retrieval=snapshot_now,
+                                    inputs_verification=verif))
+        ts = dict(submitted_local=submitted or "", retrieved_local=now)
+        error = None
+        result = None
+        if status == "DONE":
+            try:
+                result = rj.result()
+            except Exception as e:
+                error = f"{type(e).__name__}: {e}"
+        else:
+            try:
+                msg = rj.error_message()
+            except Exception:  # pragma: no cover
+                msg = None
+            error = f"job status {status}" + (f": {msg}" if msg else "")
+        if error:
+            failures.append(f"{job_id} ({tag}): {error}")
+            d = write_job_bundle(root, job_id, group, backend, options, 0, shots, jl, job=rj, error=error, timestamps=ts, extra=extra,
+                                 day=day, properties=props_dict)
+            print(f"job {job_id} ({tag}) has no result ({error}); wrote {d}", file=sys.stderr, flush=True)
+            continue
+        d = write_job_bundle(root, job_id, group, backend, options, 0, shots, jl, result=result, job=rj, timestamps=ts, extra=extra,
+                             day=day, properties=props_dict)
+        counts_path, summary, _ = write_counts(d, result, group)
+        qpu = None
+        try:
+            qpu = rj.usage()
+        except Exception:
+            pass
+        rows.extend(sampler_rows(backend, job_id, snapshot, stage, group, shots, init, options=options, submit_time=submitted,
+                                 counts_path=counts_path, qpu_seconds=qpu, notes="retrieved"))
+        print(f"retrieved {job_id} ({tag}: sampler, {len(group)} circuits, shots {shots}, init_qubits {init}, status {status}, inputs "
+              f"{'match' if verif.get('match') else 'MISMATCH'}, {sum(len(s['registers']) for s in summary.values())} register arrays): wrote {d}", flush=True)
+    if rows:
+        append_sampler_rows(str(log_path), rows)
+        print(f"logged {len(rows)} rows to {log_path}", flush=True)
+    if failures:
+        raise SystemExit(f"{len(failures)} problem(s) retrieving {len(ids['jobs'])} jobs (bundles written where a job had a result):\n  " + "\n  ".join(failures))
     return rows

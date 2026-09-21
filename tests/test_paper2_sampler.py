@@ -2,6 +2,7 @@
 qubit-set and mask selection (qubit 79 isolated, Deviation 6), the Sampler budget, the per-shot register capture and the
 data policy (Deviation 7 (vii)). Everything runs against FakeNighthawk / Aer; nothing touches credentials or the network."""
 import json
+from datetime import datetime, timezone
 import sys
 from pathlib import Path
 
@@ -16,6 +17,13 @@ ROOT = Path(__file__).resolve().parents[1]
 CAL = str(ROOT / "data" / "calibrations" / "ibm_phoenix_2026-09-20T030813Z.csv")
 SNAPSHOT = "ibm_phoenix_2026-09-20T030813Z.csv"
 READOUT_FLAGS = [24, 55, 62, 67, 73, 77, 107]          # above 3e-2 on the 20 Sep 03:08Z snapshot (49 fell below it, 67 rose above it)
+# The smoke list (Deviation 8: campaign day 2) is placed on the newest committed calibration of its pre-flight, the 21 Sep 02:05Z
+# calibration committed with the day-2 re-retrieval (docs/preflight/07_paper2_smoke_2026-09-21.md); Q1-Q5 stay on the 03:08Z snapshot
+# until their own pre-flight (days 4-5). Per list: snapshot, readout flags, Q4 edges, recorded backtracks.
+SMOKE_SNAPSHOT = "ibm_phoenix_2026-09-21T022722Z.csv"
+SMOKE_READOUT_FLAGS = [24, 55, 62, 67, 77, 105, 107]   # 73 fell to 2.8e-2, 105 rose to 6.5e-2 (the day-2 post-run excursion)
+SMOKE_Q4_EDGES = [[5, 6], [12, 13], [25, 26], [31, 32], [46, 47], [50, 51], [68, 69], [75, 76], [81, 82], [94, 95], [100, 101], [115, 116]]
+SMOKE_Q4_EXCLUDED = [7, 8, 11, 17, 18, 24, 27, 49, 55, 59, 61, 62, 63, 67, 72, 73, 77, 79, 105, 107, 110, 114]   # incl. the Deviation 53 coherence floor
 CZ_CLUSTER = [55, 61, 62, 63, 72, 73]
 Q4_EDGES = [[0, 1], [15, 16], [20, 21], [38, 39], [42, 43], [57, 58], [64, 65], [70, 71], [85, 86], [92, 93], [108, 109], [115, 116]]
 P2 = ROOT / "data" / "joblists" / "paper2"
@@ -30,6 +38,13 @@ CAMPAIGN = dict(executions=8_093_696, minutes_at_250us=36.3, minutes_at_1us=2.7)
 pytestmark = pytest.mark.skipif(not HAS_AER, reason="qiskit-aer not installed")
 
 
+def expected_placement(name: str) -> dict:
+    """(snapshot, readout flags, Q4 edges, backtracks) the committed list ``name`` must carry."""
+    if name == "smoke":
+        return dict(snapshot=SMOKE_SNAPSHOT, flags=SMOKE_READOUT_FLAGS, edges=SMOKE_Q4_EDGES, backtracked=[])
+    return dict(snapshot=SNAPSHOT, flags=READOUT_FLAGS, edges=Q4_EDGES, backtracked=[dict(row=5, greedy=[56, 57], chosen=[57, 58])])
+
+
 @pytest.mark.parametrize("name", sorted(LISTS))
 def test_lists_validate_and_refuse_to_submit(name, tmp_path, monkeypatch):
     from gradvar.hardware import check_budget, joblist_submittable, load_joblist, run_joblist
@@ -39,9 +54,13 @@ def test_lists_validate_and_refuse_to_submit(name, tmp_path, monkeypatch):
     assert jl["preflight_review"] == "TBD: pre-flight review permalink" and not joblist_submittable(jl)
     assert "pre-registration v0.4.4" in jl["notes"] and jl["protocol"] == name
     assert check_budget(jl) == [] and jl["budget"]["model_version"] == 2 and jl["budget"]["primitive"] == "sampler"
-    assert jl["qubit_set"]["snapshot"] == SNAPSHOT and len(jl["qubit_set"]["qubits"]) == 118 and jl["qubit_set"]["separate"] == [79]
-    assert 17 not in jl["qubit_set"]["qubits"] and 79 not in jl["qubit_set"]["qubits"] and jl["qubit_set"]["flagged_readout"] == READOUT_FLAGS
-    assert jl["q4_patches"]["edges"] == Q4_EDGES and 79 in jl["q4_patches"]["exclusion"] and jl["q4_patches"]["backtracked"] == [dict(row=5, greedy=[56, 57], chosen=[57, 58])]
+    want = expected_placement(name)
+    assert jl["qubit_set"]["snapshot"] == want["snapshot"] and len(jl["qubit_set"]["qubits"]) == 118 and jl["qubit_set"]["separate"] == [79]
+    assert 17 not in jl["qubit_set"]["qubits"] and 79 not in jl["qubit_set"]["qubits"] and jl["qubit_set"]["flagged_readout"] == want["flags"]
+    assert jl["q4_patches"]["edges"] == want["edges"] and 79 in jl["q4_patches"]["exclusion"] and jl["q4_patches"]["backtracked"] == want["backtracked"]
+    if name == "smoke":       # docs/preflight/07: Q105 (readout 6.5e-2) and Q114 (T1 3.7 us, Deviation 53 floor) out of the Q4 patches, kept in the parallel arms
+        assert jl["q4_patches"]["exclusion"] == SMOKE_Q4_EXCLUDED and {105, 114} <= set(jl["qubit_set"]["qubits"])
+        assert "Deviation 8" in jl["notes"] and "dryrun_03_paper2_smoke_job_ids.json" in jl["notes"]
     monkeypatch.setenv("QISKIT_IBM_INSTANCE", "crn:fake")
     with pytest.raises(SystemExit, match="dry_run"):                     # refused before preflight / credentials
         run_joblist(str(LISTS[name]), submit=True, run_root=str(tmp_path / "r"), log_dir=str(tmp_path / "j"), calibration_csv=CAL)
@@ -245,6 +264,7 @@ def test_dry_run_every_list(name, tmp_path):
     from gradvar.hardware import run_joblist
     from gradvar.paper2 import SAMPLER_LOG_COLUMNS
     jl = json.loads(LISTS[name].read_text())
+    want = expected_placement(name)
     run_joblist(str(LISTS[name]), submit=False, run_root=str(tmp_path / "runs"), log_dir=str(tmp_path / "jobs"), calibration_csv=CAL)
     bundles = {d.name.split("-", 2)[2]: d for d in (tmp_path / "runs").glob("*/dryrun-*")}
     assert set(bundles) == {j["id"] for j in jl["sampler_jobs"]}
@@ -265,9 +285,9 @@ def test_dry_run_every_list(name, tmp_path):
         assert j["rep_delay_submitted_s"] == "default" and j["rep_delay"]["default_rep_delay_s"] == pytest.approx(250e-6)
         assert j["budget"]["minutes_at_250us"] == jl["budget"]["minutes_at_250us"] and j["budget_estimate_with_target_durations"]["readout_us"] == pytest.approx(2.2)
         assert j["layout_check"]["enforced"] is False and j["layout_check"]["action"] == "logged" and j["layout_check"]["layout_couplers"] == []
-        assert j["layout_check"]["policy"].startswith("Paper 2") and j["layout_check"]["snapshot_flags"]["readout"] == READOUT_FLAGS
+        assert j["layout_check"]["policy"].startswith("Paper 2") and j["layout_check"]["snapshot_flags"]["readout"] == want["flags"]
         assert j["layout_check"]["separate_qubits"] == [79] and j["qubit_set"]["separate"] == [79]
-        assert j["qubit_set"]["qubits"] == jl["qubit_set"]["qubits"] and j["q4_patches"] == jl["q4_patches"]["edges"] == Q4_EDGES
+        assert j["qubit_set"]["qubits"] == jl["qubit_set"]["qubits"] and j["q4_patches"] == jl["q4_patches"]["edges"] == want["edges"]
         if job["id"] == "Q1-q79":
             assert [p["label"] for p in j["points"]] == ["Q1a_reset_q79", "Q1b_reset_q79", "Q1f_reset_q79"]
             assert all(p["measured_qubits"] == [79] and p["qubit_group"] == "separate" and p["sched_ns"] >= 2140.0 for p in j["points"])
@@ -610,7 +630,171 @@ def test_make_paper2_joblists_is_reproducible(tmp_path):
     spec = importlib.util.spec_from_file_location("mk", ROOT / "scripts" / "make_paper2_joblists.py")
     mk = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mk)
-    lists = mk.make_lists(CAL)
-    for rel, jl in lists.items():
-        committed = json.loads((ROOT / "data" / "joblists" / rel).read_text())
-        assert committed == jl, rel
+    by_snapshot = {}
+    for name, path in LISTS.items():
+        committed = json.loads(path.read_text())
+        snap = committed["qubit_set"]["snapshot"]
+        assert snap == expected_placement(name)["snapshot"]
+        if snap not in by_snapshot:
+            by_snapshot[snap] = mk.make_lists(str(ROOT / "data" / "calibrations" / snap))
+        rel = str(path.relative_to(ROOT / "data" / "joblists"))
+        assert committed == by_snapshot[snap][rel], rel
+    # --lists writes a subset (the smoke list is regenerated alone on its run day's calibration, Q1-Q5 on theirs)
+    assert mk.main(["--snapshot", str(ROOT / "data" / "calibrations" / SMOKE_SNAPSHOT), "--lists", "dryrun/03_paper2_smoke.json", "--out", str(tmp_path)]) == 0
+    assert [p.relative_to(tmp_path).as_posix() for p in sorted(tmp_path.rglob("*.json"))] == ["dryrun/03_paper2_smoke.json"]
+    assert json.loads((tmp_path / "dryrun" / "03_paper2_smoke.json").read_text()) == json.loads(SMOKE.read_text())
+
+
+def _fake_runtime_retrievable(monkeypatch, created):
+    """Like ``_fake_runtime`` but the jobs also answer the retrieval API (wait_for_final_state, status, inputs with the pubs
+    encoded as IBM stores them, creation_date) and a service hands them back by id."""
+    import qiskit_ibm_runtime as rt
+    from types import SimpleNamespace
+    from qiskit.primitives import BitArray, DataBin, PrimitiveResult, PubResult
+    from qiskit_ibm_runtime import RuntimeEncoder
+
+    class FakeJob:
+        def __init__(self, pubs, options):
+            created.append(self)
+            self.pubs, self.shots, self._options = pubs, options.default_shots, options
+            self.creation_date = f"2026-10-01T10:00:0{len(created)}Z"
+            self.session_id = "batch-p2"
+            self.usage_estimation = {"estimated_running_time_seconds": 3}
+
+        def job_id(self):
+            return f"sjob{created.index(self) + 1}"
+
+        def wait_for_final_state(self, timeout=None):
+            return None
+
+        def status(self):
+            return "DONE"
+
+        @property
+        def inputs(self):
+            return json.loads(json.dumps(dict(pubs=[list(p) for p in self.pubs], options=dict(
+                default_shots=self.shots, execution=dict(init_qubits=self._options.execution.init_qubits))), cls=RuntimeEncoder))
+
+        def result(self):
+            out = []
+            for (circ,) in self.pubs:
+                regs = {cr.name: BitArray.from_bool_array(np.zeros((self.shots, cr.size), dtype=bool)) for cr in circ.cregs}
+                out.append(PubResult(DataBin(**regs), metadata={"shots": self.shots}))
+            return PrimitiveResult(out, metadata={"version": 2})
+
+        def usage(self):
+            return 4.0
+
+        def metrics(self):
+            return {"timestamps": {"created": "t0", "running": "t1", "finished": "t2"}}
+
+        def error_message(self):
+            return None
+
+    class FakeSampler:
+        def __init__(self, mode=None):
+            self.options = SimpleNamespace(default_shots=0, execution=SimpleNamespace(init_qubits=None, rep_delay=None),
+                                           twirling=SimpleNamespace(enable_gates=True, enable_measure=True),
+                                           dynamical_decoupling=SimpleNamespace(enable=True))
+
+        def run(self, pubs):
+            return FakeJob(pubs, self.options)
+
+    class FakeBatch:
+        def __init__(self, backend=None):
+            self.session_id = "batch-p2"
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    class FakeService:
+        def job(self, job_id):
+            return next(j for j in created if j.job_id() == job_id)
+
+    monkeypatch.setattr(rt, "SamplerV2", FakeSampler)
+    monkeypatch.setattr(rt, "Batch", FakeBatch)
+    return FakeService()
+
+
+def test_submit_only_writes_the_ids_file_and_retrieve_completes_the_sampler_bundles(tmp_path, monkeypatch):
+    """--submit-only on a Sampler list: the ids file (data/runs/<date>/dryrun_03_paper2_smoke_job_ids.json) is written right
+    after submission, nothing is awaited, no bundle and no CSV row; --retrieve then writes the bundles (bitarrays, counts,
+    properties at creation, layout check, inputs verified against the rebuilt circuits) and the CSV rows from the ids."""
+    import gradvar.hardware as hw
+    from gradvar import paper2 as p2
+    created = []
+    service = _fake_runtime_retrievable(monkeypatch, created)
+    backend = hw.fake_backend("ibm_phoenix")
+    ro = {q: 0.005 for q in range(120)}
+    ro[105] = 0.065                                                           # the day-2 excursion: flagged and kept (not a Q4 patch qubit)
+    monkeypatch.setattr(backend, "properties", lambda datetime=None: _Props(ro))
+    monkeypatch.setattr(hw, "snapshot_calibration", lambda backend, out_dir="data/calibrations": "snapshot-at-retrieval.csv")
+    jl = hw.load_joblist(str(SMOKE))
+    day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    rows = p2.execute_sampler_joblist(jl, backend, submit=True, run_root=str(tmp_path / "runs"), log_path=str(tmp_path / "log.csv"),
+                                      calibration_csv=CAL, instance_plan="flex", wait=False, joblist_path=str(SMOKE), run_id=123)
+    assert rows == [] and not (tmp_path / "log.csv").exists() and len(created) == 2
+    assert not list((tmp_path / "runs").glob("*/sjob*"))                      # nothing awaited, no bundle
+    ids_path = hw.ids_file_path(tmp_path / "runs", day, "dryrun_03_paper2_smoke")
+    ids = hw.load_ids_file(ids_path)
+    assert ids["joblist"] == str(SMOKE) and ids["joblist_name"] == "dryrun_03_paper2_smoke" and ids["submission_run"] == 123 and ids["batch_id"] == "batch-p2"
+    assert [(j["job_id"], j["tag"], j["level"], j["shots"], j["pubs"], j["init_qubits"]) for j in ids["jobs"]] == \
+        [("sjob1", "smoke-init_true", 0, 2048, 37, True), ("sjob2", "smoke-init_false", 0, 2048, 3, False)]
+    assert all(j["submitted_utc"] and j["rep_delay_us"] is None for j in ids["jobs"]) and "submit-only" in ids["notes"] and ids["calibration_csv"] == CAL
+    # retrieval, through gradvar.hardware.retrieve_jobs' dispatch
+    class _Service(type(service)):
+        def instances(self):
+            return [{"crn": "crn:v1:flex", "plan": "flex", "name": "flex-360"}]
+    monkeypatch.setenv("QISKIT_IBM_INSTANCE", "crn:v1:flex")
+    monkeypatch.setattr(hw, "get_service", lambda alias=None: _Service())
+    monkeypatch.setattr(hw, "get_backend", lambda name, service=None, instance_alias=None: backend)
+    rows = hw.retrieve_jobs(str(ids_path), run_root=str(tmp_path / "runs"), log_dir=str(tmp_path / "jobs"), run_id=456)
+    assert len(rows) == 40 and {r["job_id"] for r in rows} == {"sjob1", "sjob2"} and {r["qpu_seconds"] for r in rows} == {4.0}
+    bundles = {d.name: d for d in (tmp_path / "runs").glob("*/sjob*")}
+    assert set(bundles) == {"sjob1", "sjob2"} and all(d.parent.name == "2026-10-01" for d in bundles.values())   # the job's creation day
+    j = json.loads((bundles["sjob1"] / "job.json").read_text())
+    assert j["retrieved"] is True and j["submission_run"] == 123 and j["retrieval"]["retrieval_run"] == 456 and j["retrieval"]["job_status"] == "DONE"
+    assert j["retrieval"]["ids_file"] == str(ids_path) and j["retrieval"]["calibration_snapshot"] == CAL and j["retrieval"]["calibration_snapshot_at_retrieval"] == "snapshot-at-retrieval.csv"
+    v = j["retrieval"]["inputs_verification"]
+    assert v["pubs_stored"] == 37 and v["pubs_rebuilt"] == 37 and v["decoded"] is True and v["match"] is True and v["mismatches"] == []
+    assert j["job_kind"] == "sampler" and j["sampler_job"] == "smoke-init_true" and j["init_qubits"] is True and j["status"] == "completed"
+    assert j["layout_check"]["enforced"] is False and j["layout_check"]["flagged_live_qubits"] == [105] and j["layout_check"]["failing_protected_qubits"] == []
+    assert j["layout_check"]["source"].startswith("retrieved: backend.properties(datetime=") and j["usage_qpu_seconds"] == 4.0
+    assert (bundles["sjob1"] / "bitarrays.npz").exists() and (bundles["sjob1"] / "counts.json").exists() and j["bitarrays"]["in_bundle"] is True
+    assert not (bundles["sjob1"] / "circuits.qpy").exists() and j["circuits_qpy"]["committed"] is False
+    arrays = np.load(bundles["sjob1"] / "bitarrays.npz")
+    assert arrays["pub0__meas"].shape == (2048, 15) and arrays["pub1__mcm"].shape == (2048, 15)          # Q1a_reset; Q1a_measure_reset's mcm register
+    j2 = json.loads((bundles["sjob2"] / "job.json").read_text())
+    assert j2["init_qubits"] is False and json.loads((bundles["sjob2"] / "options.json").read_text())["execution"]["init_qubits"] is False
+    csv_rows = pd.read_csv(next((tmp_path / "jobs").glob("03_paper2_smoke_retrieved_*.csv")))
+    assert len(csv_rows) == 40 and list(csv_rows.columns) == p2.SAMPLER_LOG_COLUMNS and csv_rows.init_qubits.value_counts().to_dict() == {True: 37, False: 3}
+    assert csv_rows.counts_path.str.endswith("bitarrays.npz").all() and set(csv_rows.notes) == {"retrieved"} and set(csv_rows.stage) == {"smoke"}
+    # a wrong ids file refuses before anything is written
+    bad = dict(ids, jobs=[dict(ids["jobs"][0], pubs=36), ids["jobs"][1]])
+    (tmp_path / "bad.json").write_text(json.dumps(bad))
+    with pytest.raises(SystemExit, match=r"\(shots, pubs\)"):
+        hw.retrieve_jobs(str(tmp_path / "bad.json"), run_root=str(tmp_path / "r2"), log_dir=str(tmp_path / "j2"))
+
+
+def test_run_joblist_submit_only_reaches_the_sampler_path_with_wait_false(tmp_path, monkeypatch):
+    import gradvar.hardware as hw
+    from gradvar import paper2 as p2
+    seen = {}
+
+    class _Service:
+        def instances(self):
+            return [{"crn": "crn:v1:flex", "plan": "flex", "name": "flex-360"}]
+
+    monkeypatch.setenv("QISKIT_IBM_INSTANCE", "crn:v1:flex")
+    monkeypatch.setattr(hw, "get_service", lambda alias=None: _Service())
+    monkeypatch.setattr(hw, "get_backend", lambda name, service=None, instance_alias=None: "fake-backend")
+    monkeypatch.setattr(hw, "github_run_id", lambda: 789)
+    monkeypatch.setattr(p2, "execute_sampler_joblist", lambda jl, backend, submit, **kw: seen.update(backend=backend, submit=submit, **kw) or [])
+    jl = json.loads(SMOKE.read_text())
+    (tmp_path / "ok.json").write_text(json.dumps(dict(jl, dry_run=False, preflight_review="https://x.slack.com/archives/C1/p1")))
+    assert hw.run_joblist(str(tmp_path / "ok.json"), submit=True, run_root=str(tmp_path / "r"), log_dir=str(tmp_path / "j"), submit_only=True) == 0
+    assert seen["backend"] == "fake-backend" and seen["submit"] is True and seen["wait"] is False and seen["run_id"] == 789
+    assert seen["joblist_path"] == str(tmp_path / "ok.json") and seen["instance_plan"] == "flex" and seen["run_root"] == str(tmp_path / "r")
