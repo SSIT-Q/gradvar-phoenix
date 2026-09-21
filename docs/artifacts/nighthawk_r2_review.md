@@ -18,7 +18,7 @@ gradvar-phoenix · device review · 19 September 2026
 
 A read of the calibration snapshots, the raw backend properties, the two pre-registrations and IBM's public documentation, aimed at one question: which settings on this processor improve the pre-registered measurements or cut QPU minutes without moving an estimand. Every device fact carries a source; every candidate carries a Deviation verdict.
 
-Snapshots: CSV 11:13 UTC (Slack upload F0C3WJ98DPA) · raw properties 14:08 UTC (repo Action)Ledger: 360 Flex minutes; instance cap 220 min for ibm_phoenixPre-registrations Q1 v0.6 and P2 v0.2 read, not edited
+Snapshots: CSV 11:13 UTC (Slack upload F0C3WJ98DPA) · raw properties 14:08 UTC (repo Action) · Ledger: 360 Flex minutes; instance cap 220 min for ibm_phoenix · Pre-registrations Q1 v0.6 and P2 v0.2 read, not edited
 
 **The headline is not an optimisation, it is arithmetic.** Paper 1's pre-registered grid is about 2.9×10<sup>8</sup> executions (Section 2: "shot total of order 2e8"). At the 250 µs rep_delay the Section 3b and Paper 2 budgets assume, IBM's own formula gives roughly **1,210 minutes** for Paper 1 (main grid alone 584 min) against the 200 booked. At a 1 µs rep_delay it is about 27 minutes; at the 9.1 µs per circuit implied by the dashboard's 109.7 kHz maximum circuit rate, about 43 minutes. The Q1 text silently assumes the fast rate for Paper 1 ("110k circuits per second, so the shot budget is not expected to be binding") while the dial arm and Paper 2 book at 250 µs. The plan is feasible only if `backend.rep_delay_range` on ibm_phoenix reaches the microsecond floor. Reading that field costs zero QPU minutes and should happen before anything else.
 

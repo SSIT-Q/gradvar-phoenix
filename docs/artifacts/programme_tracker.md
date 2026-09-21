@@ -24,7 +24,7 @@ Two papers, one allocation. Version 23, 21 September 2026 (first version 19 Sept
 - **T** college theorist (Paper 2 companion, to be named)
 - **Cl** Claude
 
-ProgrammePaper 1Paper 2Open planGatesReview ruleMinutesApplicationsRisksDecisionsHow to use
+Programme · Paper 1 · Paper 2 · Open plan · Gates · Review rule · Minutes · Applications · Risks · Decisions · How to use
 
 ## 1Programme in five lines
 

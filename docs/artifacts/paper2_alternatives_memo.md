@@ -26,7 +26,7 @@ Recommended paper, stand-alone: 20% PRX Quantum or Quantum, 60% QST or npj QI, 8
 
 ## Directions
 
-EXPECTED 1NATURE 2
+EXPECTED 1 · NATURE 2
 
 ### The non-unitality dial
 
@@ -45,7 +45,7 @@ Hypothesis. Realise the i.i.d. mixture channel N<sub>p</sub>(ρ) = (1−p)ρ + p
 
 Referee: "You mixed a reset channel into a circuit and confirmed the circuit forgets its early layers; a density-matrix simulation gives the same curve to three digits."
 
-EXPECTED 2NATURE 1
+EXPECTED 2 · NATURE 1
 
 ### Classical-surrogate stress test
 
@@ -61,7 +61,7 @@ Hypothesis. Sweep angle width σ (θ ~ N(0,σ²) about identity; σ ∈ {0.1, 0.
 
 Referee: "Angrisani et al. prove the average case simulable, so your window is a truncation artefact."
 
-EXPECTED 3NATURE 4
+EXPECTED 3 · NATURE 4
 
 ### Mitigation inflation as the object
 
@@ -76,7 +76,7 @@ Hypothesis. At fixed total shots, ZNE via probabilistic error amplification (gai
 
 Referee: "The inflation factor is γ², fixed by the noise model you already learned; you are checking IBM's bookkeeping against a 2021 theorem."
 
-EXPECTED 4NATURE 3
+EXPECTED 4 · NATURE 3
 
 ### The falsification arm (memo §6, cut to 8 points)
 
@@ -90,7 +90,7 @@ Hypothesis. Ancilla-row reset at 2×W, W ∈ {6, 10}, L ∈ {4, 8}, k ∈ {1, L}
 
 Referee: "You measured that a circuit whose output depends on two layers has gradients that depend on two layers."
 
-EXPECTED 5NATURE 6
+EXPECTED 5 · NATURE 6
 
 ### Initialisation families at fixed shots
 
@@ -103,7 +103,7 @@ Hypothesis. Identity-block (Grant et al. 1903.05076), Gaussian (Zhang et al. 220
 
 Referee: "Every curve here is reproducible on a laptop." Fold into the σ axis above.
 
-EXPECTED 6NATURE 5
+EXPECTED 6 · NATURE 5
 
 ### Square lattice versus heavy-hex
 

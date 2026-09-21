@@ -459,7 +459,7 @@ class Renderer:
 
         def flush():
             if run:
-                txt = _clean_para("".join(self._inline_node(c, False, "  \n") for c in run))
+                txt = _clean_para(self.inline(Node("#run", children=list(run)), False, "  \n"))
                 if txt:
                     out.append(txt)
                 run.clear()
