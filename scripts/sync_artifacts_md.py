@@ -78,7 +78,7 @@ REGISTRY: list[Entry] = [
         "Paper 2 pre-registration (reset ansatz)",
         "https://claude.ai/artifact/RCTX4qqws9xiZRxMZd22Xh",
         source="prereg/preregistration_p2.html",
-        page_version="14",
+        page_version="15",
         version_re=r"Status\s+(v\d+\.\d+\.\d+,\s*\d{1,2} \w+ \d{4})",
         note="Deviations table and signatures in Sections 8 to 9. The design figure is an inline SVG, omitted here.",
     ),
@@ -87,7 +87,7 @@ REGISTRY: list[Entry] = [
         "Programme plan and tracker",
         "https://claude.ai/artifact/GGfQevTfZafHCbpvPEUYzq",
         source="tracker/programme_tracker.html",
-        page_version="23",
+        page_version="24",
         version_re=r"tracker, (version \d+, last updated [^.]+)",
         note=(
             "Static part only. Task statuses live in the artifact database (collection `status`, "
