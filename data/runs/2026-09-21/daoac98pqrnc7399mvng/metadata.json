@@ -1,0 +1,28 @@
+{
+ "result_metadata": {
+  "execution": {
+   "execution_spans": {}
+  },
+  "version": 2
+ },
+ "pubs": [
+  {
+   "pub_index": 0,
+   "metadata": {
+    "circuit_metadata": {}
+   }
+  },
+  {
+   "pub_index": 1,
+   "metadata": {
+    "circuit_metadata": {}
+   }
+  },
+  {
+   "pub_index": 2,
+   "metadata": {
+    "circuit_metadata": {}
+   }
+  }
+ ]
+}

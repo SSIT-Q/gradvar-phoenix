@@ -1,0 +1,15 @@
+{
+ "twirling": {
+  "enable_gates": false,
+  "enable_measure": false
+ },
+ "default_shots": 2048,
+ "dynamical_decoupling": {
+  "enable": false
+ },
+ "execution": {
+  "init_qubits": true
+ },
+ "resilience_level": 0,
+ "options_source": "job.inputs read back from IBM Quantum (retrieved)"
+}
