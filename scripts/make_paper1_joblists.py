@@ -41,14 +41,16 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from gradvar.circuits import light_cone                                    # noqa: E402
-from gradvar.hardware import BUDGET_MODEL_VERSION, MAX_JOB_PARAM_MB, estimate_budget, load_joblist, max_experiments, properties_for_csv   # noqa: E402
+from gradvar.hardware import BUDGET_MODEL_VERSION, LEVEL2_LARGE_N_MIN, LEVEL2_MAX_PUBS, MAX_JOB_PARAM_MB, estimate_budget, load_joblist, max_experiments, properties_for_csv   # noqa: E402
 from gradvar.lattice import interior_edge                                  # noqa: E402
 from gradvar.noise import COHERENCE_FLOOR_SINCE, COHERENCE_FLOOR_US, CZ_CUT, READOUT_CUT, cz_errors_from_calibration, exclusion_from_calibration, load_calibration, place_patch   # noqa: E402
 
 PLACEHOLDER = "TBD: pre-flight review permalink"
-PREREG = "Paper 1 pre-registration v0.13.2 (20 Sep 2026)"
+PREREG = "Paper 1 pre-registration v0.13.3 (21 Sep 2026)"
 MAX_EXPERIMENTS = max_experiments("ibm_phoenix")   # 300 pubs per job (configuration ledger)
-DEFAULT_SNAPSHOT = "data/calibrations/ibm_phoenix_2026-09-20T175012Z.csv"   # Deviation 53 (b): the newest committed calibration data (day-1 retrieval properties, 17:22Z calibration)
+DEFAULT_SNAPSHOT = "data/calibrations/ibm_phoenix_2026-09-21T022722Z.csv"   # Deviation 53 (b): the newest committed calibration data (day-2 re-retrieval properties, 21 Sep 02:05Z calibration)
+PACKING = dict(level2_large_n_min=LEVEL2_LARGE_N_MIN, level2_max_pubs=LEVEL2_MAX_PUBS,
+               reason="Deviation 55 (to be): resilience-2 jobs on rungs of n >= 69 hold at most 100 pubs (day-2 job L2-c5, 300 pubs of n = 85 L = 8, IBM 1336 out of memory; 100 pubs ran)")
 SHAPES = {"n20": (4, 5), "n40": (4, 10), "n60": (6, 10), "n80": (8, 10), "n100": (10, 10)}   # Section 2 nominal ladder
 RUNGS = list(SHAPES)
 DEV36_EDGE = (93, 103)
@@ -135,7 +137,7 @@ def base_list(name: str, notes: str, placement: dict, rungs: list, ledger_line: 
               placement=dict(snapshot=placement["snapshot"], properties=placement["properties"], stamp=placement["stamp"],
                              excluded=placement["excluded"], rules=placement["rules"], rungs={r: placement["rungs"][r] for r in rungs}),
               campaign=dict(pre_registration=PREREG, ledger_line=ledger_line, budget_model_version=BUDGET_MODEL_VERSION,
-                            max_experiments=MAX_EXPERIMENTS, max_job_param_mb=MAX_JOB_PARAM_MB, **(extra_campaign or {})),
+                            max_experiments=MAX_EXPERIMENTS, max_job_param_mb=MAX_JOB_PARAM_MB, packing=dict(PACKING), **(extra_campaign or {})),
               points=points, probes=probes)
     jl["budget"] = estimate_budget(jl)
     b = jl["budget"]
@@ -343,6 +345,8 @@ DAY1_NAME = "day1_null_grid_n20.json"
 DAY1_SOURCES = ("null_controls.json", "grid_n20.json")
 DAY2_NAME = "day2_main_grid.json"
 DAY2_SOURCES = ("grid_n40.json", "grid_n60.json", "grid_n80.json", "grid_n100.json")   # 4096-shot lists only: grid_n100_16384 needs its own Batch (one shot count per list); grid_n40_repeat is control (d), a later day
+DAY3_NAME = "day3_dial_refs.json"
+DAY3_SOURCES = ("references_gate1b.json", "dial_arm.json")   # order of runs: the six p = 0 references before the dial arm, same day and patches; grid_n40_repeat (control (d), main line, 4096-shot points) stays its own day
 
 
 def armed(path: Path) -> bool:
@@ -409,6 +413,36 @@ def day2_list(pl: dict, lists: dict) -> dict:
     return {DAY2_NAME: base_list("paper1_day2_main_grid", notes, pl, rungs, "day2:main", points, probes, extra)}
 
 
+def day3_list(pl: dict, lists: dict) -> dict:
+    """Deviation 50 campaign day 3 (after the day-2 post-run review): ONE list holding the six Gate 1b p = 0 references (references_gate1b.json,
+    16384 shots) followed by the booked dial-arm core (dial_arm.json: gradient grid, n-ladder, dephasing control, truncation arm, reset-error
+    characterisation), probe for probe identical to the committed source lists, so the day is one Batch, one pre-flight review and one arming
+    step; probes carry their own shots, so the 16384-shot references and the 16- / 64-shot dial pubs are separate jobs of the same Batch
+    (job_groups groups probes by level, shots and rep_delay). Resilience 0 throughout: the pre-registered Section 3b budget (docs/PAPER1_JOBLISTS.md
+    Section 7, ambiguity 5: the level-1 dial is priced by Deviation 47 but not chosen). Not here: dial_arm_contingent.json (reserve decision),
+    grid_n40_repeat.json (control (d), main line, its own day). Ledger line ``day3:dial`` so ``summarise`` does not count it twice."""
+    src = [lists[n] for n in DAY3_SOURCES]
+    probes = [dict(p) for s in src for p in s["probes"]]
+    notes = (f"{PREREG}; Deviation 50 (v0.13.0) campaign day 3, armed after the day-2 post-run review (docs/postrun/04_paper1_day2_2026-09-20.md) and the "
+             f"Deviation 46 re-draw of the Gate 1b references on this placement: {' + '.join(DAY3_SOURCES)} in one list (probes in that order, each identical in id, "
+             "n, patch, edge, L, k, M, shots, masks, p, reset_kind, resilience and seed to its entry in the committed source list, which stays on main as the fallback "
+             "packaging): the six delay-matched p = 0, k = L references at L = 8 and 12 on the n40 / n60 / n100 rungs (M = 350, 16384 shots; Gate 1b clause (b) per rung "
+             "on the measured references, Deviations 28-30, 35, 44-45; Deviation 39 on-day M = 600 rule), then the Section 3b core: reset dial p in {0.25, 0.5} at "
+             "L in {8, 12}, k = L on the n60 rung, the p = 0.25 L = 8 n-ladder points on n40 and n100, the dephasing dial p = 0.5 (matched control (b)), the truncation "
+             "arm (H7, full and l = 2) and the reset-error characterisation on the dial-patch qubits (kill rule (a), Gate 2 (e) reset half). Resilience 0 throughout "
+             "(Section 3b budget; PAPER1_JOBLISTS Section 7 ambiguity 5), so no resilience-2 job and the Deviation 55 level-2 cap does not bind. Ledger: the 65-minute "
+             "dial line plus the Deviation 44 reserve item (8.0) and the Deviation 45 top-up line (9.5) for the references. Not here: dial_arm_contingent.json (only on a "
+             "recorded reserve decision), grid_n40_repeat.json (control (d), main line, at least one calendar day after grid_n40: its own arming), Paper 2 list 03. "
+             "Kill rules (a)-(d) are read from the smoke test and day 2 before arming; (b) with day 2's constants (11.8 us per execution, 7.5 s per job) gives about 0.4 min "
+             "per dial gradient point against the 7.0-minute line. Job order inside the Batch: the runner submits probe jobs by (level, shots): the 16-shot dial jobs, "
+             "then the 64-shot truncation jobs, then the 4096-shot characterisation, then the 16384-shot references; the live layout check covers the union of the three "
+             "rungs' qubits and live couplers and applies the Deviation 53 coherence floor, so a failing qubit on any rung refuses the whole list (fallback: arm the source "
+             "lists separately). Pre-flight review: docs/preflight/06_paper1_day3_dial_2026-09-21.md.")
+    extra = dict(day="Deviation 50 campaign day 3 (dial arm and Gate 1b references)", source_lists=list(DAY3_SOURCES),
+                 source_lists_min_at_1us=round(sum(s["budget"]["minutes_at_1us"] for s in src), 3), source_lists_jobs=sum(s["budget"]["jobs"] for s in src))
+    return {DAY3_NAME: base_list("paper1_day3_dial_refs", notes, pl, ["n40", "n60", "n100"], "day3:dial", [], probes, extra)}
+
+
 def make_lists(snapshot: str, rule: str = "baseline") -> tuple[dict, dict]:
     pl = place_rungs(snapshot)
     lists = {}
@@ -418,6 +452,7 @@ def make_lists(snapshot: str, rule: str = "baseline") -> tuple[dict, dict]:
     lists.update(null_control_list(pl, rule))
     lists.update(day1_list(pl, lists))          # Deviation 50 day 1: built from the two lists above, never hand-edited
     lists.update(day2_list(pl, lists))          # Deviation 50 day 2: the four remaining 4096-shot grid rungs
+    lists.update(day3_list(pl, lists))          # Deviation 50 day 3: the Gate 1b references and the dial-arm core
     return lists, pl
 
 
@@ -441,13 +476,17 @@ def summarise(lists: dict, pl: dict, rule: str) -> dict:
     day2 = dict(list=DAY2_NAME, source_lists=list(DAY2_SOURCES), ledger_lines=["main"], jobs=d2["budget"]["jobs"], minutes_at_1us=d2["budget"]["minutes_at_1us"],
                 source_lists_jobs=d2["campaign"]["source_lists_jobs"], source_lists_min_at_1us=d2["campaign"]["source_lists_min_at_1us"],
                 note="Deviation 50 day-2 packaging of the four 4096-shot grid lists (same pubs, same seeds); not counted again in the totals")
-    return dict(pre_registration=PREREG, budget_model_version=BUDGET_MODEL_VERSION, max_experiments=MAX_EXPERIMENTS, max_job_param_mb=MAX_JOB_PARAM_MB,
+    d3 = lists[DAY3_NAME]
+    day3 = dict(list=DAY3_NAME, source_lists=list(DAY3_SOURCES), ledger_lines=["dial"], jobs=d3["budget"]["jobs"], minutes_at_1us=d3["budget"]["minutes_at_1us"],
+                source_lists_jobs=d3["campaign"]["source_lists_jobs"], source_lists_min_at_1us=d3["campaign"]["source_lists_min_at_1us"],
+                note="Deviation 50 day-3 packaging of the references and the dial-arm core (same pubs, same seeds); not counted again in the totals")
+    return dict(pre_registration=PREREG, budget_model_version=BUDGET_MODEL_VERSION, max_experiments=MAX_EXPERIMENTS, max_job_param_mb=MAX_JOB_PARAM_MB, packing=dict(PACKING),
                 m_rule=rule, snapshot=pl["snapshot"], properties=pl["properties"], stamp=pl["stamp"],
                 rungs={r: dict(n=v["n"], patch=v["patch"], origin=v["origin"], edge=v["edge"], edge_rule=v["edge_rule"], broken_edges=v["broken_edges"], holes=v["holes"])
                        for r, v in pl["rungs"].items()},
                 ledger_caps_min_at_1us=caps, totals=totals,
                 within_caps={k: totals[k]["minutes_at_1us"] <= caps[k] for k in caps},
-                booked_total_min_at_1us=round(sum(totals[k]["minutes_at_1us"] for k in caps), 3), day1=day1, day2=day2, lists=per)
+                booked_total_min_at_1us=round(sum(totals[k]["minutes_at_1us"] for k in caps), 3), day1=day1, day2=day2, day3=day3, lists=per)
 
 
 def main(argv=None) -> int:
@@ -460,6 +499,7 @@ def main(argv=None) -> int:
     ap.add_argument("--day1", action="store_true", help=f"only the Deviation 50 campaign day-1 list {DAY1_NAME} (null_controls + grid_n20, one list); "
                                                           "no summary.json")
     ap.add_argument("--day2", action="store_true", help=f"only the Deviation 50 campaign day-2 list {DAY2_NAME} (grid_n40 + n60 + n80 + n100, one list); no summary.json")
+    ap.add_argument("--day3", action="store_true", help=f"only the Deviation 50 campaign day-3 list {DAY3_NAME} (references_gate1b + dial_arm, one list); no summary.json")
     a = ap.parse_args(argv)
     lists, pl = make_lists(a.snapshot, a.m_rule)
     summary = summarise(lists, pl, a.m_rule)
@@ -468,6 +508,8 @@ def main(argv=None) -> int:
         lists = {DAY1_NAME: lists[DAY1_NAME]}
     if a.day2:
         lists = {DAY2_NAME: lists[DAY2_NAME]}
+    if a.day3:
+        lists = {DAY3_NAME: lists[DAY3_NAME]}
     kept = [n for n in lists if armed(out / n)]           # armed lists are run records: never rewritten, never checked against a newer snapshot
     if kept:
         print("kept (armed, dry_run false; the record of a run): " + ", ".join(kept))
@@ -484,8 +526,8 @@ def main(argv=None) -> int:
         b = jl["budget"]
         print(f"{name}: {len(jl['points'])} points, {len(jl['probes'])} probes, {b['jobs']} jobs, {b['pubs']} pubs, {b['circuits']} parameter sets, "
               f"{b['executions']} exec, {b['minutes_at_1us']} min at 1 us / {b['minutes_at_250us']} min at 250 us")
-    if a.day1 or a.day2:
-        print(json.dumps(summary["day1" if a.day1 else "day2"], indent=1))
+    if a.day1 or a.day2 or a.day3:
+        print(json.dumps(summary["day1" if a.day1 else ("day2" if a.day2 else "day3")], indent=1))
         return 0
     (out / "summary.json").write_text(json.dumps(summary, indent=1) + "\n")
     print(json.dumps(dict(totals=summary["totals"], caps=summary["ledger_caps_min_at_1us"], within_caps=summary["within_caps"], rungs=summary["rungs"],

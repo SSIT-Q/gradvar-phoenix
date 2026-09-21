@@ -237,16 +237,20 @@ def gate2_a(points: pd.DataFrame, preds: Dict, floors: List[Dict] | None = None)
     is the measured null control when the run has one, else the simulated floor of criterion (d) (Deviation 42 (v));
     SE = bootstrap half-width / 1.96 of the measured variance."""
     text = "Gate 2 (a): at n = 20, level 0, deepest predicted-resolvable L > 1, measured variance exceeds the null-control floor by > 3 SE"
-    g = points[(points.kind == "grid") & (points.n == 20) & (points.resilience_level == 0) & (points.k == 1) & (points.L > 1)] if len(points) else points
+    n20 = n20_rung_n(points)
+    if n20 is None:
+        return verdict("gate2_a", text, "not-evaluable", note=f"no grid point on the n20 rung (placed n within {N20_RUNG_RANGE}, Deviation 46) in the run")
+    g = points[(points.kind == "grid") & (points.n == n20) & (points.resilience_level == 0) & (points.k == 1) & (points.L > 1)]
     if g.empty:
-        return verdict("gate2_a", text, "not-evaluable", note="no n = 20, level 0, L > 1 grid point measured")
+        return verdict("gate2_a", text, "not-evaluable", note=f"no n = {n20} (n20 rung), level 0, L > 1 grid point measured")
     shots = int(g.shots.iloc[0])
-    floor = null_floor_for(floors if floors is not None else null_floors(points, preds), 20, shots, level=0)
+    floor = null_floor_for(floors if floors is not None else null_floors(points, preds), n20, shots, level=0)
     if floor is None:
-        return verdict("gate2_a", text, "not-evaluable", note=f"no null-control floor for n = 20 at {shots} shots (measured or simulated)")
+        return verdict("gate2_a", text, "not-evaluable", note=f"no null-control floor for n = {n20} at {shots} shots (measured or simulated)")
     cands = []
     for r in g.sort_values("L", ascending=False).itertuples():
-        pr = P.predicted_point(preds, 20, int(r.L), 1, "grid", patch=r.patch, edge=r.edge)
+        pr = P.predicted_point(preds, n20, int(r.L), 1, "grid", patch=r.patch, edge=r.edge) or \
+            (P.predicted_point(preds, 20, int(r.L), 1, "grid", patch=r.patch, edge=r.edge) if n20 != 20 else None)   # the nominal rung's record
         if pr and pr["var"] > floor["var_null"]:
             cands.append((int(r.L), pr["var"], r))
     if not cands:
@@ -255,8 +259,32 @@ def gate2_a(points: pd.DataFrame, preds: Dict, floors: List[Dict] | None = None)
     se = (r.ci_hi - r.ci_lo) / (2 * Z95)
     z = (r.variance - floor["var_null"]) / se if se > 0 else float("nan")
     return verdict("gate2_a", text, "pass" if z > 3 else "fail", value=float(z), threshold=3.0, comparison="(Var_measured - Var_null) / SE > 3",
-                   note=f"L = {L} (predicted {pv:.3g} > null floor {floor['var_null']:.3g}, {floor['source']}); measured {r.variance:.3g} +/- {se:.2g}", L=L, predicted=pv,
-                   floor=floor, measured=float(r.variance))
+                   note=f"n20 rung placed at n = {n20}; L = {L} (predicted {pv:.3g} > null floor {floor['var_null']:.3g}, {floor['source']}); measured {r.variance:.3g} +/- {se:.2g}",
+                   L=L, n=int(n20), predicted=pv, floor=floor, measured=float(r.variance))
+
+
+N20_RUNG_RANGE = (16, 24)   # the nominal n = 20 rung as placed under Deviation 46 (4x5 with holes: n = 19 on 20 Sep 13:44Z, 21 Sep 02:05Z)
+
+
+def n20_rung_n(points: pd.DataFrame) -> int | None:
+    """The placed qubit count of the nominal n = 20 rung in a run: the smallest grid n within ``N20_RUNG_RANGE`` (Deviation 46 re-derives the
+    4x5 patch per run day; day 1 ran it at n = 19), else None."""
+    if not len(points) or "kind" not in points:
+        return None
+    ns = sorted({int(n) for n in points[points.kind == "grid"].n.dropna() if N20_RUNG_RANGE[0] <= int(n) <= N20_RUNG_RANGE[1]})
+    return ns[0] if ns else None
+
+
+def gate_and_spam_qubits(rows: pd.DataFrame) -> Tuple[List[int], List[int]]:
+    """Deviation 52: the qubits Gate 2 (e)'s pause reading covers (qubits of rows with at least one layer, L >= 1: the patch and its couplers)
+    and the SPAM-only qubits (qubits that appear only in L = 0 rows, the Deviation 43 null controls of the other rungs), which are logged
+    (readout and init only) and never pause the campaign."""
+    def qs(frame):
+        return {int(q) for s in frame.patch_qubits.dropna().astype(str) for q in s.split() if q.isdigit()}
+    L = pd.to_numeric(rows.get("L"), errors="coerce").fillna(0) if "L" in rows else pd.Series(0, index=rows.index)
+    gate = qs(rows[L >= 1])
+    spam = qs(rows[L < 1]) - gate
+    return sorted(gate), sorted(spam)
 
 
 def preregistered_main_grid(shots: int = 4096, headline_shots: int = 16384, M: int = 200, ns=(20, 39, 53, 70, 87), Ls=(1, 2, 4, 8, 12)) -> dict:
@@ -445,11 +473,14 @@ def gate2_e(run: RunData, snapshot_csv: str | Path | None, reference_reset_error
     """(e) readout errors on the day within 1.5x of the planning snapshot on the patch qubits; reset error on the dial patch
     within 1.5x of its dry-run (earlier smoke-test) value and below the 2e-2 kill line. ``reference_reset_error`` is the
     earlier run's per-qubit P(1); without it only the kill line is checked."""
-    text = "Gate 2 (e): day readout errors within 1.5x the planning snapshot; dial-patch reset error within 1.5x its dry-run value and below 2e-2"
+    text = ("Gate 2 (e): day readout errors within 1.5x the planning snapshot on the patch (gate) qubits, SPAM-only qubits logged (Deviation 52); "
+            "dial-patch reset error within 1.5x its dry-run value and below 2e-2")
     live, snap = _live_readout(run), _snapshot_readout(snapshot_csv)
-    patch_q = sorted({int(q) for s in run.rows.patch_qubits.dropna().astype(str) for q in s.split() if q.isdigit()})
+    patch_q, spam_q = gate_and_spam_qubits(run.rows)
     ro = [dict(qubit=q, live=live[q], snapshot=snap[q], ratio=live[q] / snap[q] if snap[q] > 0 else np.inf) for q in patch_q if q in live and q in snap]
     ro_bad = [r for r in ro if r["ratio"] > READOUT_DRIFT_FACTOR]
+    ro_spam = [dict(qubit=q, live=live[q], snapshot=snap[q], ratio=live[q] / snap[q] if snap[q] > 0 else np.inf) for q in spam_q if q in live and q in snap]
+    ro_spam_high = [r for r in ro_spam if r["ratio"] > READOUT_DRIFT_FACTOR]
     t = _measured_reset_error(run)
     t = t[(t.reset_kind == "reset") & (t.prep == "1")]
     reset = {int(r.qubit): float(r.p1) for r in t.itertuples()}
@@ -462,6 +493,9 @@ def gate2_e(run: RunData, snapshot_csv: str | Path | None, reference_reset_error
     parts = []
     if ro:
         parts.append(f"readout: max live/snapshot {max(r['ratio'] for r in ro):.2f} over {len(ro)} patch qubits (limit 1.5), {len(ro_bad)} above")
+    if ro_spam:
+        parts.append(f"SPAM-only qubits (Deviation 52, logged, no pause): {len(ro_spam_high)} of {len(ro_spam)} above 1.5x"
+                     + (f" (max {max(r['ratio'] for r in ro_spam):.2f})" if ro_spam else ""))
     if reset:
         parts.append(f"reset error: max P(1) {max(reset.values()):.2e} (kill line 2e-2), {len(reset_bad)} at or above"
                      + (f"; drift vs reference: {len(drift_bad)} of {len(drift)} above 1.5x" if drift else "; no reference value for the drift check"))
@@ -470,7 +504,8 @@ def gate2_e(run: RunData, snapshot_csv: str | Path | None, reference_reset_error
                    value=dict(readout_ratio_max=max((r["ratio"] for r in ro), default=None), reset_error_max=max(reset.values(), default=None),
                               reset_drift_max=max((d["ratio"] for d in drift), default=None)),
                    threshold=dict(readout_ratio_max=READOUT_DRIFT_FACTOR, reset_error_max=RESET_ERROR_KILL, reset_drift_max=RESET_ERROR_DRIFT_FACTOR),
-                   note="; ".join(parts), readout=ro, readout_failing=ro_bad, reset_error=reset, reset_drift=drift)
+                   note="; ".join(parts), readout=ro, readout_failing=ro_bad, spam_only_readout=ro_spam, spam_only_above=ro_spam_high,
+                   reset_error=reset, reset_drift=drift)
 
 
 def gate2(run: RunData, points: pd.DataFrame, preds: Dict, snapshot_csv=None, reference_reset_error=None, floors: List[Dict] | None = None) -> Dict[str, Dict]:

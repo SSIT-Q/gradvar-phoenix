@@ -225,6 +225,44 @@ TREX_RANDOMIZATIONS = 32       # EstimatorV2 default resilience.measure_noise_le
 DIAL_US = {"reset": 0.40, "delay": 0.40, "measure_reset": 1.94, "measure_reset_2": 1.14, "none": 0.0}   # dephase: timed as delay (virtual Z has no duration)
 BUDGET_REP_DELAYS_US = (250.0, 1.0)
 MAX_EXPERIMENTS_DEFAULT = 300      # pubs per job (ibm_phoenix / Heron ``max_experiments``, configuration ledger 2026-09-19; Deviation 27)
+LEVEL2_LARGE_N_MIN = 69            # Deviation 55 (to be): a resilience-2 (ZNE) job on a rung of n >= 69 holds at most LEVEL2_MAX_PUBS pubs: day 2
+LEVEL2_MAX_PUBS = 100              # (21 Sep 2026) job L2-c5, 300 pubs of n = 85 L = 8, died of runtime memory (IBM 1336); the same shape at 100 pubs ran
+
+
+def level2_cap(jl: dict) -> Tuple[int, int] | None:
+    """The job list's level-2 packing cap ``(n_min, max_pubs)`` from ``campaign.packing`` (written by the generator from Deviation 55 on),
+    or None for lists without one (the armed records of days 1 and 2 keep the packing they ran with, so their budgets stay valid)."""
+    pk = (jl.get("campaign") or {}).get("packing") or {}
+    if not pk.get("level2_max_pubs"):
+        return None
+    return int(pk.get("level2_large_n_min", LEVEL2_LARGE_N_MIN)), int(pk["level2_max_pubs"])
+
+
+def group_max_pubs(jl: dict, level: int, ns: Iterable[int], max_pubs: int) -> int:
+    """Pubs per job for one job group: ``max_pubs`` (max_experiments), lowered to the list's level-2 cap when the group is resilience 2 and
+    any of its pubs sits on a rung of at least ``n_min`` qubits."""
+    cap = level2_cap(jl)
+    if cap and int(level) == 2 and any(int(n) >= cap[0] for n in ns):
+        return min(int(max_pubs), cap[1])
+    return int(max_pubs)
+
+
+def chunk_pubs_capped(jl: dict, level: int, pubs: list, ns: Sequence[int], max_pubs: int, sizes: Sequence[int], max_bytes: int) -> List[list]:
+    """``chunk_pubs`` with the level-2 cap applied per consecutive run of pubs in build order: runs of pubs on rungs of at least ``n_min``
+    qubits are split at the cap, the other runs at ``max_pubs``, so a combined list packs each rung as its source list does."""
+    cap = level2_cap(jl)
+    if not (cap and int(level) == 2) or not any(int(n) >= cap[0] for n in ns):
+        return chunk_pubs(pubs, max_pubs, sizes=sizes, max_bytes=max_bytes)
+    out: List[list] = []
+    start = 0
+    while start < len(pubs):
+        large = int(ns[start]) >= cap[0]
+        end = start
+        while end < len(pubs) and (int(ns[end]) >= cap[0]) == large:
+            end += 1
+        out += chunk_pubs(pubs[start:end], min(int(max_pubs), cap[1]) if large else int(max_pubs), sizes=sizes[start:end], max_bytes=max_bytes)
+        start = end
+    return out or [[]]
 CONFIG_LEDGER = Path(__file__).resolve().parents[1] / "data" / "calibrations" / "backend_configurations.csv"
 ZNE_NOISE_FACTORS = 3          # resilience 2 runs each circuit at 3 noise factors (default noise_factors (1, 3, 5))
 _SYNTHETIC_INSTRUCTIONS: Dict[int, set] = {}   # id(backend) -> reset kinds added to a fake target by dial_operation
@@ -731,7 +769,7 @@ def budget_jobs(jl: dict, dial_us: Dict[str, float], max_pubs: int | None = None
         lvl = int(pt["resilience"])
         j = by_level.setdefault(lvl, dict(tag=f"L{lvl}", level=lvl, shots=int(pt["shots"]), items=[], bases=set(), rep_delay_us=None))
         for _ in range(int(pt["M"])):                      # one pub (shifted pair) per draw, in build order
-            j["items"].append((2, int(pt["shots"]), int(pt["L"]) * LAYER_US, f"ZZ:{pt.get('edge')}", 2 * int(pt["n"]) * int(pt["L"]) * 8))
+            j["items"].append((2, int(pt["shots"]), int(pt["L"]) * LAYER_US, f"ZZ:{pt.get('edge')}", 2 * int(pt["n"]) * int(pt["L"]) * 8, int(pt["n"])))
     by_probe: Dict[Tuple[int, int, float], dict] = {}
     for pr in jl.get("probes", []) or []:
         rd = probe_rep_delay_us(pr)
@@ -741,12 +779,12 @@ def budget_jobs(jl: dict, dial_us: Dict[str, float], max_pubs: int | None = None
         pubs, per = _probe_pubs(pr)
         nbytes = per * _probe_params(pr) * 8
         for _ in range(pubs):
-            j["items"].append((per, int(pr["shots"]), _probe_length_us(pr, dial_us), _probe_basis(pr), nbytes))
+            j["items"].append((per, int(pr["shots"]), _probe_length_us(pr, dial_us), _probe_basis(pr), nbytes, int(pr.get("n") or len(pr.get("qubits") or []))))
     max_pubs = max_experiments(jl.get("backend")) if max_pubs is None else int(max_pubs)
     max_param_bytes = int(MAX_JOB_PARAM_MB * 1e6) if max_param_bytes is None else int(max_param_bytes)
     jobs = []
     for g in [by_level[k] for k in sorted(by_level)] + [by_probe[k] for k in sorted(by_probe)]:
-        chunks = chunk_pubs(g["items"], max_pubs, sizes=[it[4] for it in g["items"]], max_bytes=max_param_bytes)
+        chunks = chunk_pubs_capped(jl, g["level"], g["items"], [it[5] for it in g["items"]], max_pubs, [it[4] for it in g["items"]], max_param_bytes)
         for tag, items in zip(chunk_tags(g["tag"], len(chunks)), chunks):
             jobs.append(dict(tag=tag, level=g["level"], shots=g["shots"], items=[it[:3] for it in items], bases={it[3] for it in items},
                              rep_delay_us=g["rep_delay_us"], param_bytes=sum(it[4] for it in items)))
@@ -991,11 +1029,11 @@ def layout_check(backend, qubits: Iterable[int], couplers: Iterable[Tuple[int, i
     (``layout_check_for``). Review defect D2: Q11 at 8.4 percent readout sat in the Marrakesh patch unnoticed.
     ``props`` (a BackendProperties) replaces the live ``backend.properties()`` call: the retrieval path passes the
     properties at the job's creation time (``backend.properties(datetime=job.creation_date)``) and names them in ``source``."""
-    from .noise import READOUT_CUT
+    from .noise import COHERENCE_FLOOR_SINCE, COHERENCE_FLOOR_US, READOUT_CUT
     cut = READOUT_CUT if readout_cut is None else float(readout_cut)
     qs = sorted({int(q) for q in qubits})
     cps = sorted({tuple(int(x) for x in c) for c in couplers})
-    out: Dict[str, Any] = dict(readout_cut=cut, cz_cut=float(cz_cut), init_error_cut=INIT_ERROR_CUT, source=source or "backend.properties()",
+    out: Dict[str, Any] = dict(readout_cut=cut, cz_cut=float(cz_cut), init_error_cut=INIT_ERROR_CUT, coherence_floor_us=None, source=source or "backend.properties()",
                                properties_last_update=None, qubits={}, couplers={}, failing_qubits=[], failing_couplers=[], verdict="unavailable")
     if props is None:
         try:
@@ -1007,6 +1045,18 @@ def layout_check(backend, qubits: Iterable[int], couplers: Iterable[Tuple[int, i
         out["reason"] = "backend reports no properties (Target-only backend)"
         return out
     out["properties_last_update"] = str(getattr(props, "last_update_date", None))
+    # Deviation 53 (a): T1 and T2 >= COHERENCE_FLOOR_US on every used qubit, on calibrations from the floor's adoption (COHERENCE_FLOOR_SINCE,
+    # 20 Sep 2026 14:17:36Z) onward, so the frozen 19 / 20 Sep records and the fake backends' 2025 calibrations reproduce
+    floor_us = None
+    try:
+        lu = getattr(props, "last_update_date", None)
+        since = datetime.strptime(COHERENCE_FLOOR_SINCE, "%Y-%m-%dT%H%M%SZ").replace(tzinfo=timezone.utc)
+        if lu is not None:
+            lu = lu if lu.tzinfo else lu.replace(tzinfo=timezone.utc)
+            floor_us = COHERENCE_FLOOR_US if lu >= since else None
+    except Exception:  # pragma: no cover
+        floor_us = None
+    out["coherence_floor_us"] = floor_us
     cz_err: Dict[Tuple[int, int], float | None] = {}
     for g in getattr(props, "gates", []) or []:
         if len(getattr(g, "qubits", ())) == 2 and str(getattr(g, "gate", "")) in ("cz", "ecr", "cx"):
@@ -1026,6 +1076,13 @@ def layout_check(backend, qubits: Iterable[int], couplers: Iterable[Tuple[int, i
             rec["init_error"] = float(props.qubit_property(q, "init_error")[0])
         except Exception:
             rec["init_error"] = None
+        for nm in ("t1", "t2"):
+            try:
+                rec[f"{nm}_us"] = float(getattr(props, nm)(q)) * 1e6
+            except Exception:
+                rec[f"{nm}_us"] = None
+            if floor_us is not None and rec[f"{nm}_us"] is not None and rec[f"{nm}_us"] < floor_us:
+                rec["fails"].append(f"{nm.upper()} {rec[f'{nm}_us']:.1f} us < {floor_us:g} us (Deviation 53 coherence floor)")
         if rec["readout_error"] is not None and rec["readout_error"] > cut:
             rec["fails"].append(f"readout error {rec['readout_error']:.4f} > {cut:g}")
         if rec["operational"] is False:
@@ -1710,7 +1767,8 @@ def job_groups(jl: dict, points: List[GridPoint], shapes: dict, shots: int, back
     def split(tag, level, gshots, group):
         if dry_run_sample is not None:
             group = group[: int(dry_run_sample)]
-        chunks = chunk_pubs(group, max_pubs, sizes=[pub_param_bytes(b) for b in group], max_bytes=max_bytes)
+        ns = [len(b.qubits) if isinstance(b, BuiltProbe) else b.point.n for b in group]
+        chunks = chunk_pubs_capped(jl, level, group, ns, max_pubs, [pub_param_bytes(b) for b in group], max_bytes)   # Deviation 55 level-2 cap
         for ctag, chunk in zip(chunk_tags(tag, len(chunks)), chunks):
             groups.append((ctag, level, gshots, chunk))
     by_level: Dict[int, List[BuiltPub]] = {}

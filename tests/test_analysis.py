@@ -438,6 +438,25 @@ def test_null_floor_for_picks_the_L0_level_matched_null_control():
     assert sim["var_null"] == 8.99e-5 and sim["source"].startswith("simulated")
 
 
+def test_gate2_a_is_keyed_to_the_placed_n20_rung(passing, preds):
+    """Deviation 46: the n20 rung ran at n = 19 on day 1; gate2_a keys the filter, the null floor and the prediction lookup to the placed n."""
+    pts = passing["points"].copy()
+    ref = gates.gate2_a(pts, preds)
+    pts.loc[pts.n == 20, "n"] = 19
+    v = gates.gate2_a(pts, preds)
+    assert v["result"] == ref["result"] == "pass" and v["L"] == ref["L"] and v["n"] == 19 and "n20 rung placed at n = 19" in v["note"]
+    assert v["value"] == pytest.approx(ref["value"], rel=1e-6)
+    assert gates.n20_rung_n(pts) == 19 and gates.n20_rung_n(pts[pts.n > 30]) is None
+    assert gates.gate2_a(pts[pts.kind != "grid"], preds)["result"] == "not-evaluable"
+
+
+def test_gate_and_spam_qubits_split_by_layers():
+    """Deviation 52: qubits that appear only in L = 0 rows (the other rungs' null controls) are SPAM-only and never pause Gate 2 (e)."""
+    rows = pd.DataFrame(dict(patch_qubits=["1 2 3", "1 2 3", "1 2 3 7 8", "40 41"], L=[2, 0, 0, 1]))
+    assert gates.gate_and_spam_qubits(rows) == ([1, 2, 3, 40, 41], [7, 8])
+    assert gates.gate_and_spam_qubits(rows[rows.L == 0]) == ([], [1, 2, 3, 7, 8])
+
+
 def test_gate2_e_reset_drift_reference(passing):
     ref = {q: max(v, 2e-3) / 2.0 for q, v in passing["gate2"]["e"]["reset_error"].items()}     # today's value is 2x the reference: > 1.5x drift
     v = gates.gate2_e(passing["_run"], SNAP, ref)

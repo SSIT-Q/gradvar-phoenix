@@ -425,6 +425,43 @@ def test_cli_guards_for_the_resubmission_flags():
         hw.main(["--only-job-tag", "L0"])                                             # needs --joblist
 
 
+class _StubProps:
+    """Enough of BackendProperties for layout_check: readout / init / T1 / T2 per qubit, no two-qubit gates, a chosen last_update_date."""
+    def __init__(self, last_update, t1_us, t2_us):
+        self.last_update_date, self._t1, self._t2, self.gates = last_update, t1_us, t2_us, []
+
+    def readout_error(self, q):
+        return 0.01
+
+    def is_qubit_operational(self, q):
+        return True
+
+    def qubit_property(self, q, name):
+        return (1e-5, None)
+
+    def t1(self, q):
+        return self._t1[q] * 1e-6
+
+    def t2(self, q):
+        return self._t2[q] * 1e-6
+
+
+def test_live_layout_check_applies_the_coherence_floor_from_its_adoption_date():
+    """Deviation 53 (a) in the live layout check (one place, gradvar.noise.COHERENCE_FLOOR_US): a qubit under 25 us of T1 or T2 fails on a
+    calibration dated from 20 Sep 2026 14:17:36Z on; earlier calibrations (the frozen records, the fake backends' 2025 properties) are not judged."""
+    import gradvar.hardware as hw
+    t1 = {0: 100.0, 1: 20.0, 2: 100.0}
+    t2 = {0: 100.0, 1: 100.0, 2: 24.9}
+    late = hw.layout_check(None, [0, 1, 2], [], props=_StubProps(datetime(2026, 9, 21, 2, 5, 47, tzinfo=timezone.utc), t1, t2), source="stub")
+    assert late["coherence_floor_us"] == 25.0 and late["verdict"] == "fail" and late["failing_qubits"] == [1, 2]
+    assert "T1 20.0 us < 25 us (Deviation 53 coherence floor)" in late["qubits"]["1"]["fails"] and late["qubits"]["2"]["fails"] == ["T2 24.9 us < 25 us (Deviation 53 coherence floor)"]
+    assert late["qubits"]["0"]["t1_us"] == pytest.approx(100.0) and late["qubits"]["0"]["fails"] == []
+    early = hw.layout_check(None, [0, 1, 2], [], props=_StubProps(datetime(2025, 12, 8, 9, 37, 9, tzinfo=timezone.utc), t1, t2), source="stub")
+    assert early["coherence_floor_us"] is None and early["verdict"] == "pass" and early["qubits"]["1"]["t1_us"] == pytest.approx(20.0)
+    naive = hw.layout_check(None, [1], [], props=_StubProps(datetime(2026, 9, 20, 14, 17, 36), t1, t2), source="stub")   # naive datetimes are UTC
+    assert naive["coherence_floor_us"] == 25.0 and naive["failing_qubits"] == [1]
+
+
 def test_large_estimator_qpy_goes_to_the_artefact_dir(tmp_path, monkeypatch):
     """Run 35551684219 (21 Sep 2026): GitHub rejected the day-2 retrieval push over two 112 MB circuits.qpy. Above QPY_COMMIT_LIMIT_MB an
     Estimator bundle keeps only the SHA-256 / size / versions and the file goes under <run_root>/../artifacts/ like the Sampler QPY."""

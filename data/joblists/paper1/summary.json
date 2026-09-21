@@ -1,29 +1,43 @@
 {
- "pre_registration": "Paper 1 pre-registration v0.13.2 (20 Sep 2026)",
+ "pre_registration": "Paper 1 pre-registration v0.13.3 (21 Sep 2026)",
  "budget_model_version": 3,
  "max_experiments": 300,
  "max_job_param_mb": 12.0,
+ "packing": {
+  "level2_large_n_min": 69,
+  "level2_max_pubs": 100,
+  "reason": "Deviation 55 (to be): resilience-2 jobs on rungs of n >= 69 hold at most 100 pubs (day-2 job L2-c5, 300 pubs of n = 85 L = 8, IBM 1336 out of memory; 100 pubs ran)"
+ },
  "m_rule": "baseline",
- "snapshot": "ibm_phoenix_2026-09-20T175012Z.csv",
- "properties": "ibm_phoenix_properties_2026-09-20T175012Z.json",
- "stamp": "2026-09-20T175012Z",
+ "snapshot": "ibm_phoenix_2026-09-21T022722Z.csv",
+ "properties": "ibm_phoenix_properties_2026-09-21T022722Z.json",
+ "stamp": "2026-09-21T022722Z",
  "rungs": {
   "n20": {
    "n": 19,
    "patch": "4x5",
    "origin": [
-    8,
-    1
+    2,
+    0
    ],
-   "edge": "93_103",
+   "edge": "32_42",
    "edge_rule": "interior_edge",
-   "broken_edges": [],
+   "broken_edges": [
+    [
+     31,
+     32
+    ],
+    [
+     41,
+     51
+    ]
+   ],
    "holes": [
-    114
+    24
    ]
   },
   "n40": {
-   "n": 37,
+   "n": 36,
    "patch": "4x10",
    "origin": [
     8,
@@ -41,6 +55,10 @@
      101
     ],
     [
+     118,
+     119
+    ],
+    [
      95,
      96
     ],
@@ -50,6 +68,7 @@
     ]
    ],
    "holes": [
+    105,
     107,
     110,
     114
@@ -72,6 +91,10 @@
     [
      31,
      32
+    ],
+    [
+     41,
+     51
     ]
    ],
    "holes": [
@@ -88,22 +111,18 @@
    ]
   },
   "n80": {
-   "n": 69,
+   "n": 68,
    "patch": "8x10",
    "origin": [
-    3,
+    2,
     0
    ],
-   "edge": "75_85",
+   "edge": "43_44",
    "edge_rule": "interior_edge",
    "broken_edges": [
     [
      86,
      87
-    ],
-    [
-     100,
-     101
     ],
     [
      31,
@@ -114,11 +133,17 @@
      96
     ],
     [
+     41,
+     51
+    ],
+    [
      87,
      97
     ]
    ],
    "holes": [
+    24,
+    27,
     49,
     55,
     59,
@@ -128,12 +153,11 @@
     67,
     72,
     73,
-    77,
-    107
+    77
    ]
   },
   "n100": {
-   "n": 85,
+   "n": 84,
    "patch": "10x10",
    "origin": [
     2,
@@ -151,12 +175,20 @@
      101
     ],
     [
+     118,
+     119
+    ],
+    [
      31,
      32
     ],
     [
      95,
      96
+    ],
+    [
+     41,
+     51
     ],
     [
      87,
@@ -176,6 +208,7 @@
     72,
     73,
     77,
+    105,
     107,
     110,
     114
@@ -189,9 +222,9 @@
  },
  "totals": {
   "main": {
-   "minutes_at_1us": 48.362,
-   "minutes_at_250us": 837.09,
-   "jobs": 74,
+   "minutes_at_1us": 48.837,
+   "minutes_at_250us": 837.565,
+   "jobs": 79,
    "executions": 163840000
   },
   "dial": {
@@ -218,7 +251,7 @@
   "dial": true,
   "null_controls": true
  },
- "booked_total_min_at_1us": 80.812,
+ "booked_total_min_at_1us": 81.287,
  "day1": {
   "list": "day1_null_grid_n20.json",
   "source_lists": [
@@ -246,11 +279,26 @@
   "ledger_lines": [
    "main"
   ],
-  "jobs": 49,
-  "minutes_at_1us": 36.695,
-  "source_lists_jobs": 54,
-  "source_lists_min_at_1us": 37.035,
+  "jobs": 54,
+  "minutes_at_1us": 37.17,
+  "source_lists_jobs": 59,
+  "source_lists_min_at_1us": 37.51,
   "note": "Deviation 50 day-2 packaging of the four 4096-shot grid lists (same pubs, same seeds); not counted again in the totals"
+ },
+ "day3": {
+  "list": "day3_dial_refs.json",
+  "source_lists": [
+   "references_gate1b.json",
+   "dial_arm.json"
+  ],
+  "ledger_lines": [
+   "dial"
+  ],
+  "jobs": 131,
+  "minutes_at_1us": 30.854,
+  "source_lists_jobs": 131,
+  "source_lists_min_at_1us": 30.854,
+  "note": "Deviation 50 day-3 packaging of the references and the dial-arm core (same pubs, same seeds); not counted again in the totals"
  },
  "lists": {
   "grid_n20.json": {
@@ -303,13 +351,13 @@
   },
   "grid_n100.json": {
    "ledger_line": "main",
-   "jobs": 16,
+   "jobs": 21,
    "pubs": 4400,
    "circuits": 8800,
    "executions": 36044800,
    "trex_executions": 0,
-   "minutes_at_1us": 13.661,
-   "minutes_at_250us": 217.642,
+   "minutes_at_1us": 14.136,
+   "minutes_at_250us": 218.117,
    "points": 20,
    "probes": 2
   },
@@ -399,15 +447,27 @@
   },
   "day2_main_grid.json": {
    "ledger_line": "day2:main",
-   "jobs": 49,
+   "jobs": 54,
    "pubs": 14000,
    "circuits": 28000,
    "executions": 114688000,
    "trex_executions": 0,
-   "minutes_at_1us": 36.695,
-   "minutes_at_250us": 621.44,
+   "minutes_at_1us": 37.17,
+   "minutes_at_250us": 621.915,
    "points": 62,
    "probes": 8
+  },
+  "day3_dial_refs.json": {
+   "ledger_line": "day3:dial",
+   "jobs": 131,
+   "pubs": 2313,
+   "circuits": 413803,
+   "executions": 77836288,
+   "trex_executions": 0,
+   "minutes_at_1us": 30.854,
+   "minutes_at_250us": 353.874,
+   "points": 0,
+   "probes": 18
   }
  }
 }
