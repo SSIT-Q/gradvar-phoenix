@@ -202,6 +202,10 @@ def test_checkpoint_round_trip_and_partition_on_toy_jobs(tmp_path):
     assert R.checkpoint_key("exact", ejobs[0]) != R.checkpoint_key("exact", dict(ejobs[0], k=4))
     assert R.checkpoint_key("pp", dict(mjobs[0], stamp="2026-09-20T030813Z")) != R.checkpoint_key("pp", mjobs[0])
     assert R.checkpoint_key("exact", ejobs[0]).split("|")[0] == "exact" and R.checkpoint_key("pp", mjobs[0]).split("|")[0] == "pp"
+    # Gate 1b rows key on (dial, p) instead of (model, k)
+    g = dict(rung_name="n40", spec="4x10", L=8, dial="delay", p=0.0, stamp=stamp)
+    assert R.checkpoint_key("gate1b", g) != R.checkpoint_key("gate1b", dict(g, dial="reset", p=0.25))
+    assert R.checkpoint_key("gate1b", g) == R.checkpoint_key("gate1b", dict(g, p=0))
 
 
 def test_exact_row_follows_the_run_day_edge_when_it_differs_from_interior_edge():

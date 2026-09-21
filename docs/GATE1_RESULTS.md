@@ -393,6 +393,11 @@ reference): 9 propagation rows and 6 exact rows, 59 core-minutes, 15.6 min wall.
 106 core-minutes, 28.2 min wall. Exact L = 1 +0.0% (noiseless) / +2.6% (noisy); exact L = 2 k = 1 -6 to -10%; propagation L = 4 +6 to +11%; L = 8 +44 to +51%
 at k = 1 and +54 to +60% at k = L; L = 12 +90 to +154% (largest: noiseless k = 12, 1.232e-5 -> 3.132e-5; not converged, exploratory). The day-2 comparison
 joins on patch, edge 75_85, L, k.
+**n100** (10x10: frozen n = 87 -> run-day n = 85, both origin (2, 0), edge 75_85; holes 91, 119 -> 107, 110, 114 among others, five broken couplers): 9 propagation
+rows and 3 exact rows, 191 core-minutes, 51 min wall (shared cores). Exact L = 2 k = 1 -14 to -16%; propagation L = 4 -0.6 to +0.6%; **L = 8 k = 1 nonunital
+2.904e-4 -> 3.069e-4 (+5.7%)**, unital +1.6%, noiseless +6.2%, k = 8 +5 to +8%; L = 12 noiseless +6 / +15%, noisy k = 1 -8% and k = 12 -7% (the noisy L = 12
+sampled runs hit the 2400 s sampler cap under the shared load, so those four values are the truncated lower bounds without an error bar; exploratory in any case).
+The day-2 comparison joins on patch, edge 75_85, L, k; the run-day n100 rows are within 8% of the frozen ones at every confirmatory depth.
 
 | rung | role | 19 Sep record: n, origin, edge, broken | 20 Sep 03:08Z reference: n, origin, edge | run-day: n, origin, holes, broken, edge (rule) | cone L2 | cone graph changed vs record (L = 1 / 2 / 4 / 8 / 12) | same as 20 Sep reference |
 |---|---|---|---|---|---|---|---|

@@ -564,9 +564,13 @@ def _run_main_grid_job(job: dict) -> dict:
 def checkpoint_key(kind: str, job: dict) -> str:
     """Identity of one main-grid job: kind (``pp`` / ``exact``), snapshot stamp, rung, patch, L, model and (exact rows) k. The
     Pauli-path count and the time limit are settings of the run, not of the row, so a resumed run must use the same flags."""
-    parts = [kind, str(job["stamp"]), str(job["rung_name"]), str(job["spec"]), str(job["L"]), str(job["model"])]
-    if kind == "exact":
-        parts.append(str(job["k"]))
+    parts = [kind, str(job["stamp"]), str(job["rung_name"]), str(job["spec"]), str(job["L"])]
+    if kind == "gate1b":                                   # a Gate 1b reference / dial row: (dial, p) instead of (model, k)
+        parts += [str(job["dial"]), repr(float(job["p"]))]
+    else:
+        parts.append(str(job["model"]))
+        if kind == "exact":
+            parts.append(str(job["k"]))
     return "|".join(parts)
 
 
@@ -834,7 +838,7 @@ def main(argv=None) -> int:
     ap.add_argument("--frozen-samples", action="store_true", help="main grid: the frozen row's Pauli-path count per row instead of --n-samples")
     ap.add_argument("--exact", action="store_true", help="main grid: also rerun the exactly simulated frozen rows (gate1_ladder.py settings) on the run-day placement")
     ap.add_argument("--main-grid-tag", default=None, help="file tag of the main-grid outputs (default: main_grid_redraw_<snapshot date>)")
-    ap.add_argument("--checkpoint", default=None, help="main grid: JSON-lines file; every finished row is appended as it completes and rows already in it are "
+    ap.add_argument("--checkpoint", default=None, help="JSON-lines file (Gate 1b and main-grid rows); every finished row is appended as it completes and rows already in it are "
                                                        "not recomputed on a restart (same snapshot and flags); the outputs merge the checkpoint rows")
     args = ap.parse_args(argv)
     rungs = None
@@ -898,9 +902,18 @@ def main(argv=None) -> int:
 
     t0 = time.time()
     rows = []
+    if jobs and args.checkpoint:
+        done = load_checkpoint(args.checkpoint)
+        rows = [done[checkpoint_key("gate1b", j)][1] for j in jobs if checkpoint_key("gate1b", j) in done]
+        jobs = [j for j in jobs if checkpoint_key("gate1b", j) not in done]
+        print(f"checkpoint {args.checkpoint}: {len(rows)} Gate 1b rows restored; {len(jobs)} to run", flush=True)
     if jobs:
         with ProcessPoolExecutor(max_workers=args.workers) as ex:
-            for out in ex.map(_run_job, jobs):
+            futs = {ex.submit(_run_job, j): j for j in jobs}
+            for fut in as_completed(futs):
+                out = fut.result()
+                if args.checkpoint:
+                    append_checkpoint(args.checkpoint, "gate1b", checkpoint_key("gate1b", futs[fut]), out)
                 rows.append(out)
                 print(f"  {out['patch']:6} n={out['n']} L={out['L']:2} {out['dial']:5} p={out['p']:<5}: kL mc={out.get('var_kL_mc', float('nan')):.4e}"
                       f"+/-{2 * out.get('se_kL_mc', float('nan')):.1e} pp={out['var_kL_pp']:.4e} C={out.get('var_cost_mc', float('nan')):.3e} "
