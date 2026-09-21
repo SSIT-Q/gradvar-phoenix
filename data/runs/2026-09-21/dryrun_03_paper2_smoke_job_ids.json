@@ -1,0 +1,38 @@
+{
+ "schema": "gradvar.hardware job ids v1",
+ "joblist": "data/joblists/dryrun/03_paper2_smoke.json",
+ "joblist_name": "dryrun_03_paper2_smoke",
+ "backend": "ibm_phoenix",
+ "instance": "flex",
+ "submission_run": 35558007437,
+ "runner_git_commit": "aba9412ae498a73df787a303181c837c4df0b83d",
+ "batch_id": "8beb9a11-cf1c-425b-92c9-b60a6ee871d7",
+ "calibration_csv": null,
+ "calibration_snapshot": "data/calibrations/ibm_phoenix_properties_2026-09-21T033603Z.json",
+ "written_utc": "2026-09-21T03:36:05.261872+00:00",
+ "notes": "written by execute_sampler_joblist right after submission (--submit-only: results not awaited)",
+ "discovery": null,
+ "resubmission": null,
+ "jobs": [
+  {
+   "job_id": "daoac90pqrnc7399mvn0",
+   "tag": "smoke-init_true",
+   "level": 0,
+   "shots": 2048,
+   "pubs": 37,
+   "rep_delay_us": null,
+   "init_qubits": true,
+   "submitted_utc": "2026-09-21T03:36:03.981815+00:00"
+  },
+  {
+   "job_id": "daoac98pqrnc7399mvng",
+   "tag": "smoke-init_false",
+   "level": 0,
+   "shots": 2048,
+   "pubs": 3,
+   "rep_delay_us": null,
+   "init_qubits": false,
+   "submitted_utc": "2026-09-21T03:36:04.968108+00:00"
+  }
+ ]
+}
