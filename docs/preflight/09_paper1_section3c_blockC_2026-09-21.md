@@ -1,11 +1,12 @@
 # Pre-flight 09: Paper 1 Section 3c, Block C (list `section3c_blockC`; Deviation 56)
 
-Status: **draft for review, not posted, list not armed.** Written 21 Sep 2026 10:15 IST (04:45 UTC) on the newest committed calibration data
-(`ibm_phoenix_2026-09-21T033603Z.csv`, the 03:36Z retrieval properties written as a CSV per Deviation 53 (b); placement identical to the 02:27Z and 03:08Z snapshots). Posted: (to fill). Reviewer: (to fill).
+**Posted 21 Sep 2026 10:47 IST (one message with pre-flight 08), https://ssitcrew.slack.com/archives/C0C29EYR0GZ/p1789964875073029?thread_ts=1789669318.385169&cid=C0C29EYR0GZ ; reviewer GO with notes. List not yet armed (Owais, tonight, after the replication lists).** Pre-registration **v0.15.1, Deviation 56 erratum**: no per-draw noiseless comparison exists at n = 84, L >= 8 (the light cone is the whole patch); Block C is compared with the propagation prediction and the L = 0 floors; the rung is n = 84 today (Sections 2 and 4 below read this way).
+
+Written 21 Sep 2026 10:15 IST (04:45 UTC) on the newest committed calibration data
+(`ibm_phoenix_2026-09-21T033603Z.csv`, the 03:36Z retrieval properties written as a CSV per Deviation 53 (b); placement identical to the 02:27Z and 03:08Z snapshots).
 Pre-registration **v0.15.0, Section 3c / Deviation 56 (publishing 21 Sep 2026)**: Owais's decision of 09:09 to 09:24 IST that there is no Paper 3 and the reserve
 conjecture test (https://claude.ai/artifact/E1vn55zKkXc7DNR4TNWwgW, Version 2) becomes Paper 1 Section 3c; Block C is booked now, the transition map is
-conditional on a per-draw surrogate and the theorist's sign-off. **This pre-flight was written from the coordinator's booking; check it against the
-published Deviation 56 wording before posting.** Also read under Deviations 18, 22, 26, 37, 43, 46, 47, 53, 55; Section 5 Gate 2 (e). **Order tonight: day 3
+conditional on a per-draw surrogate and the theorist's sign-off. **Checked at posting against the published Deviation 56 (v0.15.0) and its erratum (v0.15.1).** Also read under Deviations 18, 22, 26, 37, 43, 46, 47, 53, 55; Section 5 Gate 2 (e). **Order tonight: day 3
 (pre-flight 06), then the Deviation 19 replication lists (pre-flight 08), then this list.**
 
 ## 1. What runs

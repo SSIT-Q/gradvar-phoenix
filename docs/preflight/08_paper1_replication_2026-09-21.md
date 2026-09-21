@@ -1,8 +1,9 @@
 # Pre-flight 08: Deviation 19 replication 01 (Paper 1, lists `replication_01` and `replication_01_16384`)
 
-Status: **draft for review, not posted, lists not armed.** Written 21 Sep 2026 10:00 IST (04:30 UTC) on the newest committed calibration data
-(`ibm_phoenix_2026-09-21T033603Z.csv`, the 03:36Z retrieval properties of the Paper 2 smoke written as a CSV per Deviation 53 (b); the placement is identical to the 02:27Z and 03:08Z snapshots, checked). Posted:
-(to fill). Reviewer: (to fill). Pre-registration v0.15.0: Deviation 19 (anomaly protocol, with its two recorded flags), Deviations 18, 22, 26, 37, 43, 46,
+**Posted 21 Sep 2026 10:47 IST (one message with pre-flight 09), https://ssitcrew.slack.com/archives/C0C29EYR0GZ/p1789964875073029?thread_ts=1789669318.385169&cid=C0C29EYR0GZ ; reviewer GO with notes. Lists not yet armed (Owais, tonight, after day 3).** Pre-registration **v0.15.1, Deviation 57** (anomaly-protocol replication placement, 10:45 IST): the n = 19 replication runs on the cleanest available placement, the (2, 0) 4x5 patch; the n = 84 rung has a single admissible 10x10 placement, so it replicates on the same patch with fresh seeds (draw sampling and day-to-day drift, not patch dependence, stated as such); 'different day' is read as a different calibration cycle; 4.46 min from the anomaly item. Section 2 below is the record that Deviation 57 codifies.
+
+Written 21 Sep 2026 10:00 IST (04:30 UTC) on the newest committed calibration data
+(`ibm_phoenix_2026-09-21T033603Z.csv`, the 03:36Z retrieval properties of the Paper 2 smoke written as a CSV per Deviation 53 (b); the placement is identical to the 02:27Z and 03:08Z snapshots, checked). Pre-registration v0.15.1 (Deviation 57 as above; Deviation 56 Section 3c): Deviation 19 (anomaly protocol, with its two recorded flags), Deviations 18, 22, 26, 37, 43, 46,
 53, 55; Section 5 Gate 2 (e). Tracker P1.3.9. **Order tonight: day 3 (`day3_dial_refs`, pre-flight 06) first, then these two lists, then Section 3c
 Block C (pre-flight 09).** Each list is its own Batch, arming, dispatch and ids file.
 
