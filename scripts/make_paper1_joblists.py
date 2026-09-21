@@ -46,9 +46,9 @@ from gradvar.lattice import interior_edge                                  # noq
 from gradvar.noise import COHERENCE_FLOOR_SINCE, COHERENCE_FLOOR_US, CZ_CUT, READOUT_CUT, cz_errors_from_calibration, exclusion_from_calibration, load_calibration, place_patch   # noqa: E402
 
 PLACEHOLDER = "TBD: pre-flight review permalink"
-PREREG = "Paper 1 pre-registration v0.13.3 (21 Sep 2026)"
+PREREG = "Paper 1 pre-registration v0.15.0 (21 Sep 2026)"
 MAX_EXPERIMENTS = max_experiments("ibm_phoenix")   # 300 pubs per job (configuration ledger)
-DEFAULT_SNAPSHOT = "data/calibrations/ibm_phoenix_2026-09-21T022722Z.csv"   # Deviation 53 (b): the newest committed calibration data (day-2 re-retrieval properties, 21 Sep 02:05Z calibration)
+DEFAULT_SNAPSHOT = Path("data/calibrations/ibm_phoenix_2026-09-21T033603Z.csv")   # Deviation 53 (b): the newest committed calibration data (the 03:36Z retrieval properties of the Paper 2 smoke, written as a CSV)
 PACKING = dict(level2_large_n_min=LEVEL2_LARGE_N_MIN, level2_max_pubs=LEVEL2_MAX_PUBS,
                reason="Deviation 55 (to be): resilience-2 jobs on rungs of n >= 69 hold at most 100 pubs (day-2 job L2-c5, 300 pubs of n = 85 L = 8, IBM 1336 out of memory; 100 pubs ran)")
 SHAPES = {"n20": (4, 5), "n40": (4, 10), "n60": (6, 10), "n80": (8, 10), "n100": (10, 10)}   # Section 2 nominal ladder
@@ -60,7 +60,7 @@ HEADLINE_SHOTS = 16384
 M_BASE = 200                            # Section 2 / Deviation 17 minimum
 SEED_BASE = 20261001                    # deterministic seeds: SEED_BASE + 1e6 rung + 1e5 role + 1e4 depth index + 1e3 k (Section 7 seed field)
 ROLES = dict(main=0, sweep=1, level2_a=2, level2_b=3, repeat=4, null_L1=5, null_L0=6, dial=7, dial_control=8, reference=9,
-             trunc=10, char=11, dial_contingent=12)
+             trunc=10, char=11, dial_contingent=12, replication=13, replication_16384=14, section3c=15)   # 13 / 14: Deviation 19 fresh seed blocks (P1.3.9); 15: Section 3c Block C (Deviation 56)
 LEDGER = dict(main=190.5, dial=65.0, dial_reserve_item=8.0, reference_topup=9.5, null_controls=2.6)   # Section 6, v0.12.0 (caps unchanged by Deviation 47)
 
 
@@ -349,6 +349,113 @@ DAY3_NAME = "day3_dial_refs.json"
 DAY3_SOURCES = ("references_gate1b.json", "dial_arm.json")   # order of runs: the six p = 0 references before the dial arm, same day and patches; grid_n40_repeat (control (d), main line, 4096-shot points) stays its own day
 
 
+REPL_NAME = "replication_01.json"              # Deviation 19 replications (P1.3.9), 4096-shot points and their L = 0 null controls
+REPL16_NAME = "replication_01_16384.json"      # the n100 rung's L = 8 replication at 16384 shots (one shot count per Estimator list)
+DAY1_N20_ORIGIN = (8, 1)                       # the day-1 n20 rung as run (c9377b1, 13:44Z calibration): 4x5 at (8, 1), hole 114, edge 93_103
+REPL_TARGET_MIN = 8.0                          # both lists together, from the 20-minute 'anomaly replications' reserve item (Deviation 19)
+
+
+def replication_lists(pl: dict) -> dict:
+    """Deviation 19 anomaly protocol, replication 01 (tracker P1.3.9): the two flagged points re-measured with fresh seeds on another
+    calendar day, each with its matched L = 0 null control (Deviation 43) at the same level and shot count.
+
+    (a) day 1 (20 Sep): the n20 rung's L = 4, k = 1 point at resilience 0 and 1 read 0.61x its prediction (z = -4.0, both levels);
+    (b) day 2 (21 Sep): the n100 rung's L = 8, k = 1 point at resilience 0 and 16384 shots read 0.50x the run-day row (b5da7e5; z = -5.1),
+    replicated at 16384 shots (``REPL16_NAME``: an Estimator list carries one shot count) and at 4096 shots (``REPL_NAME``, the grid's
+    shot count, beside the day-2 level-1 4096-shot point that read 1.30x).
+    Placement is the pre-registered rule on the run-day snapshot (Deviations 22 / 26 / 46 / 53), as for every list: the protocol's
+    'different clean patch' is met for (a) when the rung's placement differs from day 1's (8, 1) (recorded in ``campaign.replication``;
+    on the 21 Sep snapshots no 4x5 rectangle is free of excluded qubits and broken couplers, so 'clean' is the cleanest placement under
+    the cuts), and cannot be met for (b): the lattice holds three 10x10 rectangles, origins (0, 0), (1, 0) and (2, 0), which share 90
+    of their qubits, so the n100 rung replicates on the same rung on a later day (recorded as a departure). Seeds: their own blocks
+    (roles ``replication`` and ``replication_16384``), disjoint from every campaign block. Ledger: Section 6 reserve, 'anomaly
+    replications' item (20 min); target <= ``REPL_TARGET_MIN`` for both lists. Predictions: the Deviation 46 re-draw on the
+    replication-day placement before the pre-flight; decision rules in docs/preflight/08_paper1_replication_2026-09-21.md."""
+    R20, R100 = pl["rungs"]["n20"], pl["rungs"]["n100"]
+    different = tuple(R20["origin"]) != DAY1_N20_ORIGIN
+
+    def null(R: dict, rung: str, level: int, shots: int, role: str) -> dict:
+        return dict(id=f"null_L0_{rung}_r{level}_s{shots}_repl", kind="null_control", n=R["n"], patch=R["patch"], edge=R["edge"], L=0, M=M_BASE,
+                    shots=shots, resilience=level, seed=seed_for(rung, role, 1, 0) + 1000 * level,
+                    purpose=f"Deviation 19 replication: matched Deviation 43 L = 0 null control on the {rung} rung's replication-day placement, "
+                            f"resilience {level}, {shots} shots, {M_BASE} draws (the measured null floor of the replicated point: Deviation 37 claimability bar and Gate 2 (a)-style z)")
+
+    a_points = [point(R20, 4, 1, level, M_BASE, seed_for("n20", "replication", 4, 1)) for level in (0, 1)]
+    a_points.append(point(R100, 8, 1, 0, M_BASE, seed_for("n100", "replication", 8, 1)))
+    a_probes = [null(R20, "n20", 0, SHOTS, "replication"), null(R20, "n20", 1, SHOTS, "replication"), null(R100, "n100", 0, SHOTS, "replication")]
+    b_points = [point(R100, 8, 1, 0, M_BASE, seed_for("n100", "replication_16384", 8, 1), shots=HEADLINE_SHOTS)]
+    b_probes = [null(R100, "n100", 0, HEADLINE_SHOTS, "replication_16384")]
+    record = dict(item="Deviation 19 anomaly protocol, replication 01 (P1.3.9); reserve item 'anomaly replications' (20 min)", target_min_at_1us=REPL_TARGET_MIN,
+                  flags=[dict(day="day 1, 20 Sep 2026", point="n20 rung L = 4 k = 1, resilience 0 and 1, 4096 shots, seed block 20282001", reading="0.61x the prediction, z = -4.0 (both levels)",
+                              replicated_in=REPL_NAME, day1_patch=dict(origin=list(DAY1_N20_ORIGIN), holes=[114], edge="93_103"),
+                              placement=("different from day 1's patch" if different else "the SAME patch as day 1 (no other placement under the rule; departure noted)")),
+                         dict(day="day 2, 21 Sep 2026", point="n100 rung L = 8 k = 1, resilience 0, 16384 shots, seed block 24292001", reading="0.50x the run-day row 3.069e-4 (b5da7e5), z = -5.1",
+                              replicated_in=[REPL16_NAME, REPL_NAME],
+                              placement="the same 10x10 rung (no alternative 10x10 placement exists: origins (0, 0) / (1, 0) / (2, 0) share 90 qubits; departure from 'different clean patch' noted")],
+                  clean_4x5_exists=False, one_shot_count_per_list=True)
+    a_notes = (f"{PREREG}, Deviation 19 anomaly protocol (pre-registered exploratory analysis; tracker P1.3.9), replication 01, list 1 of 2 (4096 shots): "
+               f"(a) the n20 rung's L = 4, k = 1 point at resilience 0 and 1 (day 1, 20 Sep 2026: 0.61x its prediction, z = -4.0 at both levels), M = {M_BASE} fresh draws "
+               f"(seed block {a_points[0]['seed']}, role 'replication', disjoint from day 1's 20282001), placed by the pre-registered rule on the run-day snapshot: "
+               f"{R20['patch']} n = {R20['n']} at origin {tuple(R20['origin'])}, holes {R20['holes']}, broken couplers {R20['broken_edges']}, edge {R20['edge']}, "
+               + ("a different patch from day 1's (8, 1) / hole 114 / edge 93_103" if different else "the same patch as day 1's (8, 1); a departure from the protocol's 'different clean patch', recorded")
+               + " (no 4x5 rectangle free of excluded qubits and broken couplers exists on the 21 Sep snapshots, so 'clean' is the cleanest placement under the Deviation 22 / 26 / 53 cuts); "
+               f"(b) the n100 rung's L = 8, k = 1 point at resilience 0 and 4096 shots, M = {M_BASE} fresh draws (seed block {a_points[2]['seed']}; the flagged day-2 point ran at 16384 shots and is "
+               f"replicated at that shot count in {REPL16_NAME}; this 4096-shot point sits beside day 2's level-1 4096-shot point on other seeds, which read 1.30x), on the same 10x10 rung "
+               f"({R100['patch']} n = {R100['n']} at origin {tuple(R100['origin'])}, edge {R100['edge']}; the run-day holes decide n): no alternative 10x10 placement exists, so this is a recorded departure "
+               "from 'different clean patch'; plus the matched Deviation 43 L = 0 null controls (n20 rung at resilience 0 and 1, n100 rung at resilience 0; same shots, M = 200). "
+               "Predictions: the Deviation 46 re-draw on the replication-day placement, committed before the pre-flight, and the calibrated noisy simulations of Deviation 19 beside them; "
+               "the decision rules (what closes a flag, what confirms it) are fixed in docs/preflight/08_paper1_replication_2026-09-21.md before any data. Ledger: Section 6 reserve, "
+               f"'anomaly replications' item (20 min); both lists together are targeted at <= {REPL_TARGET_MIN:g} min at 1 us.")
+    b_notes = (f"{PREREG}, Deviation 19 anomaly protocol (tracker P1.3.9), replication 01, list 2 of 2 (16384 shots; one Estimator list carries a single shot count): the n100 rung's "
+               f"L = 8, k = 1 point at resilience 0 and 16384 shots (day 2, 21 Sep 2026, seed block 24292001: 0.50x the run-day nonunital row 3.069e-4 of b5da7e5, z = -5.1 raw / -6.1 on the "
+               f"signal), M = {M_BASE} fresh draws (seed block {b_points[0]['seed']}, role 'replication_16384'), on the same 10x10 rung ({R100['patch']} n = {R100['n']} at origin "
+               f"{tuple(R100['origin'])}, edge {R100['edge']}; the run-day holes decide n, and no exact per-draw noiseless reference exists at this n since the L = 8 light cone covers the whole "
+               "patch): no alternative 10x10 placement exists on the 12x10 lattice, a recorded departure from the protocol's 'different clean patch'; plus the matched Deviation 43 L = 0 null "
+               f"control at 16384 shots. Companion list {REPL_NAME} (4096 shots) holds the n20 L = 4 replication, the 4096-shot twin of this point and their null controls. Same "
+               "predictions, decision rules and ledger item as that list (docs/preflight/08_paper1_replication_2026-09-21.md).")
+    extra = dict(day="Deviation 19 replication 01 (P1.3.9), another calendar day after 21 Sep 2026", replication=record)
+    return {REPL_NAME: base_list("paper1_replication_01", a_notes, pl, ["n20", "n100"], "reserve:anomaly", a_points, a_probes, dict(extra, companion=REPL16_NAME)),
+            REPL16_NAME: base_list("paper1_replication_01_16384", b_notes, pl, ["n100"], "reserve:anomaly", b_points, b_probes, dict(extra, companion=REPL_NAME))}
+
+
+BLOCKC_NAME = "section3c_blockC.json"          # Deviation 56 (pre-registration v0.15.0): Paper 1 Section 3c, Block C on the n100 rung
+BLOCKC_SHOTS = 65536
+BLOCKC_DEPTHS = (8, 10)
+
+
+def section3c_blockC_list(pl: dict) -> dict:
+    """Deviation 56 (Paper 1 pre-registration v0.15.0, Section 3c; Owais's decision of 21 Sep 2026 09:09-09:24 IST: no Paper 3, the reserve
+    test becomes Paper 1 Section 3c): Block C on the n100 rung's current placement: k = 1, L = 8 and L = 10, resilience 0, 65,536 shots,
+    M = 200 draws in a new recorded seed block (role ``section3c``; L = 10 is outside the Section 2 depth ladder, so its seed index is
+    5 + L as ``seed_for`` documents), plus the matched Deviation 43 L = 0 null control at 65,536 shots. The Deviation 55 cap is recorded
+    (``campaign.packing``) and does not bind (no level-2 job). Budget under model v3; charged to the Section 6 main-grid line (the summary
+    reports it as its own block ``section3c`` next to the main total). Ledger line ``main:section3c``."""
+    R = pl["rungs"]["n100"]
+    points = [point(R, L, 1, 0, M_BASE, seed_for("n100", "section3c", L, 1), shots=BLOCKC_SHOTS) for L in BLOCKC_DEPTHS]
+    probes = [dict(id=f"null_L0_n100_r0_s{BLOCKC_SHOTS}_3c", kind="null_control", n=R["n"], patch=R["patch"], edge=R["edge"], L=0, M=M_BASE, shots=BLOCKC_SHOTS,
+                   resilience=0, seed=seed_for("n100", "section3c", 1, 0),
+                   purpose=f"Deviation 56 Block C: matched Deviation 43 L = 0 null control on the n100 rung, resilience 0, {BLOCKC_SHOTS} shots, {M_BASE} draws "
+                           "(the measured null floor at this shot count: Deviation 37 claimability bar for the L = 8 and L = 10 points)")]
+    notes = (f"{PREREG}; Deviation 56 (pre-registration v0.15.0, Section 3c, adopted 21 Sep 2026 on Owais's decision of 09:09-09:24 IST that the reserve conjecture test "
+             f"becomes Paper 1 Section 3c, no Paper 3): Block C on the n100 rung ({R['patch']}, actual n = {R['n']}, origin {tuple(R['origin'])}, edge {R['edge']}; the current "
+             f"placement under the Deviation 22 / 26 / 46 / 53 cuts, re-derived by the runner on the run day): k = 1 at L = 8 and L = 10, resilience 0, {BLOCKC_SHOTS} shots per "
+             f"shifted circuit (per-draw shot variance 1/(2N) = {1 / (2 * BLOCKC_SHOTS):.2e}, against 3.1e-5 at 16384 and 1.22e-4 at 4096), M = {M_BASE} draws per point in a new "
+             f"recorded seed block (seeds {points[0]['seed']} at L = 8 and {points[1]['seed']} at L = 10, draw d at seed + d; disjoint from every campaign, replication and reference block), "
+             f"plus the matched Deviation 43 L = 0 null control at {BLOCKC_SHOTS} shots (seed {probes[0]['seed']}). L = 10 is outside the Section 2 ladder (1, 2, 4, 8, 12): it sits "
+             "between the resolved L = 8 point and the shot-floor-limited L = 12 point of the same rung. What the block adds to Paper 1 (Section 3c): the L = 8 variance of the "
+             "n100 rung resolved at a shot floor 16x below the 16384-shot headline point (draw sampling, not shots, then limits it), a third resolvable depth for H2 on the "
+             "largest rung, and a per-draw record of 200 gradients at 65,536 shots (shot SE about 2.8e-3 per gradient) for the Section 3c per-draw comparison once a per-draw "
+             "surrogate exists (Deviation 56: the transition map is conditional on a per-draw surrogate and the theorist's sign-off; without it the comparison is at the level of "
+             "the variance and the distribution shape against the Pauli-propagation population moments). The Deviation 55 level-2 cap is recorded and does not bind (resilience 0 "
+             "throughout). Order of runs (21 Sep 2026): day 3 (day3_dial_refs) first, then the Deviation 19 replication lists, then this list, each its own Batch, arming and "
+             "ids file. Ledger: Section 6 main-grid line (190.5 min; the summary reports this block beside the main total). Pre-flight: docs/preflight/09_paper1_section3c_blockC_2026-09-21.md.")
+    extra = dict(day="Deviation 56 Section 3c Block C (21 Sep 2026, after day 3 and the replication lists)",
+                 section3c=dict(block="C", deviation=56, pre_registration="v0.15.0 (publishing 21 Sep 2026)", decision="Owais, 21 Sep 2026 09:09-09:24 IST: no Paper 3; Section 3c by Deviation 56",
+                                depths=list(BLOCKC_DEPTHS), shots=BLOCKC_SHOTS, per_draw_shot_variance=1 / (2 * BLOCKC_SHOTS), charged_to="main-grid line (Section 6)",
+                                order_of_runs=["day3_dial_refs.json", REPL_NAME, REPL16_NAME, BLOCKC_NAME]))
+    return {BLOCKC_NAME: base_list("paper1_section3c_blockC", notes, pl, ["n100"], "main:section3c", points, probes, extra)}
+
+
 def armed(path: Path) -> bool:
     """True when the committed list at ``path`` has been armed (``dry_run`` false): it is then the record of a run and the generator
     neither rewrites nor checks it (its placement block is the snapshot it ran on)."""
@@ -453,6 +560,8 @@ def make_lists(snapshot: str, rule: str = "baseline") -> tuple[dict, dict]:
     lists.update(day1_list(pl, lists))          # Deviation 50 day 1: built from the two lists above, never hand-edited
     lists.update(day2_list(pl, lists))          # Deviation 50 day 2: the four remaining 4096-shot grid rungs
     lists.update(day3_list(pl, lists))          # Deviation 50 day 3: the Gate 1b references and the dial-arm core
+    lists.update(replication_lists(pl))         # Deviation 19 replication 01 (P1.3.9): two lists (4096 and 16384 shots), reserve item
+    lists.update(section3c_blockC_list(pl))     # Deviation 56 Section 3c Block C (n100 rung, L = 8 / 10, 65,536 shots), main-grid line
     return lists, pl
 
 
@@ -480,13 +589,23 @@ def summarise(lists: dict, pl: dict, rule: str) -> dict:
     day3 = dict(list=DAY3_NAME, source_lists=list(DAY3_SOURCES), ledger_lines=["dial"], jobs=d3["budget"]["jobs"], minutes_at_1us=d3["budget"]["minutes_at_1us"],
                 source_lists_jobs=d3["campaign"]["source_lists_jobs"], source_lists_min_at_1us=d3["campaign"]["source_lists_min_at_1us"],
                 note="Deviation 50 day-3 packaging of the references and the dial-arm core (same pubs, same seeds); not counted again in the totals")
+    ra, rb = lists[REPL_NAME], lists[REPL16_NAME]
+    replication = dict(lists=[REPL_NAME, REPL16_NAME], ledger_line="reserve:anomaly", reserve_item_min=20.0, target_min_at_1us=REPL_TARGET_MIN,
+                       jobs=ra["budget"]["jobs"] + rb["budget"]["jobs"], minutes_at_1us=round(ra["budget"]["minutes_at_1us"] + rb["budget"]["minutes_at_1us"], 3),
+                       within_target=ra["budget"]["minutes_at_1us"] + rb["budget"]["minutes_at_1us"] <= REPL_TARGET_MIN,
+                       note="Deviation 19 replication of the day-1 n20 L = 4 and day-2 n100 L = 8 flags (P1.3.9); charged to the reserve's anomaly item, not to the totals above")
+    bc = lists[BLOCKC_NAME]["budget"]
+    section3c = dict(list=BLOCKC_NAME, ledger_line="main:section3c", charged_to="main", jobs=bc["jobs"], pubs=bc["pubs"], executions=bc["executions"],
+                     minutes_at_1us=bc["minutes_at_1us"], main_line_with_section3c_min_at_1us=round(totals["main"]["minutes_at_1us"] + bc["minutes_at_1us"], 3),
+                     within_main_cap=totals["main"]["minutes_at_1us"] + bc["minutes_at_1us"] <= LEDGER["main"],
+                     note="Deviation 56 Block C (n100 rung, L = 8 / 10, 65,536 shots, level 0); charged to the Section 6 main-grid line, reported beside the main total")
     return dict(pre_registration=PREREG, budget_model_version=BUDGET_MODEL_VERSION, max_experiments=MAX_EXPERIMENTS, max_job_param_mb=MAX_JOB_PARAM_MB, packing=dict(PACKING),
                 m_rule=rule, snapshot=pl["snapshot"], properties=pl["properties"], stamp=pl["stamp"],
                 rungs={r: dict(n=v["n"], patch=v["patch"], origin=v["origin"], edge=v["edge"], edge_rule=v["edge_rule"], broken_edges=v["broken_edges"], holes=v["holes"])
                        for r, v in pl["rungs"].items()},
                 ledger_caps_min_at_1us=caps, totals=totals,
                 within_caps={k: totals[k]["minutes_at_1us"] <= caps[k] for k in caps},
-                booked_total_min_at_1us=round(sum(totals[k]["minutes_at_1us"] for k in caps), 3), day1=day1, day2=day2, day3=day3, lists=per)
+                booked_total_min_at_1us=round(sum(totals[k]["minutes_at_1us"] for k in caps), 3), day1=day1, day2=day2, day3=day3, replication=replication, section3c=section3c, lists=per)
 
 
 def main(argv=None) -> int:
@@ -500,6 +619,8 @@ def main(argv=None) -> int:
                                                           "no summary.json")
     ap.add_argument("--day2", action="store_true", help=f"only the Deviation 50 campaign day-2 list {DAY2_NAME} (grid_n40 + n60 + n80 + n100, one list); no summary.json")
     ap.add_argument("--day3", action="store_true", help=f"only the Deviation 50 campaign day-3 list {DAY3_NAME} (references_gate1b + dial_arm, one list); no summary.json")
+    ap.add_argument("--replication", action="store_true", help=f"only the Deviation 19 replication lists {REPL_NAME} and {REPL16_NAME} (P1.3.9); no summary.json")
+    ap.add_argument("--section3c", action="store_true", help=f"only the Deviation 56 Section 3c Block C list {BLOCKC_NAME}; no summary.json")
     a = ap.parse_args(argv)
     lists, pl = make_lists(a.snapshot, a.m_rule)
     summary = summarise(lists, pl, a.m_rule)
@@ -510,6 +631,10 @@ def main(argv=None) -> int:
         lists = {DAY2_NAME: lists[DAY2_NAME]}
     if a.day3:
         lists = {DAY3_NAME: lists[DAY3_NAME]}
+    if a.replication:
+        lists = {REPL_NAME: lists[REPL_NAME], REPL16_NAME: lists[REPL16_NAME]}
+    if a.section3c:
+        lists = {BLOCKC_NAME: lists[BLOCKC_NAME]}
     kept = [n for n in lists if armed(out / n)]           # armed lists are run records: never rewritten, never checked against a newer snapshot
     if kept:
         print("kept (armed, dry_run false; the record of a run): " + ", ".join(kept))
@@ -526,8 +651,9 @@ def main(argv=None) -> int:
         b = jl["budget"]
         print(f"{name}: {len(jl['points'])} points, {len(jl['probes'])} probes, {b['jobs']} jobs, {b['pubs']} pubs, {b['circuits']} parameter sets, "
               f"{b['executions']} exec, {b['minutes_at_1us']} min at 1 us / {b['minutes_at_250us']} min at 250 us")
-    if a.day1 or a.day2 or a.day3:
-        print(json.dumps(summary["day1" if a.day1 else ("day2" if a.day2 else "day3")], indent=1))
+    if a.day1 or a.day2 or a.day3 or a.replication or a.section3c:
+        key = "day1" if a.day1 else ("day2" if a.day2 else ("day3" if a.day3 else ("replication" if a.replication else "section3c")))
+        print(json.dumps(summary[key], indent=1))
         return 0
     (out / "summary.json").write_text(json.dumps(summary, indent=1) + "\n")
     print(json.dumps(dict(totals=summary["totals"], caps=summary["ledger_caps_min_at_1us"], within_caps=summary["within_caps"], rungs=summary["rungs"],

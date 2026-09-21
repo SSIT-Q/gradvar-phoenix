@@ -1,5 +1,5 @@
 {
- "pre_registration": "Paper 1 pre-registration v0.13.3 (21 Sep 2026)",
+ "pre_registration": "Paper 1 pre-registration v0.15.0 (21 Sep 2026)",
  "budget_model_version": 3,
  "max_experiments": 300,
  "max_job_param_mb": 12.0,
@@ -9,9 +9,9 @@
   "reason": "Deviation 55 (to be): resilience-2 jobs on rungs of n >= 69 hold at most 100 pubs (day-2 job L2-c5, 300 pubs of n = 85 L = 8, IBM 1336 out of memory; 100 pubs ran)"
  },
  "m_rule": "baseline",
- "snapshot": "ibm_phoenix_2026-09-21T022722Z.csv",
- "properties": "ibm_phoenix_properties_2026-09-21T022722Z.json",
- "stamp": "2026-09-21T022722Z",
+ "snapshot": "ibm_phoenix_2026-09-21T033603Z.csv",
+ "properties": "ibm_phoenix_properties_2026-09-21T033603Z.json",
+ "stamp": "2026-09-21T033603Z",
  "rungs": {
   "n20": {
    "n": 19,
@@ -300,6 +300,31 @@
   "source_lists_min_at_1us": 30.854,
   "note": "Deviation 50 day-3 packaging of the references and the dial-arm core (same pubs, same seeds); not counted again in the totals"
  },
+ "replication": {
+  "lists": [
+   "replication_01.json",
+   "replication_01_16384.json"
+  ],
+  "ledger_line": "reserve:anomaly",
+  "reserve_item_min": 20.0,
+  "target_min_at_1us": 8.0,
+  "jobs": 8,
+  "minutes_at_1us": 4.456,
+  "within_target": true,
+  "note": "Deviation 19 replication of the day-1 n20 L = 4 and day-2 n100 L = 8 flags (P1.3.9); charged to the reserve's anomaly item, not to the totals above"
+ },
+ "section3c": {
+  "list": "section3c_blockC.json",
+  "ledger_line": "main:section3c",
+  "charged_to": "main",
+  "jobs": 3,
+  "pubs": 600,
+  "executions": 78643200,
+  "minutes_at_1us": 16.141,
+  "main_line_with_section3c_min_at_1us": 64.978,
+  "within_main_cap": true,
+  "note": "Deviation 56 Block C (n100 rung, L = 8 / 10, 65,536 shots, level 0); charged to the Section 6 main-grid line, reported beside the main total"
+ },
  "lists": {
   "grid_n20.json": {
    "ledger_line": "main",
@@ -468,6 +493,42 @@
    "minutes_at_250us": 353.874,
    "points": 0,
    "probes": 18
+  },
+  "replication_01.json": {
+   "ledger_line": "reserve:anomaly",
+   "jobs": 6,
+   "pubs": 1200,
+   "circuits": 2400,
+   "executions": 9830400,
+   "trex_executions": 0,
+   "minutes_at_1us": 2.001,
+   "minutes_at_250us": 42.797,
+   "points": 3,
+   "probes": 3
+  },
+  "replication_01_16384.json": {
+   "ledger_line": "reserve:anomaly",
+   "jobs": 2,
+   "pubs": 400,
+   "circuits": 800,
+   "executions": 13107200,
+   "trex_executions": 0,
+   "minutes_at_1us": 2.455,
+   "minutes_at_250us": 56.85,
+   "points": 1,
+   "probes": 1
+  },
+  "section3c_blockC.json": {
+   "ledger_line": "main:section3c",
+   "jobs": 3,
+   "pubs": 600,
+   "circuits": 1200,
+   "executions": 78643200,
+   "trex_executions": 0,
+   "minutes_at_1us": 16.141,
+   "minutes_at_250us": 342.51,
+   "points": 2,
+   "probes": 1
   }
  }
 }

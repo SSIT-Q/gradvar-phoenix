@@ -17,12 +17,12 @@ from gradvar.sim import HAS_AER
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 P1 = ROOT / "data" / "joblists" / "paper1"
-SNAP = str(ROOT / "data" / "calibrations" / "ibm_phoenix_2026-09-21T022722Z.csv")   # Deviation 53 (b): the 21 Sep 02:05Z calibration committed with the day-2 re-retrieval
+SNAP = str(ROOT / "data" / "calibrations" / "ibm_phoenix_2026-09-21T033603Z.csv")   # Deviation 53 (b): the 21 Sep 03:36Z retrieval properties (Paper 2 smoke) written as a CSV; same placement as 02:27Z / 03:08Z
 CAL = ROOT / "data" / "calibrations"
 SNAP20 = str(ROOT / "data" / "calibrations" / "ibm_phoenix_2026-09-20T030813Z.csv")   # a 20-qubit 4x5 (origin (8,2), edge 94_104) for the runner-mechanics tests below
 LISTS = ["grid_n20.json", "grid_n40.json", "grid_n60.json", "grid_n80.json", "grid_n100.json", "grid_n100_16384.json", "grid_n40_repeat.json",
          "dial_arm.json", "dial_arm_contingent.json", "references_gate1b.json", "null_controls.json", "day1_null_grid_n20.json", "day2_main_grid.json",
-         "day3_dial_refs.json"]
+         "day3_dial_refs.json", "replication_01.json", "replication_01_16384.json", "section3c_blockC.json"]
 MAIN = LISTS[:7]
 DAY1 = "day1_null_grid_n20.json"      # Deviation 50 campaign day 1: null_controls + grid_n20 in one list (armed and run 20 Sep: a record, kept as committed)
 DAY2 = "day2_main_grid.json"          # Deviation 50 campaign day 2: grid_n40 + n60 + n80 + n100 in one list
@@ -66,13 +66,13 @@ def test_lists_validate_and_refuse_to_submit(name, tmp_path, monkeypatch):
     assert jl["dry_run"] is True and jl["rep_delay_probe"] is True and jl["layout_check"] == "enforce"
     assert jl["backend"] == "ibm_phoenix" and jl["instance"] == "flex"
     assert jl["preflight_review"] == "TBD: pre-flight review permalink" and not joblist_submittable(jl)
-    assert "pre-registration v0.13.3" in jl["notes"] and "Deviation 53" in jl["notes"] and "Deviation 46" in jl["notes"] and "Deviation 47" in jl["notes"] and "Deviation 48" in jl["notes"]
+    assert "pre-registration v0.15.0" in jl["notes"] and "Deviation 53" in jl["notes"] and "Deviation 46" in jl["notes"] and "Deviation 47" in jl["notes"] and "Deviation 48" in jl["notes"]
     assert check_budget(jl) == [] and jl["budget"]["model_version"] == 3 and jl["campaign"]["budget_model_version"] == 3
     assert jl["campaign"]["max_experiments"] == max_experiments("ibm_phoenix") == 300 and jl["campaign"]["max_job_param_mb"] == MAX_JOB_PARAM_MB
     assert all(e["pubs"] <= 300 and e["param_mb"] <= MAX_JOB_PARAM_MB for e in jl["budget"]["per_job"])   # no job above max_experiments or the payload cap
     assert jl["budget"]["jobs"] == len(jl["budget"]["per_job"]) and jl["budget"]["trex_executions"] == 0   # v3: no TREX term at >= 1024 shots
     assert all(e["job_constant_seconds"] == (3.0 if e["resilience_level"] == 0 else 5.7) for e in jl["budget"]["per_job"])
-    assert jl["placement"]["stamp"] == "2026-09-21T022722Z" and jl["placement"]["properties"] == "ibm_phoenix_properties_2026-09-21T022722Z.json"
+    assert jl["placement"]["stamp"] == "2026-09-21T033603Z" and jl["placement"]["properties"] == "ibm_phoenix_properties_2026-09-21T033603Z.json"
     assert jl["placement"]["rules"]["coherence_floor_us"] == 25.0 and 114 in jl["placement"]["excluded"]   # Deviation 53 (a): Q114 at T1 3.7 us
     monkeypatch.setenv("QISKIT_IBM_INSTANCE", "crn:fake")
     with pytest.raises(SystemExit, match="dry_run"):                     # refused before preflight / credentials
@@ -149,7 +149,7 @@ def test_placement_on_the_committed_snapshot(generated):
     assert n20["origin"] == [2, 0] and n20["holes"] == [24] and n20["edge"] == "32_42" and n20["broken_edges"] == [[31, 32], [41, 51]] and n20["live_couplers"] == 27   # 21 Sep 02:05Z
     assert n40["edge"] == "93_103" and not n40["cone_L2_matches_4x5"] and n40["edge_rule"].startswith("Deviation 36's (93, 103) as written")
     assert SNAP.endswith(sorted(p.name for p in (ROOT / "data" / "calibrations").glob("ibm_phoenix_2*.csv"))[-1])   # the newest committed snapshot
-    assert properties_for_csv(SNAP).endswith("ibm_phoenix_properties_2026-09-21T022722Z.json")                 # the retrieval-stamped name (Deviation 53 (b))
+    assert properties_for_csv(SNAP).endswith("ibm_phoenix_properties_2026-09-21T033603Z.json")                 # the retrieval-stamped name (Deviation 53 (b))
     assert pl["rungs"]["n60"]["origin"] == [3, 0] and pl["rungs"]["n60"]["edge"] == "43_44"                        # back to the 03:08Z placement with Q66 released
     # the floor is a run-day rule: on the 03:08Z snapshot the exclusion is the pre-Deviation-53 one (Q114 at T1 80 us there anyway) and the
     # forced floor on the 19 Sep development CSV would move the frozen ladder, which is why it is keyed to the stamp
@@ -319,6 +319,66 @@ def test_day3_list_is_the_references_and_the_dial_core_probe_for_probe(generated
     assert s["day3"]["list"] == DAY3 and s["day3"]["jobs"] == b["jobs"] and s["packing"]["level2_max_pubs"] == 100
     assert gen.main(["--day3", "--out", str(tmp_path)]) == 0 and sorted(p.name for p in tmp_path.iterdir()) == [DAY3]
     assert json.loads((tmp_path / DAY3).read_text()) == d3 == json.loads((P1 / DAY3).read_text())
+
+
+def test_replication_lists_follow_deviation_19(generated, tmp_path):
+    """Deviation 19 replication 01 (P1.3.9): the day-1 n20 L = 4 point (levels 0 and 1) and the day-2 n100 L = 8 level-0 point, fresh seed blocks
+    disjoint from the campaign's, matched L = 0 null controls at the same level and shot count, one shot count per list (4096 / 16384), the n20
+    rung placed by the pre-registered rule on a patch other than day 1's (8, 1) (recorded), the n100 rung on its only 10x10 placement (recorded),
+    both lists within the 8-minute target from the 20-minute reserve item, no level-2 job, dry_run true and the placeholder permalink."""
+    gen, lists, pl = generated
+    a, b = lists["replication_01.json"], lists["replication_01_16384.json"]
+    R20, R100 = pl["rungs"]["n20"], pl["rungs"]["n100"]
+    assert [(p["n"], p["L"], p["k"], p["resilience"], p["shots"], p["M"]) for p in a["points"]] == [(R20["n"], 4, 1, 0, 4096, 200), (R20["n"], 4, 1, 1, 4096, 200), (R100["n"], 8, 1, 0, 4096, 200)]
+    assert [(p["n"], p["L"], p["k"], p["resilience"], p["shots"], p["M"]) for p in b["points"]] == [(R100["n"], 8, 1, 0, 16384, 200)]
+    assert [(q["kind"], q["L"], q["n"], q["resilience"], q["shots"], q["M"]) for q in a["probes"]] == [("null_control", 0, R20["n"], 0, 4096, 200), ("null_control", 0, R20["n"], 1, 4096, 200), ("null_control", 0, R100["n"], 0, 4096, 200)]
+    assert [(q["kind"], q["L"], q["n"], q["resilience"], q["shots"], q["M"]) for q in b["probes"]] == [("null_control", 0, R100["n"], 0, 16384, 200)]
+    # fresh seed blocks: the two levels of the L = 4 point share their draws (paired H4), every other block is its own, none touches a campaign block
+    campaign = {e["seed"] for name, jl in lists.items() if name not in ("replication_01.json", "replication_01_16384.json", "section3c_blockC.json") for e in jl["points"] + jl["probes"]}
+    mine = [e["seed"] for e in a["points"] + a["probes"] + b["points"] + b["probes"]]
+    assert a["points"][0]["seed"] == a["points"][1]["seed"] == gen.seed_for("n20", "replication", 4, 1) and len(set(mine)) == len(mine) - 1
+    assert all(all(abs(x - y) >= 1000 for y in campaign) for x in mine) and 20282001 in campaign and 24292001 in campaign      # day-1 L = 4 and day-2 16384 blocks
+    # placement: the pre-registered rule on the run-day snapshot; day 1's patch was (8, 1) with hole 114
+    rec = a["campaign"]["replication"]
+    assert tuple(R20["origin"]) != gen.DAY1_N20_ORIGIN and rec["flags"][0]["placement"] == "different from day 1's patch" and rec["clean_4x5_exists"] is False
+    assert tuple(R100["origin"]) == (2, 0) and "no alternative 10x10 placement" in rec["flags"][1]["placement"] and a["campaign"]["companion"] == "replication_01_16384.json"
+    assert list(a["placement"]["rungs"]) == ["n20", "n100"] and list(b["placement"]["rungs"]) == ["n100"] and a["placement"]["rungs"]["n100"] == R100
+    # budget: model v3, level 0 / 1 only, within the target; the Deviation 55 cap recorded and not binding
+    for jl in (a, b):
+        assert jl["dry_run"] is True and jl["preflight_review"] == gen.PLACEHOLDER and jl["campaign"]["ledger_line"] == "reserve:anomaly"
+        assert jl["campaign"]["packing"]["level2_max_pubs"] == 100 and {e["resilience_level"] for e in jl["budget"]["per_job"]} <= {0, 1}
+        assert all(e["pubs"] <= 300 and e["param_mb"] <= 12 for e in jl["budget"]["per_job"]) and jl["budget"]["trex_executions"] == 0
+    assert a["budget"]["executions"] == 6 * 200 * 2 * 4096 and b["budget"]["executions"] == 2 * 200 * 2 * 16384
+    total = a["budget"]["minutes_at_1us"] + b["budget"]["minutes_at_1us"]
+    assert total <= gen.REPL_TARGET_MIN and 3.5 <= total <= 6.0
+    s = json.loads((P1 / "summary.json").read_text())
+    assert s["replication"]["lists"] == ["replication_01.json", "replication_01_16384.json"] and s["replication"]["within_target"] is True
+    assert s["replication"]["minutes_at_1us"] == pytest.approx(total, abs=0.01) and s["totals"]["main"]["minutes_at_1us"] == pytest.approx(sum(lists[n]["budget"]["minutes_at_1us"] for n in MAIN), abs=0.01)
+    assert gen.main(["--replication", "--out", str(tmp_path)]) == 0 and sorted(p.name for p in tmp_path.iterdir()) == ["replication_01.json", "replication_01_16384.json"]
+    assert json.loads((tmp_path / "replication_01.json").read_text()) == a == json.loads((P1 / "replication_01.json").read_text())
+
+
+def test_section3c_blockC_list_follows_deviation_56(generated, tmp_path):
+    """Deviation 56 (v0.15.0) Block C: the n100 rung's current placement, k = 1 at L = 8 and L = 10, level 0, 65,536 shots, M = 200 in a new seed
+    block, plus the matched L = 0 null control at 65,536 shots; model v3 budget charged to the main-grid line and reported beside the main total
+    (main + Block C within the 190.5 cap); the Deviation 55 cap recorded, no level-2 job; order of runs recorded (day 3 first)."""
+    gen, lists, pl = generated
+    c = lists["section3c_blockC.json"]; R = pl["rungs"]["n100"]
+    assert [(p["n"], p["L"], p["k"], p["resilience"], p["shots"], p["M"], p["seed"]) for p in c["points"]] == [
+        (R["n"], 8, 1, 0, 65536, 200, gen.seed_for("n100", "section3c", 8, 1)), (R["n"], 10, 1, 0, 65536, 200, gen.seed_for("n100", "section3c", 10, 1))]
+    assert [(q["kind"], q["L"], q["n"], q["resilience"], q["shots"], q["M"], q["seed"]) for q in c["probes"]] == [("null_control", 0, R["n"], 0, 65536, 200, gen.seed_for("n100", "section3c", 1, 0))]
+    others = {e["seed"] for name, jl in lists.items() if name != "section3c_blockC.json" for e in jl["points"] + jl["probes"]}
+    assert all(all(abs(e["seed"] - y) >= 1000 for y in others) for e in c["points"] + c["probes"]) and len({e["seed"] for e in c["points"] + c["probes"]}) == 3
+    assert c["campaign"]["ledger_line"] == "main:section3c" and c["campaign"]["section3c"]["order_of_runs"] == ["day3_dial_refs.json", "replication_01.json", "replication_01_16384.json", "section3c_blockC.json"]
+    assert c["campaign"]["packing"]["level2_max_pubs"] == 100 and {e["resilience_level"] for e in c["budget"]["per_job"]} == {0} and c["budget"]["trex_executions"] == 0
+    assert c["budget"]["executions"] == 3 * 200 * 2 * 65536 and c["budget"]["pubs"] == 600 and all(e["pubs"] <= 300 and e["param_mb"] <= 12 for e in c["budget"]["per_job"])
+    assert 14 <= c["budget"]["minutes_at_1us"] <= 21 and c["dry_run"] is True and c["preflight_review"] == gen.PLACEHOLDER and list(c["placement"]["rungs"]) == ["n100"]
+    s = json.loads((P1 / "summary.json").read_text())
+    assert s["section3c"]["list"] == "section3c_blockC.json" and s["section3c"]["within_main_cap"] is True
+    assert s["section3c"]["main_line_with_section3c_min_at_1us"] == pytest.approx(s["totals"]["main"]["minutes_at_1us"] + c["budget"]["minutes_at_1us"], abs=0.01)
+    assert s["section3c"]["main_line_with_section3c_min_at_1us"] <= 190.5
+    assert gen.main(["--section3c", "--out", str(tmp_path)]) == 0 and sorted(p.name for p in tmp_path.iterdir()) == ["section3c_blockC.json"]
+    assert json.loads((tmp_path / "section3c_blockC.json").read_text()) == c == json.loads((P1 / "section3c_blockC.json").read_text())
 
 
 def test_level2_cap_splits_the_large_rung_zne_jobs(generated):
