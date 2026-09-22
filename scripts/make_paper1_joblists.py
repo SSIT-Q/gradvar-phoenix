@@ -46,9 +46,10 @@ from gradvar.lattice import interior_edge                                  # noq
 from gradvar.noise import COHERENCE_FLOOR_SINCE, COHERENCE_FLOOR_US, CZ_CUT, READOUT_CUT, cz_errors_from_calibration, exclusion_from_calibration, load_calibration, place_patch   # noqa: E402
 
 PLACEHOLDER = "TBD: pre-flight review permalink"
-PREREG = "Paper 1 pre-registration v0.15.0 (21 Sep 2026)"
+PREREG = "Paper 1 pre-registration v0.16.0 (23 Sep 2026)"
 MAX_EXPERIMENTS = max_experiments("ibm_phoenix")   # 300 pubs per job (configuration ledger)
-DEFAULT_SNAPSHOT = Path("data/calibrations/ibm_phoenix_2026-09-21T033603Z.csv")   # Deviation 53 (b): the newest committed calibration data (the 03:36Z retrieval properties of the Paper 2 smoke, written as a CSV)
+DEFAULT_SNAPSHOT = Path("data/calibrations/ibm_phoenix_2026-09-22T030817Z.csv")   # the 22 Sep 03:08Z daily snapshot; lists placed on it are pinned to it (Deviation 58)
+PIN_SNAPSHOT_SINCE = "2026-09-22T030817Z"   # Deviation 58: lists placed on this snapshot or later carry pin_snapshot, and the runner builds them on it
 PACKING = dict(level2_large_n_min=LEVEL2_LARGE_N_MIN, level2_max_pubs=LEVEL2_MAX_PUBS,
                reason="Deviation 55 (to be): resilience-2 jobs on rungs of n >= 69 hold at most 100 pubs (day-2 job L2-c5, 300 pubs of n = 85 L = 8, IBM 1336 out of memory; 100 pubs ran)")
 SHAPES = {"n20": (4, 5), "n40": (4, 10), "n60": (6, 10), "n80": (8, 10), "n100": (10, 10)}   # Section 2 nominal ladder
@@ -96,6 +97,8 @@ def place_rungs(snapshot: str) -> dict:
                excluded=[int(q) for q in exclusion_from_calibration(snapshot, properties=props)],
                rules=dict(readout_cut=READOUT_CUT, init_error_cut=5e-4, zz_cut_mhz=1.0, cz_cut=CZ_CUT,
                           coherence_floor_us=COHERENCE_FLOOR_US if out_stamp >= COHERENCE_FLOOR_SINCE else None), rungs={})
+    if out_stamp >= PIN_SNAPSHOT_SINCE:
+        out["pin_snapshot"] = True   # Deviation 58: the runner builds on this snapshot (gradvar.hardware.pinned_calibration_csv), not the newest
     patches = {}
     for rung, (r, c) in SHAPES.items():
         patches[rung] = place_patch(r, c, snapshot, allow_holes=True, properties=props)
@@ -135,7 +138,8 @@ def base_list(name: str, notes: str, placement: dict, rungs: list, ledger_line: 
     jl = dict(name=name, backend="ibm_phoenix", instance="flex", dry_run=True, rep_delay_probe=True, preflight_review=PLACEHOLDER,
               notes=notes, layout_check="enforce",
               placement=dict(snapshot=placement["snapshot"], properties=placement["properties"], stamp=placement["stamp"],
-                             excluded=placement["excluded"], rules=placement["rules"], rungs={r: placement["rungs"][r] for r in rungs}),
+                             excluded=placement["excluded"], rules=placement["rules"], rungs={r: placement["rungs"][r] for r in rungs},
+                             **({"pin_snapshot": True} if placement.get("pin_snapshot") else {})),
               campaign=dict(pre_registration=PREREG, ledger_line=ledger_line, budget_model_version=BUDGET_MODEL_VERSION,
                             max_experiments=MAX_EXPERIMENTS, max_job_param_mb=MAX_JOB_PARAM_MB, packing=dict(PACKING), **(extra_campaign or {})),
               points=points, probes=probes)

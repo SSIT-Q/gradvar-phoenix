@@ -1329,10 +1329,21 @@ def load_joblist(path: str) -> dict:
     return jl
 
 
+# The pre-flight record in a list's ``preflight_review`` (pre-registration: "the pre-flight review permalink is recorded in the
+# job list before the run"): the Slack permalink of the posted sign-off (the practice to 21 Sep 2026) or, on any surface from
+# 22 Sep 2026 (handover Section 0), the GitHub permalink of the committed pre-flight document, pinned to its commit. A branch
+# URL moves with the branch and a short hash can become ambiguous, so neither is accepted as a record.
+PREFLIGHT_GITHUB_RE = re.compile(r"https://github\.com/SSIT-Q/gradvar-phoenix/blob/[0-9a-f]{40}/docs/preflight/[\w.-]+\.md(#[\w.-]*)?",
+                                 re.IGNORECASE)
+
+
 def joblist_submittable(jl: dict) -> bool:
-    """True only when preflight_review holds a Slack permalink (the pre-flight sign-off)."""
+    """True only when preflight_review holds a pre-flight record: a Slack permalink, or the commit-pinned GitHub URL of a
+    pre-flight document under ``docs/preflight/`` (``PREFLIGHT_GITHUB_RE``)."""
     pr = str(jl.get("preflight_review") or "").strip()
-    return pr.startswith("https://") and "slack.com/archives/" in pr
+    if pr.startswith("https://") and "slack.com/archives/" in pr:
+        return True
+    return PREFLIGHT_GITHUB_RE.fullmatch(pr) is not None
 
 
 def joblist_points(jl: dict, calibration_csv: str | None = None) -> Tuple[List[GridPoint], dict, int]:
@@ -1982,17 +1993,57 @@ def resubmission_context(jl: dict, path: str, only_tag: str, max_pubs: int | Non
     return ctx, csv
 
 
+def pinned_calibration_csv(jl: dict) -> str | None:
+    """Deviation 58: the calibration CSV a list was placed on, when its placement block sets ``pin_snapshot``. The runner then
+    builds (dry run and submission) on that snapshot instead of the newest committed one, so the daily 03:00 UTC snapshot
+    commit no longer moves the placement under an armed list (runs 35694886452 and 35695082031, 22 Sep 2026, failed at build
+    for that reason). The live layout check still reads the live calibration at dispatch. None when the list does not pin:
+    lists generated before Deviation 58 keep the Deviation 46 run-day rule."""
+    from .noise import latest_calibration_csv
+    pl = jl.get("placement") or {}
+    if not pl.get("pin_snapshot"):
+        return None
+    p = Path(latest_calibration_csv()).parent / str(pl.get("snapshot") or "")
+    if not p.is_file():
+        raise JoblistError(f"placement.pin_snapshot is set but the placement snapshot {p} is not committed")
+    return str(p)
+
+
+def prior_submissions(jl: dict, path: str, run_root: str) -> List[Path]:
+    """Ids files of earlier whole-list submissions of this list under ``run_root``: ``<run_root>/<UTC day>/<list name>_job_ids.json``,
+    written right after every submitting run (a resubmission writes ``<list name>_resubmit_<tag>_job_ids.json`` and does not count)."""
+    name = jl.get("name") or Path(path).stem
+    return sorted(Path(run_root).glob(f"*/{name}_job_ids.json"))
+
+
+def refuse_repeat_submission(jl: dict, path: str, run_root: str) -> None:
+    """Refuse (SystemExit) a whole-list submission of a list that already has an ids file under ``run_root``. Run 35694886452
+    (22 Sep 2026) dispatched the day-2 list, submitted whole on 20 Sep, without ``only_job_tag``; only the placement moved by the
+    22 Sep snapshot stopped a second full submission. A failed job is resubmitted with ``--only-job-tag``; repeating a whole list
+    takes a new list (new name, its own pre-flight)."""
+    prior = prior_submissions(jl, path, run_root)
+    if prior:
+        raise SystemExit(f"refusing to submit: {path} was already submitted ({', '.join(str(p) for p in prior)}); resubmit a failed "
+                         "job with only_job_tag (and max_pubs), or copy the list under a new name with its own pre-flight")
+
+
 def run_joblist(path: str, submit: bool, log_dir: str = "data/jobs", run_root: str = "data/runs",
                 calibration_csv: str | None = None, simulate: bool = False, simulate_shots: int | None = None,
                 submit_only: bool = False, dry_run_sample: int | None = None, only_tag: str | None = None,
                 max_pubs: int | None = None) -> int:
     jl = load_joblist(path)
+    if submit and only_tag is None:
+        refuse_repeat_submission(jl, path, run_root)   # before any build: a list with an ids file is never submitted whole again
     sampler = str(jl.get("primitive", "estimator")) == "sampler"
     resubmission = None
     if only_tag is not None:
         if sampler:
             raise SystemExit("--only-job-tag is not implemented for Sampler lists (gradvar.paper2)")
         resubmission, calibration_csv = resubmission_context(jl, path, only_tag, max_pubs, run_root, calibration_csv, submit)
+    elif calibration_csv is None:
+        calibration_csv = pinned_calibration_csv(jl)   # Deviation 58: the list's own placement snapshot, when it pins one
+        if calibration_csv is not None:
+            print(f"placement pinned to {Path(calibration_csv).name} (Deviation 58; live layout check unchanged)")
     points, shapes, shots = ([], {}, None) if sampler else joblist_points(jl, calibration_csv)
     stem = Path(path).stem
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
@@ -2025,7 +2076,8 @@ def run_joblist(path: str, submit: bool, log_dir: str = "data/jobs", run_root: s
     if jl.get("dry_run", False) is True:
         raise SystemExit(f"refusing to submit: {path} carries dry_run: true; set it to false after the pre-flight review")
     if not joblist_submittable(jl):
-        raise SystemExit(f"refusing to submit: preflight_review in {path} is empty or not a Slack permalink")
+        raise SystemExit(f"refusing to submit: preflight_review in {path} is neither a Slack permalink nor the commit-pinned GitHub URL "
+                         "of a pre-flight document (https://github.com/SSIT-Q/gradvar-phoenix/blob/<40-hex commit>/docs/preflight/<file>.md)")
     resolve_instance(jl["instance"])   # refuse before touching the network if the named secret is missing
     for diff in check_budget(jl):
         raise SystemExit(f"refusing to submit: {diff}; regenerate the budget field with gradvar.hardware.estimate_budget")
