@@ -48,7 +48,7 @@ from gradvar.noise import COHERENCE_FLOOR_SINCE, COHERENCE_FLOOR_US, CZ_CUT, REA
 PLACEHOLDER = "TBD: pre-flight review permalink"
 PREREG = "Paper 1 pre-registration v0.16.0 (23 Sep 2026)"
 MAX_EXPERIMENTS = max_experiments("ibm_phoenix")   # 300 pubs per job (configuration ledger)
-DEFAULT_SNAPSHOT = Path("data/calibrations/ibm_phoenix_2026-09-23T030816Z.csv")   # the 23 Sep 03:08Z daily snapshot (run-day build); lists placed on it are pinned to it (Deviation 58)
+DEFAULT_SNAPSHOT = Path("data/calibrations/ibm_phoenix_2026-09-23T163534Z.csv")   # the 23 Sep 16:35Z on-demand snapshot (run-day build: Q66 and coupler 100-110 fail the cuts from 15:08Z); lists placed on it are pinned to it (Deviation 58)
 PIN_SNAPSHOT_SINCE = "2026-09-22T030817Z"   # Deviation 58: lists placed on this snapshot or later carry pin_snapshot, and the runner builds them on it
 NLADDER_L = 8   # Section 3b n-ladder depth; Gate 1b (c): 12 when the re-drawn separation clause fails at L = 8 on the run-day placement and passes at 12   # Deviation 58: lists placed on this snapshot or later carry pin_snapshot, and the runner builds them on it
 PACKING = dict(level2_large_n_min=LEVEL2_LARGE_N_MIN, level2_max_pubs=LEVEL2_MAX_PUBS,
