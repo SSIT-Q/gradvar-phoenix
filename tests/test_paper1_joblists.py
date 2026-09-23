@@ -17,7 +17,9 @@ from gradvar.sim import HAS_AER
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 P1 = ROOT / "data" / "joblists" / "paper1"
-SNAP = str(ROOT / "data" / "calibrations" / "ibm_phoenix_2026-09-21T033603Z.csv")   # Deviation 53 (b): the 21 Sep 03:36Z retrieval properties (Paper 2 smoke) written as a CSV; same placement as 02:27Z / 03:08Z
+import make_paper1_joblists as _gen   # noqa: E402  (scripts/ is on sys.path above)
+SNAP = str(ROOT / _gen.DEFAULT_SNAPSHOT)   # Deviation 58: the run-day snapshot the unarmed lists are placed on and pinned to (the generator default)
+SNAP0921 = str(ROOT / "data" / "calibrations" / "ibm_phoenix_2026-09-21T033603Z.csv")   # the placement-rule regression below; Deviation 53 (b): the 21 Sep 03:36Z retrieval properties (Paper 2 smoke) written as a CSV; same placement as 02:27Z / 03:08Z
 CAL = ROOT / "data" / "calibrations"
 SNAP20 = str(ROOT / "data" / "calibrations" / "ibm_phoenix_2026-09-20T030813Z.csv")   # a 20-qubit 4x5 (origin (8,2), edge 94_104) for the runner-mechanics tests below
 LISTS = ["grid_n20.json", "grid_n40.json", "grid_n60.json", "grid_n80.json", "grid_n100.json", "grid_n100_16384.json", "grid_n40_repeat.json",
@@ -124,7 +126,7 @@ def test_budgets_against_the_section_6_ledger(generated):
     assert dev17_main > t["main"]["minutes_at_1us"] and dev17[MAIN[0]]["points"][2]["M"] == 400 and dev17[MAIN[0]]["points"][4]["M"] == 700
 
 
-def test_placement_on_the_committed_snapshot(generated):
+def test_placement_rules_on_the_21_sep_snapshot(generated):
     """Section 2 / Deviations 18, 22, 26, 46, 53 on the 21 Sep 02:05Z calibration (the properties committed with the day-2 re-retrieval, the newest
     committed calibration data, Deviation 53 (b)): the Deviation 53 (a) coherence floor excludes Q114 (T1 3.7 us, T2 6.4 us), Q67, Q7 and Q11;
     Q110 (init) and Q105 (readout 6.5e-2) are cut; Q66, Q91 and Q119 are in. The ladder re-derives to n = 19 / 36 / 50 / 68 / 84: the 4x5 moves
@@ -133,13 +135,14 @@ def test_placement_on_the_committed_snapshot(generated):
     from gradvar.circuits import light_cone
     from gradvar.hardware import properties_for_csv
     from gradvar.noise import COHERENCE_FLOOR_SINCE, exclusion_from_calibration, place_patch
-    gen, lists, pl = generated
+    gen = generated[0]
+    lists, pl = gen.make_lists(SNAP0921)
     assert {r: v["n"] for r, v in pl["rungs"].items()} == {"n20": 19, "n40": 36, "n60": 50, "n80": 68, "n100": 84}   # 21 Sep 02:05Z: Q105 readout 6.5e-2 excluded
     assert {114, 67, 7, 11, 110}.issubset(pl["excluded"]) and not {66, 91, 119} & set(pl["excluded"])   # 17:22Z calibration: Q66 readout back under the cut
     assert pl["rules"]["coherence_floor_us"] == 25.0 and pl["stamp"] >= COHERENCE_FLOOR_SINCE
     for rung, v in pl["rungs"].items():
         r, c = gen.SHAPES[rung]
-        patch = place_patch(r, c, SNAP, allow_holes=True, properties=properties_for_csv(SNAP))
+        patch = place_patch(r, c, SNAP0921, allow_holes=True, properties=properties_for_csv(SNAP0921))
         a, b = (int(x) for x in v["edge"].split("_"))
         assert (a, b) in patch.edges() or (b, a) in patch.edges()
         assert [list(e) for e in patch.broken_edges] == v["broken_edges"] and list(patch.holes) == v["holes"]
@@ -148,13 +151,16 @@ def test_placement_on_the_committed_snapshot(generated):
     n20, n40 = pl["rungs"]["n20"], pl["rungs"]["n40"]
     assert n20["origin"] == [2, 0] and n20["holes"] == [24] and n20["edge"] == "32_42" and n20["broken_edges"] == [[31, 32], [41, 51]] and n20["live_couplers"] == 27   # 21 Sep 02:05Z
     assert n40["edge"] == "93_103" and not n40["cone_L2_matches_4x5"] and n40["edge_rule"].startswith("Deviation 36's (93, 103) as written")
-    assert SNAP.endswith(sorted(p.name for p in (ROOT / "data" / "calibrations").glob("ibm_phoenix_2*.csv"))[-1])   # the newest committed snapshot
-    assert properties_for_csv(SNAP).endswith("ibm_phoenix_properties_2026-09-21T033603Z.json")                 # the retrieval-stamped name (Deviation 53 (b))
+    # Deviation 58: the unarmed lists are placed on the run-day snapshot (the generator default), not the newest daily snapshot, and pin it
+    run_day = generated[1]
+    assert Path(SNAP).is_file() and all(jl["placement"].get("pin_snapshot") is True and jl["placement"]["snapshot"] == Path(SNAP).name
+                                        for jl in run_day.values()) and "pin_snapshot" not in pl
+    assert properties_for_csv(SNAP0921).endswith("ibm_phoenix_properties_2026-09-21T033603Z.json")                 # the retrieval-stamped name (Deviation 53 (b))
     assert pl["rungs"]["n60"]["origin"] == [3, 0] and pl["rungs"]["n60"]["edge"] == "43_44"                        # back to the 03:08Z placement with Q66 released
     # the floor is a run-day rule: on the 03:08Z snapshot the exclusion is the pre-Deviation-53 one (Q114 at T1 80 us there anyway) and the
     # forced floor on the 19 Sep development CSV would move the frozen ladder, which is why it is keyed to the stamp
     assert 114 not in exclusion_from_calibration(SNAP20, properties=properties_for_csv(SNAP20))
-    assert 114 in exclusion_from_calibration(SNAP, properties=properties_for_csv(SNAP)) and 114 not in exclusion_from_calibration(SNAP, properties=properties_for_csv(SNAP), coherence_floor_us=None)
+    assert 114 in exclusion_from_calibration(SNAP0921, properties=properties_for_csv(SNAP0921)) and 114 not in exclusion_from_calibration(SNAP0921, properties=properties_for_csv(SNAP0921), coherence_floor_us=None)
     # every point / probe of every list names its rung's actual n, patch and edge
     for name, jl in lists.items():
         for e in jl["points"] + [p for p in jl["probes"] if "edge" in p]:
