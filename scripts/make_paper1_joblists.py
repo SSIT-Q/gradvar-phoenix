@@ -42,13 +42,15 @@ sys.path.insert(0, str(ROOT))
 
 from gradvar.circuits import light_cone                                    # noqa: E402
 from gradvar.hardware import BUDGET_MODEL_VERSION, LEVEL2_LARGE_N_MIN, LEVEL2_MAX_PUBS, MAX_JOB_PARAM_MB, estimate_budget, load_joblist, max_experiments, properties_for_csv   # noqa: E402
-from gradvar.lattice import interior_edge                                  # noqa: E402
+from gradvar.lattice import interior_edge, qubit_index                                  # noqa: E402
 from gradvar.noise import COHERENCE_FLOOR_SINCE, COHERENCE_FLOOR_US, CZ_CUT, READOUT_CUT, cz_errors_from_calibration, exclusion_from_calibration, load_calibration, place_patch   # noqa: E402
 
 PLACEHOLDER = "TBD: pre-flight review permalink"
-PREREG = "Paper 1 pre-registration v0.15.0 (21 Sep 2026)"
+PREREG = "Paper 1 pre-registration v0.16.0 (23 Sep 2026)"
 MAX_EXPERIMENTS = max_experiments("ibm_phoenix")   # 300 pubs per job (configuration ledger)
-DEFAULT_SNAPSHOT = Path("data/calibrations/ibm_phoenix_2026-09-21T033603Z.csv")   # Deviation 53 (b): the newest committed calibration data (the 03:36Z retrieval properties of the Paper 2 smoke, written as a CSV)
+DEFAULT_SNAPSHOT = Path("data/calibrations/ibm_phoenix_2026-09-23T163534Z.csv")   # the 23 Sep 16:35Z on-demand snapshot (run-day build: Q66 and coupler 100-110 fail the cuts from 15:08Z); lists placed on it are pinned to it (Deviation 58)
+PIN_SNAPSHOT_SINCE = "2026-09-22T030817Z"   # Deviation 58: lists placed on this snapshot or later carry pin_snapshot, and the runner builds them on it
+NLADDER_L = 8   # Section 3b n-ladder depth; Gate 1b (c): 12 when the re-drawn separation clause fails at L = 8 on the run-day placement and passes at 12   # Deviation 58: lists placed on this snapshot or later carry pin_snapshot, and the runner builds them on it
 PACKING = dict(level2_large_n_min=LEVEL2_LARGE_N_MIN, level2_max_pubs=LEVEL2_MAX_PUBS,
                reason="Deviation 55 (to be): resilience-2 jobs on rungs of n >= 69 hold at most 100 pubs (day-2 job L2-c5, 300 pubs of n = 85 L = 8, IBM 1336 out of memory; 100 pubs ran)")
 SHAPES = {"n20": (4, 5), "n40": (4, 10), "n60": (6, 10), "n80": (8, 10), "n100": (10, 10)}   # Section 2 nominal ladder
@@ -96,9 +98,14 @@ def place_rungs(snapshot: str) -> dict:
                excluded=[int(q) for q in exclusion_from_calibration(snapshot, properties=props)],
                rules=dict(readout_cut=READOUT_CUT, init_error_cut=5e-4, zz_cut_mhz=1.0, cz_cut=CZ_CUT,
                           coherence_floor_us=COHERENCE_FLOOR_US if out_stamp >= COHERENCE_FLOOR_SINCE else None), rungs={})
+    if out_stamp >= PIN_SNAPSHOT_SINCE:
+        out["pin_snapshot"] = True   # Deviation 58: the runner builds on this snapshot (gradvar.hardware.pinned_calibration_csv), not the newest
     patches = {}
     for rung, (r, c) in SHAPES.items():
-        patches[rung] = place_patch(r, c, snapshot, allow_holes=True, properties=props)
+        # Deviation 58: on pinned snapshots the n20 rung, whose only remaining use is the Deviation 19 replication of day 1's point,
+        # is placed among 4x5 rectangles disjoint from day 1's, so the protocol's 'different clean patch' holds by construction
+        avoid = day1_n20_rectangle() if (rung == "n20" and out.get("pin_snapshot")) else ()
+        patches[rung] = place_patch(r, c, snapshot, allow_holes=True, properties=props, avoid=avoid)
     p45 = patches["n20"]
     e45 = interior_edge(p45)
     cone45 = cone_graph(p45, e45)
@@ -123,6 +130,9 @@ def place_rungs(snapshot: str) -> dict:
                                   live_couplers=len(patch.edges()), edge=f"{edge[0]}_{edge[1]}", edge_rule=rule,
                                   edge_cz_error=cz.get(tuple(edge)), cone_L2_qubits=list(cq), cone_L2_couplers=len(ce),
                                   cone_L2_matches_4x5=(cq, ce) == cone45)
+        if rung == "n20" and out.get("pin_snapshot"):
+            out["rungs"][rung]["placement_rule"] = ("the pre-registered rule among 4x5 rectangles disjoint from day 1's rectangle at "
+                                                   f"{DAY1_N20_ORIGIN} (Deviation 58: Deviation 19's 'different clean patch' by construction)")
     return out
 
 
@@ -135,7 +145,8 @@ def base_list(name: str, notes: str, placement: dict, rungs: list, ledger_line: 
     jl = dict(name=name, backend="ibm_phoenix", instance="flex", dry_run=True, rep_delay_probe=True, preflight_review=PLACEHOLDER,
               notes=notes, layout_check="enforce",
               placement=dict(snapshot=placement["snapshot"], properties=placement["properties"], stamp=placement["stamp"],
-                             excluded=placement["excluded"], rules=placement["rules"], rungs={r: placement["rungs"][r] for r in rungs}),
+                             excluded=placement["excluded"], rules=placement["rules"], rungs={r: placement["rungs"][r] for r in rungs},
+                             **({"pin_snapshot": True} if placement.get("pin_snapshot") else {})),
               campaign=dict(pre_registration=PREREG, ledger_line=ledger_line, budget_model_version=BUDGET_MODEL_VERSION,
                             max_experiments=MAX_EXPERIMENTS, max_job_param_mb=MAX_JOB_PARAM_MB, packing=dict(PACKING), **(extra_campaign or {})),
               points=points, probes=probes)
@@ -248,10 +259,11 @@ def dial_lists(pl: dict) -> dict:
             contingent.append(dial_probe(f"dial_p{p:g}_L{L}_k1", R60, L, 1, p, "reset", 100, 256, 16, seed_for("n60", "dial", L, 0),
                                          f"Section 3b contingent item {'(1) k = 1 at L = 12' if L == 12 else '(3) k = 1 at L = 8'}: reset dial p = {p}, k = 1, M = 100, paired "
                                          "draws and masks with the k = L point (same seed); reported as an upper bound where below the shot floor (Deviation 40)"))
-    # n-ladder: p = 0.25, L = 8, k = L at the n = 40 and n = 100 rungs (n = 60 shared with the grid); H6 in n
+    # n-ladder: p = 0.25, L = NLADDER_L, k = L at the n = 40 and n = 100 rungs (n = 60 shared with the grid); H6 in n
+    LN = NLADDER_L
     for rung, R in (("n40", R40), ("n100", R100)):
-        core.append(dial_probe(f"dial_p0.25_L8_kL_{rung}", R, 8, 8, 0.25, "reset", 100, 256, 16, seed_for(rung, "dial", 8, 0),
-                               f"Section 3b n-ladder: reset dial p = 0.25, L = 8, k = L, M = 100 on the {rung} rung (actual n = {R['n']}); H6 in n against the "
+        core.append(dial_probe(f"dial_p0.25_L{LN}_kL_{rung}", R, LN, LN, 0.25, "reset", 100, 256, 16, seed_for(rung, "dial", LN, 0),
+                               f"Section 3b n-ladder: reset dial p = 0.25, L = {LN}, k = L, M = 100 on the {rung} rung (actual n = {R['n']}); H6 in n against the "
                                "delay-matched p = 0 reference of references_gate1b.json on the same patch"))
     # Matched controls at n = 60, L = 8: the k = L delay-matched control is the M = 350 reference in references_gate1b.json; the dephasing dial is core;
     # the k = 1 delay-matched control is contingent item (3)
@@ -282,7 +294,7 @@ def dial_lists(pl: dict) -> dict:
         core.append(dict(id=pid, kind="reset_error", reset_kind=rk, prep=prep, n=R60["n"], patch=R60["patch"], shots=SHOTS, resilience=0, seed=char_seed, purpose=purpose))
     notes_core = (f"{PREREG}, Section 3b (non-unital arm: controlled reset dial), booked core on the n = 60 rung (6x10, actual n = {R60['n']}) with the n-ladder "
                   f"points on the n = 40 and n = 100 rungs (actual n = {R40['n']}, {R100['n']}): gradient grid p in {{0.25, 0.5}} at L in {{8, 12}}, k = L, M = 100 "
-                  "(4 points); n-ladder p = 0.25, L = 8, k = L at n = 40 and 100 (2 points); the unital dephasing dial p = 0.5, k = L (1 point; matched control (b)); "
+                  f"(4 points); n-ladder p = 0.25, L = {NLADDER_L}, k = L at n = 40 and 100 (2 points); the unital dephasing dial p = 0.5, k = L (1 point; matched control (b)); "
                   "the truncation arm p = 0.5, L = 8, full and l = 2 at 256 masks x 64 shots (H7); the reset-error characterisation on the dial-patch qubits. "
                   "The k = L delay-matched p = 0 control (matched control (a)) is the M = 350, 16384-shot reference point of references_gate1b.json (Deviations 28-30, 44-45). "
                   "Not run (Section 3b): p = 0.1, k in {L/2, L-1}, p = 0.25 truncation. Not in this list (Estimator runner limits, see docs/PAPER1_JOBLISTS.md): the "
@@ -353,6 +365,11 @@ REPL_NAME = "replication_01.json"              # Deviation 19 replications (P1.3
 REPL16_NAME = "replication_01_16384.json"      # the n100 rung's L = 8 replication at 16384 shots (one shot count per Estimator list)
 DAY1_N20_ORIGIN = (8, 1)                       # the day-1 n20 rung as run (c9377b1, 13:44Z calibration): 4x5 at (8, 1), hole 114, edge 93_103
 REPL_TARGET_MIN = 8.0                          # both lists together, from the 20-minute 'anomaly replications' reserve item (Deviation 19)
+
+
+def day1_n20_rectangle() -> tuple:
+    """The 20 qubits of day 1's 4x5 rectangle at ``DAY1_N20_ORIGIN`` (its hole included)."""
+    return tuple(qubit_index(DAY1_N20_ORIGIN[0] + dr, DAY1_N20_ORIGIN[1] + dc) for dr in range(4) for dc in range(5))
 
 
 def replication_lists(pl: dict) -> dict:
@@ -535,7 +552,7 @@ def day3_list(pl: dict, lists: dict) -> dict:
              "n, patch, edge, L, k, M, shots, masks, p, reset_kind, resilience and seed to its entry in the committed source list, which stays on main as the fallback "
              "packaging): the six delay-matched p = 0, k = L references at L = 8 and 12 on the n40 / n60 / n100 rungs (M = 350, 16384 shots; Gate 1b clause (b) per rung "
              "on the measured references, Deviations 28-30, 35, 44-45; Deviation 39 on-day M = 600 rule), then the Section 3b core: reset dial p in {0.25, 0.5} at "
-             "L in {8, 12}, k = L on the n60 rung, the p = 0.25 L = 8 n-ladder points on n40 and n100, the dephasing dial p = 0.5 (matched control (b)), the truncation "
+             f"L in {{8, 12}}, k = L on the n60 rung, the p = 0.25 L = {NLADDER_L} n-ladder points on n40 and n100, the dephasing dial p = 0.5 (matched control (b)), the truncation "
              "arm (H7, full and l = 2) and the reset-error characterisation on the dial-patch qubits (kill rule (a), Gate 2 (e) reset half). Resilience 0 throughout "
              "(Section 3b budget; PAPER1_JOBLISTS Section 7 ambiguity 5), so no resilience-2 job and the Deviation 55 level-2 cap does not bind. Ledger: the 65-minute "
              "dial line plus the Deviation 44 reserve item (8.0) and the Deviation 45 top-up line (9.5) for the references. Not here: dial_arm_contingent.json (only on a "

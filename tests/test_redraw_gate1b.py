@@ -129,6 +129,13 @@ def test_placement_copy_agrees_with_generator_when_importable():
         assert {k: a["rungs"][rung][k] for k in ("n", "qubits", "broken_edges", "edge")} == {k: b["rungs"][rung][k] for k in ("n", "qubits", "broken_edges", "edge")}
 
 
+def _same_count(a, b) -> bool:
+    """The largest string count of a truncated propagation is a size counter, not a result: at the 4e5-string cap, ties in |coefficient|
+    are ordered by multi-threaded merges, so the count differs by a few strings from run to run on one commit (6x10 L = 8 delay: 414454
+    and 414462 in four runs of f05bd0c, 23 Sep 2026, PYTHONHASHSEED fixed or not) while every variance reproduces bitwise."""
+    return abs(int(a) - int(b)) <= 1e-4 * int(b)
+
+
 def _frozen_inputs():
     rec = R.frozen_placement()
     return rec, R.frozen_rows(), str(R.CAL_DIR / rec["snapshot"]), str(R.CAL_DIR / rec["properties"])
@@ -143,7 +150,7 @@ def test_frozen_placement_reproduces_frozen_reset_rows_to_1e9():
             fz = R.frozen_row(fdf, spec, L, "reset")
             out = R.predict_at_edge(R.rung_patch(rung), spec, L, R.rung_edge(rung), csv, props, dial_kind="reset", p=0.25, sampled=False, pattern=False,
                                     deltas=(float(fz.delta_coarse), float(fz.delta_fine)))
-            assert out["edge"] == fz["edge"] and out["n_cone"] == int(fz["n_cone"]) and out["n_strings_max"] == int(fz["n_strings_max"])
+            assert out["edge"] == fz["edge"] and out["n_cone"] == int(fz["n_cone"]) and _same_count(out["n_strings_max"], fz["n_strings_max"])
             for key in ("var_kL_pp", "var_cost_pp", "mean_cost", "var_pp"):
                 assert abs(out[key] - float(fz[key])) <= 1e-9 * abs(float(fz[key])), (spec, L, key, out[key], float(fz[key]))
             assert abs(out["var_k1_pp"] - float(fz["var_k1_pp"])) <= 1e-9 * max(abs(float(fz["var_k1_pp"])), 1e-12)
@@ -162,7 +169,7 @@ def test_frozen_placement_reproduces_frozen_reference_rows_to_1e9_slow():
             fz = R.frozen_row(fdf, spec, L, "delay")
             out = R.predict_at_edge(R.rung_patch(rung), spec, L, R.rung_edge(rung), csv, props, dial_kind="delay", p=0.0, sampled=False, pattern=False,
                                     deltas=(float(fz.delta_coarse), float(fz.delta_fine)), n_cap=400_000, time_limit_s=1200.0)
-            assert out["n_strings_max"] == int(fz["n_strings_max"]), (spec, L)
+            assert _same_count(out["n_strings_max"], fz["n_strings_max"]), (spec, L, out["n_strings_max"])
             for key in ("var_kL_pp", "var_k1_pp", "var_cost_pp", "mean_cost", "var_pp"):
                 assert abs(out[key] - float(fz[key])) <= 1e-9 * abs(float(fz[key])), (spec, L, key, out[key], float(fz[key]))
     rung = rec["rungs"]["n60"]

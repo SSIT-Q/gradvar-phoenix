@@ -383,7 +383,9 @@ and every hardware job runs from a committed, reviewed JSON job list in `data/jo
 `data/joblists/README.md`) through `.github/workflows/run_jobs.yml` (`workflow_dispatch` only, inputs
 `joblist` path and `dry_run`, default true). With `dry_run: false` the action runs
 `python -m gradvar.hardware --joblist <path> --yes-submit`, which refuses to submit unless the job
-list's `preflight_review` field holds the Slack permalink of the pre-flight sign-off, and then commits
+list's `preflight_review` field holds the pre-flight record (the Slack permalink of the sign-off, or the
+commit-pinned GitHub URL of the pre-flight document under `docs/preflight/`) and the list has no ids file of
+an earlier whole-list submission under `data/runs/`, and then commits
 the log CSV to `data/jobs/`, the calibration snapshot to `data/calibrations/` and one bundle per job under
 `data/runs/<date>/<job_id>/` (job timestamps, `job.usage()`, `job.metrics()`, the full `PrimitiveResult` via
 `RuntimeEncoder`, result and per-pub metadata, the options used, `backend.properties()` and a target summary,

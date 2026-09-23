@@ -17,7 +17,9 @@ from gradvar.sim import HAS_AER
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 P1 = ROOT / "data" / "joblists" / "paper1"
-SNAP = str(ROOT / "data" / "calibrations" / "ibm_phoenix_2026-09-21T033603Z.csv")   # Deviation 53 (b): the 21 Sep 03:36Z retrieval properties (Paper 2 smoke) written as a CSV; same placement as 02:27Z / 03:08Z
+import make_paper1_joblists as _gen   # noqa: E402  (scripts/ is on sys.path above)
+SNAP = str(ROOT / _gen.DEFAULT_SNAPSHOT)   # Deviation 58: the run-day snapshot the unarmed lists are placed on and pinned to (the generator default)
+SNAP0921 = str(ROOT / "data" / "calibrations" / "ibm_phoenix_2026-09-21T033603Z.csv")   # the placement-rule regression below; Deviation 53 (b): the 21 Sep 03:36Z retrieval properties (Paper 2 smoke) written as a CSV; same placement as 02:27Z / 03:08Z
 CAL = ROOT / "data" / "calibrations"
 SNAP20 = str(ROOT / "data" / "calibrations" / "ibm_phoenix_2026-09-20T030813Z.csv")   # a 20-qubit 4x5 (origin (8,2), edge 94_104) for the runner-mechanics tests below
 LISTS = ["grid_n20.json", "grid_n40.json", "grid_n60.json", "grid_n80.json", "grid_n100.json", "grid_n100_16384.json", "grid_n40_repeat.json",
@@ -66,14 +68,17 @@ def test_lists_validate_and_refuse_to_submit(name, tmp_path, monkeypatch):
     assert jl["dry_run"] is True and jl["rep_delay_probe"] is True and jl["layout_check"] == "enforce"
     assert jl["backend"] == "ibm_phoenix" and jl["instance"] == "flex"
     assert jl["preflight_review"] == "TBD: pre-flight review permalink" and not joblist_submittable(jl)
-    assert "pre-registration v0.15.0" in jl["notes"] and "Deviation 53" in jl["notes"] and "Deviation 46" in jl["notes"] and "Deviation 47" in jl["notes"] and "Deviation 48" in jl["notes"]
+    assert "pre-registration v0.16.0" in jl["notes"] and "Deviation 53" in jl["notes"] and "Deviation 46" in jl["notes"] and "Deviation 47" in jl["notes"] and "Deviation 48" in jl["notes"]
     assert check_budget(jl) == [] and jl["budget"]["model_version"] == 3 and jl["campaign"]["budget_model_version"] == 3
     assert jl["campaign"]["max_experiments"] == max_experiments("ibm_phoenix") == 300 and jl["campaign"]["max_job_param_mb"] == MAX_JOB_PARAM_MB
     assert all(e["pubs"] <= 300 and e["param_mb"] <= MAX_JOB_PARAM_MB for e in jl["budget"]["per_job"])   # no job above max_experiments or the payload cap
     assert jl["budget"]["jobs"] == len(jl["budget"]["per_job"]) and jl["budget"]["trex_executions"] == 0   # v3: no TREX term at >= 1024 shots
     assert all(e["job_constant_seconds"] == (3.0 if e["resilience_level"] == 0 else 5.7) for e in jl["budget"]["per_job"])
-    assert jl["placement"]["stamp"] == "2026-09-21T033603Z" and jl["placement"]["properties"] == "ibm_phoenix_properties_2026-09-21T033603Z.json"
-    assert jl["placement"]["rules"]["coherence_floor_us"] == 25.0 and 114 in jl["placement"]["excluded"]   # Deviation 53 (a): Q114 at T1 3.7 us
+    from gradvar.hardware import properties_for_csv
+    from gradvar.noise import exclusion_from_calibration
+    props = properties_for_csv(SNAP)                                     # Deviation 58: placed on the run-day snapshot and pinned to it
+    assert jl["placement"]["snapshot"] == Path(SNAP).name and jl["placement"]["pin_snapshot"] is True and jl["placement"]["properties"] == Path(props).name
+    assert jl["placement"]["rules"]["coherence_floor_us"] == 25.0 and jl["placement"]["excluded"] == list(exclusion_from_calibration(SNAP, properties=props))
     monkeypatch.setenv("QISKIT_IBM_INSTANCE", "crn:fake")
     with pytest.raises(SystemExit, match="dry_run"):                     # refused before preflight / credentials
         run_joblist(str(P1 / name), submit=True, run_root=str(tmp_path / "r"), log_dir=str(tmp_path / "j"), calibration_csv=SNAP)
@@ -116,7 +121,7 @@ def test_budgets_against_the_section_6_ledger(generated):
     assert 100 <= d["jobs"] <= 140 and d["jobs"] < 1367                                          # about 15 jobs per point at the 12 MB payload cap; 1,367 under Deviation 27
     for pid in ("dial_p0.25_L8_kL", "dial_p0.5_L12_kL", "dial_p0.25_L8_kL_n100"):                 # kill rule (b), Deviation 41: <= 7.0 min per dial gradient point
         one = estimate_budget(dict(lists["dial_arm.json"], probes=[next(p for p in lists["dial_arm.json"]["probes"] if p["id"] == pid)]), rep_delays_us=(1.0,))
-        assert one["pubs"] == 256 and one["jobs"] <= 30 and one["minutes_at_1us"] < 7.0 and one["minutes_at_1us"] < 1.5
+        assert one["pubs"] == 256 and one["jobs"] <= 30 and one["minutes_at_1us"] < 7.0 and one["minutes_at_1us"] < 2.0   # 1.53 at n = 86 (23 Sep)
     assert lists["grid_n100_16384.json"]["budget"]["executions"] == 2 * 200 * 2 * 16384
     # the Deviation 17 where-affordable M (400 at L = 2, 700 at L >= 4) is the surplus rule, not the booking: it is reported, not written
     dev17, _ = gen.make_lists(SNAP, "dev17")
@@ -124,7 +129,7 @@ def test_budgets_against_the_section_6_ledger(generated):
     assert dev17_main > t["main"]["minutes_at_1us"] and dev17[MAIN[0]]["points"][2]["M"] == 400 and dev17[MAIN[0]]["points"][4]["M"] == 700
 
 
-def test_placement_on_the_committed_snapshot(generated):
+def test_placement_rules_on_the_21_sep_snapshot(generated):
     """Section 2 / Deviations 18, 22, 26, 46, 53 on the 21 Sep 02:05Z calibration (the properties committed with the day-2 re-retrieval, the newest
     committed calibration data, Deviation 53 (b)): the Deviation 53 (a) coherence floor excludes Q114 (T1 3.7 us, T2 6.4 us), Q67, Q7 and Q11;
     Q110 (init) and Q105 (readout 6.5e-2) are cut; Q66, Q91 and Q119 are in. The ladder re-derives to n = 19 / 36 / 50 / 68 / 84: the 4x5 moves
@@ -133,13 +138,14 @@ def test_placement_on_the_committed_snapshot(generated):
     from gradvar.circuits import light_cone
     from gradvar.hardware import properties_for_csv
     from gradvar.noise import COHERENCE_FLOOR_SINCE, exclusion_from_calibration, place_patch
-    gen, lists, pl = generated
+    gen = generated[0]
+    lists, pl = gen.make_lists(SNAP0921)
     assert {r: v["n"] for r, v in pl["rungs"].items()} == {"n20": 19, "n40": 36, "n60": 50, "n80": 68, "n100": 84}   # 21 Sep 02:05Z: Q105 readout 6.5e-2 excluded
     assert {114, 67, 7, 11, 110}.issubset(pl["excluded"]) and not {66, 91, 119} & set(pl["excluded"])   # 17:22Z calibration: Q66 readout back under the cut
     assert pl["rules"]["coherence_floor_us"] == 25.0 and pl["stamp"] >= COHERENCE_FLOOR_SINCE
     for rung, v in pl["rungs"].items():
         r, c = gen.SHAPES[rung]
-        patch = place_patch(r, c, SNAP, allow_holes=True, properties=properties_for_csv(SNAP))
+        patch = place_patch(r, c, SNAP0921, allow_holes=True, properties=properties_for_csv(SNAP0921))
         a, b = (int(x) for x in v["edge"].split("_"))
         assert (a, b) in patch.edges() or (b, a) in patch.edges()
         assert [list(e) for e in patch.broken_edges] == v["broken_edges"] and list(patch.holes) == v["holes"]
@@ -148,13 +154,16 @@ def test_placement_on_the_committed_snapshot(generated):
     n20, n40 = pl["rungs"]["n20"], pl["rungs"]["n40"]
     assert n20["origin"] == [2, 0] and n20["holes"] == [24] and n20["edge"] == "32_42" and n20["broken_edges"] == [[31, 32], [41, 51]] and n20["live_couplers"] == 27   # 21 Sep 02:05Z
     assert n40["edge"] == "93_103" and not n40["cone_L2_matches_4x5"] and n40["edge_rule"].startswith("Deviation 36's (93, 103) as written")
-    assert SNAP.endswith(sorted(p.name for p in (ROOT / "data" / "calibrations").glob("ibm_phoenix_2*.csv"))[-1])   # the newest committed snapshot
-    assert properties_for_csv(SNAP).endswith("ibm_phoenix_properties_2026-09-21T033603Z.json")                 # the retrieval-stamped name (Deviation 53 (b))
+    # Deviation 58: the unarmed lists are placed on the run-day snapshot (the generator default), not the newest daily snapshot, and pin it
+    run_day = generated[1]
+    assert Path(SNAP).is_file() and all(jl["placement"].get("pin_snapshot") is True and jl["placement"]["snapshot"] == Path(SNAP).name
+                                        for jl in run_day.values()) and "pin_snapshot" not in pl
+    assert properties_for_csv(SNAP0921).endswith("ibm_phoenix_properties_2026-09-21T033603Z.json")                 # the retrieval-stamped name (Deviation 53 (b))
     assert pl["rungs"]["n60"]["origin"] == [3, 0] and pl["rungs"]["n60"]["edge"] == "43_44"                        # back to the 03:08Z placement with Q66 released
     # the floor is a run-day rule: on the 03:08Z snapshot the exclusion is the pre-Deviation-53 one (Q114 at T1 80 us there anyway) and the
     # forced floor on the 19 Sep development CSV would move the frozen ladder, which is why it is keyed to the stamp
     assert 114 not in exclusion_from_calibration(SNAP20, properties=properties_for_csv(SNAP20))
-    assert 114 in exclusion_from_calibration(SNAP, properties=properties_for_csv(SNAP)) and 114 not in exclusion_from_calibration(SNAP, properties=properties_for_csv(SNAP), coherence_floor_us=None)
+    assert 114 in exclusion_from_calibration(SNAP0921, properties=properties_for_csv(SNAP0921)) and 114 not in exclusion_from_calibration(SNAP0921, properties=properties_for_csv(SNAP0921), coherence_floor_us=None)
     # every point / probe of every list names its rung's actual n, patch and edge
     for name, jl in lists.items():
         for e in jl["points"] + [p for p in jl["probes"] if "edge" in p]:
@@ -399,13 +408,14 @@ def test_level2_cap_splits_the_large_rung_zne_jobs(generated):
 def _small(base: dict, **kw) -> dict:
     """A reduced list for the runner-mechanics tests, run against SNAP20 (the 20 Sep 03:08Z snapshot): its 4x5 entries are mapped back to
     that snapshot's 20-qubit placement (origin (8,2), edge 94_104) from the committed lists' placement (n = 19 with a hole; edge 93_103 on the
-    13:44Z / 17:22Z calibrations, 32_42 at origin (2,0) on the 21 Sep 02:05Z one)."""
+    13:44Z / 17:22Z calibrations, 32_42 at origin (2,0) on the 21 Sep 02:05Z one, 13_14 at origin (0,1) on the 23 Sep 03:08Z one).
+    The pinned lists' recorded origins do not apply there: the runner places by the rule on an explicit calibration other than the pinned one."""
     d = dict(base, **kw)
     d.pop("budget", None)                                       # re-estimated by the test, or left out (not needed for a dry run)
     for e in list(d.get("points", []) or []) + list(d.get("probes", []) or []):
         if e.get("patch") == "4x5":
             e["n"] = 20
-            if e.get("edge") in ("93_103", "32_42"):
+            if e.get("edge") in ("93_103", "32_42", "13_14"):
                 e["edge"] = "94_104"
     return d
 
