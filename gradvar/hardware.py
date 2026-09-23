@@ -448,12 +448,17 @@ class BuiltProbe:
         return (self.isa_circuit, self.isa_observable, self.param_values)
 
 
-def pinned_origins(jl: dict) -> Dict[str, Tuple[int, int]] | None:
+def pinned_origins(jl: dict, csv: str | None = None) -> Dict[str, Tuple[int, int]] | None:
     """Deviation 58: ``{patch shape: origin}`` of a pinned list's rungs (``placement.rungs``), so the runner places every rectangle
     where the generator placed it on the pinned snapshot (the n20 rung is placed away from day 1's rectangle for the Deviation 19
-    replication, so the rule's best rectangle can differ from the list's). None for lists that do not pin."""
+    replication, so the rule's best rectangle can differ from the list's). None for lists that do not pin, and None when the build
+    calibration ``csv`` (default: the newest committed CSV) is not the pinned snapshot: the recorded origins belong to that snapshot,
+    so a build on another calibration (an explicit ``calibration_csv``) places by the rule there instead."""
+    from .noise import latest_calibration_csv
     pl = jl.get("placement") or {}
     if not pl.get("pin_snapshot"):
+        return None
+    if Path(csv or latest_calibration_csv()).name != str(pl.get("snapshot") or ""):
         return None
     return {str(r["patch"]).lower(): (int(r["origin"][0]), int(r["origin"][1]))
             for r in (pl.get("rungs") or {}).values() if r.get("patch") and r.get("origin") is not None}
@@ -557,12 +562,14 @@ def build_probes(jl: dict, backend, shapes: dict, calibration_csv: str | None = 
     """
     built: List[BuiltProbe] = []
     limit = None if max_pubs_per_probe is None else int(max_pubs_per_probe)
+    calibration_csv = calibration_csv or pinned_calibration_csv(jl)   # Deviation 58: a pinned list builds on its own snapshot
+    origins = pinned_origins(jl, calibration_csv)
     for pr in jl.get("probes", []) or []:
         n_before = len(built)
         kind, rk = str(pr["kind"]), str(pr.get("reset_kind", "reset"))
         level, shots, seed = int(pr.get("resilience", 0)), int(pr["shots"]), int(pr.get("seed", 0))
         if kind == "reset_dial":
-            patch, layout = _probe_patch(pr, shapes, calibration_csv, pinned_origins(jl))
+            patch, layout = _probe_patch(pr, shapes, calibration_csv, origins)
             edge = resolve_edge(patch, layout, pr.get("edge"), f"probe {pr.get('id')}")
             obs, edge = hea_observable(patch, edge)
             phys, phys_edge = physical_qubits(patch, layout, edge)
@@ -612,7 +619,7 @@ def build_probes(jl: dict, backend, shapes: dict, calibration_csv: str | None = 
             # Section 2 control (a): the same HEA with the differentiated parameter outside the observable's light cone (ideal
             # gradient exactly zero), giving the empirical noise floor including hardware noise (Deviation 37 claimability bar;
             # Gate 2 (a)). One pub per draw d (seed + d), the pair shifted at layer k on the null qubit (candidate Deviation 43).
-            patch, layout = _probe_patch(pr, shapes, calibration_csv, pinned_origins(jl))
+            patch, layout = _probe_patch(pr, shapes, calibration_csv, origins)
             edge = resolve_edge(patch, layout, pr.get("edge"), f"probe {pr.get('id')}")
             obs, edge = hea_observable(patch, edge)
             phys, phys_edge = physical_qubits(patch, layout, edge)
@@ -639,7 +646,7 @@ def build_probes(jl: dict, backend, shapes: dict, calibration_csv: str | None = 
             if "qubits" in pr:
                 qubits, patch = tuple(int(q) for q in pr["qubits"]), None
             else:
-                patch, layout = _probe_patch(pr, shapes, calibration_csv, pinned_origins(jl))
+                patch, layout = _probe_patch(pr, shapes, calibration_csv, origins)
                 qubits, _ = physical_qubits(patch, layout, None)
             if len(set(qubits)) != len(qubits):
                 raise JoblistError(f"probe {pr.get('id')}: repeated qubit in {qubits}")
@@ -1367,10 +1374,11 @@ def joblist_points(jl: dict, calibration_csv: str | None = None) -> Tuple[List[G
     placed patch's qubit count (rectangles with holes have n below rows x cols). k in the job list is 1-based
     (pre-registration convention); GridPoint.k is 0-based."""
     from .noise import latest_calibration_csv, place_patch
-    csv = calibration_csv or latest_calibration_csv()
+    csv = calibration_csv or pinned_calibration_csv(jl) or latest_calibration_csv()   # Deviation 58: a pinned list builds on its own snapshot
+    origins = pinned_origins(jl, csv)
     points, shapes, shots = [], {}, None
     for pt in jl["points"]:
-        patch, layout = _placed_patch(pt, csv, f"point n={pt['n']}", pinned_origins(jl))
+        patch, layout = _placed_patch(pt, csv, f"point n={pt['n']}", origins)
         shapes[int(pt["n"])] = patch
         edge = resolve_edge(patch, layout, pt["edge"], f"point n={pt['n']}")
         if shots is None:
@@ -1988,8 +1996,8 @@ def resubmission_context(jl: dict, path: str, only_tag: str, max_pubs: int | Non
         if submit:
             raise SystemExit(f"refusing to resubmit {only_tag}: no original ids file {run_root}/<day>/{name}_job_ids.json "
                              "(a resubmission repeats a submission that wrote one)")
-        ctx["calibration_csv"] = calibration_csv or latest_calibration_csv()
-        ctx["note"] = "dry run without an original ids file: pubs placed on the newest calibration CSV"
+        ctx["calibration_csv"] = calibration_csv or pinned_calibration_csv(jl) or latest_calibration_csv()
+        ctx["note"] = "dry run without an original ids file: pubs placed on the list's pinned snapshot (Deviation 58) or else the newest calibration CSV"
         print(f"resubmission dry run of {only_tag}: no original ids file under {run_root}; pubs placed on {ctx['calibration_csv']}", flush=True)
         return ctx, ctx["calibration_csv"]
     if len(found) > 1:
@@ -1998,7 +2006,7 @@ def resubmission_context(jl: dict, path: str, only_tag: str, max_pubs: int | Non
     orig = [j for j in ids["jobs"] if str(j["tag"]) == str(only_tag)]
     if not orig:
         raise SystemExit(f"{found[0]} has no job tagged {only_tag!r} (tags: {[j['tag'] for j in ids['jobs']]})")
-    csv = calibration_csv or ids.get("calibration_csv") or calibration_csv_not_after(ids.get("written_utc"))
+    csv = calibration_csv or ids.get("calibration_csv") or pinned_calibration_csv(jl) or calibration_csv_not_after(ids.get("written_utc"))
     ctx.update(of_ids_file=str(found[0]), of_job_id=orig[0].get("job_id"), of_submission_run=ids.get("submission_run"), of_pubs=orig[0].get("pubs"),
                calibration_csv=csv)
     print(f"resubmission of {only_tag}: job {orig[0].get('job_id')} of run {ids.get('submission_run')} ({orig[0].get('pubs')} pubs, {found[0]}); "
@@ -2363,7 +2371,7 @@ def retrieve_jobs(ids_path: str, joblist_path: str | None = None, run_root: str 
     jl = load_joblist(joblist_path)
     sampler = str(jl.get("primitive", "estimator")) == "sampler"      # Paper 2 lists: gradvar.paper2.retrieve_sampler_jobs after the instance checks
     resub = ids.get("resubmission")
-    csv = calibration_csv or ids.get("calibration_csv") or calibration_csv_not_after(ids.get("written_utc"))   # the CSV in force at submission
+    csv = calibration_csv or ids.get("calibration_csv") or pinned_calibration_csv(jl) or calibration_csv_not_after(ids.get("written_utc"))   # the CSV in force at submission
     if not sampler:
         print(f"pubs rebuilt on {csv}" + (f" (resubmission of {resub['of_tag']} in jobs of at most {resub.get('max_pubs')} pubs)" if resub else ""), flush=True)
     resolve_instance(jl["instance"])

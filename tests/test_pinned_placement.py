@@ -86,8 +86,22 @@ def test_replication_rung_avoids_day1_and_runner_places_at_recorded_origin():
     pl = place_rungs(str(PINNED))
     r20 = pl["rungs"]["n20"]
     assert not DAY1 & (set(r20["qubits"]) | set(r20["holes"])) and "disjoint" in r20["placement_rule"]
-    origins = hw.pinned_origins({"placement": dict(pl, pin_snapshot=True)})
+    origins = hw.pinned_origins({"placement": dict(pl, pin_snapshot=True)}, str(PINNED))
     assert origins["4x5"] == tuple(r20["origin"]) and set(origins) == {"4x5", "4x10", "6x10", "8x10", "10x10"}
     patch, _ = hw._placed_patch({"n": r20["n"], "patch": "4x5", "edge": r20["edge"]}, str(PINNED), "test", origins)
     assert tuple(patch.origin) == tuple(r20["origin"]) and patch.n == r20["n"]
     assert hw.pinned_origins({"placement": {"rungs": pl["rungs"]}}) is None
+    # the recorded origins belong to the pinned snapshot: a build on another calibration places by the rule there
+    assert hw.pinned_origins({"placement": dict(pl, pin_snapshot=True)}, str(BEFORE)) is None
+
+
+def test_explicit_other_calibration_ignores_the_pinned_origins():
+    """A pinned list built on another calibration (a test's or a resubmission's explicit ``calibration_csv``) is placed by the rule on
+    that calibration; without one it is built on its pinned snapshot at the recorded origins (joblist_points, 23 Sep 2026)."""
+    jl = json.loads((ROOT / "data" / "joblists" / "paper1" / "replication_01.json").read_text())
+    assert jl["placement"].get("pin_snapshot") is True
+    pinned = hw.pinned_calibration_csv(jl)
+    assert hw.pinned_origins(jl, pinned) and hw.pinned_origins(jl, str(BEFORE)) is None
+    _, shapes, _ = hw.joblist_points(jl)
+    for rung in jl["placement"]["rungs"].values():
+        assert tuple(shapes[int(rung["n"])].origin) == tuple(rung["origin"])

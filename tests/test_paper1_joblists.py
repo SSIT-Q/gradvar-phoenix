@@ -68,14 +68,17 @@ def test_lists_validate_and_refuse_to_submit(name, tmp_path, monkeypatch):
     assert jl["dry_run"] is True and jl["rep_delay_probe"] is True and jl["layout_check"] == "enforce"
     assert jl["backend"] == "ibm_phoenix" and jl["instance"] == "flex"
     assert jl["preflight_review"] == "TBD: pre-flight review permalink" and not joblist_submittable(jl)
-    assert "pre-registration v0.15.0" in jl["notes"] and "Deviation 53" in jl["notes"] and "Deviation 46" in jl["notes"] and "Deviation 47" in jl["notes"] and "Deviation 48" in jl["notes"]
+    assert "pre-registration v0.16.0" in jl["notes"] and "Deviation 53" in jl["notes"] and "Deviation 46" in jl["notes"] and "Deviation 47" in jl["notes"] and "Deviation 48" in jl["notes"]
     assert check_budget(jl) == [] and jl["budget"]["model_version"] == 3 and jl["campaign"]["budget_model_version"] == 3
     assert jl["campaign"]["max_experiments"] == max_experiments("ibm_phoenix") == 300 and jl["campaign"]["max_job_param_mb"] == MAX_JOB_PARAM_MB
     assert all(e["pubs"] <= 300 and e["param_mb"] <= MAX_JOB_PARAM_MB for e in jl["budget"]["per_job"])   # no job above max_experiments or the payload cap
     assert jl["budget"]["jobs"] == len(jl["budget"]["per_job"]) and jl["budget"]["trex_executions"] == 0   # v3: no TREX term at >= 1024 shots
     assert all(e["job_constant_seconds"] == (3.0 if e["resilience_level"] == 0 else 5.7) for e in jl["budget"]["per_job"])
-    assert jl["placement"]["stamp"] == "2026-09-21T033603Z" and jl["placement"]["properties"] == "ibm_phoenix_properties_2026-09-21T033603Z.json"
-    assert jl["placement"]["rules"]["coherence_floor_us"] == 25.0 and 114 in jl["placement"]["excluded"]   # Deviation 53 (a): Q114 at T1 3.7 us
+    from gradvar.hardware import properties_for_csv
+    from gradvar.noise import exclusion_from_calibration
+    props = properties_for_csv(SNAP)                                     # Deviation 58: placed on the run-day snapshot and pinned to it
+    assert jl["placement"]["snapshot"] == Path(SNAP).name and jl["placement"]["pin_snapshot"] is True and jl["placement"]["properties"] == Path(props).name
+    assert jl["placement"]["rules"]["coherence_floor_us"] == 25.0 and jl["placement"]["excluded"] == list(exclusion_from_calibration(SNAP, properties=props))
     monkeypatch.setenv("QISKIT_IBM_INSTANCE", "crn:fake")
     with pytest.raises(SystemExit, match="dry_run"):                     # refused before preflight / credentials
         run_joblist(str(P1 / name), submit=True, run_root=str(tmp_path / "r"), log_dir=str(tmp_path / "j"), calibration_csv=SNAP)
@@ -118,7 +121,7 @@ def test_budgets_against_the_section_6_ledger(generated):
     assert 100 <= d["jobs"] <= 140 and d["jobs"] < 1367                                          # about 15 jobs per point at the 12 MB payload cap; 1,367 under Deviation 27
     for pid in ("dial_p0.25_L8_kL", "dial_p0.5_L12_kL", "dial_p0.25_L8_kL_n100"):                 # kill rule (b), Deviation 41: <= 7.0 min per dial gradient point
         one = estimate_budget(dict(lists["dial_arm.json"], probes=[next(p for p in lists["dial_arm.json"]["probes"] if p["id"] == pid)]), rep_delays_us=(1.0,))
-        assert one["pubs"] == 256 and one["jobs"] <= 30 and one["minutes_at_1us"] < 7.0 and one["minutes_at_1us"] < 1.5
+        assert one["pubs"] == 256 and one["jobs"] <= 30 and one["minutes_at_1us"] < 7.0 and one["minutes_at_1us"] < 2.0   # 1.53 at n = 86 (23 Sep)
     assert lists["grid_n100_16384.json"]["budget"]["executions"] == 2 * 200 * 2 * 16384
     # the Deviation 17 where-affordable M (400 at L = 2, 700 at L >= 4) is the surplus rule, not the booking: it is reported, not written
     dev17, _ = gen.make_lists(SNAP, "dev17")
