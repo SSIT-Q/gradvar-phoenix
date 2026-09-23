@@ -408,13 +408,14 @@ def test_level2_cap_splits_the_large_rung_zne_jobs(generated):
 def _small(base: dict, **kw) -> dict:
     """A reduced list for the runner-mechanics tests, run against SNAP20 (the 20 Sep 03:08Z snapshot): its 4x5 entries are mapped back to
     that snapshot's 20-qubit placement (origin (8,2), edge 94_104) from the committed lists' placement (n = 19 with a hole; edge 93_103 on the
-    13:44Z / 17:22Z calibrations, 32_42 at origin (2,0) on the 21 Sep 02:05Z one)."""
+    13:44Z / 17:22Z calibrations, 32_42 at origin (2,0) on the 21 Sep 02:05Z one, 13_14 at origin (0,1) on the 23 Sep 03:08Z one).
+    The pinned lists' recorded origins do not apply there: the runner places by the rule on an explicit calibration other than the pinned one."""
     d = dict(base, **kw)
     d.pop("budget", None)                                       # re-estimated by the test, or left out (not needed for a dry run)
     for e in list(d.get("points", []) or []) + list(d.get("probes", []) or []):
         if e.get("patch") == "4x5":
             e["n"] = 20
-            if e.get("edge") in ("93_103", "32_42"):
+            if e.get("edge") in ("93_103", "32_42", "13_14"):
                 e["edge"] = "94_104"
     return d
 
