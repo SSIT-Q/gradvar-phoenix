@@ -50,6 +50,7 @@ PREREG = "Paper 1 pre-registration v0.16.0 (23 Sep 2026)"
 MAX_EXPERIMENTS = max_experiments("ibm_phoenix")   # 300 pubs per job (configuration ledger)
 DEFAULT_SNAPSHOT = Path("data/calibrations/ibm_phoenix_2026-09-22T030817Z.csv")   # the 22 Sep 03:08Z daily snapshot; lists placed on it are pinned to it (Deviation 58)
 PIN_SNAPSHOT_SINCE = "2026-09-22T030817Z"   # Deviation 58: lists placed on this snapshot or later carry pin_snapshot, and the runner builds them on it
+NLADDER_L = 8   # Section 3b n-ladder depth; Gate 1b (c): 12 when the re-drawn separation clause fails at L = 8 on the run-day placement and passes at 12   # Deviation 58: lists placed on this snapshot or later carry pin_snapshot, and the runner builds them on it
 PACKING = dict(level2_large_n_min=LEVEL2_LARGE_N_MIN, level2_max_pubs=LEVEL2_MAX_PUBS,
                reason="Deviation 55 (to be): resilience-2 jobs on rungs of n >= 69 hold at most 100 pubs (day-2 job L2-c5, 300 pubs of n = 85 L = 8, IBM 1336 out of memory; 100 pubs ran)")
 SHAPES = {"n20": (4, 5), "n40": (4, 10), "n60": (6, 10), "n80": (8, 10), "n100": (10, 10)}   # Section 2 nominal ladder
@@ -258,10 +259,11 @@ def dial_lists(pl: dict) -> dict:
             contingent.append(dial_probe(f"dial_p{p:g}_L{L}_k1", R60, L, 1, p, "reset", 100, 256, 16, seed_for("n60", "dial", L, 0),
                                          f"Section 3b contingent item {'(1) k = 1 at L = 12' if L == 12 else '(3) k = 1 at L = 8'}: reset dial p = {p}, k = 1, M = 100, paired "
                                          "draws and masks with the k = L point (same seed); reported as an upper bound where below the shot floor (Deviation 40)"))
-    # n-ladder: p = 0.25, L = 8, k = L at the n = 40 and n = 100 rungs (n = 60 shared with the grid); H6 in n
+    # n-ladder: p = 0.25, L = NLADDER_L, k = L at the n = 40 and n = 100 rungs (n = 60 shared with the grid); H6 in n
+    LN = NLADDER_L
     for rung, R in (("n40", R40), ("n100", R100)):
-        core.append(dial_probe(f"dial_p0.25_L8_kL_{rung}", R, 8, 8, 0.25, "reset", 100, 256, 16, seed_for(rung, "dial", 8, 0),
-                               f"Section 3b n-ladder: reset dial p = 0.25, L = 8, k = L, M = 100 on the {rung} rung (actual n = {R['n']}); H6 in n against the "
+        core.append(dial_probe(f"dial_p0.25_L{LN}_kL_{rung}", R, LN, LN, 0.25, "reset", 100, 256, 16, seed_for(rung, "dial", LN, 0),
+                               f"Section 3b n-ladder: reset dial p = 0.25, L = {LN}, k = L, M = 100 on the {rung} rung (actual n = {R['n']}); H6 in n against the "
                                "delay-matched p = 0 reference of references_gate1b.json on the same patch"))
     # Matched controls at n = 60, L = 8: the k = L delay-matched control is the M = 350 reference in references_gate1b.json; the dephasing dial is core;
     # the k = 1 delay-matched control is contingent item (3)
@@ -292,7 +294,7 @@ def dial_lists(pl: dict) -> dict:
         core.append(dict(id=pid, kind="reset_error", reset_kind=rk, prep=prep, n=R60["n"], patch=R60["patch"], shots=SHOTS, resilience=0, seed=char_seed, purpose=purpose))
     notes_core = (f"{PREREG}, Section 3b (non-unital arm: controlled reset dial), booked core on the n = 60 rung (6x10, actual n = {R60['n']}) with the n-ladder "
                   f"points on the n = 40 and n = 100 rungs (actual n = {R40['n']}, {R100['n']}): gradient grid p in {{0.25, 0.5}} at L in {{8, 12}}, k = L, M = 100 "
-                  "(4 points); n-ladder p = 0.25, L = 8, k = L at n = 40 and 100 (2 points); the unital dephasing dial p = 0.5, k = L (1 point; matched control (b)); "
+                  f"(4 points); n-ladder p = 0.25, L = {NLADDER_L}, k = L at n = 40 and 100 (2 points); the unital dephasing dial p = 0.5, k = L (1 point; matched control (b)); "
                   "the truncation arm p = 0.5, L = 8, full and l = 2 at 256 masks x 64 shots (H7); the reset-error characterisation on the dial-patch qubits. "
                   "The k = L delay-matched p = 0 control (matched control (a)) is the M = 350, 16384-shot reference point of references_gate1b.json (Deviations 28-30, 44-45). "
                   "Not run (Section 3b): p = 0.1, k in {L/2, L-1}, p = 0.25 truncation. Not in this list (Estimator runner limits, see docs/PAPER1_JOBLISTS.md): the "
@@ -550,7 +552,7 @@ def day3_list(pl: dict, lists: dict) -> dict:
              "n, patch, edge, L, k, M, shots, masks, p, reset_kind, resilience and seed to its entry in the committed source list, which stays on main as the fallback "
              "packaging): the six delay-matched p = 0, k = L references at L = 8 and 12 on the n40 / n60 / n100 rungs (M = 350, 16384 shots; Gate 1b clause (b) per rung "
              "on the measured references, Deviations 28-30, 35, 44-45; Deviation 39 on-day M = 600 rule), then the Section 3b core: reset dial p in {0.25, 0.5} at "
-             "L in {8, 12}, k = L on the n60 rung, the p = 0.25 L = 8 n-ladder points on n40 and n100, the dephasing dial p = 0.5 (matched control (b)), the truncation "
+             f"L in {{8, 12}}, k = L on the n60 rung, the p = 0.25 L = {NLADDER_L} n-ladder points on n40 and n100, the dephasing dial p = 0.5 (matched control (b)), the truncation "
              "arm (H7, full and l = 2) and the reset-error characterisation on the dial-patch qubits (kill rule (a), Gate 2 (e) reset half). Resilience 0 throughout "
              "(Section 3b budget; PAPER1_JOBLISTS Section 7 ambiguity 5), so no resilience-2 job and the Deviation 55 level-2 cap does not bind. Ledger: the 65-minute "
              "dial line plus the Deviation 44 reserve item (8.0) and the Deviation 45 top-up line (9.5) for the references. Not here: dial_arm_contingent.json (only on a "
