@@ -68,3 +68,26 @@ def test_generator_pins_from_the_22_sep_snapshot():
     from make_paper1_joblists import place_rungs
     assert place_rungs(str(PINNED)).get("pin_snapshot") is True
     assert "pin_snapshot" not in place_rungs(str(BEFORE))
+
+
+DAY1 = {q for q in range(120) if 8 <= q // 10 <= 11 and 1 <= q % 10 <= 5}   # day 1's 4x5 at (8, 1)
+
+
+def test_place_patch_avoid_and_origin():
+    from gradvar.noise import place_patch
+    props = hw.properties_for_csv(str(PINNED))
+    p = place_patch(4, 5, str(PINNED), allow_holes=True, properties=props, avoid=DAY1)
+    assert not DAY1 & (set(p.qubits) | set(p.holes))
+    assert place_patch(4, 5, str(PINNED), allow_holes=True, properties=props, origin=tuple(p.origin)) == p
+
+
+def test_replication_rung_avoids_day1_and_runner_places_at_recorded_origin():
+    from make_paper1_joblists import place_rungs
+    pl = place_rungs(str(PINNED))
+    r20 = pl["rungs"]["n20"]
+    assert not DAY1 & (set(r20["qubits"]) | set(r20["holes"])) and "disjoint" in r20["placement_rule"]
+    origins = hw.pinned_origins({"placement": dict(pl, pin_snapshot=True)})
+    assert origins["4x5"] == tuple(r20["origin"]) and set(origins) == {"4x5", "4x10", "6x10", "8x10", "10x10"}
+    patch, _ = hw._placed_patch({"n": r20["n"], "patch": "4x5", "edge": r20["edge"]}, str(PINNED), "test", origins)
+    assert tuple(patch.origin) == tuple(r20["origin"]) and patch.n == r20["n"]
+    assert hw.pinned_origins({"placement": {"rungs": pl["rungs"]}}) is None

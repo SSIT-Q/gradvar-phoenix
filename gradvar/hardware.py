@@ -448,7 +448,19 @@ class BuiltProbe:
         return (self.isa_circuit, self.isa_observable, self.param_values)
 
 
-def _placed_patch(entry: dict, calibration_csv: str | None, label: str) -> Tuple[Patch, Tuple[int, ...] | None]:
+def pinned_origins(jl: dict) -> Dict[str, Tuple[int, int]] | None:
+    """Deviation 58: ``{patch shape: origin}`` of a pinned list's rungs (``placement.rungs``), so the runner places every rectangle
+    where the generator placed it on the pinned snapshot (the n20 rung is placed away from day 1's rectangle for the Deviation 19
+    replication, so the rule's best rectangle can differ from the list's). None for lists that do not pin."""
+    pl = jl.get("placement") or {}
+    if not pl.get("pin_snapshot"):
+        return None
+    return {str(r["patch"]).lower(): (int(r["origin"][0]), int(r["origin"][1]))
+            for r in (pl.get("rungs") or {}).values() if r.get("patch") and r.get("origin") is not None}
+
+
+def _placed_patch(entry: dict, calibration_csv: str | None, label: str,
+                  origins: Dict[str, Tuple[int, int]] | None = None) -> Tuple[Patch, Tuple[int, ...] | None]:
     """The Patch of a job-list entry and its optional explicit ``layout``. Without a layout the rectangle is placed by
     ``gradvar.noise.place_patch`` under the calibration cut; with one, the Patch is the plain rectangle at lattice
     origin (0, 0) (a coordinate frame for the sub-layer structure) and ``layout[i]`` is the physical qubit of local i."""
@@ -462,7 +474,8 @@ def _placed_patch(entry: dict, calibration_csv: str | None, label: str) -> Tuple
         csv = calibration_csv or latest_calibration_csv()
         # the raw properties of the same snapshot carry the Deviation 22 rule (init error, ZZ) and the Deviation 26
         # coupler cut (broken edges), so the build-time placement agrees with the live layout re-check
-        patch = place_patch(r, c, csv, allow_holes=True, properties=properties_for_csv(csv))
+        origin = (origins or {}).get(str(entry["patch"]).lower())   # Deviation 58: a pinned list's recorded rung origin
+        patch = place_patch(r, c, csv, allow_holes=True, properties=properties_for_csv(csv), origin=origin)
     if patch.n != n:
         raise JoblistError(f"{label}: {entry['patch']} placed under the calibration cut has {patch.n} qubits "
                            f"(origin {patch.origin}, holes {list(patch.holes)}); set n={patch.n}")
@@ -520,12 +533,13 @@ def resolve_edge(patch: Patch, layout: Sequence[int] | None, requested, label: s
                        f"(origin {patch.origin}, broken {[list(e) for e in patch.broken_edges]}); interior edge is {default[0]}_{default[1]}")
 
 
-def _probe_patch(pr: dict, shapes: dict, calibration_csv: str | None) -> Tuple[Patch, Tuple[int, ...] | None]:
+def _probe_patch(pr: dict, shapes: dict, calibration_csv: str | None,
+                 origins: Dict[str, Tuple[int, int]] | None = None) -> Tuple[Patch, Tuple[int, ...] | None]:
     n = int(pr["n"])
     layout = parse_layout(pr, n, f"probe {pr.get('id')}")
     if layout is None and n in shapes:
         return shapes[n], None
-    return _placed_patch(pr, calibration_csv, f"probe {pr.get('id')}")
+    return _placed_patch(pr, calibration_csv, f"probe {pr.get('id')}", origins)
 
 
 def build_probes(jl: dict, backend, shapes: dict, calibration_csv: str | None = None,
@@ -548,7 +562,7 @@ def build_probes(jl: dict, backend, shapes: dict, calibration_csv: str | None = 
         kind, rk = str(pr["kind"]), str(pr.get("reset_kind", "reset"))
         level, shots, seed = int(pr.get("resilience", 0)), int(pr["shots"]), int(pr.get("seed", 0))
         if kind == "reset_dial":
-            patch, layout = _probe_patch(pr, shapes, calibration_csv)
+            patch, layout = _probe_patch(pr, shapes, calibration_csv, pinned_origins(jl))
             edge = resolve_edge(patch, layout, pr.get("edge"), f"probe {pr.get('id')}")
             obs, edge = hea_observable(patch, edge)
             phys, phys_edge = physical_qubits(patch, layout, edge)
@@ -598,7 +612,7 @@ def build_probes(jl: dict, backend, shapes: dict, calibration_csv: str | None = 
             # Section 2 control (a): the same HEA with the differentiated parameter outside the observable's light cone (ideal
             # gradient exactly zero), giving the empirical noise floor including hardware noise (Deviation 37 claimability bar;
             # Gate 2 (a)). One pub per draw d (seed + d), the pair shifted at layer k on the null qubit (candidate Deviation 43).
-            patch, layout = _probe_patch(pr, shapes, calibration_csv)
+            patch, layout = _probe_patch(pr, shapes, calibration_csv, pinned_origins(jl))
             edge = resolve_edge(patch, layout, pr.get("edge"), f"probe {pr.get('id')}")
             obs, edge = hea_observable(patch, edge)
             phys, phys_edge = physical_qubits(patch, layout, edge)
@@ -625,7 +639,7 @@ def build_probes(jl: dict, backend, shapes: dict, calibration_csv: str | None = 
             if "qubits" in pr:
                 qubits, patch = tuple(int(q) for q in pr["qubits"]), None
             else:
-                patch, layout = _probe_patch(pr, shapes, calibration_csv)
+                patch, layout = _probe_patch(pr, shapes, calibration_csv, pinned_origins(jl))
                 qubits, _ = physical_qubits(patch, layout, None)
             if len(set(qubits)) != len(qubits):
                 raise JoblistError(f"probe {pr.get('id')}: repeated qubit in {qubits}")
@@ -1356,7 +1370,7 @@ def joblist_points(jl: dict, calibration_csv: str | None = None) -> Tuple[List[G
     csv = calibration_csv or latest_calibration_csv()
     points, shapes, shots = [], {}, None
     for pt in jl["points"]:
-        patch, layout = _placed_patch(pt, csv, f"point n={pt['n']}")
+        patch, layout = _placed_patch(pt, csv, f"point n={pt['n']}", pinned_origins(jl))
         shapes[int(pt["n"])] = patch
         edge = resolve_edge(patch, layout, pt["edge"], f"point n={pt['n']}")
         if shots is None:

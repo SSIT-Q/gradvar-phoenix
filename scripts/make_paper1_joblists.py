@@ -42,7 +42,7 @@ sys.path.insert(0, str(ROOT))
 
 from gradvar.circuits import light_cone                                    # noqa: E402
 from gradvar.hardware import BUDGET_MODEL_VERSION, LEVEL2_LARGE_N_MIN, LEVEL2_MAX_PUBS, MAX_JOB_PARAM_MB, estimate_budget, load_joblist, max_experiments, properties_for_csv   # noqa: E402
-from gradvar.lattice import interior_edge                                  # noqa: E402
+from gradvar.lattice import interior_edge, qubit_index                                  # noqa: E402
 from gradvar.noise import COHERENCE_FLOOR_SINCE, COHERENCE_FLOOR_US, CZ_CUT, READOUT_CUT, cz_errors_from_calibration, exclusion_from_calibration, load_calibration, place_patch   # noqa: E402
 
 PLACEHOLDER = "TBD: pre-flight review permalink"
@@ -101,7 +101,10 @@ def place_rungs(snapshot: str) -> dict:
         out["pin_snapshot"] = True   # Deviation 58: the runner builds on this snapshot (gradvar.hardware.pinned_calibration_csv), not the newest
     patches = {}
     for rung, (r, c) in SHAPES.items():
-        patches[rung] = place_patch(r, c, snapshot, allow_holes=True, properties=props)
+        # Deviation 58: on pinned snapshots the n20 rung, whose only remaining use is the Deviation 19 replication of day 1's point,
+        # is placed among 4x5 rectangles disjoint from day 1's, so the protocol's 'different clean patch' holds by construction
+        avoid = day1_n20_rectangle() if (rung == "n20" and out.get("pin_snapshot")) else ()
+        patches[rung] = place_patch(r, c, snapshot, allow_holes=True, properties=props, avoid=avoid)
     p45 = patches["n20"]
     e45 = interior_edge(p45)
     cone45 = cone_graph(p45, e45)
@@ -126,6 +129,9 @@ def place_rungs(snapshot: str) -> dict:
                                   live_couplers=len(patch.edges()), edge=f"{edge[0]}_{edge[1]}", edge_rule=rule,
                                   edge_cz_error=cz.get(tuple(edge)), cone_L2_qubits=list(cq), cone_L2_couplers=len(ce),
                                   cone_L2_matches_4x5=(cq, ce) == cone45)
+        if rung == "n20" and out.get("pin_snapshot"):
+            out["rungs"][rung]["placement_rule"] = ("the pre-registered rule among 4x5 rectangles disjoint from day 1's rectangle at "
+                                                   f"{DAY1_N20_ORIGIN} (Deviation 58: Deviation 19's 'different clean patch' by construction)")
     return out
 
 
@@ -357,6 +363,11 @@ REPL_NAME = "replication_01.json"              # Deviation 19 replications (P1.3
 REPL16_NAME = "replication_01_16384.json"      # the n100 rung's L = 8 replication at 16384 shots (one shot count per Estimator list)
 DAY1_N20_ORIGIN = (8, 1)                       # the day-1 n20 rung as run (c9377b1, 13:44Z calibration): 4x5 at (8, 1), hole 114, edge 93_103
 REPL_TARGET_MIN = 8.0                          # both lists together, from the 20-minute 'anomaly replications' reserve item (Deviation 19)
+
+
+def day1_n20_rectangle() -> tuple:
+    """The 20 qubits of day 1's 4x5 rectangle at ``DAY1_N20_ORIGIN`` (its hole included)."""
+    return tuple(qubit_index(DAY1_N20_ORIGIN[0] + dr, DAY1_N20_ORIGIN[1] + dc) for dr in range(4) for dc in range(5))
 
 
 def replication_lists(pl: dict) -> dict:

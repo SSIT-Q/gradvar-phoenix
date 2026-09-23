@@ -174,23 +174,31 @@ def bad_couplers(cz: Dict[Tuple[int, int], float], cz_cut: float = CZ_CUT) -> Di
 
 
 def place_patch(n_rows: int, n_cols: int, csv_path: str | None = None, readout_cut: float = READOUT_CUT,
-                allow_holes: bool = False, properties: str | Path | None = None, cz_cut: float | None = CZ_CUT) -> Patch:
+                allow_holes: bool = False, properties: str | Path | None = None, cz_cut: float | None = CZ_CUT,
+                avoid: Iterable[int] = (), origin: Tuple[int, int] | None = None) -> Patch:
     """The n_rows x n_cols rectangle that avoids ``exclusion_from_calibration`` (with the Deviation-22 rule when
     ``properties`` is given), ranked by (number of excluded qubits inside, number of couplers at or above ``cz_cut``,
     summed readout + sx + CZ error); ties row-major first. Without ``allow_holes`` only rectangles free of excluded
     qubits are considered. Couplers at or above ``cz_cut`` (Deviation 26, default 5e-3) are recorded as
     ``broken_edges`` and carry no CZ; the observable edge (``interior_edge``) is chosen among the remaining edges, so a
     qubit whose observable-edge coupler fails cannot host the edge. ``cz_cut=None`` disables the coupler rule. The
-    result must stay connected through its unbroken edges."""
+    result must stay connected through its unbroken edges. ``avoid`` skips every rectangle that contains one of those qubits
+    (Deviation 58: the Deviation 19 replication's 4x5 is placed away from day 1's rectangle); ``origin`` evaluates only the
+    rectangle at that (row, column) origin (the runner rebuilding a pinned list's recorded rung)."""
     csv_path = csv_path or str(DEFAULT_CALIBRATION)
     df = load_calibration(csv_path)
     cz = cz_errors_from_calibration(df)
     bad = bad_couplers(cz, cz_cut) if cz_cut is not None else {}
     ex = set(exclusion_from_calibration(csv_path, readout_cut, properties=properties))
     best, best_key = None, None
-    for r0 in range(N_ROWS - n_rows + 1):
-        for c0 in range(N_COLS - n_cols + 1):
+    avoid = set(int(q) for q in avoid)
+    rows = range(N_ROWS - n_rows + 1) if origin is None else [int(origin[0])]
+    cols = range(N_COLS - n_cols + 1) if origin is None else [int(origin[1])]
+    for r0 in rows:
+        for c0 in cols:
             rect = tuple(qubit_index(r0 + dr, c0 + dc) for dr in range(n_rows) for dc in range(n_cols))
+            if avoid.intersection(rect):
+                continue
             hit = ex.intersection(rect)
             if hit and not allow_holes:
                 continue
