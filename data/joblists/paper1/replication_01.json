@@ -310,7 +310,7 @@
       "replication_01_16384.json",
       "replication_01.json"
      ],
-     "placement": "the same 10x10 rung (no alternative 10x10 placement exists: origins (0, 0) / (1, 0) / (2, 0) share 90 qubits; departure from 'different clean patch' noted"
+     "placement": "the same 10x10 rung (no alternative 10x10 placement exists: any two of the origins (0, 0) / (1, 0) / (2, 0) share at least 80 qubits; departure from 'different clean patch' noted"
     }
    ],
    "clean_4x5_exists": false,
