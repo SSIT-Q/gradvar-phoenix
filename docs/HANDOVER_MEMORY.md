@@ -1,5 +1,7 @@
 # Handover memory digest (gradvar-phoenix programme, #mitacs channel)
 
+_Updated 01:30 IST, 25 Sep 2026 (handover Version 10): Sections 3 to 8 now run through 24 Sep on Claude Science; the Slack-era text is otherwise unchanged._
+
 **Read this first if you are a successor on any surface other than the original Slack channel.** The Claude sessions that ran this programme
 from 16 to 21 September 2026 kept their working memory in per-topic files on the Slack side (`/tmp/claude/memory/team/channel/`, 40 files). That
 memory is **not available** on Claude Science, on a fresh Claude Code session or to any other model. This file is a digest of every one of those
@@ -74,7 +76,15 @@ not required reading. Dates are absolute; times are IST unless marked UTC (IST =
   data contradict a theorem; Paper 2 50 to 55 percent PRA / QST, 5 percent PRX Quantum; Nature family 1 to 2 percent per direction. He was burned by
   preliminary results that turned out to be noise (Jan 2026 "speckle" result: shot noise, API key exposed in the PDF) and wants verification built in.
 
-## 4. The programme in brief (history and state on 21 Sep 2026)
+### Added on Claude Science (22 to 24 Sep 2026)
+
+- Owais wants inference used economically: no status chatter and no polling; he asks for status when he wants it.
+- Owais merges some pull requests himself (PR #1); Claude merges its own documentation and pre-registration pull requests through the API (PRs #2 to #4).
+- The GitHub token Claude uses reads and writes the repository but cannot dispatch workflows (HTTP 403); Owais triggers every workflow.
+- Checkpoint-based theorist review (24 Sep): an independent review before a Deviation or pre-flight is adopted, at each post-run review, before Section 3c blocks A to F are booked and at each paper's first draft, instead of a review after every message.
+- Papers 1 and 2 stay separate, as companion papers (24 Sep).
+
+## 4. The programme in brief (history and state on 24 Sep 2026)
 
 - **Origin**: 19 Sep 2026 review of Owais's preliminary ibm_torino barren-plateau programme found the speckle / Anderson-localisation result to be
   shot noise; a literature sweep (about 90 verified papers; decision memo, artifact Y7bcM82SzoXtD7gyqpVgSH, mirror `docs/artifacts/decision_memo.md`)
@@ -83,8 +93,7 @@ not required reading. Dates are absolute; times are IST unless marked UTC (IST =
 - **Paper 1**: pre-registered gradient-variance sweep (HEA Ry + CZ on rectangular patches, ladder nominal 20 / 40 / 60 / 80 / 100, depths 1, 2, 4, 8,
   12, k = 1 plus the layer-index sweep, resilience 0 / 1 and a level-2 reduced grid, M = 200 draws, 4096 shots, 16384 for the n = 100 L = 8 headline)
   with hypotheses H1 to H4, the reset-dial non-unital arm as Section 3b (Deviation 20; H5 to H7, Gate 1b), and since 21 Sep Section 3c "Surrogate
-  tracking at n = 85" (Deviation 56: Block C booked, blocks A to F conditional on a certified per-draw surrogate). Pre-registration v0.15.1 (Deviations
-  1 to 57), mirror `docs/artifacts/paper1_preregistration.md`. Target QST or npj QI; arXiv mid November 2026 realistic.
+  tracking at n = 85" (Deviation 56: Block C booked, blocks A to F conditional on a certified per-draw surrogate). Pre-registration v0.16.1 (Deviations 1 to 59), mirror `docs/artifacts/paper1_preregistration.md`. Target QST or npj QI; arXiv mid November 2026 realistic.
 - **Paper 2** ("the hybrid", decided 19 Sep 23:39 IST): 120-qubit characterisation of phoenix's reset element and mid-circuit measurement, Q1 to Q5
   (reset error map, spectator backaction, crosstalk under dense resets, reset-as-channel tomography, day-to-day stability), SamplerV2 at resilience 0,
   45-minute cap. Pre-registration v0.6.0 (Deviations 1 to 14), mirror `docs/artifacts/paper2_preregistration.md`. **Hardware paused until the PI signs
@@ -94,7 +103,7 @@ not required reading. Dates are absolute; times are IST unless marked UTC (IST =
   Li and Yin), non-simulable mitigation, measurement-induced phase transitions, global observables.
 - **Gates**: Gate 1 (simulation) PASS 20 Sep 20:30 IST under delegation (report v2, mirror `gate1_report.md`; `docs/GATE1_REPORT.md`); Gate 2
   (hardware) PASS 20 Sep 23:55 IST from campaign day 1 (z = 4.92 at L = 8 against the measured L = 0 null floor 1.74e-6); Gate 1b PASS on prediction,
-  re-drawn on every placement so far (latest 0923f5c: falls 4.73 / 4.04 / 4.95x the bar); Gate P2-2 (ii), (iii) pass, (i) as above.
+  re-drawn on every placement so far (latest on the 23 Sep 16:35 UTC placement, `gate1b_redraw_2026-09-23T1635`: falls 3.05 / 3.15 / 6.93x the bar); Gate P2-2 (ii), (iii) pass, (i) as above.
 - **Runs so far** (all Flex unless noted): Marrakesh pipeline check 19 Sep (open plan, 3 jobs, 22 QPU s); phoenix smoke test 20 Sep (list 02, 10 jobs,
   52 QPU s = 0.87 min, 6.5 h queue, GitHub 6-hour limit killed the runner, results retrieved by the new "retrieve hardware jobs" workflow); campaign
   day 1 20 Sep 23:03 to 23:17 IST (`day1_null_grid_n20`, 14 jobs, 375 QPU s = 6.25 min, Gate 2 PASS, first Deviation 19 flag at n = 19 L = 4, 0.61x);
@@ -106,6 +115,12 @@ not required reading. Dates are absolute; times are IST unless marked UTC (IST =
   initialisation error 6.18e-4 against the 5e-4 cut at IBM's 06:42Z calibration, transient suspected; Q88 is in every day-3 cone, no override); the
   L2-c5 resubmission is blocked the same way by Q105 (readout 6.5e-2 since 21 Sep 01:27Z). Owais re-dispatched in the evening and again at about
   23:30 IST; **both failed** (his message 23:34 IST); the two latest Actions runs are to be read and diagnosed first thing (handover Section 10).
+- **22 to 24 Sep (Claude Science)**: the 21 Sep evening runs were refused by the live check (Q37, Q38, Q66, Q104 on IBM's
+  17:01 UTC properties) and two 22 Sep runs stopped at build (the n40 4x10 had 38 qubits); Deviation 58 pins each list to the
+  snapshot it was placed on (v0.16.0); the four waiting lists were re-packaged on the 23 Sep 16:35 UTC snapshot (n20 at (2, 0),
+  n40 39, n60 52, n100 87; Gate 1b PASS on the re-draw), reviewed GO_WITH_NOTES and merged (`efec9ac`). On 24 Sep a pre-check on
+  IBM's 02:54 UTC properties was clean, but IBM's 16:07 UTC update put Q114 (T1 22.3 us) below the floor, so the lists wait.
+  L2-c5 gets one more attempt (Deviation 59 amended, v0.16.1); run #30 was refused on Q29 and Q37. No Flex minute spent since day 2.
 - **Science so far** (days 1 and 2, `docs/postrun/03`, `04`): L <= 4 points inside their prediction intervals on every rung (ratios 0.80 to 1.26);
   variance flat in n from 19 to 85 at every depth (H1 supported, no 2^-n plateau); H2 (fall with depth) 8 of 8; hardware tracks noiseless gradients
   draw by draw at L <= 2 (attenuation 0.85 to 0.92); ZNE recovers none of the L = 2 attenuation and doubles the L = 8 variance; two firm Deviation 19
@@ -120,6 +135,10 @@ three depth-8 Gate 1b references at 16384 shots (Deviation 44), up to 4.5 on-day
 / 40 working figure, null controls 1.6, Paper 2 about 2.7 at 1 us). Surplus rule: unspent minutes raise M first (Deviation 17), then the contingent
 dial points, never new tests. Locked time, not wall time, is billed; a failed job that never reached the QPU is not charged. Model v3: 3.0 s per job +
 2.7 s at resilience >= 1, 5 us per execution, max(shots, 64) at resilience >= 1, ZNE as 3x executions; measured per-job floor 3.8 to 7.5 s.
+
+State on 24 Sep: 44.67 spent; the four waiting lists 51.6 min modelled (about 63 at day 2's per-job constant); L2-c5 3.36
+booked until settled (Deviation 59); the contingent dial items (`dial_arm_contingent.json`) 6.1 modelled (about 13 with
+overhead) against about 1.9 in the surplus rule, not booked; 165 usable under the 210 cap.
 
 ## 6. Hardware procedure as practised (the campaign day)
 
@@ -146,6 +165,23 @@ Refusals the runner makes by itself: `dry_run` true, placeholder permalink, stal
 > 3e-2, initialisation >= 5e-4, CZ > 5e-3 or uncalibrated coupler, T1 or T2 < 25 us on a placed qubit), n mismatch with the run-day placement,
 mixed shot counts in one list.
 
+**From 24 Sep (Deviation 58, Claude Science).** Lists are pinned: a list whose placement block carries `pin_snapshot` is built on
+that snapshot for dry runs, submission, resubmission and retrieval, and applies its recorded rung origins only then; its submission
+still logs a fresh live properties snapshot. Arming edits only `dry_run` and `preflight_review` (removing `pin_snapshot` makes the
+runner re-place). The record is the commit-pinned GitHub URL of the pre-flight
+(`https://github.com/SSIT-Q/gradvar-phoenix/blob/<40-hex>/docs/preflight/<file>.md`). A second whole-list submission is refused
+when `<run_root>/*/<name>_job_ids.json` exists; a run that ends without "job ids written to" is not re-dispatched.
+**Pre-check before each dispatch** (repository and API only): union the placement block's `rungs[*].qubits`; the live couplers
+are the square-lattice edges among them (row width 10: (q, q+1) within a row, (q, q+10)) minus `rungs[*].broken_edges`, which
+reproduces each rung's `live_couplers`; check T1 and T2 (>= 25 us), readout (<= 3e-2), init (<= 5e-4), `Operational` and CZ
+(<= 5e-3; the CSV's `CZ error` column is `neighbour:value;...` per qubit row) in the newest `data/calibrations/ibm_phoenix_<stamp>.csv`;
+the IBM properties time is `last_update_date` in the matching `ibm_phoenix_properties_<stamp>.json.gz`. IBM re-measures T1 and T2
+about once a day at its afternoon (UTC) update. **Re-package** when a pinned list cannot pass: set `DEFAULT_SNAPSHOT` in
+`scripts/make_paper1_joblists.py`, regenerate, re-draw (`scripts/redraw_gate1b.py --snapshot <csv> --tag <stamp> --workers 16`,
+then `--main-grid --no-gate1b --exact --rungs 20 100`), commit the predictions before the pre-flights, render pre-flights 06, 08
+and 09 with `scripts/build_preflights.py`, review. Commits from Claude Science carry the author `Claude <noreply@anthropic.com>`
+and no session trailer.
+
 ## 7. Day logs (one line each; full text in `docs/postrun/` and `docs/preflight/`)
 
 - 19 Sep: device switch, pre-registration v0.1 to v0.5 signed, repo pushed, Gate 1 code merged after two reviews, Paper 2 direction decided.
@@ -157,23 +193,38 @@ mixed shot counts in one list.
   (i) fails on the letter, Deviation 9); Owais's decisions 09:09 to 09:24 IST (no Paper 3, Section 3c, Block C, artifacts mirrored); pre-flight 06
   posted 10:15 IST; the second Deviation 19 flag firm 10:00 IST; pre-flights 08 and 09 posted 10:47 IST; Paper 1 v0.15.1, Paper 2 v0.6.0; day-3
   dispatch refused 13:42 IST (Q88); evening re-dispatches failed (23:34 IST message); surface change to Claude Science announced 23:34 IST.
+- 22 Sep: the 21 Sep evening runs diagnosed (live-check refusals on Q37, Q38, Q66, Q104); runs #28 and #29 stopped at build
+  on the 03:08 UTC snapshot (#28 an unintended whole-list day-2 re-run); upside memo v2 and the literature map, both reviewed.
+- 23 Sep 03:00 IST: Paper 1 v0.16.0 (Deviations 58, 59); first re-package on the 03:08 UTC snapshot, superseded when IBM's
+  15:08 UTC properties failed Q66 and coupler 100-110; 22:04 IST Owais's snapshot (the 16:35 UTC CSV); PR #1 merged 22:11 IST;
+  re-package on the new snapshot with Gate 1b PASS.
+- 24 Sep: pre-check clean on IBM's 02:54 UTC properties; pre-flights reviewed GO_WITH_NOTES, notes applied, PR #2 merged 16:15 IST
+  (`efec9ac`); Owais approved the literature map and vetoed Deviation 59's drop; run #30 (L2-c5) refused 22:53 IST on Q29 and Q37;
+  23:57 IST snapshot: Q114 blocks the four lists; 00:15 IST on 25 Sep Paper 1 v0.16.1 (PR #3).
 
-## 8. Open items (order as of 21 Sep 2026 23:50 IST; details in `docs/HANDOVER.md` Section 10)
+## 8. Open items (order as of 25 Sep 2026 01:30 IST; details in `docs/HANDOVER.md` Section 10)
 
-1. Diagnose the two failed evening runs from the Actions logs; regenerate day 3, the replication lists and Block C with Q88 (and Q105) excluded
-   if still above the cuts on the run-day calibration; re-draw the Gate 1b references and the two replication prediction rows on the new placement;
-   re-post the pre-flights (record in the repo); Owais arms and dispatches in the order day 3 -> L2-c5 resubmission -> replication -> Block C.
-2. Retrievals and post-run reviews 06 (day 3), 08 (replication, with the Deviation 19 decision table of pre-flight 08), 09 (Block C).
-3. Paper 2: no minute before the PI signs Deviation 9; Q1 to Q5 lists updated per Deviations 10 to 14 (66308fc, not armed) await their pre-flights.
-4. Section 3c (ii): build and certify a per-draw surrogate at n = 84 / 85, L >= 8 (the repository's Pauli propagation is second-moment only), theorist
-   sign-off, then the depth ladder and transition map (cap 100 min).
-5. Countersignatures: PI for Paper 1 Deviations 46 to 57 and the Gate 2 decision (49, 53, 55, 56, 57 specific) and Paper 2 8 to 14 (9 is a gate);
+1. After IBM's afternoon update Owais runs "calibration snapshot"; Claude pre-checks the four pinned lists (Q114) and the L2-c5
+   day-2 placement (Q29, Q37). If the four pass, Owais arms and dispatches them that evening in the order day 3 -> replication_01
+   -> replication_01_16384 -> Block C (URLs pinned to `efec9ac`); L2-c5 when its qubits pass. If Q114 stays down, Claude proposes
+   a re-package without it.
+2. Before review 05 (day 3) or 06 (replication) reads data: the analysis-only Deviation from the literature map (H7 against the
+   pre-drawn curve; Deviation 19 statistics: prediction-side uncertainty, grid-wide Holm, kappa inversion, per-draw regression at
+   n = 19; the Section 3c citation and DOI), H7's pre-drawn truncation value committed and `evaluate_h7` fixed; the checkpoint
+   review, which also covers the Deviation 59 amendment.
+3. Retrievals and post-run reviews 05 (day 3, H5 to H7), 06 (replication), 07 (Block C).
+4. Owais's decisions: the contingent dial items (6.1 against 1.9 min to reconcile; reserve Deviation, pre-flight 10 and review
+   if yes) and Option C (the Section 3c surrogate, one to two weeks of classical work; start in early October if yes).
+5. Paper 2: no minute before the PI signs Deviation 9.
+6. Countersignatures: PI for Paper 1 Deviations 46 to 59 and the Gate 2 decision, and Paper 2 8 to 14 (9 is a signature gate);
    theorist for 33 to 40 and Paper 2 4 to 5.
-6. Owais: Flex cap 210 -> 360; Dr. Raviram as GitHub collaborator; confirm the old IBM key is deleted; delete duplicate artifacts GLdZYKHNRM8A2tCChaU6fd
-   and NbHdPd8qnwbKLTWA7F95Jy; collaborator name or acknowledgement by 30 Sep; exact Flex expiry date.
-7. Later: `grid_n40_repeat`; the write-up (figures and results draft, `docs/manuscripts/paper1/`); `deviations.yaml` 46 to 57; pipeline follow-ups;
-   the Anthropic AI for Science credits form (Draft B, not submitted; PI approval needed); applications (MSR 5 Oct, Max Planck CIS 1 Nov, CaCTueS
-   about 20 Nov, SRFP 30 Nov, ETH SSRF Nov to Dec, USEQIP 3 Jan, LANL about 11 Jan).
+7. Owais: Flex cap 210 -> 360 before the Section 3c blocks; exact Flex expiry date; Dr. Raviram as GitHub collaborator; the old
+   IBM key's deletion confirmed; duplicate artifacts GLdZYKHNRM8A2tCChaU6fd and NbHdPd8qnwbKLTWA7F95Jy; the physics
+   collaborator's name or an acknowledgement by 30 Sep.
+8. Later: `grid_n40_repeat`; interleaved shot passes at the next re-package; `deviations.yaml` 43 to 59; the stale loader test;
+   the write-up (`docs/manuscripts/paper1/`); the Anthropic AI for Science credits form (Draft B, not submitted; PI approval
+   needed); applications (MSR 5 Oct, Max Planck CIS 1 Nov, CaCTueS about 20 Nov, SRFP 30 Nov, ETH SSRF Nov to Dec, USEQIP 3 Jan,
+   LANL about 11 Jan).
 
 ## 9. Links (claude.ai pages; the repo mirrors are canonical)
 
