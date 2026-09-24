@@ -25,9 +25,15 @@ Every independent review filed for the gradvar-phoenix programme (Owais's review
 | manuscripts_review.md ([copy](reviews/manuscripts_review.md)) | 20 Sep 2026 | Review: branch `manuscripts` (af72a54..eb45c15 on bba0f0c), docs/manuscripts/ | Verdict: merge after fixes. No invented results; two compile defects and systematic pre-registration drift. |
 | analysis_p1_review.md ([copy](reviews/analysis_p1_review.md)) | 20 Sep 2026 | Review: branch analysis-p1 (3d0aa55, 0f10971, 324c364 on bba0f0c) — Paper 1 analysis pipeline vs pre-registration v0.11.0 | Verdict: merge after fixes (B1–B3 small; B2 is a real estimator change; S1 before any dial data). |
 | p2_runner_review.md ([copy](reviews/p2_runner_review.md)) | 20 Sep 2026 | Adversarial review: branch `p2-runner` (be19aab, cf9444c on bba0f0c) against Paper 2 pre-registration v0.4.3 | Verdict: merge after fixes (no blocker for QPU safety; one hard post-merge break; one pre-registration issue the docs understate). |
+| review_paper1_upside_memo_2026-09-22.md ([copy](reviews/review_paper1_upside_memo_2026-09-22.md)) | 22 Sep 2026 | Review record: Paper 1 upside memo (22 Sep 2026) | GO_WITH_CORRECTIONS. Two must-fix, eight should-fix and four optional corrections, all applied in version 2. |
+| review_lit_breakthrough_map_2026-09-22.md ([copy](reviews/review_lit_breakthrough_map_2026-09-22.md)) | 22 Sep 2026 | Review record: lit_breakthrough_map_2026-09-22.md (version 1) | GO_WITH_CORRECTIONS |
+| review_response_lit_breakthrough_map_2026-09-22.md ([copy](reviews/review_response_lit_breakthrough_map_2026-09-22.md)) | 22 Sep 2026 | Correction log: literature map, version 1 to version 2 | GO_WITH_CORRECTIONS: 2 must-fix, 12 should-fix and 7 optional corrections, all applied in version 2. |
+| review_dev58_preflights_2026-09-24.md ([copy](preflight/reviews/review_dev58_preflights_2026-09-24.md)) | 24 Sep 2026 | Pre-dispatch review: Deviation 58 lists and pre-flights 06 / 08 / 09 (branch dev58-pinned-placement at 84fef50) | GO_WITH_NOTES (no must-fix) |
 
 Not indexed: the scratch inputs beside the reviews (`_*.txt` flattened pages, `prereg*.txt`, `diag*.py`, `run_all.sh`, `test_joblists_dryrun.patch`, and the `arxiv/`, `jobs/`, `runs/`, `theorist/` folders holding the fetched sources, dry-run CSVs and check scripts the reviews cite).
 
 Outcome of the theorist pass and its second review: Deviations 33–40 in Paper 1 pre-registration v0.11.0 and Deviations 4–5 in Paper 2 pre-registration v0.4.3 (tracker Version 16, 20 Sep 2026); the college theorist countersigns on return.
 
 Outcome of the 20 Sep branch reviews: manuscripts merged to main at 64d3d0c after its fixes; p2-runner merged at 4841d49 with Deviations 6–7 of Paper 2 pre-registration v0.4.4; analysis-p1 fixes under way before merge, with Deviations 41–44 of Paper 1 pre-registration v0.11.3 recording the pre-data clarifications the review asked for (tracker Version 17).
+
+From 22 Sep 2026 (Claude Science) the review files are committed with the work they review: memo reviews in [docs/reviews/](reviews/) beside the memos in [docs/memos/](memos/), pre-flight reviews in [docs/preflight/reviews/](preflight/reviews/).

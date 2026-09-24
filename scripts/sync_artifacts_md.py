@@ -87,7 +87,7 @@ REGISTRY: list[Entry] = [
         "Programme plan and tracker",
         "https://claude.ai/artifact/GGfQevTfZafHCbpvPEUYzq",
         source="tracker/programme_tracker.html",
-        page_version="24",
+        page_version="25",
         version_re=r"tracker, (version \d+, last updated [^.]+)",
         note=(
             "Static part only. Task statuses live in the artifact database (collection `status`, "
@@ -180,8 +180,8 @@ REGISTRY: list[Entry] = [
         "Phoenix programme handover",
         "https://claude.ai/artifact/97fbLq6XfiAYZ2Q3SKn4dq",
         source="handover.html",
-        page_version="9",
-        note="Rendered from `docs/HANDOVER.md` (the source of truth) by `scratchpad/render_handover_v6.py`; this generated mirror is the shareable copy of the published page.",
+        page_version="10",
+        note="Rendered from `docs/HANDOVER.md` (the source of truth) by `scripts/render_handover.py`; this generated mirror is the shareable copy of the published page.",
     ),
 ]
 
