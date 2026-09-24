@@ -482,3 +482,23 @@ def test_large_estimator_qpy_goes_to_the_artefact_dir(tmp_path, monkeypatch):
     hw.execute_joblist(jl, points, shapes, shots, backend, submit=False, run_root=str(tmp_path / "runs2"), calibration_csv=CAL, only_tag="L0")
     d = next((tmp_path / "runs2").glob("*/dryrun-*"))
     assert (d / "circuits.qpy").exists() and json.loads((d / "job.json").read_text())["circuits_qpy"]["committed"] is True
+
+
+def test_pinned_list_submission_logs_a_fresh_properties_snapshot(tmp_path, monkeypatch):
+    """Deviation 58: a pinned list is built on its pinned snapshot (calibration_csv) but, like a resubmission, logs a fresh properties
+    snapshot at submission, so the ids file's calibration_snapshot names the calibration in force at dispatch (review of 24 Sep 2026)."""
+    import gradvar.hardware as hw
+    import qiskit_ibm_runtime as rt
+    FakeJob.counter = 0
+    monkeypatch.setattr(rt, "EstimatorV2", FakeEstimator)
+    monkeypatch.setattr(rt, "Batch", FakeBatch)
+    monkeypatch.chdir(tmp_path)                                  # the fresh snapshot lands under <cwd>/data/calibrations
+    jl = hw.load_joblist(str(LIST01))
+    jl["placement"] = dict(jl.get("placement") or {}, pin_snapshot=True, snapshot=Path(CAL).name)
+    points, shapes, shots = hw.joblist_points(jl, CAL)
+    backend = hw.fake_backend("ibm_marrakesh")
+    hw.execute_joblist(jl, points, shapes, shots, backend, submit=True, run_root=str(tmp_path / "runs"), log_path=str(tmp_path / "jobs" / "live.csv"),
+                       calibration_csv=CAL, instance_plan="open", wait=False, joblist_path=str(LIST01), run_id=1)
+    ids = hw.load_ids_file(next((tmp_path / "runs").glob("*/*_job_ids.json")))
+    snaps = list((tmp_path / "data" / "calibrations").glob("fake_marrakesh_properties_*.json"))
+    assert ids["calibration_csv"] == CAL and len(snaps) == 1 and Path(ids["calibration_snapshot"]).name == snaps[0].name
