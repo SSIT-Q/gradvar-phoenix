@@ -75,7 +75,7 @@ def _watch(M, rung_filter):
     return near, flap
 
 
-def build(OUT, snap_csv, tag, date_label, dial_pp, pdir):
+def build(OUT, snap_csv, tag, date_label, dial_pp, pdir, review_txt="(to be filled)"):
     OUT = Path(OUT); stamp = re.search(r"\d{4}-\d{2}-\d{2}T\d{6}Z", snap_csv).group(0)
     hhmm = f"{stamp[11:13]}:{stamp[13:15]}"
     J = {n: json.load(open(OUT / "A" / "joblists_paper1" / f"{n}.json")) for n in ("day3_dial_refs", "replication_01", "replication_01_16384", "section3c_blockC", "dial_arm")}
@@ -106,7 +106,7 @@ def build(OUT, snap_csv, tag, date_label, dial_pp, pdir):
     fb = lambda s: fall[s][3].split("->")[1].strip()
     f2 = lambda s: fall[s][5].split("->")[1].strip()
     sp = lambda s, L: sep[(s, L)][8].split("->")[1].strip()
-    h56rows = "\n".join(f"| {dict(zip(SPEC.values(), SPEC.keys()))[r[0]]} | {r[1]} | {r[2]} | {r[4]} | {r[6]} | {r[3]} | {r[9].split('/')[0].strip()} | {r[10]} | {r[12]} |" for r in h56)
+    h56rows = "\n".join(f"| {dict(zip(SPEC.values(), SPEC.keys()))[r[0]]} | {r[1]} | {r[2]} | {r[7]} | {r[6]} | {r[3]} | {r[9].split('/')[0].strip()} | {r[10]} | {r[12]} |" for r in h56)
     n40ref = sep[("4x10", "8")]
     # main-grid rows
     mgr = {(r[0], r[2], r[3], r[4], r[5].split("->")[1].strip()): r for r in _rows(mg, "| rung | n frozen -> redraw | L | k | model")}
@@ -133,7 +133,7 @@ def build(OUT, snap_csv, tag, date_label, dial_pp, pdir):
     fakemin = {n: re.search(r"fake_nighthawk target durations: [\d.]+ min at 250 us, ([\d.]+) min at 1 us", t).group(1) for n, t in dry.items()}
     csvrows = {n: re.search(r"logged (\d+) rows", t).group(1) for n, t in dry.items()}
     drystamp = re.search(r"dryrun-(\d{8}T\d{4})", dry["day3_dial_refs"]).group(1)
-    drytime = f"{drystamp[9:11]}:{drystamp[11:13]}Z"
+    drytime = f"{int(drystamp[6:8])} {['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][int(drystamp[4:6]) - 1]} {drystamp[9:11]}:{drystamp[11:13]}Z"
     head = (OUT / "A" / "status.log").read_text().split()[1]
     wl3 = "; ".join(_wq(M, q) for q in near3) or "none within 25 percent of a cut"
     wl20 = "; ".join(_wq(M, q) for q in near20) or "none within 25 percent of a cut"
@@ -221,8 +221,8 @@ re-drawn in the same session for pre-flights 08 and 09 (`main_grid_redraw_{tag}.
 Cost as in Section 1 ({b3['minutes_at_1us']:.2f} min modelled, {work3:.0f} min working figure; `python -m gradvar.hardware --joblist data/joblists/paper1/day3_dial_refs.json --budget`).
 Guards: `dry_run` true and the placeholder until arming; the runner refuses on a stale budget, a wrong instance plan, a failed live layout check,
 a placement whose n no longer matches, a pinned snapshot that is not committed, and (Deviation 58) a second whole-list submission of a list that
-already has an ids file. Deviation 39 on-day M = 600 rule per rung as before (decided at the post-run review). Logging as on 21 Sep; no bundle over
-the 45 MB rule. Known limits unchanged (ambiguities 3, 7, 9).
+already has an ids file. Deviation 39 on-day M = 600 rule per rung as before (decided at the post-run review). Logging as on 21 Sep; a pinned list's submission
+logs a fresh properties snapshot, so the ids file's `calibration_snapshot` is the calibration in force at dispatch (review note 3); no bundle over the 45 MB rule. Known limits unchanged (ambiguities 3, 7, 9).
 
 ## 4. Kill rules and Gate 2 (e): numbers restated for this placement
 
@@ -239,18 +239,23 @@ re-drawn rows of Section 2.5.
 
 ## 6. Retrieval path and human steps (Owais), when the review says GO
 
+0. Before arming: the re-packaged lists are on `main` (PR #2 merged); on `main`, each of the four lists' `placement.snapshot` is `{snap_csv}`.
+   Edit only `dry_run` and `preflight_review` (removing `pin_snapshot` would let the runner place the list afresh on the newest snapshot).
 1. (Claude, done) Regenerated on the pinned snapshot (`--day3`, `--check` passes), re-drawn (Section 2.5), dry run (Section 7), this document committed.
 2. Arm: in `data/joblists/paper1/day3_dial_refs.json` set `"dry_run": false` and `"preflight_review": "<the commit-pinned URL of this file>"`
-   (form `https://github.com/SSIT-Q/gradvar-phoenix/blob/<40-hex commit>/docs/preflight/06_paper1_day3_dial_2026-09-23.md`), commit to `main`.
+   (form `https://github.com/SSIT-Q/gradvar-phoenix/blob/<40-hex commit>/docs/preflight/06_paper1_day3_dial_2026-09-23.md`, the commit on `main` at which
+   Section 8 below carries the review; each list takes its own pre-flight's URL: the runner checks the form only), commit to `main`.
 3. Actions, "run hardware job list", branch `main`, `joblist` = `data/joblists/paper1/day3_dial_refs.json`, untick "Build and transpile only",
    tick `submit_only`, leave `only_job_tag` / `max_pubs` empty, Run. The log should show `placement pinned to {snap_csv}`;
-   it writes `data/runs/<date>/paper1_day3_dial_refs_job_ids.json`. If the live layout check refuses, note the qubits in the log and stop (Section 2).
+   it writes `data/runs/<date>/paper1_day3_dial_refs_job_ids.json`. If the live layout check refuses, note the qubits in the log and stop (Section 2). If a submitting run ends without the line
+   `job ids written to`, do not dispatch the whole list again: the ids file is written after the submission loop, so the repeat guard cannot see a
+   run cut off mid-loop; recover the job ids from its `submitted job` log lines first.
 4. When the {b3['jobs']} jobs are done (about {work3:.0f} QPU minutes): "retrieve hardware jobs" with that ids file; a failed job is resubmitted with `only_job_tag`.
 5. Post-run review `docs/postrun/05_paper1_day3_<date>.md`: kill rules (a)-(d), Gate 2 (e), Gate 1b clause (b) per rung, H5 to H7, Deviation 39.
 
-## 7. Dry run (FakeNighthawk, {date_label[:6]} {drytime}, sampled, nothing committed)
+## 7. Dry run (FakeNighthawk, {drytime}, sampled, nothing committed)
 
-`python -m gradvar.hardware --joblist data/joblists/paper1/day3_dial_refs.json --dry-run-sample 2` (Modal, branch `dev58-pinned-placement` at {head}):
+`python -m gradvar.hardware --joblist data/joblists/paper1/day3_dial_refs.json --dry-run-sample 2` (Modal, branch `dev58-pinned-placement` at {head}, on the lists regenerated in the same session, identical to the committed ones: `--check` passes):
 `placement pinned to {snap_csv}`; {b3['jobs']} jobs budgeted ({fakemin['day3_dial_refs']} min at 1 us with the fake's durations); four sampled bundles
 (`L0-probes-s16` 2 pubs / 200 rows, ISA ops `cz, reset, rz, sx`; `L0-probes-s64` 2 pubs / 200 rows; `L0-probes-s4096` 2 pubs, ops `reset, x`;
 `L0-probes-s16384` 2 pubs / 700 rows, ops `cz, delay, rz, sx`), {csvrows['day3_dial_refs']} CSV rows. The layout check on the fake's stale calibration reads `fail`,
@@ -258,7 +263,7 @@ re-drawn rows of Section 2.5.
 
 ## 8. Review
 
-(to be filled: reviewer, verdict and notes, and the commit this document was reviewed at)
+{review_txt}
 """
 
     jobs1 = "; ".join(f"`{e['tag']}` {e['pubs']} / {e['seconds_at_1us']:.1f}" for e in a1["per_job"])
@@ -347,7 +352,7 @@ Block C (pre-flight 09) adds a third M = 200 sample of the rung at 65,536 shots.
 Section 3b's kill rules do not apply (no dial). Gate 2 (e): readout per placed qubit against this snapshot, 1.5x rule with Deviations 49 / 52. Budget
 guard: the runner's fresh model-v3 budget; above 8 min the reserve decision is re-read. Nothing here changes a pre-registered test.
 
-## 6. Dry run (FakeNighthawk, {date_label[:6]} {drytime}, sampled, nothing committed)
+## 6. Dry run (FakeNighthawk, {drytime}, sampled, nothing committed)
 
 `replication_01.json`: `placement pinned to {snap_csv}`; {a1['jobs']} jobs budgeted ({fakemin['replication_01']} min at 1 us with the fake's durations); four
 sampled bundles (`L0`, `L1`: n = {R20['n']} L = 4, ISA ops `cz, rz, sx`; `L0-probes-s4096`, `L1-probes-s4096`: SPAM-only, no gates), {csvrows['replication_01']} CSV rows.
@@ -356,17 +361,22 @@ The fake's stale calibration fails the layout check (`enforced: false`), as for 
 
 ## 7. Human steps (Owais), after day 3's dispatch and when the review says GO
 
+0. As pre-flight 06 Section 6 step 0 (PR #2 merged; `placement.snapshot` `{snap_csv}` on `main`; edit only `dry_run` and `preflight_review`;
+   the stop rule for a submitting run that ends without `job ids written to`).
 1. (Claude, done) Regenerated on the pinned snapshot (`--replication`, `--check`), re-drawn predictions committed, this document committed.
 2. Arm **both** lists: in `data/joblists/paper1/replication_01.json` and `replication_01_16384.json` set `"dry_run": false` and
-   `"preflight_review": "<the commit-pinned URL of this file>"` (`https://github.com/SSIT-Q/gradvar-phoenix/blob/<40-hex commit>/docs/preflight/08_paper1_replication_2026-09-23.md`), commit to `main`.
+   `"preflight_review": "<the commit-pinned URL of this file>"` (`https://github.com/SSIT-Q/gradvar-phoenix/blob/<40-hex commit>/docs/preflight/08_paper1_replication_2026-09-23.md`, the commit on `main` at which Section 8
+   carries the review), commit to `main`.
 3. Actions, "run hardware job list", branch `main`, `joblist` = `data/joblists/paper1/replication_01.json`, untick "Build and transpile only", tick
    `submit_only`, Run; when it has written its ids file, dispatch again with `joblist` = `data/joblists/paper1/replication_01_16384.json`. Then Block C.
 4. When the jobs are done (about 5 QPU minutes): "retrieve hardware jobs" once per ids file; a failed job is resubmitted with `only_job_tag`.
-5. Post-run review `docs/postrun/06_paper1_replication_<date>.md` (Section 4 table per flag, the Deviation 19 simulations, the null floors, Gate 2 (e)).
+5. Post-run review `docs/postrun/06_paper1_replication_<date>.md` (Section 4 table per flag, the Deviation 19 simulations, the null floors, Gate 2 (e));
+   Claude evaluates, the coordinator with the reviewer decides each flag under the PI's delegation; the pre-registration's Deviation 19 row, tracker
+   P1.3.9 and the handover are updated.
 
 ## 8. Review
 
-(to be filled: reviewer, verdict and notes, and the commit this document was reviewed at)
+{review_txt}
 """
 
     jobsc = "; ".join(f"`{e['tag']}` {e['pubs']} pubs {e['seconds_at_1us']:.0f} s" for e in bc["per_job"])
@@ -429,7 +439,7 @@ stop rules: (i) the runner's fresh budget within the 20-min envelope ({bc['minut
 prediction band, else L = 10 is declared exploratory; (iii) a failed job is resubmitted once by `only_job_tag`, a second failure of the same shape stops
 the block. Nothing here changes a pre-registered test.
 
-## 6. Dry run (FakeNighthawk, {date_label[:6]} {drytime}, sampled, nothing committed)
+## 6. Dry run (FakeNighthawk, {drytime}, sampled, nothing committed)
 
 `placement pinned to {snap_csv}`; {bc['jobs']} jobs budgeted ({fakemin['section3c_blockC']} min at 1 us with the fake's durations); two sampled bundles (`L0`: n = {R100['n']}
 L = 8 at 65,536 shots, ISA ops `cz, rz, sx`; `L0-probes-s65536`: SPAM-only, no gates), {csvrows['section3c_blockC']} CSV rows; the L = 10 pubs follow the 200 L = 8 pubs of the
@@ -437,18 +447,21 @@ L = 8 at 65,536 shots, ISA ops `cz, rz, sx`; `L0-probes-s65536`: SPAM-only, no g
 
 ## 7. Human steps (Owais), after the replication lists' dispatch and when the review says GO
 
-1. (Claude, done) Regenerated on the pinned snapshot (`--section3c`, `--check`); this document committed.
+0. As pre-flight 06 Section 6 step 0.
+1. (Claude, done) Checked against the published Deviation 56 text (v0.15.0) and its erratum (v0.15.1): unchanged; regenerated on the pinned snapshot
+   (`--section3c`, `--check`); this document committed.
 2. Arm: in `data/joblists/paper1/section3c_blockC.json` set `"dry_run": false` and `"preflight_review": "<the commit-pinned URL of this file>"`
-   (`https://github.com/SSIT-Q/gradvar-phoenix/blob/<40-hex commit>/docs/preflight/09_paper1_section3c_blockC_2026-09-23.md`), commit to `main`.
+   (`https://github.com/SSIT-Q/gradvar-phoenix/blob/<40-hex commit>/docs/preflight/09_paper1_section3c_blockC_2026-09-23.md`, the commit on `main` at which
+   Section 8 carries the review), commit to `main`.
 3. Actions, "run hardware job list", branch `main`, `joblist` = `data/joblists/paper1/section3c_blockC.json`, untick "Build and transpile only",
    tick `submit_only`, Run; it writes `data/runs/<date>/paper1_section3c_blockC_job_ids.json`.
 4. When the {bc['jobs']} jobs are done (about 17 QPU minutes): "retrieve hardware jobs" with that ids file.
-5. Post-run review `docs/postrun/07_paper1_section3c_blockC_<date>.md` (charge, Gate 2 (e), null floor and claimability, the L = 8 sample beside
-   day 2's and the replication's, the L = 10 point against the interpolated band, the moments against the propagation rows).
+5. Post-run review `docs/postrun/07_paper1_section3c_blockC_<date>.md` (charge against the main line, Gate 2 (e), null floor and claimability, the
+   L = 8 sample beside day 2's and the replication's, the L = 10 point against the interpolated band and H2, the moments against the propagation rows).
 
 ## 8. Review
 
-(to be filled: reviewer, verdict and notes, and the commit this document was reviewed at)
+{review_txt}
 """
     pdir = Path(pdir); pdir.mkdir(parents=True, exist_ok=True)
     for name, txt in (("06_paper1_day3_dial_2026-09-23.md", pf06), ("08_paper1_replication_2026-09-23.md", pf08), ("09_paper1_section3c_blockC_2026-09-23.md", pf09)):

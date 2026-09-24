@@ -82,7 +82,7 @@ Block C (pre-flight 09) adds a third M = 200 sample of the rung at 65,536 shots.
 Section 3b's kill rules do not apply (no dial). Gate 2 (e): readout per placed qubit against this snapshot, 1.5x rule with Deviations 49 / 52. Budget
 guard: the runner's fresh model-v3 budget; above 8 min the reserve decision is re-read. Nothing here changes a pre-registered test.
 
-## 6. Dry run (FakeNighthawk, 24 Sep 16:39Z, sampled, nothing committed)
+## 6. Dry run (FakeNighthawk, 23 Sep 16:39Z, sampled, nothing committed)
 
 `replication_01.json`: `placement pinned to ibm_phoenix_2026-09-23T163534Z.csv`; 6 jobs budgeted (2.044 min at 1 us with the fake's durations); four
 sampled bundles (`L0`, `L1`: n = 20 L = 4, ISA ops `cz, rz, sx`; `L0-probes-s4096`, `L1-probes-s4096`: SPAM-only, no gates), 8 CSV rows.
@@ -91,14 +91,31 @@ The fake's stale calibration fails the layout check (`enforced: false`), as for 
 
 ## 7. Human steps (Owais), after day 3's dispatch and when the review says GO
 
+0. As pre-flight 06 Section 6 step 0 (PR #2 merged; `placement.snapshot` `ibm_phoenix_2026-09-23T163534Z.csv` on `main`; edit only `dry_run` and `preflight_review`;
+   the stop rule for a submitting run that ends without `job ids written to`).
 1. (Claude, done) Regenerated on the pinned snapshot (`--replication`, `--check`), re-drawn predictions committed, this document committed.
 2. Arm **both** lists: in `data/joblists/paper1/replication_01.json` and `replication_01_16384.json` set `"dry_run": false` and
-   `"preflight_review": "<the commit-pinned URL of this file>"` (`https://github.com/SSIT-Q/gradvar-phoenix/blob/<40-hex commit>/docs/preflight/08_paper1_replication_2026-09-23.md`), commit to `main`.
+   `"preflight_review": "<the commit-pinned URL of this file>"` (`https://github.com/SSIT-Q/gradvar-phoenix/blob/<40-hex commit>/docs/preflight/08_paper1_replication_2026-09-23.md`, the commit on `main` at which Section 8
+   carries the review), commit to `main`.
 3. Actions, "run hardware job list", branch `main`, `joblist` = `data/joblists/paper1/replication_01.json`, untick "Build and transpile only", tick
    `submit_only`, Run; when it has written its ids file, dispatch again with `joblist` = `data/joblists/paper1/replication_01_16384.json`. Then Block C.
 4. When the jobs are done (about 5 QPU minutes): "retrieve hardware jobs" once per ids file; a failed job is resubmitted with `only_job_tag`.
-5. Post-run review `docs/postrun/06_paper1_replication_<date>.md` (Section 4 table per flag, the Deviation 19 simulations, the null floors, Gate 2 (e)).
+5. Post-run review `docs/postrun/06_paper1_replication_<date>.md` (Section 4 table per flag, the Deviation 19 simulations, the null floors, Gate 2 (e));
+   Claude evaluates, the coordinator with the reviewer decides each flag under the PI's delegation; the pre-registration's Deviation 19 row, tracker
+   P1.3.9 and the handover are updated.
 
 ## 8. Review
 
-(to be filled: reviewer, verdict and notes, and the commit this document was reviewed at)
+Independent reviewer subagent, 24 Sep 2026, read-only, at commit 84fef50: **GO_WITH_NOTES, no must-fix.** Checked against the committed
+lists and re-draw files: the placements, budgets, seeds, the Gate 1b verdict and clauses, the H5/H6 and main-grid rows; the human steps against
+`run_jobs.yml`; the Deviation 58 code paths (no path builds or retrieves a pinned list on another placement; the guards cannot be bypassed on the
+workflow path). Notes addressed in the commit that fills this section: (1) the dry-run date and attribution; (2) the human steps (step 0: merge first,
+check `placement.snapshot`, edit only `dry_run` and `preflight_review`; the URL pinned to the `main` commit carrying this section, each list its own
+pre-flight; the stop rule for a submitting run that ends without `job ids written to`); (3) a pinned list's submission logs a fresh properties
+snapshot (runner fix fac78b3, with a test); (7) the n60 k = L reference digit; (8) items restored in pre-flight 08 step 5 and pre-flight 09 steps 1
+and 5; (9) the generator wording (replication lists regenerated at 7247ca8; points, probes, placement and budget unchanged). Not verified by the
+reviewer (stopped early at the lead's request): the calibration-derived values (exclusion reasons, the watch list, the Gate 2 (e) cone readout
+maxima and the 24 Sep 03:08Z pre-check), which the lead computed with `gradvar.noise` / `gradvar.hardware` on the committed snapshots; the Flex
+ledger figures; the kill (b) per-point minutes. Optional hardening noted and not done before this dispatch: an incremental ids file, a list-specific
+pre-flight filename check, a direct comparison of the built rung with `placement.rungs`. Review record:
+`docs/preflight/reviews/review_dev58_preflights_2026-09-24.md`.
