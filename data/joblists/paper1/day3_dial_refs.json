@@ -5,18 +5,18 @@
  "dry_run": true,
  "rep_delay_probe": true,
  "preflight_review": "TBD: pre-flight review permalink",
- "notes": "Paper 1 pre-registration v0.16.0 (23 Sep 2026); Deviation 50 (v0.13.0) campaign day 3, armed after the day-2 post-run review (docs/postrun/04_paper1_day2_2026-09-20.md) and the Deviation 46 re-draw of the Gate 1b references on this placement: references_gate1b.json + dial_arm.json in one list (probes in that order, each identical in id, n, patch, edge, L, k, M, shots, masks, p, reset_kind, resilience and seed to its entry in the committed source list, which stays on main as the fallback packaging): the six delay-matched p = 0, k = L references at L = 8 and 12 on the n40 / n60 / n100 rungs (M = 350, 16384 shots; Gate 1b clause (b) per rung on the measured references, Deviations 28-30, 35, 44-45; Deviation 39 on-day M = 600 rule), then the Section 3b core: reset dial p in {0.25, 0.5} at L in {8, 12}, k = L on the n60 rung, the p = 0.25 L = 8 n-ladder points on n40 and n100, the dephasing dial p = 0.5 (matched control (b)), the truncation arm (H7, full and l = 2) and the reset-error characterisation on the dial-patch qubits (kill rule (a), Gate 2 (e) reset half). Resilience 0 throughout (Section 3b budget; PAPER1_JOBLISTS Section 7 ambiguity 5), so no resilience-2 job and the Deviation 55 level-2 cap does not bind. Ledger: the 65-minute dial line plus the Deviation 44 reserve item (8.0) and the Deviation 45 top-up line (9.5) for the references. Not here: dial_arm_contingent.json (only on a recorded reserve decision), grid_n40_repeat.json (control (d), main line, at least one calendar day after grid_n40: its own arming), Paper 2 list 03. Kill rules (a)-(d) are read from the smoke test and day 2 before arming; (b) with day 2's constants (11.8 us per execution, 7.5 s per job) gives about 0.4 min per dial gradient point against the 7.0-minute line. Job order inside the Batch: the runner submits probe jobs by (level, shots): the 16-shot dial jobs, then the 64-shot truncation jobs, then the 4096-shot characterisation, then the 16384-shot references; the live layout check covers the union of the three rungs' qubits and live couplers and applies the Deviation 53 coherence floor, so a failing qubit on any rung refuses the whole list (fallback: arm the source lists separately). Pre-flight review: docs/preflight/06_paper1_day3_dial_2026-09-21.md. Placement from snapshot 2026-09-23T030816Z (CSV plus raw properties; Deviations 22, 26 and 46 cuts plus the Deviation 53 coherence floor T1, T2 >= 25 us, on the newest committed calibration data): n40 = 4x10 n = 39 origin (8, 0) edge 93_103 broken [[86, 87], [100, 101], [114, 115], [95, 96], [80, 90], [87, 97]]; n60 = 6x10 n = 52 origin (6, 0) edge 84_85 broken [[86, 87], [100, 101], [114, 115], [95, 96], [80, 90], [87, 97]]; n100 = 10x10 n = 86 origin (2, 0) edge 75_85 broken [[86, 87], [100, 101], [114, 115], [31, 32], [95, 96], [41, 51], [80, 90], [87, 97]]. Deviation 46: the runner re-derives the placement and the observable edges from the run-day snapshot under the Deviation 22 / 26 cuts and the cone-graph edge rule (live re-check, layout_check enforce) and refuses a list whose n no longer matches; regenerate with scripts/make_paper1_joblists.py from the run-day snapshot and re-draw the Gate 1b reference predictions where the cone graph changed. Budget model v3 (Deviation 47: 3.0 s per job, +2.7 s at resilience >= 1, 5 us per execution, max(shots, 64) at resilience >= 1), jobs of at most 300 pubs (max_experiments; Deviation 48) and 12 MB of parameter values: 134 jobs, 2313 pubs, 413803 parameter sets, 77836288 executions (+0 TREX), 31.004 min at the booked 1 us rep_delay (354.024 min at 250 us). Nothing is submitted while dry_run is true and the pre-flight review permalink is the placeholder.",
+ "notes": "Paper 1 pre-registration v0.16.0 (23 Sep 2026); Deviation 50 (v0.13.0) campaign day 3, armed after the day-2 post-run review (docs/postrun/04_paper1_day2_2026-09-20.md) and the Deviation 46 re-draw of the Gate 1b references on this placement: references_gate1b.json + dial_arm.json in one list (probes in that order, each identical in id, n, patch, edge, L, k, M, shots, masks, p, reset_kind, resilience and seed to its entry in the committed source list, which stays on main as the fallback packaging): the six delay-matched p = 0, k = L references at L = 8 and 12 on the n40 / n60 / n100 rungs (M = 350, 16384 shots; Gate 1b clause (b) per rung on the measured references, Deviations 28-30, 35, 44-45; Deviation 39 on-day M = 600 rule), then the Section 3b core: reset dial p in {0.25, 0.5} at L in {8, 12}, k = L on the n60 rung, the p = 0.25 L = 8 n-ladder points on n40 and n100, the dephasing dial p = 0.5 (matched control (b)), the truncation arm (H7, full and l = 2) and the reset-error characterisation on the dial-patch qubits (kill rule (a), Gate 2 (e) reset half). Resilience 0 throughout (Section 3b budget; PAPER1_JOBLISTS Section 7 ambiguity 5), so no resilience-2 job and the Deviation 55 level-2 cap does not bind. Ledger: the 65-minute dial line plus the Deviation 44 reserve item (8.0) and the Deviation 45 top-up line (9.5) for the references. Not here: dial_arm_contingent.json (only on a recorded reserve decision), grid_n40_repeat.json (control (d), main line, at least one calendar day after grid_n40: its own arming), Paper 2 list 03. Kill rules (a)-(d) are read from the smoke test and day 2 before arming; (b) with day 2's constants (11.8 us per execution, 7.5 s per job) gives about 0.4 min per dial gradient point against the 7.0-minute line. Job order inside the Batch: the runner submits probe jobs by (level, shots): the 16-shot dial jobs, then the 64-shot truncation jobs, then the 4096-shot characterisation, then the 16384-shot references; the live layout check covers the union of the three rungs' qubits and live couplers and applies the Deviation 53 coherence floor, so a failing qubit on any rung refuses the whole list (fallback: arm the source lists separately). Pre-flight review: docs/preflight/06_paper1_day3_dial_2026-09-21.md. Placement from snapshot 2026-09-23T163534Z (CSV plus raw properties; Deviations 22, 26 and 46 cuts plus the Deviation 53 coherence floor T1, T2 >= 25 us, on the newest committed calibration data): n40 = 4x10 n = 39 origin (8, 0) edge 93_103 broken [[86, 87], [100, 101], [95, 96], [87, 97], [100, 110]]; n60 = 6x10 n = 52 origin (6, 0) edge 84_85 broken [[86, 87], [100, 101], [95, 96], [87, 97], [100, 110]]; n100 = 10x10 n = 87 origin (2, 0) edge 75_85 broken [[86, 87], [100, 101], [31, 32], [95, 96], [87, 97], [100, 110]]. Deviation 46: the runner re-derives the placement and the observable edges from the run-day snapshot under the Deviation 22 / 26 cuts and the cone-graph edge rule (live re-check, layout_check enforce) and refuses a list whose n no longer matches; regenerate with scripts/make_paper1_joblists.py from the run-day snapshot and re-draw the Gate 1b reference predictions where the cone graph changed. Budget model v3 (Deviation 47: 3.0 s per job, +2.7 s at resilience >= 1, 5 us per execution, max(shots, 64) at resilience >= 1), jobs of at most 300 pubs (max_experiments; Deviation 48) and 12 MB of parameter values: 134 jobs, 2313 pubs, 413803 parameter sets, 77836288 executions (+0 TREX), 31.004 min at the booked 1 us rep_delay (354.024 min at 250 us). Nothing is submitted while dry_run is true and the pre-flight review permalink is the placeholder.",
  "layout_check": "enforce",
  "placement": {
-  "snapshot": "ibm_phoenix_2026-09-23T030816Z.csv",
-  "properties": "ibm_phoenix_properties_20260923T030816Z.json.gz",
-  "stamp": "2026-09-23T030816Z",
+  "snapshot": "ibm_phoenix_2026-09-23T163534Z.csv",
+  "properties": "ibm_phoenix_properties_20260923T163534Z.json.gz",
+  "stamp": "2026-09-23T163534Z",
   "excluded": [
    7,
    8,
+   11,
    17,
    18,
-   22,
    27,
    29,
    37,
@@ -25,7 +25,7 @@
    61,
    62,
    63,
-   67,
+   66,
    72,
    73,
    77,
@@ -100,34 +100,29 @@
       101
      ],
      [
-      114,
-      115
-     ],
-     [
       95,
       96
      ],
      [
-      80,
-      90
-     ],
-     [
       87,
       97
+     ],
+     [
+      100,
+      110
      ]
     ],
     "broken_edge_cz_errors": {
-     "86_87": 0.01597066280514256,
+     "86_87": 0.014215607141416259,
      "100_101": 0.040990425147964665,
-     "114_115": 0.005189118523396319,
-     "95_96": 0.02525752597769934,
-     "80_90": 0.0051607275324610236,
-     "87_97": 0.018755511286560722
+     "95_96": 0.032139042591438044,
+     "87_97": 0.018098784899698378,
+     "100_110": 0.00570275839990278
     },
-    "live_couplers": 56,
+    "live_couplers": 57,
     "edge": "93_103",
     "edge_rule": "Deviation 36's (93, 103) as written (its L = 2 cone graph differs from the 4x5 rung's on this snapshot; Deviation 46 fallback)",
-    "edge_cz_error": 0.0012336310904627057,
+    "edge_cz_error": 0.0011904153828659891,
     "cone_L2_qubits": [
      82,
      83,
@@ -143,9 +138,10 @@
      105,
      112,
      113,
-     114
+     114,
+     115
     ],
-    "cone_L2_couplers": 22,
+    "cone_L2_couplers": 24,
     "cone_L2_matches_4x5": false
    },
    "n60": {
@@ -159,7 +155,7 @@
      61,
      62,
      63,
-     67,
+     66,
      72,
      73,
      77,
@@ -169,7 +165,7 @@
      60,
      64,
      65,
-     66,
+     67,
      68,
      69,
      70,
@@ -229,38 +225,32 @@
       101
      ],
      [
-      114,
-      115
-     ],
-     [
       95,
       96
      ],
      [
-      80,
-      90
-     ],
-     [
       87,
       97
+     ],
+     [
+      100,
+      110
      ]
     ],
     "broken_edge_cz_errors": {
-     "86_87": 0.01597066280514256,
+     "86_87": 0.014215607141416259,
      "100_101": 0.040990425147964665,
-     "114_115": 0.005189118523396319,
-     "95_96": 0.02525752597769934,
-     "80_90": 0.0051607275324610236,
-     "87_97": 0.018755511286560722
+     "95_96": 0.032139042591438044,
+     "87_97": 0.018098784899698378,
+     "100_110": 0.00570275839990278
     },
     "live_couplers": 76,
     "edge": "84_85",
     "edge_rule": "interior_edge",
-    "edge_cz_error": 0.0011142487281393387,
+    "edge_cz_error": 0.0011502838290557982,
     "cone_L2_qubits": [
      64,
      65,
-     66,
      74,
      75,
      76,
@@ -274,18 +264,17 @@
      94,
      95
     ],
-    "cone_L2_couplers": 21,
+    "cone_L2_couplers": 19,
     "cone_L2_matches_4x5": false
    },
    "n100": {
     "patch": "10x10",
-    "n": 86,
+    "n": 87,
     "origin": [
      2,
      0
     ],
     "holes": [
-     22,
      27,
      29,
      37,
@@ -294,7 +283,7 @@
      61,
      62,
      63,
-     67,
+     66,
      72,
      73,
      77,
@@ -303,6 +292,7 @@
     "qubits": [
      20,
      21,
+     22,
      23,
      24,
      25,
@@ -338,7 +328,7 @@
      60,
      64,
      65,
-     66,
+     67,
      68,
      69,
      70,
@@ -398,10 +388,6 @@
       101
      ],
      [
-      114,
-      115
-     ],
-     [
       31,
       32
      ],
@@ -410,36 +396,29 @@
       96
      ],
      [
-      41,
-      51
-     ],
-     [
-      80,
-      90
-     ],
-     [
       87,
       97
+     ],
+     [
+      100,
+      110
      ]
     ],
     "broken_edge_cz_errors": {
-     "86_87": 0.01597066280514256,
+     "86_87": 0.014215607141416259,
      "100_101": 0.040990425147964665,
-     "114_115": 0.005189118523396319,
-     "31_32": 0.015122460677171407,
-     "95_96": 0.02525752597769934,
-     "41_51": 0.005259779809689419,
-     "80_90": 0.0051607275324610236,
-     "87_97": 0.018755511286560722
+     "31_32": 0.0159505482336936,
+     "95_96": 0.032139042591438044,
+     "87_97": 0.018098784899698378,
+     "100_110": 0.00570275839990278
     },
-    "live_couplers": 128,
+    "live_couplers": 132,
     "edge": "75_85",
     "edge_rule": "interior_edge",
-    "edge_cz_error": 0.0011404347630249723,
+    "edge_cz_error": 0.0010745000640388358,
     "cone_L2_qubits": [
      64,
      65,
-     66,
      74,
      75,
      76,
@@ -449,7 +428,7 @@
      94,
      95
     ],
-    "cone_L2_couplers": 15,
+    "cone_L2_couplers": 13,
     "cone_L2_matches_4x5": false
    }
   },
@@ -552,7 +531,7 @@
    "id": "ref_p0_delay_L8_kL_n100",
    "kind": "reset_dial",
    "reset_kind": "delay",
-   "n": 86,
+   "n": 87,
    "patch": "10x10",
    "edge": "75_85",
    "L": 8,
@@ -563,14 +542,14 @@
    "shots": 16384,
    "resilience": 0,
    "seed": 25191001,
-   "purpose": "Gate 1b clause (b) reference (Deviations 28-30, 35, 44-45): delay-matched p = 0, k = L, L = 8 on the n100 rung (actual n = 86); every qubit idles 400 ns after every layer (mask_p = 1: delay on all qubits, no lottery, no pattern floor), M = 350 draws (rule M = 17.5(1.3 kappa - 1), kappa = 14.2), 16384 shots (floor 3.05e-5); the L = 8 to L = 12 fall on this rung must exceed 3x the larger shot floor (9.2e-5) and 2x the L = 8 point's measured bootstrap 2 sigma; Deviation 39 on-day M = 600 rule. Deviation 48 packing: one pub carrying the 350 draws' shifted pairs as parameter rows",
+   "purpose": "Gate 1b clause (b) reference (Deviations 28-30, 35, 44-45): delay-matched p = 0, k = L, L = 8 on the n100 rung (actual n = 87); every qubit idles 400 ns after every layer (mask_p = 1: delay on all qubits, no lottery, no pattern floor), M = 350 draws (rule M = 17.5(1.3 kappa - 1), kappa = 14.2), 16384 shots (floor 3.05e-5); the L = 8 to L = 12 fall on this rung must exceed 3x the larger shot floor (9.2e-5) and 2x the L = 8 point's measured bootstrap 2 sigma; Deviation 39 on-day M = 600 rule. Deviation 48 packing: one pub carrying the 350 draws' shifted pairs as parameter rows",
    "mask_p": 1.0
   },
   {
    "id": "ref_p0_delay_L12_kL_n100",
    "kind": "reset_dial",
    "reset_kind": "delay",
-   "n": 86,
+   "n": 87,
    "patch": "10x10",
    "edge": "75_85",
    "L": 12,
@@ -581,7 +560,7 @@
    "shots": 16384,
    "resilience": 0,
    "seed": 25201001,
-   "purpose": "Gate 1b clause (b) reference (Deviations 28-30, 35, 44-45): delay-matched p = 0, k = L, L = 12 on the n100 rung (actual n = 86); every qubit idles 400 ns after every layer (mask_p = 1: delay on all qubits, no lottery, no pattern floor), M = 350 draws (rule M = 17.5(1.3 kappa - 1), kappa = 14.2), 16384 shots (floor 3.05e-5); the L = 8 to L = 12 fall on this rung must exceed 3x the larger shot floor (9.2e-5) and 2x the L = 8 point's measured bootstrap 2 sigma; Deviation 39 on-day M = 600 rule. Deviation 48 packing: one pub carrying the 350 draws' shifted pairs as parameter rows",
+   "purpose": "Gate 1b clause (b) reference (Deviations 28-30, 35, 44-45): delay-matched p = 0, k = L, L = 12 on the n100 rung (actual n = 87); every qubit idles 400 ns after every layer (mask_p = 1: delay on all qubits, no lottery, no pattern floor), M = 350 draws (rule M = 17.5(1.3 kappa - 1), kappa = 14.2), 16384 shots (floor 3.05e-5); the L = 8 to L = 12 fall on this rung must exceed 3x the larger shot floor (9.2e-5) and 2x the L = 8 point's measured bootstrap 2 sigma; Deviation 39 on-day M = 600 rule. Deviation 48 packing: one pub carrying the 350 draws' shifted pairs as parameter rows",
    "mask_p": 1.0
   },
   {
@@ -673,7 +652,7 @@
    "id": "dial_p0.25_L8_kL_n100",
    "kind": "reset_dial",
    "reset_kind": "reset",
-   "n": 86,
+   "n": 87,
    "patch": "10x10",
    "edge": "75_85",
    "L": 8,
@@ -684,7 +663,7 @@
    "shots": 16,
    "resilience": 0,
    "seed": 24991001,
-   "purpose": "Section 3b n-ladder: reset dial p = 0.25, L = 8, k = L, M = 100 on the n100 rung (actual n = 86); H6 in n against the delay-matched p = 0 reference of references_gate1b.json on the same patch"
+   "purpose": "Section 3b n-ladder: reset dial p = 0.25, L = 8, k = L, M = 100 on the n100 rung (actual n = 87); H6 in n against the delay-matched p = 0 reference of references_gate1b.json on the same patch"
   },
   {
    "id": "dephasing_dial_p0.5_L8_kL",
@@ -2527,7 +2506,7 @@
     "n_bases": 2,
     "trex_executions": 0,
     "job_constant_seconds": 3.0,
-    "param_mb": 11.085,
+    "param_mb": 11.098,
     "circuit_seconds_at_250us": 17.863,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 20.863,
@@ -2548,7 +2527,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 3.0,
-    "param_mb": 11.008,
+    "param_mb": 11.136,
     "circuit_seconds_at_250us": 8.506,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 11.506,
@@ -2569,7 +2548,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 3.0,
-    "param_mb": 11.008,
+    "param_mb": 11.136,
     "circuit_seconds_at_250us": 8.506,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 11.506,
@@ -2590,7 +2569,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 3.0,
-    "param_mb": 11.008,
+    "param_mb": 11.136,
     "circuit_seconds_at_250us": 8.506,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 11.506,
@@ -2611,7 +2590,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 3.0,
-    "param_mb": 11.008,
+    "param_mb": 11.136,
     "circuit_seconds_at_250us": 8.506,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 11.506,
@@ -2632,7 +2611,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 3.0,
-    "param_mb": 11.008,
+    "param_mb": 11.136,
     "circuit_seconds_at_250us": 8.506,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 11.506,
@@ -2653,7 +2632,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 3.0,
-    "param_mb": 11.008,
+    "param_mb": 11.136,
     "circuit_seconds_at_250us": 8.506,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 11.506,
@@ -2674,7 +2653,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 3.0,
-    "param_mb": 11.008,
+    "param_mb": 11.136,
     "circuit_seconds_at_250us": 8.506,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 11.506,
@@ -2695,7 +2674,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 3.0,
-    "param_mb": 11.008,
+    "param_mb": 11.136,
     "circuit_seconds_at_250us": 8.506,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 11.506,
@@ -2716,7 +2695,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 3.0,
-    "param_mb": 11.008,
+    "param_mb": 11.136,
     "circuit_seconds_at_250us": 8.506,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 11.506,
@@ -2737,7 +2716,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 3.0,
-    "param_mb": 11.008,
+    "param_mb": 11.136,
     "circuit_seconds_at_250us": 8.506,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 11.506,
@@ -2758,7 +2737,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 3.0,
-    "param_mb": 11.008,
+    "param_mb": 11.136,
     "circuit_seconds_at_250us": 8.506,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 11.506,
@@ -2779,7 +2758,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 3.0,
-    "param_mb": 11.008,
+    "param_mb": 11.136,
     "circuit_seconds_at_250us": 8.506,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 11.506,
@@ -2800,7 +2779,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 3.0,
-    "param_mb": 11.008,
+    "param_mb": 11.136,
     "circuit_seconds_at_250us": 8.506,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 11.506,
@@ -2821,7 +2800,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 3.0,
-    "param_mb": 11.008,
+    "param_mb": 11.136,
     "circuit_seconds_at_250us": 8.506,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 11.506,
@@ -2842,7 +2821,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 3.0,
-    "param_mb": 11.008,
+    "param_mb": 11.136,
     "circuit_seconds_at_250us": 8.506,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 11.506,
@@ -2863,7 +2842,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 3.0,
-    "param_mb": 11.008,
+    "param_mb": 11.136,
     "circuit_seconds_at_250us": 8.506,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 11.506,
@@ -2884,7 +2863,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 3.0,
-    "param_mb": 11.008,
+    "param_mb": 11.136,
     "circuit_seconds_at_250us": 8.506,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 11.506,
@@ -2905,7 +2884,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 3.0,
-    "param_mb": 11.008,
+    "param_mb": 11.136,
     "circuit_seconds_at_250us": 8.506,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 11.506,
@@ -2926,7 +2905,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 3.0,
-    "param_mb": 11.008,
+    "param_mb": 11.136,
     "circuit_seconds_at_250us": 8.506,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 11.506,
@@ -2947,7 +2926,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 3.0,
-    "param_mb": 11.008,
+    "param_mb": 11.136,
     "circuit_seconds_at_250us": 8.506,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 11.506,
@@ -2968,7 +2947,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 3.0,
-    "param_mb": 11.008,
+    "param_mb": 11.136,
     "circuit_seconds_at_250us": 8.506,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 11.506,
@@ -2989,7 +2968,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 3.0,
-    "param_mb": 11.008,
+    "param_mb": 11.136,
     "circuit_seconds_at_250us": 8.506,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 11.506,
@@ -3010,7 +2989,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 3.0,
-    "param_mb": 11.008,
+    "param_mb": 11.136,
     "circuit_seconds_at_250us": 8.506,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 11.506,
@@ -3031,7 +3010,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 3.0,
-    "param_mb": 11.008,
+    "param_mb": 11.136,
     "circuit_seconds_at_250us": 8.506,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 11.506,
@@ -3052,7 +3031,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 3.0,
-    "param_mb": 11.008,
+    "param_mb": 11.136,
     "circuit_seconds_at_250us": 8.506,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 11.506,
@@ -3073,7 +3052,7 @@
     "n_bases": 2,
     "trex_executions": 0,
     "job_constant_seconds": 3.0,
-    "param_mb": 11.494,
+    "param_mb": 11.558,
     "circuit_seconds_at_250us": 11.909,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 14.909,
@@ -3619,7 +3598,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 3.0,
-    "param_mb": 9.632,
+    "param_mb": 9.744,
     "circuit_seconds_at_250us": 6148.194,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 6151.194,

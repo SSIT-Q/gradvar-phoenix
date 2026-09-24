@@ -5,18 +5,18 @@
  "dry_run": true,
  "rep_delay_probe": true,
  "preflight_review": "TBD: pre-flight review permalink",
- "notes": "Paper 1 pre-registration v0.16.0 (23 Sep 2026), Section 2 (design) main grid for the n80 rung rung (8x10, actual n = 70): depth ladder L in [1, 2, 4, 8, 12] at k = 1 (the differentiated parameter on the first qubit of the observable edge, layer 1), resilience 0 and 1 (Section 2 'Mitigation'), M = 200 parameter draws per point (Section 2 'Samples'; Deviation 17 minimum; the where-affordable targets 400 at L = 2 and 700 at L >= 4 are the Section 6 surplus rule, applied after Gate 2's recompute, not booked here), 4096 shots per shifted circuit, draw d of a point at seed + d; levels 0 and 1 of one point share their draws (paired H4 ratio). L = 12 rows are exploratory (Deviations 37, 43). The Section 2 control (a) null control at L = 1 (the same HEA with the shifted pair on a patch qubit outside the observable's L = 1 light cone, ideal gradient zero) runs as null_control probes at resilience 0 and 1 with the same M and shots. Feeds H1 part 1 (n-scaling at L <= 8 across rungs), H2 (depth fall at fixed n), H4 (level 1 against level 0), Gate 2 (a) (n = 20 only) and Gate 1 criterion (d)'s claimability bar (Deviation 37) with the measured null floor of null_controls.json. Ledger: Section 6 main-grid line (190.5 min at 1 us). Placement from snapshot 2026-09-23T030816Z (CSV plus raw properties; Deviations 22, 26 and 46 cuts plus the Deviation 53 coherence floor T1, T2 >= 25 us, on the newest committed calibration data): n80 = 8x10 n = 70 origin (4, 0) edge 84_85 broken [[86, 87], [100, 101], [114, 115], [95, 96], [41, 51], [80, 90], [87, 97]]. Deviation 46: the runner re-derives the placement and the observable edges from the run-day snapshot under the Deviation 22 / 26 cuts and the cone-graph edge rule (live re-check, layout_check enforce) and refuses a list whose n no longer matches; regenerate with scripts/make_paper1_joblists.py from the run-day snapshot and re-draw the Gate 1b reference predictions where the cone graph changed. Budget model v3 (Deviation 47: 3.0 s per job, +2.7 s at resilience >= 1, 5 us per execution, max(shots, 64) at resilience >= 1), jobs of at most 300 pubs (max_experiments; Deviation 48) and 12 MB of parameter values: 10 jobs, 2400 pubs, 4800 parameter sets, 19660800 executions (+0 TREX), 4.412 min at the booked 1 us rep_delay (86.005 min at 250 us). Nothing is submitted while dry_run is true and the pre-flight review permalink is the placeholder.",
+ "notes": "Paper 1 pre-registration v0.16.0 (23 Sep 2026), Section 2 (design) main grid for the n80 rung rung (8x10, actual n = 70): depth ladder L in [1, 2, 4, 8, 12] at k = 1 (the differentiated parameter on the first qubit of the observable edge, layer 1), resilience 0 and 1 (Section 2 'Mitigation'), M = 200 parameter draws per point (Section 2 'Samples'; Deviation 17 minimum; the where-affordable targets 400 at L = 2 and 700 at L >= 4 are the Section 6 surplus rule, applied after Gate 2's recompute, not booked here), 4096 shots per shifted circuit, draw d of a point at seed + d; levels 0 and 1 of one point share their draws (paired H4 ratio). L = 12 rows are exploratory (Deviations 37, 43). The Section 2 control (a) null control at L = 1 (the same HEA with the shifted pair on a patch qubit outside the observable's L = 1 light cone, ideal gradient zero) runs as null_control probes at resilience 0 and 1 with the same M and shots. Feeds H1 part 1 (n-scaling at L <= 8 across rungs), H2 (depth fall at fixed n), H4 (level 1 against level 0), Gate 2 (a) (n = 20 only) and Gate 1 criterion (d)'s claimability bar (Deviation 37) with the measured null floor of null_controls.json. Ledger: Section 6 main-grid line (190.5 min at 1 us). Placement from snapshot 2026-09-23T163534Z (CSV plus raw properties; Deviations 22, 26 and 46 cuts plus the Deviation 53 coherence floor T1, T2 >= 25 us, on the newest committed calibration data): n80 = 8x10 n = 70 origin (4, 0) edge 84_85 broken [[86, 87], [100, 101], [95, 96], [87, 97], [100, 110]]. Deviation 46: the runner re-derives the placement and the observable edges from the run-day snapshot under the Deviation 22 / 26 cuts and the cone-graph edge rule (live re-check, layout_check enforce) and refuses a list whose n no longer matches; regenerate with scripts/make_paper1_joblists.py from the run-day snapshot and re-draw the Gate 1b reference predictions where the cone graph changed. Budget model v3 (Deviation 47: 3.0 s per job, +2.7 s at resilience >= 1, 5 us per execution, max(shots, 64) at resilience >= 1), jobs of at most 300 pubs (max_experiments; Deviation 48) and 12 MB of parameter values: 10 jobs, 2400 pubs, 4800 parameter sets, 19660800 executions (+0 TREX), 4.412 min at the booked 1 us rep_delay (86.005 min at 250 us). Nothing is submitted while dry_run is true and the pre-flight review permalink is the placeholder.",
  "layout_check": "enforce",
  "placement": {
-  "snapshot": "ibm_phoenix_2026-09-23T030816Z.csv",
-  "properties": "ibm_phoenix_properties_20260923T030816Z.json.gz",
-  "stamp": "2026-09-23T030816Z",
+  "snapshot": "ibm_phoenix_2026-09-23T163534Z.csv",
+  "properties": "ibm_phoenix_properties_20260923T163534Z.json.gz",
+  "stamp": "2026-09-23T163534Z",
   "excluded": [
    7,
    8,
+   11,
    17,
    18,
-   22,
    27,
    29,
    37,
@@ -25,7 +25,7 @@
    61,
    62,
    63,
-   67,
+   66,
    72,
    73,
    77,
@@ -52,7 +52,7 @@
      61,
      62,
      63,
-     67,
+     66,
      72,
      73,
      77,
@@ -80,7 +80,7 @@
      60,
      64,
      65,
-     66,
+     67,
      68,
      69,
      70,
@@ -140,43 +140,32 @@
       101
      ],
      [
-      114,
-      115
-     ],
-     [
       95,
       96
      ],
      [
-      41,
-      51
-     ],
-     [
-      80,
-      90
-     ],
-     [
       87,
       97
+     ],
+     [
+      100,
+      110
      ]
     ],
     "broken_edge_cz_errors": {
-     "86_87": 0.01597066280514256,
+     "86_87": 0.014215607141416259,
      "100_101": 0.040990425147964665,
-     "114_115": 0.005189118523396319,
-     "95_96": 0.02525752597769934,
-     "41_51": 0.005259779809689419,
-     "80_90": 0.0051607275324610236,
-     "87_97": 0.018755511286560722
+     "95_96": 0.032139042591438044,
+     "87_97": 0.018098784899698378,
+     "100_110": 0.00570275839990278
     },
-    "live_couplers": 102,
+    "live_couplers": 103,
     "edge": "84_85",
     "edge_rule": "interior_edge",
-    "edge_cz_error": 0.0011142487281393387,
+    "edge_cz_error": 0.0011502838290557982,
     "cone_L2_qubits": [
      64,
      65,
-     66,
      74,
      75,
      76,
@@ -190,7 +179,7 @@
      94,
      95
     ],
-    "cone_L2_couplers": 21,
+    "cone_L2_couplers": 19,
     "cone_L2_matches_4x5": false
    }
   },
