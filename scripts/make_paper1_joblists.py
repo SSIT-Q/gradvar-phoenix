@@ -50,7 +50,7 @@ PREREG = "Paper 1 pre-registration v0.16.0 (23 Sep 2026)"
 MAX_EXPERIMENTS = max_experiments("ibm_phoenix")   # 300 pubs per job (configuration ledger)
 DEFAULT_SNAPSHOT = Path("data/calibrations/ibm_phoenix_2026-09-23T163534Z.csv")   # the 23 Sep 16:35Z on-demand snapshot (run-day build: Q66 and coupler 100-110 fail the cuts from 15:08Z); lists placed on it are pinned to it (Deviation 58)
 PIN_SNAPSHOT_SINCE = "2026-09-22T030817Z"   # Deviation 58: lists placed on this snapshot or later carry pin_snapshot, and the runner builds them on it
-NLADDER_L = 8   # Section 3b n-ladder depth; Gate 1b (c): 12 when the re-drawn separation clause fails at L = 8 on the run-day placement and passes at 12   # Deviation 58: lists placed on this snapshot or later carry pin_snapshot, and the runner builds them on it
+NLADDER_L = 8   # Section 3b n-ladder depth; Gate 1b (c): 12 when the re-drawn separation clause fails at L = 8 on the run-day placement and passes at 12 (a manual constant; 8 on the pinned 23 Sep placements)
 PACKING = dict(level2_large_n_min=LEVEL2_LARGE_N_MIN, level2_max_pubs=LEVEL2_MAX_PUBS,
                reason="Deviation 55 (to be): resilience-2 jobs on rungs of n >= 69 hold at most 100 pubs (day-2 job L2-c5, 300 pubs of n = 85 L = 8, IBM 1336 out of memory; 100 pubs ran)")
 SHAPES = {"n20": (4, 5), "n40": (4, 10), "n60": (6, 10), "n80": (8, 10), "n100": (10, 10)}   # Section 2 nominal ladder
@@ -408,7 +408,7 @@ def replication_lists(pl: dict) -> dict:
                               placement=("different from day 1's patch" if different else "the SAME patch as day 1 (no other placement under the rule; departure noted)")),
                          dict(day="day 2, 21 Sep 2026", point="n100 rung L = 8 k = 1, resilience 0, 16384 shots, seed block 24292001", reading="0.50x the run-day row 3.069e-4 (b5da7e5), z = -5.1",
                               replicated_in=[REPL16_NAME, REPL_NAME],
-                              placement="the same 10x10 rung (no alternative 10x10 placement exists: origins (0, 0) / (1, 0) / (2, 0) share 90 qubits; departure from 'different clean patch' noted")],
+                              placement="the same 10x10 rung (no alternative 10x10 placement exists: any two of the origins (0, 0) / (1, 0) / (2, 0) share at least 80 qubits; departure from 'different clean patch' noted")],
                   clean_4x5_exists=False, one_shot_count_per_list=True)
     a_notes = (f"{PREREG}, Deviation 19 anomaly protocol (pre-registered exploratory analysis; tracker P1.3.9), replication 01, list 1 of 2 (4096 shots): "
                f"(a) the n20 rung's L = 4, k = 1 point at resilience 0 and 1 (day 1, 20 Sep 2026: 0.61x its prediction, z = -4.0 at both levels), M = {M_BASE} fresh draws "

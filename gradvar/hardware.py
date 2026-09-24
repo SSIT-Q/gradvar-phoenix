@@ -1916,8 +1916,10 @@ def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int,
                   f"{sum(pub_param_bytes(b) for b in group) / 1e6:.2f} MB of parameter values, resilience {level}, shots {gshots}, ISA ops {names}); nothing submitted")
     else:
         from qiskit_ibm_runtime import Batch
-        # a resubmission is placed on the original submission's CSV (calibration_csv) but logs a fresh properties snapshot
-        snapshot = snapshot_calibration(backend) if (calibration_csv is None or resubmission is not None) else calibration_csv
+        # a resubmission is placed on the original submission's CSV (calibration_csv) and a pinned list on its pinned snapshot
+        # (Deviation 58); both log a fresh properties snapshot, so calibration_snapshot is the calibration in force at submission
+        fresh = calibration_csv is None or resubmission is not None or bool((jl.get("placement") or {}).get("pin_snapshot"))
+        snapshot = snapshot_calibration(backend) if fresh else calibration_csv
         with Batch(backend=backend) as batch:
             jobs = []
             for tag, level, gshots, group in groups:
