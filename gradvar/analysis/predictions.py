@@ -13,6 +13,7 @@ from typing import Dict, List
 import numpy as np
 import pandas as pd
 
+from . import anomaly_stats as A61
 from .estimators import Z95
 
 DEFAULT_DIR = Path(__file__).resolve().parents[2] / "data" / "predictions"
@@ -215,10 +216,34 @@ def _monotone_runs(df: pd.DataFrame, axis: str, group_cols: List[str]) -> List[D
     return hits
 
 
+def holm_within(comparison: pd.DataFrame, alpha: float = A61.ALPHA_FW) -> Dict:
+    """Deviation 61 (ii) on one comparison table: Holm's step-down over every Deviation 19 single-point test in it (finite z;
+    exploratory rows (Deviation 37) and resilience level 2 (not read under Deviation 19) are outside the family), two-sided
+    p = erfc(|z| / sqrt 2). A single-point flag is ``firm`` only if its adjusted p <= alpha. The family here is the table's own
+    tests; the replication decision uses the campaign-wide family (``anomaly_stats.build_family``), where the z also carry
+    Deviation 61 (i)."""
+    if not len(comparison) or "z" not in comparison.columns:
+        return dict(m=0, alpha=float(alpha), flags=[], note="no tests")
+    d = comparison[np.isfinite(comparison.z.astype(float))]
+    if "exploratory" in d.columns:
+        d = d[~d.exploratory.map(lambda v: bool(v) if isinstance(v, (bool, np.bool_)) else False).astype(bool)]
+    if "resilience_level" in d.columns:
+        d = d[d.resilience_level.astype(float) != 2]
+    fam = A61.holm_family(d[["point_id", "z"]].reset_index(drop=True), "z", alpha)
+    flags = []
+    for r in comparison[comparison.get("anomaly_single", pd.Series(False, index=comparison.index)) == True].to_dict("records"):   # noqa: E712
+        hit = fam[fam.point_id == r["point_id"]]
+        flags.append(dict(point_id=r["point_id"], z=float(r["z"]), p=float(hit.p.iloc[0]) if len(hit) else float("nan"),
+                          p_holm=float(hit.p_holm.iloc[0]) if len(hit) else float("nan"),
+                          firm=bool(hit.holm_reject.iloc[0]) if len(hit) else None))
+    return dict(m=int(fam.attrs["m"]), alpha=float(alpha), flags=flags, note="family: this table's Deviation 19 tests (Deviation 61 (ii))")
+
+
 def anomaly_protocol(comparison: pd.DataFrame) -> Dict:
     """Deviation 19 flags on a comparison table: single-point (|z| > 3) and monotone-run anomalies, and whether the
     protocol calls for replication from the reserve (another day, another clean patch, at most 20 reserve minutes;
-    the calibrated noisy simulations must also fail to reproduce the deviation). Unreplicated anomalies are exploratory."""
+    the calibrated noisy simulations must also fail to reproduce the deviation). Unreplicated anomalies are exploratory.
+    Deviation 61 (ii) adds ``holm``: the grid-wide Holm step-down over the table's tests, and which flags are firm."""
     single = comparison[comparison.anomaly_single == True] if len(comparison) else comparison   # noqa: E712
     runs = []
     if len(comparison):
@@ -234,4 +259,5 @@ def anomaly_protocol(comparison: pd.DataFrame) -> Dict:
                 monotone_runs=runs, flagged=flagged,
                 action=("replicate on another calendar day and another clean patch from the reserve (<= 20 min); run the calibrated "
                         "noisy simulations; unreplicated = exploratory" if flagged else "none"),
-                reserve_minutes=RESERVE_MINUTES_FOR_REPLICATION if flagged else 0, n_compared=int(np.isfinite(comparison.z).sum()) if len(comparison) else 0)
+                reserve_minutes=RESERVE_MINUTES_FOR_REPLICATION if flagged else 0, n_compared=int(np.isfinite(comparison.z).sum()) if len(comparison) else 0,
+                holm=holm_within(comparison))
