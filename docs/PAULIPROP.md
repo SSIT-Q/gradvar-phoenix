@@ -285,6 +285,8 @@ note's chain 1.9134879166e-02, 3.2771826325e-03, 4.8919770257e-05: differences +
 (delta 1e-10 -> 1e-11) of 6e-9 (var, MSD(2)) and 1.3e-8 (MSD(4)) in each engine. The numerical tolerance in the script was
 recorded after this comparison; the sampled half is in the committed record.
 
+**Comparator (H7).** On the pinned day-3 placement (n60 rung, n = 52, edge 84_85, p = 0.5, L = 8; snapshot `ibm_phoenix_2026-09-23T163534Z.csv`), the Deviation 46 program and settings give sqrt(MSD(2)) = 0.05540 +/- 1.3e-04 (sampled; truncated 0.05526) and sqrt(MSD(4)) = 0.00663 +/- 6.7e-05; every l in `data/predictions/h7_truncation_2026-09-23T1635.md` (commit cbc4ea9, `python scripts/predict_h7_truncation.py`).
+
 ## Validation
 
 See `data/predictions/pauliprop_validation.csv` (table below is written by `scripts/pauliprop_validate.py`).
