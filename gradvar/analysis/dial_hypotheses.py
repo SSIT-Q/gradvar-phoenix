@@ -29,7 +29,8 @@ H_TEXT = {
           "on the day makes the ladder comparison inconclusive.",
     "H7": "Noise-induced effective depth. Refuted if the l = 2 RMS of C_mix - C_mix[L - l, L] (residual pattern noise subtracted) misses the pre-drawn "
           "prediction by more than the combined interval, or, when the measured std(C_mix) exceeds 0.1, the l = 4 RMS is not below the l = 2 RMS by more "
-          "than the paired-bootstrap interval.",
+          "than the paired-bootstrap interval. Deviation 60: the statistic also subtracts the shot term of the per-draw mean difference and is compared "
+          "with sqrt(MSD(l = 2)) from the snapshot-noise engine; no verdict without that comparator; l = 4 is an upper-bound point by rule.",
 }
 LADDER_LOW, LADDER_HIGH = {39, 40}, {87, 90, 100}
 CONTROL_N = {53, 56, 60}
@@ -242,72 +243,155 @@ def evaluate_h6(points: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict
 
 # ------------------------------------------------------------------------------------------------ H7
 
+L4_RULE = ("l = 4 is an upper-bound point by rule (Deviation 60, rule (a), as Deviation 40 for the k = 1 rows): its RMS and interval are "
+           "reported and its 95 percent upper limit is the reported bound whatever the interval shows; the one-sided l = 4 < l = 2 test is unchanged")
+H7_STATISTIC = ("Deviation 60: per draw D^2 - [Var_m(diff) - mean(sv)] / K - mean(sv) / K, i.e. the residual pattern term of Section 3b and the "
+                "shot term of the per-draw mean difference both subtracted, averaged over draws; estimates MSD(l) and is compared with sqrt(MSD(l)) "
+                "from the snapshot-noise engine")
+
+
+def _first_per_mask(df: pd.DataFrame):
+    """One row per (draw, mask_index), the first in job order; rows without a finite value or a mask index are dropped."""
+    d = df[np.isfinite(pd.to_numeric(df.ev, errors="coerce")) & df.mask_index.notna()]
+    d = d.assign(mask_index=pd.to_numeric(d.mask_index).astype(int), draw=pd.to_numeric(d.draw).astype(int))
+    dup = d.duplicated(["draw", "mask_index"], keep="first")
+    return d[~dup], int(dup.sum())
+
+
 def truncation_rms(full: pd.DataFrame, trunc: pd.DataFrame, K: int, n_boot: int = 10_000, seed: int = 11) -> Dict:
-    """Section 3b truncation-arm statistic: RMS over draws of C_mix - C_mix[L - l, L] on shared theta and shared masks
-    for the shared layers, with the residual pattern noise of the deleted layers' masks (variance over the K per-mask
-    differences minus their shot variance, mean over draws, / K) subtracted from the mean-square difference before the
-    root, and its uncertainty by bootstrap over masks within draws. ``full`` / ``trunc`` hold one row per (draw,
-    mask_index) with ``ev`` (the cost value), ``std`` and ``shots``."""
+    """Section 3b truncation-arm statistic: RMS over draws of C_mix - C_mix[L - l, L] on shared theta and shared masks for the
+    shared layers. Full and truncated rows are paired by ``draw`` and ``mask_index`` (both circuits of a pair carry the same
+    theta seed and mask seed; a pair whose ``seed`` or ``mask_seed`` differ is counted in ``pairing_errors``). Per draw, with
+    diff_m the K per-mask differences and sv_m = (1 - ev_f^2) / (s_f - 1) + (1 - ev_t^2) / (s_t - 1) their shot variance
+    (Deviation 27), the pre-registered residual pattern term [Var_m(diff) - mean(sv)] / K and (Deviation 60) the shot term
+    mean(sv) / K of the mean difference are subtracted from mean(diff)^2 before the root, so the statistic estimates MSD(l);
+    the interval combines the spread of mean(diff)^2 over draws with a bootstrap over masks within draws of the subtracted
+    terms. ``rms_with_shot`` is the statistic before Deviation 60 (shot term kept; it estimates MSD + shot^2). ``full`` /
+    ``trunc`` hold one row per (draw, mask_index) with ``ev`` (the cost value) and ``shots``."""
     rng = np.random.default_rng(seed)
-    ms, resid, boot = [], [], []
-    for d, gf in full.groupby("draw"):
-        gt = trunc[trunc.draw == d]
+    f1, dup_f = _first_per_mask(full)
+    t1, dup_t = _first_per_mask(trunc)
+    ms, resid, shot, boot_rp, boot_sub = [], [], [], [], []
+    n_pairs, pairing_errors, unpaired_f, unpaired_t = 0, 0, 0, 0
+    tr_by_draw = {d: g for d, g in t1.groupby("draw")}
+    for d, gf in f1.groupby("draw"):
+        gt = tr_by_draw.get(d)
+        if gt is None:
+            unpaired_f += len(gf)
+            continue
         m = gf.merge(gt, on="mask_index", suffixes=("_f", "_t"))
+        unpaired_f += len(gf) - len(m)
+        unpaired_t += len(gt) - len(m)
         if m.empty:
             continue
-        diff = m.ev_f.to_numpy(float) - m.ev_t.to_numpy(float)
-        s = int(m.shots_f.iloc[0])
-        sv = ((1 - m.ev_f.to_numpy(float) ** 2) + (1 - m.ev_t.to_numpy(float) ** 2)) / max(s - 1, 1)
+        for col in ("seed", "mask_seed"):
+            if f"{col}_f" in m.columns and f"{col}_t" in m.columns:
+                a, b = pd.to_numeric(m[f"{col}_f"], errors="coerce"), pd.to_numeric(m[f"{col}_t"], errors="coerce")
+                pairing_errors += int(((a != b) & a.notna() & b.notna()).sum())
+        n_pairs += len(m)
+        ef, et = m.ev_f.to_numpy(float), m.ev_t.to_numpy(float)
+        sf = np.maximum(pd.to_numeric(m.shots_f).to_numpy(float) - 1, 1)
+        st = np.maximum(pd.to_numeric(m.shots_t).to_numpy(float) - 1, 1)
+        diff = ef - et
+        sv = (1 - ef ** 2) / sf + (1 - et ** 2) / st
+        k = len(diff)
         ms.append(diff.mean() ** 2)
-        resid.append((diff.var(ddof=1) - sv.mean()) / len(diff) if len(diff) > 1 else 0.0)
-        if len(diff) > 1:
-            idx = rng.integers(0, len(diff), size=(min(n_boot, 2000), len(diff)))
-            boot.append((diff[idx].var(axis=1, ddof=1) - sv[idx].mean(axis=1)) / len(diff))
+        resid.append((diff.var(ddof=1) - sv.mean()) / k if k > 1 else 0.0)
+        shot.append(sv.mean() / k)
+        if k > 1:
+            idx = rng.integers(0, k, size=(min(n_boot, 2000), k))
+            v = diff[idx].var(axis=1, ddof=1)
+            boot_rp.append((v - sv[idx].mean(axis=1)) / k)
+            boot_sub.append(v / k)
+    for gt in tr_by_draw.values():                                   # truncated draws with no full circuit
+        if gt.draw.iloc[0] not in set(f1.draw):
+            unpaired_t += len(gt)
+    base = dict(M=len(ms), K=int(K), n_pairs=int(n_pairs), unpaired_full=int(unpaired_f), unpaired_trunc=int(unpaired_t),
+                duplicates=int(dup_f + dup_t), pairing_errors=int(pairing_errors), statistic=H7_STATISTIC)
     if not ms:
-        return dict(rms=np.nan, M=0)
-    msd, rp = float(np.mean(ms)), float(np.mean(resid))
-    rms2 = msd - rp
-    se_rp = float(np.mean(np.std(np.asarray(boot), axis=1)) / np.sqrt(len(ms))) if boot else 0.0
+        return dict(base, rms=np.nan, rms_lo=np.nan, rms_hi=np.nan)
+    msd, rp, sh = float(np.mean(ms)), float(np.mean(resid)), float(np.mean(shot))
+    rms2 = msd - rp - sh
+    se_rp = float(np.mean(np.std(np.asarray(boot_rp), axis=1)) / np.sqrt(len(ms))) if boot_rp else 0.0
+    se_sub = float(np.mean(np.std(np.asarray(boot_sub), axis=1)) / np.sqrt(len(ms))) if boot_sub else 0.0
     se_msd = float(np.std(ms, ddof=1) / np.sqrt(len(ms))) if len(ms) > 1 else 0.0
-    lo, hi = rms2 - Z95 * np.hypot(se_msd, se_rp), rms2 + Z95 * np.hypot(se_msd, se_rp)
-    return dict(rms=float(np.sqrt(max(rms2, 0.0))), rms_lo=float(np.sqrt(max(lo, 0.0))), rms_hi=float(np.sqrt(max(hi, 0.0))), mean_square_diff=msd, residual_pattern=rp,
-                residual_pattern_se=se_rp, M=len(ms), K=int(K), at_shot_floor=bool(lo <= 0))
+    half = Z95 * np.hypot(se_msd, se_sub)
+    lo, hi = rms2 - half, rms2 + half
+    return dict(base, rms=float(np.sqrt(max(rms2, 0.0))), rms_lo=float(np.sqrt(max(lo, 0.0))), rms_hi=float(np.sqrt(max(hi, 0.0))),
+                mean_square=float(rms2), mean_square_lo=float(lo), mean_square_hi=float(hi), mean_square_diff=msd, residual_pattern=rp,
+                residual_pattern_se=se_rp, shot_term=sh, subtracted_se=se_sub, rms_with_shot=float(np.sqrt(max(msd - rp, 0.0))),
+                consistent_with_zero=bool(lo <= 0))
+
+
+def _truncation_point(t: pd.DataFrame) -> Dict:
+    """The single (patch, edge, n, p, L, qubits) of the truncation rows, or {'error': ...}."""
+    keys = []
+    for r in t[["patch", "edge", "n", "p", "L", "patch_qubits"]].astype(str).drop_duplicates().itertuples(index=False):
+        keys.append(tuple(r))
+    if len({k[:5] for k in keys}) != 1:
+        return dict(error=f"truncation rows from {len({k[:5] for k in keys})} points or placements: {sorted({k[:5] for k in keys})}")
+    r = t.iloc[0]
+    qs = sorted({int(q) for q in str(r.patch_qubits).split()}) if pd.notna(r.patch_qubits) and str(r.patch_qubits).strip() else None
+    return dict(patch=str(r.patch), edge=str(r.edge).replace("-", "_"), n=int(r.n), p=float(r.p), L=int(r.L), qubits=qs,
+                qubit_sets=len({k[5] for k in keys}))
 
 
 def evaluate_h7(rows: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict:
-    """H7 on truncation-arm rows (``kind`` 'truncation' with an ``ell`` column, 0 for the full circuit; not yet a job-list
-    probe kind): RMS at l = 2 against the pre-drawn value (from ``preds['truncation']`` when present), l = 4 against l = 2
-    one-sided when std(C_mix) > 0.1."""
+    """H7 on the truncation arm: rows of kind 'truncation' (the loader's mapping of the unshifted reset_dial probes, Deviation 60)
+    with ``ell`` = 0 for the full circuit. RMS at l = 2 (``truncation_rms``, shot and residual pattern terms subtracted) against
+    the pre-drawn sqrt(MSD(2)) of the placement the rows ran on (``predictions.truncation_prediction``: ``preds['truncation']`` or
+    the committed ``h7_truncation_*.json`` entries), l = 4 below l = 2 one-sided when std(C_mix) > 0.1. Not-evaluable without
+    that comparator (Deviation 60 guard: no verdict from the l = 4 test alone), when the full / truncated rows do not pair, or
+    when the rows mix placements. l = 4 is an upper-bound point by rule (``L4_RULE``)."""
     t = rows[rows.kind == "truncation"] if len(rows) and "kind" in rows.columns else pd.DataFrame()
     if t.empty or "ell" not in t.columns:
-        return verdict("H7", H_TEXT["H7"], "not-evaluable", note="no truncation-arm rows in the run (probe kind not yet in the job-list schema)")
-    t = t.assign(ev=t.ev_plus.astype(float), std=t.std_plus.astype(float))
+        return verdict("H7", H_TEXT["H7"], "not-evaluable", note="no truncation-arm rows in the run")
+    t = t.assign(ev=pd.to_numeric(t.ev_plus, errors="coerce"), std=pd.to_numeric(t.std_plus, errors="coerce"))
+    t = t[np.isfinite(t.ev)]
+    if t.empty:
+        return verdict("H7", H_TEXT["H7"], "not-evaluable", note="truncation-arm rows carry no measured values (dry run or failed jobs)")
+    point = _truncation_point(t)
+    if "error" in point:
+        return verdict("H7", H_TEXT["H7"], "not-evaluable", note=point["error"])
     full = t[t.ell == 0]
     K = int(full.groupby("draw").size().median()) if len(full) else 0
     out = {}
     for ell in (2, 4):
         tr = t[t.ell == ell]
-        if len(tr):
+        if len(tr) and len(full):
             out[ell] = truncation_rms(full, tr, K, n_boot)
-    if not out:
-        return verdict("H7", H_TEXT["H7"], "not-evaluable", note="full circuits present but no l = 2 or l = 4 rows")
-    std_c = float(full.groupby("draw").ev.mean().std(ddof=1)) if len(full) > 1 else np.nan
-    pred = (preds.get("truncation") or {}).get("rms_l2")
-    ps = (preds.get("truncation") or {}).get("rms_l2_sigma", np.nan)
-    l2 = out.get(2)
+    if not out or 2 not in out:
+        return verdict("H7", H_TEXT["H7"], "not-evaluable", note="no full circuits or no l = 2 rows: the l = 2 test is the primary claim", rms=out, point=point)
+    if 4 in out:
+        out[4].update(upper_bound_by_rule=True, reported_upper_bound=out[4]["rms_hi"], label=L4_RULE)
+    std_c = float(full.groupby("draw").ev.mean().std(ddof=1)) if full.draw.nunique() > 1 else np.nan
+    comp, why = P.truncation_prediction(preds, **{k: point[k] for k in ("patch", "edge", "n", "p", "L", "qubits")})
     checks = dict(std_cmix=std_c)
-    fails = []
-    if l2 and pred is not None:
-        checks["l2"] = _value_test(l2["rms"], l2["rms_lo"], l2["rms_hi"], float(pred), float(ps) if ps is not None else np.nan)
-        if checks["l2"]["within"] is False:
-            fails.append("l2")
-    if l2 and 4 in out and np.isfinite(std_c) and std_c > 0.1:
+    common = dict(value={f"rms_l{k}": v["rms"] for k, v in out.items()}, rms=out, point=point, comparator=comp, statistic=H7_STATISTIC)
+    bad_pairs = {k: v["pairing_errors"] for k, v in out.items() if v["pairing_errors"]}
+    if bad_pairs:
+        return verdict("H7", H_TEXT["H7"], "not-evaluable", note=f"full and truncated circuits do not pair (theta or mask seed differs): {bad_pairs}",
+                       checks=checks, **common)
+    if comp is None:
+        return verdict("H7", H_TEXT["H7"], "not-evaluable", note=f"no pre-drawn l = 2 comparator for this placement ({why}); Deviation 60: no H7 verdict "
+                       "without it, whatever the l = 4 test shows", checks=checks, **common)
+    l2 = out[2]
+    ps = comp.get("rms_l2_sigma")
+    checks["l2"] = _value_test(l2["rms"], l2["rms_lo"], l2["rms_hi"], float(comp["rms_l2"]), float(ps) if ps is not None else np.nan)
+    if checks["l2"]["within"] is None:
+        return verdict("H7", H_TEXT["H7"], "not-evaluable", note="the l = 2 RMS or its comparator is not finite", checks=checks, **common)
+    fails = [] if checks["l2"]["within"] else ["l2"]
+    if 4 in out and np.isfinite(std_c) and std_c > 0.1:
         checks["l4_below_l2"] = bool(out[4]["rms_hi"] < l2["rms_lo"])
         if not checks["l4_below_l2"]:
             fails.append("l4")
-    result = "not-evaluable" if len(checks) == 1 else ("fail" if fails else "pass")
-    return verdict("H7", H_TEXT["H7"], result, value={f"rms_l{k}": v["rms"] for k, v in out.items()}, threshold=dict(rms_l2_predicted=pred),
-                   note="l = 4 at the shot floor is an upper bound, consistent with H7" if 4 in out and out[4].get("at_shot_floor") else "", rms=out, checks=checks)
+    note = f"comparator {comp.get('file', 'preds[truncation]')}: sqrt(MSD(2)) = {float(comp['rms_l2']):.4g} +/- {float(ps) if ps is not None else float('nan'):.2g}"
+    if ps is None:
+        note += " (no rms_l2_sigma: the prediction's own error is not added)"
+    if 4 in out:
+        note += "; " + L4_RULE
+    return verdict("H7", H_TEXT["H7"], "fail" if fails else "pass", threshold=dict(rms_l2_predicted=float(comp["rms_l2"]), rms_l2_sigma=ps),
+                   note=note, checks=checks, **common)
 
 
 def evaluate_all(points: pd.DataFrame, rows: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict[str, Dict]:

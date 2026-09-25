@@ -54,6 +54,20 @@ V_sampled - V_truncated. `propagate_sampled` draws N independent Pauli paths fro
 the same chain (unbiased Monte Carlo of the same sums, standard error reported), with the last layer's
 single-qubit block integrated exactly. Both give k = 1 (projection in the last block), k = L (marking at the
 first rotation on the observable qubit) and Var[<O>] from one propagation.
+
+Truncation arm (Section 3b, H7; Deviation 60). ``cuts`` = (l, ...) adds cut accumulators to either engine. After the Ry
+block of layer L - l + 1 (the first op of layer L - l, ``cut_index``) the weights w_P describe the observable evolved back
+through the last l layers, so the circuit cut to its last l layers and started in |0> has E[C_trunc^2] = A_l =
+sum_{P in {I,Z}^n} w_P, and E[C C_trunc] = B_l = sum_{P in {I,Z}^n} w_P mu_P with mu_P = prod_{q in P} mu_q, mu_q =
+E_theta<Z_q> after forward layer L - l (``layer_mean_z``: the t_z of the dial plus D_z times the relaxation feed of the CZ
+block, the theta-independent head of that layer). Then MSD(l) = E[(C - C_trunc)^2] = E[C^2] - 2 B_l + A_l; the prefix
+identity c0 cancels (c0^2 - 2 c0^2 + c0^2), so MSD(l) = var_cost - 2 B_l + A_l with A_l, B_l over the propagated strings.
+The accumulators only read the weights, so a run with cuts propagates exactly as one without. Pruning removes whole
+subtrees whose contribution sum w_P Delta_P (Delta_P >= 0) is non-negative, so the truncated MSD is a lower bound in exact
+arithmetic; the sampled engine gives the unbiased per-path estimate w F - 2 b + a with its standard error. mu_P as a
+product over qubits is exact for the unital base model with a dial (the only theta-independent path is the dial's reset
+of every Z); with CZ-block relaxation (non-unital model) the dep2 factor of a coupler whose two ends both relax only after
+the dial is counted twice, an error of order (1 - f) (t_relax)^2 (1 - p)^2, below 1e-8 relative on the snapshot values.
 """
 from __future__ import annotations
 
@@ -245,6 +259,7 @@ class Program:
     k: int
     qubits: Tuple[int, ...]
     readout: Dict[int, Tuple[float, float]]
+    layer_start: Dict[int, int] = field(default_factory=dict)   # forward layer -> index in ops of its first op (Heisenberg order)
 
 
 def build_program(patch: Patch, L: int, k: int, channels: ChannelSet, cone: Sequence[int],
@@ -258,7 +273,9 @@ def build_program(patch: Patch, L: int, k: int, channels: ChannelSet, cone: Sequ
     subs = [[(local[a], local[b]) for (a, b) in sub if a in local and b in local] for sub in patch.edges_by_sublayer()]
     ops: List[tuple] = []
     exempt = {local[int(q)] for q in exempt_last_layer if int(q) in local}
+    pre_start: Dict[int, int] = {}
     for layer in range(L, 0, -1):
+        pre_start[layer] = len(ops)
         if channels.layer and (channels.zz or channels.zz_layer):
             # one amplitude-level op for the whole dial layer: per-qubit N_p (None = exempt), the idle ZZ (both ends idle) and the
             # static ZZ of the CZ block (Deviation 34) per coupler
@@ -308,14 +325,21 @@ def build_program(patch: Patch, L: int, k: int, channels: ChannelSet, cone: Sequ
             if not b.is_trivial():
                 ops.append(("n1", q, b))
             ops.append(("sx", q))
-    ops = _merge_adjacent_bloch(ops)
+    ops, where = _merge_adjacent_bloch_indexed(ops)
+    # Deviation 60: first op of every forward layer after the merge. A layer's first op is never composed into the previous
+    # layer's ops: every Ry block ends with an sx on every qubit, and 'dial' / 'dial_zz' ops are never merged.
+    layer_start = {}
+    for layer, s in pre_start.items():
+        if s > 0 and where[s] == where[s - 1]:
+            raise RuntimeError(f"layer {layer}: its first op was merged into layer {layer + 1}")
+        layer_start[layer] = where[s]
     first_rot = next(t for t, op in enumerate(ops) if op[0] in ("rot", "mark", "proj"))
     last_multi = max([t for t, op in enumerate(ops) if op[0] in ("cz", "dep2", "dial", "dial_zz")], default=-1)
     # the tail must contain no 'mark'; if L == 1 there is no cz after the prefix and everything is tail
     tail_start = last_multi + 1
     # the prefix ends at the first rotation-type op and never overlaps the tail (L = 1: no op between them)
     prefix_end = min(first_rot, tail_start)
-    return Program(m, ops, prefix_end, tail_start, i, j, L, k, tuple(int(q) for q in cone), channels.readout)
+    return Program(m, ops, prefix_end, tail_start, i, j, L, k, tuple(int(q) for q in cone), channels.readout, layer_start)
 
 
 def compose_bloch(first: Bloch, then: Bloch) -> Bloch:
@@ -328,7 +352,14 @@ def _merge_adjacent_bloch(ops: List[tuple]) -> List[tuple]:
     between (exact: the two Z -> I branches of consecutive splits carry the same theta dependence, so they must be
     added coherently, which the composed channel does). 'dial' ops are never merged: the fixed-mask sampler
     (pattern-noise floor) needs them as separate, tagged ops."""
+    return _merge_adjacent_bloch_indexed(ops)[0]
+
+
+def _merge_adjacent_bloch_indexed(ops: List[tuple]) -> Tuple[List[tuple], List[int]]:
+    """``_merge_adjacent_bloch`` plus, for every input op, the index of the output op it became (or was composed into), so
+    that positions recorded while building (the layer boundaries of ``build_program``) survive the merge."""
     out: List[tuple] = []
+    where: List[int] = []
     last = {}   # qubit -> index in out of the last op touching it
     for op in ops:
         kind = op[0]
@@ -341,11 +372,13 @@ def _merge_adjacent_bloch(ops: List[tuple]) -> List[tuple]:
             t = last.get(q)
             if t is not None and out[t][0] == "n1":
                 out[t] = ("n1", q, compose_bloch(out[t][2], op[2]))
+                where.append(t)
                 continue
         out.append(op)
+        where.append(len(out) - 1)
         for q in qs:
             last[q] = len(out) - 1
-    return out
+    return out, where
 
 
 def make_program(patch, L: int, k: int, model: str, csv_path: str, dial: Optional[Bloch | Dict[int, Bloch]] = None,
@@ -628,13 +661,98 @@ def _split_prefix(prog: Program, mask_bits=None):
     return c0, strings, w0
 
 
+# --------------------------------------------------------------------------- truncation-arm cut accumulators (Deviation 60)
+
+def cut_index(prog: Program, ell: int) -> int:
+    """Op index at which the Heisenberg propagation has passed the last ``ell`` layers: the first op of forward layer
+    L - ell, i.e. the cut after the Ry block of layer L - ell + 1 (1 <= ell <= L - 1)."""
+    if not prog.layer_start:
+        raise ValueError("program carries no layer boundaries (rebuild it with build_program)")
+    if not 1 <= int(ell) <= prog.L - 1:
+        raise ValueError(f"ell must be in 1..L-1 = 1..{prog.L - 1}, got {ell}")
+    t = prog.layer_start[prog.L - int(ell)]
+    if not prog.prefix_end < t <= prog.tail_start:
+        raise RuntimeError(f"cut for ell = {ell} at op {t} outside the propagated range ({prog.prefix_end}, {prog.tail_start}]")
+    return t
+
+
+def layer_mean_z(prog: Program, layer: int) -> np.ndarray:
+    """mu_q = E_theta<Z_q> in the state after forward layer ``layer`` (its dial included), per local qubit.
+
+    Heisenberg picture: Z_q is carried through the theta-independent head of that layer (the dial, the CZ block, the noise
+    before the first sx of the Ry block); a Z that survives to its sx becomes Y and meets the rotation, whose average kills
+    it, so mu_q is the amplitude with which Z_q has turned into I by then: the dial's t_z plus D_z times the relaxation feed
+    of the CZ block (the rule of ``_prefix_coefficients``). A dep2 factor is applied while Z_q is alive (product form over
+    qubits; see the module docstring for the neglected two-qubit coincidence)."""
+    start = prog.layer_start[layer]
+    end = next(t for t in range(start, len(prog.ops)) if prog.ops[t][0] in ("rot", "mark", "proj"))
+    alive, dead, done = np.ones(prog.m), np.zeros(prog.m), np.zeros(prog.m, dtype=bool)
+
+    def channel(q, b):
+        if b is not None and not done[q]:
+            dead[q] += alive[q] * float(b.tz)
+            alive[q] *= float(b.dz)
+
+    for op in prog.ops[start:end]:
+        kind = op[0]
+        if kind in ("n1", "dial"):
+            channel(op[1], op[2])
+        elif kind == "dial_zz":                          # ZZ phases commute with Z-type strings; the per-qubit N_p acts
+            for q, b in enumerate(op[1]):
+                channel(q, b)
+        elif kind == "dep2":
+            for q in (op[1], op[2]):
+                if not done[q]:
+                    alive[q] *= float(op[3])
+        elif kind == "sx":
+            done[op[1]] = True
+        elif kind != "cz":
+            raise RuntimeError(f"unexpected op {kind} in the head of layer {layer}")
+    return dead
+
+
+def _mu_of_strings(Z: np.ndarray, mu: np.ndarray) -> np.ndarray:
+    """mu_P = prod_{q in P} mu_q for Z-type strings given as bit-packed Z words."""
+    out = np.ones(Z.shape[0])
+    for q, v in enumerate(mu):
+        if v == 1.0:
+            continue
+        w, b = q >> 6, U64(q & 63)
+        on = ((Z[:, w] >> b) & ONE).astype(bool)
+        out[on] *= float(v)
+    return out
+
+
+def _truncation_cuts(prog: Program, cuts: Sequence[int]):
+    """{op index: [ell, ...]} and {ell: mu vector of layer L - ell} for the requested cuts."""
+    at: Dict[int, List[int]] = {}
+    mu: Dict[int, np.ndarray] = {}
+    for ell in sorted({int(e) for e in cuts}):
+        at.setdefault(cut_index(prog, ell), []).append(ell)
+        mu[ell] = layer_mean_z(prog, prog.L - ell)
+    return at, mu
+
+
+def _cut_record(prog: Program, var_cost: float, acc: Dict[int, dict]) -> Dict[int, dict]:
+    """MSD(l) = var_cost - 2 B_l + A_l (prefix identity cancelled) and RMS = sqrt(max(MSD, 0)) per cut."""
+    out = {}
+    for ell, a in sorted(acc.items()):
+        msd = var_cost - 2.0 * a["B"] + a["A"]
+        out[ell] = dict(a, msd=float(msd), rms=float(np.sqrt(max(msd, 0.0))) if np.isfinite(msd) else float("nan"))
+    return out
+
+
 def propagate_truncated(prog: Program, delta: float = 1e-7, max_weight: int | None = None,
-                        n_cap: int | None = None, time_limit_s: float | None = None) -> PPResult:
+                        n_cap: int | None = None, time_limit_s: float | None = None, cuts: Sequence[int] = ()) -> PPResult:
     """Deterministic second-moment propagation keeping strings with weight >= delta (Pauli weight <= max_weight),
     merging duplicates after every branching op. Weight column 0: all paths (cost variance, k = 1 via the tail
-    projection); column 1: paths marked at the (k, i) rotation (k > 1). Discarded weight is accumulated."""
+    projection); column 1: paths marked at the (k, i) rotation (k > 1). Discarded weight is accumulated.
+    ``cuts`` (Deviation 60): truncation-arm accumulators A_l, B_l at the cut of each l, returned as
+    ``extra['cuts'][l]`` = {A, B, msd, rms, n_strings, discarded_before}; the propagation itself is unchanged."""
     t0 = time.time()
     W = (prog.m + 63) // 64
+    cut_at, cut_mu = _truncation_cuts(prog, cuts) if cuts else ({}, {})
+    cut_acc: Dict[int, dict] = {}
     c0, strings, w0 = _split_prefix(prog)
     X, Z = _ints_to_words(strings, W)
     Wt = np.zeros((len(strings), 2))
@@ -696,12 +814,21 @@ def propagate_truncated(prog: Program, delta: float = 1e-7, max_weight: int | No
         w, b = q >> 6, U64(q & 63)
         A[:, w] = (A[:, w] & ~(ONE << b)) | (val.astype(U64) << b)
 
+    def take_cut(t):
+        d = ~np.any(X != 0, axis=1)                                   # Z-type strings: <0|P|0> = 1
+        w = Wt[d, 0]
+        for ell in cut_at[t]:
+            cut_acc[ell] = dict(A=float(w.sum()), B=float((w * _mu_of_strings(Z[d], cut_mu[ell])).sum()), n_strings=int(X.shape[0]),
+                                n_diagonal=int(d.sum()), discarded_before=float(discarded), mu_mean=float(np.mean(cut_mu[ell])))
+
     n_since = X.shape[0]
-    for op in prog.ops[prog.prefix_end:prog.tail_start]:
+    for t_op, op in enumerate(prog.ops[prog.prefix_end:prog.tail_start], start=prog.prefix_end):
         kind = op[0]
         if time_limit_s is not None and time.time() - t0 > time_limit_s:
             timed_out = True
             break
+        if t_op in cut_at:
+            take_cut(t_op)
         if kind == "rot":
             q = op[1]
             w, b = q >> 6, U64(q & 63)
@@ -786,8 +913,12 @@ def propagate_truncated(prog: Program, delta: float = 1e-7, max_weight: int | No
         n_max = max(n_max, X.shape[0])
     if timed_out:
         nan = float("nan")
-        return PPResult(nan, nan, c0, nan, nan, discarded, n_max, time.time() - t0, method="truncated", delta=delta,
-                        extra=dict(timed_out=True, capped=capped))
+        extra = dict(timed_out=True, capped=capped)
+        if cuts:
+            extra["cuts"] = {int(e): dict(A=nan, B=nan, msd=nan, rms=nan) for e in cuts}
+        return PPResult(nan, nan, c0, nan, nan, discarded, n_max, time.time() - t0, method="truncated", delta=delta, extra=extra)
+    if prog.tail_start in cut_at:
+        take_cut(prog.tail_start)
     X, Z, Wt = merge(X, Z, Wt)
     F, Fd = _final_factors(prog, X, Z, T, Td)
     var_cost = float((Wt[:, 0] * F).sum())
@@ -799,8 +930,11 @@ def propagate_truncated(prog: Program, delta: float = 1e-7, max_weight: int | No
         var_k = var_kL
     if prog.L == 1:
         var_kL = var_k1
+    extra = dict(capped=capped, timed_out=False)
+    if cuts:
+        extra["cuts"] = _cut_record(prog, var_cost, cut_acc)
     return PPResult(var_k, var_cost, c0, var_k1, var_kL, discarded, n_max, time.time() - t0, method="truncated",
-                    delta=delta, extra=dict(capped=capped, timed_out=False))
+                    delta=delta, extra=extra)
 
 
 # --------------------------------------------------------------------------- dial layer with the ZZ phases
@@ -1067,18 +1201,26 @@ def _dial_zz_layer_sampled(X, Z, weight, blochs, edges, rng, fixed_masks: bool):
 # --------------------------------------------------------------------------- sampled engine (Pauli paths)
 
 def propagate_sampled(prog: Program, n_samples: int = 200_000, seed: int = 0, fixed_masks: bool = False,
-                      time_limit_s: float | None = None) -> PPResult:
+                      time_limit_s: float | None = None, cuts: Sequence[int] = ()) -> PPResult:
     """Unbiased Monte Carlo of the same second-moment sums: ``n_samples`` independent Pauli paths, each rotation
     branch and each non-unital Z -> I branch drawn with its weight fraction, the mass factors carried as a
     per-path weight, the last block integrated exactly (per-qubit tables). With ``fixed_masks`` every 'dial' op
     is sampled per path as reset / idle (a fresh mask per circuit and layer), so the estimate is
     E_mask E_theta[<O>_mask^2] - E_mask E_theta[<O>_mask]^2 ... returned as var_cost = E_{mask,theta}[C_mask^2] -
-    (prefix constants handled per mask case); see ``pattern_variance``."""
+    (prefix constants handled per mask case); see ``pattern_variance``.
+    ``cuts`` (Deviation 60, mixture channel only): per path, a = w [P Z-type] and b = a mu_P at the cut of each l; MSD(l)
+    is the mean of w F - 2 b + a over the same paths, with its standard error (``extra['cuts'][l]`` = {A, B, msd, se_msd,
+    rms, se_rms}). The random stream is unchanged by the cuts, so var_cost / var_kL equal those of a run without them."""
     t0 = time.time()
+    if cuts and fixed_masks:
+        raise ValueError("truncation cuts need the mixture channel (fixed_masks=False)")
     rng = np.random.default_rng(seed)
     W = (prog.m + 63) // 64
     T, Td = _tail_tables(prog)
     N = int(n_samples)
+    cut_at, cut_mu = _truncation_cuts(prog, cuts) if cuts else ({}, {})
+    cut_a: Dict[int, np.ndarray] = {}
+    cut_b: Dict[int, np.ndarray] = {}
     if fixed_masks:
         # layer-L dial on the observable qubits is in the prefix: enumerate the 4 mask cases there
         dial_tz = _prefix_dial_tz(prog)
@@ -1122,11 +1264,20 @@ def propagate_sampled(prog: Program, n_samples: int = 200_000, seed: int = 0, fi
     flag = np.zeros(N, dtype=bool)
     marked = False
     timed_out = False
-    for op in prog.ops[prog.prefix_end:prog.tail_start]:
+
+    def take_cut(t):
+        d = ~np.any(X != 0, axis=1)
+        for ell in cut_at[t]:
+            cut_a[ell] = weight * d
+            cut_b[ell] = cut_a[ell] * _mu_of_strings(Z, cut_mu[ell])
+
+    for t_op, op in enumerate(prog.ops[prog.prefix_end:prog.tail_start], start=prog.prefix_end):
         kind = op[0]
         if time_limit_s is not None and time.time() - t0 > time_limit_s:
             timed_out = True
             break
+        if t_op in cut_at:
+            take_cut(t_op)
         if kind == "rot":
             q = op[1]
             w, b = q >> 6, U64(q & 63)
@@ -1186,7 +1337,12 @@ def propagate_sampled(prog: Program, n_samples: int = 200_000, seed: int = 0, fi
             raise RuntimeError(kind)
     if timed_out:
         nan = float("nan")
-        return PPResult(nan, nan, c0, nan, nan, nan, N, time.time() - t0, method="sampled", extra=dict(timed_out=True))
+        extra = dict(timed_out=True)
+        if cuts:
+            extra["cuts"] = {int(e): dict(A=nan, B=nan, msd=nan, se_msd=nan, rms=nan, se_rms=nan) for e in cuts}
+        return PPResult(nan, nan, c0, nan, nan, nan, N, time.time() - t0, method="sampled", extra=extra)
+    if prog.tail_start in cut_at:
+        take_cut(prog.tail_start)
     F, Fd = _final_factors(prog, X, Z, T, Td)
     def est(v):
         return float(v.mean()), float(v.std(ddof=1) / np.sqrt(N))
@@ -1197,9 +1353,18 @@ def propagate_sampled(prog: Program, n_samples: int = 200_000, seed: int = 0, fi
     else:
         var_kL, se_kL = (var_k1, se_k1) if prog.L == 1 else (float("nan"), float("nan"))
     var_k, se_k = (var_k1, se_k1) if prog.k == 1 else (var_kL, se_kL)
+    extra = dict(timed_out=False, second_moment_cost=var_cost + const_sq, const_sq=const_sq, fixed_masks=fixed_masks)
+    if cuts:
+        wF = weight * F
+        rec = {}
+        for ell in sorted(cut_a):
+            msd, se = est(wF - 2.0 * cut_b[ell] + cut_a[ell])
+            rms = float(np.sqrt(max(msd, 0.0)))
+            rec[ell] = dict(A=float(cut_a[ell].mean()), B=float(cut_b[ell].mean()), msd=msd, se_msd=se, rms=rms,
+                            se_rms=float(se / (2.0 * rms)) if rms > 0 else float("nan"), mu_mean=float(np.mean(cut_mu[ell])))
+        extra["cuts"] = rec
     return PPResult(var_k, var_cost, c0, var_k1, var_kL, float("nan"), N, time.time() - t0, se_k, se_cost, se_k1, se_kL,
-                    method="sampled", extra=dict(timed_out=False, second_moment_cost=var_cost + const_sq, const_sq=const_sq,
-                                                 fixed_masks=fixed_masks))
+                    method="sampled", extra=extra)
 
 
 def pattern_variance(prog: Program, n_samples: int = 200_000, seed: int = 0) -> Dict[str, float]:
@@ -1243,6 +1408,49 @@ def predict_point(patch, L: int, k: int, model: str, csv_path: str, deltas: Sequ
         out.update(var_mc=s.var_k, se_mc=s.se_k, var_cost_mc=s.var_cost, se_cost_mc=s.se_cost, var_k1_mc=s.var_k1, se_k1_mc=s.se_k1,
                    var_kL_mc=s.var_kL, se_kL_mc=s.se_kL, mc_samples=s.n_max, mc_runtime_s=s.runtime_s,
                    mc_timed_out=bool(s.extra.get("timed_out")))
+    return out
+
+
+def predict_truncation(prog: Program, ells: Sequence[int] | None = None, deltas: Sequence[float] = (1e-6, 1e-7), n_samples: int = 500_000,
+                       seed: int = 0, n_cap: int | None = 400_000, time_limit_s: float | None = 600.0, sampled: bool = True) -> Dict:
+    """Truncation-arm prediction (Section 3b, H7; Deviation 60): MSD(l) and RMS(l) = sqrt(MSD(l)) of C_mix - C_mix[L - l, L]
+    for every l in ``ells`` (default 1..L-1) from one program: the truncation sweep over ``deltas`` (coarse to fine; lower
+    bounds) and the sampled engine (``n_samples`` paths, ``seed``; unbiased). The comparator of each l follows the Deviation 15
+    rule the H5 / H6 rows use (``analysis.predictions._pp_lookup``), applied to the RMS: value = the sampled RMS when finite,
+    else the fine truncation; error 2 sigma = max(2 x the sampled standard error, sampled - truncated); sigma = half of it.
+    The engine's truncation or sampling error only: no model-error term."""
+    nan = float("nan")
+    ells = tuple(range(1, prog.L)) if ells is None else tuple(sorted({int(e) for e in ells}))
+    res = [propagate_truncated(prog, delta=d, n_cap=n_cap, time_limit_s=time_limit_s, cuts=ells) for d in deltas]
+    fine, coarse = res[-1], res[0]
+    out = dict(L=prog.L, k=prog.k, n_cone=prog.m, edge=f"{prog.qubits[prog.i]}_{prog.qubits[prog.j]}", ells=list(ells),
+               deltas=[float(d) for d in deltas], n_samples=int(n_samples) if sampled else 0, seed=int(seed), n_cap=n_cap, time_limit_s=time_limit_s,
+               mean_cost=fine.mean_cost, var_cost_pp=fine.var_cost, var_cost_pp_coarse=coarse.var_cost, var_kL_pp=fine.var_kL,
+               discarded=fine.discarded, discarded_coarse=coarse.discarded, n_strings_max=fine.n_max, pp_runtime_s=sum(r.runtime_s for r in res),
+               pp_timed_out=bool(fine.extra.get("timed_out")), pp_capped=bool(fine.extra.get("capped")))
+    s = propagate_sampled(prog, n_samples, seed, time_limit_s=time_limit_s, cuts=ells) if sampled else None
+    if s is not None:
+        out.update(var_cost_mc=s.var_cost, se_cost_mc=s.se_cost, var_kL_mc=s.var_kL, se_kL_mc=s.se_kL, mc_runtime_s=s.runtime_s,
+                   mc_timed_out=bool(s.extra.get("timed_out")))
+    vc = out.get("var_cost_mc", nan)
+    out["std_cmix"] = float(np.sqrt(vc)) if np.isfinite(vc) and vc > 0 else float(np.sqrt(max(fine.var_cost, 0.0)))
+    per = {}
+    for ell in ells:
+        f, c = fine.extra["cuts"][ell], coarse.extra["cuts"][ell]
+        row = dict(msd_pp=f["msd"], rms_pp=f["rms"], msd_pp_coarse=c["msd"], rms_pp_coarse=c["rms"], A_pp=f["A"], B_pp=f["B"],
+                   n_strings_at_cut=f.get("n_strings"), discarded_before_cut=f.get("discarded_before"), mu_mean=f.get("mu_mean"))
+        rms_mc, se = nan, nan
+        if s is not None:
+            m = s.extra["cuts"][ell]
+            rms_mc, se = m["rms"], m["se_rms"]
+            row.update(msd_mc=m["msd"], se_msd_mc=m["se_msd"], rms_mc=rms_mc, se_rms_mc=se)
+        value = rms_mc if np.isfinite(rms_mc) and rms_mc > 0 else f["rms"]
+        deficit = rms_mc - f["rms"] if np.isfinite(rms_mc) and np.isfinite(f["rms"]) else nan
+        err2 = max(2 * se if np.isfinite(se) else 0.0, deficit if np.isfinite(deficit) else 0.0)
+        row.update(rms=float(value), rms_sigma=float(err2 / 2), rms_error_2sigma=float(err2), truncation_deficit=float(deficit),
+                   source="sampled" if (np.isfinite(rms_mc) and rms_mc > 0) else "truncated (lower bound)")
+        per[ell] = row
+    out["by_ell"] = per
     return out
 
 

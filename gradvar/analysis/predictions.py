@@ -43,7 +43,54 @@ def load_predictions(directory: str | Path | None = None) -> Dict:
     g = d / "gate1_gradients.npz"
     if g.exists():
         out["gradients"] = dict(np.load(g))
+    out["truncation_entries"] = load_truncation_entries(d)
     return out
+
+
+def load_truncation_entries(directory: str | Path) -> List[Dict]:
+    """Deviation 60: the committed H7 comparators, every ``entries`` item of ``h7_truncation_*.json`` in ``directory`` (file
+    order by name; each entry keyed by the placement it was drawn on, ``point``), tagged with its file name."""
+    out = []
+    for f in sorted(Path(directory).glob("h7_truncation_*.json")):
+        for e in json.loads(f.read_text()).get("entries", []):
+            out.append(dict(e, file=f.name))
+    return out
+
+
+def _same_point(entry: Dict, patch, edge, n, p, L, qubits) -> tuple:
+    """(matches, reason) of a comparator entry against a truncation point; keys absent on either side are not compared."""
+    pt = entry.get("point", entry)
+    checks = (("patch", patch, lambda a, b: str(a) == str(b)), ("edge", edge, lambda a, b: str(a).replace("-", "_") == str(b).replace("-", "_")),
+              ("n", n, lambda a, b: int(a) == int(b)), ("p", p, lambda a, b: np.isclose(float(a), float(b))), ("L", L, lambda a, b: int(a) == int(b)),
+              ("qubits", qubits, lambda a, b: sorted(int(q) for q in a) == sorted(int(q) for q in b)))
+    for key, want, same in checks:
+        have = pt.get(key)
+        if have is not None and want is not None and not same(have, want):
+            return False, f"{key} {have} (comparator) vs {want} (run)"
+    return True, ""
+
+
+def truncation_prediction(preds: Dict, patch=None, edge=None, n=None, p=None, L=None, qubits=None) -> tuple:
+    """(comparator, note) for one truncation-arm point (H7, Deviation 60): ``preds['truncation']`` when the caller set one
+    (it must carry ``rms_l2``, and every placement key it carries must match), else the last committed ``h7_truncation_*``
+    entry drawn on this point's placement (patch, edge, n, p, L and, where both sides record it, the qubit set). Predictions
+    are placement-specific (Deviations 46, 58): a comparator of another placement is not used. None when there is none."""
+    explicit = preds.get("truncation")
+    if explicit:
+        if explicit.get("rms_l2") is None:
+            return None, "preds['truncation'] has no rms_l2"
+        ok, why = _same_point(explicit, patch, edge, n, p, L, qubits)
+        return (explicit, "") if ok else (None, f"preds['truncation'] is for another point: {why}")
+    entries = [e for e in preds.get("truncation_entries", []) or [] if e.get("rms_l2") is not None]
+    if not entries:
+        return None, "no committed h7_truncation_*.json comparator"
+    hits, reasons = [], []
+    for e in entries:
+        ok, why = _same_point(e, patch, edge, n, p, L, qubits)
+        (hits if ok else reasons).append(e if ok else f"{e.get('file')}: {why}")
+    if not hits:
+        return None, "no comparator for this placement (" + "; ".join(reasons) + ")"
+    return hits[-1], ""
 
 
 def _select_rows(df: pd.DataFrame, n: int, L: int, patch: str | None, edge: str | None, model: str) -> pd.DataFrame:

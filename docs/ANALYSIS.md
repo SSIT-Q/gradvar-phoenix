@@ -79,10 +79,19 @@ its interval at every reset point (below the floor with the interval refutes); t
 ratio Var(n = 87)/Var(n = 39) at p = 0.25 against the pre-drawn ratios; the reset dial at the control patch (n = 53) over
 the dephasing dial by the pre-drawn factor within the combined interval and above 1; the k = 1 fall is reported only (k = 1
 rows are upper bounds, Deviation 40; exploratory at L = 12, Deviation 37); a delay-matched reference that does not fall
-from L = 8 to L = 12 makes the ladder comparison inconclusive rather than refuting. **H7**: `truncation_rms` implements the
-RMS of C_mix − C_mix[L − ℓ, L] with the residual pattern noise of the deleted layers subtracted (bootstrap over masks);
-the evaluator runs on rows of kind `truncation` with an `ell` column, a probe kind not yet in the job-list schema, so it
-is not-evaluable on today's runs.
+from L = 8 to L = 12 makes the ladder comparison inconclusive rather than refuting. **H7** (Deviation 60): the loader maps
+the truncation probes (`reset_dial` with `unshifted`; `truncate_to` = ℓ, the full circuit ℓ = 0) to kind `truncation` with an
+`ell` column and their own point id (`truncation <reset kind> p… n… L… l… r…`), so H5 / H6 never see them and the repeat index
+does not interleave them with the dial point. `truncation_rms` pairs full and truncated rows by draw and `mask_index` (a pair
+whose theta or mask seed differs is a pairing error) and estimates MSD(ℓ): per draw the squared mean difference minus the
+residual pattern term of the deleted layers (Section 3b) and minus the shot term of the mean difference (Section 3, Pairing:
+"Shot and pattern-noise floors are subtracted"), averaged over draws; interval = the spread over draws combined with a bootstrap
+over masks within draws of the subtracted terms. The statistic before Deviation 60 (shot term kept) is reported as
+`rms_with_shot`. `evaluate_h7` compares the ℓ = 2 RMS with the committed comparator sqrt(MSD(2)) ± `rms_l2_sigma`
+(`data/predictions/h7_truncation_<tag>.json`, drawn on the rows' placement by `scripts/predict_h7_truncation.py` and matched on
+patch, edge, n, p, L and the placed qubit set; an explicit `preds['truncation']` takes precedence) within the combined interval; it is not-evaluable without that comparator, with
+pairing errors, or with rows from more than one placement. ℓ = 4 is an upper-bound point by rule (Deviation 60 rule (a)); the
+one-sided ℓ = 4 < ℓ = 2 test runs when the measured std(C_mix) exceeds 0.1.
 
 **Gate 1b clause (b) on the day** (Deviations 35, 39, 44, 45; flags, not a gate decision): per rung, the delay-matched
 p = 0 k = L reference at L = 8 (16384 shots under Deviation 44) is counted only if its measured, floor-subtracted variance
@@ -159,7 +168,8 @@ per-draw rows (`draws`, `param_hashes`, `theta_seeds` in job.json).
 Open items for the PI (not resolved by the code): Gate 1b clause (b) on the day is reported as flags only (Gate 1b is
 decided on the predictions before booking); the H4 part 2 "grows with cone size" clause is read on point estimates while
 "differs from 4" uses the bootstrap interval, so the two clauses together admit only modest growth (a pre-registration
-tension, not a code choice); the truncation arm (H7) has no job-list probe kind yet.
+tension, not a code choice); the H7 one-sided ℓ = 4 < ℓ = 2 test compares the two intervals (ℓ = 4 upper limit below the
+ℓ = 2 lower limit) rather than a paired bootstrap of the difference (unchanged by Deviation 60).
 
 ## Which prediction row is compared to what (21 Sep 2026, after the day-2 review)
 

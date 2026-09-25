@@ -8,6 +8,7 @@ from __future__ import annotations
 import base64
 import io
 import json
+import re
 import zlib
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -130,7 +131,38 @@ def _point_id(r: dict) -> str:
         return f"null n{r['n']} L{r['L']} k{r['k']} r{r['resilience_level']} s{r['shots']}"
     if r["kind"] == "reset_dial":
         return f"{r['reset_kind']} p{float(r['p']):g} n{r['n']} L{r['L']} k{r['k']} r{r['resilience_level']}"
+    if r["kind"] == "truncation":      # Deviation 60: the H7 arm, full circuit (l = 0) and each cut apart from the dial point
+        return f"truncation {r['reset_kind']} p{float(r['p']):g} n{r['n']} L{r['L']} l{int(r['ell'])} r{r['resilience_level']}"
     return f"{r['kind']}:{r['probe_id']} r{r['resilience_level']}"
+
+
+# job-list naming of the truncation probes (scripts/make_paper1_joblists.py: trunc_full_p0.5_L8, trunc_l2_p0.5_L8, trunc_l4_p0.5_L8)
+_TRUNC_PROBE_ID = re.compile(r"^trunc_(?:full|l(\d+))(?:_|$)")
+
+
+def _is_true(v) -> bool:
+    return v is True or (isinstance(v, (bool, np.bool_)) and bool(v)) or (isinstance(v, str) and v.strip().lower() == "true")
+
+
+def truncation_ell(rows: pd.DataFrame) -> pd.Series:
+    """Deviation 60: ell of every truncation-arm row (Section 3b, H7), NaN for every other row. A truncation pub is a
+    ``reset_dial`` probe with ``unshifted`` (one circuit at theta, the cost C_mix) in the bundle's job.json; ell =
+    ``truncate_to`` (the last ell layers from |0>), 0 for the full circuit. Rows without a bundle description (``unshifted``
+    absent) fall back on the job-list probe ids trunc_full_* (0) / trunc_l<ell>_*."""
+    out = pd.Series(np.nan, index=rows.index, dtype=float)
+    if not len(rows):
+        return out
+    dial = rows["kind"].astype(str) == "reset_dial"
+    unsh = rows["unshifted"] if "unshifted" in rows.columns else pd.Series(None, index=rows.index, dtype=object)
+    known = unsh.notna()
+    flag = unsh.map(_is_true) & known & dial
+    tt = pd.to_numeric(rows["truncate_to"], errors="coerce") if "truncate_to" in rows.columns else pd.Series(np.nan, index=rows.index)
+    out[flag] = tt[flag].fillna(0.0)
+    pid = rows["probe_id"].astype(str) if "probe_id" in rows.columns else pd.Series("", index=rows.index)
+    m = pid.str.extract(_TRUNC_PROBE_ID, expand=False)
+    by_name = dial & ~known & pid.str.match(_TRUNC_PROBE_ID)
+    out[by_name] = pd.to_numeric(m[by_name], errors="coerce").fillna(0.0)
+    return out
 
 
 def _shot_var(ev_p, ev_m, sd_p, sd_m, shots):
@@ -167,7 +199,8 @@ def _enrich_from_bundle(rows: pd.DataFrame, b: Bundle) -> pd.DataFrame:
     if len(expanded) != len(rows):
         rows["bundle_note"] = f"{len(pts)} pubs ({len(expanded)} rows) in job.json vs {len(rows)} CSV rows"
         return rows
-    for col in ("probe_id", "reset_kind", "mask_index", "patch", "edge", "dial_delay_ns", "mask_seed_bundle", "p_bundle", "K_bundle", "rep_delay_us", "null_qubit", "draw_bundle"):
+    for col in ("probe_id", "reset_kind", "mask_index", "patch", "edge", "dial_delay_ns", "mask_seed_bundle", "p_bundle", "K_bundle", "rep_delay_us", "null_qubit", "draw_bundle",
+                "unshifted", "truncate_to"):
         rows[col] = None
     rows = rows.reset_index(drop=True)
     for i, (pub_index, pt, d) in enumerate(expanded):
@@ -187,6 +220,8 @@ def _enrich_from_bundle(rows: pd.DataFrame, b: Bundle) -> pd.DataFrame:
         rows.at[i, "rep_delay_us"] = pt.get("rep_delay_us")
         rows.at[i, "null_qubit"] = pt.get("null_qubit")
         rows.at[i, "draw_bundle"] = pt.get("draw") if d is None else d
+        rows.at[i, "unshifted"] = pt.get("unshifted")                 # Deviation 60: the truncation arm's pubs (one circuit at theta)
+        rows.at[i, "truncate_to"] = pt.get("truncate_to")
         rows.at[i, "kind"] = pt.get("kind") or "grid"
     return rows
 
@@ -199,8 +234,9 @@ def job_rep_delay(job: dict):
 
 def _repeat_index(df: pd.DataFrame) -> pd.Series:
     """Repeat index of a circuit pair within its point: rows sharing point id and theta seed (a level-2 point is run twice,
-    Section 2 "Mitigation") are numbered 0, 1, ... in job order."""
-    return df.groupby(["point_id", "seed"], sort=False).cumcount().astype(int)
+    Section 2 "Mitigation") are numbered 0, 1, ... in job order. Rows without a seed (reset-error and sampler pubs) are
+    numbered within their point (``dropna=False``; the default dropped them and left NaN, which could not be cast to int)."""
+    return df.groupby(["point_id", "seed"], sort=False, dropna=False).cumcount().astype(int)
 
 
 def _draw_index(df: pd.DataFrame) -> pd.Series:
@@ -235,6 +271,11 @@ class RunData:
     @property
     def dial(self) -> pd.DataFrame:
         return self.rows[self.rows.kind == "reset_dial"]
+
+    @property
+    def truncation(self) -> pd.DataFrame:
+        """The Section 3b truncation arm (H7): kind 'truncation', ``ell`` = 0 for the full circuit (Deviation 60)."""
+        return self.rows[self.rows.kind == "truncation"]
 
     @property
     def is_dry_run(self) -> bool:
@@ -315,6 +356,10 @@ def load_run(run_dir: str | Path, csv_paths: Sequence[str | Path] | None = None)
         if alt in rows.columns:
             rows[col] = pd.to_numeric(rows[col], errors="coerce")
             rows[col] = rows[col].where(pd.notna(rows[col]), pd.to_numeric(rows[alt], errors="coerce"))
+    # Deviation 60: the truncation arm (unshifted reset_dial pubs) is kind 'truncation' with ell (0 = full circuit), so it neither
+    # shares the dial point's id (H5 / H6 select kind 'reset_dial') nor stays invisible to evaluate_h7
+    rows["ell"] = truncation_ell(rows)
+    rows.loc[rows["ell"].notna(), "kind"] = "truncation"
     probes = rows.kind != "grid"
     rows.loc[probes, "arm"] = rows.loc[probes, "reset_kind"].astype(object)
     rows.loc[rows.kind == "null_control", "arm"] = "null_control"
@@ -327,6 +372,6 @@ def load_run(run_dir: str | Path, csv_paths: Sequence[str | Path] | None = None)
     rows["point_id"] = [_point_id(r) for r in rows.to_dict("records")]
     rows["draw"] = _draw_index(rows)
     rows["repeat"] = _repeat_index(rows)
-    keep = TIDY_COLUMNS + [c for c in ("source_csv", "bundle_note", "observable_edge", "null_qubit") if c in rows.columns]
+    keep = TIDY_COLUMNS + [c for c in ("ell", "unshifted", "truncate_to", "source_csv", "bundle_note", "observable_edge", "null_qubit") if c in rows.columns]
     rows = rows[keep]
     return RunData(rows=rows, bundles=bundles, reset_error=reset_error_table(list(bundles.values())), csv_paths=list(csvs), run_dir=root)
