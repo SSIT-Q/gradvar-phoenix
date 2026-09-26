@@ -55,8 +55,9 @@ def dial_comparisons(points: pd.DataFrame, preds: Dict) -> list:
         if ctrl.empty:
             continue
         c = ctrl.iloc[0].to_dict()
-        pr = P.predicted_point(preds, r["n"], r["L"], r["k"], "reset", r["p"], patch=r["patch"], edge=r["edge"])
-        pc = P.predicted_point(preds, r["n"], r["L"], r["k"], "delay", 0.0, patch=r["patch"], edge=r["edge"])
+        placed = r.get("patch_qubits")                  # rows drawn on the run's placement only (Deviation 60, review M5)
+        pr = P.predicted_point(preds, r["n"], r["L"], r["k"], "reset", r["p"], patch=r["patch"], edge=r["edge"], qubits=placed)
+        pc = P.predicted_point(preds, r["n"], r["L"], r["k"], "delay", 0.0, patch=r["patch"], edge=r["edge"], qubits=placed)
         sep = (pr["var"] - pc["var"]) if pr and pc else None
         cmp = delay_matched_comparison(r, c, r.get("gradients"), c.get("gradients"), sep)
         cmp.update(point_id=r["point_id"], control_id=c["point_id"], n=r["n"], L=r["L"], k=r["k"], p=r["p"],

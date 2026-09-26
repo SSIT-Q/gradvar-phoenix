@@ -238,6 +238,59 @@ every op type and the plaquette cycle.
 The CSV marks these rows `placement = "old placement ..."`; they must be recomputed on the re-placed patches once
 `place_patch` carries the CZ < 5e-3 cut.
 
+### Deviation 60: truncation-arm cut accumulators (H7 comparator)
+
+`propagate_truncated(..., cuts=(l, ...))`, `propagate_sampled(..., cuts=(l, ...))`, `predict_truncation(prog, ells, ...)`;
+comparator script `scripts/predict_h7_truncation.py` (outputs `data/predictions/h7_truncation_<tag>.json` / `.md`, read by
+`gradvar.analysis.predictions.load_predictions` as `preds['truncation_entries']`); tests `tests/test_pauliprop_truncation.py`.
+
+**Quantity.** The Section 3b truncation arm measures, per draw, `C_mix(theta) - C_mix^[L-l, L](theta)`: the full circuit against
+the circuit with its first `L - l` layers deleted and all qubits started in `|0>`, on the same angles and masks for the kept layers
+(`hardware.build_probes`: parameters `thetas[:, (L - l) n:]`, masks `mask[L - l:]`). H7 compares `RMS(l) = sqrt(MSD(l))`,
+`MSD(l) = E_theta[(C_mix - C_mix^[L-l, L])^2]`, with the dial as the mixture channel `N_p` (the mask average).
+
+**Cut accumulators.** `Program.layer_start` records the first op (Heisenberg order) of every forward layer; `cut_index(prog, l)` is
+that of forward layer `L - l`, i.e. the propagation has passed the Ry block of layer `L - l + 1` and the weights `w_P` describe
+the observable evolved back through the last `l` layers. The truncated circuit closes them on `|0...0>`, so
+`E[C_trunc^2] = A_l = sum_{P in {I,Z}^n} w_P`; the full circuit continues, and because distinct paths are uncorrelated,
+`E[C C_trunc] = B_l = sum_{P in {I,Z}^n} w_P mu_P`, `mu_P = prod_{q in P} mu_q`, `mu_q = E_theta<Z_q>` after forward layer `L - l`
+(`layer_mean_z`: the dial's `t_z` plus `D_z` times the relaxation feed of the CZ block, the theta-independent head of that layer).
+Then `MSD(l) = E[C^2] - 2 B_l + A_l`; the prefix identity `c0` cancels, so `MSD(l) = var_cost - 2 B_l + A_l` over the propagated
+strings. The accumulators only read the weights: with cuts the propagation, `var_cost`, `var_kL`, `var_k1`, the discarded weight
+and the string count are bit-identical to a run without them (both engines; the sampler's random stream is unchanged).
+
+**Bounds and errors.** A kept string contributes `w_P Delta_P` with `Delta_P = F_P - 2 mu_P [P Z-type] + [P Z-type]`, `F_P` its
+remaining second moment; `F_P >= mu_P^2` (Jensen) gives `Delta_P >= (1 - mu_P)^2 >= 0` for a Z-type string and `Delta_P = F_P >= 0`
+otherwise. Pruning before the cut removes whole subtrees (`w_P^trunc <= w_P`), and pruning after the cut removes only `E[C^2]` weight
+(`F_P^trunc <= F_P`; `A_l` and `B_l` read the weights at the cut), so
+`MSD - MSD_trunc = sum_P (w_P - w_P^trunc) Delta_P + sum_P w_P^trunc (F_P - F_P^trunc) >= 0` and the truncated MSD is a lower bound
+(Deviation 60 checkpoint review O1; this replaces the note review's reading that the `-2 B_l` term breaks the bound). At coarse
+`delta` it can reach 0, or fall slightly below it, for large `l`; the RMS is then reported as 0. The Pauli-path
+sampler scores each path with `a = w [P Z-type]` and `b = a mu_P` at the cut and its final weight `w F`, and averages
+`w F - 2 b + a` (unbiased, with its standard error; mixture channel only, `fixed_masks` is refused). `predict_truncation` applies
+the Deviation 15 rule of the H5 / H6 rows in RMS space: value = the sampled RMS when finite, else the fine truncation;
+`2 sigma = max(2 x the sampled s.e., sampled - truncated)`; the engine's truncation or sampling error only, no model-error term.
+
+**`mu_P` in product form.** Exact for the unital base model with a dial (the only theta-independent path is the dial's reset of
+every Z). With CZ-block relaxation (non-unital model) the dep2 factor of a coupler whose two ends both relax only after the dial is
+counted twice, an error of order `(1 - f) t_relax^2 (1 - p)^2`, below 1e-8 relative on the snapshot values; the comparator uses the
+unital base model (Deviation 46).
+
+**Validation.** Against a brute-force doubled-space reference (`pauliprop_exact.exact_truncation_moments`: the doubled density
+propagated exactly, the truncated copy started in `|0>` at the program's layer boundary, no Pauli-path argument; the boundary itself
+is tested by the bug check below, whose chain defines the truncation independently) on the 2x2 patch, L = 3, every l: noiseless + pure dial, unital + reset dial, unital + reset + ZZ idle + layer
+ZZ, unital + dephasing dial and unital + delay agree to <= 5e-16 relative; non-unital without a dial to 3e-6 / 6e-6 (the base
+model's Z -> I residual above). Non-unital + reset dial is not claimed: there the engine's own `var_cost` differs from the exact
+value by 0.59 % (the same residual, amplified by the dial); the Deviation 46 comparators are unital-base and unaffected. The sampled
+cut estimator is unbiased at 4e5 paths (z = 0.06, 0.93, -0.82). Bug check (the dial-law note's Section 6 item 1): with noise off,
+on the day-3 n60 rung (n = 52, edge 84_85, p = 0.5, L = 8) the engine at delta = 1e-11 gives Var[C_mix] = 1.9134880039e-02
+(std 0.138329), MSD(2) = 3.2771835054e-03 (RMS 0.057247), MSD(4) = 4.8921796545e-05 (RMS 0.006994), E[C_mix] = 0.25, against the
+note's chain 1.9134879166e-02, 3.2771826325e-03, 4.8919770257e-05: differences +8.7e-10, +8.7e-10, +2.0e-9 beside truncation errors
+(delta 1e-10 -> 1e-11) of 6e-9 (var, MSD(2)) and 1.3e-8 (MSD(4)) in each engine. The numerical tolerance in the script was
+recorded after this comparison; the sampled half is in the committed record.
+
+**Comparator (H7).** On the pinned day-3 placement (n60 rung, n = 52, edge 84_85, p = 0.5, L = 8; snapshot `ibm_phoenix_2026-09-23T163534Z.csv`), the Deviation 46 program and settings give sqrt(MSD(2)) = 0.05540 +/- 1.3e-04 (sampled; truncated 0.05526) and sqrt(MSD(4)) = 0.00663 +/- 6.7e-05; every l in `data/predictions/h7_truncation_2026-09-23T1635.md` (commit cbc4ea9, `python scripts/predict_h7_truncation.py`).
+
 ## Validation
 
 See `data/predictions/pauliprop_validation.csv` (table below is written by `scripts/pauliprop_validate.py`).
