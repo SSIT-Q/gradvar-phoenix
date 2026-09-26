@@ -15,6 +15,7 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts"))
 from gradvar.analysis import dial_hypotheses as DH                    # noqa: E402
 from gradvar.analysis import predictions as P                        # noqa: E402
+from gradvar.analysis import estimators as E                         # noqa: E402
 
 PRED = ROOT / "data" / "predictions"
 LADDER = json.loads((PRED / "ladder_placements.json").read_text())
@@ -150,3 +151,161 @@ def test_redraw_rows_are_read_back_on_their_placement(tmp_path):
     got = P.dial_prediction(dict(dial_rows=rows, pp=pd.DataFrame()), 6, 2, 2, "reset", 0.5, "2x3", "1_11", [12, 11, 10, 2, 1, 0])[0]
     assert got is not None and got["source"] == "dial_redraw_test.csv" and got["var"] == pytest.approx(row["var_kL_mc"])
     assert P.dial_prediction(dict(dial_rows=rows, pp=pd.DataFrame()), 6, 2, 2, "reset", 0.5, "2x3", "1_11", [0, 1, 2, 10, 11, 13])[0] is None
+
+
+# ------------------------------------------------------------------------------------------------ checkpoint-review addendum (H6 pairing)
+
+SNAP_A = ROOT / "data" / "calibrations" / "ibm_phoenix_2026-09-20T030813Z.csv"      # 4x5 at origin (8, 2)
+SNAP_B = ROOT / "data" / "calibrations" / "ibm_phoenix_2026-09-23T163534Z.csv"      # 4x5 at origin (8, 1): same n = 20, other qubits
+
+
+def _plant_dial(csv_path: Path, seed: int):
+    """Planted shift pairs in the runner's CSV (dry run), per (draw, mask) from each row's theta and mask seeds."""
+    df = pd.read_csv(csv_path)
+    rng = np.random.default_rng(seed)
+    c, g, eta = 0.25 + 0.2 * rng.standard_normal(64), 0.1 * rng.standard_normal(64), rng.normal(0, 0.05, (64, 16))
+    base = {}
+    for i, r in df.iterrows():
+        pid = str(r.observable_edge).replace("probe:", "")
+        base.setdefault(pid, int(df[df.observable_edge == r.observable_edge].seed.min()))
+        d, m, s = int(r.seed) - base[pid], int(r.mask_seed) % 16, int(r.shots)
+        ep = 2 * rng.binomial(s, (1 + np.clip(c[d] + g[d] + eta[d, m], -1, 1)) / 2) / s - 1
+        em = 2 * rng.binomial(s, (1 + np.clip(c[d] - g[d] + eta[d, m], -1, 1)) / 2) / s - 1
+        df.loc[i, ["ev_plus", "ev_minus", "std_plus", "std_minus"]] = [ep, em, np.sqrt(max(1 - ep ** 2, 0) / s), np.sqrt(max(1 - em ** 2, 0) / s)]
+        df.loc[i, "gradient"] = (ep - em) / 2
+    df.to_csv(csv_path, index=False)
+
+
+@pytest.fixture(scope="module")
+def two_runs(tmp_path_factory):
+    """The reset and dephasing control points of one list, run twice with the same seeds on two placements of the 4x5 patch."""
+    from gradvar.sim import HAS_AER
+    if not HAS_AER:
+        pytest.skip("qiskit-aer not installed")
+    from gradvar.hardware import run_joblist
+    base = json.loads((ROOT / "data" / "joblists" / "paper1" / "dial_arm.json").read_text())
+    arm = {p["id"]: p for p in base["probes"]}
+    probes = [dict(arm[i], n=20, patch="4x5", edge="94_104", M=12, masks=4) for i in ("dial_p0.5_L8_kL", "dephasing_dial_p0.5_L8_kL")]
+    out = tmp_path_factory.mktemp("two_runs")
+    csvs = {}
+    for tag, snap, seed in (("a", SNAP_A, 1), ("b", SNAP_B, 2)):          # one data tree, as the committed data/ holds several runs
+        jl = dict(base, probes=probes)
+        jl.pop("budget", None)
+        (out / f"list_{tag}.json").write_text(json.dumps(jl))
+        before = set((out / "jobs").glob("*.csv")) if (out / "jobs").exists() else set()
+        run_joblist(str(out / f"list_{tag}.json"), submit=False, run_root=str(out / "runs"), log_dir=str(out / "jobs"), calibration_csv=str(snap))
+        (csv,) = set((out / "jobs").glob("*.csv")) - before
+        _plant_dial(csv, seed)
+        csvs[tag] = csv
+    return out, csvs
+
+
+def test_h6_control_pair_comes_from_one_rung_and_placement(two_runs, preds, monkeypatch):
+    """Checkpoint-review addendum: two runs sharing seeds (the same list on two placements) must not be paired across runs. Loaded
+    together, each point pools two placements; loaded one by one and concatenated, each role has two candidates; either way the
+    reset / dephasing control is not evaluable. One run alone pairs its own two points."""
+    from gradvar.analysis.loader import load_run
+    monkeypatch.setattr(DH, "CONTROL_PATCH", "4x5")                     # the scaled control rung
+
+    root, csvs = two_runs
+
+    def points(*tags):                                                   # as the report builds them: points, then the Deviation 33 floors
+        rows = load_run(root, csv_paths=[csvs[t] for t in tags]).rows
+        return DH.mark_dial_floors(E.point_table(rows, n_boot=200), snapshot_csv=str(SNAP_A))
+    one = points("a")
+    assert sorted(one.arm) == ["dephase", "reset"] and (one.n_placements == 1).all()
+    solo = DH.evaluate_h6(one, preds, n_boot=200)
+    assert len(solo["controls"]) == 1 and not solo["pairing"]
+    both = points("a", "b")
+    assert len(both) == 2 and (both.n_placements == 2).all()             # same point ids: the rows of both runs pooled
+    pooled = DH.evaluate_h6(both, preds, n_boot=200)
+    assert not pooled["controls"] and any("more than one placement" in x["reason"] for x in pooled["pairing"]) and "not evaluable" in pooled["note"]
+    other = points("b")
+    assert one.patch_qubits.iloc[0] != other.patch_qubits.iloc[0]
+    stacked = DH.evaluate_h6(pd.concat([one, other], ignore_index=True), preds, n_boot=200)
+    assert not stacked["controls"] and any("2 candidate points" in x["reason"] for x in stacked["pairing"])
+    mixed = DH.evaluate_h6(pd.concat([one[one.arm == "reset"], other[other.arm == "dephase"]], ignore_index=True), preds, n_boot=200)
+    assert not mixed["controls"] and any("different rungs or placements" in x["reason"] for x in mixed["pairing"])
+
+
+def _h6_point(p, L, n, qubits, patch, edge, seed=0, arm="reset"):
+    rng = np.random.default_rng(seed)
+    grads = rng.normal(0, 0.05, 100)
+    v = float(grads.var(ddof=1))
+    return dict(kind="reset_dial", arm=arm, p=p, L=L, k=L, n=n, patch=patch, edge=edge, point_id=f"{arm} p{p:g} n{n} L{L} k{L} {seed}",
+                patch_qubits=" ".join(map(str, qubits)), signal_variance=v, signal_ci_lo=0.8 * v, signal_ci_hi=1.2 * v, floor_grad=1e-4,
+                headline_ratio=v / 1e-4, headline_lo=0.8 * v / 1e-4, headline_hi=1.2 * v / 1e-4, mele_floor=p ** 4 / 9, gradients=grads.tolist(),
+                shot_vars=[1e-5] * 100, shot_floor=1e-5, n_placements=1)
+
+
+def test_h6_ladder_points_come_from_one_placement(preds):
+    """The two ladder rungs are paired only when each has one candidate and their placement-matched predictions are of one
+    placement: the 23 Sep n40 and n100 rungs pair; the 23 Sep n40 rung with the 19 Sep 10x10 rung does not; two n40 candidates do not."""
+    q40, q100 = PL23["rungs"]["n40"]["qubits"], PL23["rungs"]["n100"]["qubits"]
+    lo = _h6_point(0.25, 8, 39, q40, "4x10", "93_103", seed=1)
+    hi = _h6_point(0.25, 8, 87, q100, "10x10", "75_85", seed=2)
+    ok = DH.evaluate_h6(pd.DataFrame([lo, hi]), preds, n_boot=200)
+    assert len(ok["ladder"]) == 1 and ok["ladder"][0]["within"] is not None and not ok["pairing"]
+    hi19 = _h6_point(0.25, 8, 87, LADDER["patches"]["10x10"]["qubits"], "10x10", "75_85", seed=3)
+    cross = DH.evaluate_h6(pd.DataFrame([lo, hi19]), preds, n_boot=200)
+    assert not cross["ladder"] and any("different placements" in x["reason"] for x in cross["pairing"])
+    lo03 = _h6_point(0.25, 8, 39, json.loads((PRED / "gate1b_redraw_2026-09-23T0308.json").read_text())["runday_placement"]["rungs"]["n40"]["qubits"],
+                     "4x10", "93_103", seed=4)
+    two = DH.evaluate_h6(pd.DataFrame([lo, lo03, hi]), preds, n_boot=200)
+    assert not two["ladder"] and any(x["sub_test"] == "H6 ladder, low rung" and "2 candidate points" in x["reason"] for x in two["pairing"])
+
+
+# ------------------------------------------------------------------------------------------------ addendum: settings guard, pre-flight check
+
+TRUNC_PROBES = [dict(id="trunc_full_p0.5_L8", kind="reset_dial", reset_kind="reset", patch="6x10", n=52, edge="84_85", L=8, k=8, p=0.5,
+                     unshifted=True, seed=23291001),
+                dict(id="trunc_l2_p0.5_L8", kind="reset_dial", reset_kind="reset", patch="6x10", n=52, edge="84_85", L=8, k=8, p=0.5,
+                     unshifted=True, seed=23291001, truncate_to=2)]
+
+
+def _list(tmp_path, name, placement, probes):
+    f = tmp_path / name
+    f.write_text(json.dumps(dict(placement=placement, probes=probes)))
+    return f
+
+
+def test_redraw_script_refuses_setting_overrides_without_exploratory(tmp_path, capsys):
+    """The committed draw uses the Deviation 46 settings: an override is refused (argparse exit 2) unless --exploratory is given, and an
+    exploratory draw is flagged and written under a prefix the analysis does not read."""
+    import redraw_dial_points as rdp
+    f = _pinned_day3(tmp_path)
+    for flag, value in (("--n-samples", "1000"), ("--pattern-samples", "1000"), ("--n-cap", "1000"), ("--time-limit", "5")):
+        with pytest.raises(SystemExit) as e:
+            rdp.main(["--joblist", str(f), flag, value, "--plan"])
+        assert e.value.code == 2 and "--exploratory" in capsys.readouterr().err
+    assert rdp.main(["--joblist", str(f), "--n-samples", "500000", "--plan"]) == 0          # the Deviation 46 value itself is not an override
+    assert "EXPLORATORY" not in capsys.readouterr().out
+    assert rdp.main(["--joblist", str(f), "--n-samples", "1000", "--exploratory", "--plan"]) == 0
+    assert "WARNING: EXPLORATORY" in capsys.readouterr().out
+    assert rdp.output_prefix(False) == "dial_redraw" and rdp.output_prefix(True) == "dial_exploratory"
+    rows = pd.read_csv(PRED / "gate1b_redraw_2026-09-23T1635.csv").head(2).assign(qubits="0 1 2")
+    rows.to_csv(tmp_path / "dial_exploratory_x.csv", index=False)
+    assert P.load_dial_rows(tmp_path).empty                                                     # not read by the analysis
+    rows.to_csv(tmp_path / "dial_redraw_x.csv", index=False)
+    assert len(P.load_dial_rows(tmp_path)) == 2
+
+
+def test_check_comparators_exits_nonzero_unless_the_placement_has_its_predictions(tmp_path, capsys):
+    import check_comparators as cc
+    full = _list(tmp_path, "full.json", PL23, DAY3_DIAL_PROBES + TRUNC_PROBES)
+    res = cc.check(full)
+    missing = sorted(x["probe"] for x in res["items"] if not x["found"])
+    assert missing == ["dephasing_dial_p0.5_L8_kL", "dial_p0.5_L12_kL", "dial_p0.5_L8_kL"] and res["placement"] == "2026-09-23T163534Z"
+    (h7,) = [x for x in res["items"] if x["need"].startswith("H7")]
+    assert h7["found"] and h7["source"] == "h7_truncation_2026-09-23T1635.json" and h7["rms_l2"] == pytest.approx(0.05540, abs=5e-6)
+    assert cc.main([str(full)]) == 1 and "MISSING 3 item(s)" in capsys.readouterr().out
+    covered = _list(tmp_path, "covered.json", PL23, [p for p in DAY3_DIAL_PROBES if p["p"] != 0.5] + TRUNC_PROBES)
+    assert cc.main([str(covered)]) == 0 and "OK" in capsys.readouterr().out
+    pl03 = json.loads((PRED / "gate1b_redraw_2026-09-23T0308.json").read_text())["runday_placement"]      # n60: n = 52, other holes
+    other = _list(tmp_path, "other.json", pl03, TRUNC_PROBES + [p for p in DAY3_DIAL_PROBES if p["id"] == "dial_p0.25_L8_kL"])
+    res3 = cc.check(other)
+    (h7b,) = [x for x in res3["items"] if x["need"].startswith("H7")]
+    assert not h7b["found"] and "qubits" in h7b["reason"]
+    assert [x["source"] for x in res3["items"] if x["probe"] == "dial_p0.25_L8_kL"] == ["gate1b_redraw_2026-09-23T0308.csv"]
+    assert cc.main([str(other)]) == 1
+    assert cc.main([str(tmp_path / "absent.json")]) == 2

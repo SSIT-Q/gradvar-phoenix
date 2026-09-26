@@ -20,6 +20,10 @@ its own placement block.
    seed 7. The Deviation 33 floors of the point on the same snapshot are recorded beside it.
 4. Writes ``data/predictions/dial_redraw_<tag>.csv`` / ``.json`` / ``.md`` (tag: the placement stamp as YYYY-MM-DDTHHMM) with the
    placed ``qubits`` of every row, which ``load_dial_rows`` reads.
+
+The Deviation 46 settings are fixed for the committed draw: ``--n-samples``, ``--pattern-samples``, ``--n-cap`` and ``--time-limit``
+are refused unless ``--exploratory`` is given (checkpoint-review addendum). An exploratory draw is flagged on the terminal and in its
+record and is written as ``dial_exploratory_<tag>.*``, which the analysis does not read.
 """
 from __future__ import annotations
 
@@ -48,6 +52,19 @@ PRED = ROOT / "data" / "predictions"
 CAL_DIR = ROOT / "data" / "calibrations"
 DEFAULT_JOBLIST = ROOT / "data" / "joblists" / "paper1" / "day3_dial_refs.json"
 DEV46 = dict(n_samples=500_000, pattern_samples=250_000, n_cap=400_000, time_limit_s=600.0)   # redraw_gate1b defaults (deltas 1e-6, 1e-7; seeds 0 / 7)
+SETTING_FLAGS = dict(n_samples="--n-samples", pattern_samples="--pattern-samples", n_cap="--n-cap", time_limit_s="--time-limit")
+
+
+def settings_from_args(args) -> tuple:
+    """(settings, overrides): the Deviation 46 settings with any command-line values applied, and the ones that differ from them."""
+    given = dict(n_samples=args.n_samples, pattern_samples=args.pattern_samples, n_cap=args.n_cap, time_limit_s=args.time_limit)
+    settings = {k: (DEV46[k] if v is None else type(DEV46[k])(v)) for k, v in given.items()}
+    return settings, {k: v for k, v in settings.items() if v != DEV46[k]}
+
+
+def output_prefix(exploratory: bool) -> str:
+    """File prefix: ``dial_redraw`` (read by ``predictions.load_dial_rows``) or ``dial_exploratory`` (not read by the analysis)."""
+    return "dial_exploratory" if exploratory else "dial_redraw"
 
 
 def _git_commit() -> str | None:
@@ -141,7 +158,9 @@ def draw_row(job: dict) -> dict:
 
 
 def markdown(res: dict) -> str:
+    s = res.get("settings") or {}
     lines = [f"# Dial rows on the placement {res['stamp']} (Deviation 60, review M5)", "",
+             *([f"**EXPLORATORY: not the Deviation 46 settings ({s.get('overrides')}); not read by the analysis.**", ""] if s.get("exploratory") else []),
              f"Lists {', '.join(res['joblists'])}; snapshot `{Path(res['snapshot']).name}`; code {res.get('git_commit') or 'uncommitted'}; "
              f"generated {res['generated_utc']}; command `{res['command']}`.", "",
              "| rung | n | L | dial | p | status | k = L variance (sampled +/- 2 s.e.) | Var[C_mix] | k = 1 variance | pattern floor | source |",
@@ -162,12 +181,21 @@ def main(argv=None) -> int:
     ap.add_argument("--tag", default=None, help="file tag (default: the placement stamp as YYYY-MM-DDTHHMM)")
     ap.add_argument("--plan", action="store_true", help="print the covered points and the rows that would be drawn; no simulation")
     ap.add_argument("--force", action="store_true", help="re-draw covered points too")
-    ap.add_argument("--n-samples", type=int, default=DEV46["n_samples"])
-    ap.add_argument("--pattern-samples", type=int, default=DEV46["pattern_samples"])
-    ap.add_argument("--n-cap", type=int, default=DEV46["n_cap"])
-    ap.add_argument("--time-limit", type=float, default=DEV46["time_limit_s"])
+    ap.add_argument("--n-samples", type=int, default=None, help=f"Deviation 46: {DEV46['n_samples']} (other values need --exploratory)")
+    ap.add_argument("--pattern-samples", type=int, default=None, help=f"Deviation 46: {DEV46['pattern_samples']} (other values need --exploratory)")
+    ap.add_argument("--n-cap", type=int, default=None, help=f"Deviation 46: {DEV46['n_cap']} (other values need --exploratory)")
+    ap.add_argument("--time-limit", type=float, default=None, help=f"Deviation 46: {DEV46['time_limit_s']} s (other values need --exploratory)")
+    ap.add_argument("--exploratory", action="store_true",
+                    help="allow settings other than Deviation 46; the output is flagged and written as dial_exploratory_<tag>.*, not read by the analysis")
     ap.add_argument("--workers", type=int, default=4)
     args = ap.parse_args(argv)
+    settings, overrides = settings_from_args(args)
+    if overrides and not args.exploratory:
+        ap.error("the committed draw uses the Deviation 46 settings; " + ", ".join(f"{SETTING_FLAGS[k]} {v}" for k, v in overrides.items())
+                 + " differs from them: drop the option, or add --exploratory for a draw the analysis does not read")
+    if args.exploratory:
+        print("WARNING: EXPLORATORY draw, not the Deviation 46 settings" + (f" ({overrides})" if overrides else "")
+              + f"; output {output_prefix(True)}_<tag>.*, not read by the analysis", flush=True)
     joblists = args.joblist or [str(DEFAULT_JOBLIST)]
     t0 = time.time()
     pl = plan(joblists, force=args.force)
@@ -181,10 +209,10 @@ def main(argv=None) -> int:
         print("plan only; nothing drawn" if args.plan else "every point is covered; nothing to draw")
         return 0
     rel = [Path(p).resolve().relative_to(ROOT).as_posix() if Path(p).resolve().is_relative_to(ROOT) else str(p) for p in joblists]
-    cmd = "python scripts/redraw_dial_points.py " + " ".join(f"--joblist {r}" for r in rel) + (" --force" if args.force else "")
+    cmd = ("python scripts/redraw_dial_points.py " + " ".join(f"--joblist {r}" for r in rel) + (" --force" if args.force else "")
+           + ("".join(f" {SETTING_FLAGS[k]} {v}" for k, v in overrides.items()) + " --exploratory" if args.exploratory else ""))
     for j in pl["jobs"]:
-        j.update(csv=pl["snapshot"], props=pl["props"], stamp=pl["stamp"], n_samples=args.n_samples, pattern_samples=args.pattern_samples,
-                 time_limit_s=args.time_limit, n_cap=args.n_cap)
+        j.update(csv=pl["snapshot"], props=pl["props"], stamp=pl["stamp"], **settings)
     rows = []
     with ProcessPoolExecutor(max_workers=args.workers) as ex:
         futs = {ex.submit(draw_row, j): j for j in pl["jobs"]}
@@ -198,14 +226,15 @@ def main(argv=None) -> int:
                joblists=[Path(p).name for p in joblists], snapshot=pl["snapshot"], properties=pl["props"], stamp=pl["stamp"],
                placement_checks=pl["placement_checks"],
                settings=dict(model="unital", deltas=[1e-6, 1e-7], seed=rd.SEED, pattern_seed=rd.SEED + rd.PATTERN_SEED_OFFSET, K_masks=rd.K_MASKS,
-                             n_samples=args.n_samples, pattern_samples=args.pattern_samples, n_cap=args.n_cap, time_limit_s=args.time_limit),
+                             **settings, deviation46=not overrides, exploratory=bool(args.exploratory), overrides=overrides),
                covered=pl["covered"], rows=rows, runtime_s=time.time() - t0)
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    (out_dir / f"dial_redraw_{tag}.json").write_text(json.dumps(res, indent=1, default=rd._json_default), encoding="utf-8")
-    pd.DataFrame(rows).to_csv(out_dir / f"dial_redraw_{tag}.csv", index=False)
-    (out_dir / f"dial_redraw_{tag}.md").write_text(markdown(res), encoding="utf-8")
-    print(f"wrote dial_redraw_{tag}.json / .csv / .md in {out_dir}; {res['runtime_s']:.0f}s")
+    stem = f"{output_prefix(args.exploratory)}_{tag}"
+    (out_dir / f"{stem}.json").write_text(json.dumps(res, indent=1, default=rd._json_default), encoding="utf-8")
+    pd.DataFrame(rows).to_csv(out_dir / f"{stem}.csv", index=False)
+    (out_dir / f"{stem}.md").write_text(markdown(res), encoding="utf-8")
+    print(f"wrote {stem}.json / .csv / .md in {out_dir}; {res['runtime_s']:.0f}s" + (" (EXPLORATORY: not read by the analysis)" if args.exploratory else ""))
     return 0
 
 

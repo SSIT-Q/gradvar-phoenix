@@ -158,6 +158,46 @@ def _sel(d: pd.DataFrame, arm: str, p: float | None = None, L: int | None = None
     return x
 
 
+def _rung_key(r) -> tuple:
+    """(patch, n, placed qubit set) of a point: the rung and placement it ran on."""
+    return (str(getattr(r, "patch", "")), int(r.n), P.qubit_key(getattr(r, "patch_qubits", None)))
+
+
+def _n_placements(r) -> int:
+    v = getattr(r, "n_placements", 1)
+    return 1 if v is None or (isinstance(v, float) and np.isnan(v)) else int(v)
+
+
+def _one_point(d: pd.DataFrame, what: str, issues: list):
+    """The single candidate point of a paired sub-test, or None with the reason in ``issues``: several candidates (e.g. two runs
+    loaded together, whose shared seeds would make a cross-run pairing look valid) or a point pooling rows of more than one
+    placement make the sub-test not evaluable (Deviation 60, checkpoint-review addendum)."""
+    if not len(d):
+        return None
+    pooled = [str(r.point_id) for r in d.itertuples() if _n_placements(r) > 1]
+    if pooled:
+        issues.append(dict(sub_test=what, reason="the point pools rows from more than one placement", points=pooled))
+        return None
+    if len(d) > 1:
+        issues.append(dict(sub_test=what, reason=f"{len(d)} candidate points", points=[str(r.point_id) for r in d.itertuples()],
+                           rungs=sorted({str(_rung_key(r)) for r in d.itertuples()})))
+        return None
+    return d.iloc[0]
+
+
+def _by_rung(d: pd.DataFrame) -> dict:
+    """{rung key: its points} of a selection."""
+    out = {}
+    for i, r in zip(d.index, d.itertuples()):
+        out.setdefault(_rung_key(r), []).append(i)
+    return {k: d.loc[v] for k, v in out.items()}
+
+
+def _pairing_note(issues: list) -> str:
+    return (f"; {len(issues)} paired sub-test(s) not evaluable (candidates from more than one rung, placement or run: "
+            + "; ".join(f"{x['sub_test']}: {x['reason']}" for x in issues) + ")") if issues else ""
+
+
 # ------------------------------------------------------------------------------------------------ H5
 
 def evaluate_h5(points: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict:
@@ -165,16 +205,19 @@ def evaluate_h5(points: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict
     against the pre-drawn ratio; per (p, L), the floor-subtracted Var[C_mix] against the pre-drawn value and above the
     Deviation 33 cost floor with its interval."""
     d = points[(points.kind == "reset_dial") & (points.arm == "reset") & (points.k == points.L)] if len(points) else points
-    ratios, values, floors, missing = [], [], [], []
+    ratios, values, floors, missing, pairing = [], [], [], [], []
     for p, g in d.groupby("p"):
-        a, b = g[g.L == 8], g[g.L == 12]
+        a, b = _by_rung(g[g.L == 8]), _by_rung(g[g.L == 12])
         for r in g.itertuples():
             pr = _pred(preds, r, missing=missing)
             values.append(dict(p=float(p), L=int(r.L), n=int(r.n), **_value_test(r.var_cmix_signal, r.var_cmix_signal_ci_lo, r.var_cmix_signal_ci_hi,
                                                                                  pr["var_cost"] if pr else np.nan, pr.get("var_cost_sigma", np.nan) if pr else np.nan)))
             floors.append(dict(p=float(p), L=int(r.L), n=int(r.n), **_floor_test(r.var_cmix_signal, r.var_cmix_signal_ci_lo, r.var_cmix_signal_ci_hi, r.floor_cost), mele_floor=r.mele_floor))
-        for n in sorted(set(a.n) & set(b.n)):           # L = 8 and L = 12 of the same rung (day 3 has p = 0.25 L = 8 points at three n)
-            ra, rb = a[a.n == n].iloc[0], b[b.n == n].iloc[0]
+        for key in sorted(set(a) & set(b), key=str):    # L = 8 and L = 12 of the same rung and placement (day 3: p = 0.25 L = 8 on three rungs)
+            what = f"H5 depth ratio p = {float(p):g} on {key[0]} n = {key[1]}"
+            ra, rb = _one_point(a[key], what + " (L = 8)", pairing), _one_point(b[key], what + " (L = 12)", pairing)
+            if ra is None or rb is None:
+                continue
             pr8, pr12 = _pred(preds, ra, missing=missing), _pred(preds, rb, missing=missing)
             meas = _var_ratio_blocks(rb.cmix_draws, ra.cmix_draws, rb.var_cmix_floor, ra.var_cmix_floor, n_boot)
             pred = (pr12["var_cost"] / pr8["var_cost"]) if (pr8 and pr12 and pr8["var_cost"] > 0) else np.nan
@@ -183,14 +226,15 @@ def evaluate_h5(points: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict
     ev = [x for x in ratios + values if x["within"] is not None]
     fl = [x for x in floors if x["below_floor_with_interval"] is not None]
     miss, miss_note = _missing(missing)
+    miss_note += _pairing_note(pairing)
     if not ev and not fl:
         return verdict("H5", H_TEXT["H5"], "not-evaluable", note="no reset k = L point with Var[C_mix], a prediction and a Deviation 33 floor" + miss_note,
-                       ratios=ratios, values=values, floors=floors, missing_predictions=miss)
+                       ratios=ratios, values=values, floors=floors, missing_predictions=miss, pairing=pairing)
     fails = [x for x in ev if not x["within"]] + [x for x in fl if x["below_floor_with_interval"]]
     return verdict("H5", H_TEXT["H5"], "fail" if fails else "pass", value=dict(ratio_misses=sum(1 for x in ratios if x["within"] is False), value_misses=sum(1 for x in values if x["within"] is False),
                                                                           below_floor=sum(1 for x in fl if x["below_floor_with_interval"])), threshold="0 of each",
                    note=f"{len(ratios)} depth ratios, {len(values)} values, {len(fl)} floor checks evaluated; p^4/9 is a reference line only (Deviation 33)" + miss_note,
-                   ratios=ratios, values=values, floors=floors, missing_predictions=miss)
+                   ratios=ratios, values=values, floors=floors, missing_predictions=miss, pairing=pairing)
 
 
 # ------------------------------------------------------------------------------------------------ H6
@@ -202,32 +246,53 @@ def evaluate_h6(points: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict
     inconclusiveness check on the delay-matched control."""
     d = points[points.kind == "reset_dial"] if len(points) else points
     reset = _sel(d, "reset")
-    floors, ratios, ladder, controls, k1, missing = [], [], [], [], [], []
+    floors, ratios, ladder, controls, k1, missing, pairing = [], [], [], [], [], [], []
     for r in reset.itertuples():
         floors.append(dict(p=float(r.p), n=int(r.n), L=int(r.L), headline_ratio=r.headline_ratio, headline_lo=r.headline_lo, headline_hi=r.headline_hi, mele_floor=r.mele_floor,
                            **_floor_test(r.signal_variance, r.signal_ci_lo, r.signal_ci_hi, r.floor_grad)))
     for p, g in reset.groupby("p"):
-        a, b = g[g.L == 8], g[g.L == 12]
-        for n in sorted(set(a.n) & set(b.n)):
-            ra, rb = a[a.n == n].iloc[0], b[b.n == n].iloc[0]
+        a, b = _by_rung(g[g.L == 8]), _by_rung(g[g.L == 12])
+        for key in sorted(set(a) & set(b), key=str):    # L = 8 and L = 12 of the same rung and placement
+            what = f"H6 depth ratio p = {float(p):g} on {key[0]} n = {key[1]}"
+            ra, rb = _one_point(a[key], what + " (L = 8)", pairing), _one_point(b[key], what + " (L = 12)", pairing)
+            if ra is None or rb is None:
+                continue
             pr8, pr12 = _pred(preds, ra, missing=missing), _pred(preds, rb, missing=missing)
             meas = paired_ratio(rb.gradients, ra.gradients, n_boot, sub_a=rb.shot_vars, sub_b=ra.shot_vars)
             pred = pr12["var"] / pr8["var"] if (pr8 and pr12 and pr8["var"] > 0) else np.nan
             ps = pred * np.sqrt((pr12["sigma"] / pr12["var"]) ** 2 + (pr8["sigma"] / pr8["var"]) ** 2) if np.isfinite(pred) else np.nan
-            ratios.append(dict(p=float(p), n=int(n), **_ratio_test(meas, pred, ps)))
+            ratios.append(dict(p=float(p), n=int(ra.n), **_ratio_test(meas, pred, ps)))
     lad = _sel(reset, "reset", 0.25, 8)
     lo_n, hi_n = _sel(lad, "reset", n=LADDER_LOW, patch=LADDER_LOW_PATCH), _sel(lad, "reset", n=LADDER_HIGH, patch=LADDER_HIGH_PATCH)
     if len(lo_n) and len(hi_n):
-        ra, rb = lo_n.iloc[0], hi_n.iloc[0]
-        pra, prb = _pred(preds, ra, missing=missing), _pred(preds, rb, missing=missing)
-        meas = paired_ratio(rb.gradients, ra.gradients, n_boot, sub_a=rb.shot_vars, sub_b=ra.shot_vars)
-        pred = prb["var"] / pra["var"] if (pra and prb and pra["var"] > 0) else np.nan
-        ps = pred * np.sqrt((prb["sigma"] / prb["var"]) ** 2 + (pra["sigma"] / pra["var"]) ** 2) if np.isfinite(pred) else np.nan
-        ladder.append(dict(n_low=int(ra.n), n_high=int(rb.n), **_ratio_test(meas, pred, ps)))
+        # one point per rung, both of one placement (Deviation 60 addendum): the placement-matched predictions of the two rungs must
+        # come from the same placement, else the two points are of different placements or runs and are not paired
+        ra, rb = _one_point(lo_n, "H6 ladder, low rung", pairing), _one_point(hi_n, "H6 ladder, high rung", pairing)
+        pra = _pred(preds, ra, missing=missing) if ra is not None else None
+        prb = _pred(preds, rb, missing=missing) if rb is not None else None
+        stamps = (pra or {}).get("placement_stamp"), (prb or {}).get("placement_stamp")
+        if pra and prb and stamps[0] != stamps[1]:
+            pairing.append(dict(sub_test="H6 ladder", reason=f"the two rungs' predictions are of different placements ({stamps[0]}, {stamps[1]})",
+                                points=[str(ra.point_id), str(rb.point_id)]))
+        elif ra is not None and rb is not None:
+            meas = paired_ratio(rb.gradients, ra.gradients, n_boot, sub_a=rb.shot_vars, sub_b=ra.shot_vars)
+            pred = prb["var"] / pra["var"] if (pra and prb and pra["var"] > 0) else np.nan
+            ps = pred * np.sqrt((prb["sigma"] / prb["var"]) ** 2 + (pra["sigma"] / pra["var"]) ** 2) if np.isfinite(pred) else np.nan
+            ladder.append(dict(n_low=int(ra.n), n_high=int(rb.n), **_ratio_test(meas, pred, ps)))
     deph = _sel(d, "dephase", None, 8, n=CONTROL_N, patch=CONTROL_PATCH)
     rs = _sel(reset, "reset", 0.5, 8, n=CONTROL_N, patch=CONTROL_PATCH)
+    control_pair = None
     if len(deph) and len(rs):
-        ra, rb = rs.iloc[0], deph.iloc[0]
+        # the reset / dephasing pair from one rung and placement (Deviation 60 addendum)
+        ca = _one_point(rs, "H6 reset / dephasing control, reset point", pairing)
+        cb = _one_point(deph, "H6 reset / dephasing control, dephasing point", pairing)
+        if ca is not None and cb is not None and _rung_key(ca) != _rung_key(cb):
+            pairing.append(dict(sub_test="H6 reset / dephasing control", reason="the reset and dephasing points are on different rungs or placements",
+                                points=[str(ca.point_id), str(cb.point_id)], rungs=[str(_rung_key(ca)), str(_rung_key(cb))]))
+        elif ca is not None and cb is not None:
+            control_pair = (ca, cb)
+    if control_pair is not None:
+        ra, rb = control_pair
         pra, prb = _pred(preds, ra, missing=missing), _pred(preds, rb, missing=missing)
         meas = paired_ratio(ra.gradients, rb.gradients, n_boot, sub_a=ra.shot_vars, sub_b=rb.shot_vars)
         pred = pra["var"] / prb["var"] if (pra and prb and prb["var"] > 0) else np.nan
@@ -256,9 +321,11 @@ def evaluate_h6(points: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict
     fl = [x for x in floors if x["below_floor_with_interval"] is not None]
     ev = [x for x in ratios + ladder if x["within"] is not None]
     miss, miss_note = _missing(missing)
+    miss_note += _pairing_note(pairing)
     if not fl and not ev and not controls:
         return verdict("H6", H_TEXT["H6"], "not-evaluable", note="no reset k = L point with a Deviation 33 floor or a pre-drawn ratio" + miss_note, floors=floors,
-                       depth_ratios=ratios, ladder=ladder, controls=controls, k1_series=k1, unital_reference=flat_reference, missing_predictions=miss)
+                       depth_ratios=ratios, ladder=ladder, controls=controls, k1_series=k1, unital_reference=flat_reference, missing_predictions=miss,
+                       pairing=pairing)
     inconclusive = flat_reference is not None and not flat_reference["falls"]
     fails = [x for x in fl if x["below_floor_with_interval"]] + [x for x in ratios if x["within"] is False] + [x for x in controls if x["within"] is False or not x["exceeds"]]
     if not inconclusive:
@@ -272,7 +339,7 @@ def evaluate_h6(points: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict
                         + ("; unital reference flat on the day: ladder comparison inconclusive (not refuting)" if inconclusive else "") + miss_note,
                    headline=[dict(p=x["p"], n=x["n"], L=x["L"], ratio_to_floor=x["headline_ratio"], lo=x["headline_lo"], hi=x["headline_hi"]) for x in floors],
                    floors=floors, depth_ratios=ratios, ladder=ladder, controls=controls, k1_series=k1, unital_reference=flat_reference, ladder_inconclusive=inconclusive,
-                   missing_predictions=miss)
+                   missing_predictions=miss, pairing=pairing)
 
 
 # ------------------------------------------------------------------------------------------------ H7

@@ -111,10 +111,16 @@ placed qubit set, then patch, edge, L, dial kind and p, over the dial rows of `p
 placement), `gate1b_redraw_*.csv` (run-day re-draws, Deviation 46) and `dial_redraw_*.csv` (`scripts/redraw_dial_points.py`)).
 A sub-test without such a row is not evaluable, and its record carries the unmatched 19 Sep row as the fallback (Deviation 54
 (iii)). The H6 control rung and the ladder rungs are selected by patch (6x10; 4x10 and 10x10) or by the registered n, because
-the placed n moves with the placement (52 on the pinned 23 Sep 6x10 rung); the H5 depth ratio pairs L = 8 and L = 12 of the
-same rung. `scripts/redraw_dial_points.py --joblist <list> --plan` lists, for a pinned list, the points already covered on its
-placement and the rows it would draw (Deviation 46 settings); without `--plan` it draws them into
-`data/predictions/dial_redraw_<tag>.csv`.
+the placed n moves with the placement (52 on the pinned 23 Sep 6x10 rung). Every paired H5 / H6 sub-test takes its points from
+one rung and placement (patch, n, placed qubit set): the depth ratios, the reset / dephasing control, and the two ladder rungs, whose
+placement-matched predictions must be of one placement. More than one candidate, or a point pooling rows of more than one placement
+(`n_placements` in the point table: two runs with the same point ids loaded together), makes that sub-test not evaluable, listed
+under `pairing` (two runs of one list share their seeds, so a cross-run pairing would otherwise look valid).
+`scripts/redraw_dial_points.py --joblist <list> --plan` lists, for a pinned list, the points already covered on its placement and
+the rows it would draw; without `--plan` it draws them into `data/predictions/dial_redraw_<tag>.csv` with the Deviation 46
+settings (other values need `--exploratory` and are written as `dial_exploratory_<tag>.*`, which the analysis does not read).
+`scripts/check_comparators.py <list>` is the pre-flight check: exit 0 only when the list's own placement has the H7 comparator and
+every dial row the analysis will look up.
 
 **Gate 1b clause (b) on the day** (Deviations 35, 39, 44, 45; flags, not a gate decision): per rung, the delay-matched
 p = 0 k = L reference at L = 8 (16384 shots under Deviation 44) is counted only if its measured, floor-subtracted variance
