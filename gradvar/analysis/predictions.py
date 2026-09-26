@@ -163,6 +163,14 @@ def null_control_floor(preds: Dict, n: int, shots: int) -> Dict | None:
     return None
 
 
+def _num(x) -> float:
+    """float(x), or NaN when x is missing or not numeric."""
+    try:
+        return float(x)
+    except (TypeError, ValueError):
+        return float("nan")
+
+
 def compare_points(points: pd.DataFrame, preds: Dict) -> pd.DataFrame:
     """Measured signal variance (shot floor and, for the dial, pattern floor subtracted) against the pre-drawn value,
     with sigma^2 = (bootstrap half-width / 1.96)^2 + shot_floor^2 + sigma_pred^2 (Deviation 19 (i): "sigma combining the
@@ -179,10 +187,18 @@ def compare_points(points: pd.DataFrame, preds: Dict) -> pd.DataFrame:
                    resilience_level=r["resilience_level"], shots=r["shots"], measured=meas, measured_ci_lo=r.get("signal_ci_lo"),
                    measured_ci_hi=r.get("signal_ci_hi"), measured_raw=r.get("variance"), shot_floor=floor, M=r.get("M"))
         if pr is None:
-            rec.update(predicted=np.nan, pred_sigma=np.nan, sigma=np.nan, z=np.nan, source="none", status="no prediction", anomaly_single=False)
+            rec.update(predicted=np.nan, pred_sigma=np.nan, sigma=np.nan, z=np.nan, z_preflight08=np.nan, source="none", status="no prediction",
+                       anomaly_single=False)
         else:
             sig = float(np.sqrt((hw / Z95) ** 2 + (floor if np.isfinite(floor) else 0.0) ** 2 + (pr["sigma"] if np.isfinite(pr["sigma"]) else 0.0) ** 2))
             z = (meas - pr["var"]) / sig if sig > 0 and np.isfinite(meas) else np.nan
+            # Deviation 61: pre-flight 08's written statistic, the replication decision's z (raw variance against the row,
+            # bootstrap half-width / 1.96 and the row's sigma); reported beside the Deviation 19 pipeline z, flags unchanged
+            raw = _num(r.get("variance"))
+            hw_raw = (_num(r.get("ci_hi")) - _num(r.get("ci_lo"))) / 2.0
+            sig08 = float(np.sqrt((hw_raw / Z95) ** 2 + (pr["sigma"] if np.isfinite(pr["sigma"]) else 0.0) ** 2)) if np.isfinite(hw_raw) else np.nan
+            z08 = (raw - pr["var"]) / sig08 if np.isfinite(sig08) and sig08 > 0 and np.isfinite(raw) else np.nan
+            rec.update(z_preflight08=float(z08) if np.isfinite(z08) else np.nan)
             rec.update(predicted=pr["var"], pred_sigma=pr["sigma"], pred_model=pr["model"], sigma=sig, z=float(z) if np.isfinite(z) else np.nan,
                        source=pr["source"], status=pr["status"], truncation_deficit=pr.get("truncation_deficit"), edge_matched=pr.get("edge_matched"),
                        exploratory=bool(int(r["L"]) == 12 and (r["kind"] == "grid" or int(r["k"]) == 1)) or bool(pr.get("not_converged")),   # Deviation 37
@@ -217,33 +233,39 @@ def _monotone_runs(df: pd.DataFrame, axis: str, group_cols: List[str]) -> List[D
 
 
 def holm_within(comparison: pd.DataFrame, alpha: float = A61.ALPHA_FW) -> Dict:
-    """Deviation 61 (ii) on one comparison table: Holm's step-down over every Deviation 19 single-point test in it (finite z;
-    exploratory rows (Deviation 37) and resilience level 2 (not read under Deviation 19) are outside the family), two-sided
-    p = erfc(|z| / sqrt 2). A single-point flag is ``firm`` only if its adjusted p <= alpha. The family here is the table's own
-    tests; the replication decision uses the campaign-wide family (``anomaly_stats.build_family``), where the z also carry
-    Deviation 61 (i)."""
-    if not len(comparison) or "z" not in comparison.columns:
-        return dict(m=0, alpha=float(alpha), flags=[], note="no tests")
-    d = comparison[np.isfinite(comparison.z.astype(float))]
+    """A diagnostic, not the Deviation 61 firmness: Holm's step-down over this table's own Deviation 19 single-point tests on
+    pre-flight 08's written z (``z_preflight08``: raw variance, bootstrap interval and the prediction's sigma; the pipeline z
+    ``z`` only when that column is absent), two-sided p = erfc(|z| / sqrt 2); exploratory rows (Deviation 37) and resilience
+    level 2 (not read under Deviation 19) are outside the family. Firmness under Deviation 61 (ii) is grid-wide, over the 43
+    frozen tests with prediction-side uncertainty (``anomaly_stats.recorded_firmness`` and ``anomaly_stats.decide``); this
+    function labels no flag firm."""
+    stat = "z_preflight08" if "z_preflight08" in comparison.columns and np.isfinite(comparison["z_preflight08"].astype(float)).any() else "z"
+    if not len(comparison) or stat not in comparison.columns:
+        return dict(m=0, alpha=float(alpha), statistic=stat, flags=[], note="no tests")
+    d = comparison[np.isfinite(comparison[stat].astype(float))]
     if "exploratory" in d.columns:
         d = d[~d.exploratory.map(lambda v: bool(v) if isinstance(v, (bool, np.bool_)) else False).astype(bool)]
     if "resilience_level" in d.columns:
         d = d[d.resilience_level.astype(float) != 2]
-    fam = A61.holm_family(d[["point_id", "z"]].reset_index(drop=True), "z", alpha)
+    fam = A61.holm_family(d[["point_id", stat]].reset_index(drop=True), stat, alpha)
     flags = []
     for r in comparison[comparison.get("anomaly_single", pd.Series(False, index=comparison.index)) == True].to_dict("records"):   # noqa: E712
         hit = fam[fam.point_id == r["point_id"]]
-        flags.append(dict(point_id=r["point_id"], z=float(r["z"]), p=float(hit.p.iloc[0]) if len(hit) else float("nan"),
+        flags.append(dict(point_id=r["point_id"], z=float(r["z"]), z_statistic=float(r.get(stat, np.nan)),
+                          p=float(hit.p.iloc[0]) if len(hit) else float("nan"),
                           p_holm=float(hit.p_holm.iloc[0]) if len(hit) else float("nan"),
-                          firm=bool(hit.holm_reject.iloc[0]) if len(hit) else None))
-    return dict(m=int(fam.attrs["m"]), alpha=float(alpha), flags=flags, note="family: this table's Deviation 19 tests (Deviation 61 (ii))")
+                          within_run_holm_reject=bool(hit.holm_reject.iloc[0]) if len(hit) else None))
+    return dict(m=int(fam.attrs["m"]), alpha=float(alpha), statistic=stat, flags=flags,
+                note="diagnostic: within-run Holm over this table's Deviation 19 tests; the Deviation 61 firmness is grid-wide "
+                     "(gradvar.analysis.anomaly_stats, data/derived/dev61_reference_2026-09-25.csv)")
 
 
 def anomaly_protocol(comparison: pd.DataFrame) -> Dict:
     """Deviation 19 flags on a comparison table: single-point (|z| > 3) and monotone-run anomalies, and whether the
     protocol calls for replication from the reserve (another day, another clean patch, at most 20 reserve minutes;
     the calibrated noisy simulations must also fail to reproduce the deviation). Unreplicated anomalies are exploratory.
-    Deviation 61 (ii) adds ``holm``: the grid-wide Holm step-down over the table's tests, and which flags are firm."""
+    ``holm_within_run`` is a diagnostic Holm step-down over the table's own tests on pre-flight 08's z (``holm_within``); it
+    labels no flag firm (Deviation 61 firmness is grid-wide, in ``anomaly_stats``)."""
     single = comparison[comparison.anomaly_single == True] if len(comparison) else comparison   # noqa: E712
     runs = []
     if len(comparison):
@@ -260,4 +282,4 @@ def anomaly_protocol(comparison: pd.DataFrame) -> Dict:
                 action=("replicate on another calendar day and another clean patch from the reserve (<= 20 min); run the calibrated "
                         "noisy simulations; unreplicated = exploratory" if flagged else "none"),
                 reserve_minutes=RESERVE_MINUTES_FOR_REPLICATION if flagged else 0, n_compared=int(np.isfinite(comparison.z).sum()) if len(comparison) else 0,
-                holm=holm_within(comparison))
+                holm_within_run=holm_within(comparison))

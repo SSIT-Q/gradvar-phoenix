@@ -44,7 +44,7 @@ writes a run in the live format whose planted variances are the predictions plus
 | `estimators.fit_exponential_vs_powerlaw` | Section 3 "Fits": weighted least squares on log Var, AIC comparison |
 | `estimators.paired_ratio`, `delay_matched_comparison` | Section 3b "Pairing" and matched control (a) |
 | `predictions` | join to `gate1_predictions.csv` (exact grid, M = 200 bootstrap interval), `pauliprop_predictions.csv` (Deviation 15 rows, error max(2σ, truncation deficit); Gate 1b / dial rows keyed by reset kind and p), `gate1_layer_index.csv`, `gate1_null_control.json`, **keyed by (patch, edge, L, k)** (Deviations 34 / 36: regenerated CSVs hold the n = 39 rows on edge (93, 103) beside the old (94, 95) rows; an unmatched edge falls back to n and is flagged `edge_matched = False`; converged rows preferred, last written wins); z = (measured − predicted)/σ with σ² = (bootstrap half-width/1.96)² + shot_floor² + σ_pred²; Deviation 19 anomaly protocol: (i) |z| > 3, (ii) ≥ 3 adjacent points in n or L with same-sign monotone deviation; the flag names the replication action (another day, another patch, ≤ 20 reserve minutes) |
-| `anomaly_stats` | **Deviation 61 (draft; analysis-only, before the replication-01 data are read)**: the four statistics added to the Deviation 19 protocol and the pre-flight 08 replication reading with and without them (`replication_decision`; CLI `python -m gradvar.analysis.anomaly_stats decide spec.json`): (i) prediction-side uncertainty in the replication z (`calibration_se`, `rate_drift`, `conformal_scores` / `conformal_factor`), (ii) grid-wide Holm (`holm`, `holm_family`, `build_family`), (iii) the kappa inversion (`gate_attenuation`, `kappa_inversion`, `grid_kappa`, `kappa_consistency`), (iv) the per-draw regression at n = 19 / 20 (`per_draw_regression`); numpy / pandas only. `predictions.anomaly_protocol` reports (ii) over its own table (`holm`, `holm_within`) |
+| `anomaly_stats` | **Deviation 61 (draft; analysis-only, before the replication-01 data are read)**: the four statistics added to the Deviation 19 protocol and the pre-flight 08 replication reading with and without them (`replication_decision`, `decide`; CLI `python -m gradvar.analysis.anomaly_stats decide spec.json`): (i) prediction-side uncertainty in pre-flight 08's z (`calibration_se`, `rate_drift`; the fixed conformal factor `PHI`), (ii) grid-wide Holm over the frozen family (`holm`, `holm_family`, `decision_family`), (iii) the kappa inversion (`gate_attenuation`, `kappa_inversion`, `grid_kappa`, `kappa_consistency`; the frozen `KAPPA_HAT`), (iv) the per-draw regression at n = 19 / 20 (`per_draw_regression`); the frozen reference sets (`reference_table`, `data/derived/dev61_reference_2026-09-25.csv`), the decisive tests (`decision_role`) and the recorded flags' firmness (`recorded_firmness`, `phi_firmness_threshold`); numpy / pandas only. `predictions.compare_points` also reports `z_preflight08`; `predictions.anomaly_protocol` adds a diagnostic within-run Holm line (`holm_within_run`) that labels no flag firm |
 | `hypotheses` | H1–H4 (below) |
 | `gates` | kill rules (a)–(d) (Deviation 41 for (b)), Gate 2 (a)–(e), `gate1b_clause_b` (Deviations 35 / 39 flags on the measured references), `preregistered_main_grid` / `main_grid_constants` (the Section 2 grid through the budget model in force, v3 since Deviation 47, shared by Gate 2 (b) and (d)) |
 | `figures` | the four pre-registered panels, log scale, shot floor and null-control floor on every panel |
@@ -194,7 +194,7 @@ reported per-draw std at level 2 is the extrapolator's conservative error (2.1e-
 not subtracted (it produced a negative "signal" and a spurious z = -7.9 on the n = 85 L = 8 level-2 point in the first day-2 run). H4's
 inflation reading still uses the two repeats where they exist and the reported std ratio only as a labelled proxy.
 
-## Deviation 61 (draft, 25 Sep 2026): Deviation 19 statistics and the replication reading
+## Deviation 61 (draft, 25 Sep 2026; revised 26 Sep): Deviation 19 statistics and the replication reading
 
 Analysis-only; to be adopted before any replication-01 datum is read (draft and expected outcomes:
 `docs/deviations_drafts/61_dev19_statistics_2026-09-25.md`). The decision table of pre-flight 08 (Section 4 of
@@ -202,26 +202,40 @@ Analysis-only; to be adopted before any replication-01 datum is read (draft and 
 remove a route to "confirmed"; `anomaly_stats.replication_decision` returns both readings and raises if the amended one confirms a
 flag the pre-flight 08 reading does not.
 
+- **Statistic.** The decision statistic is pre-flight 08's written z: raw variance against the re-draw row, SE_boot = the half-width
+  of the 10,000-resample percentile interval / 1.96, SE_pred = the row's σ (Deviation 15 error / 2). `compare_points` reports it as
+  `z_preflight08` beside the Deviation 19 pipeline z (signal variance, shot floor in σ); both flag the same three of the 43 grid tests.
+  Deviation 19 flags, including an opposite-sign flag on a replication, are raised on the registered z; Deviation 61 governs firmness
+  labels and confirmation of single-point flags only.
+- **Frozen reference sets.** `data/derived/dev61_reference_2026-09-25.csv` (taken from `maingrid_points.csv` at 420c20d; sha256 in
+  `anomaly_stats.REFERENCE_SHA256`, checked on every read) fixes the 43 grid tests of the Holm family with their z61, the 19 points
+  behind φ and the 11 points behind κ̂. They are not recomputed at post-run review 06, and the decision refuses any other φ, κ̂ or
+  family.
 - **(i) Prediction-side uncertainty.** z_r = (V_r − P) / (φ √(SE_boot² + SE_pred² + SE_cal²)). SE_cal = P (|ln F_gate| s_gate +
   |ln F_ro| s_ro): F_pred = P / P_noiseless of the same re-draw, F_ro = (a_i a_j)² its readout folding (a = 1 − p01 − p10, the
   propagation model's level-0 observable), F_gate = F_pred / F_ro; `rate_drift` gives s_gate (the largest relative spread of the
-  placement's mean CZ error, sx error, 1/T1, 1/T2) and s_ro (the observable qubits' p01 + p10) over the distinct committed snapshots
-  of the 7 days before the run, locations over a cut left out of that snapshot's average. φ = max(1, q), q the
-  ⌈0.6827 (m + 1)⌉-th smallest |z| of the m unflagged tested grid points at L ≥ 4 (`conformal_scores`; m = 19 and φ = 1.42 on
-  days 1 and 2). Row 3 (the calibrated simulation) widens the simulation interval by its SE_cal and the measured interval by φ.
-- **(ii) Grid-wide Holm.** Two-sided p = erfc(|z| / √2) over every Deviation 19 single-point test of the Section 2 grid (43 on days
-  1 and 2) and every replication test (4), Holm step-down at family-wise 0.05 on the (i) z (unflagged points z / φ, `build_family`).
-  A flag is firm only if its adjusted p ≤ 0.05; confirmation also needs the replication test's adjusted p ≤ 0.05.
-- **(iii) Kappa inversion.** κ = 1 + ln R / ln F_gate at level 0 (R = signal variance / P), with the interval from the signal's
-  bootstrap interval, beside the grid-wide κ̂ (`grid_kappa`: DerSimonian–Laird over the unflagged level-0 points with F_gate ≤ 0.95).
-  A replicated flag consistent with a grid-wide excess (κ̂'s interval above 1 and |z_κ| ≤ 3) closes as a calibration effect.
+  placement's mean CZ error, sx error, 1/T1, 1/T2: a bound across classes; within a class the placement mean is a proxy) and s_ro (the
+  observable qubits' p01 + p10) over the distinct committed snapshots of the 7 days before the run, locations over a cut left out of
+  that snapshot's average. φ = 1.2320 (`PHI`), fixed: the 14th smallest |z| of the 19 unflagged tested grid points at L ≥ 4 on the
+  signal scale (free of the shot-variance offset of the raw z), applied to the raw-scale test. Row 3 (the calibrated simulation) widens
+  the simulation interval by its SE_cal and the measured interval by φ.
+- **(ii) Grid-wide Holm.** Two-sided p = erfc(|z| / √2) over the 43 frozen grid tests and the four replication tests
+  (`REPLICATION_TESTS`; one that does not run enters with p = 1, so m = 47), Holm step-down at family-wise 0.05 (`decision_family`).
+  A recorded flag is firm if its adjusted p ≤ 0.05; firmness is reported (`recorded_firmness`) and does not remove the flag from the
+  replication decision. Confirmation also needs the decisive replication test's adjusted p ≤ 0.05.
+- **(iii) Kappa inversion.** κ_e = 1 + ln R / ln F_gate at level 0 (R = signal variance / P), with the interval from the signal's
+  bootstrap interval, beside the frozen κ̂_e = 1.27 [0.35, 2.18] (`KAPPA_HAT`: DerSimonian–Laird over the 11 unflagged level-0 points
+  with F_gate ≤ 0.95). A replicated flag consistent with a grid-wide excess (κ̂_e's interval above 1 and |z_κ| ≤ 3) would close as a
+  calibration effect; on the frozen set that route cannot fire.
 - **(iv) Per-draw regression** (n = 19 / 20, L = 4, where exact per-draw noiseless gradients exist): slope b of the hardware on
   the noiseless gradients of the same draws (pairs resampled, 10,000 resamples, seed 61), z_dm = (b² − F_pred) /
-  √(SE(b²)² + (F_pred SE_cal / P)²), with D = Var(g_noiseless) / P_noiseless and the paired attenuation A (R = D A / F_pred). The
-  n20 flag is confirmed only if z_dm < −3; otherwise it closes as draw sampling.
+  √(SE(b²)² + (F_pred SE_cal / P)²), with D = Var(g_noiseless) / P_noiseless, the paired attenuation A (R = D A / F_pred) and κ_e of
+  b² / F_pred. Required for the n19 flag's decisive test: the flag is confirmed only if z_dm < −3; otherwise it closes as draw sampling.
 
-The decision is read at level 0, the level each flag's record quotes; level 1 (same draws) is reported beside it. Run-day inputs for
-post-run review 06: the replication-day re-draw rows (non-unital and noiseless), the calibrated simulations of Deviation 19, the
-snapshots up to the replication-day one, the noiseless rebuild of the 200 fresh n20 draws (as in post-run 03 Section 4b), and the
-day-1 / day-2 per-point table (`docs/manuscripts/paper1/figures/maingrid_points.csv`) for φ, κ̂ and the Holm family.
-`tests/test_anomaly_stats.py` covers every reading on synthetic inputs and pins the recorded flags' expected outcomes.
+Decisive tests (`FLAGS`, `decision_role`): the n19 flag on replication_01 n20 L4 at level 0 (level 1, the same draws, reported
+beside it); the n85 flag on replication_01_16384 (level 0, 16,384 shots), with the 4,096-shot test reported as pre-flight 08's
+diagnostic. `decide` returns one decision per flag. The pipeline's `anomaly_protocol` line (`holm_within_run`) is a within-run
+diagnostic on pre-flight 08's z and labels no flag firm. Run-day inputs for post-run review 06: the replication-day re-draw rows
+(non-unital and noiseless), the calibrated simulations of Deviation 19, the snapshots up to the replication-day one and the noiseless
+rebuild of the 200 fresh n20 draws (as in post-run 03 Section 4b). `tests/test_anomaly_stats.py` covers every reading on synthetic
+inputs, checks the reference file and pins the recorded flags' expected outcomes.

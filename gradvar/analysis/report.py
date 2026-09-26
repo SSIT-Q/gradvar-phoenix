@@ -156,13 +156,14 @@ def write_report(res: Dict, out_dir: str | Path, figure_files: Dict[str, str]) -
     a = res["anomaly_protocol"]
     md += ["### Anomaly protocol (Deviation 19)", "", f"Flagged: **{a.get('flagged')}** ({a.get('n_compared', 0)} points compared). "
            f"Single-point anomalies: {len(a.get('single_point', []))}; monotone runs: {len(a.get('monotone_runs', []))}. Action: {a.get('action', 'none')}.", ""]
-    h = a.get("holm") or {}
+    h = a.get("holm_within_run") or {}
     if h.get("m"):
-        firm = [f["point_id"] for f in h.get("flags", []) if f.get("firm")]
         adj = "; ".join(f"{f['point_id']} {f['p_holm']:.3g}" for f in h.get("flags", []))
-        md += [f"Deviation 61 (ii), Holm step-down over this run's {h['m']} Deviation 19 tests at family-wise {h['alpha']:g}: firm single-point flags: "
-               f"{', '.join(firm) if firm else 'none'}" + (f" (adjusted p: {adj})" if adj else "") + ". "
-               "The replication decision uses the campaign-wide family and Deviation 61 (i) (`gradvar.analysis.anomaly_stats`).", ""]
+        stat = "pre-flight 08's z" if h.get("statistic") == "z_preflight08" else "the pipeline z"
+        md += [f"Within-run Holm step-down on {stat} over this run's {h['m']} Deviation 19 tests at family-wise {h['alpha']:g} (diagnostic)"
+               + (f"; adjusted p of the single-point flags: {adj}" if adj else "") + ". "
+               "It labels no flag firm: Deviation 61 firmness and the replication decision are grid-wide, over the frozen 43-test family "
+               "with prediction-side uncertainty (`gradvar.analysis.anomaly_stats`, `data/derived/dev61_reference_2026-09-25.csv`).", ""]
     if len(pts):
         cols = [c for c in ("point_id", "M", "variance", "ci_lo", "ci_hi", "shot_variance", "shot_floor", "pattern_floor", "pattern_floor_upper_bound", "signal_variance",
                             "signal_ci_lo", "signal_ci_hi", "eps_N", "claimable", "exploratory", "claim_bar", "floor_grad", "headline_ratio", "mele_floor", "mean", "mean_z",
