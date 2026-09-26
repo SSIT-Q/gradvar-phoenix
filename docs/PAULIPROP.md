@@ -260,8 +260,12 @@ strings. The accumulators only read the weights: with cuts the propagation, `var
 and the string count are bit-identical to a run without them (both engines; the sampler's random stream is unchanged).
 
 **Bounds and errors.** A kept string contributes `w_P Delta_P` with `Delta_P = F_P - 2 mu_P [P Z-type] + [P Z-type]`, `F_P` its
-remaining second moment; `F_P >= mu_P^2` gives `Delta_P >= (1 - mu_P)^2 >= 0`, so pruning only removes non-negative terms and the
-truncated MSD is a lower bound (at coarse `delta` it can reach 0 for large `l`; the RMS is then reported as 0). The Pauli-path
+remaining second moment; `F_P >= mu_P^2` (Jensen) gives `Delta_P >= (1 - mu_P)^2 >= 0` for a Z-type string and `Delta_P = F_P >= 0`
+otherwise. Pruning before the cut removes whole subtrees (`w_P^trunc <= w_P`), and pruning after the cut removes only `E[C^2]` weight
+(`F_P^trunc <= F_P`; `A_l` and `B_l` read the weights at the cut), so
+`MSD - MSD_trunc = sum_P (w_P - w_P^trunc) Delta_P + sum_P w_P^trunc (F_P - F_P^trunc) >= 0` and the truncated MSD is a lower bound
+(Deviation 60 checkpoint review O1; this replaces the note review's reading that the `-2 B_l` term breaks the bound). At coarse
+`delta` it can reach 0, or fall slightly below it, for large `l`; the RMS is then reported as 0. The Pauli-path
 sampler scores each path with `a = w [P Z-type]` and `b = a mu_P` at the cut and its final weight `w F`, and averages
 `w F - 2 b + a` (unbiased, with its standard error; mixture channel only, `fixed_masks` is refused). `predict_truncation` applies
 the Deviation 15 rule of the H5 / H6 rows in RMS space: value = the sampled RMS when finite, else the fine truncation;

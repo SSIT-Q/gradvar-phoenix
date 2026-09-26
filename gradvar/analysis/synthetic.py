@@ -19,11 +19,23 @@ import pandas as pd
 from ..hardware import LOG_COLUMNS
 from .loader import encode_ndarray
 
+def _ladder_qubits(spec: str, fallback: list) -> list:
+    """The placed qubits of ``spec`` on the 19 Sep ladder placement (``data/predictions/ladder_placements.json``), on which the
+    committed dial rows of ``pauliprop_predictions.csv`` were drawn; ``fallback`` when the file is absent."""
+    f = Path(__file__).resolve().parents[2] / "data" / "predictions" / "ladder_placements.json"
+    try:
+        return sorted(int(q) for q in json.loads(f.read_text())["patches"][spec]["qubits"])
+    except (OSError, KeyError, ValueError):
+        return fallback
+
+
 # patch qubits and observable edge per nominal n; n = 20 keeps the (8, 1) placement with edge 93_103, the edge every prediction
-# table carries (list 02 of 20 Sep 2026 sits at origin (8, 2), edge 94_104: Deviation 34 / 36 keying by edge handles either)
+# table carries (list 02 of 20 Sep 2026 sits at origin (8, 2), edge 94_104: Deviation 34 / 36 keying by edge handles either).
+# The n = 53 dial rung sits on the 19 Sep ladder placement, so the placement-matched dial lookup (Deviation 60, review M5) finds the
+# committed rows it was planted from; its edge qubits keep all four CZ neighbours, so the Deviation 33 floors are unchanged.
 PATCH = {20: ("4x5", "93_103", list(range(81, 86)) + list(range(91, 96)) + list(range(101, 106)) + list(range(111, 116))),
          39: ("4x10", "93_103", [q for q in range(80, 120) if q != 107]),
-         53: ("6x10", "84_85", list(range(60, 113))[:53]),
+         53: ("6x10", "84_85", _ladder_qubits("6x10", list(range(60, 113))[:53])),
          70: ("8x10", "84_85", list(range(40, 110))),
          87: ("10x10", "75_85", list(range(20, 107))),
          10: ("1x10", "9_10", list(range(5, 15)))}

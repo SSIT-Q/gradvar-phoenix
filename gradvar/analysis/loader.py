@@ -140,6 +140,15 @@ def _point_id(r: dict) -> str:
 _TRUNC_PROBE_ID = re.compile(r"^trunc_(?:full|l(\d+))(?:_|$)")
 
 
+def edge_set_key(edges) -> str | None:
+    """Canonical text of a coupler set ([[a, b], ...] or 'a_b c_d'): 'a_b c_d' with a < b, sorted; None when not recorded."""
+    if edges is None or (isinstance(edges, float) and np.isnan(edges)):
+        return None
+    items = str(edges).split() if isinstance(edges, str) else [f"{e[0]}_{e[1]}" for e in edges]
+    pairs = sorted(tuple(sorted(int(x) for x in str(s).replace("-", "_").split("_"))) for s in items if str(s).strip())
+    return " ".join(f"{a}_{b}" for a, b in pairs)
+
+
 def _is_true(v) -> bool:
     return v is True or (isinstance(v, (bool, np.bool_)) and bool(v)) or (isinstance(v, str) and v.strip().lower() == "true")
 
@@ -148,19 +157,25 @@ def truncation_ell(rows: pd.DataFrame) -> pd.Series:
     """Deviation 60: ell of every truncation-arm row (Section 3b, H7), NaN for every other row. A truncation pub is a
     ``reset_dial`` probe with ``unshifted`` (one circuit at theta, the cost C_mix) in the bundle's job.json; ell =
     ``truncate_to`` (the last ell layers from |0>), 0 for the full circuit. Rows without a bundle description (``unshifted``
-    absent) fall back on the job-list probe ids trunc_full_* (0) / trunc_l<ell>_*."""
+    absent) fall back on the job-list probe ids trunc_full_* (0) / trunc_l<ell>_*. Only the arm's probes map (checkpoint
+    review O2): an unshifted reset_dial pub whose probe id is not trunc_full_* / trunc_l<ell>_* raises, so that a future
+    cost-only probe is not read as part of the arm."""
     out = pd.Series(np.nan, index=rows.index, dtype=float)
     if not len(rows):
         return out
     dial = rows["kind"].astype(str) == "reset_dial"
     unsh = rows["unshifted"] if "unshifted" in rows.columns else pd.Series(None, index=rows.index, dtype=object)
     known = unsh.notna()
+    pid = rows["probe_id"].astype(str) if "probe_id" in rows.columns else pd.Series("", index=rows.index)
+    named = pid.str.match(_TRUNC_PROBE_ID)
     flag = unsh.map(_is_true) & known & dial
+    if (flag & ~named).any():
+        raise ValueError("unshifted reset_dial probe(s) outside the truncation arm's trunc_full_* / trunc_l<ell>_* ids: "
+                         + ", ".join(sorted(set(pid[flag & ~named]))) + " (Deviation 60: only the arm's probes map to kind 'truncation')")
     tt = pd.to_numeric(rows["truncate_to"], errors="coerce") if "truncate_to" in rows.columns else pd.Series(np.nan, index=rows.index)
     out[flag] = tt[flag].fillna(0.0)
-    pid = rows["probe_id"].astype(str) if "probe_id" in rows.columns else pd.Series("", index=rows.index)
     m = pid.str.extract(_TRUNC_PROBE_ID, expand=False)
-    by_name = dial & ~known & pid.str.match(_TRUNC_PROBE_ID)
+    by_name = dial & ~known & named
     out[by_name] = pd.to_numeric(m[by_name], errors="coerce").fillna(0.0)
     return out
 
@@ -200,7 +215,7 @@ def _enrich_from_bundle(rows: pd.DataFrame, b: Bundle) -> pd.DataFrame:
         rows["bundle_note"] = f"{len(pts)} pubs ({len(expanded)} rows) in job.json vs {len(rows)} CSV rows"
         return rows
     for col in ("probe_id", "reset_kind", "mask_index", "patch", "edge", "dial_delay_ns", "mask_seed_bundle", "p_bundle", "K_bundle", "rep_delay_us", "null_qubit", "draw_bundle",
-                "unshifted", "truncate_to"):
+                "unshifted", "truncate_to", "broken_edges"):
         rows[col] = None
     rows = rows.reset_index(drop=True)
     for i, (pub_index, pt, d) in enumerate(expanded):
@@ -222,6 +237,7 @@ def _enrich_from_bundle(rows: pd.DataFrame, b: Bundle) -> pd.DataFrame:
         rows.at[i, "draw_bundle"] = pt.get("draw") if d is None else d
         rows.at[i, "unshifted"] = pt.get("unshifted")                 # Deviation 60: the truncation arm's pubs (one circuit at theta)
         rows.at[i, "truncate_to"] = pt.get("truncate_to")
+        rows.at[i, "broken_edges"] = edge_set_key(pt.get("broken_edges"))   # Deviation 60 (M4): the placement's broken couplers
         rows.at[i, "kind"] = pt.get("kind") or "grid"
     return rows
 
@@ -372,6 +388,6 @@ def load_run(run_dir: str | Path, csv_paths: Sequence[str | Path] | None = None)
     rows["point_id"] = [_point_id(r) for r in rows.to_dict("records")]
     rows["draw"] = _draw_index(rows)
     rows["repeat"] = _repeat_index(rows)
-    keep = TIDY_COLUMNS + [c for c in ("ell", "unshifted", "truncate_to", "source_csv", "bundle_note", "observable_edge", "null_qubit") if c in rows.columns]
+    keep = TIDY_COLUMNS + [c for c in ("ell", "unshifted", "truncate_to", "broken_edges", "source_csv", "bundle_note", "observable_edge", "null_qubit") if c in rows.columns]
     rows = rows[keep]
     return RunData(rows=rows, bundles=bundles, reset_error=reset_error_table(list(bundles.values())), csv_paths=list(csvs), run_dir=root)

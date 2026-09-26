@@ -84,8 +84,14 @@ def day3_run(tmp_path_factory):
     return out
 
 
-def _preds(**entry):
-    point = dict(patch="4x5", edge="94_104", n=20, p=0.5, L=8)
+def _qubits(rows):
+    """The placed qubit set of the fixture's truncation rows (the comparator must carry it: Deviation 60, review M5)."""
+    (qs,) = set(rows[rows.kind == "truncation"].patch_qubits)
+    return sorted(int(q) for q in qs.split())
+
+
+def _preds(rows, **entry):
+    point = dict(patch="4x5", edge="94_104", n=20, p=0.5, L=8, qubits=_qubits(rows))
     point.update(entry.pop("point", {}))
     return dict(truncation_entries=[dict(point=point, rms_l2=entry.pop("rms_l2", DELTA[2]), rms_l2_sigma=entry.pop("rms_l2_sigma", 0.001), file="test.json", **entry)])
 
@@ -116,6 +122,9 @@ def test_truncation_ell_falls_back_on_probe_ids_without_a_bundle():
                              unshifted=[None, None, None, None, False], truncate_to=[None] * 5))
     ell = truncation_ell(rows)
     assert ell.tolist()[:3] == [0.0, 2.0, 4.0] and np.isnan(ell.iloc[3]) and np.isnan(ell.iloc[4])   # a bundle saying unshifted = False wins
+    stray = pd.DataFrame(dict(kind=["reset_dial"] * 2, probe_id=[FULL_ID, "cost_only_p0.5_L8"], unshifted=[True, True], truncate_to=[None, None]))
+    with pytest.raises(ValueError, match="cost_only_p0.5_L8"):                 # review O2: only the arm's probes map
+        truncation_ell(stray)
 
 
 def test_repeat_index_numbers_rows_without_a_seed():
@@ -186,14 +195,17 @@ def test_truncation_rms_subtracts_the_shot_term():
 
 def test_h7_end_to_end_on_the_day3_row_schema(day3_run):
     rows = load_run(day3_run).rows
-    res = DH.evaluate_h7(rows, _preds(), n_boot=500)
+    res = DH.evaluate_h7(rows, _preds(rows), n_boot=500)
     assert res["result"] == "pass", res["note"]
     r2, r4 = res["rms"][2], res["rms"][4]
     assert r2["M"] == M and r2["n_pairs"] == M * K and r2["pairing_errors"] == 0 and r2["rms_lo"] <= DELTA[2] <= r2["rms_hi"]
     assert res["checks"]["std_cmix"] > 0.1 and res["checks"]["l4_below_l2"] is True and res["checks"]["l2"]["within"] is True
     assert r4["upper_bound_by_rule"] and r4["reported_upper_bound"] == r4["rms_hi"] and "rule (a)" in res["note"]
+    f4 = res["checks"]["l4_fall"]                                                  # review M2: the paired bootstrap of RMS(2) - RMS(4)
+    assert f4["M"] == M and f4["n_boot"] == 500 and f4["q05"] > 0 and f4["point_difference"] == pytest.approx(r2["rms"] - r4["rms"], rel=1e-9)
+    assert r2["n_boot"] == 500 and r2["n_mask_replicates"] == DH.N_MASK_REPLICATES and np.isfinite(r2["kurtosis"])
     assert res["point"]["patch"] == "4x5" and res["point"]["n"] == 20 and res["comparator"]["file"] == "test.json"
-    far = DH.evaluate_h7(rows, _preds(rms_l2=0.09), n_boot=500)
+    far = DH.evaluate_h7(rows, _preds(rows, rms_l2=0.09), n_boot=500)
     assert far["result"] == "fail" and far["checks"]["l2"]["within"] is False
 
 
@@ -201,11 +213,13 @@ def test_h7_not_evaluable_without_a_comparator(day3_run):
     """Deviation 60 guard: with the l = 4 probe present and std(C_mix) > 0.1 but no l = 2 comparator, H7 gives no verdict (before, the
     one-sided l = 4 test alone decided it)."""
     rows = load_run(day3_run).rows
-    for preds in ({}, dict(truncation={"rms_l2_sigma": 0.001}), _preds(point=dict(edge="93_103")), _preds(point=dict(qubits=[1, 2, 3]))):
+    q = _qubits(rows)
+    for preds in ({}, dict(truncation={"rms_l2_sigma": 0.001}), _preds(rows, point=dict(edge="93_103")), _preds(rows, point=dict(qubits=[1, 2, 3])),
+                  _preds(rows, point=dict(qubits=None)), dict(truncation=dict(rms_l2=DELTA[2], rms_l2_sigma=0.001))):   # the last two: no placement
         res = DH.evaluate_h7(rows, preds, n_boot=200)
         assert res["result"] == "not-evaluable" and "Deviation 60" in res["note"] and res["checks"]["std_cmix"] > 0.1, (preds, res["note"])
         assert 2 in res["rms"] and 4 in res["rms"]                                  # the statistics are still reported
-    explicit = DH.evaluate_h7(rows, dict(truncation=dict(rms_l2=DELTA[2], rms_l2_sigma=0.001)), n_boot=200)
+    explicit = DH.evaluate_h7(rows, dict(truncation=dict(rms_l2=DELTA[2], rms_l2_sigma=0.001, qubits=q)), n_boot=200)
     assert explicit["result"] == "pass"
 
 
@@ -217,7 +231,8 @@ def test_h7_not_evaluable_when_the_pairs_do_not_match(day3_run, tmp_path):
     cut = df.observable_edge == f"probe:{CUT_IDS[2]}"
     df.loc[cut, "mask_seed"] = df.loc[cut, "mask_seed"] + 1000                     # the l = 2 circuits no longer carry the full circuits' masks
     df.to_csv(csv, index=False)
-    res = DH.evaluate_h7(load_run(run_dir).rows, _preds(), n_boot=200)
+    rows = load_run(run_dir).rows
+    res = DH.evaluate_h7(rows, _preds(rows), n_boot=200)
     assert res["result"] == "not-evaluable" and "do not pair" in res["note"]
 
 
@@ -227,5 +242,88 @@ def test_committed_comparator_is_matched_by_placement():
     e = entries[-1]["point"]
     comp, _ = P.truncation_prediction(dict(truncation_entries=entries), patch=e["patch"], edge=e["edge"], n=e["n"], p=e["p"], L=e["L"], qubits=e["qubits"])
     assert comp is entries[-1]
-    none, why = P.truncation_prediction(dict(truncation_entries=entries), patch=e["patch"], edge=e["edge"], n=e["n"], p=0.25, L=e["L"])
+    none, why = P.truncation_prediction(dict(truncation_entries=entries), patch=e["patch"], edge=e["edge"], n=e["n"], p=0.25, L=e["L"], qubits=e["qubits"])
     assert none is None and "p " in why
+    unplaced, why2 = P.truncation_prediction(dict(truncation_entries=entries), patch=e["patch"], edge=e["edge"], n=e["n"], p=e["p"], L=e["L"])
+    assert unplaced is None and "no placed qubit set" in why2            # review M5: no match without the run's qubit set
+
+
+# ------------------------------------------------------------------------------------------------ checkpoint review M2 - M4
+
+def _corr_pairs(M_=60, K_=16, s=100_000, seed=3, eps=0.25):
+    """Per-draw differences D2 = (1 + eps) X_d and D4 = X_d against the same full circuit, X_d heavy-tailed (Student t, 3 degrees of
+    freedom): each RMS alone has a wide interval, but the two move together draw by draw."""
+    rng = np.random.default_rng(seed)
+    X = 0.02 * rng.standard_t(3, M_)
+    full, t2, t4 = [], [], []
+    for d in range(M_):
+        c = 0.2 * np.sin(rng.uniform(0, 2 * np.pi))
+        eta = rng.normal(0, 0.01, K_)
+        for m in range(K_):
+            f = np.clip(c + eta[m], -1, 1)
+            for rows_, delta in ((full, 0.0), (t2, (1 + eps) * X[d]), (t4, X[d])):
+                e = np.clip(f - delta, -1, 1)
+                rows_.append(dict(draw=d, mask_index=m, seed=100 + d, mask_seed=201 + m, ev=2 * rng.binomial(s, (1 + e) / 2) / s - 1, shots=s))
+    return pd.DataFrame(full), pd.DataFrame(t2), pd.DataFrame(t4)
+
+
+def test_one_sided_fall_is_the_paired_bootstrap_not_the_interval_overlap():
+    """Review M2: the registered test is the paired bootstrap over draws of RMS(2) - RMS(4), one-sided at 95 percent. On planted draws
+    where the two statistics move together, the separate 95 percent intervals overlap (the old reading: not below) while the paired
+    difference is resolved (5th percentile > 0)."""
+    full, t2, t4 = _corr_pairs()
+    r2, r4 = DH.truncation_rms(full, t2, 16), DH.truncation_rms(full, t4, 16)
+    fall = DH.truncation_fall(full, t2, t4)
+    assert r4["rms_hi"] >= r2["rms_lo"]                                          # intervals overlap: the interval check would refute
+    assert fall["l4_below_l2"] is True and fall["q05"] > 0 and fall["M"] == 60 and fall["n_boot"] == 10_000
+    assert fall["point_difference"] == pytest.approx(r2["rms"] - r4["rms"], rel=1e-9)
+    same = DH.truncation_fall(full, t4, t4)                                      # no fall: the 5th percentile is not above 0
+    assert same["l4_below_l2"] is False and same["point_difference"] == pytest.approx(0.0, abs=1e-15)
+
+
+def test_interval_is_the_two_stage_paired_bootstrap():
+    """Review M3: the l = 2 interval is the percentile interval of 10,000 resamples of the draws, each selected draw entering as
+    mean(diff)^2 minus one of its mask-bootstrap replicates of Var_m(diff) / K. It brackets the estimate (a mask replicate of the whole
+    y_d would not: its square carries Var_m(diff) / K back in); checked against an independent implementation (other seed) and, with
+    the within-draw noise switched off, against the plain draw bootstrap."""
+    full, trunc = _pairs(M_=80, K_=32, s=64, delta=0.05, resid=0.1, shared=0.3, seed=21)
+    out = DH.truncation_rms(full, trunc, 32)
+    assert out["n_boot"] == 10_000 and out["n_mask_replicates"] == 2000 and out["rms_lo"] < out["rms"] < out["rms_hi"]
+    rng = np.random.default_rng(99)
+    f1, t1 = full.sort_values(["draw", "mask_index"]), trunc.sort_values(["draw", "mask_index"])
+    diff = (f1.ev.to_numpy() - t1.ev.to_numpy()).reshape(80, 32)
+    y = diff.mean(axis=1) ** 2 - diff.var(axis=1, ddof=1) / 32
+    assert out["mean_square"] == pytest.approx(y.mean(), rel=1e-12)
+    reps = np.stack([row.mean() ** 2 - row[rng.integers(0, 32, size=(2000, 32))].var(axis=1, ddof=1) / 32 for row in diff])
+    whole = np.stack([(lambda x: x.mean(axis=1) ** 2 - x.var(axis=1, ddof=1) / 32)(row[rng.integers(0, 32, size=(2000, 32))]) for row in diff])
+    assert whole.mean() - y.mean() == pytest.approx((diff.var(axis=1, ddof=1) / 32).mean(), rel=0.05)     # the whole-y_d replicate's shift
+    boot = reps[rng.integers(0, 80, size=(10_000, 80)), rng.integers(0, 2000, size=(10_000, 80))].mean(axis=1)
+    lo, hi = np.quantile(boot, [0.025, 0.975])
+    width = out["mean_square_hi"] - out["mean_square_lo"]
+    assert abs(out["mean_square_lo"] - lo) < 0.05 * width and abs(out["mean_square_hi"] - hi) < 0.05 * width
+    flat = full.assign(ev=full.ev - full.ev + np.repeat(np.random.default_rng(1).normal(0, 0.1, 80), 32))   # no within-draw spread
+    zero = trunc.assign(ev=0.0)
+    o = DH.truncation_rms(flat, zero, 32)
+    yd = flat.groupby("draw").ev.mean().to_numpy() ** 2
+    b = yd[np.random.default_rng(5).integers(0, 80, size=(10_000, 80))].mean(axis=1)
+    lo0, hi0 = np.quantile(b, [0.025, 0.975])
+    assert abs(o["mean_square_lo"] - lo0) < 0.05 * (hi0 - lo0) and abs(o["mean_square_hi"] - hi0) < 0.05 * (hi0 - lo0)
+
+
+def test_placement_guard_is_keyed_on_the_qubit_set_and_broken_couplers(day3_run):
+    """Review M4: truncation rows of two placements at equal n are not paired: a different placed qubit set, or a different
+    broken-coupler set where the bundles record it, makes H7 not-evaluable."""
+    rows = load_run(day3_run).rows
+    t = rows[rows.kind == "truncation"]
+    assert t.broken_edges.notna().all() and t.broken_edges.nunique() == 1       # recorded from the bundles' pub descriptions
+    good = DH.evaluate_h7(rows, _preds(rows), n_boot=200)
+    assert good["result"] == "pass" and good["point"]["qubits"] == _qubits(rows)
+    cut = rows.probe_id == CUT_IDS[2]
+    moved = rows.copy()
+    moved.loc[cut, "patch_qubits"] = moved.loc[cut, "patch_qubits"].map(lambda s: " ".join(s.split()[:-1] + ["999"]))
+    res = DH.evaluate_h7(moved, _preds(rows), n_boot=200)
+    assert res["result"] == "not-evaluable" and "qubit sets differ" in res["note"]
+    broken = rows.copy()
+    broken.loc[cut, "broken_edges"] = "1_2"
+    res2 = DH.evaluate_h7(broken, _preds(rows), n_boot=200)
+    assert res2["result"] == "not-evaluable" and "broken-coupler sets differ" in res2["note"]

@@ -62,9 +62,11 @@ sum_{P in {I,Z}^n} w_P, and E[C C_trunc] = B_l = sum_{P in {I,Z}^n} w_P mu_P wit
 E_theta<Z_q> after forward layer L - l (``layer_mean_z``: the t_z of the dial plus D_z times the relaxation feed of the CZ
 block, the theta-independent head of that layer). Then MSD(l) = E[(C - C_trunc)^2] = E[C^2] - 2 B_l + A_l; the prefix
 identity c0 cancels (c0^2 - 2 c0^2 + c0^2), so MSD(l) = var_cost - 2 B_l + A_l with A_l, B_l over the propagated strings.
-The accumulators only read the weights, so a run with cuts propagates exactly as one without. Pruning removes whole
-subtrees whose contribution sum w_P Delta_P (Delta_P >= 0) is non-negative, so the truncated MSD is a lower bound in exact
-arithmetic; the sampled engine gives the unbiased per-path estimate w F - 2 b + a with its standard error. mu_P as a
+The accumulators only read the weights, so a run with cuts propagates exactly as one without. With Delta_P = F_P -
+2 mu_P [P Z-type] + [P Z-type] >= (1 - mu_P)^2 >= 0 (F_P the remaining second moment, F_P >= mu_P^2 by Jensen), pruning before
+the cut removes whole subtrees (w_P^trunc <= w_P) and pruning after it removes only E[C^2] weight (F_P^trunc <= F_P), so
+MSD - MSD_trunc = sum_P (w_P - w_P^trunc) Delta_P + sum_P w_P^trunc (F_P - F_P^trunc) >= 0: the truncated MSD is a lower
+bound in exact arithmetic; the sampled engine gives the unbiased per-path estimate w F - 2 b + a with its standard error. mu_P as a
 product over qubits is exact for the unital base model with a dial (the only theta-independent path is the dial's reset
 of every Z); with CZ-block relaxation (non-unital model) the dep2 factor of a coupler whose two ends both relax only after
 the dial is counted twice, an error of order (1 - f) (t_relax)^2 (1 - p)^2, below 1e-8 relative on the snapshot values.

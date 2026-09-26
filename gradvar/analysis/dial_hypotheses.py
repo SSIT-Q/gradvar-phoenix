@@ -30,10 +30,15 @@ H_TEXT = {
     "H7": "Noise-induced effective depth. Refuted if the l = 2 RMS of C_mix - C_mix[L - l, L] (residual pattern noise subtracted) misses the pre-drawn "
           "prediction by more than the combined interval, or, when the measured std(C_mix) exceeds 0.1, the l = 4 RMS is not below the l = 2 RMS by more "
           "than the paired-bootstrap interval. Deviation 60: the statistic also subtracts the shot term of the per-draw mean difference and is compared "
-          "with sqrt(MSD(l = 2)) from the snapshot-noise engine; no verdict without that comparator; l = 4 is an upper-bound point by rule.",
+          "with sqrt(MSD(l = 2)) from the snapshot-noise engine; its interval and the one-sided l = 4 < l = 2 test are the paired bootstrap over "
+          "draws (10,000 resamples) with the bootstrap over masks within draws; no verdict without that comparator; l = 4 is an upper-bound point "
+          "by rule.",
 }
 LADDER_LOW, LADDER_HIGH = {39, 40}, {87, 90, 100}
 CONTROL_N = {53, 56, 60}
+# Deviation 60 (M5 follow-up): the control and ladder rungs are selected by patch as well, since the placed n moves with the
+# placement (the pinned 23 Sep 16:35Z placement gives n = 52 on the 6x10 control rung, not one of CONTROL_N)
+CONTROL_PATCH, LADDER_LOW_PATCH, LADDER_HIGH_PATCH = "6x10", "4x10", "10x10"
 
 
 # ------------------------------------------------------------------------------------------------ floors per point
@@ -107,15 +112,38 @@ def _var_ratio_blocks(a: np.ndarray, b: np.ndarray, sub_a: float, sub_b: float, 
     return dict(ratio=float((a.reshape(-1).var(ddof=1) - sub_a) / (b.reshape(-1).var(ddof=1) - sub_b)), lo=float(lo), hi=float(hi), paired=True)
 
 
-def _pred(preds, r, arm=None, p=None, L=None, k=None):
+def _pred(preds, r, arm=None, p=None, L=None, k=None, missing=None):
+    """The pre-drawn dial row of point ``r`` drawn on its placement (the placed qubit set, ``predictions.dial_prediction``;
+    Deviations 46, 58; Deviation 60, review M5), or None: the sub-test is then not evaluable and ``missing`` records the reason
+    with the unmatched 19 Sep row as the fallback record (Deviation 54 (iii))."""
     arm = arm or r.arm
     p = r.p if p is None else p
     L = int(r.L) if L is None else L
     k = int(r.k) if k is None else k
-    return P.predicted_point(preds, int(r.n), L, k, arm, float(p) if p is not None else None, patch=r.patch, edge=r.edge)
+    hit, why, fb = P.dial_prediction(preds, int(r.n), L, k, P.DIAL_KIND.get(str(arm), str(arm)), float(p) if p is not None else None,
+                                     patch=r.patch, edge=r.edge, qubits=getattr(r, "patch_qubits", None))
+    if hit is None and missing is not None:
+        missing.append(dict(point_id=getattr(r, "point_id", None), arm=str(arm), p=float(p) if p is not None else None, n=int(r.n), L=L, k=k, reason=why,
+                            fallback=None if fb is None else dict(var=fb["var"], var_cost=fb.get("var_cost"), sigma=fb.get("sigma"), n=fb.get("n"),
+                                                                   source=fb.get("source"), status=fb.get("status"))))
+    return hit
 
 
-def _sel(d: pd.DataFrame, arm: str, p: float | None = None, L: int | None = None, k_eq_L: bool = True, n=None):
+def _missing(missing: list) -> tuple:
+    """(records, note suffix) of the sub-tests without a placement-matched prediction, one record per (point, k)."""
+    seen, out = set(), []
+    for m in missing:
+        key = (m["point_id"], m["arm"], m["p"], m["n"], m["L"], m["k"])
+        if key not in seen:
+            seen.add(key)
+            out.append(m)
+    note = (f"; {len(out)} prediction(s) without a row drawn on the run's placement (sub-tests not evaluable; the 19 Sep rows are "
+            "reported as the fallback record, Deviation 54 (iii))") if out else ""
+    return out, note
+
+
+def _sel(d: pd.DataFrame, arm: str, p: float | None = None, L: int | None = None, k_eq_L: bool = True, n=None, patch: str | None = None):
+    """Points of one arm (and p, L, k = L); ``n`` / ``patch``: the rung, by its placed n or (either) by its patch shape."""
     x = d[d.arm == arm]
     if p is not None:
         x = x[np.isclose(x.p.astype(float), p)]
@@ -123,8 +151,10 @@ def _sel(d: pd.DataFrame, arm: str, p: float | None = None, L: int | None = None
         x = x[x.L == L]
     if k_eq_L:
         x = x[x.k == x.L]
-    if n is not None:
-        x = x[x.n.isin(n)]
+    if n is not None or patch is not None:
+        by_n = x.n.isin(n) if n is not None else pd.Series(False, index=x.index)
+        by_patch = (x.patch.astype(str) == str(patch)) if (patch is not None and "patch" in x.columns) else pd.Series(False, index=x.index)
+        x = x[by_n | by_patch]
     return x
 
 
@@ -135,30 +165,32 @@ def evaluate_h5(points: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict
     against the pre-drawn ratio; per (p, L), the floor-subtracted Var[C_mix] against the pre-drawn value and above the
     Deviation 33 cost floor with its interval."""
     d = points[(points.kind == "reset_dial") & (points.arm == "reset") & (points.k == points.L)] if len(points) else points
-    ratios, values, floors = [], [], []
+    ratios, values, floors, missing = [], [], [], []
     for p, g in d.groupby("p"):
         a, b = g[g.L == 8], g[g.L == 12]
         for r in g.itertuples():
-            pr = _pred(preds, r)
+            pr = _pred(preds, r, missing=missing)
             values.append(dict(p=float(p), L=int(r.L), n=int(r.n), **_value_test(r.var_cmix_signal, r.var_cmix_signal_ci_lo, r.var_cmix_signal_ci_hi,
                                                                                  pr["var_cost"] if pr else np.nan, pr.get("var_cost_sigma", np.nan) if pr else np.nan)))
             floors.append(dict(p=float(p), L=int(r.L), n=int(r.n), **_floor_test(r.var_cmix_signal, r.var_cmix_signal_ci_lo, r.var_cmix_signal_ci_hi, r.floor_cost), mele_floor=r.mele_floor))
-        if len(a) and len(b):
-            ra, rb = a.iloc[0], b.iloc[0]
-            pr8, pr12 = _pred(preds, ra), _pred(preds, rb)
+        for n in sorted(set(a.n) & set(b.n)):           # L = 8 and L = 12 of the same rung (day 3 has p = 0.25 L = 8 points at three n)
+            ra, rb = a[a.n == n].iloc[0], b[b.n == n].iloc[0]
+            pr8, pr12 = _pred(preds, ra, missing=missing), _pred(preds, rb, missing=missing)
             meas = _var_ratio_blocks(rb.cmix_draws, ra.cmix_draws, rb.var_cmix_floor, ra.var_cmix_floor, n_boot)
             pred = (pr12["var_cost"] / pr8["var_cost"]) if (pr8 and pr12 and pr8["var_cost"] > 0) else np.nan
             ps = pred * np.sqrt((pr12.get("var_cost_sigma", 0) / pr12["var_cost"]) ** 2 + (pr8.get("var_cost_sigma", 0) / pr8["var_cost"]) ** 2) if np.isfinite(pred) else np.nan
             ratios.append(dict(p=float(p), n=int(ra.n), **_ratio_test(meas, pred, ps)))
     ev = [x for x in ratios + values if x["within"] is not None]
     fl = [x for x in floors if x["below_floor_with_interval"] is not None]
+    miss, miss_note = _missing(missing)
     if not ev and not fl:
-        return verdict("H5", H_TEXT["H5"], "not-evaluable", note="no reset k = L point with Var[C_mix], a prediction and a Deviation 33 floor", ratios=ratios, values=values, floors=floors)
+        return verdict("H5", H_TEXT["H5"], "not-evaluable", note="no reset k = L point with Var[C_mix], a prediction and a Deviation 33 floor" + miss_note,
+                       ratios=ratios, values=values, floors=floors, missing_predictions=miss)
     fails = [x for x in ev if not x["within"]] + [x for x in fl if x["below_floor_with_interval"]]
     return verdict("H5", H_TEXT["H5"], "fail" if fails else "pass", value=dict(ratio_misses=sum(1 for x in ratios if x["within"] is False), value_misses=sum(1 for x in values if x["within"] is False),
                                                                           below_floor=sum(1 for x in fl if x["below_floor_with_interval"])), threshold="0 of each",
-                   note=f"{len(ratios)} depth ratios, {len(values)} values, {len(fl)} floor checks evaluated; p^4/9 is a reference line only (Deviation 33)",
-                   ratios=ratios, values=values, floors=floors)
+                   note=f"{len(ratios)} depth ratios, {len(values)} values, {len(fl)} floor checks evaluated; p^4/9 is a reference line only (Deviation 33)" + miss_note,
+                   ratios=ratios, values=values, floors=floors, missing_predictions=miss)
 
 
 # ------------------------------------------------------------------------------------------------ H6
@@ -170,7 +202,7 @@ def evaluate_h6(points: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict
     inconclusiveness check on the delay-matched control."""
     d = points[points.kind == "reset_dial"] if len(points) else points
     reset = _sel(d, "reset")
-    floors, ratios, ladder, controls, k1 = [], [], [], [], []
+    floors, ratios, ladder, controls, k1, missing = [], [], [], [], [], []
     for r in reset.itertuples():
         floors.append(dict(p=float(r.p), n=int(r.n), L=int(r.L), headline_ratio=r.headline_ratio, headline_lo=r.headline_lo, headline_hi=r.headline_hi, mele_floor=r.mele_floor,
                            **_floor_test(r.signal_variance, r.signal_ci_lo, r.signal_ci_hi, r.floor_grad)))
@@ -178,25 +210,25 @@ def evaluate_h6(points: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict
         a, b = g[g.L == 8], g[g.L == 12]
         for n in sorted(set(a.n) & set(b.n)):
             ra, rb = a[a.n == n].iloc[0], b[b.n == n].iloc[0]
-            pr8, pr12 = _pred(preds, ra), _pred(preds, rb)
+            pr8, pr12 = _pred(preds, ra, missing=missing), _pred(preds, rb, missing=missing)
             meas = paired_ratio(rb.gradients, ra.gradients, n_boot, sub_a=rb.shot_vars, sub_b=ra.shot_vars)
             pred = pr12["var"] / pr8["var"] if (pr8 and pr12 and pr8["var"] > 0) else np.nan
             ps = pred * np.sqrt((pr12["sigma"] / pr12["var"]) ** 2 + (pr8["sigma"] / pr8["var"]) ** 2) if np.isfinite(pred) else np.nan
             ratios.append(dict(p=float(p), n=int(n), **_ratio_test(meas, pred, ps)))
     lad = _sel(reset, "reset", 0.25, 8)
-    lo_n, hi_n = lad[lad.n.isin(LADDER_LOW)], lad[lad.n.isin(LADDER_HIGH)]
+    lo_n, hi_n = _sel(lad, "reset", n=LADDER_LOW, patch=LADDER_LOW_PATCH), _sel(lad, "reset", n=LADDER_HIGH, patch=LADDER_HIGH_PATCH)
     if len(lo_n) and len(hi_n):
         ra, rb = lo_n.iloc[0], hi_n.iloc[0]
-        pra, prb = _pred(preds, ra), _pred(preds, rb)
+        pra, prb = _pred(preds, ra, missing=missing), _pred(preds, rb, missing=missing)
         meas = paired_ratio(rb.gradients, ra.gradients, n_boot, sub_a=rb.shot_vars, sub_b=ra.shot_vars)
         pred = prb["var"] / pra["var"] if (pra and prb and pra["var"] > 0) else np.nan
         ps = pred * np.sqrt((prb["sigma"] / prb["var"]) ** 2 + (pra["sigma"] / pra["var"]) ** 2) if np.isfinite(pred) else np.nan
         ladder.append(dict(n_low=int(ra.n), n_high=int(rb.n), **_ratio_test(meas, pred, ps)))
-    deph = _sel(d, "dephase", None, 8, n=CONTROL_N)
-    rs = _sel(reset, "reset", 0.5, 8, n=CONTROL_N)
+    deph = _sel(d, "dephase", None, 8, n=CONTROL_N, patch=CONTROL_PATCH)
+    rs = _sel(reset, "reset", 0.5, 8, n=CONTROL_N, patch=CONTROL_PATCH)
     if len(deph) and len(rs):
         ra, rb = rs.iloc[0], deph.iloc[0]
-        pra, prb = _pred(preds, ra), _pred(preds, rb)
+        pra, prb = _pred(preds, ra, missing=missing), _pred(preds, rb, missing=missing)
         meas = paired_ratio(ra.gradients, rb.gradients, n_boot, sub_a=ra.shot_vars, sub_b=rb.shot_vars)
         pred = pra["var"] / prb["var"] if (pra and prb and prb["var"] > 0) else np.nan
         ps = pred * np.sqrt((pra["sigma"] / pra["var"]) ** 2 + (prb["sigma"] / prb["var"]) ** 2) if np.isfinite(pred) else np.nan
@@ -223,9 +255,10 @@ def evaluate_h6(points: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict
                               falls=bool(fall > 3 * a.shot_floor and fall > 2 * two_sigma), rule="Gate 1b clause (b): fall > 3 shot floors and > 2 x 2 sigma")
     fl = [x for x in floors if x["below_floor_with_interval"] is not None]
     ev = [x for x in ratios + ladder if x["within"] is not None]
+    miss, miss_note = _missing(missing)
     if not fl and not ev and not controls:
-        return verdict("H6", H_TEXT["H6"], "not-evaluable", note="no reset k = L point with a Deviation 33 floor or a pre-drawn ratio", floors=floors, depth_ratios=ratios, ladder=ladder,
-                       controls=controls, k1_series=k1, unital_reference=flat_reference)
+        return verdict("H6", H_TEXT["H6"], "not-evaluable", note="no reset k = L point with a Deviation 33 floor or a pre-drawn ratio" + miss_note, floors=floors,
+                       depth_ratios=ratios, ladder=ladder, controls=controls, k1_series=k1, unital_reference=flat_reference, missing_predictions=miss)
     inconclusive = flat_reference is not None and not flat_reference["falls"]
     fails = [x for x in fl if x["below_floor_with_interval"]] + [x for x in ratios if x["within"] is False] + [x for x in controls if x["within"] is False or not x["exceeds"]]
     if not inconclusive:
@@ -236,18 +269,26 @@ def evaluate_h6(points: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict
                               ladder_misses=sum(1 for x in ladder if x["within"] is False), control_misses=sum(1 for x in controls if x["within"] is False or not x["exceeds"])),
                    threshold="0 of each", comparison="headline: floor-subtracted k = L variance / (1/2 c_i^2 g_i^2 p^2) with its interval above 1",
                    note=f"{len(fl)} floor checks, {len(ratios)} depth ratios, {len(ladder)} ladder ratios, {len(controls)} dephasing comparisons; k = 1 fall reported only"
-                        + ("; unital reference flat on the day: ladder comparison inconclusive (not refuting)" if inconclusive else ""),
+                        + ("; unital reference flat on the day: ladder comparison inconclusive (not refuting)" if inconclusive else "") + miss_note,
                    headline=[dict(p=x["p"], n=x["n"], L=x["L"], ratio_to_floor=x["headline_ratio"], lo=x["headline_lo"], hi=x["headline_hi"]) for x in floors],
-                   floors=floors, depth_ratios=ratios, ladder=ladder, controls=controls, k1_series=k1, unital_reference=flat_reference, ladder_inconclusive=inconclusive)
+                   floors=floors, depth_ratios=ratios, ladder=ladder, controls=controls, k1_series=k1, unital_reference=flat_reference, ladder_inconclusive=inconclusive,
+                   missing_predictions=miss)
 
 
 # ------------------------------------------------------------------------------------------------ H7
 
-L4_RULE = ("l = 4 is an upper-bound point by rule (Deviation 60, rule (a), as Deviation 40 for the k = 1 rows): its RMS and interval are "
-           "reported and its 95 percent upper limit is the reported bound whatever the interval shows; the one-sided l = 4 < l = 2 test is unchanged")
-H7_STATISTIC = ("Deviation 60: per draw D^2 - [Var_m(diff) - mean(sv)] / K - mean(sv) / K, i.e. the residual pattern term of Section 3b and the "
-                "shot term of the per-draw mean difference both subtracted, averaged over draws; estimates MSD(l) and is compared with sqrt(MSD(l)) "
-                "from the snapshot-noise engine")
+L4_RULE = ("l = 4 is an upper-bound point by rule (Deviation 60, rule (a), as Deviation 40 for the k = 1 rows): its RMS and two-sided 95 "
+           "percent interval are reported and the upper end of that interval is the reported bound whatever the interval shows, also when "
+           "the measured std(C_mix) exceeds 0.1, where H7 as registered would report a tested point; the one-sided l = 4 < l = 2 test "
+           "(the paired bootstrap over draws of RMS(2) - RMS(4), one-sided at 95 percent) and the refutation criteria are unchanged")
+H7_STATISTIC = ("Deviation 60: per draw y_d = mean(diff)^2 - Var_m(diff) / K, i.e. the residual pattern term of the Section 3b 'Truncation "
+                "arm' row and the shot term of the mean difference both subtracted (Section 3b 'Analysis', Pairing), averaged over the "
+                "draws; it estimates MSD(l) and is compared with sqrt(MSD(l)) from the snapshot-noise engine. Interval: the paired "
+                "bootstrap over draws (10,000 resamples) with a bootstrap over masks within draws for the subtracted terms")
+H7_INTERVAL = ("two-stage percentile bootstrap: n_boot resamples of the draws, each selected draw entering as mean(diff)^2 minus one of "
+               "its mask-bootstrap replicates of Var_m(diff) / K (the same mask positions for the full and the truncated circuit); RMS "
+               "limits = roots of the 2.5th and 97.5th percentiles")
+N_MASK_REPLICATES = 2000
 
 
 def _first_per_mask(df: pd.DataFrame):
@@ -258,28 +299,20 @@ def _first_per_mask(df: pd.DataFrame):
     return d[~dup], int(dup.sum())
 
 
-def truncation_rms(full: pd.DataFrame, trunc: pd.DataFrame, K: int, n_boot: int = 10_000, seed: int = 11) -> Dict:
-    """Section 3b truncation-arm statistic: RMS over draws of C_mix - C_mix[L - l, L] on shared theta and shared masks for the
-    shared layers. Full and truncated rows are paired by ``draw`` and ``mask_index`` (both circuits of a pair carry the same
-    theta seed and mask seed; a pair whose ``seed`` or ``mask_seed`` differ is counted in ``pairing_errors``). Per draw, with
-    diff_m the K per-mask differences and sv_m = (1 - ev_f^2) / (s_f - 1) + (1 - ev_t^2) / (s_t - 1) their shot variance
-    (Deviation 27), the pre-registered residual pattern term [Var_m(diff) - mean(sv)] / K and (Deviation 60) the shot term
-    mean(sv) / K of the mean difference are subtracted from mean(diff)^2 before the root, so the statistic estimates MSD(l);
-    the interval combines the spread of mean(diff)^2 over draws with a bootstrap over masks within draws of the subtracted
-    terms. ``rms_with_shot`` is the statistic before Deviation 60 (shot term kept; it estimates MSD + shot^2). ``full`` /
-    ``trunc`` hold one row per (draw, mask_index) with ``ev`` (the cost value) and ``shots``."""
-    rng = np.random.default_rng(seed)
+def _paired_draws(full: pd.DataFrame, trunc: pd.DataFrame):
+    """{draw: (mask indices, per-mask differences full - truncated, their shot variances)} over the pairs (draw, mask_index), and
+    the pairing counts. The shot variance of a pair is sv = (1 - ev_f^2) / (s_f - 1) + (1 - ev_t^2) / (s_t - 1) (Deviation 27); a
+    pair whose ``seed`` or ``mask_seed`` differ is counted in ``pairing_errors``."""
     f1, dup_f = _first_per_mask(full)
     t1, dup_t = _first_per_mask(trunc)
-    ms, resid, shot, boot_rp, boot_sub = [], [], [], [], []
-    n_pairs, pairing_errors, unpaired_f, unpaired_t = 0, 0, 0, 0
+    out, n_pairs, pairing_errors, unpaired_f, unpaired_t = {}, 0, 0, 0, 0
     tr_by_draw = {d: g for d, g in t1.groupby("draw")}
     for d, gf in f1.groupby("draw"):
         gt = tr_by_draw.get(d)
         if gt is None:
             unpaired_f += len(gf)
             continue
-        m = gf.merge(gt, on="mask_index", suffixes=("_f", "_t"))
+        m = gf.merge(gt, on="mask_index", suffixes=("_f", "_t")).sort_values("mask_index")
         unpaired_f += len(gf) - len(m)
         unpaired_t += len(gt) - len(m)
         if m.empty:
@@ -292,57 +325,151 @@ def truncation_rms(full: pd.DataFrame, trunc: pd.DataFrame, K: int, n_boot: int 
         ef, et = m.ev_f.to_numpy(float), m.ev_t.to_numpy(float)
         sf = np.maximum(pd.to_numeric(m.shots_f).to_numpy(float) - 1, 1)
         st = np.maximum(pd.to_numeric(m.shots_t).to_numpy(float) - 1, 1)
-        diff = ef - et
-        sv = (1 - ef ** 2) / sf + (1 - et ** 2) / st
-        k = len(diff)
-        ms.append(diff.mean() ** 2)
-        resid.append((diff.var(ddof=1) - sv.mean()) / k if k > 1 else 0.0)
-        shot.append(sv.mean() / k)
-        if k > 1:
-            idx = rng.integers(0, k, size=(min(n_boot, 2000), k))
-            v = diff[idx].var(axis=1, ddof=1)
-            boot_rp.append((v - sv[idx].mean(axis=1)) / k)
-            boot_sub.append(v / k)
-    for gt in tr_by_draw.values():                                   # truncated draws with no full circuit
-        if gt.draw.iloc[0] not in set(f1.draw):
-            unpaired_t += len(gt)
-    base = dict(M=len(ms), K=int(K), n_pairs=int(n_pairs), unpaired_full=int(unpaired_f), unpaired_trunc=int(unpaired_t),
-                duplicates=int(dup_f + dup_t), pairing_errors=int(pairing_errors), statistic=H7_STATISTIC)
-    if not ms:
+        out[int(d)] = (m.mask_index.to_numpy(int), ef - et, (1 - ef ** 2) / sf + (1 - et ** 2) / st)
+    f_draws = set(f1.draw)
+    unpaired_t += sum(len(g) for d, g in tr_by_draw.items() if d not in f_draws)       # truncated draws with no full circuit
+    return out, dict(n_pairs=int(n_pairs), unpaired_full=int(unpaired_f), unpaired_trunc=int(unpaired_t), duplicates=int(dup_f + dup_t),
+                     pairing_errors=int(pairing_errors))
+
+
+def _y_stat(diff: np.ndarray) -> np.ndarray:
+    """y = mean(diff)^2 - Var(diff) / k over the last axis (k paired masks): one draw's MSD estimate with the residual pattern
+    and shot terms subtracted ([Var - mean(sv)] / k + mean(sv) / k = Var / k); the square alone when k = 1."""
+    k = diff.shape[-1]
+    mean = diff.mean(axis=-1)
+    return mean ** 2 if k < 2 else mean ** 2 - diff.var(axis=-1, ddof=1) / k
+
+
+def _mask_replicates(diffs, R: int, rng) -> list:
+    """R replicates of y = mean(diff)^2 - Var(diff) / k for each difference array of one draw, the subtracted term taken from a
+    bootstrap over the draw's masks (Section 3b 'Analysis': "a bootstrap over masks within draws for the pattern-noise term"),
+    with the same resampled mask positions for all arrays (the full and truncated rows of a mask stay paired, and so do l = 2
+    and l = 4 against the same full circuit). mean(diff)^2 is not resampled: over K masks drawn with replacement the resampled
+    square exceeds mean(diff)^2 by Var(diff) / K on average, which would add back the subtracted term, shot plus residual pattern
+    (review M3 correction; at the day-3 design, 256 masks x 64 shots, the shot term alone is about 6.7e-5, 1.5 times the
+    comparator's MSD(4))."""
+    k = len(diffs[0])
+    if k < 2:
+        return [np.full(R, float(_y_stat(d))) for d in diffs]
+    idx = rng.integers(0, k, size=(R, k))
+    return [d.mean() ** 2 - d[idx].var(axis=-1, ddof=1) / k for d in diffs]
+
+
+def _draw_bootstrap(reps: np.ndarray, n_boot: int, rng) -> np.ndarray:
+    """Stage 1 of the paired bootstrap: ``n_boot`` resamples of the M draws; each selected draw enters with one of its R mask
+    replicates (stage 2). ``reps`` is (M, R) or (M, R, j) for j statistics resampled jointly; returns the resampled means."""
+    M, R = reps.shape[0], reps.shape[1]
+    d_idx = rng.integers(0, M, size=(n_boot, M))
+    r_idx = rng.integers(0, R, size=(n_boot, M))
+    return reps[d_idx, r_idx].mean(axis=1)
+
+
+def _kurtosis(y: np.ndarray) -> float:
+    """Pearson kurtosis (3 for a normal sample) of the per-draw values, reported beside the interval (Section 3 'Estimate')."""
+    v = float(np.var(y))
+    return float(np.mean((y - y.mean()) ** 4) / v ** 2) if len(y) > 1 and v > 0 else float("nan")
+
+
+def truncation_rms(full: pd.DataFrame, trunc: pd.DataFrame, K: int, n_boot: int = 10_000, seed: int = 11) -> Dict:
+    """Section 3b truncation-arm statistic: RMS over draws of C_mix - C_mix[L - l, L] on shared theta and shared masks for the
+    shared layers. Full and truncated rows are paired by ``draw`` and ``mask_index`` (``_paired_draws``). Per draw, with diff_m
+    the per-mask differences and sv_m their shot variance, the residual pattern term [Var_m(diff) - mean(sv)] / K of the
+    Section 3b 'Truncation arm' row and (Deviation 60) the shot term mean(sv) / K of the mean difference are subtracted from
+    mean(diff)^2, so y_d = mean(diff)^2 - Var_m(diff) / K and the statistic, mean_d y_d, estimates MSD(l). The interval is the
+    paired bootstrap over draws (``n_boot`` resamples) with a bootstrap over masks within draws for the subtracted terms (the
+    Section 3b 'Analysis' Pairing bullet): each resampled draw enters as mean(diff)^2 minus one of its ``N_MASK_REPLICATES``
+    mask replicates of Var_m(diff) / K (``_mask_replicates``); the RMS limits are the roots of the 2.5th and 97.5th percentiles. ``rms_with_shot`` is the statistic before Deviation 60
+    (shot term kept; it estimates MSD + shot^2); ``kurtosis`` is that of y_d. ``full`` / ``trunc`` hold one row per
+    (draw, mask_index) with ``ev`` (the cost value) and ``shots``."""
+    rng = np.random.default_rng(seed)
+    pairs, counts = _paired_draws(full, trunc)
+    base = dict(M=len(pairs), K=int(K), **counts, statistic=H7_STATISTIC, interval=H7_INTERVAL, n_boot=int(n_boot),
+                n_mask_replicates=N_MASK_REPLICATES)
+    if not pairs:
         return dict(base, rms=np.nan, rms_lo=np.nan, rms_hi=np.nan)
-    msd, rp, sh = float(np.mean(ms)), float(np.mean(resid)), float(np.mean(shot))
-    rms2 = msd - rp - sh
-    se_rp = float(np.mean(np.std(np.asarray(boot_rp), axis=1)) / np.sqrt(len(ms))) if boot_rp else 0.0
-    se_sub = float(np.mean(np.std(np.asarray(boot_sub), axis=1)) / np.sqrt(len(ms))) if boot_sub else 0.0
-    se_msd = float(np.std(ms, ddof=1) / np.sqrt(len(ms))) if len(ms) > 1 else 0.0
-    half = Z95 * np.hypot(se_msd, se_sub)
-    lo, hi = rms2 - half, rms2 + half
-    return dict(base, rms=float(np.sqrt(max(rms2, 0.0))), rms_lo=float(np.sqrt(max(lo, 0.0))), rms_hi=float(np.sqrt(max(hi, 0.0))),
-                mean_square=float(rms2), mean_square_lo=float(lo), mean_square_hi=float(hi), mean_square_diff=msd, residual_pattern=rp,
-                residual_pattern_se=se_rp, shot_term=sh, subtracted_se=se_sub, rms_with_shot=float(np.sqrt(max(msd - rp, 0.0))),
-                consistent_with_zero=bool(lo <= 0))
+    draws = sorted(pairs)
+    y, sq, rp, sh = (np.empty(len(draws)) for _ in range(4))
+    reps = np.empty((len(draws), N_MASK_REPLICATES))
+    for i, d in enumerate(draws):
+        _, diff, sv = pairs[d]
+        k = len(diff)
+        y[i], sq[i] = _y_stat(diff), diff.mean() ** 2
+        rp[i] = (diff.var(ddof=1) - sv.mean()) / k if k > 1 else 0.0
+        sh[i] = sv.mean() / k
+        reps[i] = _mask_replicates([diff], N_MASK_REPLICATES, rng)[0]
+    ms = float(y.mean())
+    lo, hi = (float(v) for v in np.quantile(_draw_bootstrap(reps, int(n_boot), rng), [0.025, 0.975]))
+    return dict(base, rms=float(np.sqrt(max(ms, 0.0))), rms_lo=float(np.sqrt(max(lo, 0.0))), rms_hi=float(np.sqrt(max(hi, 0.0))),
+                mean_square=ms, mean_square_lo=lo, mean_square_hi=hi, mean_square_diff=float(sq.mean()), residual_pattern=float(rp.mean()),
+                shot_term=float(sh.mean()), rms_with_shot=float(np.sqrt(max(sq.mean() - rp.mean(), 0.0))), consistent_with_zero=bool(lo <= 0),
+                kurtosis=_kurtosis(y))
+
+
+def truncation_fall(full: pd.DataFrame, trunc2: pd.DataFrame, trunc4: pd.DataFrame, n_boot: int = 10_000, seed: int = 13) -> Dict:
+    """H7's one-sided l = 4 < l = 2 test as registered ("the l = 4 RMS is not below the l = 2 RMS by more than the paired-bootstrap
+    interval"): the paired bootstrap over draws of RMS(2) - RMS(4). The draws are resampled jointly for both l (each draw carries
+    its l = 2 and l = 4 values, formed against the same full circuit on the mask indices both circuits have), with one joint
+    mask-bootstrap replicate of the subtracted terms per selected draw (the same mask positions for l = 2 and l = 4); on each resample
+    RMS(2)* - RMS(4)* = sqrt(max(ms_2*, 0)) - sqrt(max(ms_4*, 0)). ``l4_below_l2`` = the 5th percentile of that distribution > 0
+    (one-sided at 95 percent)."""
+    rng = np.random.default_rng(seed)
+    p2, _ = _paired_draws(full, trunc2)
+    p4, _ = _paired_draws(full, trunc4)
+    draws = sorted(set(p2) & set(p4))
+    ys, reps = [], []
+    for d in draws:
+        (m2, d2, _), (m4, d4, _) = p2[d], p4[d]
+        common = np.intersect1d(m2, m4)
+        if not len(common):
+            continue
+        a, b = d2[np.searchsorted(m2, common)], d4[np.searchsorted(m4, common)]
+        ys.append((float(_y_stat(a)), float(_y_stat(b))))
+        reps.append(np.stack(_mask_replicates([a, b], N_MASK_REPLICATES, rng), axis=-1))
+    base = dict(M=len(ys), n_boot=int(n_boot), n_mask_replicates=N_MASK_REPLICATES, one_sided_level=0.95,
+                method="paired bootstrap over draws of RMS(2) - RMS(4), draws resampled jointly, one joint mask replicate of the subtracted terms per selected draw")
+    if not ys:
+        return dict(base, point_difference=np.nan, q05=np.nan, l4_below_l2=None)
+    y = np.asarray(ys)
+    boot = _draw_bootstrap(np.stack(reps), int(n_boot), rng)
+    diff = np.sqrt(np.maximum(boot[:, 0], 0.0)) - np.sqrt(np.maximum(boot[:, 1], 0.0))
+    q05 = float(np.quantile(diff, 0.05))
+    point = float(np.sqrt(max(y[:, 0].mean(), 0.0)) - np.sqrt(max(y[:, 1].mean(), 0.0)))
+    return dict(base, point_difference=point, q05=q05, l4_below_l2=bool(q05 > 0))
+
+
+def _qubit_key(v) -> str | None:
+    if v is None or (isinstance(v, float) and np.isnan(v)) or not str(v).strip():
+        return None
+    return " ".join(str(q) for q in sorted(int(x) for x in str(v).replace(",", " ").split()))
 
 
 def _truncation_point(t: pd.DataFrame) -> Dict:
-    """The single (patch, edge, n, p, L, qubits) of the truncation rows, or {'error': ...}."""
-    keys = []
-    for r in t[["patch", "edge", "n", "p", "L", "patch_qubits"]].astype(str).drop_duplicates().itertuples(index=False):
-        keys.append(tuple(r))
-    if len({k[:5] for k in keys}) != 1:
-        return dict(error=f"truncation rows from {len({k[:5] for k in keys})} points or placements: {sorted({k[:5] for k in keys})}")
-    r = t.iloc[0]
-    qs = sorted({int(q) for q in str(r.patch_qubits).split()}) if pd.notna(r.patch_qubits) and str(r.patch_qubits).strip() else None
-    return dict(patch=str(r.patch), edge=str(r.edge).replace("-", "_"), n=int(r.n), p=float(r.p), L=int(r.L), qubits=qs,
-                qubit_sets=len({k[5] for k in keys}))
+    """The single point and placement of the truncation rows, or {'error': ...}: one (patch, edge, n, p, L), one placed qubit
+    set (``patch_qubits``), and one broken-coupler set where the bundles record it (``broken_edges``). Rows of two placements at
+    equal n (e.g. a contingent list re-packaged on a newer snapshot) are not paired (Deviation 60, M4)."""
+    pts = t[["patch", "edge", "n", "p", "L"]].astype(str).drop_duplicates()
+    if len(pts) != 1:
+        return dict(error=f"truncation rows from {len(pts)} points: {sorted(map(tuple, pts.to_numpy()))}")
+    qsets = {_qubit_key(v) for v in t["patch_qubits"]} if "patch_qubits" in t.columns else {None}
+    if len(qsets) != 1:
+        return dict(error=f"truncation rows from {len(qsets)} placements: the placed qubit sets differ at equal n")
+    broken = {str(v) for v in t["broken_edges"] if v is not None and not (isinstance(v, float) and np.isnan(v))} if "broken_edges" in t.columns else set()
+    if len(broken) > 1:
+        return dict(error=f"truncation rows from {len(broken)} placements: the broken-coupler sets differ")
+    r, qk = t.iloc[0], next(iter(qsets))
+    return dict(patch=str(r.patch), edge=str(r.edge).replace("-", "_"), n=int(r.n), p=float(r.p), L=int(r.L),
+                qubits=[int(q) for q in qk.split()] if qk else None, broken_edges=next(iter(broken)) if broken else None)
 
 
 def evaluate_h7(rows: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict:
     """H7 on the truncation arm: rows of kind 'truncation' (the loader's mapping of the unshifted reset_dial probes, Deviation 60)
-    with ``ell`` = 0 for the full circuit. RMS at l = 2 (``truncation_rms``, shot and residual pattern terms subtracted) against
-    the pre-drawn sqrt(MSD(2)) of the placement the rows ran on (``predictions.truncation_prediction``: ``preds['truncation']`` or
-    the committed ``h7_truncation_*.json`` entries), l = 4 below l = 2 one-sided when std(C_mix) > 0.1. Not-evaluable without
-    that comparator (Deviation 60 guard: no verdict from the l = 4 test alone), when the full / truncated rows do not pair, or
-    when the rows mix placements. l = 4 is an upper-bound point by rule (``L4_RULE``)."""
+    with ``ell`` = 0 for the full circuit. RMS at l = 2 (``truncation_rms``: shot and residual pattern terms subtracted, paired
+    bootstrap interval) against the pre-drawn sqrt(MSD(2)) of the placement the rows ran on (``predictions.truncation_prediction``,
+    matched on the placed qubit set); when the measured std(C_mix) exceeds 0.1 and l = 4 rows are present, the one-sided
+    l = 4 < l = 2 test (``truncation_fall``, the paired bootstrap over draws of RMS(2) - RMS(4)). Not-evaluable without that
+    comparator (Deviation 60 guard: no verdict from the l = 4 test alone), when the full / truncated rows do not pair, or when the
+    rows mix placements (point, qubit set or broken couplers). l = 4 is an upper-bound point by rule (``L4_RULE``). The contingent
+    l = 4 rows pair with the day-3 full circuits, so l = 4 is evaluated on the two runs loaded together."""
     t = rows[rows.kind == "truncation"] if len(rows) and "kind" in rows.columns else pd.DataFrame()
     if t.empty or "ell" not in t.columns:
         return verdict("H7", H_TEXT["H7"], "not-evaluable", note="no truncation-arm rows in the run")
@@ -365,8 +492,9 @@ def evaluate_h7(rows: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict:
     if 4 in out:
         out[4].update(upper_bound_by_rule=True, reported_upper_bound=out[4]["rms_hi"], label=L4_RULE)
     std_c = float(full.groupby("draw").ev.mean().std(ddof=1)) if full.draw.nunique() > 1 else np.nan
+    fall = truncation_fall(full, t[t.ell == 2], t[t.ell == 4], n_boot) if 4 in out else None
     comp, why = P.truncation_prediction(preds, **{k: point[k] for k in ("patch", "edge", "n", "p", "L", "qubits")})
-    checks = dict(std_cmix=std_c)
+    checks = dict(std_cmix=std_c, l4_fall=fall)
     common = dict(value={f"rms_l{k}": v["rms"] for k, v in out.items()}, rms=out, point=point, comparator=comp, statistic=H7_STATISTIC)
     bad_pairs = {k: v["pairing_errors"] for k, v in out.items() if v["pairing_errors"]}
     if bad_pairs:
@@ -381,9 +509,9 @@ def evaluate_h7(rows: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict:
     if checks["l2"]["within"] is None:
         return verdict("H7", H_TEXT["H7"], "not-evaluable", note="the l = 2 RMS or its comparator is not finite", checks=checks, **common)
     fails = [] if checks["l2"]["within"] else ["l2"]
-    if 4 in out and np.isfinite(std_c) and std_c > 0.1:
-        checks["l4_below_l2"] = bool(out[4]["rms_hi"] < l2["rms_lo"])
-        if not checks["l4_below_l2"]:
+    if fall is not None and np.isfinite(std_c) and std_c > 0.1:
+        checks["l4_below_l2"] = fall["l4_below_l2"]
+        if fall["l4_below_l2"] is False:
             fails.append("l4")
     note = f"comparator {comp.get('file', 'preds[truncation]')}: sqrt(MSD(2)) = {float(comp['rms_l2']):.4g} +/- {float(ps) if ps is not None else float('nan'):.2g}"
     if ps is None:
