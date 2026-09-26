@@ -22,7 +22,13 @@ pytest.importorskip("qiskit_aer")
 
 CSV = str(noise.DEFAULT_CALIBRATION)
 PROPS = str(ROOT / "data" / "calibrations" / "ibm_phoenix_properties_20260919T192510Z.json.gz")
-DAY3 = ROOT / "data" / "joblists" / "paper1" / "day3_dial_refs.json"
+REDRAW = ROOT / "data" / "predictions" / "gate1b_redraw_2026-09-23T1635.json"
+# The day-3 list as pinned on 23 Sep 16:35Z (main 420c20d): its placement block is the re-draw record's runday_placement (the same rungs)
+# and its truncation probes are fixed here, so the bug check and the record check stay on that placement if the list is re-packaged.
+TRUNC_PROBES = [dict(id="trunc_full_p0.5_L8", kind="reset_dial", reset_kind="reset", patch="6x10", n=52, edge="84_85", L=8, k=8, p=0.5,
+                     unshifted=True, seed=23291001),
+                dict(id="trunc_l2_p0.5_L8", kind="reset_dial", reset_kind="reset", patch="6x10", n=52, edge="84_85", L=8, k=8, p=0.5,
+                     unshifted=True, seed=23291001, truncate_to=2)]
 RECORD = ROOT / "data" / "predictions" / "h7_truncation_2026-09-23T1635.json"
 
 
@@ -103,8 +109,8 @@ def test_cuts_leave_the_propagation_unchanged():
 
 
 def _day3():
-    jl = json.loads(DAY3.read_text(encoding="utf-8"))
-    return jl, jl["placement"]["rungs"]["n60"]
+    pl = json.loads(REDRAW.read_text(encoding="utf-8"))["runday_placement"]
+    return dict(placement=pl, probes=TRUNC_PROBES), pl["rungs"]["n60"]
 
 
 def test_noise_off_engine_reproduces_the_dial_law_chain_on_the_day3_rung():

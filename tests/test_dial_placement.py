@@ -17,10 +17,26 @@ from gradvar.analysis import dial_hypotheses as DH                    # noqa: E4
 from gradvar.analysis import predictions as P                        # noqa: E402
 
 PRED = ROOT / "data" / "predictions"
-DAY3 = ROOT / "data" / "joblists" / "paper1" / "day3_dial_refs.json"
 LADDER = json.loads((PRED / "ladder_placements.json").read_text())
-Q52 = json.loads(DAY3.read_text())["placement"]["rungs"]["n60"]["qubits"]           # the pinned 23 Sep 16:35Z n60 rung (n = 52)
+# The day-3 list as pinned on 23 Sep 16:35Z (main 420c20d): its placement block is the Deviation 46 re-draw record's runday_placement
+# (the same rungs) and its dial probes are fixed below, so these tests stay on that placement if the list is re-packaged.
+PL23 = json.loads((PRED / "gate1b_redraw_2026-09-23T1635.json").read_text())["runday_placement"]
+Q52 = PL23["rungs"]["n60"]["qubits"]                                                 # the pinned 23 Sep 16:35Z n60 rung (n = 52)
 Q53 = LADDER["patches"]["6x10"]["qubits"]                                            # the 19 Sep ladder 6x10 rung (n = 53)
+_R = dict(kind="reset_dial")
+DAY3_DIAL_PROBES = (
+    [dict(_R, id=f"ref_p0_delay_L{L}_kL_{r}", reset_kind="delay", patch=pa, n=n, edge=e, L=L, k=L, p=0.0)
+     for r, pa, n, e in (("n40", "4x10", 39, "93_103"), ("n60", "6x10", 52, "84_85"), ("n100", "10x10", 87, "75_85")) for L in (8, 12)]
+    + [dict(_R, id=f"dial_p{p:g}_L{L}_kL", reset_kind="reset", patch="6x10", n=52, edge="84_85", L=L, k=L, p=p) for p in (0.25, 0.5) for L in (8, 12)]
+    + [dict(_R, id="dial_p0.25_L8_kL_n40", reset_kind="reset", patch="4x10", n=39, edge="93_103", L=8, k=8, p=0.25),
+       dict(_R, id="dial_p0.25_L8_kL_n100", reset_kind="reset", patch="10x10", n=87, edge="75_85", L=8, k=8, p=0.25),
+       dict(_R, id="dephasing_dial_p0.5_L8_kL", reset_kind="dephase", patch="6x10", n=52, edge="84_85", L=8, k=8, p=0.5)])
+
+
+def _pinned_day3(tmp_path):
+    f = tmp_path / "day3_dial_refs_pinned_2026-09-23.json"
+    f.write_text(json.dumps(dict(placement=PL23, probes=DAY3_DIAL_PROBES)))
+    return f
 
 
 @pytest.fixture(scope="module")
@@ -78,7 +94,7 @@ def test_h5_sub_tests_without_a_placement_matched_row_are_not_evaluable(preds):
 
 def test_h5_depth_ratio_pairs_l8_and_l12_of_the_same_rung(preds):
     """Day 3 carries p = 0.25 L = 8 points on three rungs and L = 12 only on the 6x10 rung: the ratio pairs the 6x10 points only."""
-    q39 = json.loads(DAY3.read_text())["placement"]["rungs"]["n40"]["qubits"]
+    q39 = PL23["rungs"]["n40"]["qubits"]
     pts = pd.DataFrame([_point(0.25, 8, 39, q39, seed=3, patch="4x10"), _point(0.25, 8, 52, Q52, seed=4), _point(0.25, 12, 52, Q52, seed=5)])
     pts.loc[0, "edge"] = "93_103"
     res = DH.evaluate_h5(pts, preds, n_boot=200)
@@ -107,9 +123,9 @@ def test_compare_points_uses_placement_matched_dial_rows(preds):
     assert cmp.source.iloc[1] == "gate1b_redraw_2026-09-23T1635.csv" and np.isfinite(cmp.z.iloc[1])
 
 
-def test_redraw_script_plans_the_missing_day3_rows_without_simulating():
+def test_redraw_script_plans_the_missing_day3_rows_without_simulating(tmp_path):
     import redraw_dial_points as rdp
-    pl = rdp.plan([str(DAY3)])
+    pl = rdp.plan([str(_pinned_day3(tmp_path))])
     todo = sorted((j["rung"], j["L"], j["dial"], j["p"]) for j in pl["jobs"])
     assert todo == [("n60", 8, "dephase", 0.5), ("n60", 8, "reset", 0.5), ("n60", 12, "reset", 0.5)]
     assert all(c["source"] == "gate1b_redraw_2026-09-23T1635.csv" for c in pl["covered"]) and len(pl["covered"]) == 10
@@ -121,14 +137,13 @@ def test_redraw_rows_are_read_back_on_their_placement(tmp_path):
     """One Deviation 46 row on a tiny 2x3 rung (not a day-3 point; 2,000 paths) through ``draw_row``, written in the script's CSV
     format, is found by the analysis only on its own qubit set."""
     import redraw_dial_points as rdp
-    jl = json.loads(DAY3.read_text())
     cal = ROOT / "data" / "calibrations"
     tiny = dict(patch="2x3", n=6, origin=[0, 0], holes=[], broken_edges=[], qubits=[0, 1, 2, 10, 11, 12], edge="1_11")
-    job = dict(rung_block=tiny, rung="tiny", L=2, dial="reset", p=0.5, csv=str(cal / jl["placement"]["snapshot"]), props=str(cal / jl["placement"]["properties"]),
-               stamp=jl["placement"]["stamp"], n_samples=2000, pattern_samples=2000, time_limit_s=60.0, n_cap=100_000, joblist="test.json",
+    job = dict(rung_block=tiny, rung="tiny", L=2, dial="reset", p=0.5, csv=str(cal / PL23["snapshot"]), props=str(cal / PL23["properties"]),
+               stamp=PL23["stamp"], n_samples=2000, pattern_samples=2000, time_limit_s=60.0, n_cap=100_000, joblist="test.json",
                probes=["dial_test"], reason="test", patch="2x3", n=6, edge="1_11")
     row = rdp.draw_row(job)
-    assert row["qubits"] == "0 1 2 10 11 12" and row["snapshot_stamp"] == jl["placement"]["stamp"] and np.isfinite(row["var_kL_mc"])
+    assert row["qubits"] == "0 1 2 10 11 12" and row["snapshot_stamp"] == PL23["stamp"] and np.isfinite(row["var_kL_mc"])
     assert np.isfinite(row["dev33_floor_grad"]) and row["pattern_floor"] > 0
     pd.DataFrame([row]).to_csv(tmp_path / "dial_redraw_test.csv", index=False)
     rows = P.load_dial_rows(tmp_path)
