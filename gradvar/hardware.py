@@ -464,11 +464,18 @@ def pinned_origins(jl: dict, csv: str | None = None) -> Dict[str, Tuple[int, int
             for r in (pl.get("rungs") or {}).values() if r.get("patch") and r.get("origin") is not None}
 
 
+def dial_exclusion(jl: dict) -> Tuple[int, ...]:
+    """Deviation 62: the qubits a list's placement block excludes from its patches beyond the calibration cut (``placement.dial_exclude``;
+    the reset-dial lists carry qubit 79, Section 3b 'excluded from dial patches'). Empty for every other list."""
+    return tuple(int(q) for q in ((jl.get("placement") or {}).get("dial_exclude") or ()))
+
+
 def _placed_patch(entry: dict, calibration_csv: str | None, label: str,
-                  origins: Dict[str, Tuple[int, int]] | None = None) -> Tuple[Patch, Tuple[int, ...] | None]:
+                  origins: Dict[str, Tuple[int, int]] | None = None, exclude: Sequence[int] = ()) -> Tuple[Patch, Tuple[int, ...] | None]:
     """The Patch of a job-list entry and its optional explicit ``layout``. Without a layout the rectangle is placed by
-    ``gradvar.noise.place_patch`` under the calibration cut; with one, the Patch is the plain rectangle at lattice
-    origin (0, 0) (a coordinate frame for the sub-layer structure) and ``layout[i]`` is the physical qubit of local i."""
+    ``gradvar.noise.place_patch`` under the calibration cut (plus ``exclude``, the list's ``dial_exclusion``); with one, the Patch is
+    the plain rectangle at lattice origin (0, 0) (a coordinate frame for the sub-layer structure) and ``layout[i]`` is the physical
+    qubit of local i."""
     from .noise import latest_calibration_csv, place_patch
     n = int(entry["n"])
     r, c = (int(x) for x in str(entry["patch"]).lower().split("x"))
@@ -480,7 +487,7 @@ def _placed_patch(entry: dict, calibration_csv: str | None, label: str,
         # the raw properties of the same snapshot carry the Deviation 22 rule (init error, ZZ) and the Deviation 26
         # coupler cut (broken edges), so the build-time placement agrees with the live layout re-check
         origin = (origins or {}).get(str(entry["patch"]).lower())   # Deviation 58: a pinned list's recorded rung origin
-        patch = place_patch(r, c, csv, allow_holes=True, properties=properties_for_csv(csv), origin=origin)
+        patch = place_patch(r, c, csv, allow_holes=True, properties=properties_for_csv(csv), origin=origin, exclude=exclude)
     if patch.n != n:
         raise JoblistError(f"{label}: {entry['patch']} placed under the calibration cut has {patch.n} qubits "
                            f"(origin {patch.origin}, holes {list(patch.holes)}); set n={patch.n}")
@@ -539,12 +546,12 @@ def resolve_edge(patch: Patch, layout: Sequence[int] | None, requested, label: s
 
 
 def _probe_patch(pr: dict, shapes: dict, calibration_csv: str | None,
-                 origins: Dict[str, Tuple[int, int]] | None = None) -> Tuple[Patch, Tuple[int, ...] | None]:
+                 origins: Dict[str, Tuple[int, int]] | None = None, exclude: Sequence[int] = ()) -> Tuple[Patch, Tuple[int, ...] | None]:
     n = int(pr["n"])
     layout = parse_layout(pr, n, f"probe {pr.get('id')}")
     if layout is None and n in shapes:
         return shapes[n], None
-    return _placed_patch(pr, calibration_csv, f"probe {pr.get('id')}", origins)
+    return _placed_patch(pr, calibration_csv, f"probe {pr.get('id')}", origins, exclude)
 
 
 def build_probes(jl: dict, backend, shapes: dict, calibration_csv: str | None = None,
@@ -564,12 +571,13 @@ def build_probes(jl: dict, backend, shapes: dict, calibration_csv: str | None = 
     limit = None if max_pubs_per_probe is None else int(max_pubs_per_probe)
     calibration_csv = calibration_csv or pinned_calibration_csv(jl)   # Deviation 58: a pinned list builds on its own snapshot
     origins = pinned_origins(jl, calibration_csv)
+    exclude = dial_exclusion(jl)   # Deviation 62: qubit 79 on the reset-dial lists' patches
     for pr in jl.get("probes", []) or []:
         n_before = len(built)
         kind, rk = str(pr["kind"]), str(pr.get("reset_kind", "reset"))
         level, shots, seed = int(pr.get("resilience", 0)), int(pr["shots"]), int(pr.get("seed", 0))
         if kind == "reset_dial":
-            patch, layout = _probe_patch(pr, shapes, calibration_csv, origins)
+            patch, layout = _probe_patch(pr, shapes, calibration_csv, origins, exclude)
             edge = resolve_edge(patch, layout, pr.get("edge"), f"probe {pr.get('id')}")
             obs, edge = hea_observable(patch, edge)
             phys, phys_edge = physical_qubits(patch, layout, edge)
@@ -619,7 +627,7 @@ def build_probes(jl: dict, backend, shapes: dict, calibration_csv: str | None = 
             # Section 2 control (a): the same HEA with the differentiated parameter outside the observable's light cone (ideal
             # gradient exactly zero), giving the empirical noise floor including hardware noise (Deviation 37 claimability bar;
             # Gate 2 (a)). One pub per draw d (seed + d), the pair shifted at layer k on the null qubit (candidate Deviation 43).
-            patch, layout = _probe_patch(pr, shapes, calibration_csv, origins)
+            patch, layout = _probe_patch(pr, shapes, calibration_csv, origins, exclude)
             edge = resolve_edge(patch, layout, pr.get("edge"), f"probe {pr.get('id')}")
             obs, edge = hea_observable(patch, edge)
             phys, phys_edge = physical_qubits(patch, layout, edge)
@@ -646,7 +654,7 @@ def build_probes(jl: dict, backend, shapes: dict, calibration_csv: str | None = 
             if "qubits" in pr:
                 qubits, patch = tuple(int(q) for q in pr["qubits"]), None
             else:
-                patch, layout = _probe_patch(pr, shapes, calibration_csv, origins)
+                patch, layout = _probe_patch(pr, shapes, calibration_csv, origins, exclude)
                 qubits, _ = physical_qubits(patch, layout, None)
             if len(set(qubits)) != len(qubits):
                 raise JoblistError(f"probe {pr.get('id')}: repeated qubit in {qubits}")
@@ -1376,9 +1384,10 @@ def joblist_points(jl: dict, calibration_csv: str | None = None) -> Tuple[List[G
     from .noise import latest_calibration_csv, place_patch
     csv = calibration_csv or pinned_calibration_csv(jl) or latest_calibration_csv()   # Deviation 58: a pinned list builds on its own snapshot
     origins = pinned_origins(jl, csv)
+    exclude = dial_exclusion(jl)   # Deviation 62
     points, shapes, shots = [], {}, None
     for pt in jl["points"]:
-        patch, layout = _placed_patch(pt, csv, f"point n={pt['n']}", origins)
+        patch, layout = _placed_patch(pt, csv, f"point n={pt['n']}", origins, exclude)
         shapes[int(pt["n"])] = patch
         edge = resolve_edge(patch, layout, pt["edge"], f"point n={pt['n']}")
         if shots is None:

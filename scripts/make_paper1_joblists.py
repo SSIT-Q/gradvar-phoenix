@@ -43,12 +43,14 @@ sys.path.insert(0, str(ROOT))
 from gradvar.circuits import light_cone                                    # noqa: E402
 from gradvar.hardware import BUDGET_MODEL_VERSION, LEVEL2_LARGE_N_MIN, LEVEL2_MAX_PUBS, MAX_JOB_PARAM_MB, estimate_budget, load_joblist, max_experiments, properties_for_csv   # noqa: E402
 from gradvar.lattice import interior_edge, qubit_index                                  # noqa: E402
-from gradvar.noise import COHERENCE_FLOOR_SINCE, COHERENCE_FLOOR_US, CZ_CUT, READOUT_CUT, cz_errors_from_calibration, exclusion_from_calibration, load_calibration, place_patch   # noqa: E402
+from gradvar.noise import (COHERENCE_FLOOR_SINCE, COHERENCE_FLOOR_US, COMPONENT_RULE_SINCE, CZ_CUT, DIAL_EXCLUDE, READOUT_CUT, component_rule_applies,   # noqa: E402
+                           cz_errors_from_calibration, exclusion_from_calibration, load_calibration, place_patch)
 
 PLACEHOLDER = "TBD: pre-flight review permalink"
-PREREG = "Paper 1 pre-registration v0.16.0 (23 Sep 2026)"
+PREREG = "Paper 1 pre-registration v0.17.0 (26 Sep 2026)"
 MAX_EXPERIMENTS = max_experiments("ibm_phoenix")   # 300 pubs per job (configuration ledger)
-DEFAULT_SNAPSHOT = Path("data/calibrations/ibm_phoenix_2026-09-23T163534Z.csv")   # the 23 Sep 16:35Z on-demand snapshot (run-day build: Q66 and coupler 100-110 fail the cuts from 15:08Z); lists placed on it are pinned to it (Deviation 58)
+DEFAULT_SNAPSHOT = Path("data/calibrations/ibm_phoenix_2026-09-26T030720Z.csv")   # Deviation 62: the 26 Sep 03:07Z daily snapshot (IBM properties 02:31Z), on which the pinned 23 Sep 16:35Z placement fails the live cuts (Q96, Q103, couplers 24-25, 41-51, 106-116, 118-119); lists placed on it are pinned to it (Deviation 58)
+DIAL_LISTS = ("dial_arm.json", "dial_arm_contingent.json", "references_gate1b.json", "day3_dial_refs.json")   # Deviation 62: placed with DIAL_EXCLUDE (Section 3b: qubit 79 excluded from dial patches)
 PIN_SNAPSHOT_SINCE = "2026-09-22T030817Z"   # Deviation 58: lists placed on this snapshot or later carry pin_snapshot, and the runner builds them on it
 NLADDER_L = 8   # Section 3b n-ladder depth; Gate 1b (c): 12 when the re-drawn separation clause fails at L = 8 on the run-day placement and passes at 12 (a manual constant; 8 on the pinned 23 Sep placements)
 PACKING = dict(level2_large_n_min=LEVEL2_LARGE_N_MIN, level2_max_pubs=LEVEL2_MAX_PUBS,
@@ -87,7 +89,10 @@ def cone_graph(patch, edge, L=2):
     return tuple(sorted(cone)), tuple(sorted(e for e in patch.edges() if e[0] in cone and e[1] in cone))
 
 
-def place_rungs(snapshot: str) -> dict:
+def place_rungs(snapshot: str, dial: bool = False) -> dict:
+    """The five rungs placed by the pre-registered rule on ``snapshot`` (plus, from COMPONENT_RULE_SINCE, the Deviation 62
+    connected-component rule). ``dial``: the placement of the reset-dial lists (DIAL_LISTS), with DIAL_EXCLUDE (qubit 79, Section 3b)
+    added to the exclusion of every rung, recorded as ``dial_exclude``; the other lists use the plain placement."""
     props = properties_for_csv(snapshot)
     if props is None:
         raise SystemExit(f"{snapshot}: no raw properties file with the same stamp; Deviation 22 needs them (properties_for_csv)")
@@ -100,12 +105,21 @@ def place_rungs(snapshot: str) -> dict:
                           coherence_floor_us=COHERENCE_FLOOR_US if out_stamp >= COHERENCE_FLOOR_SINCE else None), rungs={})
     if out_stamp >= PIN_SNAPSHOT_SINCE:
         out["pin_snapshot"] = True   # Deviation 58: the runner builds on this snapshot (gradvar.hardware.pinned_calibration_csv), not the newest
+    components = component_rule_applies(snapshot)
+    if components:   # Deviation 62: qubits outside a rectangle's largest live-coupler component become holes
+        out["rules"]["component_rule"] = dict(deviation="62", since=COMPONENT_RULE_SINCE,
+                                              rule="qubits outside the largest connected component of the rectangle's live-coupler graph are holes")
+    exclude = tuple(DIAL_EXCLUDE) if dial else ()
+    if dial:         # Deviation 62: Section 3b 'qubit 79: 2140 ns, excluded from dial patches', on every rung of the dial lists
+        out["dial_exclude"] = [int(q) for q in exclude]
+        out["rules"]["dial_exclude"] = dict(deviation="62", qubits=[int(q) for q in exclude],
+                                            reason="Section 3b Implementation: qubit 79 (native reset 2140 ns; 400 ns on the other 119 qubits) is excluded from dial patches")
     patches = {}
     for rung, (r, c) in SHAPES.items():
         # Deviation 58: on pinned snapshots the n20 rung, whose only remaining use is the Deviation 19 replication of day 1's point,
         # is placed among 4x5 rectangles disjoint from day 1's, so the protocol's 'different clean patch' holds by construction
         avoid = day1_n20_rectangle() if (rung == "n20" and out.get("pin_snapshot")) else ()
-        patches[rung] = place_patch(r, c, snapshot, allow_holes=True, properties=props, avoid=avoid)
+        patches[rung] = place_patch(r, c, snapshot, allow_holes=True, properties=props, avoid=avoid, exclude=exclude)
     p45 = patches["n20"]
     e45 = interior_edge(p45)
     cone45 = cone_graph(p45, e45)
@@ -130,6 +144,10 @@ def place_rungs(snapshot: str) -> dict:
                                   live_couplers=len(patch.edges()), edge=f"{edge[0]}_{edge[1]}", edge_rule=rule,
                                   edge_cz_error=cz.get(tuple(edge)), cone_L2_qubits=list(cq), cone_L2_couplers=len(ce),
                                   cone_L2_matches_4x5=(cq, ce) == cone45)
+        if components:   # Deviation 62: which holes the connected-component rule made (the others are excluded qubits)
+            out["rungs"][rung]["component_holes"] = [q for q in patch.holes if q not in set(out["excluded"]) | set(exclude)]
+        if dial:
+            out["rungs"][rung]["dial_excluded_holes"] = [q for q in patch.holes if q in set(exclude)]
         if rung == "n20" and out.get("pin_snapshot"):
             out["rungs"][rung]["placement_rule"] = ("the pre-registered rule among 4x5 rectangles disjoint from day 1's rectangle at "
                                                    f"{DAY1_N20_ORIGIN} (Deviation 58: Deviation 19's 'different clean patch' by construction)")
@@ -146,13 +164,20 @@ def base_list(name: str, notes: str, placement: dict, rungs: list, ledger_line: 
               notes=notes, layout_check="enforce",
               placement=dict(snapshot=placement["snapshot"], properties=placement["properties"], stamp=placement["stamp"],
                              excluded=placement["excluded"], rules=placement["rules"], rungs={r: placement["rungs"][r] for r in rungs},
+                             **({"dial_exclude": list(placement["dial_exclude"])} if placement.get("dial_exclude") else {}),
                              **({"pin_snapshot": True} if placement.get("pin_snapshot") else {})),
               campaign=dict(pre_registration=PREREG, ledger_line=ledger_line, budget_model_version=BUDGET_MODEL_VERSION,
                             max_experiments=MAX_EXPERIMENTS, max_job_param_mb=MAX_JOB_PARAM_MB, packing=dict(PACKING), **(extra_campaign or {})),
               points=points, probes=probes)
     jl["budget"] = estimate_budget(jl)
     b = jl["budget"]
-    jl["notes"] = notes + (f" Placement from snapshot {placement['stamp']} (CSV plus raw properties; Deviations 22, 26 and 46 cuts plus the Deviation 53 coherence floor T1, T2 >= 25 us, on the newest committed calibration data): "
+    dev62 = ""
+    if placement["rules"].get("component_rule"):
+        dev62 += "; Deviation 62: qubits outside a rectangle's largest connected live-coupler component are holes"
+    if placement.get("dial_exclude"):
+        dev62 += (f"; Deviation 62: qubit(s) {placement['dial_exclude']} excluded from these dial patches (Section 3b Implementation: qubit 79, native reset "
+                  "2140 ns, excluded from dial patches), recorded as placement.dial_exclude and applied by the runner")
+    jl["notes"] = notes + (f" Placement from snapshot {placement['stamp']} (CSV plus raw properties; Deviations 22, 26 and 46 cuts plus the Deviation 53 coherence floor T1, T2 >= 25 us, on the newest committed calibration data{dev62}): "
                            + "; ".join(f"{r} = {placement['rungs'][r]['patch']} n = {placement['rungs'][r]['n']} origin {tuple(placement['rungs'][r]['origin'])} "
                                        f"edge {placement['rungs'][r]['edge']} broken {placement['rungs'][r]['broken_edges']}" for r in rungs)
                            + f". Deviation 46: the runner re-derives the placement and the observable edges from the run-day snapshot under the Deviation 22 / 26 cuts and the cone-graph edge rule (live re-check, layout_check enforce) and refuses a list whose n no longer matches; regenerate with scripts/make_paper1_joblists.py from the run-day snapshot and re-draw the Gate 1b reference predictions where the cone graph changed. "
@@ -569,14 +594,17 @@ def day3_list(pl: dict, lists: dict) -> dict:
 
 def make_lists(snapshot: str, rule: str = "baseline") -> tuple[dict, dict]:
     pl = place_rungs(snapshot)
+    pl_dial = place_rungs(snapshot, dial=True)  # Deviation 62: the dial lists' patches exclude qubit 79 (Section 3b)
+    pl["dial_rungs"] = pl_dial["rungs"]
     lists = {}
     lists.update(grid_lists(pl, rule))
-    lists.update(dial_lists(pl))
-    lists.update(reference_list(pl))
+    lists.update(dial_lists(pl_dial))
+    lists.update(reference_list(pl_dial))
     lists.update(null_control_list(pl, rule))
     lists.update(day1_list(pl, lists))          # Deviation 50 day 1: built from the two lists above, never hand-edited
     lists.update(day2_list(pl, lists))          # Deviation 50 day 2: the four remaining 4096-shot grid rungs
-    lists.update(day3_list(pl, lists))          # Deviation 50 day 3: the Gate 1b references and the dial-arm core
+    lists.update(day3_list(pl_dial, lists))     # Deviation 50 day 3: the Gate 1b references and the dial-arm core (dial placement)
+    assert all(lists[n]["placement"].get("dial_exclude") == list(DIAL_EXCLUDE) for n in DIAL_LISTS), "a dial list lost its Deviation 62 dial exclusion"
     lists.update(replication_lists(pl))         # Deviation 19 replication 01 (P1.3.9): two lists (4096 and 16384 shots), reserve item
     lists.update(section3c_blockC_list(pl))     # Deviation 56 Section 3c Block C (n100 rung, L = 8 / 10, 65,536 shots), main-grid line
     return lists, pl
@@ -620,6 +648,9 @@ def summarise(lists: dict, pl: dict, rule: str) -> dict:
                 m_rule=rule, snapshot=pl["snapshot"], properties=pl["properties"], stamp=pl["stamp"],
                 rungs={r: dict(n=v["n"], patch=v["patch"], origin=v["origin"], edge=v["edge"], edge_rule=v["edge_rule"], broken_edges=v["broken_edges"], holes=v["holes"])
                        for r, v in pl["rungs"].items()},
+                **({"dial_rungs": {r: dict(n=v["n"], patch=v["patch"], origin=v["origin"], edge=v["edge"], edge_rule=v["edge_rule"], broken_edges=v["broken_edges"],
+                                           holes=v["holes"], dial_excluded_holes=v.get("dial_excluded_holes", [])) for r, v in pl["dial_rungs"].items()},
+                   "dial_lists": list(DIAL_LISTS), "dial_exclude": list(DIAL_EXCLUDE)} if pl.get("dial_rungs") else {}),
                 ledger_caps_min_at_1us=caps, totals=totals,
                 within_caps={k: totals[k]["minutes_at_1us"] <= caps[k] for k in caps},
                 booked_total_min_at_1us=round(sum(totals[k]["minutes_at_1us"] for k in caps), 3), day1=day1, day2=day2, day3=day3, replication=replication, section3c=section3c, lists=per)

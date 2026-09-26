@@ -53,6 +53,17 @@ CZ_CUT = 5e-3           # Deviation 26: every coupler of the placed patch must h
 COHERENCE_FLOOR_US = 25.0   # Deviation 53 (a): T1 and T2 >= 25 us on every used qubit (about 3x the longest dial circuit); Q114 at T1 3.7 us, 20 Sep 13:44Z
 COHERENCE_FLOOR_SINCE = "2026-09-20T141736Z"   # first snapshot stamp the floor applies to (Deviation 53 adopted 20 Sep 2026 on the 13:44Z calibration);
                                                # earlier stamps (the frozen 19 Sep and 20 Sep 03:08Z placements of Gate 1 / Gate 1b) stay reproducible
+# Deviation 62 (draft, 26 Sep 2026): on snapshots stamped at or after COMPONENT_RULE_SINCE, the qubits of a rectangle outside the
+# largest connected component of its live-coupler graph (holes and broken couplers removed) become holes, instead of the rectangle
+# being rejected as disconnected. On the 26 Sep 03:07Z snapshot Q29 passes the qubit cuts but all three of its couplers (19-29,
+# 28-29, 29-39) are over the CZ cut, so every 10x10 rectangle was disconnected and the n100 rung could not be placed. Earlier
+# snapshots keep the old rule (a disconnected rectangle is skipped), so every earlier placement reproduces unchanged.
+COMPONENT_RULE_SINCE = "2026-09-26T030720Z"
+# Section 3b Implementation ('Reset element'): "qubit 79: 2140 ns, excluded from dial patches". Native reset is 400 ns on the other
+# 119 qubits on every committed properties snapshot (19-26 Sep 2026). Applied (Deviation 62) to every patch that carries reset-dial
+# points, their Gate 1b references or the truncation probes: the generator places those rungs with exclude=DIAL_EXCLUDE and records
+# it in the list's placement block (``dial_exclude``), which the runner applies when it rebuilds the list.
+DIAL_EXCLUDE: Tuple[int, ...] = (79,)
 NOISE_BASIS = BASIS + ["delay"]
 DEFAULT_CALIBRATION = Path(__file__).resolve().parents[1] / "data" / "calibrations" / "ibm_phoenix_2026-09-19.csv"
 
@@ -173,9 +184,41 @@ def bad_couplers(cz: Dict[Tuple[int, int], float], cz_cut: float = CZ_CUT) -> Di
     return {e: v for e, v in cz.items() if v >= cz_cut}
 
 
+def component_rule_applies(csv_path: str | Path | None) -> bool:
+    """True when the Deviation 62 connected-component rule applies to a placement on ``csv_path``: its file-name stamp is at or
+    after ``COMPONENT_RULE_SINCE`` (unstamped files: False)."""
+    m = re.search(r"\d{4}-\d{2}-\d{2}T\d{6}Z", Path(str(csv_path or "")).name)
+    return bool(m and m.group(0) >= COMPONENT_RULE_SINCE)
+
+
+def largest_component(patch: Patch) -> Tuple[int, ...]:
+    """The largest connected component of the patch's live-coupler graph (its qubits, sorted); ties go to the component holding
+    the lowest qubit index (row-major first)."""
+    adj = {q: set() for q in patch.qubits}
+    for a, b in patch.edges():
+        adj[a].add(b)
+        adj[b].add(a)
+    seen, comps = set(), []
+    for q0 in patch.qubits:
+        if q0 in seen:
+            continue
+        comp, stack = {q0}, [q0]
+        seen.add(q0)
+        while stack:
+            q = stack.pop()
+            for nb in adj[q]:
+                if nb not in seen:
+                    seen.add(nb)
+                    comp.add(nb)
+                    stack.append(nb)
+        comps.append(tuple(sorted(comp)))
+    return min(comps, key=lambda c: (-len(c), c[0])) if comps else ()
+
+
 def place_patch(n_rows: int, n_cols: int, csv_path: str | None = None, readout_cut: float = READOUT_CUT,
                 allow_holes: bool = False, properties: str | Path | None = None, cz_cut: float | None = CZ_CUT,
-                avoid: Iterable[int] = (), origin: Tuple[int, int] | None = None) -> Patch:
+                avoid: Iterable[int] = (), origin: Tuple[int, int] | None = None, exclude: Iterable[int] = (),
+                components: bool | None = None) -> Patch:
     """The n_rows x n_cols rectangle that avoids ``exclusion_from_calibration`` (with the Deviation-22 rule when
     ``properties`` is given), ranked by (number of excluded qubits inside, number of couplers at or above ``cz_cut``,
     summed readout + sx + CZ error); ties row-major first. Without ``allow_holes`` only rectangles free of excluded
@@ -184,12 +227,18 @@ def place_patch(n_rows: int, n_cols: int, csv_path: str | None = None, readout_c
     qubit whose observable-edge coupler fails cannot host the edge. ``cz_cut=None`` disables the coupler rule. The
     result must stay connected through its unbroken edges. ``avoid`` skips every rectangle that contains one of those qubits
     (Deviation 58: the Deviation 19 replication's 4x5 is placed away from day 1's rectangle); ``origin`` evaluates only the
-    rectangle at that (row, column) origin (the runner rebuilding a pinned list's recorded rung)."""
+    rectangle at that (row, column) origin (the runner rebuilding a pinned list's recorded rung). ``exclude`` adds qubits to the
+    exclusion (Deviation 62: ``DIAL_EXCLUDE`` on the patches of the reset-dial lists). ``components`` (default: on for snapshots
+    stamped at or after ``COMPONENT_RULE_SINCE``, Deviation 62) makes the qubits outside the largest connected component of a
+    rectangle's live-coupler graph holes (counted as excluded qubits in the ranking) instead of skipping the rectangle; with
+    ``allow_holes`` false such a rectangle is still skipped."""
     csv_path = csv_path or str(DEFAULT_CALIBRATION)
     df = load_calibration(csv_path)
     cz = cz_errors_from_calibration(df)
     bad = bad_couplers(cz, cz_cut) if cz_cut is not None else {}
-    ex = set(exclusion_from_calibration(csv_path, readout_cut, properties=properties))
+    ex = set(exclusion_from_calibration(csv_path, readout_cut, properties=properties)) | {int(q) for q in exclude}
+    if components is None:
+        components = component_rule_applies(csv_path)
     best, best_key = None, None
     avoid = set(int(q) for q in avoid)
     rows = range(N_ROWS - n_rows + 1) if origin is None else [int(origin[0])]
@@ -208,6 +257,13 @@ def place_patch(n_rows: int, n_cols: int, csv_path: str | None = None, readout_c
             probe = Patch(qubits=qubits, n_rows=n_rows, n_cols=n_cols, origin=(r0, c0), holes=tuple(sorted(hit)))
             broken = tuple(e for e in probe.edges() if e in bad)
             patch = Patch(qubits=qubits, n_rows=n_rows, n_cols=n_cols, origin=(r0, c0), holes=tuple(sorted(hit)), broken_edges=broken)
+            if components and allow_holes and patch.edges() and not is_connected(patch):
+                # Deviation 62: the qubits cut off from the largest live component become holes (Q29 on 26 Sep 03:07Z)
+                hit = set(hit) | (set(qubits) - set(largest_component(patch)))
+                qubits = tuple(q for q in rect if q not in hit)
+                probe = Patch(qubits=qubits, n_rows=n_rows, n_cols=n_cols, origin=(r0, c0), holes=tuple(sorted(hit)))
+                broken = tuple(e for e in probe.edges() if e in bad)
+                patch = Patch(qubits=qubits, n_rows=n_rows, n_cols=n_cols, origin=(r0, c0), holes=tuple(sorted(hit)), broken_edges=broken)
             if not patch.edges() or not is_connected(patch):
                 continue
             key = (len(hit), len(broken), patch_error_score(df, patch, cz))
