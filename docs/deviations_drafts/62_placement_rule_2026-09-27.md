@@ -18,7 +18,8 @@ rule, gate, kill rule, budget line or ledger line changes. The lists keep their 
 - The pinned 23 Sep 16:35Z placement fails the live cuts on 26 Sep 03:07Z (Q96 init 5.2e-4; Q103 T1 17.3 us, on the n40 edge; couplers 24-25, 41-51,
   106-116, 118-119) and on 27 Sep 03:08Z (couplers 41-51, 69-79, 79-89).
 
-**Sources.** The lead's revised rule of 26 Sep 2026, which replaced the margin rule of the original task; Section 3b (Implementation); Deviations 22,
+**Sources.** The rule chosen by the lead on 26 Sep 2026: the margin re-package of the original task proved infeasible (Section 7), Owais asked
+for the option with the fewest limitations, and the lead chose this one; Section 3b (Implementation); Deviations 22,
 26, 46, 53, 54 and 58; the committed snapshots `ibm_phoenix_2026-09-26T030720Z.csv` and `ibm_phoenix_2026-09-27T030805Z.csv` with their raw properties;
 the runner's logged layout refusals (runs 35554248856, 35555672536, 35558420806, 35576565297, 35594064716, 35634959942, 35635323719, 36033981019).
 
@@ -105,8 +106,8 @@ the n100 rungs (dial and plain) and nothing elsewhere, within the stop limit of 
 
 - **A placement margin** (readout > 2.4e-2, init >= 4e-4, T1 or T2 < 30 us, the cut history, the logged refusals and CZ > 4e-3 couplers broken,
   over a 72-hour window). With all six terms, the n80 and n100 rungs have no connected rectangle on 26 Sep 03:07Z. Q91 (excluded by one readout of
-  2.64e-2 on 25 Sep) and coupler 80-90 (over 4e-3 on all six window snapshots) together cut qubits 90 and 100 off the (2, 0) rectangle. The lead
-  withdrew the margin on 26 Sep.
+  2.64e-2 on 25 Sep) and coupler 80-90 (over 4e-3 on all six window snapshots) together cut qubits 90 and 100 off the (2, 0) rectangle. The variants
+  that do place all five rungs cost qubits (n100 at 77 to 80). Owais then asked for the option with the fewest limitations, and the lead chose this rule.
 - **Re-placing a pinned list on the dispatch-day snapshot:** Deviation 58 pins the placement; a list that fails is re-packaged, as here.
 - **An n100 rectangle without Q29:** there is none. Every 10x10 rectangle on the 12x10 lattice contains rows 2 to 9, and Q29 is in row 2.
 
@@ -130,8 +131,12 @@ the n100 rungs (dial and plain) and nothing elsewhere, within the stop limit of 
   `tests/test_artifact_mirrors.py`, and update `docs/manuscripts/deviations.yaml`, the `.tex` table, the tracker, `docs/PLAN.md`,
   `docs/HANDOVER.md` and `docs/HANDOVER_MEMORY.md`.
 - **Deviation 60 (draft PR #6):** its H7 comparator was drawn on the pinned 23 Sep list. With this re-package the day-3 list is the 27 Sep one, so, as
-  its Section 9 requires, the comparator and the dial rows must be re-drawn on this placement (`scripts/redraw_dial_points.py`) before the day-3 review.
+  its Section 9 requires, the comparator and the missing dial rows (reset p = 0.5 at L = 8 and 12, dephasing p = 0.5 at L = 8) must be drawn on this
+  placement (`python scripts/predict_h7_truncation.py --joblist data/joblists/paper1/day3_dial_refs.json` and `python scripts/redraw_dial_points.py
+  --joblist data/joblists/paper1/day3_dial_refs.json`, both on that branch) before the day-3 review reads H5 to H7.
   PR #6 also modifies `scripts/redraw_gate1b.py`, so the integration has to merge the two versions.
+- **Deviation 63 (draft, branch `dev63-questions`):** its truncation-pair list is placed on the day-3 placement; after this re-package that is the
+  27 Sep 03:08Z dial placement of Section 5 (n60 at (6, 0), n = 52, edge 84_85, Q79 a hole).
 - **Deviation 61 (draft PR #5):** it names the replicated n100 point "n = 87". On this placement the plain n100 rung has n = 88. The four replication
   tests keep their list names, so its Holm family is unchanged.
 - **Before arming:** merge, then refresh the calibration snapshot and repeat the pre-check (pre-flight 06, Section 6, step 1). The dispatch safety net
