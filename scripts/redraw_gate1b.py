@@ -692,7 +692,9 @@ def markdown_block(res: dict) -> str:
     pl = res["placement"]
     L.append(f"### Deviation 46 re-draw: run-day snapshot {res['snapshot']['stamp']} vs the frozen 20 Sep numbers\n")
     L.append(f"Snapshot `{res['snapshot']['csv']}` with raw properties `{res['snapshot']['properties']}`; excluded qubits {res['snapshot']['excluded']}. "
-             f"Placement rule: {res['placement_source']}. Frozen numbers: the Deviation 34 layer-model Gate 1b rows drawn on the 19 Sep 19:25Z placement "
+             + (f"Dial patches (Deviation 62): qubit(s) {res['snapshot']['dial_exclude']} also excluded (Section 3b: qubit 79, native reset 2140 ns). " if res['snapshot'].get('dial_exclude') else "")
+             + ("Deviation 62 connected-component rule applied (qubits outside a rectangle's largest live-coupler component are holes). " if (res.get('placement_rules') or {}).get('component_rule') else "")
+             +              f"Placement rule: {res['placement_source']}. Frozen numbers: the Deviation 34 layer-model Gate 1b rows drawn on the 19 Sep 19:25Z placement "
              f"(`ladder_placements.json`; committed 20 Sep 2026 05:11 UTC). Model: unital snapshot noise + static whole-layer ZZ rzz(zeta tau_layer / 2) "
              f"(ZZ_ANGLE_SCALE = 0.5) + idle ZZ rzz(zeta 400 ns / 2) in the dial layer; tau_layer per coupler from `zz_layer_timing.json`; "
              f"Pauli-path sampler seed {SEED}, {res['settings']['n_samples']:.0e} paths ({res['settings']['pattern_samples']:.0e} per pattern-floor run, seed {SEED + PATTERN_SEED_OFFSET}). "
@@ -857,9 +859,14 @@ def main(argv=None) -> int:
     t_start = time.time()
     record = frozen_placement()
     runday = place_rungs(snapshot)
+    try:                                     # Deviation 62: the Gate 1b rows sit on the dial lists' patches (qubit 79 excluded, Section 3b)
+        runday_g1b = place_rungs(snapshot, dial=True)
+    except TypeError:                        # a place_rungs without the Deviation 62 dial placement
+        runday_g1b = runday
     reference = place_rungs(str(REFERENCE_20SEP_SNAPSHOT)) if REFERENCE_20SEP_SNAPSHOT.exists() else None
     ref_notes = check_reference_20sep(reference) if reference else ["20 Sep 03:08Z snapshot not in data/calibrations"]
     ptable = placement_table(record, reference, runday)
+    ptable_g1b = placement_table(record, reference, runday_g1b)
     kappa = kurtosis_measured()
     fdf = frozen_rows()
     fr = readings(fdf, kappa)
@@ -879,7 +886,10 @@ def main(argv=None) -> int:
         print("reference check:", "; ".join(ref_notes))
     print(f"frozen-reading regression vs pauliprop_summary.json: max rel diff {frozen_check['max_rel_diff']:.1e} -> {'PASS' if frozen_check['passes'] else 'FAIL'}")
 
-    jobs, stand = plan_rows(record, runday, fdf, force=args.force)
+    if runday_g1b is not runday:
+        print("Gate 1b (dial-list) placement, dial_exclude " + str(runday_g1b.get("dial_exclude")) + ": "
+              + "; ".join(f"{r} n={runday_g1b['rungs'][r]['n']} origin {tuple(runday_g1b['rungs'][r]['origin'])} edge {runday_g1b['rungs'][r]['edge']}" for r in GATE1B_RUNGS))
+    jobs, stand = plan_rows(record, runday_g1b, fdf, force=args.force)
     if args.no_gate1b:
         jobs, stand = [], []
     for j in jobs:
@@ -981,14 +991,15 @@ def main(argv=None) -> int:
     all_rows = rows + stand
     rdf = g1pp.with_zz_column(pd.DataFrame(all_rows)) if all_rows else fdf.iloc[0:0]
     rr = readings(rdf, kappa)
-    floors = {SPEC_OF[r]: dial_floors(snapshot, runday["rungs"][r]) for r in GATE1B_RUNGS}
+    floors = {SPEC_OF[r]: dial_floors(snapshot, runday_g1b["rungs"][r]) for r in GATE1B_RUNGS}
     floors_frozen = {SPEC_OF[r]: dial_floors(str(CAL_DIR / record["snapshot"]), record["rungs"][r]) for r in GATE1B_RUNGS}
     rr["h5_h6"] = h5_h6(rdf, floors)
     fr["h5_h6"] = h5_h6(fdf, floors_frozen)
     res = dict(deviation="46", generated_utc=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-               snapshot=dict(csv=Path(snapshot).name, properties=Path(props).name, stamp=stamp, excluded=runday["excluded"]),
-               placement_source=PLACEMENT_SOURCE + "; " + PLACEMENT_SOURCE_PROPERTIES, placement_rules=runday.get("rules"),
-               placement=ptable, runday_placement=runday, record_placement=record, reference_20sep_placement=reference, reference_20sep_notes=ref_notes,
+               snapshot=dict(csv=Path(snapshot).name, properties=Path(props).name, stamp=stamp, excluded=runday_g1b["excluded"],
+                             dial_exclude=runday_g1b.get("dial_exclude", [])),
+               placement_source=PLACEMENT_SOURCE + "; " + PLACEMENT_SOURCE_PROPERTIES, placement_rules=runday_g1b.get("rules"),
+               placement=ptable_g1b, runday_placement=runday_g1b, record_placement=record, reference_20sep_placement=reference, reference_20sep_notes=ref_notes,
                settings=dict(n_samples=args.n_samples, pattern_samples=args.pattern_samples, n_cap=args.n_cap, time_limit_s=args.time_limit, seed=SEED,
                              pattern_seed=SEED + PATTERN_SEED_OFFSET, deltas=[1e-6, 1e-7], K_masks=K_MASKS, zz_angle_scale=pp.ZZ_ANGLE_SCALE,
                              zz_convention=pp.ZZ_CONVENTIONS[pp.ZZ_ANGLE_SCALE], layer_timing=str(LAYER_TIMING.relative_to(ROOT)), force=args.force),

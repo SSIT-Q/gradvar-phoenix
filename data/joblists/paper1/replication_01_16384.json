@@ -5,12 +5,12 @@
  "dry_run": true,
  "rep_delay_probe": true,
  "preflight_review": "TBD: pre-flight review permalink",
- "notes": "Paper 1 pre-registration v0.16.0 (23 Sep 2026), Deviation 19 anomaly protocol (tracker P1.3.9), replication 01, list 2 of 2 (16384 shots; one Estimator list carries a single shot count): the n100 rung's L = 8, k = 1 point at resilience 0 and 16384 shots (day 2, 21 Sep 2026, seed block 24292001: 0.50x the run-day nonunital row 3.069e-4 of b5da7e5, z = -5.1 raw / -6.1 on the signal), M = 200 fresh draws (seed block 25692001, role 'replication_16384'), on the same 10x10 rung (10x10 n = 87 at origin (2, 0), edge 75_85; the run-day holes decide n, and no exact per-draw noiseless reference exists at this n since the L = 8 light cone covers the whole patch): no alternative 10x10 placement exists on the 12x10 lattice, a recorded departure from the protocol's 'different clean patch'; plus the matched Deviation 43 L = 0 null control at 16384 shots. Companion list replication_01.json (4096 shots) holds the n20 L = 4 replication, the 4096-shot twin of this point and their null controls. Same predictions, decision rules and ledger item as that list (docs/preflight/08_paper1_replication_2026-09-21.md). Placement from snapshot 2026-09-23T163534Z (CSV plus raw properties; Deviations 22, 26 and 46 cuts plus the Deviation 53 coherence floor T1, T2 >= 25 us, on the newest committed calibration data): n100 = 10x10 n = 87 origin (2, 0) edge 75_85 broken [[86, 87], [100, 101], [31, 32], [95, 96], [87, 97], [100, 110]]. Deviation 46: the runner re-derives the placement and the observable edges from the run-day snapshot under the Deviation 22 / 26 cuts and the cone-graph edge rule (live re-check, layout_check enforce) and refuses a list whose n no longer matches; regenerate with scripts/make_paper1_joblists.py from the run-day snapshot and re-draw the Gate 1b reference predictions where the cone graph changed. Budget model v3 (Deviation 47: 3.0 s per job, +2.7 s at resilience >= 1, 5 us per execution, max(shots, 64) at resilience >= 1), jobs of at most 300 pubs (max_experiments; Deviation 48) and 12 MB of parameter values: 2 jobs, 400 pubs, 800 parameter sets, 13107200 executions (+0 TREX), 2.455 min at the booked 1 us rep_delay (56.85 min at 250 us). Nothing is submitted while dry_run is true and the pre-flight review permalink is the placeholder.",
+ "notes": "Paper 1 pre-registration v0.17.0 (26 Sep 2026), Deviation 19 anomaly protocol (tracker P1.3.9), replication 01, list 2 of 2 (16384 shots; one Estimator list carries a single shot count): the n100 rung's L = 8, k = 1 point at resilience 0 and 16384 shots (day 2, 21 Sep 2026, seed block 24292001: 0.50x the run-day nonunital row 3.069e-4 of b5da7e5, z = -5.1 raw / -6.1 on the signal), M = 200 fresh draws (seed block 25692001, role 'replication_16384'), on the same 10x10 rung (10x10 n = 88 at origin (2, 0), edge 75_85; the run-day holes decide n, and no exact per-draw noiseless reference exists at this n since the L = 8 light cone covers the whole patch): no alternative 10x10 placement exists on the 12x10 lattice, a recorded departure from the protocol's 'different clean patch'; plus the matched Deviation 43 L = 0 null control at 16384 shots. Companion list replication_01.json (4096 shots) holds the n20 L = 4 replication, the 4096-shot twin of this point and their null controls. Same predictions, decision rules and ledger item as that list (docs/preflight/08_paper1_replication_2026-09-21.md). Placement from snapshot 2026-09-27T030805Z (CSV plus raw properties; Deviations 22, 26 and 46 cuts plus the Deviation 53 coherence floor T1, T2 >= 25 us, on the newest committed calibration data; Deviation 62: qubits outside a rectangle's largest connected live-coupler component are holes): n100 = 10x10 n = 88 origin (2, 0) edge 75_85 broken [[86, 87], [100, 101], [31, 32], [95, 96], [41, 51], [69, 79], [87, 97], [100, 110], [79, 89]]. Deviation 46: the runner re-derives the placement and the observable edges from the run-day snapshot under the Deviation 22 / 26 cuts and the cone-graph edge rule (live re-check, layout_check enforce) and refuses a list whose n no longer matches; regenerate with scripts/make_paper1_joblists.py from the run-day snapshot and re-draw the Gate 1b reference predictions where the cone graph changed. Budget model v3 (Deviation 47: 3.0 s per job, +2.7 s at resilience >= 1, 5 us per execution, max(shots, 64) at resilience >= 1), jobs of at most 300 pubs (max_experiments; Deviation 48) and 12 MB of parameter values: 2 jobs, 400 pubs, 800 parameter sets, 13107200 executions (+0 TREX), 2.455 min at the booked 1 us rep_delay (56.85 min at 250 us). Nothing is submitted while dry_run is true and the pre-flight review permalink is the placeholder.",
  "layout_check": "enforce",
  "placement": {
-  "snapshot": "ibm_phoenix_2026-09-23T163534Z.csv",
-  "properties": "ibm_phoenix_properties_20260923T163534Z.json.gz",
-  "stamp": "2026-09-23T163534Z",
+  "snapshot": "ibm_phoenix_2026-09-27T030805Z.csv",
+  "properties": "ibm_phoenix_properties_20260927T030805Z.json.gz",
+  "stamp": "2026-09-27T030805Z",
   "excluded": [
    7,
    8,
@@ -18,14 +18,12 @@
    17,
    18,
    27,
-   29,
    37,
    55,
    59,
    61,
    62,
    63,
-   66,
    72,
    73,
    77,
@@ -36,12 +34,17 @@
    "init_error_cut": 0.0005,
    "zz_cut_mhz": 1.0,
    "cz_cut": 0.005,
-   "coherence_floor_us": 25.0
+   "coherence_floor_us": 25.0,
+   "component_rule": {
+    "deviation": "62",
+    "since": "2026-09-26T030720Z",
+    "rule": "qubits outside the largest connected component of the rectangle's live-coupler graph are holes"
+   }
   },
   "rungs": {
    "n100": {
     "patch": "10x10",
-    "n": 87,
+    "n": 88,
     "origin": [
      2,
      0
@@ -55,7 +58,6 @@
      61,
      62,
      63,
-     66,
      72,
      73,
      77,
@@ -100,6 +102,7 @@
      60,
      64,
      65,
+     66,
      67,
      68,
      69,
@@ -168,29 +171,46 @@
       96
      ],
      [
+      41,
+      51
+     ],
+     [
+      69,
+      79
+     ],
+     [
       87,
       97
      ],
      [
       100,
       110
+     ],
+     [
+      79,
+      89
      ]
     ],
     "broken_edge_cz_errors": {
-     "86_87": 0.014215607141416259,
-     "100_101": 0.040990425147964665,
-     "31_32": 0.0159505482336936,
-     "95_96": 0.032139042591438044,
-     "87_97": 0.018098784899698378,
-     "100_110": 0.00570275839990278
+     "86_87": 0.014332708565592434,
+     "100_101": 0.0541443403012179,
+     "31_32": 0.0067488667044010575,
+     "95_96": 0.018157380324158146,
+     "41_51": 0.006209492067978023,
+     "69_79": 0.0072155746545901345,
+     "87_97": 0.01627532459742123,
+     "100_110": 0.005472899983412105,
+     "79_89": 0.007332427872239644
     },
-    "live_couplers": 132,
+    "live_couplers": 133,
     "edge": "75_85",
     "edge_rule": "interior_edge",
-    "edge_cz_error": 0.0010745000640388358,
+    "edge_cz_error": 0.0016371694855039642,
     "cone_L2_qubits": [
      64,
      65,
+     66,
+     67,
      74,
      75,
      76,
@@ -200,14 +220,17 @@
      94,
      95
     ],
-    "cone_L2_couplers": 13,
-    "cone_L2_matches_4x5": false
+    "cone_L2_couplers": 16,
+    "cone_L2_matches_4x5": false,
+    "component_holes": [
+     29
+    ]
    }
   },
   "pin_snapshot": true
  },
  "campaign": {
-  "pre_registration": "Paper 1 pre-registration v0.16.0 (23 Sep 2026)",
+  "pre_registration": "Paper 1 pre-registration v0.17.0 (26 Sep 2026)",
   "ledger_line": "reserve:anomaly",
   "budget_model_version": 3,
   "max_experiments": 300,
@@ -257,7 +280,7 @@
  },
  "points": [
   {
-   "n": 87,
+   "n": 88,
    "patch": "10x10",
    "edge": "75_85",
    "L": 8,
@@ -272,7 +295,7 @@
   {
    "id": "null_L0_n100_r0_s16384_repl",
    "kind": "null_control",
-   "n": 87,
+   "n": 88,
    "patch": "10x10",
    "edge": "75_85",
    "L": 0,
@@ -331,7 +354,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 3.0,
-    "param_mb": 2.227,
+    "param_mb": 2.253,
     "circuit_seconds_at_250us": 1721.106,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 1724.106,

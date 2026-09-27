@@ -1,5 +1,5 @@
 {
- "pre_registration": "Paper 1 pre-registration v0.16.0 (23 Sep 2026)",
+ "pre_registration": "Paper 1 pre-registration v0.17.0 (26 Sep 2026)",
  "budget_model_version": 3,
  "max_experiments": 300,
  "max_job_param_mb": 12.0,
@@ -9,9 +9,9 @@
   "reason": "Deviation 55 (to be): resilience-2 jobs on rungs of n >= 69 hold at most 100 pubs (day-2 job L2-c5, 300 pubs of n = 85 L = 8, IBM 1336 out of memory; 100 pubs ran)"
  },
  "m_rule": "baseline",
- "snapshot": "ibm_phoenix_2026-09-23T163534Z.csv",
- "properties": "ibm_phoenix_properties_20260923T163534Z.json.gz",
- "stamp": "2026-09-23T163534Z",
+ "snapshot": "ibm_phoenix_2026-09-27T030805Z.csv",
+ "properties": "ibm_phoenix_properties_20260927T030805Z.json.gz",
+ "stamp": "2026-09-27T030805Z",
  "rungs": {
   "n20": {
    "n": 20,
@@ -26,6 +26,10 @@
     [
      31,
      32
+    ],
+    [
+     41,
+     51
     ]
    ],
    "holes": []
@@ -66,6 +70,232 @@
    ]
   },
   "n60": {
+   "n": 53,
+   "patch": "6x10",
+   "origin": [
+    6,
+    0
+   ],
+   "edge": "84_85",
+   "edge_rule": "interior_edge",
+   "broken_edges": [
+    [
+     86,
+     87
+    ],
+    [
+     100,
+     101
+    ],
+    [
+     95,
+     96
+    ],
+    [
+     69,
+     79
+    ],
+    [
+     87,
+     97
+    ],
+    [
+     100,
+     110
+    ],
+    [
+     79,
+     89
+    ]
+   ],
+   "holes": [
+    61,
+    62,
+    63,
+    72,
+    73,
+    77,
+    107
+   ]
+  },
+  "n80": {
+   "n": 71,
+   "patch": "8x10",
+   "origin": [
+    4,
+    0
+   ],
+   "edge": "84_85",
+   "edge_rule": "interior_edge",
+   "broken_edges": [
+    [
+     86,
+     87
+    ],
+    [
+     100,
+     101
+    ],
+    [
+     95,
+     96
+    ],
+    [
+     41,
+     51
+    ],
+    [
+     69,
+     79
+    ],
+    [
+     87,
+     97
+    ],
+    [
+     100,
+     110
+    ],
+    [
+     79,
+     89
+    ]
+   ],
+   "holes": [
+    55,
+    59,
+    61,
+    62,
+    63,
+    72,
+    73,
+    77,
+    107
+   ]
+  },
+  "n100": {
+   "n": 88,
+   "patch": "10x10",
+   "origin": [
+    2,
+    0
+   ],
+   "edge": "75_85",
+   "edge_rule": "interior_edge",
+   "broken_edges": [
+    [
+     86,
+     87
+    ],
+    [
+     100,
+     101
+    ],
+    [
+     31,
+     32
+    ],
+    [
+     95,
+     96
+    ],
+    [
+     41,
+     51
+    ],
+    [
+     69,
+     79
+    ],
+    [
+     87,
+     97
+    ],
+    [
+     100,
+     110
+    ],
+    [
+     79,
+     89
+    ]
+   ],
+   "holes": [
+    27,
+    29,
+    37,
+    55,
+    59,
+    61,
+    62,
+    63,
+    72,
+    73,
+    77,
+    107
+   ]
+  }
+ },
+ "dial_rungs": {
+  "n20": {
+   "n": 20,
+   "patch": "4x5",
+   "origin": [
+    2,
+    0
+   ],
+   "edge": "32_42",
+   "edge_rule": "interior_edge",
+   "broken_edges": [
+    [
+     31,
+     32
+    ],
+    [
+     41,
+     51
+    ]
+   ],
+   "holes": [],
+   "dial_excluded_holes": []
+  },
+  "n40": {
+   "n": 39,
+   "patch": "4x10",
+   "origin": [
+    8,
+    0
+   ],
+   "edge": "93_103",
+   "edge_rule": "Deviation 36's (93, 103) as written (its L = 2 cone graph differs from the 4x5 rung's on this snapshot; Deviation 46 fallback)",
+   "broken_edges": [
+    [
+     86,
+     87
+    ],
+    [
+     100,
+     101
+    ],
+    [
+     95,
+     96
+    ],
+    [
+     87,
+     97
+    ],
+    [
+     100,
+     110
+    ]
+   ],
+   "holes": [
+    107
+   ],
+   "dial_excluded_holes": []
+  },
+  "n60": {
    "n": 52,
    "patch": "6x10",
    "origin": [
@@ -100,11 +330,14 @@
     61,
     62,
     63,
-    66,
     72,
     73,
     77,
+    79,
     107
+   ],
+   "dial_excluded_holes": [
+    79
    ]
   },
   "n80": {
@@ -130,6 +363,10 @@
      96
     ],
     [
+     41,
+     51
+    ],
+    [
      87,
      97
     ],
@@ -144,11 +381,14 @@
     61,
     62,
     63,
-    66,
     72,
     73,
     77,
+    79,
     107
+   ],
+   "dial_excluded_holes": [
+    79
    ]
   },
   "n100": {
@@ -178,6 +418,10 @@
      96
     ],
     [
+     41,
+     51
+    ],
+    [
      87,
      97
     ],
@@ -195,14 +439,26 @@
     61,
     62,
     63,
-    66,
     72,
     73,
     77,
+    79,
     107
+   ],
+   "dial_excluded_holes": [
+    79
    ]
   }
  },
+ "dial_lists": [
+  "dial_arm.json",
+  "dial_arm_contingent.json",
+  "references_gate1b.json",
+  "day3_dial_refs.json"
+ ],
+ "dial_exclude": [
+  79
+ ],
  "ledger_caps_min_at_1us": {
   "main": 190.5,
   "dial": 82.5,
