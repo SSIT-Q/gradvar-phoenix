@@ -3,6 +3,7 @@ matched on the placement the rows ran on (the placed qubit set), and a sub-test 
 evaluable, with the 19 Sep row reported beside it as the fallback record (Deviation 54 (iii)); the re-draw script plans the missing
 rows of a pinned list without simulating anything, and its rows are read back by the analysis."""
 import json
+import shutil
 import sys
 from pathlib import Path
 
@@ -40,9 +41,25 @@ def _pinned_day3(tmp_path):
     return f
 
 
+# The prediction records these tests were written against, copied to a temporary directory that the prediction loader, the re-draw
+# planner and check_comparators read instead of data/predictions: the tests then do not depend on which later re-draws the
+# repository holds (a later placement can reuse a rung's qubit set, as the 27 Sep 03:08Z n40 rung reuses the 23 Sep 16:35Z one,
+# and the last file would then supply that rung's rows).
+PRED_FILES = ("pauliprop_predictions.csv", "ladder_placements.json", "gate1b_redraw_2026-09-23T0308.csv", "gate1b_redraw_2026-09-23T0308.json",
+              "gate1b_redraw_2026-09-23T1635.csv", "gate1b_redraw_2026-09-23T1635.json", "h7_truncation_2026-09-23T1635.json")
+
+
 @pytest.fixture(scope="module")
-def preds():
-    return P.load_predictions()
+def pred_dir(tmp_path_factory):
+    d = tmp_path_factory.mktemp("predictions")
+    for name in PRED_FILES:
+        shutil.copy2(PRED / name, d / name)
+    return d
+
+
+@pytest.fixture(scope="module")
+def preds(pred_dir):
+    return P.load_predictions(pred_dir)
 
 
 def test_dial_rows_carry_the_placement_they_were_drawn_on(preds):
@@ -124,9 +141,9 @@ def test_compare_points_uses_placement_matched_dial_rows(preds):
     assert cmp.source.iloc[1] == "gate1b_redraw_2026-09-23T1635.csv" and np.isfinite(cmp.z.iloc[1])
 
 
-def test_redraw_script_plans_the_missing_day3_rows_without_simulating(tmp_path):
+def test_redraw_script_plans_the_missing_day3_rows_without_simulating(tmp_path, pred_dir):
     import redraw_dial_points as rdp
-    pl = rdp.plan([str(_pinned_day3(tmp_path))])
+    pl = rdp.plan([str(_pinned_day3(tmp_path))], pred_dir=pred_dir)
     todo = sorted((j["rung"], j["L"], j["dial"], j["p"]) for j in pl["jobs"])
     assert todo == [("n60", 8, "dephase", 0.5), ("n60", 8, "reset", 0.5), ("n60", 12, "reset", 0.5)]
     assert all(c["source"] == "gate1b_redraw_2026-09-23T1635.csv" for c in pl["covered"]) and len(pl["covered"]) == 10
@@ -290,28 +307,29 @@ def test_redraw_script_refuses_setting_overrides_without_exploratory(tmp_path, c
     assert len(P.load_dial_rows(tmp_path)) == 2
 
 
-def test_check_comparators_exits_nonzero_unless_the_placement_has_its_predictions(tmp_path, capsys):
+def test_check_comparators_exits_nonzero_unless_the_placement_has_its_predictions(tmp_path, capsys, pred_dir):
     import check_comparators as cc
+    pd_arg = ["--pred-dir", str(pred_dir)]
     full = _list(tmp_path, "full.json", PL23, DAY3_DIAL_PROBES + TRUNC_PROBES)
-    res = cc.check(full)
+    res = cc.check(full, pred_dir)
     missing = sorted(x["probe"] for x in res["items"] if not x["found"])
     assert missing == ["dephasing_dial_p0.5_L8_kL", "dial_p0.5_L12_kL", "dial_p0.5_L8_kL"] and res["placement"] == "2026-09-23T163534Z"
     (h7,) = [x for x in res["items"] if x["need"].startswith("H7")]
     assert h7["found"] and h7["source"] == "h7_truncation_2026-09-23T1635.json" and h7["rms_l2"] == pytest.approx(0.05540, abs=5e-6)
-    assert cc.main([str(full)]) == 1 and "MISSING 3 item(s)" in capsys.readouterr().out
+    assert cc.main([str(full)] + pd_arg) == 1 and "MISSING 3 item(s)" in capsys.readouterr().out
     covered = _list(tmp_path, "covered.json", PL23, [p for p in DAY3_DIAL_PROBES if p["p"] != 0.5] + TRUNC_PROBES)
-    assert cc.main([str(covered)]) == 0 and "OK" in capsys.readouterr().out
+    assert cc.main([str(covered)] + pd_arg) == 0 and "OK" in capsys.readouterr().out
     pl03 = json.loads((PRED / "gate1b_redraw_2026-09-23T0308.json").read_text())["runday_placement"]      # n60: n = 52, other holes
     other = _list(tmp_path, "other.json", pl03, TRUNC_PROBES + [p for p in DAY3_DIAL_PROBES if p["id"] == "dial_p0.25_L8_kL"])
-    res3 = cc.check(other)
+    res3 = cc.check(other, pred_dir)
     (h7b,) = [x for x in res3["items"] if x["need"].startswith("H7")]
     assert not h7b["found"] and "qubits" in h7b["reason"]
     assert [x["source"] for x in res3["items"] if x["probe"] == "dial_p0.25_L8_kL"] == ["gate1b_redraw_2026-09-23T0308.csv"]
-    assert cc.main([str(other)]) == 1
+    assert cc.main([str(other)] + pd_arg) == 1
     assert cc.main([str(tmp_path / "absent.json")]) == 2
 
 
-def test_placement_checks_use_the_dial_placement_for_a_dial_exclude_list(tmp_path, monkeypatch):
+def test_placement_checks_use_the_dial_placement_for_a_dial_exclude_list(tmp_path, monkeypatch, pred_dir):
     """A list placed as a reset-dial list under Deviation 62 (``placement.dial_exclude``) is checked against
     ``place_rungs(snapshot, dial=True)`` by both scripts; a place_rungs without the dial placement stops them; a list without
     ``dial_exclude`` keeps the plain rule."""
@@ -325,7 +343,7 @@ def test_placement_checks_use_the_dial_placement_for_a_dial_exclude_list(tmp_pat
     monkeypatch.setattr(rdp, "_PLACED", {})
     monkeypatch.setattr(rdp.rd, "place_rungs", dial_rule)
     f = _list(tmp_path, "dial62.json", dict(PL23, dial_exclude=[79]), DAY3_DIAL_PROBES)
-    res = rdp.plan([str(f)])
+    res = rdp.plan([str(f)], pred_dir=pred_dir)
     assert calls and all(calls) and all(v["all_same"] and "dial_exclude [79]" in v["rule"] for v in res["placement_checks"].values())
     jl, rung = json.loads(f.read_text()), PL23["rungs"]["n60"]
     assert h7.check_placement(jl, "x.csv", "n60", rung)["all_same"] and calls[-1] is True
@@ -335,8 +353,8 @@ def test_placement_checks_use_the_dial_placement_for_a_dial_exclude_list(tmp_pat
     monkeypatch.setattr(rdp, "_PLACED", {})
     monkeypatch.setattr(rdp.rd, "place_rungs", old_rule)
     with pytest.raises(SystemExit, match="Deviation 62"):
-        rdp.plan([str(f)])
+        rdp.plan([str(f)], pred_dir=pred_dir)
     with pytest.raises(SystemExit, match="Deviation 62"):
         h7.check_placement(jl, "x.csv", "n60", rung)
     plain = _list(tmp_path, "plain.json", PL23, DAY3_DIAL_PROBES)
-    assert rdp.plan([str(plain)])["placement_checks"]["n60"]["all_same"]
+    assert rdp.plan([str(plain)], pred_dir=pred_dir)["placement_checks"]["n60"]["all_same"]
