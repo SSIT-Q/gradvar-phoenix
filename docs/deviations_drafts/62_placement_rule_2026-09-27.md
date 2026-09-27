@@ -14,7 +14,8 @@ rule, gate, kill rule, budget line or ledger line changes. The lists keep their 
 - On 26 Sep 03:07Z the pre-registered rule could not place the n100 rung. Q29 passes the qubit cuts, but its three couplers (19-29, 28-29, 29-39) are over
   the 5e-3 CZ cut, so Q29 is isolated, every 10x10 rectangle is disconnected, and the generator stops. The same holds on 27 Sep 03:08Z.
 - Section 3b's Implementation text reads "qubit 79: 2140 ns, excluded from dial patches", but the generator did not apply it: the 23 Sep lists placed Q79
-  in the n60 and n100 dial patches, and the reviewed pre-flight 06 of 23 Sep did not catch it.
+  in the n60 and n100 dial patches, and the reviewed pre-flight 06 of 23 Sep did not catch it. The gap was found on 25 Sep (checked on `main`
+  at 420c20d), and Owais was asked to hold `day3_dial_refs` until it was resolved.
 - The pinned 23 Sep 16:35Z placement fails the live cuts on 26 Sep 03:07Z (Q96 init 5.2e-4; Q103 T1 17.3 us, on the n40 edge; couplers 24-25, 41-51,
   106-116, 118-119) and on 27 Sep 03:08Z (couplers 41-51, 69-79, 79-89).
 
