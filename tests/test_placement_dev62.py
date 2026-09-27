@@ -20,6 +20,8 @@ P1 = ROOT / "data" / "joblists" / "paper1"
 PRED = ROOT / "data" / "predictions"
 SNAP26 = CAL / f"ibm_phoenix_{COMPONENT_RULE_SINCE[:10]}T{COMPONENT_RULE_SINCE[11:]}.csv"   # the Deviation 62 placement snapshot
 SNAP23 = CAL / "ibm_phoenix_2026-09-23T163534Z.csv"                                           # the pinned 23 Sep lists' snapshot
+from make_paper1_joblists import DEFAULT_SNAPSHOT                                             # noqa: E402
+PLACED = ROOT / DEFAULT_SNAPSHOT                                                              # the re-packaged lists' placement snapshot
 DIAL_LISTS = ("day3_dial_refs.json", "dial_arm.json", "dial_arm_contingent.json", "references_gate1b.json")
 PLAIN_N100_LISTS = ("replication_01.json", "replication_01_16384.json", "section3c_blockC.json")
 RUN_DAY = ("day3_dial_refs.json", "replication_01.json", "replication_01_16384.json", "section3c_blockC.json")
@@ -109,7 +111,7 @@ def test_runner_applies_the_dial_exclusion():
     jl = _jl("day3_dial_refs.json")
     assert hw.dial_exclusion(jl) == (79,) and hw.dial_exclusion(_jl("replication_01.json")) == ()
     csv = hw.pinned_calibration_csv(jl)
-    assert Path(csv).name == SNAP26.name
+    assert Path(csv).name == PLACED.name and component_rule_applies(PLACED)
     origins = hw.pinned_origins(jl, csv)
     for rung in ("n60", "n100"):
         v = jl["placement"]["rungs"][rung]
@@ -125,14 +127,15 @@ def test_runner_applies_the_dial_exclusion():
 
 def test_q79_is_the_only_long_native_reset():
     """Section 3b's exclusion names qubit 79 (2140 ns); no other qubit has a native reset longer than 400 ns in the placement snapshot's
-    properties (checked on every committed properties file when this test was written, 19-26 Sep 2026)."""
-    props = json.loads(gzip.open(_props(SNAP26)).read())
-    lengths = {g["qubits"][0]: p["value"] for g in props["gates"] if g.get("gate") == "reset" for p in g.get("parameters", []) if p.get("name") == "gate_length"}
-    assert len(lengths) == 120 and {q for q, v in lengths.items() if v > 400} == set(DIAL_EXCLUDE) and lengths[79] == 2140
+    properties (checked on every committed properties file when this test was written, 19-27 Sep 2026)."""
+    for csv in (SNAP26, PLACED):
+        props = json.loads(gzip.open(_props(csv)).read())
+        lengths = {g["qubits"][0]: p["value"] for g in props["gates"] if g.get("gate") == "reset" for p in g.get("parameters", []) if p.get("name") == "gate_length"}
+        assert len(lengths) == 120 and {q for q, v in lengths.items() if v > 400} == set(DIAL_EXCLUDE) and lengths[79] == 2140, csv.name
 
 
 def test_component_holes_on_the_run_day_lists_within_the_stop_limit():
-    """Deviation 62 stop condition: the rule may add at most 3 holes to any rung of the four run-day lists (26 Sep: Q29 in n100 only)."""
+    """Deviation 62 stop condition: the rule may add at most 3 holes to any rung of the four run-day lists (26 and 27 Sep: Q29 in n100 only)."""
     for name in RUN_DAY:
         for rung, v in _jl(name)["placement"]["rungs"].items():
             assert len(v["component_holes"]) <= 3, (name, rung)
