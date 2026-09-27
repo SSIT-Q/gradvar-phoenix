@@ -1,11 +1,14 @@
 """Render the reissued pre-flights 06 / 08 / 09 from the run outputs of one re-package (lists, re-draws, dry runs, watch lists).
 
-Usage (python kernel): exec(open("build_preflights.py").read()); build(OUT_DIR, SNAP_CSV, TAG, DATE_LABEL, dial_pp, pdir, review_txt, precheck, pr)
-OUT_DIR holds A/ (summary.json, joblists_paper1/, dryrun_*.log, margins.json, exclusion.json, status.log), B/predictions, C/predictions.
-Re-package of 26 Sep 2026 (Deviation 62): the pre-registered cuts, the connected-component rule and the Section 3b exclusion of qubit 79
-from the dial patches, on the 26 Sep 03:07Z snapshot; the previous edition (23 Sep 16:35Z placement) is the change column's reference.
+Usage (python kernel, repo root on sys.path): exec(open("scripts/build_preflights.py").read());
+build(OUT_DIR, SNAP_CSV, TAG, DATE_LABEL, None, pdir, review_txt, precheck_res, pr, branch, prev_pred_dir, root=".", prev_lists_dir=...)
+OUT_DIR holds A/ (joblists_paper1/, dryrun_*.log, status.log), B/predictions, C/predictions. The exclusion reasons, the watch lists
+(committed snapshots since 20 Sep), the L = 2 cone readout maxima and the per-point dial jobs are computed here from the lists and the
+committed calibrations under ``root``; the previous edition's lists (``prev_lists_dir``) give its live-cut failures on the placement snapshot.
+Re-package of 26-27 Sep 2026 (Deviation 62): the pre-registered cuts, the connected-component rule and the Section 3b exclusion of qubit 79
+from the dial patches, on the newest committed snapshot; the previous edition (23 Sep 16:35Z placement) is the change column's reference.
 """
-import json, math, re
+import gzip, json, math, re
 from pathlib import Path
 
 PREV = dict(date="23 Sep", snap="23 Sep 16:35Z", tag="2026-09-23T1635", files=("06_paper1_day3_dial_2026-09-23.md", "08_paper1_replication_2026-09-23.md",
@@ -14,7 +17,7 @@ SPEC = {"n40": "4x10", "n60": "6x10", "n100": "10x10", "n20": "4x5"}
 OVERRIDE = dict(cz=1.0e-2, t=15.0, ro=6.0e-2, init=1.0e-3)   # Deviation 62 dispatch safety net (operational; the override is Deviation 26's)
 REASON = ("Deviation 62 dispatch safety net: Claude's pre-check on the newest committed snapshot found every failing qubit and coupler outside the "
           "observable edges and their L = 2 cones, with CZ error <= 1.0e-2, T1 and T2 >= 15 us, readout error <= 6.0e-2 and initialisation error "
-          "<= 1.0e-3 (pre-flight {pf}, Section 6)")
+          "<= 1.0e-3 (pre-flight {pf}, Section {sec})")
 
 
 def _rows(md, header_start):
@@ -140,7 +143,214 @@ def precheck(pl, csv_path):
     return dict(qubits=len(qs), couplers=len(es), qfail=qf, cfail=cf, near=near, cz_near=cn, qfail_detail=qd, cfail_detail=cd)
 
 
-def _pc_par(name, pc_snap, pc_props, pcs, lists):
+def _stamp(name):
+    m = re.search(r"(\d{4})-(\d{2})-(\d{2})T(\d{6})Z", str(name))
+    return m.group(0) if m else None
+
+
+def _label(stamp):
+    """'2026-09-27T030805Z' -> '27 Sep 03:08Z'."""
+    return f"{int(stamp[8:10])} Sep {stamp[11:13]}:{stamp[13:15]}Z"
+
+
+def ibm_update(props_path):
+    """IBM's ``last_update_date`` of a raw properties file, as '27 Sep 01:36Z' (UTC)."""
+    from datetime import datetime, timezone
+    op = gzip.open if str(props_path).endswith(".gz") else open
+    d = json.loads(op(props_path, "rt", encoding="utf-8").read())
+    t = datetime.fromisoformat(str(d["last_update_date"]).replace("Z", "+00:00")).astimezone(timezone.utc)
+    return f"{t.day} {t.strftime('%b')} {t:%H:%M}Z"
+
+
+def exclusion_detail(csv_path, props_path):
+    """The pre-registered exclusion of one snapshot with its reasons, {qubit: [reasons]} (fixed list; readout > 3e-2; not operational;
+    Deviation 53 T1 / T2 < 25 us on snapshots from COHERENCE_FLOOR_SINCE; Deviation 22 init >= 5e-4 and |ZZ| >= 1 MHz to a qubit excluded
+    by the other rules). Its keys equal ``gradvar.noise.exclusion_from_calibration`` (asserted)."""
+    import pandas as pd
+    from gradvar import noise as nz
+    df = nz.load_calibration(csv_path)
+    why = {}
+    add = lambda q, s: why.setdefault(int(q), []).append(s)
+    for q in nz.DEFAULT_EXCLUDE:
+        add(q, "fixed")
+    for q, v in df["Readout assignment error"].astype(float).items():
+        if v > nz.READOUT_CUT:
+            add(q, f"readout {v:.3g}")
+    if "Operational" in df:
+        for q, v in df["Operational"].astype(str).items():
+            if v.strip().lower() != "yes":
+                add(q, "not operational")
+    st = _stamp(Path(csv_path).name)
+    if st and st >= nz.COHERENCE_FLOOR_SINCE:
+        for col, lab in (("T1 (us)", "T1"), ("T2 (us)", "T2")):
+            for q, v in pd.to_numeric(df[col], errors="coerce").items():
+                if v == v and v < nz.COHERENCE_FLOOR_US:
+                    add(q, f"{lab} {v:.1f}")
+    base = set(why)
+    props = nz.load_properties(props_path)
+    for q, v in sorted(nz.init_errors(props).items()):
+        if v >= nz.INIT_ERROR_CUT:
+            add(q, f"init {v:.2e}")
+    for (a, b), v in sorted(nz.zz_couplings(props).items()):
+        if abs(v) * 1e3 >= nz.ZZ_CUT_MHZ:
+            for q, other in ((a, b), (b, a)):
+                if other in base and q not in base:
+                    add(q, f"ZZ {abs(v) * 1e3:.2f} MHz to Q{other}")
+    assert sorted(why) == list(nz.exclusion_from_calibration(str(csv_path), properties=str(props_path))), "exclusion reasons disagree with the cut"
+    return {str(q): why[q] for q in sorted(why)}
+
+
+def _snap_values(csv_path):
+    """Per-qubit (T1, T2, readout, init, operational) and the coupler CZ map of one snapshot CSV (the runner's columns)."""
+    import csv as _csv
+    rows = list(_csv.DictReader(open(csv_path, encoding="utf-8")))
+    f = lambda x: float(x) if x not in (None, "", "nan") else float("nan")
+    Q, CZ = {}, {}
+    for r in rows:
+        q = int(str(r["Qubit"]).lstrip("Q"))
+        Q[q] = dict(T1=f(r["T1 (us)"]), T2=f(r["T2 (us)"]), ro=f(r["Readout assignment error"]), init=f(r.get("Init error")),
+                    op=str(r.get("Operational", "Yes")).strip().lower() not in ("no", "false", "0"))
+        for part in str(r["CZ error"]).split(";"):
+            if ":" in part:
+                nb, v = part.split(":"); k = (min(q, int(nb)), max(q, int(nb))); CZ[k] = max(float(v), CZ.get(k, 0.0))
+    return Q, CZ
+
+
+def _fails(d):
+    """The runner's live qubit cuts (Deviations 22, 26, 53): T1 or T2 < 25 us, readout > 3e-2, init >= 5e-4, not operational."""
+    return (d["T1"] < 25 or d["T2"] < 25 or not d["ro"] <= 0.03 or (d["init"] == d["init"] and d["init"] >= 5e-4) or not d["op"])
+
+
+def _live_edges(v):
+    s = set(v["qubits"]); br = {tuple(sorted(e)) for e in v.get("broken_edges", [])}
+    return {(a, b) for a in s for b in (a + 1, a + 10) if b in s and (b == a + 10 or a // 10 == b // 10) and (a, b) not in br}
+
+
+def watch_data(rungs, snap_csv, cal_dir, since="2026-09-20T000000Z"):
+    """Watch-list record of the placed qubits and live couplers of ``rungs`` ({rung: placement rung record}) over the committed
+    snapshots from ``since`` to the placement snapshot: qubits near a cut now or over one on an earlier snapshot (``now``, ``failed_on``,
+    ``minT``, ``maxinit``), and live couplers within 20 percent of the 5e-3 CZ cut now (``now``, ``max`` over the snapshots)."""
+    cal_dir = Path(cal_dir); last = _stamp(snap_csv)
+    snaps = sorted((s, p) for p in cal_dir.glob("ibm_phoenix_2026-*.csv") if (s := _stamp(p.name)) and since <= s <= last)
+    vals = {s: _snap_values(p) for s, p in snaps}
+    Qn, CZn = vals[last]
+    member = {}
+    for r, v in rungs.items():
+        for q in v["qubits"]:
+            member.setdefault(q, []).append(r)
+    edges = {}
+    for r, v in rungs.items():
+        for e in _live_edges(v):
+            edges.setdefault(e, []).append(r)
+    qs = []
+    for q in sorted(member):
+        d = Qn[q]
+        near = [s for s, c in (("T<31.25", min(d["T1"], d["T2"]) < 31.25), ("ro>=0.024", d["ro"] >= 0.024),
+                                ("init>=3e-4", d["init"] == d["init"] and d["init"] >= 3e-4)) if c]
+        failed = [s for s, _ in snaps if s != last and q in vals[s][0] and _fails(vals[s][0][q])]
+        if near or failed:
+            hist = [vals[s][0][q] for s, _ in snaps if q in vals[s][0]]
+            ini = [h["init"] for h in hist if h["init"] == h["init"]]
+            qs.append(dict(q=q, rungs=member[q], now={k: d[k] for k in ("T1", "T2", "ro", "init")}, near=near, failed_on=failed,
+                           minT=min(min(h["T1"], h["T2"]) for h in hist), maxinit=max(ini) if ini else float("nan")))
+    cs = [dict(e=f"{a}_{b}", rungs=edges[(a, b)], now=CZn[(a, b)], max=max(vals[s][1].get((a, b), 0.0) for s, _ in snaps))
+          for a, b in sorted(edges) if CZn.get((a, b), 0.0) >= 4e-3]
+    return dict(snaps=[s for s, _ in snaps], n_qubits=len(member), n_couplers=len(edges), cuts=dict(ro=0.03, init=5e-4, cz=5e-3, coh=25.0),
+                qubits=qs, couplers=cs)
+
+
+def cone_max_readout(v, csv_path):
+    """The largest readout error among a rung's L = 2 cone qubits on the snapshot: (qubit, value)."""
+    Q, _ = _snap_values(csv_path)
+    return max(((q, Q[q]["ro"]) for q in v["cone_L2_qubits"]), key=lambda t: t[1])
+
+
+def dial_points(jl):
+    """Kill rule (b) inputs: per dial gradient point (the 16-shot level-0 probes, one pub per mask), the jobs it needs on its own under the
+    12 MB cap (ceil(masks / the most pubs a job of that probe holds)) and its model-v3 minutes at 1 us (its share of the circuit seconds plus
+    the job constant per job), grouped by rung and L (the largest over the probes of a group): {label: (jobs, minutes)}."""
+    pj = [e for e in jl["budget"]["per_job"] if re.sub(r"-c\d+$", "", e["tag"]) == "L0-probes-s16"]
+    probes = [p for p in jl["probes"] if p.get("shots") == 16 and int(p.get("resilience", 0)) == 0]
+    sizes = [int(p["masks"]) for p in probes]
+    assert sum(sizes) == sum(e["pubs"] for e in pj), "dial pubs do not add up to the 16-shot jobs"
+    jobs, s = [], 0
+    for e in pj:
+        jobs.append((s, s + e["pubs"], e)); s += e["pubs"]
+    rung = {"4x10": "n40", "6x10": "n60", "10x10": "n100"}
+    grp, s = {}, 0
+    for p, z in zip(probes, sizes):
+        a, b = s, s + z; s = b
+        span = [(ja, jb, e) for ja, jb, e in jobs if ja < b and jb > a]
+        cap = max(e["pubs"] for ja, jb, e in span if ja >= a and jb <= b)
+        nj = math.ceil(z / cap)
+        circ = sum((min(b, jb) - max(a, ja)) / (jb - ja) * e["circuit_seconds_at_1us"] for ja, jb, e in span)
+        k = (rung[p["patch"]], int(p["L"]))
+        v = (nj, (circ + span[0][2]["job_constant_seconds"] * nj) / 60)
+        grp[k] = max(grp.get(k, v), v)
+    Ls = {}
+    for r, L in grp:
+        Ls.setdefault(r, set()).add(L)
+    order = {"n40": 0, "n60": 1, "n100": 2}
+    return {(r if len(Ls[r]) == 1 else f"{r} L = {L}"): grp[(r, L)] for r, L in sorted(grp, key=lambda k: (order[k[0]], k[1]))}
+
+
+def fail_items(pc, pl=None):
+    """A pre-check's failures as prose items: 'Q96 (init 5.2e-4)', 'Q103 (T1 17.3 us, on the n40 observable edge 93_103)', '41-51 (CZ 6.21e-3)'."""
+    prot = _protected(pl) if pl else {}
+    out = []
+    for q, (t1, t2, ro, ini) in sorted(pc["qfail_detail"].items()):
+        bad = [s for s, c in ((f"T1 {t1:.1f} us", t1 < 25), (f"T2 {t2:.1f} us", t2 < 25), (f"readout {ro:.2e}", not ro <= 0.03),
+                              (f"init {ini:.1e}", ini == ini and ini >= 5e-4)) if c] or ["not operational"]
+        where = [f"on the {r} observable edge {pl['rungs'][r]['edge']}" if q in map(int, pl["rungs"][r]["edge"].split("_")) else f"in the {r} L = 2 cone"
+                 for r, qs in prot.items() if q in qs]
+        out.append(f"Q{q} ({', '.join(bad + where)})")
+    qn = [x for x in out]
+    cn = [f"{a}-{b} (CZ {v:.2e})" for (a, b), v in sorted(pc["cfail_detail"].items())]
+    return qn, cn
+
+
+def _and(items):
+    items = list(items)
+    return ", ".join(items[:-1]) + (" and " if len(items) > 1 else "") + (items[-1] if items else "")
+
+
+def prev_failure_text(prev_pl, cal_dir, csvs):
+    """[(snapshot label, failures as prose, admissible under the Deviation 62 safety net)] for the previous edition's placement block on each
+    snapshot CSV (runner semantics)."""
+    parts = []
+    for c in csvs:
+        pc = precheck(prev_pl, str(Path(cal_dir) / c))
+        qn, cn = fail_items(pc, prev_pl)
+        what = _and(qn + ([("coupler " if len(cn) == 1 else "couplers ") + _and(cn)] if cn else [])) or "nothing (it passes)"
+        parts.append((_label(_stamp(c)), what, _override_eligible(pc, prev_pl)[0]))
+    return parts
+
+
+def reset_lengths(props_path):
+    op = gzip.open if str(props_path).endswith(".gz") else open
+    d = json.loads(op(props_path, "rt", encoding="utf-8").read())
+    return {g["qubits"][0]: p["value"] for g in d.get("gates", []) if g.get("gate") == "reset" for p in g.get("parameters", []) if p.get("name") == "gate_length"}
+
+
+def long_resets(cal_dir, since="20260919T000000Z", cut=400):
+    """The qubits with a native reset longer than ``cut`` ns on any committed raw properties file (.json or .json.gz) from ``since``:
+    ({qubits}, first day, last day, number of files)."""
+    fs = []
+    for p in Path(cal_dir).glob("ibm_phoenix_properties_2026*.json*"):
+        m = re.search(r"(\d{4})-?(\d{2})-?(\d{2})T(\d{6})Z", p.name)
+        if m and "".join(m.groups()[:3]) + "T" + m.group(4) + "Z" >= since:
+            fs.append(("".join(m.groups()[:3]) + "T" + m.group(4) + "Z", p))
+    fs.sort()
+    long = set()
+    for _, p in fs:
+        L = reset_lengths(p)
+        assert len(L) == 120, p.name
+        long |= {q for q, v in L.items() if v > cut}
+    lab = lambda s: f"{int(s[6:8])} Sep"
+    return long, lab(fs[0][0]), lab(fs[-1][0]), len(fs)
+
+
+def _pc_par(name, pc_snap, pc_props, pcs, lists, placement_snap=None, steps="Section 6, step 1"):
     fails = sorted({x for n in lists for x in pcs[n]["qfail"] + pcs[n]["cfail"]})
     nearest = sorted({x for n in lists for x in pcs[n]["near"]}); czn = sorted({x for n in lists for x in pcs[n]["cz_near"]})
     head = f"**Pre-check against the newest committed snapshot** (`{pc_snap}`, IBM properties of {pc_props}; `run_precheck` semantics: the runner's live cuts on every placed qubit and live coupler of "
@@ -149,22 +359,39 @@ def _pc_par(name, pc_snap, pc_props, pcs, lists):
         head += "**every placed qubit and live coupler is inside the cuts (no failures)**"
     else:
         head += "**failures:** " + "; ".join(fails)
-    head += (f"; nearest qubits: {', '.join(nearest) or 'none'}; couplers at 4.4e-3 to 5e-3: {', '.join(czn) or 'none'}. This is the placement snapshot itself, so it passes "
-             "by construction; IBM updates its properties one to three times a day, so before arming Owais runs Actions -> \"calibration snapshot\" and Claude "
-             "repeats this check on the new snapshot (Section 6, step 1).")
+    head += f"; nearest qubits: {', '.join(nearest) or 'none'}; couplers at 4.4e-3 to 5e-3: {', '.join(czn) or 'none'}. "
+    if placement_snap is None or pc_snap == placement_snap:
+        head += "This is the placement snapshot itself, so it passes by construction; "
+    head += ("IBM updates its properties one to three times a day, so before arming Owais runs Actions -> \"calibration snapshot\" and Claude "
+             f"repeats this check on the new snapshot ({steps}).")
     return head
 
 
 def build(OUT, snap_csv, tag, date_label, dial_pp, pdir, review_txt="(to be filled)", precheck_res=None, pr="(this pull request)", branch="dev62-repackage",
-          prev_pred_dir=None):
+          prev_pred_dir=None, root=".", prev_lists_dir=None, prev_fail_snaps=("ibm_phoenix_2026-09-26T030720Z.csv",)):
     OUT = Path(OUT); stamp = re.search(r"\d{4}-\d{2}-\d{2}T\d{6}Z", snap_csv).group(0)
     hhmm = f"{stamp[11:13]}:{stamp[13:15]}"; day = f"{int(stamp[8:10])} Sep"
     J = {n: json.load(open(OUT / "A" / "joblists_paper1" / f"{n}.json")) for n in ("day3_dial_refs", "replication_01", "replication_01_16384", "section3c_blockC",
                                                                                  "dial_arm", "dial_arm_contingent")}
     SJ = json.load(open(OUT / "A" / "joblists_paper1" / "summary.json"))
-    SA = json.load(open(OUT / "A" / "summary.json"))
-    M = json.loads(open(OUT / "A" / "margins.json").read().strip().splitlines()[-1])
-    EX = next(iter(json.loads(open(OUT / "A" / "exclusion.json").read().strip().splitlines()[-1]).values()))
+    CAL = Path(root) / "data" / "calibrations"; snap_path = CAL / snap_csv
+    props_path = CAL / J["day3_dial_refs"]["placement"]["properties"]
+    EX = exclusion_detail(str(snap_path), str(props_path))
+    assert [int(q) for q in EX] == J["day3_dial_refs"]["placement"]["excluded"], "exclusion differs from the list's"
+    _R3 = J["day3_dial_refs"]["placement"]["rungs"]
+    M = watch_data({**_R3, "n20": J["replication_01"]["placement"]["rungs"]["n20"]}, snap_csv, CAL)
+    cone_ro = {r: cone_max_readout(v, str(snap_path)) for r, v in _R3.items()}
+    if dial_pp is None:
+        dial_pp = dial_points(J["day3_dial_refs"])
+    longq, lr_first, lr_last, lr_n = long_resets(CAL)
+    PL = {n: json.load(open(Path(prev_lists_dir) / f"{n}.json")) for n in ("day3_dial_refs", "replication_01", "replication_01_16384", "section3c_blockC")}
+    pf_prev = {n: prev_failure_text(PL[n]["placement"], CAL, [snap_csv] + [c for c in prev_fail_snaps if c != snap_csv]) for n in PL}
+    prev_more = lambda n: "".join(f"; on the {lab} snapshot it failed on {what}" for lab, what, _ in pf_prev[n][1:])
+    _p3 = PL["day3_dial_refs"]["placement"]["rungs"]
+    q79_in = [r for r, v in _p3.items() if 79 in v["qubits"]]
+    q79_prev = (f"It also places Q79, which Section 3b excludes from the dial patches, in its {_and(q79_in)} dial patches, so it needs re-packaging "
+                + ("even though the Deviation 62 safety net would admit its failures on this snapshot." if pf_prev["day3_dial_refs"][0][2] else "in any case.")
+                if q79_in else "")
     g1 = open(OUT / "B" / "predictions" / f"gate1b_redraw_{tag}.md", encoding="utf-8").read()
     mg = open(OUT / "C" / "predictions" / f"main_grid_redraw_{tag}.md", encoding="utf-8").read()
     prev_dir = Path(prev_pred_dir) if prev_pred_dir else OUT / "prev"
@@ -244,7 +471,7 @@ def build(OUT, snap_csv, tag, date_label, dial_pp, pdir, review_txt="(to be fill
     def safety_net(pf, n):
         return (f"**Dispatch safety net (Deviation 62; an operational use of Deviation 26's pre-registered override, stricter than its letter).** If the live layout check "
                 f"refuses this list, Owais may re-arm it with `\"layout_check\": \"override\"` and `\"layout_check_reason\"` set to exactly:\n\n"
-                f"> {REASON.format(pf=pf)}\n\n"
+                f"> {REASON.format(pf=pf, sec={'06': 6, '08': 7, '09': 7}[pf])}\n\n"
                 "and only when Claude's pre-check on the newest committed snapshot (after a fresh Actions -> \"calibration snapshot\" run) shows **every** failing element "
                 "(qubits and couplers) (i) outside the observable edge and the L = 2 cone of every rung of the list, where a coupler counts as inside when either of its "
                 "qubits is an edge or cone qubit, and (ii) within **CZ error <= 1.0e-2, T1 and T2 >= 15 us, readout error <= 6.0e-2, initialisation error <= 1.0e-3**. "
@@ -255,13 +482,19 @@ def build(OUT, snap_csv, tag, date_label, dial_pp, pdir, review_txt="(to be fill
                 + ("no failure, so no override is needed." if not (pcs[n]["qfail"] or pcs[n]["cfail"]) else
                    ("an override would be admissible." if elig[n][0] else "an override would **not** be admissible (" + "; ".join(elig[n][1]) + ").")))
 
-    rules62 = (f"**Placement rule (Deviation 62, draft of {day}):** the pre-registered cuts (Deviations 22, 26, 53) on the {day} {hhmm}Z snapshot, pinned (Deviation 58); no "
+    _Qn, _CZn = _snap_values(str(snap_path))
+    _ch = sorted({q for v in list(R3.values()) + [R20, R100] for q in v.get("component_holes", [])})
+    _nb = lambda q: [(min(q, o), max(q, o)) for o in (q - 10, q + 10, q - 1 if q % 10 else None, q + 1 if q % 10 != 9 else None) if o is not None and 0 <= o < 120]
+    iso = "; ".join(f"Q{q} passes the qubit cuts but its couplers " + _and(f"{a}-{b} ({_CZn[(a, b)]:.2e})" for a, b in sorted(_nb(q)) if (a, b) in _CZn)
+                    + (" are all over the CZ cut" if all(_CZn.get(e, 1.0) > 5e-3 for e in _nb(q) if e in _CZn) else " leave it cut off") for q in _ch)
+    assert longq == {79}, longq
+    rules62 = (f"**Placement rule (Deviation 62, draft):** the pre-registered cuts (Deviations 22, 26, 53) on the {day} {hhmm}Z snapshot, pinned (Deviation 58); no "
                "placement margin. (1) **Connected-component rule:** the qubits of a rectangle outside the largest connected component of its live-coupler graph (holes "
-               "and broken couplers removed) become holes, where the pre-registered rule rejected the rectangle as disconnected; on this snapshot Q29 passes the qubit "
-               "cuts but its couplers 19-29, 28-29 and 29-39 are all over the CZ cut, so no 10x10 rectangle was connected under the old rule. Holes the rule makes: "
+               f"and broken couplers removed) become holes, where the pre-registered rule rejected the rectangle as disconnected; on this snapshot {iso}, so no 10x10 "
+               "rectangle was connected under the old rule (as on 26 Sep 03:07Z, where the rule was first needed). Holes the rule makes: "
                f"{comp_txt} (the stop limit is 3 per rung of the run-day lists). (2) **Qubit 79 excluded from the dial patches** (Section 3b Implementation: 'qubit 79: "
-               "2140 ns, excluded from dial patches'; native reset 400 ns on the other 119 qubits, and no other qubit longer on any committed properties snapshot, 19-26 "
-               "Sep): the patches of `day3_dial_refs` (and its sources `references_gate1b`, `dial_arm`) and `dial_arm_contingent` are placed with Q79 excluded, "
+               f"2140 ns, excluded from dial patches'; native reset 400 ns on the other 119 qubits, and no other qubit longer on any of the {lr_n} committed properties "
+               f"snapshots, {lr_first} to {lr_last}): the patches of `day3_dial_refs` (and its sources `references_gate1b`, `dial_arm`) and `dial_arm_contingent` are placed with Q79 excluded, "
                "recorded as `placement.dial_exclude` [79] and applied by the runner (`gradvar.hardware.dial_exclusion`). **The 23 Sep lists violated this rule** "
                f"(Q79 sat in their n60 and n100 dial patches) and the reviewed pre-flight 06 of 23 Sep did not catch it. The non-dial lists use the plain placement, so "
                f"their n100 rung (n = {R100['n']}, Q79 placed) differs from day 3's (n = {R100d['n']}, Q79 a hole) by that one qubit.")
@@ -274,8 +507,8 @@ Reviewer: see Section 8. List not armed (Owais arms it; first of four lists).**
 Placed on the **{stamp[:10]}T{hhmm}Z snapshot** (`{snap_csv}`, raw properties `{props_name}`), to which the list is **pinned**
 (`placement.pin_snapshot`, Deviation 58): the runner builds it on this snapshot in the dry run and at submission, whatever snapshot is newest on the
 day of dispatch. Supersedes pre-flight 06 of {PREV['date']} (`{PREV['files'][0]}`, {PREV['snap']} data), which was reviewed but never dispatched: on the
-{day} {hhmm}Z snapshot (IBM properties of {precheck_res['ibm_properties_placement']}) its pinned placement fails the live cuts on Q96 (init 5.2e-4), Q103 (T1 17.3 us, on the n40
-observable edge 93_103) and couplers 24-25, 41-51, 106-116 and 118-119 (CZ 5.1e-3 to 6.5e-3). **Nothing of this list has been submitted**; it is
+{pf_prev['day3_dial_refs'][0][0]} snapshot (IBM properties of {precheck_res['ibm_properties_placement']}) its pinned placement fails the live cuts on {pf_prev['day3_dial_refs'][0][1]}{prev_more('day3_dial_refs')}.
+{q79_prev} **Nothing of this list has been submitted**; it is
 un-armed (`dry_run` true, placeholder permalink). Pre-registration **v0.17.0** as stamped in the lists (Deviation 62, draft, to be adopted and
 integrated before arming; Deviations 58 and 59 stand; Section 3b and Deviations 20, 27-30, 33-35, 38-48; Section 5 Gate 2 (e) reset half;
 Deviation 55). Sections 4 and 5 of the 21 Sep document (kill rules, science checks) stand except for the numbers restated below.
@@ -331,7 +564,7 @@ cut): {wl3}. Placed qubits that failed a cut on an earlier committed snapshot si
 {rundown.group(5)} core-min), on the dial placement (Q79 excluded): **{rundown.group(1)} of {rundown.group(2)} Gate 1b rows re-drawn, {rundown.group(3)} frozen rows standing**; frozen-reading
 regression max rel. diff {rundown.group(6)} ({rundown.group(7)} at 1e-9). Committed before this pre-flight as `data/predictions/gate1b_redraw_{tag}.{{json,csv,md}}` (Deviation 54 order).
 **Gate 1b {verdict}** under Deviations 27 + 45: clause (b) (delay-matched p = 0 fall L = 8 -> 12 against 3x the larger shot floor, 9.16e-5 at 16384
-shots) {cb.group(1)} ({cb.group(2)}), fall / bar **{fb('4x10')} / {fb('6x10')} / {fb('10x10')}** on n40 / n60 / n100 ({PREV['date']}: 3.05 / 3.15 / 6.93), fall / 2 sigma (M = 350)
+shots) {cb.group(1)} ({re.sub(r'^[A-Za-z]+ [(]', '', cb.group(2))}), fall / bar **{fb('4x10')} / {fb('6x10')} / {fb('10x10')}** on n40 / n60 / n100 ({PREV['date']}: 3.05 / 3.15 / 6.93), fall / 2 sigma (M = 350)
 {f2('4x10')} / {f2('6x10')} / {f2('10x10')}; the separation clause (>= 3x the shot + pattern floor, pattern floor < separation / 2): {sep8} at L = 8 ({sp('4x10', '8')} / {sp('6x10', '8')} /
 {sp('10x10', '8')}x; {PREV['date']}: 4.50 / 4.20 / 3.31x), {sep12} at L = 12. The n40 reference is {n40ref[4].split()[0]} against the frozen {n40ref[3]}: the edge is {R3['n40']['edge']}
 ({R3['n40']['edge_rule']}).
@@ -344,7 +577,7 @@ These rows are what the day-3 post-run review reads the references and the dial 
 placement are drawn by the Deviation 60 track once the placement is settled (not here). The main-grid rows of the n20 and plain n100 rungs are re-drawn in
 the same session for pre-flights 08 and 09 (`main_grid_redraw_{tag}.*`).
 
-{_pc_par('06', pc_snap, pc_props, pcs, ['day3_dial_refs'])}
+{_pc_par('06', pc_snap, pc_props, pcs, ['day3_dial_refs'], snap_csv)}
 
 ## 3. Cost, guards, logged, known limits
 
@@ -361,7 +594,7 @@ dispatch; no bundle over the 45 MB rule. Known limits unchanged (ambiguities 3, 
 - **Kill (b)** locked time per dial gradient point: 819,200 executions per point in {kb_lo} to {kb_hi} jobs under the 12 MB cap ({dial_jobs} dial jobs in all); at day 2's constants
   (11.8 us per execution, 7.5 s per job) {kb_t(kb_lo):.1f} to {kb_t(kb_hi):.1f} min against the 7.0-min line (model v3: {', '.join(f'{p} {v[1]:.2f}' for p, v in pp.items())} min).
 - **Kill (c)** / **(d)** unchanged (0 mid-circuit measures; ISA ops as in Section 7; level 0 by the booking).
-- **Gate 2 (e)** readout on the L = 2 cone qubits at submission: maxima {', '.join(f"{r} {SA['day3_dial_refs']['rungs'][r]['cone_max_readout'][1]:.2e} at Q{SA['day3_dial_refs']['rungs'][r]['cone_max_readout'][0]}" for r in R3)} (1.5x of the largest: {1.5 * max(SA['day3_dial_refs']['rungs'][r]['cone_max_readout'][1] for r in R3):.1e}); Deviation 49 rule for one transient; reset error on the dial patch against the 2e-2 kill line.
+- **Gate 2 (e)** readout on the L = 2 cone qubits at submission: maxima {', '.join(f"{r} {cone_ro[r][1]:.2e} at Q{cone_ro[r][0]}" for r in R3)} (1.5x of the largest: {1.5 * max(cone_ro[r][1] for r in R3):.1e}); Deviation 49 rule for one transient; reset error on the dial patch against the 2e-2 kill line.
 
 ## 5. Science checks at the post-run review
 
@@ -410,7 +643,8 @@ re-drawn rows of Section 2.5 and, for H5 / H6 at p = 0.5 and H7, the comparators
 Reviewer: see Section 8. Lists not armed (Owais arms them after day 3's dispatch).**
 
 Placed on the **{stamp[:10]}T{hhmm}Z snapshot** (`{snap_csv}`), to which both lists are **pinned** (Deviation 58). Supersedes pre-flight 08
-of {PREV['date']} (`{PREV['files'][1]}`, {PREV['snap']} data; never dispatched: its placement fails the live cuts on the {day} {hhmm}Z snapshot, pre-flight 06).
+of {PREV['date']} (`{PREV['files'][1]}`, {PREV['snap']} data; never dispatched: on the {pf_prev['replication_01'][0][0]} snapshot its placement fails the live cuts on
+{pf_prev['replication_01'][0][1]}{prev_more('replication_01')}).
 Pre-registration **v0.17.0** as stamped in the lists (Deviation 62, draft): Deviation 19 (anomaly protocol, the two recorded flags), Deviation 57 (replication
 placement), Deviation 58 (the replication's 4x5 is placed by the rule among rectangles disjoint from day 1's; pinned snapshot), Deviation 62 (the
 connected-component rule; these lists carry no reset dial, so Q79 is placed here), Deviations 18, 22, 26, 37, 43, 46, 53, 55; Section 5 Gate 2 (e). Tracker
@@ -435,7 +669,7 @@ generator's test). `campaign.replication` in each list records the flags, day 1'
 - **n20 (flag 1).** Deviation 58 places the replication's 4x5 by the pre-registered ranking among the rectangles **disjoint from day 1's** (rows 8-11,
   columns 1-5), so Deviation 19's "different clean patch" holds by construction: **({R20['origin'][0]}, {R20['origin'][1]}), n = {R20['n']}, {('holes ' + ', '.join(map(str, R20['holes']))) if R20['holes'] else 'no hole'}, broken {_brk(R20)}, edge {R20['edge']},
   {R20['live_couplers']} live couplers, L = 2 cone of {len(R20['cone_L2_qubits'])} qubits / {R20['cone_L2_couplers']} couplers** ({PREV['date']}: {_change(OLD['n20'], R20)}). No qubit in common with
-  day 1's patch; "clean" is read as "cleanest under the cuts among the disjoint rectangles", recorded as such. The connected-component rule adds no hole here.
+  day 1's patch; "clean" is read as "cleanest under the cuts among the disjoint rectangles", recorded as such. The connected-component rule adds {('no hole here' if not R20.get('component_holes') else 'holes ' + ', '.join(map(str, R20['component_holes'])) + ' here')}.
 - **n100 (flag 2).** The **plain** n100 rung (no reset dial here, so qubit 79 is placed): ({R100['origin'][0]}, {R100['origin'][1]}), n = {R100['n']} (holes {', '.join(map(str, R100['holes']))};
   component-rule hole {', '.join(f'Q{q}' for q in R100.get('component_holes', [])) or 'none'}), {len(R100['broken_edges'])} broken couplers, edge {R100['edge']}, {R100['live_couplers']} live couplers. It differs from day 3's dial
   n100 (n = {R100d['n']}) only by Q79. Any two 10x10 rectangles on the 12x10 lattice share at least 80 qubits, so no alternative placement exists; the point
@@ -448,7 +682,7 @@ generator's test). `campaign.replication` in each list records the flags, day 1'
   (or under the safety net of Section 7). Watch list on the n20 rung, placed qubits within 25 percent of a cut: {wl20}; placed qubits that failed a cut on an
   earlier snapshot: {fl20 or 'none'}; live couplers within 20 percent of the CZ cut: {czs(cz20)}. On the n100 rung: pre-flight 06 Section 2 (plus Q79, placed here).
 
-{_pc_par('08', pc_snap, pc_props, pcs, ['replication_01', 'replication_01_16384'])}
+{_pc_par('08', pc_snap, pc_props, pcs, ['replication_01', 'replication_01_16384'], snap_csv, 'Section 7, step 0')}
 
 ## 3. Cost, guards, logged, known limits
 
@@ -526,7 +760,8 @@ The fake's stale calibration fails the layout check (`enforced: false`), as for 
 Reviewer: see Section 8. List not armed (Owais arms it after the replication lists' dispatch).**
 
 Placed on the **{stamp[:10]}T{hhmm}Z snapshot** (`{snap_csv}`), to which the list is **pinned** (Deviation 58). Supersedes pre-flight 09 of
-{PREV['date']} (`{PREV['files'][2]}`, {PREV['snap']} data; never dispatched). Pre-registration **v0.17.0** as stamped in the list (Deviation 62, draft): Section 3c /
+{PREV['date']} (`{PREV['files'][2]}`, {PREV['snap']} data; never dispatched: on the {pf_prev['section3c_blockC'][0][0]} snapshot its placement fails the live cuts on
+{pf_prev['section3c_blockC'][0][1]}{prev_more('section3c_blockC')}). Pre-registration **v0.17.0** as stamped in the list (Deviation 62, draft): Section 3c /
 Deviation 56 (v0.15.0) and its erratum (v0.15.1: no per-draw noiseless comparison exists at n >= 84, L >= 8; Block C is compared with the propagation prediction
 and the L = 0 floors), Deviations 18, 22, 26, 37, 43, 46, 47, 53, 55, 58, 62; Section 5 Gate 2 (e). **Order: day 3 (pre-flight 06), then the Deviation 19
 replication lists (pre-flight 08), then this list.**
@@ -545,12 +780,12 @@ draws. `campaign.section3c` records the block, the decision, the shot count and 
 ## 2. Placement and its live re-check
 
 The **plain** n100 rung, as pre-flight 08 places it (pinned; no reset dial here, so Q79 is placed): origin ({R100['origin'][0]}, {R100['origin'][1]}), holes {', '.join(map(str, R100['holes']))}
-(Q29 by the Deviation 62 connected-component rule); broken couplers {_brk(R100)}; edge {R100['edge']} (`interior_edge`). Against {PREV['date']}: {_change(OLD['n100'], R100)}.
+({_and(f'Q{q}' for q in R100.get('component_holes', [])) or 'none'} by the Deviation 62 connected-component rule); broken couplers {_brk(R100)}; edge {R100['edge']} (`interior_edge`). Against {PREV['date']}: {_change(OLD['n100'], R100)}.
 Day 3's dial n100 differs from it only by Q79 (a hole there). The L = 8 and L = 10 light cones of the edge cover the whole patch: no exact per-draw noiseless
 reference exists (Section 4). Live re-check at submission as on every list (a refusal charges nothing; under Deviation 58 the list may be dispatched again after
 IBM's next calibration without re-packaging, or under the safety net of Section 7); watch list as in pre-flight 06 Section 2.
 
-{_pc_par('09', pc_snap, pc_props, pcs, ['section3c_blockC'])}
+{_pc_par('09', pc_snap, pc_props, pcs, ['section3c_blockC'], snap_csv, 'Section 7, step 0')}
 
 ## 3. Cost, guards, logged, known limits
 
