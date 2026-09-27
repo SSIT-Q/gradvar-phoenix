@@ -103,13 +103,30 @@ def covering_row(rows: pd.DataFrame, qubits, point: dict) -> dict | None:
     return (conv if not conv.empty else d).iloc[-1].to_dict()
 
 
-def check_placement(snapshot: str, rung_name: str, rung: dict, _placed: dict = {}) -> dict:     # noqa: B006  (per-process cache)
-    """The list's rung against the placement rule on the list's own snapshot (``redraw_gate1b.place_rungs``, once per snapshot)."""
-    if snapshot not in _placed:
-        _placed[snapshot] = rd.place_rungs(snapshot)
-    runday = _placed[snapshot]["rungs"][rung_name]
+_PLACED: dict = {}      # per-process cache of the rule's placements, keyed by (snapshot, dial)
+
+
+def rule_placement(snapshot: str, dial: bool) -> dict:
+    """``redraw_gate1b.place_rungs`` on ``snapshot``; ``dial``: the reset-dial lists' placement of Deviation 62 (``place_rungs(snapshot,
+    dial=True)``, qubit 79 excluded as the list's ``placement.dial_exclude`` records), which a list carrying ``dial_exclude`` was placed
+    with. A place_rungs without that argument (a pre-Deviation-62 rule) cannot check such a list, and the script stops."""
+    key = (snapshot, bool(dial))
+    if key not in _PLACED:
+        try:
+            _PLACED[key] = rd.place_rungs(snapshot, dial=True) if dial else rd.place_rungs(snapshot)
+        except TypeError as ex:
+            raise SystemExit(f"the list's placement block carries dial_exclude (Deviation 62), but place_rungs has no dial placement ({ex}); "
+                             "run with the Deviation 62 placement code") from ex
+    return _PLACED[key]
+
+
+def check_placement(snapshot: str, rung_name: str, rung: dict, dial: bool = False) -> dict:
+    """The list's rung against the placement rule on the list's own snapshot (``rule_placement``, once per snapshot and kind)."""
+    placed = rule_placement(snapshot, dial)
+    runday = placed["rungs"][rung_name]
     same = {k: runday[k] == rung[k] for k in ("patch", "n", "origin", "holes", "qubits", "broken_edges", "edge")}
-    return dict(rule=rd.PLACEMENT_SOURCE, same=same, all_same=all(same.values()))
+    return dict(rule=rd.PLACEMENT_SOURCE + (f" (dial lists: dial_exclude {placed.get('dial_exclude')}, Deviation 62)" if dial else ""),
+                same=same, all_same=all(same.values()))
 
 
 def plan(joblists: list, pred_dir: Path = PRED, force: bool = False) -> dict:
@@ -122,12 +139,13 @@ def plan(joblists: list, pred_dir: Path = PRED, force: bool = False) -> dict:
     snapshot, props = str(CAL_DIR / pl["snapshot"]), str(CAL_DIR / pl["properties"])
     stamp = next(iter(stamps))
     rows = P.load_dial_rows(pred_dir)
+    dial = bool(pl.get("dial_exclude"))                                   # Deviation 62: placed as a reset-dial list
     covered, jobs, checks, seen = [], [], {}, set()
     for path, jl in lists:
         for pt in dial_points(jl):
             rung_name, rung = h7.rung_for(jl, pt)
             if rung_name not in checks:
-                checks[rung_name] = check_placement(snapshot, rung_name, rung)
+                checks[rung_name] = check_placement(snapshot, rung_name, rung, dial=dial)
                 if not checks[rung_name]["all_same"]:
                     raise SystemExit(f"{rung_name}: the list's placement differs from the rule on {pl['snapshot']}: {checks[rung_name]['same']}")
             key = (rung_name, pt["L"], pt["dial"], pt["p"])

@@ -95,10 +95,19 @@ def rung_for(jl: dict, point: dict) -> tuple[str, dict]:
 
 
 def check_placement(jl: dict, snapshot: str, rung_name: str, rung: dict) -> dict:
-    """The list's rung against the placement rule on the list's own placement snapshot (the redraw's ``place_rungs``)."""
-    runday = rd.place_rungs(snapshot)["rungs"][rung_name]
+    """The list's rung against the placement rule on the list's own placement snapshot (the redraw's ``place_rungs``). A list whose
+    placement block carries ``dial_exclude`` was placed as a reset-dial list under Deviation 62 (``place_rungs(snapshot, dial=True)``,
+    qubit 79 excluded); a place_rungs without that argument cannot check it, and the script stops."""
+    dial = bool((jl.get("placement") or {}).get("dial_exclude"))
+    try:
+        placed = rd.place_rungs(snapshot, dial=True) if dial else rd.place_rungs(snapshot)
+    except TypeError as ex:
+        raise SystemExit(f"the list's placement block carries dial_exclude (Deviation 62), but place_rungs has no dial placement ({ex}); "
+                         "run with the Deviation 62 placement code") from ex
+    runday = placed["rungs"][rung_name]
     same = {k: runday[k] == rung[k] for k in ("patch", "n", "origin", "holes", "qubits", "broken_edges", "edge")}
-    return dict(rule=rd.PLACEMENT_SOURCE, same=same, all_same=all(same.values()))
+    return dict(rule=rd.PLACEMENT_SOURCE + (f" (dial lists: dial_exclude {placed.get('dial_exclude')}, Deviation 62)" if dial else ""),
+                same=same, all_same=all(same.values()))
 
 
 # --------------------------------------------------------------------------- bug check (noise off)

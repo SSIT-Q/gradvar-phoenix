@@ -309,3 +309,34 @@ def test_check_comparators_exits_nonzero_unless_the_placement_has_its_prediction
     assert [x["source"] for x in res3["items"] if x["probe"] == "dial_p0.25_L8_kL"] == ["gate1b_redraw_2026-09-23T0308.csv"]
     assert cc.main([str(other)]) == 1
     assert cc.main([str(tmp_path / "absent.json")]) == 2
+
+
+def test_placement_checks_use_the_dial_placement_for_a_dial_exclude_list(tmp_path, monkeypatch):
+    """A list placed as a reset-dial list under Deviation 62 (``placement.dial_exclude``) is checked against
+    ``place_rungs(snapshot, dial=True)`` by both scripts; a place_rungs without the dial placement stops them; a list without
+    ``dial_exclude`` keeps the plain rule."""
+    import predict_h7_truncation as h7
+    import redraw_dial_points as rdp
+    calls = []
+
+    def dial_rule(snapshot, dial=False):
+        calls.append(dial)
+        return dict(PL23, dial_exclude=[79] if dial else None)
+    monkeypatch.setattr(rdp, "_PLACED", {})
+    monkeypatch.setattr(rdp.rd, "place_rungs", dial_rule)
+    f = _list(tmp_path, "dial62.json", dict(PL23, dial_exclude=[79]), DAY3_DIAL_PROBES)
+    res = rdp.plan([str(f)])
+    assert calls and all(calls) and all(v["all_same"] and "dial_exclude [79]" in v["rule"] for v in res["placement_checks"].values())
+    jl, rung = json.loads(f.read_text()), PL23["rungs"]["n60"]
+    assert h7.check_placement(jl, "x.csv", "n60", rung)["all_same"] and calls[-1] is True
+
+    def old_rule(snapshot):
+        return PL23
+    monkeypatch.setattr(rdp, "_PLACED", {})
+    monkeypatch.setattr(rdp.rd, "place_rungs", old_rule)
+    with pytest.raises(SystemExit, match="Deviation 62"):
+        rdp.plan([str(f)])
+    with pytest.raises(SystemExit, match="Deviation 62"):
+        h7.check_placement(jl, "x.csv", "n60", rung)
+    plain = _list(tmp_path, "plain.json", PL23, DAY3_DIAL_PROBES)
+    assert rdp.plan([str(plain)])["placement_checks"]["n60"]["all_same"]
