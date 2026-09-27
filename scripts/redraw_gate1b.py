@@ -296,13 +296,12 @@ def layer_tau_for(spec: str, couplers, timing=LAYER_TIMING) -> tuple[dict, dict]
     return out, src
 
 
-def predict_at_edge(patch: Patch, spec: str, L: int, edge: tuple, csv: str, props: str, model: str = "unital", dial_kind: str | None = None,
-                    p: float = 0.0, zz_layer_on: bool = True, deltas=(1e-6, 1e-7), n_samples: int = 500_000, pattern_samples: int | None = 250_000,
-                    seed: int = SEED, n_cap: int = 400_000, time_limit_s: float = 600.0, sampled: bool = True, pattern: bool = True,
-                    timing=LAYER_TIMING) -> dict:
-    """One Pauli-propagation row (k = L) for the observable on ``edge``: the same program, truncation sweep, sampler and pattern
-    floor as ``gate1_pauliprop.run_point`` / ``pauliprop.predict_point`` (same seeds), but with the edge given explicitly (the
-    Deviation 36 / 46 cone-graph rule places the 4x10 edge away from ``interior_edge``)."""
+def dial_program(patch: Patch, spec: str, L: int, edge: tuple, csv: str, props: str, model: str = "unital", dial_kind: str | None = None,
+                 p: float = 0.0, zz_layer_on: bool = True, timing=LAYER_TIMING):
+    """The Pauli-propagation program of one Deviation 46 row (k = L) for the observable on ``edge``: the ``model`` snapshot noise,
+    the dial channel ``dial_kind`` at ``p`` (``pauliprop.dial_bloch_by_qubit``), the dial-idle ZZ (when a dial is present) and the
+    Deviation 34 whole-layer static ZZ, raw readout. Returns (program, dict(zz, zz_layer, taus, tau_src)). ``predict_at_edge`` and the
+    H7 comparator (``scripts/predict_h7_truncation.py``, Deviation 60) build their programs here, so the two use one model."""
     k = L
     cone = light_cone(patch, L, edge)
     couplers = pp.cone_couplers(patch, cone)
@@ -313,6 +312,19 @@ def predict_at_edge(patch: Patch, spec: str, L: int, edge: tuple, csv: str, prop
     dial_local = {cone.index(q): b for q, b in dial.items() if q in cone} if dial else None
     ch = pp.channels_from_models(model, csv, cone, patch.edges(), dial=dial_local, readout=True, zz=zz, zz_layer=zz_layer)
     prog = pp.build_program(patch, L, k, ch, cone, edge)
+    return prog, dict(zz=zz, zz_layer=zz_layer, taus=taus, tau_src=tau_src)
+
+
+def predict_at_edge(patch: Patch, spec: str, L: int, edge: tuple, csv: str, props: str, model: str = "unital", dial_kind: str | None = None,
+                    p: float = 0.0, zz_layer_on: bool = True, deltas=(1e-6, 1e-7), n_samples: int = 500_000, pattern_samples: int | None = 250_000,
+                    seed: int = SEED, n_cap: int = 400_000, time_limit_s: float = 600.0, sampled: bool = True, pattern: bool = True,
+                    timing=LAYER_TIMING) -> dict:
+    """One Pauli-propagation row (k = L) for the observable on ``edge``: the same program, truncation sweep, sampler and pattern
+    floor as ``gate1_pauliprop.run_point`` / ``pauliprop.predict_point`` (same seeds), but with the edge given explicitly (the
+    Deviation 36 / 46 cone-graph rule places the 4x10 edge away from ``interior_edge``)."""
+    k = L
+    prog, meta = dial_program(patch, spec, L, edge, csv, props, model=model, dial_kind=dial_kind, p=p, zz_layer_on=zz_layer_on, timing=timing)
+    zz, zz_layer, taus, tau_src = meta["zz"], meta["zz_layer"], meta["taus"], meta["tau_src"]
     t0 = time.time()
     out = dict(model=model, n=patch.n, L=L, k=k, n_cone=prog.m, edge=f"{prog.qubits[prog.i]}_{prog.qubits[prog.j]}", mean_cost=float("nan"),
                zz_idle="on" if zz else "off", zz_layer="on" if zz_layer else "off", n_zz_couplers=(len(zz_layer) if zz_layer else (len(zz) if zz else 0)))

@@ -76,13 +76,51 @@ within the combined interval (measured interval widened by the prediction's 1.96
 Var[C_mix] per (p, L) against the pre-drawn value (linear scale), and above the Deviation 33 cost floor with its interval
 (whole interval below the floor refutes). **H6**: headline statistic = floor-subtracted k = L variance / ½c_i²g_i²p² with
 its interval at every reset point (below the floor with the interval refutes); the k = L depth ratio per p and the ladder
-ratio Var(n = 87)/Var(n = 39) at p = 0.25 against the pre-drawn ratios; the reset dial at the control patch (n = 53) over
+ratio Var(n = 87)/Var(n = 39) at p = 0.25 against the pre-drawn ratios; the reset dial at the control patch (6x10) over
 the dephasing dial by the pre-drawn factor within the combined interval and above 1; the k = 1 fall is reported only (k = 1
 rows are upper bounds, Deviation 40; exploratory at L = 12, Deviation 37); a delay-matched reference that does not fall
-from L = 8 to L = 12 makes the ladder comparison inconclusive rather than refuting. **H7**: `truncation_rms` implements the
-RMS of C_mix − C_mix[L − ℓ, L] with the residual pattern noise of the deleted layers subtracted (bootstrap over masks);
-the evaluator runs on rows of kind `truncation` with an `ell` column, a probe kind not yet in the job-list schema, so it
-is not-evaluable on today's runs.
+from L = 8 to L = 12 makes the ladder comparison inconclusive rather than refuting. **H7** (Deviation 60): the loader maps
+the truncation probes (`reset_dial` with `unshifted`; `truncate_to` = ℓ, the full circuit ℓ = 0) to kind `truncation` with an
+`ell` column and their own point id (`truncation <reset kind> p… n… L… l… r…`), so H5 / H6 never see them and the repeat index
+does not interleave them with the dial point. `truncation_rms` pairs full and truncated rows by draw and `mask_index` (one
+row per (draw, mask index), the first in job order; unpaired rows are left out and counted; a pair whose theta or mask seed
+differs is a pairing error) and estimates MSD(ℓ): per draw the squared mean difference minus the residual pattern term of the
+deleted layers (Section 3b) and minus the shot term of the mean difference (Section 3, Pairing: "Shot and pattern-noise floors
+are subtracted"), y<sub>d</sub> = mean(diff)² − Var<sub>m</sub>(diff)/K, averaged over draws. The interval is the two-stage
+percentile bootstrap of Section 3b 'Analysis' (checkpoint review M3): 10,000 resamples of the draws, each selected draw entering
+as mean(diff)² minus one of its 2,000 mask-bootstrap replicates of Var<sub>m</sub>(diff)/K (the same mask positions for the
+full and the truncated rows); the RMS limits are the roots of the 2.5th and 97.5th percentiles, and the kurtosis of
+y<sub>d</sub> is reported. The mask stage resamples the subtracted term only: a mask replicate of the whole y<sub>d</sub> is
+centred on mean(diff)², which adds Var<sub>m</sub>(diff)/K back (shot plus residual pattern term; at the day-3 design, 256 masks
+× 64 shots, the shot term alone is about 6.7×10<sup>−5</sup>, 1.5 times the comparator's MSD(4)). The statistic before
+Deviation 60 (shot term kept) is reported as `rms_with_shot`.
+`evaluate_h7` compares the ℓ = 2 RMS with the committed comparator sqrt(MSD(2)) ± `rms_l2_sigma`
+(`data/predictions/h7_truncation_<tag>.json`, drawn on the rows' placement by `scripts/predict_h7_truncation.py` and matched on
+the placed qubit set, which both sides must record, and patch, edge, n, p, L; an explicit `preds['truncation']` takes
+precedence and must carry the qubit set) within the combined interval; it is not-evaluable without that comparator, with
+pairing errors, or with rows from more than one placement (point keys, placed qubit set or, where the bundles record it,
+broken-coupler set; review M4). ℓ = 4 is an upper-bound point by rule (Deviation 60 rule (a)): its RMS and interval are
+reported and the upper end of the interval is the bound. The one-sided ℓ = 4 < ℓ = 2 test, run when the measured std(C_mix)
+exceeds 0.1, is the paired bootstrap over draws of RMS(2) − RMS(4) (`truncation_fall`, review M2: the draws resampled jointly
+for both ℓ against the same full circuit, one joint mask replicate per selected draw; ℓ = 4 is below ℓ = 2 when the 5th
+percentile exceeds 0).
+
+**Dial predictions by placement** (Deviation 60, review M5): H5 / H6, the dial comparisons (`compare_points`, the report) and
+the Gate 1b flags use the unital-base dial row drawn on the point's placement (`predictions.dial_prediction`: matched on the
+placed qubit set, then patch, edge, L, dial kind and p, over the dial rows of `pauliprop_predictions.csv` (19 Sep ladder
+placement), `gate1b_redraw_*.csv` (run-day re-draws, Deviation 46) and `dial_redraw_*.csv` (`scripts/redraw_dial_points.py`)).
+A sub-test without such a row is not evaluable, and its record carries the unmatched 19 Sep row as the fallback (Deviation 54
+(iii)). The H6 control rung and the ladder rungs are selected by patch (6x10; 4x10 and 10x10) or by the registered n, because
+the placed n moves with the placement (52 on the pinned 23 Sep 6x10 rung). Every paired H5 / H6 sub-test takes its points from
+one rung and placement (patch, n, placed qubit set): the depth ratios, the reset / dephasing control, and the two ladder rungs, whose
+placement-matched predictions must be of one placement. More than one candidate, or a point pooling rows of more than one placement
+(`n_placements` in the point table: two runs with the same point ids loaded together), makes that sub-test not evaluable, listed
+under `pairing` (two runs of one list share their seeds, so a cross-run pairing would otherwise look valid).
+`scripts/redraw_dial_points.py --joblist <list> --plan` lists, for a pinned list, the points already covered on its placement and
+the rows it would draw; without `--plan` it draws them into `data/predictions/dial_redraw_<tag>.csv` with the Deviation 46
+settings (other values need `--exploratory` and are written as `dial_exploratory_<tag>.*`, which the analysis does not read).
+`scripts/check_comparators.py <list>` is the pre-flight check: exit 0 only when the list's own placement has the H7 comparator and
+every dial row the analysis will look up.
 
 **Gate 1b clause (b) on the day** (Deviations 35, 39, 44, 45; flags, not a gate decision): per rung, the delay-matched
 p = 0 k = L reference at L = 8 (16384 shots under Deviation 44) is counted only if its measured, floor-subtracted variance
@@ -159,7 +197,9 @@ per-draw rows (`draws`, `param_hashes`, `theta_seeds` in job.json).
 Open items for the PI (not resolved by the code): Gate 1b clause (b) on the day is reported as flags only (Gate 1b is
 decided on the predictions before booking); the H4 part 2 "grows with cone size" clause is read on point estimates while
 "differs from 4" uses the bootstrap interval, so the two clauses together admit only modest growth (a pre-registration
-tension, not a code choice); the truncation arm (H7) has no job-list probe kind yet.
+tension, not a code choice); the Section 3b p = 0.5 reset and dephasing rows on a run-day placement are drawn by
+`scripts/redraw_dial_points.py` before the day (Deviation 60, review M5), and without them those H5 / H6 sub-tests are not
+evaluable.
 
 ## Which prediction row is compared to what (21 Sep 2026, after the day-2 review)
 

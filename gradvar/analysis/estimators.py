@@ -340,7 +340,8 @@ def point_table(rows: pd.DataFrame, n_boot: int = N_BOOT) -> pd.DataFrame:
                     L=int(first.L) if pd.notna(first.L) else None, k=int(first.k) if pd.notna(first.k) else None,
                     resilience_level=int(first.resilience_level), shots=int(first.shots), patch=first.patch, edge=first.edge, patch_qubits=first.patch_qubits,
                     properties_file=first.properties_file, backend=first.backend, jobs=sorted(set(g.job_id.astype(str))), n_rows=int(len(g)),
-                    status=",".join(sorted(set(g.status.astype(str)))))
+                    status=",".join(sorted(set(g.status.astype(str)))),
+                    n_placements=int(g.patch_qubits.astype(str).nunique()) if "patch_qubits" in g.columns else 1)   # > 1: runs of several placements pooled
         if first.kind == "grid":
             level2 = int(first.resilience_level) == 2
             sv = np.full(len(g), level2_shot_variance(int(first.shots))) if level2 else g.shot_var.astype(float)
