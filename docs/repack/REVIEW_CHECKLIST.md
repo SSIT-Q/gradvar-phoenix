@@ -83,3 +83,7 @@ the PR branch. Owais arms from the `main` commit that carries it, within the sam
 - Owais merges, arms (only `dry_run` and `preflight_review`) and dispatches.
 
 A list refused by the live check waits for the next calibration or the next same-day cycle; it is never overridden.
+
+## Exercise bundles (pipeline tests only)
+
+`scripts/sameday_repackage.py run --exercise` keeps going after a Gate 1b FAIL so that the later stages (comparators, pre-flights, tests, summary, publish) can be tested on a real snapshot. Such a run keeps the status `stopped`, prints the Gate 1b result as the first review flag, puts an EXERCISE banner at the top of every generated pre-flight, and is published only with `publish --exercise`. That opens a draft pull request whose title starts with "EXERCISE, not dispatchable". An exercise bundle is never reviewed for dispatch and never merged. Close its pull request once the pipeline check is done. The same-day rule applies unchanged: a cycle whose Gate 1b fails dispatches nothing that day.
