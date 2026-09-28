@@ -656,7 +656,12 @@ def run(args) -> int:
                         else:
                             S["gate1b"] = gate1b_verdict(md)
                             if S["gate1b"]["verdict"] != "PASS":
-                                stop_reason = f"Gate 1b {S['gate1b']['verdict']} under Deviations 27 + 45 on this placement"
+                                why = f"Gate 1b {S['gate1b']['verdict']} under Deviations 27 + 45 on this placement"
+                                if getattr(args, "exercise", False):
+                                    S.setdefault("exercise_stops", []).append(why)
+                                    log(f"(c) {why}: recorded; --exercise runs the remaining stages for testing only")
+                                else:
+                                    stop_reason = why
                     elif tk.name in ("main_grid", "h7", "dial_rows", "pairs", "dry_runs") and tk.rc != 0:
                         stop_reason = f"{tk.name} exited {tk.rc}; log {tk.logf.relative_to(out)}"
             if stop_reason:
@@ -715,6 +720,12 @@ def run(args) -> int:
                        prev_lists_dir=str(prev_dir), prev_fail_snaps=(), prev=bp.prev_package(prev_dir, PRED, ROOT / "docs" / "preflight"),
                        pred_commit=PLACEHOLDER_COMMIT, with_pairs=bool(args.with_pairs))
         S["preflights"] = list(res["names"])
+        if S.get("exercise_stops"):
+            banner = ("> **EXERCISE ONLY, not a dispatch record.** " + "; ".join(S["exercise_stops"]) + ". The same-day rule stops this cycle and nothing is "
+                      "dispatched; this document was generated with `--exercise` to test the pipeline and is not reviewed for dispatch or merged.\n\n")
+            for nm in res["names"]:
+                pth = ROOT / "docs" / "preflight" / nm
+                pth.write_text(banner + pth.read_text(encoding="utf-8"), encoding="utf-8", newline="\n")
         stage_t["d_preflights"] = time.time() - t
         # (f) tests
         if shards:
@@ -758,7 +769,12 @@ def run(args) -> int:
                                  prev_working_min=round(sum((S["lists"][n]["budget_prev"] or {}).get("working_min", 0) for n in RUN_DAY), 1))
         S["predictions"] = compare_predictions(tag, prev_tag)
         S["flags"] = review_flags(S, prev_dir)
-        S["status"] = "ok"
+        if S.get("exercise_stops"):
+            S["status"] = "stopped"
+            S["stop_reason"] = "; ".join(S["exercise_stops"]) + " (--exercise: the remaining stages ran to test the pipeline; not a dispatchable package)"
+            S["flags"].insert(0, "EXERCISE: " + "; ".join(S["exercise_stops"]) + "; the same-day rule stops this cycle and nothing is dispatched")
+        else:
+            S["status"] = "ok"
     except Stop as ex:
         if S.get("status") == "running":
             S["status"] = "stopped"
@@ -873,7 +889,9 @@ def write_bundle(out: Path, S: dict, changed: list, csv: Path, date: str, args) 
     if (out / "logs").exists():
         shutil.copytree(out / "logs", b / "logs")
     man = dict(date=date, snapshot=csv.name, stamp=S["run"]["stamp"], status=S["status"], stop_reason=S.get("stop_reason"), base_sha=args.base_sha,
-               run_sha=S["run"].get("run_sha"), files=changed, summary=f"docs/repack/{date}_summary.md", with_pairs=bool(args.with_pairs))
+               run_sha=S["run"].get("run_sha"), files=changed, summary=f"docs/repack/{date}_summary.md", with_pairs=bool(args.with_pairs),
+               exercise=bool(getattr(args, "exercise", False)), exercise_stops=S.get("exercise_stops", []),
+               complete=bool(S.get("flags") is not None and S.get("preflights")))
     (b / "manifest.json").write_text(json.dumps(man, indent=1) + "\n", encoding="utf-8")
     if args.bundle:
         with tarfile.open(args.bundle, "w:gz") as tf:
@@ -955,9 +973,12 @@ def publish(args) -> int:
             tf.extractall(tmp)
         bdir = tmp / "bundle"
     man = json.loads((bdir / "manifest.json").read_text(encoding="utf-8"))
-    if man["status"] != "ok" and not args.force:
+    ex = bool(getattr(args, "exercise", False) and man.get("exercise") and man.get("exercise_stops") and man["status"] == "stopped" and man.get("complete"))
+    if man["status"] != "ok" and not args.force and not ex:
         print((bdir / "tree" / man["summary"]).read_text(encoding="utf-8") if (bdir / "tree" / man["summary"]).exists() else man)
-        raise SystemExit(f"run status {man['status']}: {man.get('stop_reason')}; nothing committed (--force commits the summary only)")
+        raise SystemExit(f"run status {man['status']}: {man.get('stop_reason')}; nothing committed (--force commits the summary only"
+                         + ("; a complete --exercise bundle is published with --exercise)" if man.get("exercise") else ")"))
+    xt = "EXERCISE, not dispatchable: " if ex else ""
     date = man["date"]
     br = f"repack-{date}"
     head = gh(f"/git/refs/heads/{br}")["object"]["sha"]
@@ -967,22 +988,26 @@ def publish(args) -> int:
     data = {k: v for k, v in files.items() if k.startswith("data/") or k == "scripts/make_paper1_joblists.py"}
     docs = {k: v for k, v in files.items() if k not in data}
     out = dict(branch=br)
-    if man["status"] == "ok":
-        out["commit_lists_predictions"] = c1 = _commit(br, data, f"Same-day re-package {date}: lists pinned to {man['snapshot']} and the placement-dependent "
+    if man["status"] == "ok" or ex:
+        out["commit_lists_predictions"] = c1 = _commit(br, data, xt + f"Same-day re-package {date}: lists pinned to {man['snapshot']} and the placement-dependent "
                                                          "re-draws\n\nscripts/sameday_repackage.py (run commit " + str(man.get('run_sha')) + "). Nothing armed: dry_run true, "
                                                          "placeholder pre-flight records, the Deviation 26 override closed.")
         docs = {k: v.replace(PLACEHOLDER_COMMIT.encode(), c1.encode()) for k, v in docs.items()}
-    out["commit_preflights_summary"] = c2 = _commit(br, docs, f"Same-day re-package {date}: pre-flights 06 / 08 / 09 and the summary"
-                                                   + ("" if man["status"] == "ok" else f" (run {man['status']}: nothing to review)"))
+    out["commit_preflights_summary"] = c2 = _commit(br, docs, xt + f"Same-day re-package {date}: pre-flights 06 / 08 / 09"
+                                                   + (" / 10" if man.get("with_pairs") else "") + " and the summary"
+                                                   + ("" if (man["status"] == "ok" or ex) else f" (run {man['status']}: nothing to review)"))
     summ = docs.get(man["summary"], b"").decode("utf-8")
-    body = (f"**Draft: same-day re-package {date}** on `{man['snapshot']}`. Nothing is armed or dispatched: every list has `dry_run` true and the "
+    warn = (f"**EXERCISE, not dispatchable:** {'; '.join(man['exercise_stops'])}. The same-day rule stops this cycle and nothing is dispatched; the "
+            "remaining stages ran with `--exercise` to test the pipeline end to end. Do not merge.\n\n") if ex else ""
+    body = warn + (f"**Draft: same-day re-package {date}** on `{man['snapshot']}`. Nothing is armed or dispatched: every list has `dry_run` true and the "
             f"placeholder pre-flight record; `approved_overrides` is empty (the Deviation 26 override is closed). Review with "
             f"`docs/repack/REVIEW_CHECKLIST.md`; dispatch within the IBM properties update the pre-check passed on.\n\n" + summ[:60000])
     prs = gh(f"/pulls?head={REPO.split('/')[0]}:{br}&state=open")
+    title = xt + f"Same-day re-package {date} ({label_of(man['stamp'])} snapshot)"
     if prs:
-        pr = gh(f"/pulls/{prs[0]['number']}", dict(body=body), method="PATCH")
+        pr = gh(f"/pulls/{prs[0]['number']}", dict(body=body, title=title), method="PATCH")
     else:
-        pr = gh("/pulls", dict(title=f"Same-day re-package {date} ({label_of(man['stamp'])} snapshot)", head=br, base=args.main, body=body, draft=True))
+        pr = gh("/pulls", dict(title=title, head=br, base=args.main, body=body, draft=True))
     out.update(pr=pr["number"], pr_url=pr["html_url"], head=c2)
     (bdir / "publish.json").write_text(json.dumps(out, indent=1) + "\n", encoding="utf-8")
     print(json.dumps(out))
@@ -1064,6 +1089,9 @@ def main(argv=None) -> int:
         g.add_argument("--modal", dest="modal", action="store_true", default=True, help="run in a Modal sandbox (default)")
         g.add_argument("--no-modal", dest="modal", action="store_false", help="run in this working tree")
         ap.add_argument("--no-tests", action="store_true", help="skip the test suite (never for a dispatch package)")
+        ap.add_argument("--exercise", action="store_true",
+                        help="pipeline test only: a Gate 1b FAIL is recorded but the remaining stages still run; the status stays 'stopped', every "
+                             "generated pre-flight carries an EXERCISE banner, and publish refuses the bundle unless given --exercise too")
         ap.add_argument("--no-publish", action="store_true")
         ap.add_argument("--out", default=str(ROOT / ".sameday"))
         ap.add_argument("--bundle", default=None, help="also write the bundle as this .tgz")
@@ -1088,6 +1116,7 @@ def main(argv=None) -> int:
         args.base = args.base or subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
         return prepare(args)
     ap.add_argument("--bundle", required=True, help="the run's bundle directory (or .tgz)")
+    ap.add_argument("--exercise", action="store_true", help="publish an --exercise bundle as a draft pull request titled EXERCISE (never for dispatch)")
     args = ap.parse_args(argv)
     return publish(args)
 
