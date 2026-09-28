@@ -3,6 +3,7 @@ matched on the placement the rows ran on (the placed qubit set), and a sub-test 
 evaluable, with the 19 Sep row reported beside it as the fallback record (Deviation 54 (iii)); the re-draw script plans the missing
 rows of a pinned list without simulating anything, and its rows are read back by the analysis."""
 import json
+import shutil
 import sys
 from pathlib import Path
 
@@ -40,9 +41,25 @@ def _pinned_day3(tmp_path):
     return f
 
 
+# The prediction records these tests were written against, copied to a temporary directory that the prediction loader, the re-draw
+# planner and check_comparators read instead of data/predictions: the tests then do not depend on which later re-draws the
+# repository holds (a later placement can reuse a rung's qubit set, as the 27 Sep 03:08Z n40 rung reuses the 23 Sep 16:35Z one,
+# and the last file would then supply that rung's rows).
+PRED_FILES = ("pauliprop_predictions.csv", "ladder_placements.json", "gate1b_redraw_2026-09-23T0308.csv", "gate1b_redraw_2026-09-23T0308.json",
+              "gate1b_redraw_2026-09-23T1635.csv", "gate1b_redraw_2026-09-23T1635.json", "h7_truncation_2026-09-23T1635.json")
+
+
 @pytest.fixture(scope="module")
-def preds():
-    return P.load_predictions()
+def pred_dir(tmp_path_factory):
+    d = tmp_path_factory.mktemp("predictions")
+    for name in PRED_FILES:
+        shutil.copy2(PRED / name, d / name)
+    return d
+
+
+@pytest.fixture(scope="module")
+def preds(pred_dir):
+    return P.load_predictions(pred_dir)
 
 
 def test_dial_rows_carry_the_placement_they_were_drawn_on(preds):
@@ -124,9 +141,9 @@ def test_compare_points_uses_placement_matched_dial_rows(preds):
     assert cmp.source.iloc[1] == "gate1b_redraw_2026-09-23T1635.csv" and np.isfinite(cmp.z.iloc[1])
 
 
-def test_redraw_script_plans_the_missing_day3_rows_without_simulating(tmp_path):
+def test_redraw_script_plans_the_missing_day3_rows_without_simulating(tmp_path, pred_dir):
     import redraw_dial_points as rdp
-    pl = rdp.plan([str(_pinned_day3(tmp_path))])
+    pl = rdp.plan([str(_pinned_day3(tmp_path))], pred_dir=pred_dir)
     todo = sorted((j["rung"], j["L"], j["dial"], j["p"]) for j in pl["jobs"])
     assert todo == [("n60", 8, "dephase", 0.5), ("n60", 8, "reset", 0.5), ("n60", 12, "reset", 0.5)]
     assert all(c["source"] == "gate1b_redraw_2026-09-23T1635.csv" for c in pl["covered"]) and len(pl["covered"]) == 10
@@ -255,6 +272,72 @@ def test_h6_ladder_points_come_from_one_placement(preds):
     assert not two["ladder"] and any(x["sub_test"] == "H6 ladder, low rung" and "2 candidate points" in x["reason"] for x in two["pairing"])
 
 
+# ------------------------------------------------------------------------------------------------ Deviation 60 part (6): H6 control on bounds
+
+VR27, SR27, VD27, SD27 = 9.7514e-03, 7.3e-05 / 2, 1.5551e-05, 4.0e-06 / 2     # dial_redraw_2026-09-27T0308: reset / dephasing p = 0.5, L = 8
+SHOT1 = 1.0 / (2 * 4096)                                                       # one draw's shot floor (256 masks x 16 shots)
+
+
+def _ctl(arm, sig, lo, hi, floor, seed=0):
+    """A control point on the pinned 6x10 rung with the given floor-subtracted k = L variance and 95 percent interval; its draws
+    have sample variance sig + floor exactly, so the paired ratio sees the same signal variance."""
+    z = np.random.default_rng(seed).normal(0, 1, 100)
+    g = (z - z.mean()) / z.std(ddof=1) * np.sqrt(sig + floor)
+    return dict(kind="reset_dial", arm=arm, p=0.5, L=8, k=8, n=52, patch="6x10", edge="84_85", point_id=f"{arm} p0.5 n52 L8 k8 r0",
+                patch_qubits=" ".join(map(str, Q52)), signal_variance=sig, signal_ci_lo=lo, signal_ci_hi=hi, floor_grad=1e-6,
+                headline_ratio=sig / 1e-6, headline_lo=lo / 1e-6, headline_hi=hi / 1e-6, mele_floor=0.5 ** 4 / 9, gradients=g.tolist(),
+                shot_vars=[floor] * 100, shot_floor=floor, n_placements=1)
+
+
+def _control(monkeypatch, deph, reset=None, with_pred=True):
+    reset = reset or _ctl("reset", VR27, 6.0e-3, 1.45e-2, SHOT1 + 6.82e-4, seed=1)
+    fake = dict(reset=dict(var=VR27, sigma=SR27, placement_stamp="2026-09-27T030805Z"),
+                dephase=dict(var=VD27, sigma=SD27, placement_stamp="2026-09-27T030805Z"))
+    monkeypatch.setattr(DH, "_pred", lambda preds, r, **kw: fake[r.arm] if with_pred else None)
+    res = DH.evaluate_h6(pd.DataFrame([reset, deph]), {}, n_boot=500)
+    (c,) = res["controls"]
+    return res, c
+
+
+def test_h6_control_is_decided_on_bounds_when_the_dephasing_variance_is_not_resolvably_positive(monkeypatch):
+    """Deviation 60 part (6): a dephasing variance at or below zero after the floor subtraction (the paired ratio has no positive
+    denominator; before, NaN and H6 failed) or with its interval reaching zero is read as an upper bound, and no ratio is formed."""
+    deph0 = _ctl("dephase", -1.0e-5, -4.5e-5, 3.0e-5, SHOT1, seed=2)
+    assert not np.isfinite(E.paired_ratio(deph0["gradients"], deph0["gradients"], 200, sub_a=deph0["shot_vars"], sub_b=deph0["shot_vars"])["ratio"])
+    res, c = _control(monkeypatch, deph0)
+    assert c["rule"] == "bounds" and c["within"] is True and c["exceeds"] is True and res["result"] == "pass"
+    assert c["predicted"] == pytest.approx(VR27 / VD27) and c["factor_hi"] > c["predicted"] and c["lo"] == pytest.approx(6.0e-3 / 3.0e-5)
+    assert c["measured"] is None and c["hi"] is None and "part (6)" in res["note"] and "part (6)" in c["note"]
+    assert all(np.isfinite(v) for v in c.values() if isinstance(v, float))                     # no NaN in the control entry
+    res, c = _control(monkeypatch, _ctl("dephase", 1.6e-5, -2.3e-5, 5.5e-5, SHOT1, seed=3))     # positive estimate, interval reaches 0
+    assert c["rule"] == "bounds" and c["within"] and c["exceeds"] and res["result"] == "pass"
+    res, c = _control(monkeypatch, deph0, with_pred=False)                                       # no pre-drawn factor: 'above 1' only
+    assert c["rule"] == "bounds" and c["within"] is None and c["exceeds"] and c["predicted"] is None and res["value"]["control_misses"] == 0
+
+
+def test_h6_control_bounds_fail_below_the_dephasing_bound_or_beyond_the_factor(monkeypatch):
+    """The clause fails when the reset variance's lower bound does not exceed the dephasing upper bound, and when it exceeds the
+    pre-drawn factor's upper limit times that bound (the dephasing variance resolvably below its prediction; also d_hi <= 0)."""
+    low_reset = _ctl("reset", 6.0e-5, 2.0e-5, 1.1e-4, SHOT1 + 6.82e-4, seed=4)
+    res, c = _control(monkeypatch, _ctl("dephase", 1.0e-5, -3.0e-5, 5.0e-5, SHOT1, seed=5), reset=low_reset)
+    assert c["rule"] == "bounds" and c["exceeds"] is False and res["result"] == "fail" and res["value"]["control_misses"] == 1
+    for d_hi in (2.0e-6, -1.0e-6):
+        res, c = _control(monkeypatch, _ctl("dephase", -3.0e-5, -6.0e-5, d_hi, SHOT1, seed=6))
+        assert c["rule"] == "bounds" and c["exceeds"] is True and c["within"] is False and res["result"] == "fail"
+        assert 6.0e-3 > c["factor_hi"] * d_hi
+
+
+def test_h6_control_keeps_the_ratio_test_for_a_resolvably_positive_dephasing_variance(monkeypatch):
+    deph = _ctl("dephase", 4.0e-5, 1.0e-5, 7.0e-5, SHOT1, seed=7)
+    reset = _ctl("reset", VR27, 6.0e-3, 1.45e-2, SHOT1 + 6.82e-4, seed=1)
+    res, c = _control(monkeypatch, deph, reset=reset)
+    meas = E.paired_ratio(reset["gradients"], deph["gradients"], 500, sub_a=reset["shot_vars"], sub_b=deph["shot_vars"])
+    ps = VR27 / VD27 * np.sqrt((SR27 / VR27) ** 2 + (SD27 / VD27) ** 2)
+    want = DH._ratio_test(meas, VR27 / VD27, ps)
+    assert c["rule"] == "ratio" and c["within"] == want["within"] and c["measured"] == pytest.approx(want["measured"])
+    assert c["exceeds"] == (meas["lo"] > 1.0) and "part (6)" not in res["note"]
+
+
 # ------------------------------------------------------------------------------------------------ addendum: settings guard, pre-flight check
 
 TRUNC_PROBES = [dict(id="trunc_full_p0.5_L8", kind="reset_dial", reset_kind="reset", patch="6x10", n=52, edge="84_85", L=8, k=8, p=0.5,
@@ -290,28 +373,29 @@ def test_redraw_script_refuses_setting_overrides_without_exploratory(tmp_path, c
     assert len(P.load_dial_rows(tmp_path)) == 2
 
 
-def test_check_comparators_exits_nonzero_unless_the_placement_has_its_predictions(tmp_path, capsys):
+def test_check_comparators_exits_nonzero_unless_the_placement_has_its_predictions(tmp_path, capsys, pred_dir):
     import check_comparators as cc
+    pd_arg = ["--pred-dir", str(pred_dir)]
     full = _list(tmp_path, "full.json", PL23, DAY3_DIAL_PROBES + TRUNC_PROBES)
-    res = cc.check(full)
+    res = cc.check(full, pred_dir)
     missing = sorted(x["probe"] for x in res["items"] if not x["found"])
     assert missing == ["dephasing_dial_p0.5_L8_kL", "dial_p0.5_L12_kL", "dial_p0.5_L8_kL"] and res["placement"] == "2026-09-23T163534Z"
     (h7,) = [x for x in res["items"] if x["need"].startswith("H7")]
     assert h7["found"] and h7["source"] == "h7_truncation_2026-09-23T1635.json" and h7["rms_l2"] == pytest.approx(0.05540, abs=5e-6)
-    assert cc.main([str(full)]) == 1 and "MISSING 3 item(s)" in capsys.readouterr().out
+    assert cc.main([str(full)] + pd_arg) == 1 and "MISSING 3 item(s)" in capsys.readouterr().out
     covered = _list(tmp_path, "covered.json", PL23, [p for p in DAY3_DIAL_PROBES if p["p"] != 0.5] + TRUNC_PROBES)
-    assert cc.main([str(covered)]) == 0 and "OK" in capsys.readouterr().out
+    assert cc.main([str(covered)] + pd_arg) == 0 and "OK" in capsys.readouterr().out
     pl03 = json.loads((PRED / "gate1b_redraw_2026-09-23T0308.json").read_text())["runday_placement"]      # n60: n = 52, other holes
     other = _list(tmp_path, "other.json", pl03, TRUNC_PROBES + [p for p in DAY3_DIAL_PROBES if p["id"] == "dial_p0.25_L8_kL"])
-    res3 = cc.check(other)
+    res3 = cc.check(other, pred_dir)
     (h7b,) = [x for x in res3["items"] if x["need"].startswith("H7")]
     assert not h7b["found"] and "qubits" in h7b["reason"]
     assert [x["source"] for x in res3["items"] if x["probe"] == "dial_p0.25_L8_kL"] == ["gate1b_redraw_2026-09-23T0308.csv"]
-    assert cc.main([str(other)]) == 1
+    assert cc.main([str(other)] + pd_arg) == 1
     assert cc.main([str(tmp_path / "absent.json")]) == 2
 
 
-def test_placement_checks_use_the_dial_placement_for_a_dial_exclude_list(tmp_path, monkeypatch):
+def test_placement_checks_use_the_dial_placement_for_a_dial_exclude_list(tmp_path, monkeypatch, pred_dir):
     """A list placed as a reset-dial list under Deviation 62 (``placement.dial_exclude``) is checked against
     ``place_rungs(snapshot, dial=True)`` by both scripts; a place_rungs without the dial placement stops them; a list without
     ``dial_exclude`` keeps the plain rule."""
@@ -325,7 +409,7 @@ def test_placement_checks_use_the_dial_placement_for_a_dial_exclude_list(tmp_pat
     monkeypatch.setattr(rdp, "_PLACED", {})
     monkeypatch.setattr(rdp.rd, "place_rungs", dial_rule)
     f = _list(tmp_path, "dial62.json", dict(PL23, dial_exclude=[79]), DAY3_DIAL_PROBES)
-    res = rdp.plan([str(f)])
+    res = rdp.plan([str(f)], pred_dir=pred_dir)
     assert calls and all(calls) and all(v["all_same"] and "dial_exclude [79]" in v["rule"] for v in res["placement_checks"].values())
     jl, rung = json.loads(f.read_text()), PL23["rungs"]["n60"]
     assert h7.check_placement(jl, "x.csv", "n60", rung)["all_same"] and calls[-1] is True
@@ -335,8 +419,8 @@ def test_placement_checks_use_the_dial_placement_for_a_dial_exclude_list(tmp_pat
     monkeypatch.setattr(rdp, "_PLACED", {})
     monkeypatch.setattr(rdp.rd, "place_rungs", old_rule)
     with pytest.raises(SystemExit, match="Deviation 62"):
-        rdp.plan([str(f)])
+        rdp.plan([str(f)], pred_dir=pred_dir)
     with pytest.raises(SystemExit, match="Deviation 62"):
         h7.check_placement(jl, "x.csv", "n60", rung)
     plain = _list(tmp_path, "plain.json", PL23, DAY3_DIAL_PROBES)
-    assert rdp.plan([str(plain)])["placement_checks"]["n60"]["all_same"]
+    assert rdp.plan([str(plain)], pred_dir=pred_dir)["placement_checks"]["n60"]["all_same"]
