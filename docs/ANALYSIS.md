@@ -77,8 +77,12 @@ Var[C_mix] per (p, L) against the pre-drawn value (linear scale), and above the 
 (whole interval below the floor refutes). **H6**: headline statistic = floor-subtracted k = L variance / ½c_i²g_i²p² with
 its interval at every reset point (below the floor with the interval refutes); the k = L depth ratio per p and the ladder
 ratio Var(n = 87)/Var(n = 39) at p = 0.25 against the pre-drawn ratios; the reset dial at the control patch (6x10) over
-the dephasing dial by the pre-drawn factor within the combined interval and above 1; the k = 1 fall is reported only (k = 1
-rows are upper bounds, Deviation 40; exploratory at L = 12, Deviation 37); a delay-matched reference that does not fall
+the dephasing dial by the pre-drawn factor within the combined interval and above 1 (Deviation 60 part (6): when the dephasing
+variance is not resolvably positive, the lower end of its 95 % interval at or below zero or no positive paired-ratio denominator,
+no ratio is formed; with r_lo the lower end of the reset point's interval and d_hi the upper end of the dephasing point's, read
+as an upper bound, the clause holds when r_lo > max(d_hi, 0) and r_lo ≤ F·exp(1.96 s)·d_hi, F the pre-drawn factor and s its
+relative σ); the k = 1 fall is reported only (k = 1 rows are upper bounds, Deviation 40; exploratory at L = 12, Deviation 37);
+a delay-matched reference that does not fall
 from L = 8 to L = 12 makes the ladder comparison inconclusive rather than refuting. **H7** (Deviation 60): the loader maps
 the truncation probes (`reset_dial` with `unshifted`; `truncate_to` = ℓ, the full circuit ℓ = 0) to kind `truncation` with an
 `ell` column and their own point id (`truncation <reset kind> p… n… L… l… r…`), so H5 / H6 never see them and the repeat index

@@ -272,6 +272,72 @@ def test_h6_ladder_points_come_from_one_placement(preds):
     assert not two["ladder"] and any(x["sub_test"] == "H6 ladder, low rung" and "2 candidate points" in x["reason"] for x in two["pairing"])
 
 
+# ------------------------------------------------------------------------------------------------ Deviation 60 part (6): H6 control on bounds
+
+VR27, SR27, VD27, SD27 = 9.7514e-03, 7.3e-05 / 2, 1.5551e-05, 4.0e-06 / 2     # dial_redraw_2026-09-27T0308: reset / dephasing p = 0.5, L = 8
+SHOT1 = 1.0 / (2 * 4096)                                                       # one draw's shot floor (256 masks x 16 shots)
+
+
+def _ctl(arm, sig, lo, hi, floor, seed=0):
+    """A control point on the pinned 6x10 rung with the given floor-subtracted k = L variance and 95 percent interval; its draws
+    have sample variance sig + floor exactly, so the paired ratio sees the same signal variance."""
+    z = np.random.default_rng(seed).normal(0, 1, 100)
+    g = (z - z.mean()) / z.std(ddof=1) * np.sqrt(sig + floor)
+    return dict(kind="reset_dial", arm=arm, p=0.5, L=8, k=8, n=52, patch="6x10", edge="84_85", point_id=f"{arm} p0.5 n52 L8 k8 r0",
+                patch_qubits=" ".join(map(str, Q52)), signal_variance=sig, signal_ci_lo=lo, signal_ci_hi=hi, floor_grad=1e-6,
+                headline_ratio=sig / 1e-6, headline_lo=lo / 1e-6, headline_hi=hi / 1e-6, mele_floor=0.5 ** 4 / 9, gradients=g.tolist(),
+                shot_vars=[floor] * 100, shot_floor=floor, n_placements=1)
+
+
+def _control(monkeypatch, deph, reset=None, with_pred=True):
+    reset = reset or _ctl("reset", VR27, 6.0e-3, 1.45e-2, SHOT1 + 6.82e-4, seed=1)
+    fake = dict(reset=dict(var=VR27, sigma=SR27, placement_stamp="2026-09-27T030805Z"),
+                dephase=dict(var=VD27, sigma=SD27, placement_stamp="2026-09-27T030805Z"))
+    monkeypatch.setattr(DH, "_pred", lambda preds, r, **kw: fake[r.arm] if with_pred else None)
+    res = DH.evaluate_h6(pd.DataFrame([reset, deph]), {}, n_boot=500)
+    (c,) = res["controls"]
+    return res, c
+
+
+def test_h6_control_is_decided_on_bounds_when_the_dephasing_variance_is_not_resolvably_positive(monkeypatch):
+    """Deviation 60 part (6): a dephasing variance at or below zero after the floor subtraction (the paired ratio has no positive
+    denominator; before, NaN and H6 failed) or with its interval reaching zero is read as an upper bound, and no ratio is formed."""
+    deph0 = _ctl("dephase", -1.0e-5, -4.5e-5, 3.0e-5, SHOT1, seed=2)
+    assert not np.isfinite(E.paired_ratio(deph0["gradients"], deph0["gradients"], 200, sub_a=deph0["shot_vars"], sub_b=deph0["shot_vars"])["ratio"])
+    res, c = _control(monkeypatch, deph0)
+    assert c["rule"] == "bounds" and c["within"] is True and c["exceeds"] is True and res["result"] == "pass"
+    assert c["predicted"] == pytest.approx(VR27 / VD27) and c["factor_hi"] > c["predicted"] and c["lo"] == pytest.approx(6.0e-3 / 3.0e-5)
+    assert c["measured"] is None and c["hi"] is None and "part (6)" in res["note"] and "part (6)" in c["note"]
+    assert all(np.isfinite(v) for v in c.values() if isinstance(v, float))                     # no NaN in the control entry
+    res, c = _control(monkeypatch, _ctl("dephase", 1.6e-5, -2.3e-5, 5.5e-5, SHOT1, seed=3))     # positive estimate, interval reaches 0
+    assert c["rule"] == "bounds" and c["within"] and c["exceeds"] and res["result"] == "pass"
+    res, c = _control(monkeypatch, deph0, with_pred=False)                                       # no pre-drawn factor: 'above 1' only
+    assert c["rule"] == "bounds" and c["within"] is None and c["exceeds"] and c["predicted"] is None and res["value"]["control_misses"] == 0
+
+
+def test_h6_control_bounds_fail_below_the_dephasing_bound_or_beyond_the_factor(monkeypatch):
+    """The clause fails when the reset variance's lower bound does not exceed the dephasing upper bound, and when it exceeds the
+    pre-drawn factor's upper limit times that bound (the dephasing variance resolvably below its prediction; also d_hi <= 0)."""
+    low_reset = _ctl("reset", 6.0e-5, 2.0e-5, 1.1e-4, SHOT1 + 6.82e-4, seed=4)
+    res, c = _control(monkeypatch, _ctl("dephase", 1.0e-5, -3.0e-5, 5.0e-5, SHOT1, seed=5), reset=low_reset)
+    assert c["rule"] == "bounds" and c["exceeds"] is False and res["result"] == "fail" and res["value"]["control_misses"] == 1
+    for d_hi in (2.0e-6, -1.0e-6):
+        res, c = _control(monkeypatch, _ctl("dephase", -3.0e-5, -6.0e-5, d_hi, SHOT1, seed=6))
+        assert c["rule"] == "bounds" and c["exceeds"] is True and c["within"] is False and res["result"] == "fail"
+        assert 6.0e-3 > c["factor_hi"] * d_hi
+
+
+def test_h6_control_keeps_the_ratio_test_for_a_resolvably_positive_dephasing_variance(monkeypatch):
+    deph = _ctl("dephase", 4.0e-5, 1.0e-5, 7.0e-5, SHOT1, seed=7)
+    reset = _ctl("reset", VR27, 6.0e-3, 1.45e-2, SHOT1 + 6.82e-4, seed=1)
+    res, c = _control(monkeypatch, deph, reset=reset)
+    meas = E.paired_ratio(reset["gradients"], deph["gradients"], 500, sub_a=reset["shot_vars"], sub_b=deph["shot_vars"])
+    ps = VR27 / VD27 * np.sqrt((SR27 / VR27) ** 2 + (SD27 / VD27) ** 2)
+    want = DH._ratio_test(meas, VR27 / VD27, ps)
+    assert c["rule"] == "ratio" and c["within"] == want["within"] and c["measured"] == pytest.approx(want["measured"])
+    assert c["exceeds"] == (meas["lo"] > 1.0) and "part (6)" not in res["note"]
+
+
 # ------------------------------------------------------------------------------------------------ addendum: settings guard, pre-flight check
 
 TRUNC_PROBES = [dict(id="trunc_full_p0.5_L8", kind="reset_dial", reset_kind="reset", patch="6x10", n=52, edge="84_85", L=8, k=8, p=0.5,

@@ -26,7 +26,8 @@ H_TEXT = {
           "the pre-drawn ratio by more than the combined interval at either p, or the ladder ratio Var(n = 100) / Var(n = 40) at p = 0.25 misses its "
           "pre-drawn value, or the reset dial's k = L variance at n = 60, L = 8 does not exceed the dephasing dial's by the pre-drawn factor within the "
           "combined interval, or the k = 1 series does not fall with L at either p (k = 1 rows are upper bounds, Deviation 40). A flat unital reference "
-          "on the day makes the ladder comparison inconclusive.",
+          "on the day makes the ladder comparison inconclusive. Deviation 60 part (6): when the dephasing variance is not resolvably positive, the "
+          "reset / dephasing clause is decided on the two points' intervals and no ratio is formed.",
     "H7": "Noise-induced effective depth. Refuted if the l = 2 RMS of C_mix - C_mix[L - l, L] (residual pattern noise subtracted) misses the pre-drawn "
           "prediction by more than the combined interval, or, when the measured std(C_mix) exceeds 0.1, the l = 4 RMS is not below the l = 2 RMS by more "
           "than the paired-bootstrap interval. Deviation 60: the statistic also subtracts the shot term of the per-draw mean difference and is compared "
@@ -80,6 +81,32 @@ def _ratio_test(pr: Dict, pred: float, pred_sigma: float) -> Dict:
     lo, hi = pr["ratio"] * np.exp(-np.sqrt(wlo ** 2 + (Z95 * s) ** 2)), pr["ratio"] * np.exp(np.sqrt(whi ** 2 + (Z95 * s) ** 2))
     return dict(measured=float(pr["ratio"]), lo=float(pr["lo"]), hi=float(pr["hi"]), combined_lo=float(lo), combined_hi=float(hi), predicted=float(pred),
                 predicted_sigma=float(pred_sigma) if np.isfinite(pred_sigma) else None, within=bool(lo <= pred <= hi))
+
+
+H6_CONTROL_BOUNDS = ("Deviation 60 part (6): when the lower end of the dephasing point's 95 percent interval (floor-subtracted k = L "
+                     "variance) is at or below zero, or the paired ratio has no positive denominator, no ratio is formed. The dephasing "
+                     "variance is read as an upper bound d_hi, the upper end of that interval (as the k = 1 rows under Deviation 40), and "
+                     "the ratio is then bounded below only, by r_lo / d_hi with r_lo the lower end of the reset point's interval. The clause "
+                     "holds when r_lo > max(d_hi, 0) (the reset variance above the dephasing variance: 'above 1') and r_lo <= F exp(1.96 s) "
+                     "d_hi, F the pre-drawn factor and s its relative sigma (F inside the combined interval, open above); otherwise it fails. "
+                     "With a resolvably positive dephasing variance the paired-bootstrap ratio test is unchanged.")
+
+
+def _control_bounds_test(ra, rb, pred: float, pred_sigma: float) -> Dict:
+    """H6 reset / dephasing control on the two points' intervals (``H6_CONTROL_BOUNDS``): ``ra`` the reset point, ``rb`` the
+    dephasing point, ``pred`` the pre-drawn factor Var_reset / Var_dephase with ``pred_sigma``. No ratio with a non-positive
+    denominator is formed; ``lo`` (reported only) is r_lo / d_hi when d_hi > 0."""
+    r_lo, d_lo, d_hi = float(ra.signal_ci_lo), float(rb.signal_ci_lo), float(rb.signal_ci_hi)
+    finite = bool(np.isfinite(r_lo) and np.isfinite(d_hi))
+    has_pred = bool(np.isfinite(pred) and pred > 0)
+    s = (pred_sigma / pred) if (has_pred and np.isfinite(pred_sigma)) else 0.0
+    f_hi = pred * np.exp(Z95 * s) if has_pred else np.nan
+    return dict(rule="bounds", measured=None, lo=float(r_lo / d_hi) if (finite and d_hi > 0) else None, hi=None,
+                reset_variance=float(ra.signal_variance), reset_lo=r_lo, dephasing_variance=float(rb.signal_variance), dephasing_lo=d_lo,
+                dephasing_hi=d_hi, predicted=float(pred) if has_pred else None,
+                predicted_sigma=float(pred_sigma) if (has_pred and np.isfinite(pred_sigma)) else None,
+                factor_hi=float(f_hi) if has_pred else None, within=bool(r_lo <= f_hi * d_hi) if (finite and has_pred) else None,
+                exceeds=bool(finite and r_lo > max(d_hi, 0.0)), note=H6_CONTROL_BOUNDS)
 
 
 def _value_test(meas: float, lo: float, hi: float, pred: float, pred_sigma: float) -> Dict:
@@ -297,8 +324,13 @@ def evaluate_h6(points: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict
         meas = paired_ratio(ra.gradients, rb.gradients, n_boot, sub_a=ra.shot_vars, sub_b=rb.shot_vars)
         pred = pra["var"] / prb["var"] if (pra and prb and prb["var"] > 0) else np.nan
         ps = pred * np.sqrt((pra["sigma"] / pra["var"]) ** 2 + (prb["sigma"] / prb["var"]) ** 2) if np.isfinite(pred) else np.nan
-        t = _ratio_test(meas, pred, ps)
-        t["exceeds"] = bool(np.isfinite(meas.get("lo", np.nan)) and meas["lo"] > 1.0)
+        d_lo = float(rb.signal_ci_lo)
+        if np.isfinite(d_lo) and d_lo > 0 and np.isfinite(meas.get("ratio", np.nan)):     # dephasing variance resolvably positive
+            t = _ratio_test(meas, pred, ps)
+            t["exceeds"] = bool(np.isfinite(meas.get("lo", np.nan)) and meas["lo"] > 1.0)
+            t["rule"] = "ratio"
+        else:                                                                               # Deviation 60 part (6): bounds, no ratio
+            t = _control_bounds_test(ra, rb, pred, ps)
         controls.append(dict(n=int(ra.n), p=float(ra.p), **t))
     for p, g in _sel(d, "reset", k_eq_L=False).pipe(lambda x: x[x.k == 1]).groupby("p"):
         a, b = g[g.L == 8], g[g.L == 12]
@@ -336,7 +368,9 @@ def evaluate_h6(points: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict
                               ladder_misses=sum(1 for x in ladder if x["within"] is False), control_misses=sum(1 for x in controls if x["within"] is False or not x["exceeds"])),
                    threshold="0 of each", comparison="headline: floor-subtracted k = L variance / (1/2 c_i^2 g_i^2 p^2) with its interval above 1",
                    note=f"{len(fl)} floor checks, {len(ratios)} depth ratios, {len(ladder)} ladder ratios, {len(controls)} dephasing comparisons; k = 1 fall reported only"
-                        + ("; unital reference flat on the day: ladder comparison inconclusive (not refuting)" if inconclusive else "") + miss_note,
+                        + ("; unital reference flat on the day: ladder comparison inconclusive (not refuting)" if inconclusive else "")
+                        + ("; dephasing variance not resolvably positive: reset / dephasing clause read on bounds (Deviation 60 part (6))"
+                           if any(x.get("rule") == "bounds" for x in controls) else "") + miss_note,
                    headline=[dict(p=x["p"], n=x["n"], L=x["L"], ratio_to_floor=x["headline_ratio"], lo=x["headline_lo"], hi=x["headline_hi"]) for x in floors],
                    floors=floors, depth_ratios=ratios, ladder=ladder, controls=controls, k1_series=k1, unital_reference=flat_reference, ladder_inconclusive=inconclusive,
                    missing_predictions=miss, pairing=pairing)
