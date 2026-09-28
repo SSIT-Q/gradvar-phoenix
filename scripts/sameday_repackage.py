@@ -764,6 +764,12 @@ def run(args) -> int:
             S["status"] = "stopped"
         S["stop_reason"] = str(ex)
         log(f"STOP: {ex}")
+    except Exception as ex:                                                    # a pipeline error: record it, still write the summary and bundle
+        import traceback
+        S["status"] = "error"
+        S["stop_reason"] = f"pipeline error {type(ex).__name__}: {ex}"
+        S["traceback"] = traceback.format_exc()
+        log(f"ERROR: {type(ex).__name__}: {ex}\n{S['traceback']}")
     finally:
         wall = time.time() - t_start
         mem = float(args.cost_mem_gib or 0)
@@ -775,7 +781,18 @@ def run(args) -> int:
                                      f"{wall / 60:.1f} min at the Modal sandbox rates; the sandbox's own start-up adds a minute or two)"
         else:
             S["run"]["modal_cost"] = "not on Modal (or not given)"
-        jpath, mpath = write_summary(S, date)
+        try:
+            jpath, mpath = write_summary(S, date)
+        except Exception as ex:                                                # never lose the re-drawn files to a rendering error
+            import traceback
+            if S.get("status") in ("ok", "running"):
+                S["status"] = "error"
+            S["stop_reason"] = (S.get("stop_reason") + "; " if S.get("stop_reason") else "") + f"summary writer failed: {type(ex).__name__}: {ex}"
+            REPACK.mkdir(parents=True, exist_ok=True)
+            jpath, mpath = REPACK / f"{date}_summary.json", REPACK / f"{date}_summary.md"
+            jpath.write_text(json.dumps(S, indent=1, default=str) + "\n", encoding="utf-8", newline="\n")
+            mpath.write_text(f"# Same-day re-package {date}: SUMMARY WRITER FAILED\n\n{S['stop_reason']}\n\n```\n{traceback.format_exc()}```\n",
+                             encoding="utf-8", newline="\n")
         after = tree_hashes()
         changed = sorted(k for k, v in after.items() if before.get(k) != v)
         write_bundle(out, S, changed, csv, date, args)
