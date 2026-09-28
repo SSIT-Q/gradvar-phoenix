@@ -562,6 +562,25 @@ def _truncation_point(t: pd.DataFrame) -> Dict:
                 qubits=[int(q) for q in qk.split()] if qk else None, broken_edges=next(iter(broken)) if broken else None)
 
 
+H7_POINT = dict(arm="reset", p=0.5)                 # the registered H7 truncation point (Section 3b 'Truncation arm')
+
+
+def _truncation_kind(t: pd.DataFrame) -> pd.Series:
+    """The dial kind of truncation rows: the loader's ``arm`` (= ``reset_kind`` for probes), else ``reset_kind``, else 'reset'
+    (rows written before Deviation 63 carry only the reset dial)."""
+    for col in ("arm", "reset_kind"):
+        if col in t.columns:
+            return t[col].astype(str)
+    return pd.Series("reset", index=t.index)
+
+
+def _is_truncation_point(t: pd.DataFrame, arm: str, p: float) -> pd.Series:
+    """Rows of the truncation point (dial kind ``arm``, strength ``p``)."""
+    if t.empty:
+        return pd.Series(False, index=t.index)
+    return (_truncation_kind(t) == arm) & pd.Series(np.isclose(pd.to_numeric(t.p, errors="coerce").astype(float), float(p)), index=t.index)
+
+
 def evaluate_h7(rows: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict:
     """H7 on the truncation arm: rows of kind 'truncation' (the loader's mapping of the unshifted reset_dial probes, Deviation 60)
     with ``ell`` = 0 for the full circuit. RMS at l = 2 (``truncation_rms``: shot and residual pattern terms subtracted, paired
@@ -570,17 +589,27 @@ def evaluate_h7(rows: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict:
     l = 4 < l = 2 test (``truncation_fall``, the paired bootstrap over draws of RMS(2) - RMS(4)). Not-evaluable without that
     comparator (Deviation 60 guard: no verdict from the l = 4 test alone), when the full / truncated rows do not pair, or when the
     rows mix placements (point, qubit set or broken couplers). l = 4 is an upper-bound point by rule (``L4_RULE``). The contingent
-    l = 4 rows pair with the day-3 full circuits, so l = 4 is evaluated on the two runs loaded together."""
+    l = 4 rows pair with the day-3 full circuits, so l = 4 is evaluated on the two runs loaded together. Only the rows of H7's point,
+    the reset dial at p = 0.5, enter (Deviation 63, draft: the A3 pairs' rows are counted in ``other_truncation_rows`` and left
+    out); the comparator lookup is for the reset dial."""
     t = rows[rows.kind == "truncation"] if len(rows) and "kind" in rows.columns else pd.DataFrame()
     if t.empty or "ell" not in t.columns:
         return verdict("H7", H_TEXT["H7"], "not-evaluable", note="no truncation-arm rows in the run")
+    # Deviation 63 (draft): H7 reads its registered point only, the reset dial at p = 0.5; the A3 pairs (reset p = 0.25, dephasing
+    # p = 0.5) are kind 'truncation' too and would otherwise enter it (the dephasing pair has H7's patch, edge, n, p and L)
+    mine = _is_truncation_point(t, H7_POINT["arm"], H7_POINT["p"])
+    other = int((~mine).sum())
+    other_note = (f"; {other} truncation rows of other points (Deviation 63 pairs) are not H7's and are left out" if other else "")
+    t = t[mine]
+    if t.empty:
+        return verdict("H7", H_TEXT["H7"], "not-evaluable", note="no truncation rows of the reset dial at p = 0.5, H7's point" + other_note)
     t = t.assign(ev=pd.to_numeric(t.ev_plus, errors="coerce"), std=pd.to_numeric(t.std_plus, errors="coerce"))
     t = t[np.isfinite(t.ev)]
     if t.empty:
-        return verdict("H7", H_TEXT["H7"], "not-evaluable", note="truncation-arm rows carry no measured values (dry run or failed jobs)")
+        return verdict("H7", H_TEXT["H7"], "not-evaluable", note="truncation-arm rows carry no measured values (dry run or failed jobs)" + other_note)
     point = _truncation_point(t)
     if "error" in point:
-        return verdict("H7", H_TEXT["H7"], "not-evaluable", note=point["error"])
+        return verdict("H7", H_TEXT["H7"], "not-evaluable", note=point["error"] + other_note)
     full = t[t.ell == 0]
     K = int(full.groupby("draw").size().median()) if len(full) else 0
     out = {}
@@ -589,26 +618,27 @@ def evaluate_h7(rows: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict:
         if len(tr) and len(full):
             out[ell] = truncation_rms(full, tr, K, n_boot)
     if not out or 2 not in out:
-        return verdict("H7", H_TEXT["H7"], "not-evaluable", note="no full circuits or no l = 2 rows: the l = 2 test is the primary claim", rms=out, point=point)
+        return verdict("H7", H_TEXT["H7"], "not-evaluable", note="no full circuits or no l = 2 rows: the l = 2 test is the primary claim" + other_note, rms=out, point=point)
     if 4 in out:
         out[4].update(upper_bound_by_rule=True, reported_upper_bound=out[4]["rms_hi"], label=L4_RULE)
     std_c = float(full.groupby("draw").ev.mean().std(ddof=1)) if full.draw.nunique() > 1 else np.nan
     fall = truncation_fall(full, t[t.ell == 2], t[t.ell == 4], n_boot) if 4 in out else None
-    comp, why = P.truncation_prediction(preds, **{k: point[k] for k in ("patch", "edge", "n", "p", "L", "qubits")})
+    comp, why = P.truncation_prediction(preds, reset_kind=H7_POINT["arm"], **{k: point[k] for k in ("patch", "edge", "n", "p", "L", "qubits")})
     checks = dict(std_cmix=std_c, l4_fall=fall)
-    common = dict(value={f"rms_l{k}": v["rms"] for k, v in out.items()}, rms=out, point=point, comparator=comp, statistic=H7_STATISTIC)
+    common = dict(value={f"rms_l{k}": v["rms"] for k, v in out.items()}, rms=out, point=point, comparator=comp, statistic=H7_STATISTIC,
+                  other_truncation_rows=other)
     bad_pairs = {k: v["pairing_errors"] for k, v in out.items() if v["pairing_errors"]}
     if bad_pairs:
-        return verdict("H7", H_TEXT["H7"], "not-evaluable", note=f"full and truncated circuits do not pair (theta or mask seed differs): {bad_pairs}",
+        return verdict("H7", H_TEXT["H7"], "not-evaluable", note=f"full and truncated circuits do not pair (theta or mask seed differs): {bad_pairs}" + other_note,
                        checks=checks, **common)
     if comp is None:
         return verdict("H7", H_TEXT["H7"], "not-evaluable", note=f"no pre-drawn l = 2 comparator for this placement ({why}); Deviation 60: no H7 verdict "
-                       "without it, whatever the l = 4 test shows", checks=checks, **common)
+                       "without it, whatever the l = 4 test shows" + other_note, checks=checks, **common)
     l2 = out[2]
     ps = comp.get("rms_l2_sigma")
     checks["l2"] = _value_test(l2["rms"], l2["rms_lo"], l2["rms_hi"], float(comp["rms_l2"]), float(ps) if ps is not None else np.nan)
     if checks["l2"]["within"] is None:
-        return verdict("H7", H_TEXT["H7"], "not-evaluable", note="the l = 2 RMS or its comparator is not finite", checks=checks, **common)
+        return verdict("H7", H_TEXT["H7"], "not-evaluable", note="the l = 2 RMS or its comparator is not finite" + other_note, checks=checks, **common)
     fails = [] if checks["l2"]["within"] else ["l2"]
     if fall is not None and np.isfinite(std_c) and std_c > 0.1:
         checks["l4_below_l2"] = fall["l4_below_l2"]
@@ -619,8 +649,306 @@ def evaluate_h7(rows: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict:
         note += " (no rms_l2_sigma: the prediction's own error is not added)"
     if 4 in out:
         note += "; " + L4_RULE
+    note += other_note
     return verdict("H7", H_TEXT["H7"], "fail" if fails else "pass", threshold=dict(rms_l2_predicted=float(comp["rms_l2"]), rms_l2_sigma=ps),
                    note=note, checks=checks, **common)
+
+
+# ------------------------------------------------------------------------------------------------ Deviation 63 (draft)
+# Part A3: two truncation pairs in their own list (dial_truncation_pairs.json, scripts/make_truncation_pairs.py), and Part A2: the
+# competing readings R1 / R2 / R3 / UNRESOLVED fixed before data. Analysis only: no H1-H7 test, bound or refutation criterion changes.
+
+PAIRS = {
+    "a": dict(arm="reset", p=0.25, label="A3(a): truncation pair on the reset dial at p = 0.25 (n60 rung, L = 8, l = 2)"),
+    "b": dict(arm="dephase", p=0.5, label="A3(b): truncation pair on the unital dephasing dial at p = 0.5 (n60 rung, L = 8, l = 2)"),
+}
+PAIR_TEXT = {
+    "a": ("Deviation 63 (draft) A3(a). Refuted if RMS(2) on the reset dial at p = 0.25 (the Deviation 60 statistic) misses its pre-drawn "
+          "comparator by more than the combined interval, or is not above day 3's RMS(2) at p = 0.5 by the two-sample bootstrap over draws "
+          "(one-sided, 95 percent; the pairs run in their own seed block, so no draw is shared with day 3)."),
+    "b": ("Deviation 63 (draft) A3(b). Refuted if RMS(2) on the dephasing dial at p = 0.5 minus day 3's reset RMS(2) at p = 0.5 lies below the "
+          "pre-drawn margin (the difference of the two comparators) by more than the combined interval (the two-sample bootstrap interval over "
+          "draws, 95 percent, widened by 1.96 sigma of the margin). The dephasing RMS(2) against its own comparator is reported."),
+}
+TWO_SAMPLE = ("two-sample bootstrap over draws: each pair's draws resampled on their own (n_boot resamples; the two-stage construction of "
+              "truncation_rms, each selected draw entering as mean(diff)^2 minus one of its mask replicates of Var_m(diff) / K), and the "
+              "difference of the two RMS formed on each resample")
+
+
+def _truncation_rows(rows: pd.DataFrame) -> pd.DataFrame:
+    """The truncation rows (kind 'truncation', ``ell``) with a finite measured value, ``ev`` = the unshifted value."""
+    t = rows[rows.kind == "truncation"] if len(rows) and "kind" in rows.columns else pd.DataFrame()
+    if t.empty or "ell" not in t.columns:
+        return pd.DataFrame()
+    t = t.assign(ev=pd.to_numeric(t.ev_plus, errors="coerce"), std=pd.to_numeric(t.std_plus, errors="coerce"))
+    return t[np.isfinite(t.ev)]
+
+
+def _ms_bootstrap(full: pd.DataFrame, trunc: pd.DataFrame, n_boot: int, rng) -> tuple:
+    """(per-draw y_d, ``n_boot`` resampled means of y) of one truncation pair: the two-stage bootstrap of ``truncation_rms``."""
+    pairs, _ = _paired_draws(full, trunc)
+    draws = sorted(pairs)
+    if not draws:
+        return np.empty(0), np.empty(0)
+    y = np.array([float(_y_stat(pairs[d][1])) for d in draws])
+    reps = np.stack([_mask_replicates([pairs[d][1]], N_MASK_REPLICATES, rng)[0] for d in draws])
+    return y, _draw_bootstrap(reps, int(n_boot), rng)
+
+
+def two_sample_rms(a_full: pd.DataFrame, a_trunc: pd.DataFrame, b_full: pd.DataFrame, b_trunc: pd.DataFrame, n_boot: int = 10_000,
+                   seed: int = 17) -> Dict:
+    """RMS_a(l) - RMS_b(l) of two truncation pairs with independent draws (their own seed blocks: nothing to pair): the point
+    difference, and on ``n_boot`` resamples, each pair resampled on its own (``_ms_bootstrap``), the 5th, 2.5th and 97.5th percentiles
+    of sqrt(max(ms_a*, 0)) - sqrt(max(ms_b*, 0)). ``a_above_b`` = the 5th percentile > 0 (one-sided at 95 percent)."""
+    rng = np.random.default_rng(seed)
+    ya, ba = _ms_bootstrap(a_full, a_trunc, n_boot, rng)
+    yb, bb = _ms_bootstrap(b_full, b_trunc, n_boot, rng)
+    base = dict(M_a=int(len(ya)), M_b=int(len(yb)), n_boot=int(n_boot), n_mask_replicates=N_MASK_REPLICATES, method=TWO_SAMPLE)
+    if not len(ya) or not len(yb):
+        return dict(base, point_difference=np.nan, q05=np.nan, lo=np.nan, hi=np.nan, a_above_b=None)
+    d = np.sqrt(np.maximum(ba, 0.0)) - np.sqrt(np.maximum(bb, 0.0))
+    q05, lo, hi = (float(v) for v in np.quantile(d, [0.05, 0.025, 0.975]))
+    point = float(np.sqrt(max(ya.mean(), 0.0)) - np.sqrt(max(yb.mean(), 0.0)))
+    return dict(base, point_difference=point, q05=q05, lo=lo, hi=hi, a_above_b=bool(q05 > 0))
+
+
+def _pair_stat(t: pd.DataFrame, preds: Dict, arm: str, n_boot: int) -> Dict:
+    """One truncation pair at l = 2 on one placement: its point, the Deviation 60 statistic, the comparator of its dial kind and
+    placement, and the rows (``full``, ``cut``); {'error': ...} when the rows do not form one pair on one placement."""
+    point = _truncation_point(t)
+    if "error" in point:
+        return dict(error=point["error"])
+    full, cut = t[t.ell == 0], t[t.ell == 2]
+    if full.empty or cut.empty:
+        return dict(error="no full circuits or no l = 2 rows", point=point)
+    K = int(full.groupby("draw").size().median())
+    stat = truncation_rms(full, cut, K, n_boot)
+    if stat["pairing_errors"]:
+        return dict(error=f"full and truncated circuits do not pair (theta or mask seed differs): {stat['pairing_errors']}", point=point, stat=stat)
+    comp, why = P.truncation_prediction(preds, reset_kind=arm, **{k: point[k] for k in ("patch", "edge", "n", "p", "L", "qubits")})
+    return dict(point=point, stat=stat, comparator=comp, why=why, full=full, cut=cut)
+
+
+def _same_placement(a: Dict, b: Dict) -> bool:
+    keys = ("patch", "edge", "n", "L", "qubits", "broken_edges")
+    return all(a.get(k) == b.get(k) for k in keys)
+
+
+def evaluate_truncation_pairs(rows: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict[str, Dict]:
+    """Deviation 63 (draft) Part A3 on the truncation rows of the loaded runs (the pairs' list and day 3's list loaded together): per
+    pair, RMS(2) by ``truncation_rms`` (the Deviation 60 statistic and interval) against the pre-drawn comparator of its dial kind on
+    the rows' placement (``predictions.truncation_prediction(reset_kind=...)``), and the comparison with day 3's reset p = 0.5 pair
+    (H7's rows, same placement) by ``two_sample_rms``. (a) fails if its RMS(2) misses its comparator by more than the combined interval
+    or is not above p = 0.5's (one-sided 95 percent); (b) fails if RMS_dephase(2) - RMS_reset(2) lies below the comparators' difference
+    by more than the combined interval. 'not-run' when a pair has no rows; 'not-evaluable' without its comparator, without day 3's pair
+    and H7's comparator (for (b)), when the pairs are on different placements, or when the rows do not pair. ``unital_as_fast`` in (b)
+    (the 5th percentile of the difference <= 0: the dephasing RMS(2) not resolvably above the reset's) feeds reading R2."""
+    t = _truncation_rows(rows)
+    ref_rows = t[_is_truncation_point(t, H7_POINT["arm"], H7_POINT["p"])] if len(t) else t
+    ref = _pair_stat(ref_rows, preds, H7_POINT["arm"], n_boot) if len(ref_rows) else dict(error="no truncation rows of the reset dial at p = 0.5 (day 3's pair)")
+    out = {}
+    for key, spec in PAIRS.items():
+        hid, text = f"A3({key})", PAIR_TEXT[key]
+        rk = t[_is_truncation_point(t, spec["arm"], spec["p"])] if len(t) else t
+        if rk.empty:
+            out[key] = verdict(hid, text, "not-run", note="no rows of this pair in the loaded runs", label=spec["label"])
+            continue
+        s = _pair_stat(rk, preds, spec["arm"], n_boot)
+        if "error" in s:
+            out[key] = verdict(hid, text, "not-evaluable", note=s["error"], label=spec["label"], point=s.get("point"))
+            continue
+        stat, comp = s["stat"], s["comparator"]
+        common = dict(label=spec["label"], point=s["point"], rms=stat, comparator=comp, statistic=H7_STATISTIC)
+        if comp is None:
+            out[key] = verdict(hid, text, "not-evaluable", note=f"no pre-drawn l = 2 comparator for this pair on this placement ({s['why']})", **common)
+            continue
+        ps = comp.get("rms_l2_sigma")
+        checks = dict(l2=_value_test(stat["rms"], stat["rms_lo"], stat["rms_hi"], float(comp["rms_l2"]), float(ps) if ps is not None else np.nan))
+        if "error" in ref:
+            out[key] = verdict(hid, text, "not-evaluable", note=f"day 3's reset p = 0.5 pair is needed for the between-pair test: {ref['error']}",
+                               checks=checks, **common)
+            continue
+        if not _same_placement(s["point"], ref["point"]):
+            out[key] = verdict(hid, text, "not-evaluable", note="the pair and day 3's reset p = 0.5 pair are on different placements", checks=checks,
+                               reference_point=ref["point"], **common)
+            continue
+        between = two_sample_rms(s["full"], s["cut"], ref["full"], ref["cut"], n_boot)
+        checks["versus_reset_p0.5"] = dict(between, reference_rms=ref["stat"]["rms"], reference_rms_lo=ref["stat"]["rms_lo"], reference_rms_hi=ref["stat"]["rms_hi"])
+        if key == "a":
+            if checks["l2"]["within"] is None or between["a_above_b"] is None:
+                out[key] = verdict(hid, text, "not-evaluable", note="the RMS(2) or its comparator, or the between-strength difference, is not finite", checks=checks, **common)
+                continue
+            fails = ([] if checks["l2"]["within"] else ["comparator"]) + ([] if between["a_above_b"] else ["not above p = 0.5"])
+            out[key] = verdict(hid, text, "fail" if fails else "pass", value=dict(rms_l2=stat["rms"], minus_p05=between["point_difference"]),
+                               threshold=dict(rms_l2_predicted=float(comp["rms_l2"]), rms_l2_sigma=ps, q05_above=0.0), fails=fails, checks=checks, **common)
+            continue
+        ref_comp = ref.get("comparator")
+        if ref_comp is None:
+            out[key] = verdict(hid, text, "not-evaluable", note=f"no H7 comparator for day 3's pair on this placement ({ref.get('why')}): no pre-drawn margin",
+                               checks=checks, **common)
+            continue
+        margin = float(comp["rms_l2"]) - float(ref_comp["rms_l2"])
+        s_d, s_r = (float(x) if x is not None else 0.0 for x in (comp.get("rms_l2_sigma"), ref_comp.get("rms_l2_sigma")))
+        m_sigma = float(np.hypot(s_d, s_r))
+        mt = _value_test(between["point_difference"], between["lo"], between["hi"], margin, m_sigma)
+        checks["margin"] = dict(mt, margin=margin, margin_sigma=m_sigma)
+        if mt["within"] is None:
+            out[key] = verdict(hid, text, "not-evaluable", note="the difference or the margin is not finite", checks=checks, **common)
+            continue
+        below = bool(mt["combined_hi"] < margin)
+        fails = ["below the pre-drawn margin"] if below else []
+        out[key] = verdict(hid, text, "fail" if fails else "pass", value=dict(rms_l2=stat["rms"], minus_reset=between["point_difference"]),
+                           threshold=dict(margin=margin, margin_sigma=m_sigma), fails=fails, checks=checks,
+                           unital_as_fast=bool(not between["a_above_b"]), **common)
+    return out
+
+
+def mean_cmix_check(points: pd.DataFrame, snapshot_csv: str | None = None, eps: Dict[int, float] | None = None, n_boot: int = 10_000,
+                    alpha: float = 0.05, seed: int = 19) -> Dict:
+    """Deviation 63 (draft), reading rule R3 (ii): the Section 3b pipeline check E[C_mix] = p^2 (exact for uniform angles before readout
+    folding) made a test. At each reset k = L point the folded value F = (a_i t_i + b_i)(a_j t_j + b_j), with the run-day readout a, b
+    of the Deviation 33 floors (``floors.calibration_for``, ``Calibration.ab``) and t_q = p (1 - 2 eps_q) (eps_q: the day's reset error
+    of qubit q from the characterisation, 0 where not given), is set against the bootstrap interval over draws (``n_boot`` resamples)
+    of the measured mean of C_mix (per draw, the mean of the two shift circuits' C_mix) at the family-wise level: 1 - alpha / m for the
+    m points evaluated (Bonferroni). A miss is F outside that interval."""
+    rows = []
+    d = points[(points.kind == "reset_dial") & (points.arm == "reset") & (points.k == points.L)] if len(points) else points
+    rng = np.random.default_rng(seed)
+    for r in d.itertuples():
+        c = np.asarray(getattr(r, "cmix_draws", None) if getattr(r, "cmix_draws", None) is not None else [], float)
+        cal = calibration_for(getattr(r, "properties_file", None), snapshot_csv)
+        if c.size == 0 or cal is None or not r.edge:
+            rows.append(dict(point_id=getattr(r, "point_id", None), p=float(r.p), L=int(r.L), n=int(r.n), within=None,
+                             note="no per-draw C_mix or no calibration"))
+            continue
+        per = c.reshape(len(c), -1).mean(axis=1)
+        i, j = (int(x) for x in str(r.edge).replace("-", "_").split("_"))
+        ai, bi = cal.ab(i, int(r.resilience_level))
+        aj, bj = cal.ab(j, int(r.resilience_level))
+        ti, tj = (float(r.p) * (1.0 - 2.0 * float((eps or {}).get(q, 0.0))) for q in (i, j))
+        folded = (ai * ti + bi) * (aj * tj + bj)
+        boot = per[rng.integers(0, len(per), size=(int(n_boot), len(per)))].mean(axis=1)
+        rows.append(dict(point_id=getattr(r, "point_id", None), p=float(r.p), L=int(r.L), n=int(r.n), mean=float(per.mean()), folded=float(folded),
+                         p_squared=float(r.p) ** 2, a_i=ai, b_i=bi, a_j=aj, b_j=bj, eps_i=float((eps or {}).get(i, 0.0)), eps_j=float((eps or {}).get(j, 0.0)),
+                         boot=boot))
+    m = sum(1 for x in rows if "boot" in x)
+    level = 1.0 - alpha / m if m else float("nan")
+    for x in rows:
+        b = x.pop("boot", None)
+        if b is None:
+            continue
+        lo, hi = (float(v) for v in np.quantile(b, [(1 - level) / 2, 1 - (1 - level) / 2]))
+        x.update(lo=lo, hi=hi, level=level, within=bool(lo <= x["folded"] <= hi))
+    ev = [x for x in rows if x.get("within") is not None]
+    result = "not-evaluable" if not ev else ("fail" if any(not x["within"] for x in ev) else "pass")
+    return dict(id="E[C_mix] check", result=result, points=rows, family_level=level, m=m,
+                text=("Deviation 63 (draft) R3 (ii): E[C_mix] against its folded p^2 value (Section 3b pipeline check) at every reset k = L point; a miss "
+                      "is the folded value outside the family-wise 95 percent bootstrap interval (Bonferroni over the points)"))
+
+
+READINGS = {
+    "R1": "Protection with a depth price: the reset dial keeps last-layer gradients resolvable (H6 as pre-drawn) and makes the circuit "
+          "effectively shallow (H7 at its comparator), and, where the A3 pairs ran, the depth price follows the dial and exceeds the unital dial's.",
+    "R2": "Added noise only: the reset dial behaves as pre-drawn, but the unital dephasing dial at matched X and Y attenuation keeps the "
+          "last-layer gradient (and, where A3(b) ran, forgets its early layers) as well as the reset dial does.",
+    "R3": "Channel not as modelled: a Deviation 33 floor fails, E[C_mix] misses its folded value, or Paper 2's H4 is refuted; reported as a "
+          "channel finding, with no trainability claim.",
+    "UNRESOLVED": "Any other pattern: Paper 1 reports the pre-registered tests and gives no headline answer.",
+}
+
+
+def _h6_parts(h6: Dict) -> Dict:
+    """The H6 sub-tests the reading rules use: floors, depth ratios per p, the ladder, and the reset / dephasing control."""
+    floors = [x for x in h6.get("floors", []) or [] if x.get("below_floor_with_interval") is not None]
+    ratios = {float(x["p"]): x for x in h6.get("depth_ratios", []) or []}
+    controls = h6.get("controls", []) or []
+    return dict(floors=floors, ratios=ratios, ladder=h6.get("ladder", []) or [], control=controls[0] if len(controls) == 1 else None,
+                n_controls=len(controls), inconclusive=bool(h6.get("ladder_inconclusive")))
+
+
+def _control_reading(c: Dict | None) -> str:
+    """H6's reset / dephasing control as the reading rules use it: 'as_modelled' (within the combined interval of the pre-drawn factor and
+    resolvably above 1), 'unital_protects' (the reset dial's k = L variance not resolvably above the dephasing dial's: lower end <= 1 on a
+    resolved dephasing variance, i.e. a finite ratio), 'partial' (resolvably above 1 but off the pre-drawn factor), 'unresolved' (no
+    finite ratio: the dephasing signal variance is not above zero, so only a lower bound on the ratio exists), 'missing'."""
+    if c is None:
+        return "missing"
+    if not np.isfinite(float(c.get("measured") if c.get("measured") is not None else np.nan)) or not np.isfinite(float(c.get("lo") if c.get("lo") is not None else np.nan)):
+        return "unresolved"
+    if not c.get("exceeds"):
+        return "unital_protects"
+    return "as_modelled" if c.get("within") else "partial"
+
+
+def classify_readings(h5: Dict, h6: Dict, h7: Dict, pairs: Dict | None = None, mean_check: Dict | None = None, h4: str | None = None) -> Dict:
+    """Deviation 63 (draft) Part A2: the reading of the booked H5-H7 outcomes (and the A3 pairs where they ran), from the verdicts of
+    ``evaluate_h5`` / ``evaluate_h6`` / ``evaluate_h7`` / ``evaluate_truncation_pairs`` and ``mean_cmix_check``, and Paper 2's H4
+    outcome ``h4`` ('refuted', 'not refuted', or None while Q4's post-run review is pending). Rules, in order:
+
+    1. R3 if a Deviation 33 floor fails (any H5 or H6 floor check below the floor with its interval), E[C_mix] misses its folded
+       value (``mean_check`` 'fail'), or H4 is refuted. It overrides R1 and R2.
+    2. R1 if H6 and H7 pass as pre-registered, with every sub-test the readings need evaluated (the H6 depth ratio at both p, the
+       reset / dephasing control, H7's l = 2 comparator), and every A3 pair that ran passes (a pair that ran and is not evaluable
+       blocks R1).
+    3. R2 if the reset-side sub-tests pass (the H6 floors, depth ratios at both p and ladder; H7) while the H6 control reads
+       'unital_protects' and, where A3(b) ran and is evaluable, its difference is not resolvably above zero (``unital_as_fast``).
+    4. Otherwise UNRESOLVED.
+
+    Until H4 is reviewed (``h4`` None) R1 and R2 are worded 'the dial as implemented'; with H4 not refuted, 'the channel'."""
+    reasons, blocks = [], []
+    hp = _h6_parts(h6 or {})
+    h5_floor_fail = any(x.get("below_floor_with_interval") for x in (h5 or {}).get("floors", []) or [])
+    h6_floor_fail = any(x.get("below_floor_with_interval") for x in hp["floors"])
+    r3 = []
+    if h5_floor_fail or h6_floor_fail:
+        r3.append("a floor-subtracted value lies below the Deviation 33 floor with its interval" + (" (H5)" if h5_floor_fail else "") + (" (H6)" if h6_floor_fail else ""))
+    if mean_check is not None and mean_check.get("result") == "fail":
+        r3.append("E[C_mix] misses its folded p^2 value at " + ", ".join(str(x.get("point_id")) for x in mean_check.get("points", []) if x.get("within") is False))
+    if str(h4 or "").lower() == "refuted":
+        r3.append("Paper 2's H4 is refuted (Q4): the dial is not used in Paper 1 without a recorded deviation")
+    wording = "the channel N_p" if str(h4 or "").lower() == "not refuted" else "the dial as implemented"
+    control = _control_reading(hp["control"])
+    pairs = pairs or {}
+    ran = {k: v for k, v in pairs.items() if v and v.get("result") != "not-run"}
+    detail = dict(h5=(h5 or {}).get("result"), h6=(h6 or {}).get("result"), h7=(h7 or {}).get("result"), h6_control=control,
+                  h6_depth_ratios={p: x.get("within") for p, x in hp["ratios"].items()}, pairs={k: v.get("result") for k, v in pairs.items()},
+                  mean_check=(mean_check or {}).get("result"), h4=h4)
+    if r3:
+        return dict(reading="R3", text=READINGS["R3"], reasons=r3, wording="a channel finding", detail=detail)
+    both_p = all(p in hp["ratios"] and hp["ratios"][p].get("within") is not None for p in (0.25, 0.5))
+    if not both_p:
+        blocks.append("the H6 depth ratio is not evaluated at both p (the p = 0.5 rows need a placement-matched prediction, Deviation 60 item 5)")
+    if hp["control"] is None:
+        blocks.append("the H6 reset / dephasing control is not evaluated" + (f" ({hp['n_controls']} candidates)" if hp["n_controls"] else ""))
+    if (h7 or {}).get("result") not in ("pass", "fail"):
+        blocks.append("H7 is not evaluable" + (f": {(h7 or {}).get('note')}" if (h7 or {}).get("note") else ""))
+    for k, v in ran.items():
+        if v.get("result") == "not-evaluable":
+            blocks.append(f"A3({k}) ran but is not evaluable: {v.get('note')}")
+    reset_side_ok = (not h6_floor_fail and both_p and all(hp["ratios"][p].get("within") for p in (0.25, 0.5))
+                     and not any(x.get("within") is False for x in hp["ladder"] if not hp["inconclusive"])
+                     and (h7 or {}).get("result") == "pass")
+    if (h6 or {}).get("result") == "pass" and (h7 or {}).get("result") == "pass" and not blocks and all(v.get("result") == "pass" for v in ran.values()):
+        return dict(reading="R1", text=READINGS["R1"], reasons=["H6 and H7 pass as pre-registered"] + [f"A3({k}) passes" for k in ran], wording=wording, detail=detail)
+    b = ran.get("b")
+    b_supports_r2 = b is None or b.get("result") == "not-evaluable" or bool(b.get("unital_as_fast"))
+    if reset_side_ok and control == "unital_protects" and b_supports_r2:
+        return dict(reading="R2", text=READINGS["R2"], wording=wording, detail=detail,
+                    reasons=["the reset-side sub-tests pass while the reset dial's k = L variance is not resolvably above the dephasing dial's"]
+                    + (["A3(b): the dephasing RMS(2) is not resolvably above the reset's"] if b is not None and b.get("unital_as_fast") else []))
+    if control == "unresolved":
+        reasons.append("the H6 control has no finite ratio (the dephasing dial's signal variance is not above zero), which H6 as coded counts "
+                       "as not exceeding (Deviation 63 observation for Deviation 60)")
+    if control == "partial":
+        reasons.append("the reset dial is resolvably above the dephasing dial but off the pre-drawn factor")
+    if (h6 or {}).get("result") == "fail":
+        reasons.append("H6 fails")
+    if (h7 or {}).get("result") == "fail":
+        reasons.append("H7 fails")
+    for k, v in ran.items():
+        if v.get("result") == "fail":
+            reasons.append(f"A3({k}) fails: {', '.join(v.get('fails', []))}")
+    return dict(reading="UNRESOLVED", text=READINGS["UNRESOLVED"], reasons=reasons + blocks, wording=None, detail=detail)
 
 
 def evaluate_all(points: pd.DataFrame, rows: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict[str, Dict]:
