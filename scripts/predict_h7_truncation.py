@@ -237,26 +237,33 @@ def markdown(rec: dict) -> str:
              f"code {rec.get('git_commit') or 'uncommitted'}; generated {rec['generated_utc']}; command `{rec['command']}`.", ""]
     ic = rec.get("ideal_check")
     if ic:
+        pts = ic.get("points") or []                                           # several points (the Deviation 63 pairs): one table per point
+        first = pts[0] if pts else ic
         lines += [f"## Bug check, noise off: {'PASS' if ic['passed'] else 'FAIL'}"
-                  + (" (every point, each with its own dial)" if ic.get("points") else ""), "",
-                  f"Pre-specified criterion: {ic.get('criterion', CRITERION)}.", "",
-                  f"Numerical rule, recorded {ic.get('rule_recorded', RULE_RECORDED)}: {ic['rule']}.", "",
-                  "| quantity | engine (1e-11) | chain (1e-11) | difference (rel.) | engine trunc. error | chain trunc. error | rule tolerance | "
-                  "sampled +/- s.e. | within |", "|---|---|---|---|---|---|---|---|---|"]
-        for r in ic["rows"]:
-            mc = f"{r['mc']:.6e} +/- {r['mc_se']:.1e}" if "mc" in r else "-"
-            ok_r = r["within"] and r.get("mc_within", True)
-            verdict = ("yes" if ok_r else "NO") if r["tested"] else ("yes (not tested)" if ok_r else "no (not tested)")
-            diff = r.get("diff", r["engine"] - r["chain"])
-            lines.append(f"| {r['quantity']}{'' if r['tested'] else ' (reported)'} | {r['engine']:.10e} | {r['chain']:.10e} | {diff:+.2e} ({r['rel_diff']:+.1e}) | "
-                         f"{r.get('engine_truncation_error', abs(r['engine'] - r['engine_coarse'])):.1e} | "
-                         f"{r.get('chain_truncation_error', abs(r['chain'] - r['chain_coarse'])):.1e} | {r['tolerance']:.1e} | {mc} | {verdict} |")
-        v = ic["values"]
-        lines += ["", f"Engine, noise off: std(C_mix) = {v['std_cmix']:.6f}, RMS(2) = {v['rms_l2']:.6f}, RMS(4) = {v['rms_l4']:.6f}, E[C_mix] = {v['mean_cost']:.12f}."]
-        if ic.get("note_values"):
-            lines.append("Note's quoted values: " + "; ".join(f"{k} {x['quoted']:.{x['digits']}f} ({'reproduced' if x['rounds_to_quoted'] else 'NOT reproduced'})"
-                                                        for k, x in ic["note_values"].items()) + ".")
-        lines.append("")
+                  + (" (every point, each with its own dial)" if pts else ""), "",
+                  f"Pre-specified criterion: {ic.get('criterion', first.get('criterion', CRITERION))}.", "",
+                  f"Numerical rule, recorded {ic.get('rule_recorded', first.get('rule_recorded', RULE_RECORDED))}: {ic['rule']}.", ""]
+        for c in (pts or [ic]):
+            if pts:
+                cp = c.get("point", {})
+                lines += [f"### {cp.get('rung', '')} {cp.get('reset_kind', 'reset')} dial, p = {cp.get('p')}, L = {cp.get('L')}: "
+                          f"{'PASS' if c['passed'] else 'FAIL'}", ""]
+            lines += ["| quantity | engine (1e-11) | chain (1e-11) | difference (rel.) | engine trunc. error | chain trunc. error | rule tolerance | "
+                      "sampled +/- s.e. | within |", "|---|---|---|---|---|---|---|---|---|"]
+            for r in c["rows"]:
+                mc = f"{r['mc']:.6e} +/- {r['mc_se']:.1e}" if "mc" in r else "-"
+                ok_r = r["within"] and r.get("mc_within", True)
+                verdict = ("yes" if ok_r else "NO") if r["tested"] else ("yes (not tested)" if ok_r else "no (not tested)")
+                diff = r.get("diff", r["engine"] - r["chain"])
+                lines.append(f"| {r['quantity']}{'' if r['tested'] else ' (reported)'} | {r['engine']:.10e} | {r['chain']:.10e} | {diff:+.2e} ({r['rel_diff']:+.1e}) | "
+                             f"{r.get('engine_truncation_error', abs(r['engine'] - r['engine_coarse'])):.1e} | "
+                             f"{r.get('chain_truncation_error', abs(r['chain'] - r['chain_coarse'])):.1e} | {r['tolerance']:.1e} | {mc} | {verdict} |")
+            v = c["values"]
+            lines += ["", f"Engine, noise off: std(C_mix) = {v['std_cmix']:.6f}, RMS(2) = {v['rms_l2']:.6f}, RMS(4) = {v['rms_l4']:.6f}, E[C_mix] = {v['mean_cost']:.12f}."]
+            if c.get("note_values"):
+                lines.append("Note's quoted values: " + "; ".join(f"{k} {x['quoted']:.{x['digits']}f} ({'reproduced' if x['rounds_to_quoted'] else 'NOT reproduced'})"
+                                                            for k, x in c["note_values"].items()) + ".")
+            lines.append("")
     for e in rec.get("entries", []):
         pt = e["point"]
         lines += [f"## Comparator: {pt.get('reset_kind', 'reset')} dial, {pt['patch']} n = {pt['n']}, edge {pt['edge']}, p = {pt['p']}, L = {pt['L']} "
