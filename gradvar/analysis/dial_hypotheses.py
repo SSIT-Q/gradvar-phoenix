@@ -13,27 +13,29 @@ import numpy as np
 import pandas as pd
 
 from . import predictions as P
-from .estimators import Z95, paired_ratio
-from .floors import calibration_for, dial_floor
+from .estimators import Z95, paired_ratio, probe_mask_seed
+from .floors import REALISED_FLOOR_RULE, calibration_for, dial_floor, realised_floor
 from .hypotheses import verdict
 
 H_TEXT = {
     "H5": "Non-unital cost-variance floor. Refuted if the paired-bootstrap interval of Var[C_mix](L = 12) / Var[C_mix](L = 8) misses the pre-drawn "
           "ratio by more than the combined interval at either p, or the floor-subtracted Var[C_mix] at either L and either p misses the pre-drawn value "
-          "by more than the combined interval, or lies below the Deviation 33 floor 1/2 p^2 (c_i^2 g_i^2 + c_j^2 g_j^2) with its interval.",
+          "by more than the combined interval, or lies below the Deviation 33 floor 1/2 p^2 (c_i^2 g_i^2 + c_j^2 g_j^2) with its interval. "
+          "Deviation 60 part (7): comparators and floors on the realised masks of the list that ran.",
     "H6": "Layer-index dependence under a controlled dial. Refuted if the floor-subtracted k = L variance at any grid or ladder point lies below the "
           "Deviation 33 floor 1/2 c_i^2 g_i^2 p^2 with its interval, or the paired-bootstrap interval of Var(k = L, L = 12) / Var(k = L, L = 8) misses "
           "the pre-drawn ratio by more than the combined interval at either p, or the ladder ratio Var(n = 100) / Var(n = 40) at p = 0.25 misses its "
           "pre-drawn value, or the reset dial's k = L variance at n = 60, L = 8 does not exceed the dephasing dial's by the pre-drawn factor within the "
           "combined interval, or the k = 1 series does not fall with L at either p (k = 1 rows are upper bounds, Deviation 40). A flat unital reference "
           "on the day makes the ladder comparison inconclusive. Deviation 60 part (6): when the dephasing variance is not resolvably positive, the "
-          "reset / dephasing clause is decided on the two points' intervals and no ratio is formed.",
+          "reset / dephasing clause is decided on the two points' intervals and no ratio is formed. Deviation 60 part (7): every comparator and "
+          "Deviation 33 floor is drawn on the realised masks of the list that ran.",
     "H7": "Noise-induced effective depth. Refuted if the l = 2 RMS of C_mix - C_mix[L - l, L] (residual pattern noise subtracted) misses the pre-drawn "
           "prediction by more than the combined interval, or, when the measured std(C_mix) exceeds 0.1, the l = 4 RMS is not below the l = 2 RMS by more "
           "than the paired-bootstrap interval. Deviation 60: the statistic also subtracts the shot term of the per-draw mean difference and is compared "
           "with sqrt(MSD(l = 2)) from the snapshot-noise engine; its interval and the one-sided l = 4 < l = 2 test are the paired bootstrap over "
           "draws (10,000 resamples) with the bootstrap over masks within draws; no verdict without that comparator; l = 4 is an upper-bound point "
-          "by rule.",
+          "by rule. Deviation 60 part (7): the comparator is drawn on the realised masks of the truncation probes.",
 }
 LADDER_LOW, LADDER_HIGH = {39, 40}, {87, 90, 100}
 CONTROL_N = {53, 56, 60}
@@ -49,7 +51,7 @@ def mark_dial_floors(points: pd.DataFrame, snapshot_csv: str | None = None) -> p
     headline ``headline_ratio`` = floor-subtracted k = L variance / floor_grad (with its interval), and ``floor_source``
     (the bundle's run-day properties.json, else the snapshot CSV)."""
     pts = points.copy()
-    for col in ("floor_grad", "floor_cost", "mele_floor", "headline_ratio", "headline_lo", "headline_hi", "c_i", "g_i"):
+    for col in ("floor_grad", "floor_cost", "mele_floor", "headline_ratio", "headline_lo", "headline_hi", "c_i", "g_i", "a_i", "b_i", "a_j", "b_j", "g_j"):
         pts[col] = np.nan
     pts["floor_source"] = None
     for i, r in pts.iterrows():
@@ -64,6 +66,8 @@ def mark_dial_floors(points: pd.DataFrame, snapshot_csv: str | None = None) -> p
         f = dial_floor(float(r.p), cal, edge, qubits, int(r.resilience_level))
         pts.at[i, "floor_grad"], pts.at[i, "floor_cost"], pts.at[i, "mele_floor"] = f["floor_grad"], f["floor_cost"], f["mele_floor"]
         pts.at[i, "c_i"], pts.at[i, "g_i"], pts.at[i, "floor_source"] = f["c_i"], f["g_i"], f["source"]
+        for key in ("a_i", "b_i", "a_j", "b_j", "g_j"):                  # Deviation 60 part (7): the realised floors use the same factors
+            pts.at[i, key] = f[key]
         if r.k == r.L and f["floor_grad"] > 0:
             pts.at[i, "headline_ratio"] = r.signal_variance / f["floor_grad"]
             pts.at[i, "headline_lo"], pts.at[i, "headline_hi"] = r.signal_ci_lo / f["floor_grad"], r.signal_ci_hi / f["floor_grad"]
@@ -152,13 +156,43 @@ def _pred(preds, r, arm=None, p=None, L=None, k=None, missing=None):
     p = r.p if p is None else p
     L = int(r.L) if L is None else L
     k = int(r.k) if k is None else k
+    lottery = P.realised_applies(arm, getattr(r, "probe_K", None))   # Deviation 60 part (7): the probe's realised-mask comparator
     hit, why, fb = P.dial_prediction(preds, int(r.n), L, k, P.DIAL_KIND.get(str(arm), str(arm)), float(p) if p is not None else None,
-                                     patch=r.patch, edge=r.edge, qubits=getattr(r, "patch_qubits", None), stamp=getattr(r, "placement_stamp", None))
+                                     patch=r.patch, edge=r.edge, qubits=getattr(r, "patch_qubits", None), stamp=getattr(r, "placement_stamp", None),
+                                     probe_seed=getattr(r, "probe_seed", None) if lottery else None, K=getattr(r, "probe_K", None) if lottery else None,
+                                     realised=lottery)
     if hit is None and missing is not None:
         missing.append(dict(point_id=getattr(r, "point_id", None), arm=str(arm), p=float(p) if p is not None else None, n=int(r.n), L=L, k=k, reason=why,
                             fallback=None if fb is None else dict(var=fb["var"], var_cost=fb.get("var_cost"), sigma=fb.get("sigma"), n=fb.get("n"),
                                                                    source=fb.get("source"), status=fb.get("status"))))
     return hit
+
+
+def _mix(pr, key: str = "var") -> float:
+    """The mixture value recorded beside a realised-mask prediction (Deviation 60 part (7); reported, not used), else NaN."""
+    v = ((pr or {}).get("mixture") or {}).get(key)
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return float("nan")
+
+
+def _mix_ratio(num, den, key: str = "var") -> float | None:
+    a, b = _mix(num, key), _mix(den, key)
+    return float(a / b) if np.isfinite(a) and np.isfinite(b) and b > 0 else None
+
+
+def _realised_floors(r, pr) -> Dict:
+    """Deviation 60 part (7), option (b): the point's Deviation 33 floors re-derived on its probe's realised masks
+    (``floors.realised_floor``: the realised prediction's mask counts with the run-day readout and gain factors of
+    ``mark_dial_floors``); the mixture floors stay beside them. Not tested without the realised mask counts."""
+    stats = (pr or {}).get("mask_stats") or {}
+    need = ("n_RR", "n_RK", "n_KR", "n_KK", "n1_i", "n2_i", "n1_j", "n2_j")
+    fac = [getattr(r, key, np.nan) for key in ("a_i", "b_i", "a_j", "b_j", "g_i", "g_j")]
+    if not pr or not all(key in stats for key in need) or not all(np.isfinite(float(x)) for x in fac) or not pr.get("K"):
+        why = "no realised-mask comparator with mask counts" if not (pr and stats) else "no run-day readout / gain factors for the floor"
+        return dict(floor_grad=np.nan, floor_cost=np.nan, grad_tested=False, cost_tested=False, grad_note=why, cost_note=why)
+    return realised_floor(dict(stats, K=int(pr["K"])), *[float(x) for x in fac])
 
 
 def _missing(missing: list) -> tuple:
@@ -243,8 +277,13 @@ def evaluate_h5(points: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict
         for r in g.itertuples():
             pr = _pred(preds, r, missing=missing)
             values.append(dict(p=float(p), L=int(r.L), n=int(r.n), **_value_test(r.var_cmix_signal, r.var_cmix_signal_ci_lo, r.var_cmix_signal_ci_hi,
-                                                                                 pr["var_cost"] if pr else np.nan, pr.get("var_cost_sigma", np.nan) if pr else np.nan)))
-            floors.append(dict(p=float(p), L=int(r.L), n=int(r.n), **_floor_test(r.var_cmix_signal, r.var_cmix_signal_ci_lo, r.var_cmix_signal_ci_hi, r.floor_cost), mele_floor=r.mele_floor))
+                                                                                 pr["var_cost"] if pr else np.nan, pr.get("var_cost_sigma", np.nan) if pr else np.nan),
+                               realised=bool((pr or {}).get("realised")), predicted_mixture=_mix(pr, "var_cost") if pr else None))
+            rf = _realised_floors(r, pr)
+            floors.append(dict(p=float(p), L=int(r.L), n=int(r.n), **_floor_test(r.var_cmix_signal, r.var_cmix_signal_ci_lo, r.var_cmix_signal_ci_hi,
+                                                                              rf["floor_cost"] if rf["cost_tested"] else np.nan),
+                               floor_rule="realised masks (Deviation 60 part (7), option (b))", floor_tested=bool(rf["cost_tested"]),
+                               floor_note=rf["cost_note"], floor_mixture=r.floor_cost, mele_floor=r.mele_floor))
         for key in sorted(set(a) & set(b), key=str):    # L = 8 and L = 12 of the same rung and placement (day 3: p = 0.25 L = 8 on three rungs)
             what = f"H5 depth ratio p = {float(p):g} on {key[0]} n = {key[1]}"
             ra, rb = _one_point(a[key], what + " (L = 8)", pairing), _one_point(b[key], what + " (L = 12)", pairing)
@@ -254,7 +293,7 @@ def evaluate_h5(points: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict
             meas = _var_ratio_blocks(rb.cmix_draws, ra.cmix_draws, rb.var_cmix_floor, ra.var_cmix_floor, n_boot)
             pred = (pr12["var_cost"] / pr8["var_cost"]) if (pr8 and pr12 and pr8["var_cost"] > 0) else np.nan
             ps = pred * np.sqrt((pr12.get("var_cost_sigma", 0) / pr12["var_cost"]) ** 2 + (pr8.get("var_cost_sigma", 0) / pr8["var_cost"]) ** 2) if np.isfinite(pred) else np.nan
-            ratios.append(dict(p=float(p), n=int(ra.n), **_ratio_test(meas, pred, ps)))
+            ratios.append(dict(p=float(p), n=int(ra.n), **_ratio_test(meas, pred, ps), predicted_mixture=_mix_ratio(pr12, pr8, "var_cost")))
     ev = [x for x in ratios + values if x["within"] is not None]
     fl = [x for x in floors if x["below_floor_with_interval"] is not None]
     miss, miss_note = _missing(missing)
@@ -280,8 +319,13 @@ def evaluate_h6(points: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict
     reset = _sel(d, "reset")
     floors, ratios, ladder, controls, k1, missing, pairing = [], [], [], [], [], [], []
     for r in reset.itertuples():
-        floors.append(dict(p=float(r.p), n=int(r.n), L=int(r.L), headline_ratio=r.headline_ratio, headline_lo=r.headline_lo, headline_hi=r.headline_hi, mele_floor=r.mele_floor,
-                           **_floor_test(r.signal_variance, r.signal_ci_lo, r.signal_ci_hi, r.floor_grad)))
+        rf = _realised_floors(r, _pred(preds, r, missing=missing) if int(r.k) == int(r.L) else None)
+        fg = rf["floor_grad"] if rf["grad_tested"] else np.nan
+        head = (r.signal_variance / fg, r.signal_ci_lo / fg, r.signal_ci_hi / fg) if np.isfinite(fg) and fg > 0 else (np.nan, np.nan, np.nan)
+        floors.append(dict(p=float(r.p), n=int(r.n), L=int(r.L), headline_ratio=head[0], headline_lo=head[1], headline_hi=head[2], mele_floor=r.mele_floor,
+                           floor_rule="realised masks (Deviation 60 part (7), option (b))", floor_tested=bool(rf["grad_tested"]), floor_note=rf["grad_note"],
+                           floor_mixture=r.floor_grad, headline_ratio_mixture=r.headline_ratio,
+                           **_floor_test(r.signal_variance, r.signal_ci_lo, r.signal_ci_hi, fg)))
     for p, g in reset.groupby("p"):
         a, b = _by_rung(g[g.L == 8]), _by_rung(g[g.L == 12])
         for key in sorted(set(a) & set(b), key=str):    # L = 8 and L = 12 of the same rung and placement
@@ -293,7 +337,7 @@ def evaluate_h6(points: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict
             meas = paired_ratio(rb.gradients, ra.gradients, n_boot, sub_a=rb.shot_vars, sub_b=ra.shot_vars)
             pred = pr12["var"] / pr8["var"] if (pr8 and pr12 and pr8["var"] > 0) else np.nan
             ps = pred * np.sqrt((pr12["sigma"] / pr12["var"]) ** 2 + (pr8["sigma"] / pr8["var"]) ** 2) if np.isfinite(pred) else np.nan
-            ratios.append(dict(p=float(p), n=int(ra.n), **_ratio_test(meas, pred, ps)))
+            ratios.append(dict(p=float(p), n=int(ra.n), **_ratio_test(meas, pred, ps), predicted_mixture=_mix_ratio(pr12, pr8)))
     lad = _sel(reset, "reset", 0.25, 8)
     lo_n, hi_n = _sel(lad, "reset", n=LADDER_LOW, patch=LADDER_LOW_PATCH), _sel(lad, "reset", n=LADDER_HIGH, patch=LADDER_HIGH_PATCH)
     if len(lo_n) and len(hi_n):
@@ -310,7 +354,7 @@ def evaluate_h6(points: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict
             meas = paired_ratio(rb.gradients, ra.gradients, n_boot, sub_a=rb.shot_vars, sub_b=ra.shot_vars)
             pred = prb["var"] / pra["var"] if (pra and prb and pra["var"] > 0) else np.nan
             ps = pred * np.sqrt((prb["sigma"] / prb["var"]) ** 2 + (pra["sigma"] / pra["var"]) ** 2) if np.isfinite(pred) else np.nan
-            ladder.append(dict(n_low=int(ra.n), n_high=int(rb.n), **_ratio_test(meas, pred, ps)))
+            ladder.append(dict(n_low=int(ra.n), n_high=int(rb.n), **_ratio_test(meas, pred, ps), predicted_mixture=_mix_ratio(prb, pra)))
     deph = _sel(d, "dephase", None, 8, n=CONTROL_N, patch=CONTROL_PATCH)
     rs = _sel(reset, "reset", 0.5, 8, n=CONTROL_N, patch=CONTROL_PATCH)
     control_pair = None
@@ -336,7 +380,7 @@ def evaluate_h6(points: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict
             t["rule"] = "ratio"
         else:                                                                               # Deviation 60 part (6): bounds, no ratio
             t = _control_bounds_test(ra, rb, pred, ps)
-        controls.append(dict(n=int(ra.n), p=float(ra.p), **t))
+        controls.append(dict(n=int(ra.n), p=float(ra.p), **t, predicted_mixture=_mix_ratio(pra, prb)))
     for p, g in _sel(d, "reset", k_eq_L=False).pipe(lambda x: x[x.k == 1]).groupby("p"):
         a, b = g[g.L == 8], g[g.L == 12]
         if len(a) and len(b):
@@ -568,9 +612,10 @@ def _truncation_point(t: pd.DataFrame) -> Dict:
     if len(stamps) != 1:
         return dict(error=f"truncation rows from {len(stamps)} placements: the placement snapshots differ ({sorted(map(str, stamps))})")
     r, qk = t.iloc[0], next(iter(qsets))
+    seed, K = probe_mask_seed(t)                                 # Deviation 60 part (7): the realised-mask comparator's key
     return dict(patch=str(r.patch), edge=str(r.edge).replace("-", "_"), n=int(r.n), p=float(r.p), L=int(r.L),
                 qubits=[int(q) for q in qk.split()] if qk else None, broken_edges=next(iter(broken)) if broken else None,
-                stamp=next(iter(stamps)))
+                stamp=next(iter(stamps)), seed=seed, K=K)
 
 
 def evaluate_h7(rows: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict:
@@ -605,7 +650,8 @@ def evaluate_h7(rows: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict:
         out[4].update(upper_bound_by_rule=True, reported_upper_bound=out[4]["rms_hi"], label=L4_RULE)
     std_c = float(full.groupby("draw").ev.mean().std(ddof=1)) if full.draw.nunique() > 1 else np.nan
     fall = truncation_fall(full, t[t.ell == 2], t[t.ell == 4], n_boot) if 4 in out else None
-    comp, why = P.truncation_prediction(preds, **{k: point[k] for k in ("patch", "edge", "n", "p", "L", "qubits", "stamp")})
+    comp, why = P.truncation_prediction(preds, **{k: point[k] for k in ("patch", "edge", "n", "p", "L", "qubits", "stamp", "seed", "K")},
+                                        realised=P.realised_applies("reset", point["K"]))       # Deviation 60 part (7)
     checks = dict(std_cmix=std_c, l4_fall=fall)
     common = dict(value={f"rms_l{k}": v["rms"] for k, v in out.items()}, rms=out, point=point, comparator=comp, statistic=H7_STATISTIC)
     bad_pairs = {k: v["pairing_errors"] for k, v in out.items() if v["pairing_errors"]}
@@ -628,6 +674,11 @@ def evaluate_h7(rows: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict:
     note = f"comparator {comp.get('file', 'preds[truncation]')}: sqrt(MSD(2)) = {float(comp['rms_l2']):.4g} +/- {float(ps) if ps is not None else float('nan'):.2g}"
     if ps is None:
         note += " (no rms_l2_sigma: the prediction's own error is not added)"
+    if comp.get("realised"):
+        mix = (comp.get("mixture") or {}).get("rms_l2")
+        note += (f" on the probe's realised masks (Deviation 60 part (7)); the mixture comparator "
+                 f"{float(mix):.4g} ({(comp.get('mixture') or {}).get('file')}) is recorded only" if mix is not None else
+                 " on the probe's realised masks (Deviation 60 part (7))")
     if 4 in out:
         note += "; " + L4_RULE
     return verdict("H7", H_TEXT["H7"], "fail" if fails else "pass", threshold=dict(rms_l2_predicted=float(comp["rms_l2"]), rms_l2_sigma=ps),

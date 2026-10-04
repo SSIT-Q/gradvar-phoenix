@@ -1381,6 +1381,548 @@ def pattern_variance(prog: Program, n_samples: int = 200_000, seed: int = 0) -> 
     return dict(var_mask=var_mask, se=se, e2_fixed=e2_fixed, e2_mix=e2_mix, runtime_s=fixed.runtime_s + mix.runtime_s)
 
 
+# --------------------------------------------------------------------------- realised masks (Deviation 60 part (7))
+#
+# The runner shares one set of K masks across all draws of a dial point (``hardware.mask_lottery``). The dial estimators subtract
+# the spread across masks within each draw, so with X_m a per-mask quantity of zero theta-mean (the k = L or k = 1 gradient, the
+# cost minus its constant, the full-minus-truncated cost) they estimate the off-diagonal moment over the realised masks
+#     T = 1 / (K (K - 1)) sum_{m != m'} E_theta[X_m X_m'],
+# not the mixture value E_{m, m' independent} E_theta[X_m X_m'] that ``propagate_sampled`` / ``propagate_truncated`` give.
+# ``propagate_realised`` estimates T, the diagonal mean D = mean_m E_theta[X_m^2] and the mixture value from one set of Pauli
+# paths. Every pair factor of a path factorises over the two copies (one string for both copies; at a dial site the copy's
+# coefficient depends on that copy's mask bit only; a ZZ coupler with exactly one X / Y end turns by the angle set by the copy's
+# bit at its other end, the hub), so a path carries a vector G over the K masks, G(m) the product of the copy-m coefficients,
+# and the pair weight of masks (m, m') is G(m) G(m'). The per-site coefficients of the two mask values are those of the two
+# branches B0 (bit 0) and B1 (bit 1) of the dial channel, whose mixture (1 - q) B0 + q B1 (q = mask_p) is the program's Bloch:
+# the reset dial B0 = Idle (d, d, 1, 0), B1 = Reset (0, 0, 0, 1), q = p; the dephasing dial B0 = (d, d, 1, 0), B1 = (-d, -d, 1, 0)
+# (the virtual Z), q = mask_p = p / 2. Branches with a choice (Z -> I at a dial site, ZZ flips, rotations, relaxation) are drawn
+# from fixed proposals and the importance weight is carried in a mask-independent scalar.
+
+def dial_layer_of_ops(prog: Program) -> Dict[int, int]:
+    """{op index: forward layer} of the dial ops: the 'dial_zz' op that opens a layer, or the run of per-qubit 'dial' ops."""
+    out: Dict[int, int] = {}
+    for layer, t in prog.layer_start.items():
+        if t < len(prog.ops) and prog.ops[t][0] == "dial_zz":
+            out[t] = layer
+            continue
+        u = t
+        while u < len(prog.ops) and prog.ops[u][0] == "dial":
+            out[u] = layer
+            u += 1
+    return out
+
+
+def dial_branches(b: Bloch, kind: str, p: float, mask_p: float) -> Tuple[Bloch, Bloch]:
+    """(B0, B1): the dial channel's branches for mask bit 0 and 1; checks (1 - mask_p) B0 + mask_p B1 against the program's Bloch."""
+    q = float(mask_p)
+    if kind == "reset":
+        if abs(float(b.tz) - q) > 1e-12:
+            raise ValueError(f"reset dial: mask_p {q} differs from the channel's reset probability {b.tz}")
+        keep = 1.0 - q
+        b0 = Bloch(b.dx / keep, b.dy / keep, b.dz / keep, 0.0) if keep > 0 else Bloch(0.0, 0.0, 1.0, 0.0)
+        b1 = Bloch(0.0, 0.0, 0.0, 1.0)
+    elif kind == "dephase":
+        if float(b.tz) != 0.0 or abs(2.0 * q - float(p)) > 1e-12:
+            raise ValueError(f"dephasing dial: mask_p {q} must be p / 2 (p = {p}) and the channel unital")
+        d = b.dx / (1.0 - float(p))
+        b0, b1 = Bloch(d, d, b.dz, 0.0), Bloch(-d, -d, b.dz, 0.0)
+    else:
+        raise ValueError(f"realised masks need a reset or dephasing dial, got {kind!r}")
+    mix = [(1 - q) * x0 + q * x1 for x0, x1 in zip((b0.dx, b0.dy, b0.dz, b0.tz), (b1.dx, b1.dy, b1.dz, b1.tz))]
+    if not np.allclose(mix, [b.dx, b.dy, b.dz, b.tz], rtol=0, atol=1e-12):
+        raise ValueError(f"the branches do not reproduce the dial channel ({mix} vs {b})")
+    return b0, b1
+
+
+def fixed_mask_program(prog: Program, mask: np.ndarray, kind: str, p: float, mask_p: float) -> Program:
+    """The program of one mask: every dial channel replaced by its branch for the mask bit (``mask``: (L, m) bool over the cone
+    columns, row r the forward layer r + 1). The second moments of this program are the diagonal E_theta[X_m^2]."""
+    mask = np.asarray(mask, dtype=bool)
+    ops = list(prog.ops)
+    for t, layer in dial_layer_of_ops(prog).items():
+        op = ops[t]
+        bits = mask[layer - 1]
+        if op[0] == "dial_zz":
+            bl = tuple(None if b is None else dial_branches(b, kind, p, mask_p)[int(bits[q])] for q, b in enumerate(op[1]))
+            ops[t] = ("dial_zz", bl, op[2])
+        else:
+            ops[t] = ("dial", op[1], dial_branches(op[2], kind, p, mask_p)[int(bits[op[1]])])
+    return Program(prog.m, ops, prog.prefix_end, prog.tail_start, prog.i, prog.j, prog.L, prog.k, prog.qubits, prog.readout, dict(prog.layer_start))
+
+
+def _realised_probabilities(prog: Program, kind: str, p: float | None, mask_p: float | None) -> Tuple[float, float]:
+    """(p, mask_p): the logged channel strength and the lottery probability (reset dial: both the channel's t_z unless given;
+    dephasing dial: mask_p = p / 2 unless given)."""
+    if kind == "reset":
+        tz = None
+        for op in prog.ops:
+            if op[0] == "dial_zz":
+                tz = next((float(b.tz) for b in op[1] if b is not None), None)
+            elif op[0] == "dial":
+                tz = float(op[2].tz)
+            if tz is not None:
+                break
+        p = tz if p is None else float(p)
+        return float(p), (float(p) if mask_p is None else float(mask_p))
+    if p is None:
+        raise ValueError("the dephasing dial needs its logged p")
+    return float(p), (float(p) / 2.0 if mask_p is None else float(mask_p))
+
+
+def _prefix_by_bits(prog: Program, kind: str, p: float, mask_p: float) -> Dict[Tuple[int, int], Dict]:
+    """{(bit_i, bit_j): prefix coefficients} for one copy's layer-L mask bits on the observable qubits."""
+    out = {}
+    for bi in (0, 1):
+        for bj in (0, 1):
+            ops = list(prog.ops[:prog.prefix_end])
+            for t, op in enumerate(ops):
+                if op[0] == "dial_zz":
+                    bl = list(op[1])
+                    for q, bit in ((prog.i, bi), (prog.j, bj)):
+                        if bl[q] is not None:
+                            bl[q] = dial_branches(bl[q], kind, p, mask_p)[bit]
+                    ops[t] = ("dial_zz", tuple(bl), op[2])
+                elif op[0] == "dial" and op[1] in (prog.i, prog.j):
+                    ops[t] = ("dial", op[1], dial_branches(op[2], kind, p, mask_p)[bi if op[1] == prog.i else bj])
+            sub = Program(prog.m, ops + list(prog.ops[prog.prefix_end:]), prog.prefix_end, prog.tail_start, prog.i, prog.j, prog.L,
+                          prog.k, prog.qubits, prog.readout, dict(prog.layer_start))
+            out[(bi, bj)] = _prefix_coefficients(sub)
+    return out
+
+
+def realised_prefix_constants(prog: Program, masks: np.ndarray, kind: str = "reset", p: float | None = None,
+                              mask_p: float | None = None) -> np.ndarray:
+    """c0_m = E_theta C_m per realised mask: the identity coefficient of the prefix under mask m's layer-L bits on the
+    observable. Under shared masks the cost floor Var_m(C) / K of the estimator contains their spread, so its Var[C_mix]
+    estimates T_cost - S^2(c0) / K (S^2 the sample variance over the K masks)."""
+    p, mask_p = _realised_probabilities(prog, kind, p, mask_p)
+    coefs = _prefix_by_bits(prog, kind, p, mask_p)
+    L, i, j = prog.L, prog.i, prog.j
+    return np.array([coefs[(int(mk[L - 1, i]), int(mk[L - 1, j]))].get((0, 0), 0.0) for mk in np.asarray(masks, dtype=bool)])
+
+
+def layer_mean_z_branch(prog: Program, layer: int, branch: int, kind: str, p: float, mask_p: float) -> np.ndarray:
+    """``layer_mean_z`` with the layer's dial fixed to branch B0 (0) or B1 (1) on every qubit (the cut's mu_q for one mask bit)."""
+    start = prog.layer_start[layer]
+    end = next(t for t in range(start, len(prog.ops)) if prog.ops[t][0] in ("rot", "mark", "proj"))
+    ops = list(prog.ops)
+    for t in range(start, end):
+        op = ops[t]
+        if op[0] == "dial_zz":
+            ops[t] = ("dial_zz", tuple(None if b is None else dial_branches(b, kind, p, mask_p)[branch] for b in op[1]), op[2])
+        elif op[0] == "dial":
+            ops[t] = ("dial", op[1], dial_branches(op[2], kind, p, mask_p)[branch])
+    sub = Program(prog.m, ops, prog.prefix_end, prog.tail_start, prog.i, prog.j, prog.L, prog.k, prog.qubits, prog.readout, dict(prog.layer_start))
+    return layer_mean_z(sub, layer)
+
+
+def _log_abs0(a: np.ndarray) -> np.ndarray:
+    out = np.zeros_like(a)
+    nz = a != 0
+    out[nz] = np.log(np.abs(a[nz]))
+    return out
+
+
+def _apply_mask_bits(G: np.ndarray, A0: np.ndarray, A1: np.ndarray, S: np.ndarray) -> np.ndarray:
+    """G(m) *= prod_q A_q(s_mq) for the (K, m) 0 / 1 bit matrix S: zeros, signs and magnitudes by three matrix products."""
+    S1 = S.T
+    S0 = 1.0 - S1
+    zero = (A0 == 0).astype(float) @ S0 + (A1 == 0).astype(float) @ S1
+    neg = ((A0 < 0).astype(float) @ S0 + (A1 < 0).astype(float) @ S1) % 2.0
+    G *= np.exp(_log_abs0(A0) @ S0 + _log_abs0(A1) @ S1) * (zero < 0.5) * (1.0 - 2.0 * neg)
+    return G
+
+
+def _realised_site(X, Z, wsc, A0, A1, qq, b0, b1, q, rng):
+    """One dial site: the two branches' coefficients into A0 / A1 (column qq); a Z -> I choice drawn with the mixture's proportions."""
+    N = X.shape[0]
+    c = _codes(X, Z, qq)
+    for code, f in ((1, "dx"), (2, "dy")):
+        sel = c == code
+        A0[sel, qq] *= getattr(b0, f)
+        A1[sel, qq] *= getattr(b1, f)
+    isz = c == 3
+    tmix, dmix = (1 - q) * b0.tz + q * b1.tz, (1 - q) * b0.dz + q * b1.dz
+    if tmix != 0.0:
+        pi = tmix * tmix / (tmix * tmix + dmix * dmix)
+        toI = isz & (rng.random(N) < pi)
+        stay = isz & ~toI
+        A0[toI, qq] *= b0.tz
+        A1[toI, qq] *= b1.tz
+        A0[stay, qq] *= b0.dz
+        A1[stay, qq] *= b1.dz
+        wsc[toI] /= pi
+        wsc[stay] /= (1.0 - pi)
+        Z[toI, qq >> 6] &= ~(ONE << U64(qq & 63))
+    else:
+        A0[isz, qq] *= b0.dz
+        A1[isz, qq] *= b1.dz
+
+
+def _realised_chunk(prog: Program, masks: np.ndarray, kind: str, p: float, q: float, N: int, rng, ctx: Dict) -> Dict[str, np.ndarray]:
+    m, L, K = prog.m, prog.L, masks.shape[0]
+    W = (m + 63) // 64
+    strings, C, cmix, prop = ctx["strings"], ctx["C"], ctx["cmix"], ctx["prop"]
+    pick = rng.choice(len(strings), size=N, p=prop)
+    Xc, Zc = _ints_to_words(strings, W)
+    X, Z = Xc[pick].copy(), Zc[pick].copy()
+    wsc = 1.0 / prop[pick]
+    G = C[pick][:, ctx["bidx"]].copy()          # (N, K): copy-m prefix coefficient of the picked string
+    Gm = cmix[pick].copy()                      # mixture amplitude
+    flag = np.zeros(N, dtype=bool)
+    marked = False
+    cuts: Dict[int, Dict[str, np.ndarray]] = {}
+    resets = kind == "reset"
+
+    def take_cut(t):
+        dz = ~np.any(X != 0, axis=1)
+        for ell in ctx["cut_at"][t]:
+            S = masks[:, L - ell - 1, :].astype(float)
+            mu0, mu1, mumix = ctx["mu"][ell]
+            Zb = np.zeros((N, m), dtype=bool)
+            for qq in range(m):
+                Zb[:, qq] = ((Z[:, qq >> 6] >> U64(qq & 63)) & ONE).astype(bool) & dz
+            mu = _apply_mask_bits(np.ones((N, K)), np.where(Zb, mu0[None, :], 1.0), np.where(Zb, mu1[None, :], 1.0), S)
+            s1, s2 = G.sum(axis=1), (G * G).sum(axis=1)
+            h1, h2 = (G * mu).sum(axis=1), (G * G * mu).sum(axis=1)
+            w = wsc * dz
+            mmix = np.prod(np.where(Zb, mumix[None, :], 1.0), axis=1)
+            cuts[ell] = dict(A_off=w * (s1 * s1 - s2) / (K * (K - 1)), B_off=w * (h1 * s1 - h2) / (K * (K - 1)),
+                             A_diag=w * s2 / K, B_diag=w * h2 / K, A_mix=w * Gm * Gm, B_mix=w * Gm * Gm * mmix)
+
+    for t_op, op in enumerate(prog.ops[prog.prefix_end:prog.tail_start], start=prog.prefix_end):
+        kd = op[0]
+        if t_op in ctx["cut_at"]:
+            take_cut(t_op)
+        if kd == "rot":
+            qq = op[1]
+            w_, b_ = qq >> 6, U64(qq & 63)
+            sel = ((X[:, w_] >> b_) & ONE).astype(bool)
+            r = rng.integers(0, 2, size=N, dtype=np.uint64)
+            Z[sel, w_] = (Z[sel, w_] & ~(ONE << b_)) | (r[sel] << b_)
+        elif kd == "mark":
+            qq = op[1]
+            flag = ((X[:, qq >> 6] >> U64(qq & 63)) & ONE).astype(bool)
+            marked = True
+        elif kd == "sx":
+            qq = op[1]
+            w_, b_ = qq >> 6, U64(qq & 63)
+            X[:, w_] ^= (Z[:, w_] & (ONE << b_))
+        elif kd == "cz":
+            a, bq = op[1], op[2]
+            wa, ba, wb, bb = a >> 6, U64(a & 63), bq >> 6, U64(bq & 63)
+            xa = (X[:, wa] >> ba) & ONE
+            xb = (X[:, wb] >> bb) & ONE
+            Z[:, wa] ^= (xb << ba)
+            Z[:, wb] ^= (xa << bb)
+        elif kd == "dep2":
+            a, bq, f = op[1], op[2], op[3]
+            wa, ba, wb, bb = a >> 6, U64(a & 63), bq >> 6, U64(bq & 63)
+            nonid = ((((X[:, wa] | Z[:, wa]) >> ba) & ONE) | (((X[:, wb] | Z[:, wb]) >> bb) & ONE)).astype(bool)
+            wsc[nonid] *= f * f
+        elif kd == "n1":
+            qq, bl = op[1], op[2]
+            c = _codes(X, Z, qq)
+            mz = bl.dz ** 2 + bl.tz ** 2
+            wsc *= np.array([1.0, bl.dx ** 2, bl.dy ** 2, mz])[c]
+            if bl.tz:
+                toI = (c == 3) & (rng.random(N) < (bl.tz ** 2 / mz))
+                Z[toI, qq >> 6] &= ~(ONE << U64(qq & 63))
+        elif kd == "dial":
+            qq = op[1]
+            b0, b1 = dial_branches(op[2], kind, p, q)
+            A0, A1 = np.ones((N, m)), np.ones((N, m))
+            _realised_site(X, Z, wsc, A0, A1, qq, b0, b1, q, rng)
+            s = masks[:, ctx["layer_of"][t_op] - 1, qq].astype(float)
+            G *= A0[:, qq:qq + 1] * (1.0 - s)[None, :] + A1[:, qq:qq + 1] * s[None, :]
+            Gm *= (1 - q) * A0[:, qq] + q * A1[:, qq]
+        elif kd == "dial_zz":
+            blochs, edges = op[1], op[2]
+            A0, A1 = np.ones((N, m)), np.ones((N, m))
+            for qq, b in enumerate(blochs):
+                if b is not None:
+                    b0, b1 = dial_branches(b, kind, p, q)
+                    _realised_site(X, Z, wsc, A0, A1, qq, b0, b1, q, rng)
+            no_dial = np.array([b is None for b in blochs])
+            for e in edges:
+                a, b_e = int(e[0]), int(e[1])
+                phi_i = float(e[2])
+                phi_s = float(e[3]) if len(e) > 3 else 0.0
+                wa, ba, wb, bb = a >> 6, U64(a & 63), b_e >> 6, U64(b_e & 63)
+                xa = ((X[:, wa] >> ba) & ONE).astype(bool)
+                xb = ((X[:, wb] >> bb) & ONE).astype(bool)
+                act = xa ^ xb
+                if not act.any():
+                    continue
+                hub = np.where(xa, b_e, a)
+                pf = (q * np.sin(phi_s) ** 2 + (1.0 - q) * np.sin(phi_s + phi_i) ** 2) if resets else np.sin(phi_s + phi_i) ** 2
+                pf = min(max(pf, 1e-12), 1.0 - 1e-12)
+                flip = act & (rng.random(N) < pf)
+                nof = act & ~flip
+                for rows, f_idle, f_reset, prob in ((np.nonzero(flip)[0], np.sin(phi_s + phi_i), np.sin(phi_s), pf),
+                                                    (np.nonzero(nof)[0], np.cos(phi_s + phi_i), np.cos(phi_s), 1.0 - pf)):
+                    if rows.size == 0:
+                        continue
+                    h = hub[rows]
+                    # bit 1 of a reset-dial hub is a reset: the coupler turns by phi_s alone; a hub without a dial, or a dephasing
+                    # dial (no reset branch), idles on both branches
+                    fr = np.where(no_dial[h] | (not resets), f_idle, f_reset)
+                    A0[rows, h] *= f_idle
+                    A1[rows, h] *= fr
+                    wsc[rows] /= prob
+                if flip.any():
+                    Z[flip, wa] ^= (ONE << ba)
+                    Z[flip, wb] ^= (ONE << bb)
+            S = masks[:, ctx["layer_of"][t_op] - 1, :].astype(float)
+            G = _apply_mask_bits(G, A0, A1, S)
+            Gm *= np.prod((1 - q) * A0 + q * A1, axis=1)
+        else:
+            raise RuntimeError(kd)
+    if prog.tail_start in ctx["cut_at"]:
+        take_cut(prog.tail_start)
+    T, Td = ctx["tables"]
+    F, Fd = _final_factors(prog, X, Z, T, Td)
+    s1, s2 = G.sum(axis=1), (G * G).sum(axis=1)
+    off, diag, mix = (s1 * s1 - s2) / (K * (K - 1)), s2 / K, Gm * Gm
+    out = {}
+    for name, fac in (("cost", wsc * F), ("k1", wsc * Fd)):
+        out[f"{name}_off"], out[f"{name}_diag"], out[f"{name}_mix"] = fac * off, fac * diag, fac * mix
+    if marked:
+        for k_ in ("off", "diag", "mix"):
+            out[f"kL_{k_}"] = out[f"cost_{k_}"] * flag
+    for ell, c in cuts.items():
+        for k_ in ("off", "diag", "mix"):
+            out[f"msd{ell}_{k_}"] = out[f"cost_{k_}"] - 2.0 * c[f"B_{k_}"] + c[f"A_{k_}"]
+    return out
+
+
+def propagate_realised(prog: Program, masks: np.ndarray, kind: str = "reset", p: float | None = None, mask_p: float | None = None,
+                       n_samples: int = 2_000_000, seed: int = 0, chunk: int = 25_000, cuts: Sequence[int] = ()) -> Dict:
+    """Realised-mask second moments (see the section comment). For X in ``cost`` (C minus its theta-mean), ``k1``, ``kL`` (when
+    the program marks k = L) and ``msd<l>`` (truncation arm, ``cuts``): ``<X>_off`` = T, ``<X>_diag`` = D and ``<X>_mix`` = the
+    mixture value, each with its standard error ``se_<X>_<mode>``, from the same ``n_samples`` paths, and the paired ratios
+    ``ratio_<X>_off`` / ``ratio_<X>_diag`` (to the mixture) with standard errors. ``masks``: (K, L, m) bool over the program's cone
+    columns, row r the forward layer r + 1 (``hardware.mask_lottery`` columns mapped through ``patch.local``); ``kind`` the dial
+    ('reset' or 'dephase'), ``p`` its logged strength, ``mask_p`` the lottery probability (default p for the reset dial, p / 2 for
+    the dephasing dial). The cost estimand excludes the per-mask constants (``realised_prefix_constants``)."""
+    t0 = time.time()
+    masks = np.asarray(masks, dtype=bool)
+    if masks.ndim != 3 or masks.shape[1] != prog.L or masks.shape[2] != prog.m:
+        raise ValueError(f"masks must be (K, L = {prog.L}, m = {prog.m}), got {masks.shape}")
+    K = masks.shape[0]
+    if K < 2:
+        raise ValueError("the off-diagonal moment needs at least two masks")
+    p, q = _realised_probabilities(prog, kind, p, mask_p)
+    coefs = _prefix_by_bits(prog, kind, p, q)
+    order = ((0, 0), (0, 1), (1, 0), (1, 1))
+    strings = sorted(set().union(*[set(c) for c in coefs.values()]) - {(0, 0)})
+    C = np.array([[coefs[b].get(s, 0.0) for b in order] for s in strings])
+    pb = np.array([(1 - q) ** 2, (1 - q) * q, q * (1 - q), q ** 2])
+    prop = (C ** 2).sum(axis=1)
+    prop = prop / prop.sum()
+    L, i, j = prog.L, prog.i, prog.j
+    bidx = 2 * masks[:, L - 1, i].astype(int) + masks[:, L - 1, j].astype(int)
+    cut_at: Dict[int, List[int]] = {}
+    mu = {}
+    for ell in sorted({int(e) for e in cuts}):
+        cut_at.setdefault(cut_index(prog, ell), []).append(ell)
+        mu0 = layer_mean_z_branch(prog, L - ell, 0, kind, p, q)
+        mu1 = layer_mean_z_branch(prog, L - ell, 1, kind, p, q)
+        mmix = (1 - q) * mu0 + q * mu1
+        if not np.allclose(mmix, layer_mean_z(prog, L - ell), rtol=0, atol=1e-12):
+            raise RuntimeError("the cut's branch means do not reproduce layer_mean_z")
+        mu[ell] = (mu0, mu1, mmix)
+    ctx = dict(strings=strings, C=C, cmix=C @ pb, prop=prop, bidx=bidx, cut_at=cut_at, mu=mu, tables=_tail_tables(prog),
+               layer_of=dial_layer_of_ops(prog))
+    rng = np.random.default_rng(seed)
+    s_acc = ss_acc = keys = None
+    done = 0
+    while done < n_samples:
+        n = min(int(chunk), int(n_samples) - done)
+        v = _realised_chunk(prog, masks, kind, p, q, n, rng, ctx)
+        if keys is None:
+            keys = sorted(v)
+            s_acc, ss_acc = np.zeros(len(keys)), np.zeros((len(keys), len(keys)))
+        M = np.stack([v[k] for k in keys], axis=1)
+        s_acc += M.sum(axis=0)
+        ss_acc += M.T @ M
+        done += n
+    mean = s_acc / done
+    cov = (ss_acc / done - np.outer(mean, mean)) * done / (done - 1) / done
+    idx = {k: t for t, k in enumerate(keys)}
+    out = dict(K=int(K), kind=kind, p=float(p), mask_p=float(q), n_samples=int(done), seed=int(seed), chunk=int(chunk),
+               runtime_s=time.time() - t0)
+    for k in keys:
+        out[k] = float(mean[idx[k]])
+        out[f"se_{k}"] = float(np.sqrt(max(cov[idx[k], idx[k]], 0.0)))
+    for base in sorted({k.rsplit("_", 1)[0] for k in keys}):
+        mx = idx[f"{base}_mix"]
+        if mean[mx] == 0:
+            continue
+        for other in ("off", "diag"):
+            o = idx[f"{base}_{other}"]
+            r = mean[o] / mean[mx]
+            g = np.array([1.0 / mean[mx], -mean[o] / mean[mx] ** 2])
+            out[f"ratio_{base}_{other}"] = float(r)
+            out[f"se_ratio_{base}_{other}"] = float(np.sqrt(max(g @ cov[np.ix_([o, mx], [o, mx])] @ g, 0.0)))
+    return out
+
+
+def propagate_realised_pairs(prog: Program, masks: np.ndarray, kind: str = "reset", p: float | None = None, mask_p: float | None = None,
+                             n_samples: int = 400_000, seed: int = 0, chunk: int = 100_000, mode: str = "offdiag") -> Dict:
+    """Independent cross-check of ``propagate_realised`` (tests): each path carries one mask pair (m, m'), m != m' uniform
+    ('offdiag') or m = m' ('diag'), and the product of the two copies' coefficients per site (signs carried; a Z with one copy
+    kept and the other reset is killed), the coupler with exactly one X / Y end the product cos a cos a' or sin a sin a' of the
+    copies' angles. Returns ``cost`` / ``k1`` / ``kL`` means with standard errors (no cuts)."""
+    t0 = time.time()
+    masks = np.asarray(masks, dtype=bool)
+    K, L, m = masks.shape
+    p, q = _realised_probabilities(prog, kind, p, mask_p)
+    coefs = _prefix_by_bits(prog, kind, p, q)
+    rng = np.random.default_rng(seed)
+    W = (m + 63) // 64
+    T, Td = _tail_tables(prog)
+    layer_of = dial_layer_of_ops(prog)
+    i, j = prog.i, prog.j
+    sums: Dict[str, List[float]] = {}
+    done = 0
+    while done < n_samples:
+        N = min(int(chunk), int(n_samples) - done)
+        m1 = rng.integers(0, K, size=N)
+        if mode == "offdiag":
+            m2 = rng.integers(0, K - 1, size=N)
+            m2 = m2 + (m2 >= m1)
+        else:
+            m2 = m1
+        key1 = 2 * masks[m1, L - 1, i].astype(int) + masks[m1, L - 1, j].astype(int)
+        key2 = 2 * masks[m2, L - 1, i].astype(int) + masks[m2, L - 1, j].astype(int)
+        X = np.zeros((N, W), dtype=U64)
+        Z = np.zeros((N, W), dtype=U64)
+        w = np.zeros(N)
+        order = ((0, 0), (0, 1), (1, 0), (1, 1))
+        for k1 in range(4):
+            for k2 in range(4):
+                rows = np.nonzero((key1 == k1) & (key2 == k2))[0]
+                if rows.size == 0:
+                    continue
+                c1, c2 = coefs[order[k1]], coefs[order[k2]]
+                common = [s for s in c1 if s != (0, 0) and s in c2]
+                ww = np.array([c1[s] * c2[s] for s in common])
+                if not common or np.abs(ww).sum() == 0:
+                    continue
+                aw = np.abs(ww)
+                Xc, Zc = _ints_to_words(common, W)
+                pk = rng.choice(len(common), size=rows.size, p=aw / aw.sum())
+                X[rows], Z[rows] = Xc[pk], Zc[pk]
+                w[rows] = np.sign(ww[pk]) * aw.sum()
+        flag = np.zeros(N, dtype=bool)
+        marked = False
+        for t_op, op in enumerate(prog.ops[prog.prefix_end:prog.tail_start], start=prog.prefix_end):
+            kd = op[0]
+            if kd == "rot":
+                qq = op[1]
+                w_, b_ = qq >> 6, U64(qq & 63)
+                sel = ((X[:, w_] >> b_) & ONE).astype(bool)
+                r = rng.integers(0, 2, size=N, dtype=np.uint64)
+                Z[sel, w_] = (Z[sel, w_] & ~(ONE << b_)) | (r[sel] << b_)
+            elif kd == "mark":
+                qq = op[1]
+                flag = ((X[:, qq >> 6] >> U64(qq & 63)) & ONE).astype(bool)
+                marked = True
+            elif kd == "sx":
+                qq = op[1]
+                X[:, qq >> 6] ^= (Z[:, qq >> 6] & (ONE << U64(qq & 63)))
+            elif kd == "cz":
+                a, bq = op[1], op[2]
+                wa, ba, wb, bb = a >> 6, U64(a & 63), bq >> 6, U64(bq & 63)
+                xa = (X[:, wa] >> ba) & ONE
+                xb = (X[:, wb] >> bb) & ONE
+                Z[:, wa] ^= (xb << ba)
+                Z[:, wb] ^= (xa << bb)
+            elif kd == "dep2":
+                a, bq, f = op[1], op[2], op[3]
+                wa, ba, wb, bb = a >> 6, U64(a & 63), bq >> 6, U64(bq & 63)
+                nonid = ((((X[:, wa] | Z[:, wa]) >> ba) & ONE) | (((X[:, wb] | Z[:, wb]) >> bb) & ONE)).astype(bool)
+                w[nonid] *= f * f
+            elif kd == "n1":
+                qq, bl = op[1], op[2]
+                c = _codes(X, Z, qq)
+                mz = bl.dz ** 2 + bl.tz ** 2
+                w *= np.array([1.0, bl.dx ** 2, bl.dy ** 2, mz])[c]
+                if bl.tz:
+                    toI = (c == 3) & (rng.random(N) < (bl.tz ** 2 / mz))
+                    Z[toI, qq >> 6] &= ~(ONE << U64(qq & 63))
+            elif kd in ("dial", "dial_zz"):
+                layer = layer_of[t_op]
+                s1, s2 = masks[m1, layer - 1], masks[m2, layer - 1]
+                sites = [(op[1], op[2])] if kd == "dial" else [(qq, b) for qq, b in enumerate(op[1]) if b is not None]
+                for qq, b in sites:
+                    br = dial_branches(b, kind, p, q)
+                    c = _codes(X, Z, qq)
+                    e1, e2 = s1[:, qq].astype(int), s2[:, qq].astype(int)
+                    for code, f in ((1, "dx"), (2, "dy")):
+                        sel = c == code
+                        if sel.any():
+                            vals = np.array([getattr(br[0], f), getattr(br[1], f)])
+                            w[sel] *= vals[e1[sel]] * vals[e2[sel]]
+                    isz = c == 3
+                    if isz.any():
+                        dzv, tzv = np.array([br[0].dz, br[1].dz]), np.array([br[0].tz, br[1].tz])
+                        stay, toi = dzv[e1] * dzv[e2], tzv[e1] * tzv[e2]
+                        tot = np.abs(stay) + np.abs(toi)
+                        frac = np.divide(np.abs(toi), tot, out=np.zeros(N), where=tot > 0)
+                        go = isz & (rng.random(N) < frac)
+                        keep = isz & ~go
+                        w[go] *= np.sign(toi[go]) * tot[go]
+                        w[keep] *= np.sign(stay[keep]) * tot[keep]
+                        Z[go, qq >> 6] &= ~(ONE << U64(qq & 63))
+                if kd == "dial_zz":
+                    blochs = op[1]
+                    for e in op[2]:
+                        a, b_e = int(e[0]), int(e[1])
+                        phi_i = float(e[2])
+                        phi_s = float(e[3]) if len(e) > 3 else 0.0
+                        wa, ba, wb, bb = a >> 6, U64(a & 63), b_e >> 6, U64(b_e & 63)
+                        xa = ((X[:, wa] >> ba) & ONE).astype(bool)
+                        xb = ((X[:, wb] >> bb) & ONE).astype(bool)
+                        act = xa ^ xb
+                        if not act.any():
+                            continue
+                        if kind == "reset":
+                            ra, rb = blochs[a] is not None, blochs[b_e] is not None
+                            r1 = (s1[:, a] & ra) | (s1[:, b_e] & rb)
+                            r2 = (s2[:, a] & ra) | (s2[:, b_e] & rb)
+                            a1, a2 = np.where(r1, phi_s, phi_s + phi_i), np.where(r2, phi_s, phi_s + phi_i)
+                        else:
+                            a1 = a2 = np.full(N, phi_s + phi_i)
+                        cc, ss = np.cos(a1) * np.cos(a2), np.sin(a1) * np.sin(a2)
+                        tot = np.abs(cc) + np.abs(ss)
+                        flip = act & (rng.random(N) < np.abs(ss) / tot)
+                        nof = act & ~flip
+                        w[flip] *= np.sign(ss[flip]) * tot[flip]
+                        w[nof] *= np.sign(cc[nof]) * tot[nof]
+                        if flip.any():
+                            Z[flip, wa] ^= (ONE << ba)
+                            Z[flip, wb] ^= (ONE << bb)
+            else:
+                raise RuntimeError(kd)
+        F, Fd = _final_factors(prog, X, Z, T, Td)
+        vals = dict(cost=w * F, k1=w * Fd)
+        if marked:
+            vals["kL"] = w * flag * F
+        for k_, v_ in vals.items():
+            s = sums.setdefault(k_, [0.0, 0.0])
+            s[0] += float(v_.sum())
+            s[1] += float((v_ * v_).sum())
+        done += N
+    out = dict(K=int(K), mode=mode, n_samples=int(done), seed=int(seed), runtime_s=time.time() - t0)
+    for k_, (s1_, s2_) in sums.items():
+        mean = s1_ / done
+        out[k_] = mean
+        out[f"se_{k_}"] = float(np.sqrt(max(s2_ / done - mean * mean, 0.0) / (done - 1)))
+    return out
+
+
 # --------------------------------------------------------------------------- high level
 
 def predict_point(patch, L: int, k: int, model: str, csv_path: str, deltas: Sequence[float] = (1e-6, 1e-7),

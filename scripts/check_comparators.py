@@ -10,9 +10,14 @@ run on (the list's ``placement`` block):
   (``truncation_prediction``: an ``h7_truncation_*.json`` entry drawn on that placement, with ``rms_l2``);
 - H5 / H6 and the dial comparisons: for every other ``reset_dial`` probe, the unital dial row at its k (``dial_prediction``: a
   ``pauliprop_predictions.csv``, ``gate1b_redraw_*.csv`` or ``dial_redraw_*.csv`` row drawn on that placement).
+- Deviation 60 part (7): for every probe with a mask lottery (reset or dephasing dial) and every truncation arm, with two or more
+  masks (``predictions.realised_applies``), the comparator drawn on the probe's realised masks (a ``dial_realised_*.csv`` row or an
+  ``h7_realised_*.json`` entry for the probe's seed and mask count on that placement), which the analysis compares with; the
+  mixture row or entry must exist beside it.
 
 A missing H7 comparator is drawn with ``scripts/predict_h7_truncation.py --joblist <list>``, missing dial rows with
-``scripts/redraw_dial_points.py --joblist <list>``, before the pre-flight (Deviations 46, 58) or under Deviation 54.
+``scripts/redraw_dial_points.py --joblist <list>`` (both draw the realised-mask comparators too), before the pre-flight
+(Deviations 46, 58) or under Deviation 54.
 """
 from __future__ import annotations
 
@@ -53,25 +58,30 @@ def check(joblist: str | Path, pred_dir: str | Path = PRED) -> dict:
         name, rung = _rung(jl, pr["patch"], int(pr["n"]), pr["edge"])
         if pr.get("unshifted"):                                            # the truncation arm: one comparator per (point, seed)
             key = (pr["patch"], int(pr["n"]), pr["edge"], int(pr["L"]), float(pr["p"]), int(pr.get("seed", 0)))
-            arms.setdefault(key, dict(name=name, rung=rung, probes=[]))["probes"].append(pr["id"])
+            arms.setdefault(key, dict(name=name, rung=rung, probes=[], K=int(pr.get("masks", 1))))["probes"].append(pr["id"])
             continue
         dial = P.DIAL_KIND.get(str(pr.get("reset_kind", "reset")), str(pr.get("reset_kind", "reset")))
-        item = dict(need="dial row (H5 / H6)", probe=pr["id"], rung=name, dial=dial, p=float(pr["p"]), L=int(pr["L"]), k=int(pr["k"]))
+        lottery = P.realised_applies(dial, pr.get("masks", 1))                   # Deviation 60 part (7): drawn on the realised masks
+        item = dict(need="dial row (H5 / H6)" + (", realised masks" if lottery else ""), probe=pr["id"], rung=name, dial=dial, p=float(pr["p"]),
+                    L=int(pr["L"]), k=int(pr["k"]))
         if rung is None:
             items.append(dict(item, found=False, reason=name if name else "no rung"))
             continue
         hit, why, fb = P.dial_prediction(preds, int(pr["n"]), int(pr["L"]), int(pr["k"]), dial, float(pr["p"]), patch=pr["patch"], edge=pr["edge"],
-                                         qubits=rung.get("qubits"), stamp=stamp)
+                                         qubits=rung.get("qubits"), stamp=stamp, probe_seed=int(pr.get("seed", 0)) if lottery else None,
+                                         K=int(pr.get("masks", 1)) if lottery else None, realised=lottery)
         items.append(dict(item, found=hit is not None, source=(hit or {}).get("source"), status=(hit or {}).get("status"),
                           reason=why or None, fallback=(fb or {}).get("source")))
     for (patch, n, edge, L, p, seed), a in sorted(arms.items(), key=str):
-        item = dict(need="H7 comparator (l = 2)", probe=", ".join(a["probes"]), rung=a["name"], p=p, L=L)
+        realised = P.realised_applies("reset", a["K"])
+        item = dict(need="H7 comparator (l = 2)" + (", realised masks" if realised else ""), probe=", ".join(a["probes"]), rung=a["name"], p=p, L=L)
         if a["rung"] is None:
             items.append(dict(item, found=False, reason=a["name"] or "no rung"))
             continue
-        comp, why = P.truncation_prediction(preds, patch=patch, edge=edge, n=n, p=p, L=L, qubits=a["rung"].get("qubits"), stamp=stamp)
+        comp, why = P.truncation_prediction(preds, patch=patch, edge=edge, n=n, p=p, L=L, qubits=a["rung"].get("qubits"), stamp=stamp,
+                                            seed=seed, K=a["K"], realised=realised)
         items.append(dict(item, found=comp is not None, source=(comp or {}).get("file"), reason=why or None,
-                          rms_l2=(comp or {}).get("rms_l2")))
+                          rms_l2=(comp or {}).get("rms_l2"), rms_l2_mixture=((comp or {}).get("mixture") or {}).get("rms_l2")))
     return dict(joblist=Path(joblist).name, placement=stamp, items=items, missing=sum(1 for x in items if not x["found"]))
 
 

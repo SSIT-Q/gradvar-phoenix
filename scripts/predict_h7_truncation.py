@@ -24,6 +24,11 @@
    ``rms_l2`` = the sampled sqrt(MSD(2)); ``rms_l2_sigma`` = half of max(2 x its standard error, sampled - truncated), the Deviation 15 rule
    of the H5 / H6 rows (the engine's truncation or sampling error only). Written as ``data/predictions/h7_truncation_<tag>.json`` / ``.md``,
    where ``gradvar.analysis.predictions`` loads it and ``evaluate_h7`` selects the entry of the placement the rows ran on.
+4. Deviation 60 part (7): the comparator H7 tests against is drawn on the truncation probes' realised masks (the full probe's K masks
+   rebuilt from its seed with the runner's placement call, ``redraw_gate1b.probe_masks``; ``pauliprop.propagate_realised`` with the cut
+   accumulators, 2e6 paths, seed 0): sqrt(MSD(l)) of the off-diagonal moment the shared-mask statistic estimates, sigma its sampling
+   error, with the mixture entry recorded beside it. Written as ``data/predictions/h7_realised_<tag>.json`` / ``.md``
+   (``predictions.load_realised_truncation``). ``--realised-only`` draws these entries alone (a list whose mixture entry is committed).
 """
 from __future__ import annotations
 
@@ -194,6 +199,53 @@ def comparator(patch, spec: str, point: dict, csv: str, props: str, settings: di
                 zz_layer_tau_sources=meta["tau_src"], runtime_s=time.time() - t0)
 
 
+def realised_entry(jl: dict, point: dict, rung_name: str, rung: dict, csv: str, props: str, n_samples: int) -> dict:
+    """Deviation 60 part (7): the H7 comparator on the truncation probes' realised masks (the full probe's seed and masks; the
+    truncated probes share them for their kept layers), every l = 1 .. L - 1 from one sampled propagation with the cut accumulators."""
+    t0 = time.time()
+    pr = next(p for p in jl["probes"] if p["id"] == point["full"])
+    L, p, kind = point["L"], point["p"], point["reset_kind"]
+    patch, edge = rd.rung_patch(rung), rd.rung_edge(rung)
+    prog, _meta = rd.dial_program(patch, rung["patch"], L, edge, csv, props, model="unital", dial_kind=kind, p=p, zz_layer_on=True)
+    masks, _full, _runner = rd.probe_masks(jl, pr, prog, patch, csv)
+    mask_p = float(pr.get("mask_p", p))
+    res = pp.propagate_realised(prog, masks, kind, p=p, mask_p=mask_p, n_samples=int(n_samples), seed=rd.REALISED["seed"], chunk=rd.REALISED["chunk"],
+                                cuts=tuple(range(1, L)))
+    K = int(masks.shape[0])
+    by_ell = {}
+    for ell in range(1, L):
+        msd, se = res[f"msd{ell}_off"], res[f"se_msd{ell}_off"]
+        rms = float(np.sqrt(max(msd, 0.0)))
+        by_ell[str(ell)] = dict(msd=msd, se_msd=se, rms=rms, rms_sigma=float(se / (2 * rms)) if rms > 0 else float("nan"),
+                                msd_mix_paths=res[f"msd{ell}_mix"], se_msd_mix_paths=res[f"se_msd{ell}_mix"],
+                                ratio_to_mixture=res.get(f"ratio_msd{ell}_off"), se_ratio_to_mixture=res.get(f"se_ratio_msd{ell}_off"),
+                                residual_pattern_expected=(res[f"msd{ell}_diag"] - msd) / K)
+    l2 = by_ell["2"]
+    return dict(point=dict(patch=rung["patch"], edge=rung["edge"], n=int(rung["n"]), p=p, L=L, k=L, reset_kind=kind,
+                           qubits=sorted(int(q) for q in rung["qubits"]), rung=rung_name, origin=rung["origin"], holes=rung["holes"],
+                           broken_edges=rung["broken_edges"]),
+                probes=[point["full"]] + [point["cuts"][k] for k in sorted(point["cuts"])], ells_in_list=sorted(point["cuts"]),
+                mask_seed=int(pr["seed"]), theta_seed=point["seed"], K=K, mask_p=mask_p,
+                rms_l2=l2["rms"], rms_l2_sigma=l2["rms_sigma"], rms_l2_source="realised masks (pauliprop.propagate_realised, off-diagonal moment)",
+                by_ell=by_ell, var_cost_T=res["cost_off"], se_cost_T=res["se_cost_off"], var_kL_realised=res["kL_off"], se_kL_realised=res["se_kL_off"],
+                n_cone=prog.m, n_samples=res["n_samples"], sampler_seed=res["seed"], chunk=res["chunk"], runtime_s=time.time() - t0)
+
+
+def markdown_realised(rec: dict) -> str:
+    lines = [f"# H7 comparator on the realised masks, placement {rec['snapshot']['stamp']} (Deviation 60 part (7))", "",
+             f"List `{rec['joblist']}`; code {rec.get('git_commit') or 'uncommitted'}; generated {rec['generated_utc']}; command `{rec['command']}`.", "",
+             "sqrt(MSD(l)) of the off-diagonal moment over the truncation probes' realised masks, the target of the shared-mask statistic; "
+             "sigma = sampling error. The mixture comparator is recorded beside it and is not used in any test.", "",
+             "| rung | p | L | probe seed | K | l | sqrt(MSD) realised +/- sigma | mixture | ratio |", "|---|---|---|---|---|---|---|---|---|"]
+    for e in rec["entries"]:
+        mix = e.get("mixture") or {}
+        for ell, b in sorted(e["by_ell"].items(), key=lambda kv: int(kv[0])):
+            m = (mix.get("by_ell") or {}).get(ell, {}).get("rms") if mix else None
+            lines.append(f"| {e['point']['rung']} | {e['point']['p']} | {e['point']['L']} | {e['mask_seed']} | {e['K']} | {ell} | {b['rms']:.6f} +/- {b['rms_sigma']:.1e} | "
+                         + (f"{m:.6f} | {b['rms'] / m:.3f} |" if m else " | |"))
+    return "\n".join(lines) + "\n"
+
+
 def markdown(rec: dict) -> str:
     lines = [f"# H7 comparator (Deviation 60), placement {rec['snapshot']['stamp']}", "",
              f"Job list `{rec['joblist']}`; snapshot `{rec['snapshot']['csv']}` (properties `{rec['snapshot']['properties']}`); "
@@ -241,6 +293,9 @@ def main(argv=None) -> int:
     ap.add_argument("--check-only", action="store_true", help="run the noise-off bug check only")
     ap.add_argument("--no-ideal-mc", action="store_true", help="bug check without its sampled run (tests)")
     ap.add_argument("--n-samples", type=int, default=DEV46["n_samples"], help="Pauli paths per sampled propagation (Deviation 46: 5e5)")
+    ap.add_argument("--realised-samples", type=int, default=rd.REALISED["n_samples"], help="Deviation 60 part (7): paths of the realised-mask draw (2e6)")
+    ap.add_argument("--realised-only", action="store_true",
+                    help="draw only the realised-mask comparators (h7_realised_<tag>), the mixture entry being committed; no bug check")
     args = ap.parse_args(argv)
     t_start = time.time()
     jl_path = Path(args.joblist)
@@ -255,7 +310,8 @@ def main(argv=None) -> int:
     settings = dict(DEV46, n_samples=int(args.n_samples))
     rel = jl_path.resolve().relative_to(ROOT) if jl_path.resolve().is_relative_to(ROOT) else jl_path
     cmd = "python scripts/predict_h7_truncation.py" + ("" if jl_path.resolve() == DEFAULT_JOBLIST.resolve() else f" --joblist {rel.as_posix()}") + \
-          (" --check-only" if args.check_only else "") + (f" --n-samples {args.n_samples}" if args.n_samples != DEV46["n_samples"] else "")
+          (" --check-only" if args.check_only else "") + (f" --n-samples {args.n_samples}" if args.n_samples != DEV46["n_samples"] else "") + \
+          (" --realised-only" if args.realised_only else "") + (f" --realised-samples {args.realised_samples}" if args.realised_samples != rd.REALISED["n_samples"] else "")
     rec = dict(deviation="60", generated_utc=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), script="scripts/predict_h7_truncation.py", command=cmd,
                git_commit=_git_commit(), joblist=str(rel.as_posix() if hasattr(rel, "as_posix") else rel),
                snapshot=dict(csv=pl["snapshot"], properties=pl["properties"], stamp=stamp, pinned=bool(pl.get("pin_snapshot"))),
@@ -269,6 +325,8 @@ def main(argv=None) -> int:
                entries=[])
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
+    if args.realised_only:
+        return write_realised(jl, points, rec, snapshot, props, stamp, tag, out_dir, args.realised_samples, [], t_start)
     checks = []
     for point in points:
         rung_name, rung = rung_for(jl, point)
@@ -301,6 +359,44 @@ def main(argv=None) -> int:
     if failed:
         print("BUG CHECK FAILED: no comparator written; a documented code audit follows (dial-law note, Section 6 item 1)", flush=True)
         return 3
+    if args.check_only:
+        return 0
+    return write_realised(jl, points, dict(rec, entries=[]), snapshot, props, stamp, tag, out_dir, args.realised_samples, rec["entries"], time.time())
+
+
+def write_realised(jl: dict, points: list, rec: dict, snapshot: str, props: str, stamp: str, tag: str, out_dir: Path, n_samples: int,
+                   mixture_entries: list, t_start: float) -> int:
+    """Deviation 60 part (7): the realised-mask comparator of every truncation arm, the mixture entry (drawn now or committed)
+    recorded beside it; written as h7_realised_<tag>.json / .md."""
+    from gradvar.analysis import predictions as P
+    committed = P.load_truncation_entries(PRED)
+    out = dict(rec, deviation="60 part (7)", settings=dict(rec.get("settings", {}), realised=dict(rd.REALISED, n_samples=int(n_samples)),
+                                                         comparator_rule="rms = sqrt of the realised-mask off-diagonal MSD(l); rms_sigma = its "
+                                                                         "sampling error (Deviation 60 part (7))"), entries=[])
+    for point in points:
+        rung_name, rung = rung_for(jl, point)
+        full = next(p for p in jl["probes"] if p["id"] == point["full"])
+        if not P.realised_applies("reset", full.get("masks", 1)):
+            print(f"{rung_name}: {point['full']} carries one mask: no realised-mask comparator (the mixture entry stands)", flush=True)
+            continue
+        e = realised_entry(jl, point, rung_name, rung, snapshot, props, n_samples)
+        mix = None
+        for m in list(mixture_entries) + committed:
+            ok, _why = P._same_point(m, e["point"]["patch"], e["point"]["edge"], e["point"]["n"], e["point"]["p"], e["point"]["L"], e["point"]["qubits"],
+                                     stamp, need_stamp=bool(m.get("placement_stamp")))
+            if ok:
+                mix = m
+        if mix is not None:
+            e["mixture"] = dict(rms_l2=mix.get("rms_l2"), rms_l2_sigma=mix.get("rms_l2_sigma"), file=mix.get("file", f"h7_truncation_{tag}.json"),
+                                by_ell={k: dict(rms=v.get("rms"), rms_sigma=v.get("rms_sigma")) for k, v in (mix.get("by_ell") or {}).items()})
+        out["entries"].append(e)
+        print(f"realised comparator {rung_name}: rms_l2 = {e['rms_l2']:.6f} +/- {e['rms_l2_sigma']:.1e}"
+              + (f" (mixture {e['mixture']['rms_l2']:.6f})" if mix is not None else " (no mixture entry found)") + f"; {e['runtime_s']:.0f}s", flush=True)
+    out["runtime_s"] = time.time() - t_start
+    name = f"h7_realised_{tag}"
+    (out_dir / f"{name}.json").write_text(json.dumps(out, indent=1, default=rd._json_default), encoding="utf-8")
+    (out_dir / f"{name}.md").write_text(markdown_realised(out), encoding="utf-8")
+    print(f"wrote {name}.json / .md in {out_dir}")
     return 0
 
 

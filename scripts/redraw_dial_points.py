@@ -21,6 +21,13 @@ its own placement block.
 4. Writes ``data/predictions/dial_redraw_<tag>.csv`` / ``.json`` / ``.md`` (tag: the placement stamp as YYYY-MM-DDTHHMM) with the
    placed ``qubits`` of every row, which ``load_dial_rows`` reads.
 
+5. Deviation 60 part (7): for every dial probe with a mask lottery (reset or dephasing dial, two or more masks) the comparator on
+   its realised masks (``redraw_gate1b.realised_dial_row``: the probe's K masks rebuilt from its seed with the runner's placement
+   call, ``pauliprop.propagate_realised`` with 2e6 paths, seed 0): the k = L and k = 1 variances and Var[C_mix] that the shared-mask
+   estimators estimate, with their sampling errors, the mask counts of the realised Deviation 33 floors, and the mixture row beside
+   it. A probe is covered when a committed ``dial_realised_<tag>.csv`` row holds it (placement, point, seed and mask count). Written
+   as ``data/predictions/dial_realised_<tag>.csv`` / ``.json`` / ``.md``, which ``load_realised_rows`` reads.
+
 The Deviation 46 settings are fixed for the committed draw: ``--n-samples``, ``--pattern-samples``, ``--n-cap`` and ``--time-limit``
 are refused unless ``--exploratory`` is given (checkpoint-review addendum). An exploratory draw is flagged on the terminal and in its
 record and is written as ``dial_exploratory_<tag>.*``, which the analysis does not read.
@@ -51,13 +58,16 @@ import redraw_gate1b as rd                                                # noqa
 PRED = ROOT / "data" / "predictions"
 CAL_DIR = ROOT / "data" / "calibrations"
 DEFAULT_JOBLIST = ROOT / "data" / "joblists" / "paper1" / "day3_dial_refs.json"
-DEV46 = dict(n_samples=500_000, pattern_samples=250_000, n_cap=400_000, time_limit_s=600.0)   # redraw_gate1b defaults (deltas 1e-6, 1e-7; seeds 0 / 7)
-SETTING_FLAGS = dict(n_samples="--n-samples", pattern_samples="--pattern-samples", n_cap="--n-cap", time_limit_s="--time-limit")
+DEV46 = dict(n_samples=500_000, pattern_samples=250_000, n_cap=400_000, time_limit_s=600.0,   # redraw_gate1b defaults (deltas 1e-6, 1e-7; seeds 0 / 7)
+             realised_samples=rd.REALISED["n_samples"])                                             # part (7): the realised-mask sampler's paths
+SETTING_FLAGS = dict(n_samples="--n-samples", pattern_samples="--pattern-samples", n_cap="--n-cap", time_limit_s="--time-limit",
+                     realised_samples="--realised-samples")
 
 
 def settings_from_args(args) -> tuple:
     """(settings, overrides): the Deviation 46 settings with any command-line values applied, and the ones that differ from them."""
-    given = dict(n_samples=args.n_samples, pattern_samples=args.pattern_samples, n_cap=args.n_cap, time_limit_s=args.time_limit)
+    given = dict(n_samples=args.n_samples, pattern_samples=args.pattern_samples, n_cap=args.n_cap, time_limit_s=args.time_limit,
+                 realised_samples=getattr(args, "realised_samples", None))
     settings = {k: (DEV46[k] if v is None else type(DEV46[k])(v)) for k, v in given.items()}
     return settings, {k: v for k, v in settings.items() if v != DEV46[k]}
 
@@ -108,6 +118,37 @@ def covering_row(rows: pd.DataFrame, qubits, point: dict, stamp: str | None = No
     return (conv if not conv.empty else d).iloc[-1].to_dict()
 
 
+def realised_probes(jl: dict) -> list:
+    """The list's dial probes with a mask lottery (reset or dephasing dial, two or more masks, not ``unshifted``), whose comparators
+    are drawn on their realised masks (Deviation 60 part (7)), each with its point key."""
+    out = []
+    for pr in jl.get("probes", []) or []:
+        if pr.get("kind") != "reset_dial" or pr.get("unshifted") or int(pr.get("masks", 1)) < 2:
+            continue
+        dial = P.DIAL_KIND.get(str(pr.get("reset_kind", "reset")), str(pr.get("reset_kind", "reset")))
+        if dial not in P.LOTTERY_ARMS:
+            continue
+        out.append(dict(probe=pr, patch=pr["patch"], n=int(pr["n"]), edge=pr["edge"], L=int(pr["L"]), dial=dial, p=float(pr["p"]),
+                        seed=int(pr["seed"]), K=int(pr["masks"])))
+    return out
+
+
+def covering_realised(rows: pd.DataFrame, qubits, item: dict, stamp: str | None) -> dict | None:
+    """The committed realised-mask row of a probe (placement, point, seed and mask count), as ``predictions.dial_prediction`` with
+    ``realised`` selects it, or None; rows of more than one file: {'ambiguous': [files]}."""
+    if rows is None or not len(rows):
+        return None
+    qk = P.qubit_key(qubits)
+    d = rows[(rows.placement_qubits == qk) & (rows.placement_stamp.astype(str) == str(stamp)) & (rows.L == item["L"])
+             & (rows.dial.astype(str) == item["dial"]) & np.isclose(rows.p.astype(float), item["p"]) & (rows.patch.astype(str) == item["patch"])
+             & (rows.edge.astype(str).str.replace("-", "_") == item["edge"].replace("-", "_")) & (rows.mask_seed.astype(int) == item["seed"])
+             & (rows.K.astype(int) == item["K"])]
+    if d.empty:
+        return None
+    files = sorted(set(d.source.astype(str)))
+    return dict(ambiguous=files) if len(files) > 1 else d.iloc[-1].to_dict()
+
+
 _PLACED: dict = {}      # per-process cache of the rule's placements, keyed by (snapshot, dial)
 
 
@@ -144,8 +185,10 @@ def plan(joblists: list, pred_dir: Path = PRED, force: bool = False) -> dict:
     snapshot, props = str(CAL_DIR / pl["snapshot"]), str(CAL_DIR / pl["properties"])
     stamp = next(iter(stamps))
     rows = P.load_dial_rows(pred_dir)
+    realised_rows = P.load_realised_rows(pred_dir)
     dial = bool(pl.get("dial_exclude"))                                   # Deviation 62: placed as a reset-dial list
     covered, jobs, checks, seen = [], [], {}, set()
+    r_covered, r_jobs, r_seen = [], [], set()
     for path, jl in lists:
         for pt in dial_points(jl):
             rung_name, rung = h7.rung_for(jl, pt)
@@ -166,7 +209,24 @@ def plan(joblists: list, pred_dir: Path = PRED, force: bool = False) -> dict:
                 covered.append(dict(rec, source=hit.get("source"), var_kL=hit.get("var_kL_mc"), status=hit.get("status")))
             else:
                 jobs.append(dict(rec, rung_block=rung, reason="forced re-draw" if hit is not None else "no row on this placement"))
-    return dict(snapshot=snapshot, props=props, stamp=stamp, placement=pl, placement_checks=checks, covered=covered, jobs=jobs)
+        for it in realised_probes(jl):                                   # Deviation 60 part (7): one realised row per probe
+            rung_name, rung = h7.rung_for(jl, it)
+            key = (rung_name, it["probe"]["id"], it["seed"], it["K"])
+            if key in r_seen:
+                continue
+            r_seen.add(key)
+            hit = covering_realised(realised_rows, rung["qubits"], it, stamp)
+            if hit is not None and "ambiguous" in hit:
+                raise SystemExit(f"{it['probe']['id']}: realised rows for this placement in {hit['ambiguous']}; keep one file before drawing")
+            rec = dict(rung=rung_name, probe_id=it["probe"]["id"], patch=it["patch"], n=it["n"], edge=it["edge"], L=it["L"], dial=it["dial"],
+                       p=it["p"], seed=it["seed"], K=it["K"], joblist=Path(path).name)
+            if hit is not None and not force:
+                r_covered.append(dict(rec, source=hit.get("source"), var_kL=hit.get("var_kL_realised")))
+            else:
+                r_jobs.append(dict(rec, probe=it["probe"], rung_block=rung, jl=jl,
+                                   reason="forced re-draw" if hit is not None else "no realised-mask row for this probe"))
+    return dict(snapshot=snapshot, props=props, stamp=stamp, placement=pl, placement_checks=checks, covered=covered, jobs=jobs,
+                realised_covered=r_covered, realised_jobs=r_jobs)
 
 
 def draw_row(job: dict) -> dict:
@@ -181,6 +241,45 @@ def draw_row(job: dict) -> dict:
                qubits=" ".join(str(q) for q in sorted(int(q) for q in rung["qubits"])), joblist=job["joblist"], probe_ids=" ".join(job["probes"]),
                dev33_floor_grad=fl.get("floor_grad"), dev33_floor_cost=fl.get("floor_cost"))
     return out
+
+
+def draw_realised(job: dict) -> dict:
+    """One realised-mask row (``redraw_gate1b.realised_dial_row``) with the probe's placement record."""
+    s = dict(rd.REALISED, n_samples=int(job["realised_samples"]))
+    out = rd.realised_dial_row(job["jl"], job["probe"], job["rung_block"], job["csv"], job["props"], s)
+    out.update(placement=f"Deviation 46 run-day placement ({Path(job['csv']).name}, pinned list {job['joblist']})", snapshot_stamp=job["stamp"],
+               rung=job["rung"], joblist=job["joblist"], redraw_reason=f"Deviation 60 part (7): {job['reason']}")
+    return out
+
+
+def attach_mixture(realised: list, rows: pd.DataFrame, stamp: str) -> None:
+    """Record beside every realised row the mixture row the analysis pairs it with (``covering_row``), which no test uses."""
+    for r in realised:
+        point = dict(patch=r["patch"], edge=r["edge"], L=int(r["L"]), dial=r["dial"], p=float(r["p"]))
+        hit = covering_row(rows, r["qubits"].split(), point, stamp)
+        hit = None if (hit is None or "ambiguous" in hit) else hit
+        r.update(mixture_source=(hit or {}).get("source"), var_kL_mixture=(hit or {}).get("var_kL_mc"), se_kL_mixture=(hit or {}).get("se_kL_mc"),
+                 var_cost_mixture=(hit or {}).get("var_cost_mc"), se_cost_mixture=(hit or {}).get("se_cost_mc"))
+
+
+def markdown_realised(res: dict) -> str:
+    lines = [f"# Realised-mask dial comparators on the placement {res['stamp']} (Deviation 60 part (7))", "",
+             f"Lists {', '.join(res['joblists'])}; snapshot `{Path(res['snapshot']).name}`; code {res.get('git_commit') or 'uncommitted'}; "
+             f"generated {res['generated_utc']}; command `{res['command']}`; sampler {res['settings']['realised']}.", "",
+             "The shared-mask estimators estimate the off-diagonal moment over each probe's realised masks; these values are the "
+             "comparators of H5 / H6 (sigma = sampling error). The mixture rows are recorded beside them and are not used in any test.", "",
+             "| probe | rung | L | dial | p | seed | k = L variance (realised +/- s.e.) | mixture | ratio | Var[C_mix] (realised +/- s.e.) | mixture | "
+             "Dev 33 floor grad: realised / mixture | Dev 33 floor cost: realised / mixture |",
+             "|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
+    for c in res["covered"]:
+        lines.append(f"| {c['probe_id']} | {c['rung']} | {c['L']} | {c['dial']} | {c['p']} | {c['seed']} | covered: {c.get('var_kL', float('nan')):.4e} | | | | | | {c['source']} |")
+    for r in res["rows"]:
+        f = lambda x: f"{x:.4e}" if isinstance(x, (int, float)) and np.isfinite(x) else ""      # noqa: E731
+        lines.append(f"| {r['probe_id']} | {r['rung']} | {r['L']} | {r['dial']} | {r['p']} | {r['mask_seed']} | {f(r['var_kL_realised'])} +/- {r['se_kL_realised']:.1e} | "
+                     f"{f(r.get('var_kL_mixture'))} | {r['var_kL_realised'] / r['var_kL_mixture'] if r.get('var_kL_mixture') else float('nan'):.3f} | "
+                     f"{f(r['var_cost_realised'])} +/- {r['se_cost_realised']:.1e} | {f(r.get('var_cost_mixture'))} | "
+                     f"{f(r.get('floor_grad_realised'))} / {f(r.get('dev33_floor_grad'))} | {f(r.get('floor_cost_realised'))} / {f(r.get('dev33_floor_cost'))} |")
+    return "\n".join(lines) + "\n"
 
 
 def markdown(res: dict) -> str:
@@ -211,6 +310,8 @@ def main(argv=None) -> int:
     ap.add_argument("--pattern-samples", type=int, default=None, help=f"Deviation 46: {DEV46['pattern_samples']} (other values need --exploratory)")
     ap.add_argument("--n-cap", type=int, default=None, help=f"Deviation 46: {DEV46['n_cap']} (other values need --exploratory)")
     ap.add_argument("--time-limit", type=float, default=None, help=f"Deviation 46: {DEV46['time_limit_s']} s (other values need --exploratory)")
+    ap.add_argument("--realised-samples", type=int, default=None,
+                    help=f"Deviation 60 part (7): {DEV46['realised_samples']} paths per realised-mask row (other values need --exploratory)")
     ap.add_argument("--exploratory", action="store_true",
                     help="allow settings other than Deviation 46; the output is flagged and written as dial_exploratory_<tag>.*, not read by the analysis")
     ap.add_argument("--workers", type=int, default=4)
@@ -231,31 +332,63 @@ def main(argv=None) -> int:
         print(f"  covered  {c['rung']:5} n={c['n']} L={c['L']:2} {c['dial']:7} p={c['p']:<5} {c['source']} ({c['status']})")
     for j in pl["jobs"]:
         print(f"  to draw  {j['rung']:5} n={j['n']} L={j['L']:2} {j['dial']:7} p={j['p']:<5} probes {', '.join(j['probes'])} ({j['reason']})")
-    if args.plan or not pl["jobs"]:
-        print("plan only; nothing drawn" if args.plan else "every point is covered; nothing to draw")
+    for c in pl["realised_covered"]:
+        print(f"  covered  {c['rung']:5} realised masks {c['probe_id']} (seed {c['seed']}, K = {c['K']}) {c['source']}")
+    for j in pl["realised_jobs"]:
+        print(f"  to draw  {j['rung']:5} realised masks {j['probe_id']} (seed {j['seed']}, K = {j['K']}) ({j['reason']})")
+    if args.plan or not (pl["jobs"] or pl["realised_jobs"]):
+        print("plan only; nothing drawn" if args.plan else "every point and probe is covered; nothing to draw")
         return 0
     rel = [Path(p).resolve().relative_to(ROOT).as_posix() if Path(p).resolve().is_relative_to(ROOT) else str(p) for p in joblists]
     cmd = ("python scripts/redraw_dial_points.py " + " ".join(f"--joblist {r}" for r in rel) + (" --force" if args.force else "")
            + ("".join(f" {SETTING_FLAGS[k]} {v}" for k, v in overrides.items()) + " --exploratory" if args.exploratory else ""))
-    for j in pl["jobs"]:
+    for j in pl["jobs"] + pl["realised_jobs"]:
         j.update(csv=pl["snapshot"], props=pl["props"], stamp=pl["stamp"], **settings)
-    rows = []
+    rows, realised = [], []
     with ProcessPoolExecutor(max_workers=args.workers) as ex:
-        futs = {ex.submit(draw_row, j): j for j in pl["jobs"]}
+        futs = {ex.submit(draw_row, j): ("mixture", j) for j in pl["jobs"]}
+        futs.update({ex.submit(draw_realised, j): ("realised", j) for j in pl["realised_jobs"]})
         for fut in as_completed(futs):
             r = fut.result()
+            if futs[fut][0] == "realised":
+                realised.append(r)
+                print(f"  drawn    {r['rung']:5} realised masks {r['probe_id']} kL {r['var_kL_realised']:.4e} +/- {r['se_kL_realised']:.1e} "
+                      f"C {r['var_cost_realised']:.3e} ({r['runtime_s']:.0f}s)", flush=True)
+                continue
             rows.append(r)
             print(f"  drawn    {r['rung']:5} n={r['n']} L={r['L']:2} {r['dial']:7} p={r['p']:<5} kL {r.get('var_kL_mc', float('nan')):.4e} "
                   f"C {r.get('var_cost_mc', float('nan')):.3e} {r['status']} ({r['runtime_s']:.0f}s)", flush=True)
     rows.sort(key=lambda r: (r["rung"], r["L"], r["dial"], r["p"]))
+    realised.sort(key=lambda r: (r["rung"], r["L"], r["dial"], r["p"], r["probe_id"]))
+    out_dir = Path(args.out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    if realised:                                                          # Deviation 60 part (7): the realised-mask rows, mixture beside
+        new = pd.DataFrame(rows)
+        if len(new):
+            new["placement_qubits"] = new["qubits"].map(P.qubit_key)
+            new["placement_stamp"], new["source"] = new["snapshot_stamp"], f"{output_prefix(args.exploratory)}_{tag}.csv"
+        allrows = pd.concat([P.load_dial_rows(PRED), new], ignore_index=True, sort=False) if len(new) else P.load_dial_rows(PRED)
+        attach_mixture(realised, allrows, pl["stamp"])
+        rres = dict(deviation="60 part (7)", generated_utc=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), command=cmd, git_commit=_git_commit(),
+                    joblists=[Path(p).name for p in joblists], snapshot=pl["snapshot"], properties=pl["props"], stamp=pl["stamp"],
+                    settings=dict(model="unital (the Deviation 46 program of the point)", realised=dict(rd.REALISED, n_samples=settings["realised_samples"]),
+                                  deviation46=not overrides, exploratory=bool(args.exploratory), overrides=overrides,
+                                  statistic="off-diagonal moment over the probe's realised masks (the shared-mask estimators' target); "
+                                            "Var[C_mix] = that moment of the cost minus S^2(c0) / K; sigma = sampling error"),
+                    covered=pl["realised_covered"], rows=realised, runtime_s=time.time() - t0)
+        rstem = ("dial_exploratory_realised" if args.exploratory else "dial_realised") + f"_{tag}"
+        (out_dir / f"{rstem}.json").write_text(json.dumps(rres, indent=1, default=rd._json_default), encoding="utf-8")
+        pd.DataFrame(realised).to_csv(out_dir / f"{rstem}.csv", index=False)
+        (out_dir / f"{rstem}.md").write_text(markdown_realised(rres), encoding="utf-8")
+        print(f"wrote {rstem}.json / .csv / .md in {out_dir}" + (" (EXPLORATORY: not read by the analysis)" if args.exploratory else ""))
+    if not rows:
+        return 0
     res = dict(deviation="60 (checkpoint review M5)", generated_utc=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), command=cmd, git_commit=_git_commit(),
                joblists=[Path(p).name for p in joblists], snapshot=pl["snapshot"], properties=pl["props"], stamp=pl["stamp"],
                placement_checks=pl["placement_checks"],
                settings=dict(model="unital", deltas=[1e-6, 1e-7], seed=rd.SEED, pattern_seed=rd.SEED + rd.PATTERN_SEED_OFFSET, K_masks=rd.K_MASKS,
                              **settings, deviation46=not overrides, exploratory=bool(args.exploratory), overrides=overrides),
                covered=pl["covered"], rows=rows, runtime_s=time.time() - t0)
-    out_dir = Path(args.out_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
     stem = f"{output_prefix(args.exploratory)}_{tag}"
     (out_dir / f"{stem}.json").write_text(json.dumps(res, indent=1, default=rd._json_default), encoding="utf-8")
     pd.DataFrame(rows).to_csv(out_dir / f"{stem}.csv", index=False)

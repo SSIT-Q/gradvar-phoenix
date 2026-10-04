@@ -3,6 +3,7 @@ recovery on synthetic runs built from the predictions plus shot noise, the Devia
 numbers, the Deviation 38 dial estimator on the reviewer's scenario, and the pre-registered verdicts on a passing and a
 failing synthetic run."""
 import json
+import shutil
 import sys
 from pathlib import Path
 
@@ -294,11 +295,21 @@ def preds():
     return P.load_predictions()
 
 
+def _with_realised(run_dir, preds, d):
+    """Deviation 60 part (7): the committed prediction files plus the synthetic run's realised-mask comparator rows (the planted
+    values, ``synthetic.realised_rows``), which the analysis compares the mask-lottery dial points with."""
+    shutil.copytree(P.DEFAULT_DIR, d, dirs_exist_ok=True)
+    rows = S.realised_rows(run_dir, preds)
+    assert len(rows) and (rows.K >= 2).all()
+    rows.to_csv(d / "dial_realised_synthetic.csv", index=False)
+    return str(d)
+
+
 @pytest.fixture(scope="module")
 def passing(tmp_path_factory, preds):
     out = tmp_path_factory.mktemp("pass")
     S.SyntheticRun(out, name="syn_pass", seed=11, snapshot_csv=SNAP).add(_pass_specs(preds)).write()
-    return analyse(str(out), None, SNAP, None, n_boot=N_BOOT)
+    return analyse(str(out), _with_realised(out, preds, tmp_path_factory.mktemp("pass_predictions")), SNAP, None, n_boot=N_BOOT)
 
 
 @pytest.fixture(scope="module")
@@ -314,7 +325,7 @@ def failing(tmp_path_factory, preds):
     specs += [S.ladder_probe(rd, prep, bias) for rd, bias in ((250, 0.004), (1, 0.06)) for prep in ("0", "1")]  # Gate 2 (c)
     S.SyntheticRun(out, name="syn_fail", seed=12, rep_delay_s=250e-6, per_exec_us=600.0, mid_circuit_measures=1, reset_us=1.2,
                    fail_reset_job_level=1, readout_scale=2.0, snapshot_csv=SNAP).add(specs).write()
-    return analyse(str(out), None, SNAP, None, n_boot=N_BOOT)
+    return analyse(str(out), _with_realised(out, preds, tmp_path_factory.mktemp("fail_predictions")), SNAP, None, n_boot=N_BOOT)
 
 
 def test_synthetic_pipeline_recovers_planted_variances(passing):
@@ -365,6 +376,10 @@ def test_synthetic_passing_run_verdicts(passing):
     finite = [x for x in dh["H6"]["headline"] if x["ratio_to_floor"] is not None and np.isfinite(x["ratio_to_floor"])]
     assert len(finite) == 4 and all(x["ratio_to_floor"] > 1 for x in finite)                   # the M = 1 smoke probe has no variance estimate
     assert dh["H7"]["result"] == "not-evaluable"
+    # Deviation 60 part (7): the reset points' comparators and floors are the realised-mask rows (here the planted values)
+    assert all(f["floor_rule"].startswith("realised masks") and f["floor_tested"] for f in dh["H6"]["floors"] if np.isfinite(f["headline_ratio"]))
+    assert all(np.isfinite(f["floor_mixture"]) for f in dh["H5"]["floors"]) and all(v["realised"] for v in dh["H5"]["values"] if v["within"] is not None)
+    assert all("realised" not in m["reason"] for m in dh["H5"]["missing_predictions"] + dh["H6"]["missing_predictions"])   # only the n = 20 smoke probe lacks a row
     k = passing["kill_rules"]
     assert {v["result"] for v in k.values()} == {"pass"}
     assert k["a"]["value"] < 2e-2 and k["b"]["value"] < 2 and k["b"]["minutes_circuits_only"] < 1 and k["b"]["job_overhead"]["source"].startswith("measured")

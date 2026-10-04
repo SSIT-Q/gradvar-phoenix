@@ -344,6 +344,24 @@ def _one_stamp(g: pd.DataFrame):
     return next(iter(s)) if len(s) == 1 else None
 
 
+def probe_mask_seed(g: pd.DataFrame):
+    """(probe seed, K) of a dial or truncation point: the probe's seed from its rows' per-mask seeds (``mask_seed`` = seed + 1 +
+    mask_index, ``hardware.mask_lottery``) and its mask count, or (None, None) when the rows do not record one consistent value
+    (Deviation 60 part (7): the realised-mask comparator is drawn per probe seed)."""
+    if not {"mask_seed", "mask_index"} <= set(g.columns):
+        return None, None
+    ms, mi = pd.to_numeric(g.mask_seed, errors="coerce"), pd.to_numeric(g.mask_index, errors="coerce")
+    ok = ms.notna() & mi.notna()
+    if not ok.all():
+        return None, None
+    seeds = set((ms[ok] - 1 - mi[ok]).astype(int))
+    K = pd.to_numeric(g.K, errors="coerce") if "K" in g.columns else pd.Series(dtype=float)
+    Ks = set(K.dropna().astype(int)) if len(K) else set()
+    if len(seeds) != 1:
+        return None, None
+    return int(next(iter(seeds))), (int(next(iter(Ks))) if len(Ks) == 1 else int(mi[ok].max()) + 1)
+
+
 def point_table(rows: pd.DataFrame, n_boot: int = N_BOOT) -> pd.DataFrame:
     """One row per point of the tidy table: grid points through ``variance_point`` (per-draw gradients), dial points
     through ``dial_point`` (masks pooled per draw). Columns identify the point (kind, arm, p, n, L, k, resilience,
@@ -375,6 +393,8 @@ def point_table(rows: pd.DataFrame, n_boot: int = N_BOOT) -> pd.DataFrame:
                 est["repeat_shot_vars"] = [g[g.repeat == r].sort_values("draw").shot_var.astype(float).tolist() for r in range(est["n_repeats"])]
         elif first.kind == "reset_dial":
             est = dial_point(g, n_boot=n_boot)
+            est["probe_id"] = first.probe_id if "probe_id" in g.columns else None
+            est["probe_seed"], est["probe_K"] = probe_mask_seed(g)       # Deviation 60 part (7): the realised-mask comparator's key
             est["gradients"] = [(a.ev_plus.mean() - a.ev_minus.mean()) / 2.0 for _, a in g.groupby("draw", sort=True)]
             est["draw_hashes"] = [str(a.param_hash.iloc[0]) for _, a in g.groupby("draw", sort=True)]
             est["shot_vars"] = [est["combined_floor"]] * len(est["gradients"])       # shot + pattern floor per draw
