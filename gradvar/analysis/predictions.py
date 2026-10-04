@@ -109,19 +109,31 @@ def load_truncation_entries(directory: str | Path) -> List[Dict]:
     order by name; each entry keyed by the placement it was drawn on, ``point``), tagged with its file name."""
     out = []
     for f in sorted(Path(directory).glob("h7_truncation_*.json")):
-        for e in json.loads(f.read_text()).get("entries", []):
-            out.append(dict(e, file=f.name))
+        rec = json.loads(f.read_text())
+        snap = rec.get("snapshot")
+        stamp = (snap.get("stamp") or _stamp_of_name(snap.get("csv"))) if isinstance(snap, dict) else _stamp_of_name(snap)
+        for e in rec.get("entries", []):
+            out.append(dict(e, file=f.name, placement_stamp=e.get("placement_stamp") or stamp))   # the snapshot it was drawn on (S-A)
     return out
 
 
-def _same_point(entry: Dict, patch, edge, n, p, L, qubits) -> tuple:
+def _same_point(entry: Dict, patch, edge, n, p, L, qubits, stamp=None, need_stamp: bool = False) -> tuple:
     """(matches, reason) of a comparator entry against a truncation point. The placement must match on the placed qubit set,
-    which both sides must record (Deviation 60, review M5); the other keys are compared where both sides carry them."""
+    which both sides must record (Deviation 60, review M5), and on the placement snapshot (S-A): a committed comparator
+    (``need_stamp``) and the rows must both record it; an explicit comparator is compared on it when it carries one. The other
+    keys are compared where both sides carry them."""
     pt = entry.get("point", entry)
     if qubits is None:
         return False, "the rows record no placed qubit set"
     if pt.get("qubits") is None:
         return False, "the comparator records no placed qubit set"
+    have_stamp = entry.get("placement_stamp") or pt.get("placement_stamp")
+    if need_stamp and not stamp:
+        return False, "the rows record no placement snapshot"
+    if need_stamp and not have_stamp:
+        return False, "the comparator records no placement snapshot"
+    if have_stamp and stamp and str(have_stamp) != str(stamp):
+        return False, f"placement snapshot {have_stamp} (comparator) vs {stamp} (run)"
     checks = (("patch", patch, lambda a, b: str(a) == str(b)), ("edge", edge, lambda a, b: str(a).replace("-", "_") == str(b).replace("-", "_")),
               ("n", n, lambda a, b: int(a) == int(b)), ("p", p, lambda a, b: np.isclose(float(a), float(b))), ("L", L, lambda a, b: int(a) == int(b)),
               ("qubits", qubits, lambda a, b: sorted(int(q) for q in a) == sorted(int(q) for q in b)))
@@ -132,27 +144,31 @@ def _same_point(entry: Dict, patch, edge, n, p, L, qubits) -> tuple:
     return True, ""
 
 
-def truncation_prediction(preds: Dict, patch=None, edge=None, n=None, p=None, L=None, qubits=None) -> tuple:
+def truncation_prediction(preds: Dict, patch=None, edge=None, n=None, p=None, L=None, qubits=None, stamp=None) -> tuple:
     """(comparator, note) for one truncation-arm point (H7, Deviation 60): ``preds['truncation']`` when the caller set one
-    (it must carry ``rms_l2`` and the placed ``qubits``, and every placement key it carries must match), else the last committed
-    ``h7_truncation_*`` entry drawn on this point's placement (the placed qubit set, which both sides must record, and patch,
-    edge, n, p, L). Predictions are placement-specific (Deviations 46, 58): a comparator of another placement, or one whose
-    placement cannot be checked, is not used. None when there is none."""
+    (it must carry ``rms_l2`` and the placed ``qubits``, and every placement key it carries must match), else the committed
+    ``h7_truncation_*`` entry drawn on this point's placement: the placed qubit set and the placement snapshot ``stamp`` of the
+    list that ran, which both sides must record (Deviation 60, S-A), and patch, edge, n, p, L. Predictions are placement-specific
+    (Deviations 46, 58): a comparator of another placement, or one whose placement cannot be checked, is not used, and entries of
+    more than one file for the same placement are ambiguous (never the last file). None when there is none."""
     explicit = preds.get("truncation")
     if explicit:
         if explicit.get("rms_l2") is None:
             return None, "preds['truncation'] has no rms_l2"
-        ok, why = _same_point(explicit, patch, edge, n, p, L, qubits)
+        ok, why = _same_point(explicit, patch, edge, n, p, L, qubits, stamp)
         return (explicit, "") if ok else (None, f"preds['truncation'] is for another point: {why}")
     entries = [e for e in preds.get("truncation_entries", []) or [] if e.get("rms_l2") is not None]
     if not entries:
         return None, "no committed h7_truncation_*.json comparator"
     hits, reasons = [], []
     for e in entries:
-        ok, why = _same_point(e, patch, edge, n, p, L, qubits)
+        ok, why = _same_point(e, patch, edge, n, p, L, qubits, stamp, need_stamp=True)
         (hits if ok else reasons).append(e if ok else f"{e.get('file')}: {why}")
     if not hits:
         return None, "no comparator for this placement (" + "; ".join(reasons) + ")"
+    files = sorted({str(h.get("file")) for h in hits})
+    if len(files) > 1:
+        return None, f"ambiguous: comparators for this placement in {len(files)} files ({', '.join(files)})"
     return hits[-1], ""
 
 
@@ -185,29 +201,35 @@ def _pp_lookup(pp: pd.DataFrame, n: int, L: int, k: int, model: str, dial: str |
 
 def dial_prediction(preds: Dict, n: int, L: int, k: int, dial: str, p: float | None, patch: str | None = None, edge: str | None = None,
                     qubits=None, stamp: str | None = None) -> tuple:
-    """(prediction, note, fallback) for one Section 3b dial point (H5 / H6; Deviations 46, 58; Deviation 60, review M5): the
-    unital-base dial row drawn on this point's placement, matched on the placed qubit set (``qubits``; else on the placement
-    ``stamp`` when the run gives one), patch, edge, L, dial kind and p, from ``preds['dial_rows']`` (``load_dial_rows``). Among
-    several matches converged rows are preferred and the last source file wins. None when no placement-matched row exists;
-    ``fallback`` is then the unmatched ``pauliprop_predictions.csv`` row (the 19 Sep record, reported beside the not-evaluable
-    sub-test, Deviation 54 (iii)), or None."""
+    """(prediction, note, fallback) for one Section 3b dial point (H5 / H6; Deviations 46, 58; Deviation 60, review M5 and S-A):
+    the unital-base dial row drawn on this point's placement, matched on the placed qubit set (``qubits``) AND the placement
+    snapshot of the list that ran (``stamp``), then patch, edge, L, dial kind and p, from ``preds['dial_rows']``
+    (``load_dial_rows``). Matches must come from one prediction file (within it converged rows are preferred); matches in more
+    than one file are ambiguous and not used (never the last file). None when no such row exists, the point records no qubit
+    set or no snapshot, or the match is ambiguous; ``fallback`` is then the unmatched ``pauliprop_predictions.csv`` row (the
+    19 Sep record, reported beside the not-evaluable sub-test, Deviation 54 (iii)), or None."""
     fb = _pp_lookup(preds.get("pp", pd.DataFrame()), n, L, k, "unital", dial, p, patch, edge)
     fallback = dict(fb, placement_matched=False) if fb else None
     rows = preds.get("dial_rows")
     qk = qubit_key(qubits)
     if rows is None or not len(rows):
         return None, "no dial prediction rows loaded", fallback
-    if qk is None and not stamp:
+    if qk is None:
         return None, "the point records no placed qubit set", fallback
+    if not stamp:
+        return None, "the point records no placement snapshot", fallback
     d = rows[(rows.model == "unital") & (rows.L == L) & (rows.dial.astype(str) == str(dial)) & np.isclose(rows.p.astype(float), float(p or 0.0))]
     if patch:
         d = d[d.patch.astype(str) == str(patch)]
     if edge:
         d = d[d.edge.astype(str).str.replace("-", "_") == str(edge).replace("-", "_")]
-    d = d[d.placement_qubits == qk] if qk is not None else d[d.placement_stamp.astype(str) == str(stamp)]
+    d = d[(d.placement_qubits == qk) & (d.placement_stamp.astype(str) == str(stamp))]
     what = f"{dial} p = {p} L = {L} on {patch} edge {edge}"
     if d.empty:
-        return None, f"no {what} row drawn on this placement (" + ("qubit set" if qk is not None else f"stamp {stamp}") + " not in the prediction files)", fallback
+        return None, f"no {what} row drawn on this placement (qubit set and snapshot {stamp} not in the prediction files)", fallback
+    files = sorted(set(d.source.astype(str)))
+    if len(files) > 1:
+        return None, f"ambiguous: {what} rows drawn on this placement in {len(files)} files ({', '.join(files)})", fallback
     hit = _prediction_from_rows(d, n, L, k, "unital", edge, None)
     if hit is None:
         return None, f"no k = {k} value for {what}", fallback
@@ -262,16 +284,17 @@ UNPLACED = object()     # predicted_point(qubits=UNPLACED): a dial lookup that d
 
 
 def predicted_point(preds: Dict, n: int, L: int, k: int, arm: str = "grid", p: float | None = None,
-                    models=MODEL_PREFERENCE, patch: str | None = None, edge: str | None = None, qubits=UNPLACED) -> Dict | None:
+                    models=MODEL_PREFERENCE, patch: str | None = None, edge: str | None = None, qubits=UNPLACED,
+                    stamp: str | None = None) -> Dict | None:
     """The pre-drawn Var_theta for one point: the exact Gate 1 grid first, else Deviation 15 propagation, under the
     first available model of ``models`` (the full calibrated non-unital model is the Gate 1 prediction of Deviation 19).
     Dial points (arm reset / delay / dephase) use the Section 3b second-moment curves (unital base + dial channel); when the
-    caller passes the point's placed ``qubits`` (every analysis call does), only a row drawn on that placement is used
-    (``dial_prediction``, Deviation 60 review M5) and None is returned when none exists."""
+    caller passes the point's placed ``qubits`` and placement ``stamp`` (every analysis call does), only a row drawn on that
+    placement is used (``dial_prediction``, Deviation 60 review M5 and S-A) and None is returned when none exists."""
     if arm != "grid":
         dial = DIAL_KIND.get(str(arm), str(arm))
         if qubits is not UNPLACED:
-            return dial_prediction(preds, n, L, k, dial, p, patch, edge, qubits)[0]
+            return dial_prediction(preds, n, L, k, dial, p, patch, edge, qubits, stamp)[0]
         return _pp_lookup(preds["pp"], n, L, k, "unital", dial, p, patch, edge)
     for m in models:
         hit = _exact_lookup(preds["exact"], n, L, k, m, patch, edge) or _pp_lookup(preds["pp"], n, L, k, m, None, None, patch, edge)
@@ -328,7 +351,7 @@ def compare_points(points: pd.DataFrame, preds: Dict) -> pd.DataFrame:
         if r.get("L") is None or r.get("k") is None or r.get("kind") == "null_control":
             continue
         dial = str(r["arm"]) != "grid"
-        placed = dict(qubits=r.get("patch_qubits")) if dial else {}           # dial points: a row drawn on this placement only (Deviation 60 M5)
+        placed = dict(qubits=r.get("patch_qubits"), stamp=r.get("placement_stamp")) if dial else {}   # dial points: this placement only (Deviation 60 M5, S-A)
         pr = predicted_point(preds, int(r["n"]), int(r["L"]), int(r["k"]), str(r["arm"]), r.get("p"), patch=r.get("patch"), edge=r.get("edge"), **placed)
         meas = r.get("signal_variance", np.nan)
         hw = (r.get("signal_ci_hi", np.nan) - r.get("signal_ci_lo", np.nan)) / 2.0

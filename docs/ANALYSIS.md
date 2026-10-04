@@ -81,7 +81,8 @@ the dephasing dial by the pre-drawn factor within the combined interval and abov
 variance is not resolvably positive, the lower end of its 95 % interval at or below zero or no positive paired-ratio denominator,
 no ratio is formed; with r_lo the lower end of the reset point's interval and d_hi the upper end of the dephasing point's, read
 as an upper bound, the clause holds when r_lo > max(d_hi, 0) and r_lo ≤ F·exp(1.96 s)·d_hi, F the pre-drawn factor and s its
-relative σ); the k = 1 fall is reported only (k = 1 rows are upper bounds, Deviation 40; exploratory at L = 12, Deviation 37);
+relative σ; when the dephasing interval lies entirely at or below zero, d_hi ≤ 0, the factor is reported 'not tested' and
+r_lo > 0 decides); the k = 1 fall is reported only (k = 1 rows are upper bounds, Deviation 40; exploratory at L = 12, Deviation 37);
 a delay-matched reference that does not fall
 from L = 8 to L = 12 makes the ladder comparison inconclusive rather than refuting. **H7** (Deviation 60): the loader maps
 the truncation probes (`reset_dial` with `unshifted`; `truncate_to` = ℓ, the full circuit ℓ = 0) to kind `truncation` with an
@@ -100,10 +101,11 @@ centred on mean(diff)², which adds Var<sub>m</sub>(diff)/K back (shot plus resi
 Deviation 60 (shot term kept) is reported as `rms_with_shot`.
 `evaluate_h7` compares the ℓ = 2 RMS with the committed comparator sqrt(MSD(2)) ± `rms_l2_sigma`
 (`data/predictions/h7_truncation_<tag>.json`, drawn on the rows' placement by `scripts/predict_h7_truncation.py` and matched on
-the placed qubit set, which both sides must record, and patch, edge, n, p, L; an explicit `preds['truncation']` takes
-precedence and must carry the qubit set) within the combined interval; it is not-evaluable without that comparator, with
-pairing errors, or with rows from more than one placement (point keys, placed qubit set or, where the bundles record it,
-broken-coupler set; review M4). ℓ = 4 is an upper-bound point by rule (Deviation 60 rule (a)): its RMS and interval are
+the placed qubit set and the placement snapshot of the list that ran, which both sides must record (Deviation 60, S-A), and
+patch, edge, n, p, L; comparators of more than one file for one placement are ambiguous and not used; an explicit
+`preds['truncation']` takes precedence and must carry the qubit set) within the combined interval; it is not-evaluable without
+that comparator, with pairing errors, or with rows from more than one placement (point keys, placed qubit set, placement
+snapshot or, where the bundles record it, broken-coupler set; review M4). ℓ = 4 is an upper-bound point by rule (Deviation 60 rule (a)): its RMS and interval are
 reported and the upper end of the interval is the bound. The one-sided ℓ = 4 < ℓ = 2 test, run when the measured std(C_mix)
 exceeds 0.1, is the paired bootstrap over draws of RMS(2) − RMS(4) (`truncation_fall`, review M2: the draws resampled jointly
 for both ℓ against the same full circuit, one joint mask replicate per selected draw; ℓ = 4 is below ℓ = 2 when the 5th
@@ -111,12 +113,15 @@ percentile exceeds 0).
 
 **Dial predictions by placement** (Deviation 60, review M5): H5 / H6, the dial comparisons (`compare_points`, the report) and
 the Gate 1b flags use the unital-base dial row drawn on the point's placement (`predictions.dial_prediction`: matched on the
-placed qubit set, then patch, edge, L, dial kind and p, over the dial rows of `pauliprop_predictions.csv` (19 Sep ladder
-placement), `gate1b_redraw_*.csv` (run-day re-draws, Deviation 46) and `dial_redraw_*.csv` (`scripts/redraw_dial_points.py`)).
-A sub-test without such a row is not evaluable, and its record carries the unmatched 19 Sep row as the fallback (Deviation 54
-(iii)). The H6 control rung and the ladder rungs are selected by patch (6x10; 4x10 and 10x10) or by the registered n, because
+placed qubit set and the placement snapshot of the list that ran, then patch, edge, L, dial kind and p, over the dial rows of
+`pauliprop_predictions.csv` (19 Sep ladder placement), `gate1b_redraw_*.csv` (run-day re-draws, Deviation 46) and
+`dial_redraw_*.csv` (`scripts/redraw_dial_points.py`)). The run's snapshot is the bundle's `placement_snapshot` (written by the
+runner), else its retrieval record's `calibration_csv`, else that of the ids file listing the job; for a pinned list it is
+the list's placement snapshot (Deviation 60, S-A: same-day re-placements reuse qubit sets on new snapshots). A sub-test without
+such a row is not evaluable, and its record carries the unmatched 19 Sep row as the fallback (Deviation 54 (iii)); rows of
+more than one file for one placement are ambiguous and not evaluable (never the last file). The H6 control rung and the ladder rungs are selected by patch (6x10; 4x10 and 10x10) or by the registered n, because
 the placed n moves with the placement (52 on the pinned 23 Sep 6x10 rung). Every paired H5 / H6 sub-test takes its points from
-one rung and placement (patch, n, placed qubit set): the depth ratios, the reset / dephasing control, and the two ladder rungs, whose
+one rung and placement (patch, n, placed qubit set, placement snapshot): the depth ratios, the reset / dephasing control, and the two ladder rungs, whose
 placement-matched predictions must be of one placement. More than one candidate, or a point pooling rows of more than one placement
 (`n_placements` in the point table: two runs with the same point ids loaded together), makes that sub-test not evaluable, listed
 under `pairing` (two runs of one list share their seeds, so a cross-run pairing would otherwise look valid).

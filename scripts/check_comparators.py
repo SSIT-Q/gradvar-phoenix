@@ -44,6 +44,8 @@ def check(joblist: str | Path, pred_dir: str | Path = PRED) -> dict:
     """{'items': [...], 'missing': int, 'placement': stamp}: one item per H7 truncation arm and per dial probe of the list."""
     jl = json.loads(Path(joblist).read_text(encoding="utf-8"))
     preds = P.load_predictions(pred_dir)
+    pl = jl.get("placement") or {}
+    stamp = pl.get("stamp") or P._stamp_of_name(pl.get("snapshot"))     # the list's placement snapshot (Deviation 60, S-A)
     items, arms = [], {}
     for pr in jl.get("probes", []) or []:
         if pr.get("kind") != "reset_dial":
@@ -59,7 +61,7 @@ def check(joblist: str | Path, pred_dir: str | Path = PRED) -> dict:
             items.append(dict(item, found=False, reason=name if name else "no rung"))
             continue
         hit, why, fb = P.dial_prediction(preds, int(pr["n"]), int(pr["L"]), int(pr["k"]), dial, float(pr["p"]), patch=pr["patch"], edge=pr["edge"],
-                                         qubits=rung.get("qubits"))
+                                         qubits=rung.get("qubits"), stamp=stamp)
         items.append(dict(item, found=hit is not None, source=(hit or {}).get("source"), status=(hit or {}).get("status"),
                           reason=why or None, fallback=(fb or {}).get("source")))
     for (patch, n, edge, L, p, seed), a in sorted(arms.items(), key=str):
@@ -67,10 +69,9 @@ def check(joblist: str | Path, pred_dir: str | Path = PRED) -> dict:
         if a["rung"] is None:
             items.append(dict(item, found=False, reason=a["name"] or "no rung"))
             continue
-        comp, why = P.truncation_prediction(preds, patch=patch, edge=edge, n=n, p=p, L=L, qubits=a["rung"].get("qubits"))
+        comp, why = P.truncation_prediction(preds, patch=patch, edge=edge, n=n, p=p, L=L, qubits=a["rung"].get("qubits"), stamp=stamp)
         items.append(dict(item, found=comp is not None, source=(comp or {}).get("file"), reason=why or None,
                           rms_l2=(comp or {}).get("rms_l2")))
-    stamp = (jl.get("placement") or {}).get("stamp")
     return dict(joblist=Path(joblist).name, placement=stamp, items=items, missing=sum(1 for x in items if not x["found"]))
 
 

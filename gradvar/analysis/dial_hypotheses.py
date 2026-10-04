@@ -89,7 +89,9 @@ H6_CONTROL_BOUNDS = ("Deviation 60 part (6): when the lower end of the dephasing
                      "the ratio is then bounded below only, by r_lo / d_hi with r_lo the lower end of the reset point's interval. The clause "
                      "holds when r_lo > max(d_hi, 0) (the reset variance above the dephasing variance: 'above 1') and r_lo <= F exp(1.96 s) "
                      "d_hi, F the pre-drawn factor and s its relative sigma (F inside the combined interval, open above); otherwise it fails. "
-                     "With a resolvably positive dephasing variance the paired-bootstrap ratio test is unchanged.")
+                     "When the dephasing interval lies entirely at or below zero (d_hi <= 0) the factor condition is reported 'factor not "
+                     "tested' and the clause is decided by r_lo > 0 alone. With a resolvably positive dephasing variance the "
+                     "paired-bootstrap ratio test is unchanged.")
 
 
 def _control_bounds_test(ra, rb, pred: float, pred_sigma: float) -> Dict:
@@ -101,11 +103,14 @@ def _control_bounds_test(ra, rb, pred: float, pred_sigma: float) -> Dict:
     has_pred = bool(np.isfinite(pred) and pred > 0)
     s = (pred_sigma / pred) if (has_pred and np.isfinite(pred_sigma)) else 0.0
     f_hi = pred * np.exp(Z95 * s) if has_pred else np.nan
+    tested = bool(finite and has_pred and d_hi > 0)          # d_hi <= 0: the interval excludes every admissible variance (addendum 2)
     return dict(rule="bounds", measured=None, lo=float(r_lo / d_hi) if (finite and d_hi > 0) else None, hi=None,
                 reset_variance=float(ra.signal_variance), reset_lo=r_lo, dephasing_variance=float(rb.signal_variance), dephasing_lo=d_lo,
                 dephasing_hi=d_hi, predicted=float(pred) if has_pred else None,
                 predicted_sigma=float(pred_sigma) if (has_pred and np.isfinite(pred_sigma)) else None,
-                factor_hi=float(f_hi) if has_pred else None, within=bool(r_lo <= f_hi * d_hi) if (finite and has_pred) else None,
+                factor_hi=float(f_hi) if has_pred else None, within=bool(r_lo <= f_hi * d_hi) if tested else None,
+                factor_tested=tested, factor_note=None if tested else ("factor not tested: the dephasing interval lies at or below zero"
+                                                                       if finite and has_pred else "no pre-drawn factor"),
                 exceeds=bool(finite and r_lo > max(d_hi, 0.0)), note=H6_CONTROL_BOUNDS)
 
 
@@ -148,7 +153,7 @@ def _pred(preds, r, arm=None, p=None, L=None, k=None, missing=None):
     L = int(r.L) if L is None else L
     k = int(r.k) if k is None else k
     hit, why, fb = P.dial_prediction(preds, int(r.n), L, k, P.DIAL_KIND.get(str(arm), str(arm)), float(p) if p is not None else None,
-                                     patch=r.patch, edge=r.edge, qubits=getattr(r, "patch_qubits", None))
+                                     patch=r.patch, edge=r.edge, qubits=getattr(r, "patch_qubits", None), stamp=getattr(r, "placement_stamp", None))
     if hit is None and missing is not None:
         missing.append(dict(point_id=getattr(r, "point_id", None), arm=str(arm), p=float(p) if p is not None else None, n=int(r.n), L=L, k=k, reason=why,
                             fallback=None if fb is None else dict(var=fb["var"], var_cost=fb.get("var_cost"), sigma=fb.get("sigma"), n=fb.get("n"),
@@ -187,7 +192,7 @@ def _sel(d: pd.DataFrame, arm: str, p: float | None = None, L: int | None = None
 
 def _rung_key(r) -> tuple:
     """(patch, n, placed qubit set) of a point: the rung and placement it ran on."""
-    return (str(getattr(r, "patch", "")), int(r.n), P.qubit_key(getattr(r, "patch_qubits", None)))
+    return (str(getattr(r, "patch", "")), int(r.n), P.qubit_key(getattr(r, "patch_qubits", None)), str(getattr(r, "placement_stamp", None)))
 
 
 def _n_placements(r) -> int:
@@ -370,7 +375,9 @@ def evaluate_h6(points: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict
                    note=f"{len(fl)} floor checks, {len(ratios)} depth ratios, {len(ladder)} ladder ratios, {len(controls)} dephasing comparisons; k = 1 fall reported only"
                         + ("; unital reference flat on the day: ladder comparison inconclusive (not refuting)" if inconclusive else "")
                         + ("; dephasing variance not resolvably positive: reset / dephasing clause read on bounds (Deviation 60 part (6))"
-                           if any(x.get("rule") == "bounds" for x in controls) else "") + miss_note,
+                           if any(x.get("rule") == "bounds" for x in controls) else "")
+                        + ("; dephasing interval at or below zero: factor not tested, decided by the reset lower bound above zero"
+                           if any(str(x.get("factor_note") or "").startswith("factor not tested") for x in controls) else "") + miss_note,
                    headline=[dict(p=x["p"], n=x["n"], L=x["L"], ratio_to_floor=x["headline_ratio"], lo=x["headline_lo"], hi=x["headline_hi"]) for x in floors],
                    floors=floors, depth_ratios=ratios, ladder=ladder, controls=controls, k1_series=k1, unital_reference=flat_reference, ladder_inconclusive=inconclusive,
                    missing_predictions=miss, pairing=pairing)
@@ -557,9 +564,13 @@ def _truncation_point(t: pd.DataFrame) -> Dict:
     broken = {str(v) for v in t["broken_edges"] if v is not None and not (isinstance(v, float) and np.isnan(v))} if "broken_edges" in t.columns else set()
     if len(broken) > 1:
         return dict(error=f"truncation rows from {len(broken)} placements: the broken-coupler sets differ")
+    stamps = {None if (v is None or (isinstance(v, float) and np.isnan(v))) else str(v) for v in t["placement_stamp"]} if "placement_stamp" in t.columns else {None}
+    if len(stamps) != 1:
+        return dict(error=f"truncation rows from {len(stamps)} placements: the placement snapshots differ ({sorted(map(str, stamps))})")
     r, qk = t.iloc[0], next(iter(qsets))
     return dict(patch=str(r.patch), edge=str(r.edge).replace("-", "_"), n=int(r.n), p=float(r.p), L=int(r.L),
-                qubits=[int(q) for q in qk.split()] if qk else None, broken_edges=next(iter(broken)) if broken else None)
+                qubits=[int(q) for q in qk.split()] if qk else None, broken_edges=next(iter(broken)) if broken else None,
+                stamp=next(iter(stamps)))
 
 
 def evaluate_h7(rows: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict:
@@ -594,7 +605,7 @@ def evaluate_h7(rows: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict:
         out[4].update(upper_bound_by_rule=True, reported_upper_bound=out[4]["rms_hi"], label=L4_RULE)
     std_c = float(full.groupby("draw").ev.mean().std(ddof=1)) if full.draw.nunique() > 1 else np.nan
     fall = truncation_fall(full, t[t.ell == 2], t[t.ell == 4], n_boot) if 4 in out else None
-    comp, why = P.truncation_prediction(preds, **{k: point[k] for k in ("patch", "edge", "n", "p", "L", "qubits")})
+    comp, why = P.truncation_prediction(preds, **{k: point[k] for k in ("patch", "edge", "n", "p", "L", "qubits", "stamp")})
     checks = dict(std_cmix=std_c, l4_fall=fall)
     common = dict(value={f"rms_l{k}": v["rms"] for k, v in out.items()}, rms=out, point=point, comparator=comp, statistic=H7_STATISTIC)
     bad_pairs = {k: v["pairing_errors"] for k, v in out.items() if v["pairing_errors"]}

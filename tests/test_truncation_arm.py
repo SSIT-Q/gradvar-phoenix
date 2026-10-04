@@ -90,10 +90,17 @@ def _qubits(rows):
     return sorted(int(q) for q in qs.split())
 
 
+def _stamp(rows):
+    """The placement snapshot the fixture's truncation rows record (the dry run's job.json; Deviation 60, S-A)."""
+    (st,) = set(rows[rows.kind == "truncation"].placement_stamp)
+    return st
+
+
 def _preds(rows, **entry):
     point = dict(patch="4x5", edge="94_104", n=20, p=0.5, L=8, qubits=_qubits(rows))
     point.update(entry.pop("point", {}))
-    return dict(truncation_entries=[dict(point=point, rms_l2=entry.pop("rms_l2", DELTA[2]), rms_l2_sigma=entry.pop("rms_l2_sigma", 0.001), file="test.json", **entry)])
+    return dict(truncation_entries=[dict(point=point, rms_l2=entry.pop("rms_l2", DELTA[2]), rms_l2_sigma=entry.pop("rms_l2_sigma", 0.001), file="test.json",
+                                         placement_stamp=entry.pop("placement_stamp", _stamp(rows)), **entry)])
 
 
 # ------------------------------------------------------------------------------------------------ loader
@@ -239,11 +246,14 @@ def test_h7_not_evaluable_when_the_pairs_do_not_match(day3_run, tmp_path):
 def test_committed_comparator_is_matched_by_placement():
     entries = P.load_truncation_entries(ROOT / "data" / "predictions")
     assert entries and all(e["file"].startswith("h7_truncation_") and e["rms_l2"] > 0 for e in entries)
-    e = entries[-1]["point"]
-    comp, _ = P.truncation_prediction(dict(truncation_entries=entries), patch=e["patch"], edge=e["edge"], n=e["n"], p=e["p"], L=e["L"], qubits=e["qubits"])
+    e, st = entries[-1]["point"], entries[-1]["placement_stamp"]            # Deviation 60 (S-A): the placement snapshot as well
+    assert st
+    comp, _ = P.truncation_prediction(dict(truncation_entries=entries), patch=e["patch"], edge=e["edge"], n=e["n"], p=e["p"], L=e["L"], qubits=e["qubits"], stamp=st)
     assert comp is entries[-1]
-    none, why = P.truncation_prediction(dict(truncation_entries=entries), patch=e["patch"], edge=e["edge"], n=e["n"], p=0.25, L=e["L"], qubits=e["qubits"])
+    none, why = P.truncation_prediction(dict(truncation_entries=entries), patch=e["patch"], edge=e["edge"], n=e["n"], p=0.25, L=e["L"], qubits=e["qubits"], stamp=st)
     assert none is None and "p " in why
+    nostamp, why3 = P.truncation_prediction(dict(truncation_entries=entries), patch=e["patch"], edge=e["edge"], n=e["n"], p=e["p"], L=e["L"], qubits=e["qubits"])
+    assert nostamp is None and "no placement snapshot" in why3
     unplaced, why2 = P.truncation_prediction(dict(truncation_entries=entries), patch=e["patch"], edge=e["edge"], n=e["n"], p=e["p"], L=e["L"])
     assert unplaced is None and "no placed qubit set" in why2            # review M5: no match without the run's qubit set
 

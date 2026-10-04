@@ -156,7 +156,10 @@ def test_committed_h7_comparator_record():
     assert e["rms_l2_sigma"] == pytest.approx(max(2 * b2["se_rms_mc"], b2["rms_mc"] - b2["rms_pp"]) / 2)
     assert not (e["pp_timed_out"] or e["pp_capped"] or e["mc_timed_out"])
     preds = P.load_predictions()
-    comp, why = P.truncation_prediction(preds, patch="6x10", edge="84_85", n=52, p=0.5, L=8, qubits=rung["qubits"])
+    st = rec["snapshot"]["stamp"]                                       # matched on the qubit set and the snapshot (Deviation 60, S-A)
+    comp, why = P.truncation_prediction(preds, patch="6x10", edge="84_85", n=52, p=0.5, L=8, qubits=rung["qubits"], stamp=st)
     assert comp is not None and comp["rms_l2"] == e["rms_l2"], why
-    other, why2 = P.truncation_prediction(preds, patch="6x10", edge="84_85", n=52, p=0.5, L=8, qubits=rung["qubits"][:-1] + [999])
+    other, why2 = P.truncation_prediction(preds, patch="6x10", edge="84_85", n=52, p=0.5, L=8, qubits=rung["qubits"][:-1] + [999], stamp=st)
     assert other is None and "qubits" in why2
+    later, why3 = P.truncation_prediction(preds, patch="6x10", edge="84_85", n=52, p=0.5, L=8, qubits=rung["qubits"], stamp="2026-09-28T030800Z")
+    assert later is None and "placement snapshot" in why3

@@ -88,17 +88,22 @@ def dial_points(jl: dict) -> list:
     return [dict(patch=k[0], n=k[1], edge=k[2], L=k[3], dial=k[4], p=k[5], probes=v) for k, v in sorted(pts.items())]
 
 
-def covering_row(rows: pd.DataFrame, qubits, point: dict) -> dict | None:
-    """The committed unital row for ``point`` on the placed qubit set ``qubits``, chosen as the analysis chooses it
-    (``predictions.dial_prediction``: converged rows preferred, the last source file wins; any Deviation 15 status), or None."""
+def covering_row(rows: pd.DataFrame, qubits, point: dict, stamp: str | None = None) -> dict | None:
+    """The committed unital row for ``point`` on the placement (the placed qubit set ``qubits`` and the snapshot ``stamp``),
+    chosen as the analysis chooses it (``predictions.dial_prediction``: one file, converged rows preferred; any Deviation 15
+    status), or None. Rows of more than one file: {'ambiguous': [files]} (the analysis refuses them, Deviation 60 S-A)."""
     if rows is None or not len(rows):
         return None
     qk = P.qubit_key(qubits)
-    d = rows[(rows.placement_qubits == qk) & (rows.model == "unital") & (rows.L == point["L"]) & (rows.dial.astype(str) == point["dial"])
+    d = rows[(rows.placement_qubits == qk) & (rows.placement_stamp.astype(str) == str(stamp))
+             & (rows.model == "unital") & (rows.L == point["L"]) & (rows.dial.astype(str) == point["dial"])
              & np.isclose(rows.p.astype(float), point["p"]) & (rows.patch.astype(str) == point["patch"])
              & (rows.edge.astype(str).str.replace("-", "_") == point["edge"].replace("-", "_"))]
     if d.empty:
         return None
+    files = sorted(set(d.source.astype(str)))
+    if len(files) > 1:
+        return dict(ambiguous=files)
     conv = d[d.status.astype(str).str.startswith("converged")] if "status" in d.columns else d
     return (conv if not conv.empty else d).iloc[-1].to_dict()
 
@@ -152,7 +157,10 @@ def plan(joblists: list, pred_dir: Path = PRED, force: bool = False) -> dict:
             if key in seen:
                 continue
             seen.add(key)
-            hit = covering_row(rows, rung["qubits"], pt)
+            hit = covering_row(rows, rung["qubits"], pt, stamp)
+            if hit is not None and "ambiguous" in hit:
+                raise SystemExit(f"{rung_name} L = {pt['L']} {pt['dial']} p = {pt['p']}: rows for this placement in {hit['ambiguous']}; the analysis "
+                                 "refuses an ambiguous match (Deviation 60, S-A): keep one file before drawing")
             rec = dict(pt, rung=rung_name, joblist=Path(path).name)
             if hit is not None and not force:
                 covered.append(dict(rec, source=hit.get("source"), var_kL=hit.get("var_kL_mc"), status=hit.get("status")))

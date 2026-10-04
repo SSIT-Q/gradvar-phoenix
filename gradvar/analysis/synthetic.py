@@ -19,6 +19,16 @@ import pandas as pd
 from ..hardware import LOG_COLUMNS
 from .loader import encode_ndarray
 
+def _ladder_calibration() -> str | None:
+    """The calibration CSV of the 19 Sep ladder placement (``ladder_placements.json``), recorded as the synthetic run's placement
+    snapshot, so its dial points are matched to the committed 19 Sep rows on the qubit set and snapshot (Deviation 60, S-A)."""
+    f = Path(__file__).resolve().parents[2] / "data" / "predictions" / "ladder_placements.json"
+    try:
+        return json.loads(f.read_text()).get("calibration")
+    except (OSError, ValueError):
+        return None
+
+
 def _ladder_qubits(spec: str, fallback: list) -> list:
     """The placed qubits of ``spec`` on the 19 Sep ladder placement (``data/predictions/ladder_placements.json``), on which the
     committed dial rows of ``pauliprop_predictions.csv`` were drawn; ``fallback`` when the file is absent."""
@@ -89,12 +99,14 @@ class SyntheticRun:
     properties.json carries the snapshot's confusion and gate errors so the Deviation 33 floor reads run-day values."""
 
     def __init__(self, out_dir, name="synthetic", backend="ibm_phoenix", seed=0, rep_delay_s=1e-6, per_exec_us=None, mid_circuit_measures=0,
-                 reset_us=0.4, fail_reset_job_level=None, readout_scale=1.0, snapshot_csv=None, level1_scale=1.07, job_overhead_s=2.0):
+                 reset_us=0.4, fail_reset_job_level=None, readout_scale=1.0, snapshot_csv=None, level1_scale=1.07, job_overhead_s=2.0,
+                 placement_snapshot="ladder"):
         self.out, self.name, self.backend = Path(out_dir), name, backend
         self.rng = np.random.default_rng(seed)
         self.rep_delay_s, self.per_exec_us, self.job_overhead_s = rep_delay_s, per_exec_us, job_overhead_s
         self.mid_circuit_measures, self.reset_us, self.fail_level = mid_circuit_measures, reset_us, fail_reset_job_level
         self.readout_scale, self.snapshot_csv, self.level1_scale = readout_scale, snapshot_csv, level1_scale
+        self.placement_snapshot = _ladder_calibration() if placement_snapshot == "ladder" else placement_snapshot
         self.rows: List[dict] = []
         self.jobs: Dict[str, dict] = {}
         self._level0: Dict[tuple, tuple] = {}     # (seed, n, L, k, shots) -> level-0 measured (evp, sdp, evm, sdm): levels 1 / 2 build on it
@@ -308,7 +320,8 @@ class SyntheticRun:
                 dynamic_reprate_enabled=True, rep_delay_probe=True,
                 isa_instruction_names=sorted({n for c in job["circuits"] for n in c["isa_instruction_names"]}), joblist_entries=[],
                 layout_check=dict(verdict="pass", enforced=True, action="submit"), budget=dict(model_version=2),
-                budget_estimate_with_target_durations=dict(model_version=2, per_job=per_job), points=job["points"]), default=str))
+                budget_estimate_with_target_durations=dict(model_version=2, per_job=per_job), points=job["points"],
+                placement_snapshot=self.placement_snapshot), default=str))
             if failed:
                 (d / "result.json").write_text(json.dumps(dict(note="job failed: no PrimitiveResult")))
             else:

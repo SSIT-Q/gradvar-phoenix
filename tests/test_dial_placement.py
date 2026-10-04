@@ -25,6 +25,7 @@ LADDER = json.loads((PRED / "ladder_placements.json").read_text())
 PL23 = json.loads((PRED / "gate1b_redraw_2026-09-23T1635.json").read_text())["runday_placement"]
 Q52 = PL23["rungs"]["n60"]["qubits"]                                                 # the pinned 23 Sep 16:35Z n60 rung (n = 52)
 Q53 = LADDER["patches"]["6x10"]["qubits"]                                            # the 19 Sep ladder 6x10 rung (n = 53)
+S23, S19 = PL23["stamp"], "2026-09-19T192510Z"                                        # their placement snapshots (Deviation 60, S-A)
 _R = dict(kind="reset_dial")
 DAY3_DIAL_PROBES = (
     [dict(_R, id=f"ref_p0_delay_L{L}_kL_{r}", reset_kind="delay", patch=pa, n=n, edge=e, L=L, k=L, p=0.0)
@@ -74,27 +75,29 @@ def test_dial_rows_carry_the_placement_they_were_drawn_on(preds):
 def test_day3_points_use_the_run_day_rows_or_none(preds):
     """On the pinned day-3 placement the p = 0.25 reset and p = 0 delay rows come from the 23 Sep 16:35Z re-draw; the p = 0.5 reset and
     dephasing rows exist only on the 19 Sep placement, so they are not used: None, with that row as the fallback record."""
-    hit, why, fb = P.dial_prediction(preds, 52, 8, 8, "reset", 0.25, "6x10", "84_85", Q52)
+    hit, why, fb = P.dial_prediction(preds, 52, 8, 8, "reset", 0.25, "6x10", "84_85", Q52, S23)
     assert hit["source"] == "gate1b_redraw_2026-09-23T1635.csv" and hit["n"] == 52 and hit["placement_matched"] and not why
     assert fb["source"] == "pauliprop_predictions.csv" and fb["n"] == 53 and fb["placement_matched"] is False
     for dial, p, L in (("reset", 0.5, 8), ("reset", 0.5, 12), ("dephase", 0.5, 8)):
-        miss, why, fb = P.dial_prediction(preds, 52, L, L, dial, p, "6x10", "84_85", Q52)
+        miss, why, fb = P.dial_prediction(preds, 52, L, L, dial, p, "6x10", "84_85", Q52, S23)
         assert miss is None and "drawn on this placement" in why and fb["n"] == 53 and np.isfinite(fb["var"])
-    assert P.dial_prediction(preds, 52, 12, 12, "delay", 0.0, "6x10", "84_85", Q52)[0]["source"] == "gate1b_redraw_2026-09-23T1635.csv"
-    assert P.dial_prediction(preds, 52, 8, 8, "reset", 0.25, "6x10", "84_85", None)[0] is None           # no placed qubit set: no match
+    assert P.dial_prediction(preds, 52, 12, 12, "delay", 0.0, "6x10", "84_85", Q52, S23)[0]["source"] == "gate1b_redraw_2026-09-23T1635.csv"
+    assert P.dial_prediction(preds, 52, 8, 8, "reset", 0.25, "6x10", "84_85", None, S23)[0] is None      # no placed qubit set: no match
+    miss, why, _ = P.dial_prediction(preds, 52, 8, 8, "reset", 0.25, "6x10", "84_85", Q52, None)         # no placement snapshot: no match
+    assert miss is None and "no placement snapshot" in why
     # predicted_point: the analysis passes the qubits (placement-matched); without them (planting synthetic runs) the old lookup
-    assert P.predicted_point(preds, 52, 8, 8, "reset", 0.5, patch="6x10", edge="84_85", qubits=Q52) is None
-    assert P.predicted_point(preds, 53, 8, 8, "reset", 0.5, patch="6x10", edge="84_85", qubits=Q53)["placement_matched"]
+    assert P.predicted_point(preds, 52, 8, 8, "reset", 0.5, patch="6x10", edge="84_85", qubits=Q52, stamp=S23) is None
+    assert P.predicted_point(preds, 53, 8, 8, "reset", 0.5, patch="6x10", edge="84_85", qubits=Q53, stamp=S19)["placement_matched"]
     legacy = P.predicted_point(preds, 53, 8, 8, "reset", 0.5, patch="6x10", edge="84_85")
     assert legacy["source"] == "pauliprop_predictions.csv" and "placement_matched" not in legacy
 
 
-def _point(p, L, n, qubits, arm="reset", seed=0, patch="6x10", k=None):
+def _point(p, L, n, qubits, arm="reset", seed=0, patch="6x10", k=None, stamp=S23):
     rng = np.random.default_rng(seed)
     draws = rng.normal(0, 0.1, (100, 2))
     v = float(draws.reshape(-1).var(ddof=1))
     return dict(kind="reset_dial", arm=arm, p=p, L=L, k=L if k is None else k, n=n, patch=patch, edge="84_85", point_id=f"{arm} p{p:g} n{n} L{L} k{L}",
-                patch_qubits=" ".join(map(str, qubits)), var_cmix_signal=v, var_cmix_signal_ci_lo=0.8 * v, var_cmix_signal_ci_hi=1.2 * v,
+                patch_qubits=" ".join(map(str, qubits)), placement_stamp=stamp, var_cmix_signal=v, var_cmix_signal_ci_lo=0.8 * v, var_cmix_signal_ci_hi=1.2 * v,
                 floor_cost=1e-4, mele_floor=p ** 4 / 9, cmix_draws=draws, var_cmix_floor=0.0)
 
 
@@ -105,7 +108,7 @@ def test_h5_sub_tests_without_a_placement_matched_row_are_not_evaluable(preds):
     miss = res["missing_predictions"]
     assert len(miss) == 2 and all(m["fallback"]["source"] == "pauliprop_predictions.csv" and m["fallback"]["n"] == 53 for m in miss)
     assert "fallback record" in res["note"]
-    on_19sep = pd.DataFrame([_point(0.5, 8, 53, Q53, seed=1), _point(0.5, 12, 53, Q53, seed=2)])
+    on_19sep = pd.DataFrame([_point(0.5, 8, 53, Q53, seed=1, stamp=S19), _point(0.5, 12, 53, Q53, seed=2, stamp=S19)])
     res19 = DH.evaluate_h5(on_19sep, preds, n_boot=200)
     assert all(v["within"] is not None for v in res19["values"]) and not res19["missing_predictions"]
 
@@ -165,9 +168,10 @@ def test_redraw_rows_are_read_back_on_their_placement(tmp_path):
     assert np.isfinite(row["dev33_floor_grad"]) and row["pattern_floor"] > 0
     pd.DataFrame([row]).to_csv(tmp_path / "dial_redraw_test.csv", index=False)
     rows = P.load_dial_rows(tmp_path)
-    got = P.dial_prediction(dict(dial_rows=rows, pp=pd.DataFrame()), 6, 2, 2, "reset", 0.5, "2x3", "1_11", [12, 11, 10, 2, 1, 0])[0]
+    got = P.dial_prediction(dict(dial_rows=rows, pp=pd.DataFrame()), 6, 2, 2, "reset", 0.5, "2x3", "1_11", [12, 11, 10, 2, 1, 0], S23)[0]
     assert got is not None and got["source"] == "dial_redraw_test.csv" and got["var"] == pytest.approx(row["var_kL_mc"])
-    assert P.dial_prediction(dict(dial_rows=rows, pp=pd.DataFrame()), 6, 2, 2, "reset", 0.5, "2x3", "1_11", [0, 1, 2, 10, 11, 13])[0] is None
+    assert P.dial_prediction(dict(dial_rows=rows, pp=pd.DataFrame()), 6, 2, 2, "reset", 0.5, "2x3", "1_11", [0, 1, 2, 10, 11, 13], S23)[0] is None
+    assert P.dial_prediction(dict(dial_rows=rows, pp=pd.DataFrame()), 6, 2, 2, "reset", 0.5, "2x3", "1_11", [12, 11, 10, 2, 1, 0], S28)[0] is None
 
 
 # ------------------------------------------------------------------------------------------------ checkpoint-review addendum (H6 pairing)
@@ -231,6 +235,7 @@ def test_h6_control_pair_comes_from_one_rung_and_placement(two_runs, preds, monk
         return DH.mark_dial_floors(E.point_table(rows, n_boot=200), snapshot_csv=str(SNAP_A))
     one = points("a")
     assert sorted(one.arm) == ["dephase", "reset"] and (one.n_placements == 1).all()
+    assert set(one.placement_stamp) == {"2026-09-20T030813Z"}           # the runner's job.json placement_snapshot (Deviation 60, S-A)
     solo = DH.evaluate_h6(one, preds, n_boot=200)
     assert len(solo["controls"]) == 1 and not solo["pairing"]
     both = points("a", "b")
@@ -238,19 +243,19 @@ def test_h6_control_pair_comes_from_one_rung_and_placement(two_runs, preds, monk
     pooled = DH.evaluate_h6(both, preds, n_boot=200)
     assert not pooled["controls"] and any("more than one placement" in x["reason"] for x in pooled["pairing"]) and "not evaluable" in pooled["note"]
     other = points("b")
-    assert one.patch_qubits.iloc[0] != other.patch_qubits.iloc[0]
+    assert one.patch_qubits.iloc[0] != other.patch_qubits.iloc[0] and set(other.placement_stamp) == {"2026-09-23T163534Z"}
     stacked = DH.evaluate_h6(pd.concat([one, other], ignore_index=True), preds, n_boot=200)
     assert not stacked["controls"] and any("2 candidate points" in x["reason"] for x in stacked["pairing"])
     mixed = DH.evaluate_h6(pd.concat([one[one.arm == "reset"], other[other.arm == "dephase"]], ignore_index=True), preds, n_boot=200)
     assert not mixed["controls"] and any("different rungs or placements" in x["reason"] for x in mixed["pairing"])
 
 
-def _h6_point(p, L, n, qubits, patch, edge, seed=0, arm="reset"):
+def _h6_point(p, L, n, qubits, patch, edge, seed=0, arm="reset", stamp=S23):
     rng = np.random.default_rng(seed)
     grads = rng.normal(0, 0.05, 100)
     v = float(grads.var(ddof=1))
     return dict(kind="reset_dial", arm=arm, p=p, L=L, k=L, n=n, patch=patch, edge=edge, point_id=f"{arm} p{p:g} n{n} L{L} k{L} {seed}",
-                patch_qubits=" ".join(map(str, qubits)), signal_variance=v, signal_ci_lo=0.8 * v, signal_ci_hi=1.2 * v, floor_grad=1e-4,
+                patch_qubits=" ".join(map(str, qubits)), placement_stamp=stamp, signal_variance=v, signal_ci_lo=0.8 * v, signal_ci_hi=1.2 * v, floor_grad=1e-4,
                 headline_ratio=v / 1e-4, headline_lo=0.8 * v / 1e-4, headline_hi=1.2 * v / 1e-4, mele_floor=p ** 4 / 9, gradients=grads.tolist(),
                 shot_vars=[1e-5] * 100, shot_floor=1e-5, n_placements=1)
 
@@ -263,11 +268,11 @@ def test_h6_ladder_points_come_from_one_placement(preds):
     hi = _h6_point(0.25, 8, 87, q100, "10x10", "75_85", seed=2)
     ok = DH.evaluate_h6(pd.DataFrame([lo, hi]), preds, n_boot=200)
     assert len(ok["ladder"]) == 1 and ok["ladder"][0]["within"] is not None and not ok["pairing"]
-    hi19 = _h6_point(0.25, 8, 87, LADDER["patches"]["10x10"]["qubits"], "10x10", "75_85", seed=3)
+    hi19 = _h6_point(0.25, 8, 87, LADDER["patches"]["10x10"]["qubits"], "10x10", "75_85", seed=3, stamp=S19)
     cross = DH.evaluate_h6(pd.DataFrame([lo, hi19]), preds, n_boot=200)
     assert not cross["ladder"] and any("different placements" in x["reason"] for x in cross["pairing"])
-    lo03 = _h6_point(0.25, 8, 39, json.loads((PRED / "gate1b_redraw_2026-09-23T0308.json").read_text())["runday_placement"]["rungs"]["n40"]["qubits"],
-                     "4x10", "93_103", seed=4)
+    pl03 = json.loads((PRED / "gate1b_redraw_2026-09-23T0308.json").read_text())["runday_placement"]
+    lo03 = _h6_point(0.25, 8, 39, pl03["rungs"]["n40"]["qubits"], "4x10", "93_103", seed=4, stamp=pl03["stamp"])
     two = DH.evaluate_h6(pd.DataFrame([lo, lo03, hi]), preds, n_boot=200)
     assert not two["ladder"] and any(x["sub_test"] == "H6 ladder, low rung" and "2 candidate points" in x["reason"] for x in two["pairing"])
 
@@ -317,14 +322,20 @@ def test_h6_control_is_decided_on_bounds_when_the_dephasing_variance_is_not_reso
 
 def test_h6_control_bounds_fail_below_the_dephasing_bound_or_beyond_the_factor(monkeypatch):
     """The clause fails when the reset variance's lower bound does not exceed the dephasing upper bound, and when it exceeds the
-    pre-drawn factor's upper limit times that bound (the dephasing variance resolvably below its prediction; also d_hi <= 0)."""
+    pre-drawn factor's upper limit times a positive bound (the dephasing variance resolvably below its prediction). With the
+    dephasing interval at or below zero (d_hi <= 0) the factor is not tested and r_lo > 0 decides (addendum 2)."""
     low_reset = _ctl("reset", 6.0e-5, 2.0e-5, 1.1e-4, SHOT1 + 6.82e-4, seed=4)
     res, c = _control(monkeypatch, _ctl("dephase", 1.0e-5, -3.0e-5, 5.0e-5, SHOT1, seed=5), reset=low_reset)
     assert c["rule"] == "bounds" and c["exceeds"] is False and res["result"] == "fail" and res["value"]["control_misses"] == 1
-    for d_hi in (2.0e-6, -1.0e-6):
-        res, c = _control(monkeypatch, _ctl("dephase", -3.0e-5, -6.0e-5, d_hi, SHOT1, seed=6))
-        assert c["rule"] == "bounds" and c["exceeds"] is True and c["within"] is False and res["result"] == "fail"
-        assert 6.0e-3 > c["factor_hi"] * d_hi
+    res, c = _control(monkeypatch, _ctl("dephase", -3.0e-5, -6.0e-5, 2.0e-6, SHOT1, seed=6))           # factor exceeded from above
+    assert c["rule"] == "bounds" and c["exceeds"] is True and c["within"] is False and c["factor_tested"] and res["result"] == "fail"
+    assert 6.0e-3 > c["factor_hi"] * 2.0e-6
+    deph_neg = _ctl("dephase", -4.0e-5, -8.0e-5, -1.0e-6, SHOT1, seed=6)                                 # d_hi <= 0: factor not tested
+    res, c = _control(monkeypatch, deph_neg)
+    assert c["within"] is None and c["factor_tested"] is False and c["factor_note"].startswith("factor not tested") and c["exceeds"] is True
+    assert res["result"] == "pass" and res["value"]["control_misses"] == 0 and "factor not tested" in res["note"]
+    res, c = _control(monkeypatch, deph_neg, reset=_ctl("reset", 2.0e-5, -1.0e-5, 6.0e-5, SHOT1 + 6.82e-4, seed=8))   # reset not above 0
+    assert c["within"] is None and c["exceeds"] is False and res["result"] == "fail"
 
 
 def test_h6_control_keeps_the_ratio_test_for_a_resolvably_positive_dephasing_variance(monkeypatch):
@@ -336,6 +347,86 @@ def test_h6_control_keeps_the_ratio_test_for_a_resolvably_positive_dephasing_var
     want = DH._ratio_test(meas, VR27 / VD27, ps)
     assert c["rule"] == "ratio" and c["within"] == want["within"] and c["measured"] == pytest.approx(want["measured"])
     assert c["exceeds"] == (meas["lo"] > 1.0) and "part (6)" not in res["note"]
+
+
+# ------------------------------------------------------------------------------------------------ S-A: lookups by placement snapshot as well
+
+S28 = "2026-09-28T030800Z"
+
+
+def _redraw_on_another_snapshot(pred_dir, tmp_path, name, stamp, scale):
+    """A copy of the 23 Sep 16:35Z re-draw relabelled as drawn on ``stamp`` (the same rungs and qubit sets), variances scaled."""
+    d = tmp_path / "sa_predictions"
+    if not d.exists():
+        shutil.copytree(pred_dir, d)
+    rows = pd.read_csv(PRED / "gate1b_redraw_2026-09-23T1635.csv")
+    for c in [c for c in rows.columns if c.startswith("var_")]:
+        rows[c] = rows[c] * scale
+    rows.to_csv(d / f"{name}.csv", index=False)
+    meta = json.loads((PRED / "gate1b_redraw_2026-09-23T1635.json").read_text())
+    meta["runday_placement"] = dict(meta["runday_placement"], stamp=stamp)
+    (d / f"{name}.json").write_text(json.dumps(meta))
+    return d
+
+
+def test_dial_lookup_matches_the_placement_snapshot_as_well_as_the_qubit_set(pred_dir, tmp_path):
+    """Deviation 60 (S-A): a re-draw on another snapshot that reuses the qubit set is not picked; the row drawn on the run's own
+    snapshot is; rows of two files for one placement are ambiguous and not evaluable (never the last file)."""
+    d = _redraw_on_another_snapshot(pred_dir, tmp_path, "gate1b_redraw_2026-09-28T0308", S28, 2.0)
+    preds = P.load_predictions(d)
+    args = (52, 8, 8, "reset", 0.25, "6x10", "84_85", Q52)
+    own, why, _ = P.dial_prediction(preds, *args, S23)
+    later, _, _ = P.dial_prediction(preds, *args, S28)
+    assert own["source"] == "gate1b_redraw_2026-09-23T1635.csv" and own["placement_stamp"] == S23 and not why
+    assert later["source"] == "gate1b_redraw_2026-09-28T0308.csv" and later["var"] == pytest.approx(2.0 * own["var"])
+    none, why, _ = P.dial_prediction(preds, *args, "2026-09-25T030800Z")
+    assert none is None and "not in the prediction files" in why
+    _redraw_on_another_snapshot(pred_dir, tmp_path, "gate1b_redraw_2026-09-23T1635b", S23, 3.0)       # a second file, 23 Sep placement
+    amb, why, fb = P.dial_prediction(P.load_predictions(d), *args, S23)
+    assert amb is None and why.startswith("ambiguous") and "2 files" in why and fb is not None
+
+
+def test_h7_comparator_and_preflight_check_match_the_placement_snapshot(pred_dir, tmp_path):
+    import check_comparators as cc
+    d = tmp_path / "sa_h7"
+    shutil.copytree(pred_dir, d)
+    rec = json.loads((PRED / "h7_truncation_2026-09-23T1635.json").read_text())
+    e = rec["entries"][0]
+    later = dict(rec, snapshot=dict(rec["snapshot"], stamp=S28), entries=[dict(e, rms_l2=2 * e["rms_l2"])])
+    (d / "h7_truncation_2026-09-28T0308.json").write_text(json.dumps(later))
+    preds = P.load_predictions(d)
+    kw = dict(patch="6x10", edge="84_85", n=52, p=0.5, L=8, qubits=e["point"]["qubits"])
+    own, _ = P.truncation_prediction(preds, **kw, stamp=S23)
+    new, _ = P.truncation_prediction(preds, **kw, stamp=S28)
+    assert own["file"] == "h7_truncation_2026-09-23T1635.json" and new["rms_l2"] == pytest.approx(2 * own["rms_l2"])
+    none, why = P.truncation_prediction(preds, **kw, stamp=None)
+    assert none is None and "no placement snapshot" in why
+    (d / "h7_truncation_2026-09-23T1635b.json").write_text(json.dumps(rec))                        # the 23 Sep comparator twice
+    amb, why = P.truncation_prediction(P.load_predictions(d), **kw, stamp=S23)
+    assert amb is None and why.startswith("ambiguous")
+    moved = _list(tmp_path, "moved.json", dict(PL23, stamp=S28), [p for p in DAY3_DIAL_PROBES if p["id"] == "dial_p0.25_L8_kL"] + TRUNC_PROBES)
+    res = cc.check(moved, d)                                   # the same rungs placed on 28 Sep: only what was drawn on 28 Sep counts
+    (h7,) = [x for x in res["items"] if x["need"].startswith("H7")]
+    (row,) = [x for x in res["items"] if x["probe"] == "dial_p0.25_L8_kL"]
+    assert h7["found"] and h7["source"] == "h7_truncation_2026-09-28T0308.json" and not row["found"] and S28 in row["reason"]
+
+
+def test_loader_records_the_placement_snapshot_of_each_job(tmp_path):
+    """The run's placement snapshot per job: the bundle's placement_snapshot, else its retrieval record's calibration_csv, else the
+    calibration_csv of the ids file that lists the job."""
+    from gradvar.analysis import loader as LDR
+    day = tmp_path / "runs" / "2026-09-28"
+    for jid, job in (("a", dict(placement_snapshot="ibm_phoenix_2026-09-27T030805Z.csv")),
+                     ("b", dict(retrieval=dict(calibration_csv="data/calibrations/ibm_phoenix_2026-09-23T163534Z.csv"))), ("c", {})):
+        (day / jid).mkdir(parents=True)
+        (day / jid / "job.json").write_text(json.dumps(dict(job_id=jid, **job)))
+    (day / "list_job_ids.json").write_text(json.dumps(dict(calibration_csv="data/calibrations/ibm_phoenix_2026-09-26T030720Z.csv",
+                                                           jobs=[dict(job_id="c"), dict(job_id="a")])))
+    bundles = {b.job_id: b for b in (LDR.read_bundle(p.parent) for p in day.rglob("job.json"))}
+    snaps = LDR._placement_snapshots(tmp_path / "runs", bundles)
+    assert snaps == {"a": "ibm_phoenix_2026-09-27T030805Z.csv", "b": "ibm_phoenix_2026-09-23T163534Z.csv",
+                     "c": "ibm_phoenix_2026-09-26T030720Z.csv"}
+    assert LDR.stamp_of_name(snaps["c"]) == "2026-09-26T030720Z" and LDR.stamp_of_name(None) is None
 
 
 # ------------------------------------------------------------------------------------------------ addendum: settings guard, pre-flight check
@@ -389,7 +480,7 @@ def test_check_comparators_exits_nonzero_unless_the_placement_has_its_prediction
     other = _list(tmp_path, "other.json", pl03, TRUNC_PROBES + [p for p in DAY3_DIAL_PROBES if p["id"] == "dial_p0.25_L8_kL"])
     res3 = cc.check(other, pred_dir)
     (h7b,) = [x for x in res3["items"] if x["need"].startswith("H7")]
-    assert not h7b["found"] and "qubits" in h7b["reason"]
+    assert not h7b["found"] and "placement snapshot" in h7b["reason"]                  # another snapshot (and other qubits)
     assert [x["source"] for x in res3["items"] if x["probe"] == "dial_p0.25_L8_kL"] == ["gate1b_redraw_2026-09-23T0308.csv"]
     assert cc.main([str(other)] + pd_arg) == 1
     assert cc.main([str(tmp_path / "absent.json")]) == 2
