@@ -630,8 +630,9 @@ def run(args) -> int:
             (out / "tests").mkdir(exist_ok=True)
             for i, files in enumerate(shard_tests(max(2, min(6, cores // 6)))):
                 shards.append(out / "tests" / f"shard_{i}.xml")
+                desel = [x for d in (args.deselect or []) if d.split("::")[0] in files for x in ("--deselect", d)]
                 tasks.append(Task(f"tests_{i}", [py, "-m", "pytest", "-q", "-ra", "-p", "no:cacheprovider", f"--basetemp=/tmp/sameday_pt_{i}",
-                                                 f"--junitxml={shards[-1]}", *files], out / "tests" / f"shard_{i}.log", env=env))
+                                                 f"--junitxml={shards[-1]}", *desel, *files], out / "tests" / f"shard_{i}.log", env=env))
         pending, running, done = list(tasks), [], []
         stop_reason = None
         while pending or running:
@@ -686,10 +687,13 @@ def run(args) -> int:
                 res = json.loads(p.stdout)
             except ValueError:
                 res = dict(missing=None)
-            cc[n] = dict(exit=p.returncode, missing=res.get("missing"), items=res.get("items"))
+            cc[n] = dict(exit=p.returncode, missing=res.get("missing"), items=res.get("items"),
+                         record=f"`docs/repack/{date}_summary.json`, key `comparators.{n}`")
         S["comparators"] = cc
         if any(v["exit"] != 0 for v in cc.values()):
-            raise Stop("scripts/check_comparators.py: " + "; ".join(f"{n} exit {v['exit']} ({v['missing']} missing)" for n, v in cc.items() if v["exit"] != 0))
+            why = "scripts/check_comparators.py: " + "; ".join(f"{n} exit {v['exit']} ({v['missing']} missing)" for n, v in cc.items() if v["exit"] != 0)
+            S["flags"] = [f"{why}; no pre-flight is rendered (build_preflights refuses without a zero exit)"]
+            raise Stop(why)
         log("(c) comparators: every H7 comparator and dial row is on the lists' placement")
         # (e) pre-check of every list (every un-armed list must pass)
         t = time.time()
@@ -714,11 +718,15 @@ def run(args) -> int:
         pcs_bp = {n: bp.precheck(load(n)["placement"], str(csv)) for n in RUN_DAY + (("dial_arm_contingent",) + ((PAIRS,) if args.with_pairs else ()))}
         upd = bp.ibm_update(str(props))
         prev_files = sorted(p.name for p in (ROOT / "docs" / "preflight").glob(f"0[689]_paper1_*_{(prev_stamp or '')[:10]}.md"))
-        res = bp.build(out, csv.name, tag, f"{int(date[8:10])} {_dt.date(int(date[:4]), int(date[5:7]), 1).strftime('%b')} {date[:4]}", None,
-                       ROOT / "docs" / "preflight", review_txt=bp.review_template(date), precheck_res=dict(lists=pcs_bp, csv=csv.name, ibm_properties=upd,
-                       ibm_properties_placement=upd), pr="the same-day pull request", branch=f"repack-{date}", prev_pred_dir=str(PRED), root=str(ROOT),
-                       prev_lists_dir=str(prev_dir), prev_fail_snaps=(), prev=bp.prev_package(prev_dir, PRED, ROOT / "docs" / "preflight"),
-                       pred_commit=PLACEHOLDER_COMMIT, with_pairs=bool(args.with_pairs))
+        try:
+            res = bp.build(out, csv.name, tag, f"{int(date[8:10])} {_dt.date(int(date[:4]), int(date[5:7]), 1).strftime('%b')} {date[:4]}", None,
+                           ROOT / "docs" / "preflight", review_txt=bp.review_template(date), precheck_res=dict(lists=pcs_bp, csv=csv.name, ibm_properties=upd,
+                           ibm_properties_placement=upd), pr="the same-day pull request", branch=f"repack-{date}", prev_pred_dir=str(PRED), root=str(ROOT),
+                           prev_lists_dir=str(prev_dir), prev_fail_snaps=(), prev=bp.prev_package(prev_dir, PRED, ROOT / "docs" / "preflight"),
+                           pred_commit=PLACEHOLDER_COMMIT, with_pairs=bool(args.with_pairs), comparators=cc)
+        except bp.PreflightRefused as ex:
+            S["flags"] = [f"pre-flights refused: {ex}"]
+            raise Stop(f"pre-flights refused: {ex}")
         S["preflights"] = list(res["names"])
         if S.get("exercise_stops"):
             banner = ("> **EXERCISE ONLY, not a dispatch record.** " + "; ".join(S["exercise_stops"]) + ". The same-day rule stops this cycle and nothing is "
@@ -755,7 +763,7 @@ def run(args) -> int:
                             "".join(f"PASSED-SERIALLY {x}\n" for x in rerun["passed_serially"]))
                 f.write("# skipped:\n" + "".join(f"SKIPPED {x}\n" for x in tr["skipped"]))
             S["tests"] = dict(passed=tr["passed"], failed_known=fk, unexpected=other, skipped=tr["skipped"], rerun=rerun, shards=len(shards),
-                              wall_min=round(tw, 1), report=report.relative_to(ROOT).as_posix())
+                              wall_min=round(tw, 1), report=report.relative_to(ROOT).as_posix(), deselected=list(args.deselect or []))
         # (g) summary
         S["placement"] = rung_table(RUNGS, P1)
         S["placement_prev"] = rung_table(RUNGS, prev_dir)
@@ -872,6 +880,8 @@ def review_flags(S: dict, prev_dir: Path) -> list:
     tt = S.get("tests") or {}
     if tt.get("unexpected"):
         fl.append(f"{len(tt['unexpected'])} test failure(s) not in the known list: {', '.join(tt['unexpected'][:6])}")
+    if tt.get("deselected"):
+        fl.append(f"tests left out with --deselect (survey use only, never for a dispatch package): {', '.join(tt['deselected'])}")
     if S.get("l2c5") and not S["l2c5"].get("passes"):
         fl.append("L2-c5 (day-2 n100 rung) fails the live cuts on this snapshot: no L2-c5 attempt today")
     return fl
@@ -1092,6 +1102,8 @@ def main(argv=None) -> int:
         ap.add_argument("--exercise", action="store_true",
                         help="pipeline test only: a Gate 1b FAIL is recorded but the remaining stages still run; the status stays 'stopped', every "
                              "generated pre-flight carries an EXERCISE banner, and publish refuses the bundle unless given --exercise too")
+        ap.add_argument("--deselect", action="append", default=[], metavar="NODE",
+                        help="pytest node id to leave out (surveys only, e.g. the 9-min snapshot-independent frozen-row regression; recorded and flagged)")
         ap.add_argument("--no-publish", action="store_true")
         ap.add_argument("--out", default=str(ROOT / ".sameday"))
         ap.add_argument("--bundle", default=None, help="also write the bundle as this .tgz")

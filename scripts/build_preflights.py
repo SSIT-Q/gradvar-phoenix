@@ -148,9 +148,17 @@ def _stamp(name):
     return m.group(0) if m else None
 
 
+_MON = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+
+def _mon(stamp):
+    """Month abbreviation of '2026-10-01T...' or '20261001T...'."""
+    return _MON[int(str(stamp).replace("-", "")[4:6]) - 1]
+
+
 def _label(stamp):
     """'2026-09-27T030805Z' -> '27 Sep 03:08Z'."""
-    return f"{int(stamp[8:10])} Sep {stamp[11:13]}:{stamp[13:15]}Z"
+    return f"{int(stamp[8:10])} {_mon(stamp)} {stamp[11:13]}:{stamp[13:15]}Z"
 
 
 def ibm_update(props_path):
@@ -346,7 +354,7 @@ def long_resets(cal_dir, since="20260919T000000Z", cut=400):
         L = reset_lengths(p)
         assert len(L) == 120, p.name
         long |= {q for q, v in L.items() if v > cut}
-    lab = lambda s: f"{int(s[6:8])} Sep"
+    lab = lambda s: f"{int(s[6:8])} {_mon(s)}"
     return long, lab(fs[0][0]), lab(fs[-1][0]), len(fs)
 
 
@@ -360,7 +368,7 @@ def prev_package(prev_lists_dir, pred_dir, preflight_dir=None):
     d3 = json.load(open(Path(prev_lists_dir) / "day3_dial_refs.json", encoding="utf-8"))
     r1 = json.load(open(Path(prev_lists_dir) / "replication_01.json", encoding="utf-8"))
     st = d3["placement"]["stamp"]; tg = _tagof(st); dt = st[:10]
-    out = dict(date=f"{int(st[8:10])} Sep", snap=_label(st), tag=tg, stamp=st,
+    out = dict(date=f"{int(st[8:10])} {_mon(st)}", snap=_label(st), tag=tg, stamp=st,
                files=(f"06_paper1_day3_dial_{dt}.md", f"08_paper1_replication_{dt}.md", f"09_paper1_section3c_blockC_{dt}.md"),
                fall="n/a", sep8="n/a", n100_row="n/a", n100_n=r1["placement"]["rungs"]["n100"]["n"])
     g = Path(pred_dir) / f"gate1b_redraw_{tg}.md"
@@ -380,9 +388,45 @@ def prev_package(prev_lists_dir, pred_dir, preflight_dir=None):
     return out
 
 
-def comparators_par(pred_dir, tag, pred_commit, jl):
-    """Review M3: the H5 / H6 p = 0.5 dial rows and the H7 comparator drawn on this placement, with their files and commit."""
+class PreflightRefused(RuntimeError):
+    """A pre-flight cannot be rendered: a check it reports did not run, or did not pass."""
+
+
+DIAL_CHANNEL = {"reset": "reset dial (non-unital reset channel)", "dephase": "dephasing dial (unital dephasing channel)",
+                "dephasing": "dephasing dial (unital dephasing channel)", "delay": "delay-matched reference (no dial channel)",
+                "unital": "unital snapshot noise only (no dial channel)"}
+
+
+def _channel(dial):
+    """The channel of a prediction row, from its record's ``dial`` / ``reset_kind`` field (never a fixed phrase)."""
+    return DIAL_CHANNEL.get(str(dial), f"{dial} dial")
+
+
+def _cc_entry(cc, name):
+    """The pipeline's own run of scripts/check_comparators.py on list ``name`` ({exit, missing, items}): refuse unless it ran and exited 0."""
+    if not isinstance(cc, dict) or cc.get("exit") is None:
+        raise PreflightRefused(f"scripts/check_comparators.py was not run on {name}.json: no pre-flight is rendered")
+    if int(cc["exit"]) != 0:
+        raise PreflightRefused(f"scripts/check_comparators.py exited {cc['exit']} on {name}.json ({cc.get('missing')} missing): no pre-flight is rendered")
+    return cc
+
+
+def _cc_text(name, cc):
+    """'exits 0' only from a recorded run that returned 0 (_cc_entry first)."""
+    cc = _cc_entry(cc, name)
+    items = cc.get("items") or []
+    found = sum(1 for it in items if isinstance(it, dict) and it.get("found"))
+    return (f"`python scripts/check_comparators.py data/joblists/paper1/{name}.json` was run by the pipeline on these files and exited 0: {found} of "
+            f"{len(items)} comparator items found on this placement, {cc.get('missing') or 0} missing (items recorded in "
+            f"{cc.get('record') or 'the run summary'})")
+
+
+def comparators_par(pred_dir, tag, pred_commit, jl, cc=None):
+    """Review M3: the H5 / H6 p = 0.5 dial rows and the H7 comparator drawn on this placement, with their files and commit. ``cc`` is the
+    pipeline's run of scripts/check_comparators.py on day3_dial_refs.json ({exit, missing, items}); without a run that returned 0 nothing is
+    rendered (PreflightRefused)."""
     import csv as _csv
+    cc_txt = _cc_text("day3_dial_refs", cc)
     pred_dir = Path(pred_dir)
     rows, h7 = [], []
     f = pred_dir / f"dial_redraw_{tag}.csv"
@@ -390,8 +434,9 @@ def comparators_par(pred_dir, tag, pred_commit, jl):
         for r in _csv.DictReader(open(f, encoding="utf-8")):
             v, se, vp = float(r["var_kL_mc"]), float(r["se_kL_mc"]), float(r["var_kL_pp"])
             sig = max(2 * se, abs(v - vp)) / 2
-            rows.append(f"{r['dial']} p = {float(r['p']):g}, L = {r['L']} on {r['rung']} (n = {r['n']}): V(k = L) {v:.4e} +/- {2 * sig:.1e}, V(k = 1) "
-                        f"{float(r['var_k1_mc']):.3e} ({r['status']})")
+            bg = f", on the {r['model']} snapshot noise" if r.get("model") else ""
+            rows.append(f"{_channel(r['dial'])}{bg}, p = {float(r['p']):g}, L = {r['L']} on {r['rung']} (n = {r['n']}): V(k = L) {v:.4e} +/- {2 * sig:.1e}, "
+                        f"V(k = 1) {float(r['var_k1_mc']):.3e} ({r['status']})")
     g = pred_dir / f"h7_truncation_{tag}.json"
     bug = "n/a"
     if g.exists():
@@ -400,14 +445,14 @@ def comparators_par(pred_dir, tag, pred_commit, jl):
         bug = "passed" if (ic.get("passed") if isinstance(ic, dict) and "passed" in ic else all(c.get("passed") for c in (ic.get("checks") or [ic]) if isinstance(c, dict))) else "see the record"
         for e in H.get("entries", []):
             pt = e.get("point", {})
-            h7.append(f"{pt.get('reset_kind', 'reset')} p = {pt.get('p')}, L = {pt.get('L')}, l = 2 on {pt.get('rung')} (n = {pt.get('n')}): sqrt(MSD(2)) = "
-                      f"{e['rms_l2']:.5f} +/- {e['rms_l2_sigma']:.5f}")
-    txt = ("**Comparators drawn on this placement (review M3).** H5 / H6 dial rows at p = 0.5 (unital, Deviation 46 program, `dial_redraw_" + tag + ".csv`): "
-           + ("; ".join(rows) if rows else "**missing**") + ". The p = 0.25 rows are the Gate 1b re-draw's (table above). H7 comparator (`h7_truncation_" + tag
-           + ".json`, noise-off bug check " + bug + "): " + ("; ".join(h7) if h7 else "**missing**") + ". Drawn through their command lines, "
-           "`python scripts/redraw_dial_points.py --joblist data/joblists/paper1/day3_dial_refs.json` and `python scripts/predict_h7_truncation.py --joblist "
-           f"data/joblists/paper1/day3_dial_refs.json`, and committed at {pred_commit} before this pre-flight (Deviation 54 order); `python "
-           "scripts/check_comparators.py data/joblists/paper1/day3_dial_refs.json` exits 0 (every H7 comparator and dial row the list needs is on its placement).")
+            h7.append(f"{_channel(pt.get('reset_kind', 'reset'))}, p = {pt.get('p')}, L = {pt.get('L')}, l = 2 on {pt.get('rung')} (n = {pt.get('n')}): "
+                      f"sqrt(MSD(2)) = {e['rms_l2']:.5f} +/- {e['rms_l2_sigma']:.5f}")
+    txt = ("**Comparators drawn on this placement (review M3).** H5 / H6 dial rows at p = 0.5 (Deviation 46 program, `dial_redraw_" + tag + ".csv`; each row's "
+           "channel as its record gives it): " + ("; ".join(rows) if rows else "**missing**") + ". The p = 0.25 rows are the Gate 1b re-draw's (table above). "
+           "H7 comparator (`h7_truncation_" + tag + ".json`, noise-off bug check " + bug + "): " + ("; ".join(h7) if h7 else "**missing**") + ". Drawn through "
+           "their command lines, `python scripts/redraw_dial_points.py --joblist data/joblists/paper1/day3_dial_refs.json` and `python "
+           f"scripts/predict_h7_truncation.py --joblist data/joblists/paper1/day3_dial_refs.json`, and committed at {pred_commit} before this pre-flight "
+           f"(Deviation 54 order); {cc_txt}.")
     return txt
 
 
@@ -425,9 +470,11 @@ def review_template(date):
             "([last_update_date]); a fresh calibration snapshot and Claude's pre-check first if IBM has updated since.")
 
 
-def render_pf10(OUT, snap_csv, tag, date_label, stamp, props_name, pred_dir, pred_commit, precheck_res, review_txt, pr, day3, root):
+def render_pf10(OUT, snap_csv, tag, date_label, stamp, props_name, pred_dir, pred_commit, precheck_res, review_txt, pr, day3, root, cc=None):
     """Pre-flight 10: the Deviation 63 truncation pairs (``dial_truncation_pairs.json``), dispatched right after day 3 in the same IBM window.
-    A template at docs/repack/templates/10_truncation_pairs.md (str.format fields as in ``fields`` below) replaces the built-in text."""
+    A template at docs/repack/templates/10_truncation_pairs.md (str.format fields as in ``fields`` below) replaces the built-in text. ``cc`` is the
+    pipeline's run of scripts/check_comparators.py on the pairs list; without a run that returned 0 nothing is rendered (PreflightRefused)."""
+    cc_txt = _cc_text("dial_truncation_pairs", cc)
     OUT, pred_dir, root = Path(OUT), Path(pred_dir), Path(root)
     jl = json.load(open(OUT / "A" / "joblists_paper1" / "dial_truncation_pairs.json", encoding="utf-8"))
     pl = jl["placement"]; rung_name, rung = next(iter((k, v) for k, v in pl["rungs"].items() if k == "n60"), next(iter(pl["rungs"].items())))
@@ -441,8 +488,8 @@ def render_pf10(OUT, snap_csv, tag, date_label, stamp, props_name, pred_dir, pre
         if f.exists():
             for e in json.load(open(f, encoding="utf-8")).get("entries", []):
                 pt = e.get("point", {})
-                comps.append(f"`{f.name}`: {pt.get('reset_kind', 'reset')} p = {pt.get('p')}, L = {pt.get('L')}, l = 2: sqrt(MSD(2)) = {e['rms_l2']:.5f} +/- "
-                             f"{e['rms_l2_sigma']:.5f}")
+                comps.append(f"`{f.name}`: {_channel(pt.get('reset_kind', 'reset'))}, p = {pt.get('p')}, L = {pt.get('L')}, l = 2: sqrt(MSD(2)) = "
+                             f"{e['rms_l2']:.5f} +/- {e['rms_l2_sigma']:.5f}")
     pc = (precheck_res.get("lists") or {}).get("dial_truncation_pairs")
     pcs = ("no failure" if pc and not (pc["qfail"] or pc["cfail"]) else ("failures: " + "; ".join(pc["qfail"] + pc["cfail"]) if pc else "not run"))
     dry = OUT / "A" / "dryrun_dial_truncation_pairs.log"
@@ -452,7 +499,8 @@ def render_pf10(OUT, snap_csv, tag, date_label, stamp, props_name, pred_dir, pre
     prot = _protected(pl)
     fields = dict(date_label=date_label, snap_csv=snap_csv, stamp=stamp, props=props_name, tag=tag, rung=rung_name, n=rung["n"], origin=tuple(rung["origin"]),
                   holes=", ".join(map(str, rung["holes"])), edge=rung["edge"], jobs=b["jobs"], pubs=b["pubs"], min1=f"{b['minutes_at_1us']:.2f}",
-                  work=f"{work:.1f}", probes=probes, comparators="; ".join(comps) or "**missing**", precheck=pcs, pred_commit=pred_commit, pr=pr,
+                  work=f"{work:.1f}", probes=probes, comparators="; ".join(comps) or "**missing**", check_comparators=cc_txt, precheck=pcs,
+                  pred_commit=pred_commit, pr=pr,
                   fake_min=fm.group(1) if fm else "n/a", csv_rows=rows.group(1) if rows else "n/a", review=review_txt,
                   protected="; ".join(f"{r} (edge {pl['rungs'][r]['edge']}): {', '.join(map(str, qs))}" for r, qs in prot.items()),
                   same_as_day3=all(pl["rungs"][r]["qubits"] == day3["placement"]["rungs"][r]["qubits"] for r in pl["rungs"] if r in day3["placement"]["rungs"]))
@@ -480,8 +528,7 @@ Budget model v3: **{f['jobs']} jobs, {f['pubs']} pubs, {f['min1']} min at 1 us**
 ## 2. Comparators on this placement
 
 {f['comparators']}. Drawn with `python scripts/predict_h7_truncation.py --joblist data/joblists/paper1/dial_truncation_pairs.json` (the pairs) and the day-3
-command (H7), committed at {f['pred_commit']} before this pre-flight; `python scripts/check_comparators.py data/joblists/paper1/dial_truncation_pairs.json`
-exits 0.
+command (H7), committed at {f['pred_commit']} before this pre-flight; {f['check_comparators']}.
 
 ## 3. Pre-check and dry run
 
@@ -521,9 +568,12 @@ def _pc_par(name, pc_snap, pc_props, pcs, lists, placement_snap=None, steps="Sec
 
 def build(OUT, snap_csv, tag, date_label, dial_pp, pdir, review_txt="(to be filled)", precheck_res=None, pr="(this pull request)", branch="dev62-repackage",
           prev_pred_dir=None, root=".", prev_lists_dir=None, prev_fail_snaps=("ibm_phoenix_2026-09-26T030720Z.csv",), prev=None, pred_commit=None,
-          with_pairs=False):
+          with_pairs=False, comparators=None):
+    # Reviewer finding (1): ``comparators`` is the pipeline's own run of scripts/check_comparators.py per list ({name: {exit, missing, items}});
+    # unless every list that carries comparators ran and exited 0, nothing is rendered and no file is written.
+    cc = {n: _cc_entry((comparators or {}).get(n), n) for n in ("day3_dial_refs",) + (("dial_truncation_pairs",) if with_pairs else ())}
     OUT = Path(OUT); stamp = re.search(r"\d{4}-\d{2}-\d{2}T\d{6}Z", snap_csv).group(0)
-    hhmm = f"{stamp[11:13]}:{stamp[13:15]}"; day = f"{int(stamp[8:10])} Sep"
+    hhmm = f"{stamp[11:13]}:{stamp[13:15]}"; day = f"{int(stamp[8:10])} {_mon(stamp)}"
     P_ = prev or dict(PREV, fall="3.05 / 3.15 / 6.93", sep8="4.50 / 4.20 / 3.31", n100_row="4.924e-04", n100_n=87)
     pred_commit = pred_commit or "(the commit of this pull request that adds the lists and predictions)"
     J = {n: json.load(open(OUT / "A" / "joblists_paper1" / f"{n}.json")) for n in ("day3_dial_refs", "replication_01", "replication_01_16384", "section3c_blockC",
@@ -724,7 +774,7 @@ shots) {cb.group(1)} ({re.sub(r'^[A-Za-z]+ [(]', '', cb.group(2))}), fall / bar 
 
 These rows are what the day-3 post-run review reads the references and the dial points against.
 
-{comparators_par(Path(prev_pred_dir or (Path(root) / 'data' / 'predictions')), tag, pred_commit, J['day3_dial_refs'])}
+{comparators_par(Path(prev_pred_dir or (Path(root) / 'data' / 'predictions')), tag, pred_commit, J['day3_dial_refs'], cc=cc['day3_dial_refs'])}
 
 The main-grid rows of the n20 and plain n100 rungs are re-drawn in
 the same session for pre-flights 08 and 09 (`main_grid_redraw_{tag}.*`).
@@ -1000,7 +1050,7 @@ L = 8 at 65,536 shots, ISA ops `cz, rz, sx`; `L0-probes-s65536`: SPAM-only, no g
     if with_pairs:
         names = names + (f"10_paper1_truncation_pairs_{stamp[:10]}.md",)
         texts.append(render_pf10(OUT, snap_csv, tag, date_label, stamp, props_name, Path(prev_pred_dir or (Path(root) / 'data' / 'predictions')), pred_commit,
-                                 precheck_res, review_txt, pr, J["day3_dial_refs"], Path(root)))
+                                 precheck_res, review_txt, pr, J["day3_dial_refs"], Path(root), cc=cc["dial_truncation_pairs"]))
     for name, txt in zip(names, texts):
         (pdir / name).write_text(txt, encoding="utf-8", newline="\n")
     return dict(names=names, work3=work3, total=total_mod, work_all=work_all, verdict=verdict, sep8=sep8, sep12=sep12, near3=near3, near20=near20, l10=l10,

@@ -350,7 +350,8 @@ def test_replication_lists_follow_deviation_19(generated, tmp_path):
     # placement: the pre-registered rule on the run-day snapshot; day 1's patch was (8, 1) with hole 114
     rec = a["campaign"]["replication"]
     assert tuple(R20["origin"]) != gen.DAY1_N20_ORIGIN and rec["flags"][0]["placement"] == "different from day 1's patch" and rec["clean_4x5_exists"] is False
-    assert tuple(R100["origin"]) == (2, 0) and "no alternative 10x10 placement" in rec["flags"][1]["placement"] and a["campaign"]["companion"] == "replication_01_16384.json"
+    assert tuple(R100["origin"]) in {(0, 0), (1, 0), (2, 0)}             # the only 10x10 origins of the 12x10 lattice; the snapshot decides which
+    assert "no alternative 10x10 placement" in rec["flags"][1]["placement"] and a["campaign"]["companion"] == "replication_01_16384.json"
     assert list(a["placement"]["rungs"]) == ["n20", "n100"] and list(b["placement"]["rungs"]) == ["n100"] and a["placement"]["rungs"]["n100"] == R100
     # budget: model v3, level 0 / 1 only, within the target; the Deviation 55 cap recorded and not binding
     for jl in (a, b):
@@ -412,11 +413,13 @@ def _small(base: dict, **kw) -> dict:
     The pinned lists' recorded origins do not apply there: the runner places by the rule on an explicit calibration other than the pinned one."""
     d = dict(base, **kw)
     d.pop("budget", None)                                       # re-estimated by the test, or left out (not needed for a dry run)
+    placed = {"93_103", "32_42", "13_14"} | {str(r.get("edge")) for r in ((base.get("placement") or {}).get("rungs") or {}).values()
+                                             if r.get("patch") == "4x5" and r.get("edge")}
     for e in list(d.get("points", []) or []) + list(d.get("probes", []) or []):
         if e.get("patch") == "4x5":
             e["n"] = 20
-            if e.get("edge") in ("93_103", "32_42", "13_14"):
-                e["edge"] = "94_104"
+            if e.get("edge") in placed:                         # the committed placement's 4x5 edge, whatever the snapshot (13_23 on 28 Sep, ...)
+                e["edge"] = "94_104"                            # -> SNAP20's interior edge; an explicit test edge (e.g. 93_94) is kept
     return d
 
 
