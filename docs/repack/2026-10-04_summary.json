@@ -1,0 +1,4282 @@
+{
+ "status": "ok",
+ "run": {
+  "date": "2026-10-04",
+  "snapshot": "ibm_phoenix_2026-10-04T043542Z.csv",
+  "stamp": "2026-10-04T043542Z",
+  "properties": "ibm_phoenix_properties_20261004T043542Z.json.gz",
+  "ibm_properties": "2026-10-04T03:50:36Z",
+  "base_sha": "8e78806475dc1afed5b767eae1692cbdc4920405",
+  "run_sha": "0037e5e6aa81e748bf6a9afdd7c62ce6700c7839",
+  "with_pairs": false,
+  "cores": 48,
+  "started_utc": "2026-10-04T07:49:38Z",
+  "wall_min": 24.6,
+  "stage_min": {
+   "a_precheck": 0.0,
+   "b_regenerate": 0.1,
+   "c_parallel": 24.0,
+   "e_precheck": 0.0,
+   "d_preflights": 0.0
+  },
+  "ended_utc": "2026-10-04T08:14:14Z",
+  "modal_cost": "about $2.49 (32 cores, 64 GiB, 24.6 min at the Modal sandbox rates; the sandbox's own start-up adds a minute or two)"
+ },
+ "approved_overrides": [],
+ "holds": {
+  "day3_dial_refs": "Deviation 60 part (7) pending"
+ },
+ "previous": {
+  "stamp": "2026-09-27T030805Z",
+  "tag": "2026-09-27T0308",
+  "snapshot": "ibm_phoenix_2026-09-27T030805Z.csv"
+ },
+ "precheck_committed": {
+  "day1_null_grid_n20": {
+   "qubits": 99,
+   "couplers": 147,
+   "qfail": [
+    "Q14 init 5.1e-04",
+    "Q15 init 1.0e-03",
+    "Q19 init 8.2e-04",
+    "Q25 init 9.9e-04",
+    "Q26 init 1.2e-03",
+    "Q28 init 8.6e-04",
+    "Q29 init 6.8e-04"
+   ],
+   "cfail": [
+    "21-31 CZ 8.30e-03",
+    "30-31 CZ 6.86e-03",
+    "31-41 CZ 7.55e-03",
+    "80-90 CZ 5.57e-03",
+    "118-119 CZ 5.81e-03"
+   ],
+   "near": [
+    "Q12 (T1 80.6, T2 78.3, ro 0.0061, init 3.9e-04)",
+    "Q20 (T1 211.3, T2 137.6, ro 0.0076, init 5.0e-04)",
+    "Q21 (T1 170.2, T2 180.8, ro 0.0052, init 3.8e-04)",
+    "Q23 (T1 69.1, T2 111.7, ro 0.0087, init 3.7e-04)",
+    "Q34 (T1 115.5, T2 141.9, ro 0.0066, init 4.4e-04)",
+    "Q37 (T1 26.0, T2 43.8, ro 0.0211, init 1.0e-05)",
+    "Q52 (T1 120.0, T2 151.4, ro 0.0062, init 3.5e-04)",
+    "Q83 (T1 198.6, T2 246.8, ro 0.0034, init 3.6e-04)"
+   ],
+   "cz_near": [
+    "41-51 4.48e-03",
+    "84-94 4.50e-03"
+   ],
+   "passes": false,
+   "record": true,
+   "stamp": "2026-09-20T141736Z"
+  },
+  "day2_main_grid": {
+   "qubits": 85,
+   "couplers": 129,
+   "qfail": [
+    "Q25 init 9.9e-04",
+    "Q26 init 1.2e-03",
+    "Q28 init 8.6e-04",
+    "Q29 init 6.8e-04"
+   ],
+   "cfail": [
+    "21-31 CZ 8.30e-03",
+    "30-31 CZ 6.86e-03",
+    "31-41 CZ 7.55e-03",
+    "80-90 CZ 5.57e-03",
+    "118-119 CZ 5.81e-03"
+   ],
+   "near": [
+    "Q20 (T1 211.3, T2 137.6, ro 0.0076, init 5.0e-04)",
+    "Q21 (T1 170.2, T2 180.8, ro 0.0052, init 3.8e-04)",
+    "Q23 (T1 69.1, T2 111.7, ro 0.0087, init 3.7e-04)",
+    "Q34 (T1 115.5, T2 141.9, ro 0.0066, init 4.4e-04)",
+    "Q37 (T1 26.0, T2 43.8, ro 0.0211, init 1.0e-05)",
+    "Q52 (T1 120.0, T2 151.4, ro 0.0062, init 3.5e-04)",
+    "Q83 (T1 198.6, T2 246.8, ro 0.0034, init 3.6e-04)"
+   ],
+   "cz_near": [
+    "41-51 4.48e-03",
+    "84-94 4.50e-03"
+   ],
+   "passes": false,
+   "record": true,
+   "stamp": "2026-09-20T175012Z"
+  },
+  "day3_dial_refs": {
+   "qubits": 87,
+   "couplers": 132,
+   "qfail": [
+    "Q24 ro 0.0947",
+    "Q25 init 9.9e-04",
+    "Q26 init 1.2e-03",
+    "Q28 init 8.6e-04"
+   ],
+   "cfail": [
+    "21-31 CZ 8.30e-03",
+    "23-24 CZ 6.51e-03",
+    "24-25 CZ 9.93e-03",
+    "24-34 CZ 8.00e-03",
+    "30-31 CZ 6.86e-03",
+    "31-41 CZ 7.55e-03",
+    "80-90 CZ 5.57e-03",
+    "118-119 CZ 5.81e-03"
+   ],
+   "near": [
+    "Q20 (T1 211.3, T2 137.6, ro 0.0076, init 5.0e-04)",
+    "Q21 (T1 170.2, T2 180.8, ro 0.0052, init 3.8e-04)",
+    "Q23 (T1 69.1, T2 111.7, ro 0.0087, init 3.7e-04)",
+    "Q34 (T1 115.5, T2 141.9, ro 0.0066, init 4.4e-04)",
+    "Q52 (T1 120.0, T2 151.4, ro 0.0062, init 3.5e-04)",
+    "Q83 (T1 198.6, T2 246.8, ro 0.0034, init 3.6e-04)"
+   ],
+   "cz_near": [
+    "84-94 4.50e-03"
+   ],
+   "passes": false,
+   "record": false,
+   "stamp": "2026-09-27T030805Z"
+  },
+  "dial_arm": {
+   "qubits": 87,
+   "couplers": 132,
+   "qfail": [
+    "Q24 ro 0.0947",
+    "Q25 init 9.9e-04",
+    "Q26 init 1.2e-03",
+    "Q28 init 8.6e-04"
+   ],
+   "cfail": [
+    "21-31 CZ 8.30e-03",
+    "23-24 CZ 6.51e-03",
+    "24-25 CZ 9.93e-03",
+    "24-34 CZ 8.00e-03",
+    "30-31 CZ 6.86e-03",
+    "31-41 CZ 7.55e-03",
+    "80-90 CZ 5.57e-03",
+    "118-119 CZ 5.81e-03"
+   ],
+   "near": [
+    "Q20 (T1 211.3, T2 137.6, ro 0.0076, init 5.0e-04)",
+    "Q21 (T1 170.2, T2 180.8, ro 0.0052, init 3.8e-04)",
+    "Q23 (T1 69.1, T2 111.7, ro 0.0087, init 3.7e-04)",
+    "Q34 (T1 115.5, T2 141.9, ro 0.0066, init 4.4e-04)",
+    "Q52 (T1 120.0, T2 151.4, ro 0.0062, init 3.5e-04)",
+    "Q83 (T1 198.6, T2 246.8, ro 0.0034, init 3.6e-04)"
+   ],
+   "cz_near": [
+    "84-94 4.50e-03"
+   ],
+   "passes": false,
+   "record": false,
+   "stamp": "2026-09-27T030805Z"
+  },
+  "dial_arm_contingent": {
+   "qubits": 52,
+   "couplers": 76,
+   "qfail": [],
+   "cfail": [
+    "80-90 CZ 5.57e-03",
+    "118-119 CZ 5.81e-03"
+   ],
+   "near": [
+    "Q83 (T1 198.6, T2 246.8, ro 0.0034, init 3.6e-04)"
+   ],
+   "cz_near": [
+    "84-94 4.50e-03"
+   ],
+   "passes": false,
+   "record": false,
+   "stamp": "2026-09-27T030805Z"
+  },
+  "grid_n100": {
+   "qubits": 88,
+   "couplers": 133,
+   "qfail": [
+    "Q24 ro 0.0947",
+    "Q25 init 9.9e-04",
+    "Q26 init 1.2e-03",
+    "Q28 init 8.6e-04"
+   ],
+   "cfail": [
+    "21-31 CZ 8.30e-03",
+    "23-24 CZ 6.51e-03",
+    "24-25 CZ 9.93e-03",
+    "24-34 CZ 8.00e-03",
+    "30-31 CZ 6.86e-03",
+    "31-41 CZ 7.55e-03",
+    "80-90 CZ 5.57e-03",
+    "118-119 CZ 5.81e-03"
+   ],
+   "near": [
+    "Q20 (T1 211.3, T2 137.6, ro 0.0076, init 5.0e-04)",
+    "Q21 (T1 170.2, T2 180.8, ro 0.0052, init 3.8e-04)",
+    "Q23 (T1 69.1, T2 111.7, ro 0.0087, init 3.7e-04)",
+    "Q34 (T1 115.5, T2 141.9, ro 0.0066, init 4.4e-04)",
+    "Q52 (T1 120.0, T2 151.4, ro 0.0062, init 3.5e-04)",
+    "Q83 (T1 198.6, T2 246.8, ro 0.0034, init 3.6e-04)"
+   ],
+   "cz_near": [
+    "84-94 4.50e-03"
+   ],
+   "passes": false,
+   "record": false,
+   "stamp": "2026-09-27T030805Z"
+  },
+  "grid_n100_16384": {
+   "qubits": 85,
+   "couplers": 129,
+   "qfail": [
+    "Q25 init 9.9e-04",
+    "Q26 init 1.2e-03",
+    "Q28 init 8.6e-04",
+    "Q29 init 6.8e-04"
+   ],
+   "cfail": [
+    "21-31 CZ 8.30e-03",
+    "30-31 CZ 6.86e-03",
+    "31-41 CZ 7.55e-03",
+    "80-90 CZ 5.57e-03",
+    "118-119 CZ 5.81e-03"
+   ],
+   "near": [
+    "Q20 (T1 211.3, T2 137.6, ro 0.0076, init 5.0e-04)",
+    "Q21 (T1 170.2, T2 180.8, ro 0.0052, init 3.8e-04)",
+    "Q23 (T1 69.1, T2 111.7, ro 0.0087, init 3.7e-04)",
+    "Q34 (T1 115.5, T2 141.9, ro 0.0066, init 4.4e-04)",
+    "Q37 (T1 26.0, T2 43.8, ro 0.0211, init 1.0e-05)",
+    "Q52 (T1 120.0, T2 151.4, ro 0.0062, init 3.5e-04)",
+    "Q83 (T1 198.6, T2 246.8, ro 0.0034, init 3.6e-04)"
+   ],
+   "cz_near": [
+    "41-51 4.48e-03",
+    "84-94 4.50e-03"
+   ],
+   "passes": false,
+   "record": true,
+   "stamp": "2026-09-20T175012Z"
+  },
+  "grid_n20": {
+   "qubits": 20,
+   "couplers": 29,
+   "qfail": [
+    "Q24 ro 0.0947"
+   ],
+   "cfail": [
+    "21-31 CZ 8.30e-03",
+    "23-24 CZ 6.51e-03",
+    "24-34 CZ 8.00e-03",
+    "30-31 CZ 6.86e-03",
+    "31-41 CZ 7.55e-03"
+   ],
+   "near": [
+    "Q20 (T1 211.3, T2 137.6, ro 0.0076, init 5.0e-04)",
+    "Q21 (T1 170.2, T2 180.8, ro 0.0052, init 3.8e-04)",
+    "Q23 (T1 69.1, T2 111.7, ro 0.0087, init 3.7e-04)",
+    "Q34 (T1 115.5, T2 141.9, ro 0.0066, init 4.4e-04)",
+    "Q52 (T1 120.0, T2 151.4, ro 0.0062, init 3.5e-04)"
+   ],
+   "cz_near": [],
+   "passes": false,
+   "record": false,
+   "stamp": "2026-09-27T030805Z"
+  },
+  "grid_n40": {
+   "qubits": 39,
+   "couplers": 57,
+   "qfail": [],
+   "cfail": [
+    "80-90 CZ 5.57e-03",
+    "118-119 CZ 5.81e-03"
+   ],
+   "near": [
+    "Q83 (T1 198.6, T2 246.8, ro 0.0034, init 3.6e-04)"
+   ],
+   "cz_near": [
+    "84-94 4.50e-03"
+   ],
+   "passes": false,
+   "record": false,
+   "stamp": "2026-09-27T030805Z"
+  },
+  "grid_n40_repeat": {
+   "qubits": 39,
+   "couplers": 57,
+   "qfail": [],
+   "cfail": [
+    "80-90 CZ 5.57e-03",
+    "118-119 CZ 5.81e-03"
+   ],
+   "near": [
+    "Q83 (T1 198.6, T2 246.8, ro 0.0034, init 3.6e-04)"
+   ],
+   "cz_near": [
+    "84-94 4.50e-03"
+   ],
+   "passes": false,
+   "record": false,
+   "stamp": "2026-09-27T030805Z"
+  },
+  "grid_n60": {
+   "qubits": 53,
+   "couplers": 77,
+   "qfail": [],
+   "cfail": [
+    "80-90 CZ 5.57e-03",
+    "118-119 CZ 5.81e-03"
+   ],
+   "near": [
+    "Q83 (T1 198.6, T2 246.8, ro 0.0034, init 3.6e-04)"
+   ],
+   "cz_near": [
+    "84-94 4.50e-03"
+   ],
+   "passes": false,
+   "record": false,
+   "stamp": "2026-09-27T030805Z"
+  },
+  "grid_n80": {
+   "qubits": 71,
+   "couplers": 104,
+   "qfail": [],
+   "cfail": [
+    "80-90 CZ 5.57e-03",
+    "118-119 CZ 5.81e-03"
+   ],
+   "near": [
+    "Q52 (T1 120.0, T2 151.4, ro 0.0062, init 3.5e-04)",
+    "Q83 (T1 198.6, T2 246.8, ro 0.0034, init 3.6e-04)"
+   ],
+   "cz_near": [
+    "84-94 4.50e-03"
+   ],
+   "passes": false,
+   "record": false,
+   "stamp": "2026-09-27T030805Z"
+  },
+  "null_controls": {
+   "qubits": 88,
+   "couplers": 133,
+   "qfail": [
+    "Q24 ro 0.0947",
+    "Q25 init 9.9e-04",
+    "Q26 init 1.2e-03",
+    "Q28 init 8.6e-04"
+   ],
+   "cfail": [
+    "21-31 CZ 8.30e-03",
+    "23-24 CZ 6.51e-03",
+    "24-25 CZ 9.93e-03",
+    "24-34 CZ 8.00e-03",
+    "30-31 CZ 6.86e-03",
+    "31-41 CZ 7.55e-03",
+    "80-90 CZ 5.57e-03",
+    "118-119 CZ 5.81e-03"
+   ],
+   "near": [
+    "Q20 (T1 211.3, T2 137.6, ro 0.0076, init 5.0e-04)",
+    "Q21 (T1 170.2, T2 180.8, ro 0.0052, init 3.8e-04)",
+    "Q23 (T1 69.1, T2 111.7, ro 0.0087, init 3.7e-04)",
+    "Q34 (T1 115.5, T2 141.9, ro 0.0066, init 4.4e-04)",
+    "Q52 (T1 120.0, T2 151.4, ro 0.0062, init 3.5e-04)",
+    "Q83 (T1 198.6, T2 246.8, ro 0.0034, init 3.6e-04)"
+   ],
+   "cz_near": [
+    "84-94 4.50e-03"
+   ],
+   "passes": false,
+   "record": false,
+   "stamp": "2026-09-27T030805Z"
+  },
+  "references_gate1b": {
+   "qubits": 87,
+   "couplers": 132,
+   "qfail": [
+    "Q24 ro 0.0947",
+    "Q25 init 9.9e-04",
+    "Q26 init 1.2e-03",
+    "Q28 init 8.6e-04"
+   ],
+   "cfail": [
+    "21-31 CZ 8.30e-03",
+    "23-24 CZ 6.51e-03",
+    "24-25 CZ 9.93e-03",
+    "24-34 CZ 8.00e-03",
+    "30-31 CZ 6.86e-03",
+    "31-41 CZ 7.55e-03",
+    "80-90 CZ 5.57e-03",
+    "118-119 CZ 5.81e-03"
+   ],
+   "near": [
+    "Q20 (T1 211.3, T2 137.6, ro 0.0076, init 5.0e-04)",
+    "Q21 (T1 170.2, T2 180.8, ro 0.0052, init 3.8e-04)",
+    "Q23 (T1 69.1, T2 111.7, ro 0.0087, init 3.7e-04)",
+    "Q34 (T1 115.5, T2 141.9, ro 0.0066, init 4.4e-04)",
+    "Q52 (T1 120.0, T2 151.4, ro 0.0062, init 3.5e-04)",
+    "Q83 (T1 198.6, T2 246.8, ro 0.0034, init 3.6e-04)"
+   ],
+   "cz_near": [
+    "84-94 4.50e-03"
+   ],
+   "passes": false,
+   "record": false,
+   "stamp": "2026-09-27T030805Z"
+  },
+  "replication_01": {
+   "qubits": 88,
+   "couplers": 133,
+   "qfail": [
+    "Q24 ro 0.0947",
+    "Q25 init 9.9e-04",
+    "Q26 init 1.2e-03",
+    "Q28 init 8.6e-04"
+   ],
+   "cfail": [
+    "21-31 CZ 8.30e-03",
+    "23-24 CZ 6.51e-03",
+    "24-25 CZ 9.93e-03",
+    "24-34 CZ 8.00e-03",
+    "30-31 CZ 6.86e-03",
+    "31-41 CZ 7.55e-03",
+    "80-90 CZ 5.57e-03",
+    "118-119 CZ 5.81e-03"
+   ],
+   "near": [
+    "Q20 (T1 211.3, T2 137.6, ro 0.0076, init 5.0e-04)",
+    "Q21 (T1 170.2, T2 180.8, ro 0.0052, init 3.8e-04)",
+    "Q23 (T1 69.1, T2 111.7, ro 0.0087, init 3.7e-04)",
+    "Q34 (T1 115.5, T2 141.9, ro 0.0066, init 4.4e-04)",
+    "Q52 (T1 120.0, T2 151.4, ro 0.0062, init 3.5e-04)",
+    "Q83 (T1 198.6, T2 246.8, ro 0.0034, init 3.6e-04)"
+   ],
+   "cz_near": [
+    "84-94 4.50e-03"
+   ],
+   "passes": false,
+   "record": false,
+   "stamp": "2026-09-27T030805Z"
+  },
+  "replication_01_16384": {
+   "qubits": 88,
+   "couplers": 133,
+   "qfail": [
+    "Q24 ro 0.0947",
+    "Q25 init 9.9e-04",
+    "Q26 init 1.2e-03",
+    "Q28 init 8.6e-04"
+   ],
+   "cfail": [
+    "21-31 CZ 8.30e-03",
+    "23-24 CZ 6.51e-03",
+    "24-25 CZ 9.93e-03",
+    "24-34 CZ 8.00e-03",
+    "30-31 CZ 6.86e-03",
+    "31-41 CZ 7.55e-03",
+    "80-90 CZ 5.57e-03",
+    "118-119 CZ 5.81e-03"
+   ],
+   "near": [
+    "Q20 (T1 211.3, T2 137.6, ro 0.0076, init 5.0e-04)",
+    "Q21 (T1 170.2, T2 180.8, ro 0.0052, init 3.8e-04)",
+    "Q23 (T1 69.1, T2 111.7, ro 0.0087, init 3.7e-04)",
+    "Q34 (T1 115.5, T2 141.9, ro 0.0066, init 4.4e-04)",
+    "Q52 (T1 120.0, T2 151.4, ro 0.0062, init 3.5e-04)",
+    "Q83 (T1 198.6, T2 246.8, ro 0.0034, init 3.6e-04)"
+   ],
+   "cz_near": [
+    "84-94 4.50e-03"
+   ],
+   "passes": false,
+   "record": false,
+   "stamp": "2026-09-27T030805Z"
+  },
+  "section3c_blockC": {
+   "qubits": 88,
+   "couplers": 133,
+   "qfail": [
+    "Q24 ro 0.0947",
+    "Q25 init 9.9e-04",
+    "Q26 init 1.2e-03",
+    "Q28 init 8.6e-04"
+   ],
+   "cfail": [
+    "21-31 CZ 8.30e-03",
+    "23-24 CZ 6.51e-03",
+    "24-25 CZ 9.93e-03",
+    "24-34 CZ 8.00e-03",
+    "30-31 CZ 6.86e-03",
+    "31-41 CZ 7.55e-03",
+    "80-90 CZ 5.57e-03",
+    "118-119 CZ 5.81e-03"
+   ],
+   "near": [
+    "Q20 (T1 211.3, T2 137.6, ro 0.0076, init 5.0e-04)",
+    "Q21 (T1 170.2, T2 180.8, ro 0.0052, init 3.8e-04)",
+    "Q23 (T1 69.1, T2 111.7, ro 0.0087, init 3.7e-04)",
+    "Q34 (T1 115.5, T2 141.9, ro 0.0066, init 4.4e-04)",
+    "Q52 (T1 120.0, T2 151.4, ro 0.0062, init 3.5e-04)",
+    "Q83 (T1 198.6, T2 246.8, ro 0.0034, init 3.6e-04)"
+   ],
+   "cz_near": [
+    "84-94 4.50e-03"
+   ],
+   "passes": false,
+   "record": false,
+   "stamp": "2026-09-27T030805Z"
+  }
+ },
+ "needed": true,
+ "l2c5": {
+  "available": true,
+  "placement": "ibm_phoenix_2026-09-20T175012Z.csv",
+  "qubits": 85,
+  "couplers": 129,
+  "qfail": [
+   "Q25 init 9.9e-04",
+   "Q26 init 1.2e-03",
+   "Q28 init 8.6e-04",
+   "Q29 init 6.8e-04"
+  ],
+  "cfail": [
+   "21-31 CZ 8.30e-03",
+   "30-31 CZ 6.86e-03",
+   "31-41 CZ 7.55e-03",
+   "80-90 CZ 5.57e-03",
+   "118-119 CZ 5.81e-03"
+  ],
+  "passes": false
+ },
+ "placement_diagnosis": {
+  "plain n20": {
+   "ok": true,
+   "n": 20,
+   "origin": [
+    8,
+    1
+   ],
+   "holes": []
+  },
+  "plain n40": {
+   "ok": true,
+   "n": 39,
+   "origin": [
+    8,
+    0
+   ],
+   "holes": [
+    107
+   ]
+  },
+  "plain n60": {
+   "ok": true,
+   "n": 53,
+   "origin": [
+    6,
+    0
+   ],
+   "holes": [
+    61,
+    62,
+    63,
+    72,
+    73,
+    77,
+    107
+   ]
+  },
+  "plain n80": {
+   "ok": true,
+   "n": 71,
+   "origin": [
+    4,
+    0
+   ],
+   "holes": [
+    55,
+    59,
+    61,
+    62,
+    63,
+    72,
+    73,
+    77,
+    107
+   ]
+  },
+  "plain n100": {
+   "ok": true,
+   "n": 84,
+   "origin": [
+    2,
+    0
+   ],
+   "holes": [
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    31,
+    55,
+    59,
+    61,
+    62,
+    63,
+    72,
+    73,
+    77,
+    107
+   ]
+  },
+  "dial n20": {
+   "ok": true,
+   "n": 20,
+   "origin": [
+    8,
+    1
+   ],
+   "holes": []
+  },
+  "dial n40": {
+   "ok": true,
+   "n": 39,
+   "origin": [
+    8,
+    0
+   ],
+   "holes": [
+    107
+   ]
+  },
+  "dial n60": {
+   "ok": true,
+   "n": 52,
+   "origin": [
+    6,
+    0
+   ],
+   "holes": [
+    61,
+    62,
+    63,
+    72,
+    73,
+    77,
+    79,
+    107
+   ]
+  },
+  "dial n80": {
+   "ok": true,
+   "n": 70,
+   "origin": [
+    4,
+    0
+   ],
+   "holes": [
+    55,
+    59,
+    61,
+    62,
+    63,
+    72,
+    73,
+    77,
+    79,
+    107
+   ]
+  },
+  "dial n100": {
+   "ok": true,
+   "n": 83,
+   "origin": [
+    2,
+    0
+   ],
+   "holes": [
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    31,
+    55,
+    59,
+    61,
+    62,
+    63,
+    72,
+    73,
+    77,
+    79,
+    107
+   ]
+  }
+ },
+ "generator": {
+  "gen_all": 0,
+  "gen_day3": 0,
+  "gen_check": 0
+ },
+ "validation": {
+  "problems": [],
+  "component_holes": {
+   "day3_dial_refs:n100": [
+    31
+   ],
+   "dial_arm:n100": [
+    31
+   ],
+   "grid_n100:n100": [
+    31
+   ],
+   "null_controls:n100": [
+    31
+   ],
+   "references_gate1b:n100": [
+    31
+   ],
+   "replication_01:n100": [
+    31
+   ],
+   "replication_01_16384:n100": [
+    31
+   ],
+   "section3c_blockC:n100": [
+    31
+   ]
+  },
+  "lists": [
+   "day3_dial_refs",
+   "dial_arm",
+   "dial_arm_contingent",
+   "grid_n100",
+   "grid_n20",
+   "grid_n40",
+   "grid_n40_repeat",
+   "grid_n60",
+   "grid_n80",
+   "null_controls",
+   "references_gate1b",
+   "replication_01",
+   "replication_01_16384",
+   "section3c_blockC"
+  ]
+ },
+ "placement": {
+  "day 3 dial n40": {
+   "patch": "4x10",
+   "n": 39,
+   "origin": [
+    8,
+    0
+   ],
+   "holes": [
+    107
+   ],
+   "component_holes": [],
+   "dial_excluded_holes": [],
+   "broken": [
+    "86-87",
+    "100-101",
+    "118-119",
+    "95-96",
+    "80-90",
+    "87-97",
+    "100-110"
+   ],
+   "edge": "93_103",
+   "live_couplers": 55,
+   "cone_L2": 16,
+   "qubits": [
+    80,
+    81,
+    82,
+    83,
+    84,
+    85,
+    86,
+    87,
+    88,
+    89,
+    90,
+    91,
+    92,
+    93,
+    94,
+    95,
+    96,
+    97,
+    98,
+    99,
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    108,
+    109,
+    110,
+    111,
+    112,
+    113,
+    114,
+    115,
+    116,
+    117,
+    118,
+    119
+   ]
+  },
+  "day 3 dial n60": {
+   "patch": "6x10",
+   "n": 52,
+   "origin": [
+    6,
+    0
+   ],
+   "holes": [
+    61,
+    62,
+    63,
+    72,
+    73,
+    77,
+    79,
+    107
+   ],
+   "component_holes": [],
+   "dial_excluded_holes": [
+    79
+   ],
+   "broken": [
+    "86-87",
+    "100-101",
+    "118-119",
+    "95-96",
+    "80-90",
+    "87-97",
+    "100-110"
+   ],
+   "edge": "84_85",
+   "live_couplers": 74,
+   "cone_L2": 16,
+   "qubits": [
+    60,
+    64,
+    65,
+    66,
+    67,
+    68,
+    69,
+    70,
+    71,
+    74,
+    75,
+    76,
+    78,
+    80,
+    81,
+    82,
+    83,
+    84,
+    85,
+    86,
+    87,
+    88,
+    89,
+    90,
+    91,
+    92,
+    93,
+    94,
+    95,
+    96,
+    97,
+    98,
+    99,
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    108,
+    109,
+    110,
+    111,
+    112,
+    113,
+    114,
+    115,
+    116,
+    117,
+    118,
+    119
+   ]
+  },
+  "day 3 dial n100": {
+   "patch": "10x10",
+   "n": 83,
+   "origin": [
+    2,
+    0
+   ],
+   "holes": [
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    31,
+    55,
+    59,
+    61,
+    62,
+    63,
+    72,
+    73,
+    77,
+    79,
+    107
+   ],
+   "component_holes": [
+    31
+   ],
+   "dial_excluded_holes": [
+    79
+   ],
+   "broken": [
+    "86-87",
+    "100-101",
+    "118-119",
+    "95-96",
+    "80-90",
+    "87-97",
+    "100-110"
+   ],
+   "edge": "75_85",
+   "live_couplers": 124,
+   "cone_L2": 12,
+   "qubits": [
+    20,
+    21,
+    22,
+    23,
+    30,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37,
+    38,
+    39,
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52,
+    53,
+    54,
+    56,
+    57,
+    58,
+    60,
+    64,
+    65,
+    66,
+    67,
+    68,
+    69,
+    70,
+    71,
+    74,
+    75,
+    76,
+    78,
+    80,
+    81,
+    82,
+    83,
+    84,
+    85,
+    86,
+    87,
+    88,
+    89,
+    90,
+    91,
+    92,
+    93,
+    94,
+    95,
+    96,
+    97,
+    98,
+    99,
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    108,
+    109,
+    110,
+    111,
+    112,
+    113,
+    114,
+    115,
+    116,
+    117,
+    118,
+    119
+   ]
+  },
+  "replication n20": {
+   "patch": "4x5",
+   "n": 19,
+   "origin": [
+    3,
+    4
+   ],
+   "holes": [
+    55
+   ],
+   "component_holes": [],
+   "dial_excluded_holes": [],
+   "broken": [],
+   "edge": "46_47",
+   "live_couplers": 27,
+   "cone_L2": 18,
+   "qubits": [
+    34,
+    35,
+    36,
+    37,
+    38,
+    44,
+    45,
+    46,
+    47,
+    48,
+    54,
+    56,
+    57,
+    58,
+    64,
+    65,
+    66,
+    67,
+    68
+   ]
+  },
+  "plain n100": {
+   "patch": "10x10",
+   "n": 84,
+   "origin": [
+    2,
+    0
+   ],
+   "holes": [
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    31,
+    55,
+    59,
+    61,
+    62,
+    63,
+    72,
+    73,
+    77,
+    107
+   ],
+   "component_holes": [
+    31
+   ],
+   "dial_excluded_holes": [],
+   "broken": [
+    "86-87",
+    "100-101",
+    "118-119",
+    "95-96",
+    "80-90",
+    "87-97",
+    "100-110"
+   ],
+   "edge": "75_85",
+   "live_couplers": 127,
+   "cone_L2": 12,
+   "qubits": [
+    20,
+    21,
+    22,
+    23,
+    30,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37,
+    38,
+    39,
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52,
+    53,
+    54,
+    56,
+    57,
+    58,
+    60,
+    64,
+    65,
+    66,
+    67,
+    68,
+    69,
+    70,
+    71,
+    74,
+    75,
+    76,
+    78,
+    79,
+    80,
+    81,
+    82,
+    83,
+    84,
+    85,
+    86,
+    87,
+    88,
+    89,
+    90,
+    91,
+    92,
+    93,
+    94,
+    95,
+    96,
+    97,
+    98,
+    99,
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    108,
+    109,
+    110,
+    111,
+    112,
+    113,
+    114,
+    115,
+    116,
+    117,
+    118,
+    119
+   ]
+  },
+  "contingent dial n60": {
+   "patch": "6x10",
+   "n": 52,
+   "origin": [
+    6,
+    0
+   ],
+   "holes": [
+    61,
+    62,
+    63,
+    72,
+    73,
+    77,
+    79,
+    107
+   ],
+   "component_holes": [],
+   "dial_excluded_holes": [
+    79
+   ],
+   "broken": [
+    "86-87",
+    "100-101",
+    "118-119",
+    "95-96",
+    "80-90",
+    "87-97",
+    "100-110"
+   ],
+   "edge": "84_85",
+   "live_couplers": 74,
+   "cone_L2": 16,
+   "qubits": [
+    60,
+    64,
+    65,
+    66,
+    67,
+    68,
+    69,
+    70,
+    71,
+    74,
+    75,
+    76,
+    78,
+    80,
+    81,
+    82,
+    83,
+    84,
+    85,
+    86,
+    87,
+    88,
+    89,
+    90,
+    91,
+    92,
+    93,
+    94,
+    95,
+    96,
+    97,
+    98,
+    99,
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    108,
+    109,
+    110,
+    111,
+    112,
+    113,
+    114,
+    115,
+    116,
+    117,
+    118,
+    119
+   ]
+  },
+  "grid n20": {
+   "patch": "4x5",
+   "n": 19,
+   "origin": [
+    3,
+    4
+   ],
+   "holes": [
+    55
+   ],
+   "component_holes": [],
+   "dial_excluded_holes": [],
+   "broken": [],
+   "edge": "46_47",
+   "live_couplers": 27,
+   "cone_L2": 18,
+   "qubits": [
+    34,
+    35,
+    36,
+    37,
+    38,
+    44,
+    45,
+    46,
+    47,
+    48,
+    54,
+    56,
+    57,
+    58,
+    64,
+    65,
+    66,
+    67,
+    68
+   ]
+  },
+  "grid n40": {
+   "patch": "4x10",
+   "n": 39,
+   "origin": [
+    8,
+    0
+   ],
+   "holes": [
+    107
+   ],
+   "component_holes": [],
+   "dial_excluded_holes": [],
+   "broken": [
+    "86-87",
+    "100-101",
+    "118-119",
+    "95-96",
+    "80-90",
+    "87-97",
+    "100-110"
+   ],
+   "edge": "93_103",
+   "live_couplers": 55,
+   "cone_L2": 16,
+   "qubits": [
+    80,
+    81,
+    82,
+    83,
+    84,
+    85,
+    86,
+    87,
+    88,
+    89,
+    90,
+    91,
+    92,
+    93,
+    94,
+    95,
+    96,
+    97,
+    98,
+    99,
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    108,
+    109,
+    110,
+    111,
+    112,
+    113,
+    114,
+    115,
+    116,
+    117,
+    118,
+    119
+   ]
+  },
+  "grid n60": {
+   "patch": "6x10",
+   "n": 53,
+   "origin": [
+    6,
+    0
+   ],
+   "holes": [
+    61,
+    62,
+    63,
+    72,
+    73,
+    77,
+    107
+   ],
+   "component_holes": [],
+   "dial_excluded_holes": [],
+   "broken": [
+    "86-87",
+    "100-101",
+    "118-119",
+    "95-96",
+    "80-90",
+    "87-97",
+    "100-110"
+   ],
+   "edge": "84_85",
+   "live_couplers": 77,
+   "cone_L2": 16,
+   "qubits": [
+    60,
+    64,
+    65,
+    66,
+    67,
+    68,
+    69,
+    70,
+    71,
+    74,
+    75,
+    76,
+    78,
+    79,
+    80,
+    81,
+    82,
+    83,
+    84,
+    85,
+    86,
+    87,
+    88,
+    89,
+    90,
+    91,
+    92,
+    93,
+    94,
+    95,
+    96,
+    97,
+    98,
+    99,
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    108,
+    109,
+    110,
+    111,
+    112,
+    113,
+    114,
+    115,
+    116,
+    117,
+    118,
+    119
+   ]
+  },
+  "grid n80": {
+   "patch": "8x10",
+   "n": 71,
+   "origin": [
+    4,
+    0
+   ],
+   "holes": [
+    55,
+    59,
+    61,
+    62,
+    63,
+    72,
+    73,
+    77,
+    107
+   ],
+   "component_holes": [],
+   "dial_excluded_holes": [],
+   "broken": [
+    "86-87",
+    "100-101",
+    "118-119",
+    "95-96",
+    "80-90",
+    "87-97",
+    "100-110"
+   ],
+   "edge": "84_85",
+   "live_couplers": 105,
+   "cone_L2": 16,
+   "qubits": [
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52,
+    53,
+    54,
+    56,
+    57,
+    58,
+    60,
+    64,
+    65,
+    66,
+    67,
+    68,
+    69,
+    70,
+    71,
+    74,
+    75,
+    76,
+    78,
+    79,
+    80,
+    81,
+    82,
+    83,
+    84,
+    85,
+    86,
+    87,
+    88,
+    89,
+    90,
+    91,
+    92,
+    93,
+    94,
+    95,
+    96,
+    97,
+    98,
+    99,
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    108,
+    109,
+    110,
+    111,
+    112,
+    113,
+    114,
+    115,
+    116,
+    117,
+    118,
+    119
+   ]
+  },
+  "grid n100": {
+   "patch": "10x10",
+   "n": 84,
+   "origin": [
+    2,
+    0
+   ],
+   "holes": [
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    31,
+    55,
+    59,
+    61,
+    62,
+    63,
+    72,
+    73,
+    77,
+    107
+   ],
+   "component_holes": [
+    31
+   ],
+   "dial_excluded_holes": [],
+   "broken": [
+    "86-87",
+    "100-101",
+    "118-119",
+    "95-96",
+    "80-90",
+    "87-97",
+    "100-110"
+   ],
+   "edge": "75_85",
+   "live_couplers": 127,
+   "cone_L2": 12,
+   "qubits": [
+    20,
+    21,
+    22,
+    23,
+    30,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37,
+    38,
+    39,
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52,
+    53,
+    54,
+    56,
+    57,
+    58,
+    60,
+    64,
+    65,
+    66,
+    67,
+    68,
+    69,
+    70,
+    71,
+    74,
+    75,
+    76,
+    78,
+    79,
+    80,
+    81,
+    82,
+    83,
+    84,
+    85,
+    86,
+    87,
+    88,
+    89,
+    90,
+    91,
+    92,
+    93,
+    94,
+    95,
+    96,
+    97,
+    98,
+    99,
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    108,
+    109,
+    110,
+    111,
+    112,
+    113,
+    114,
+    115,
+    116,
+    117,
+    118,
+    119
+   ]
+  }
+ },
+ "gate1b": {
+  "verdict": "PASS",
+  "clause_b": "PASS",
+  "separation_L8": "PASS",
+  "separation_L12": "PASS",
+  "fall_over_bar": {
+   "4x10": "2.90",
+   "6x10": "2.69",
+   "10x10": "4.14"
+  },
+  "fall_over_2sigma": {
+   "4x10": "2.51",
+   "6x10": "2.51",
+   "10x10": "2.49"
+  },
+  "sep_over_floor": {
+   "4x10 L8": "4.37",
+   "6x10 L8": "4.32",
+   "10x10 L8": "4.10",
+   "4x10 L12": "5.01",
+   "6x10 L12": "4.92",
+   "10x10 L12": "5.02"
+  }
+ },
+ "tasks": {
+  "gate1b": {
+   "exit": 0,
+   "wall_s": 198.1
+  },
+  "main_grid": {
+   "exit": 0,
+   "wall_s": 1284.5
+  },
+  "h7": {
+   "exit": 0,
+   "wall_s": 64.0
+  },
+  "dial_rows": {
+   "exit": 0,
+   "wall_s": 2.0
+  },
+  "dry_runs": {
+   "exit": 0,
+   "wall_s": 22.0
+  },
+  "tests_slow": {
+   "exit": 0,
+   "wall_s": 558.2
+  },
+  "tests_0": {
+   "exit": 0,
+   "wall_s": 80.0
+  },
+  "tests_1": {
+   "exit": 0,
+   "wall_s": 22.0
+  },
+  "tests_2": {
+   "exit": 0,
+   "wall_s": 150.1
+  },
+  "tests_3": {
+   "exit": 1,
+   "wall_s": 68.0
+  },
+  "tests_4": {
+   "exit": 0,
+   "wall_s": 42.0
+  },
+  "tests_5": {
+   "exit": 1,
+   "wall_s": 12.0
+  }
+ },
+ "comparators": {
+  "day3_dial_refs": {
+   "exit": 0,
+   "missing": 0,
+   "items": [
+    {
+     "need": "dial row (H5 / H6)",
+     "probe": "ref_p0_delay_L8_kL_n40",
+     "rung": "n40",
+     "dial": "delay",
+     "p": 0.0,
+     "L": 8,
+     "k": 8,
+     "found": true,
+     "source": "gate1b_redraw_2026-10-04T0435.csv",
+     "status": "sampled, trunc. deficit < 10%",
+     "reason": null,
+     "fallback": "pauliprop_predictions.csv"
+    },
+    {
+     "need": "dial row (H5 / H6)",
+     "probe": "ref_p0_delay_L12_kL_n40",
+     "rung": "n40",
+     "dial": "delay",
+     "p": 0.0,
+     "L": 12,
+     "k": 12,
+     "found": true,
+     "source": "gate1b_redraw_2026-10-04T0435.csv",
+     "status": "not converged (truncation deficit >= 10%)",
+     "reason": null,
+     "fallback": "pauliprop_predictions.csv"
+    },
+    {
+     "need": "dial row (H5 / H6)",
+     "probe": "ref_p0_delay_L8_kL_n60",
+     "rung": "n60",
+     "dial": "delay",
+     "p": 0.0,
+     "L": 8,
+     "k": 8,
+     "found": true,
+     "source": "gate1b_redraw_2026-10-04T0435.csv",
+     "status": "sampled, trunc. deficit < 10%",
+     "reason": null,
+     "fallback": "pauliprop_predictions.csv"
+    },
+    {
+     "need": "dial row (H5 / H6)",
+     "probe": "ref_p0_delay_L12_kL_n60",
+     "rung": "n60",
+     "dial": "delay",
+     "p": 0.0,
+     "L": 12,
+     "k": 12,
+     "found": true,
+     "source": "gate1b_redraw_2026-10-04T0435.csv",
+     "status": "not converged (truncation deficit >= 10%)",
+     "reason": null,
+     "fallback": "pauliprop_predictions.csv"
+    },
+    {
+     "need": "dial row (H5 / H6)",
+     "probe": "ref_p0_delay_L8_kL_n100",
+     "rung": "n100",
+     "dial": "delay",
+     "p": 0.0,
+     "L": 8,
+     "k": 8,
+     "found": true,
+     "source": "gate1b_redraw_2026-10-04T0435.csv",
+     "status": "converged",
+     "reason": null,
+     "fallback": "pauliprop_predictions.csv"
+    },
+    {
+     "need": "dial row (H5 / H6)",
+     "probe": "ref_p0_delay_L12_kL_n100",
+     "rung": "n100",
+     "dial": "delay",
+     "p": 0.0,
+     "L": 12,
+     "k": 12,
+     "found": true,
+     "source": "gate1b_redraw_2026-10-04T0435.csv",
+     "status": "not converged (truncation deficit >= 10%)",
+     "reason": null,
+     "fallback": "pauliprop_predictions.csv"
+    },
+    {
+     "need": "dial row (H5 / H6)",
+     "probe": "dial_p0.25_L8_kL",
+     "rung": "n60",
+     "dial": "reset",
+     "p": 0.25,
+     "L": 8,
+     "k": 8,
+     "found": true,
+     "source": "gate1b_redraw_2026-10-04T0435.csv",
+     "status": "converged",
+     "reason": null,
+     "fallback": "pauliprop_predictions.csv"
+    },
+    {
+     "need": "dial row (H5 / H6)",
+     "probe": "dial_p0.5_L8_kL",
+     "rung": "n60",
+     "dial": "reset",
+     "p": 0.5,
+     "L": 8,
+     "k": 8,
+     "found": true,
+     "source": "dial_redraw_2026-09-27T0308.csv",
+     "status": "converged",
+     "reason": null,
+     "fallback": "pauliprop_predictions.csv"
+    },
+    {
+     "need": "dial row (H5 / H6)",
+     "probe": "dial_p0.25_L12_kL",
+     "rung": "n60",
+     "dial": "reset",
+     "p": 0.25,
+     "L": 12,
+     "k": 12,
+     "found": true,
+     "source": "gate1b_redraw_2026-10-04T0435.csv",
+     "status": "converged",
+     "reason": null,
+     "fallback": "pauliprop_predictions.csv"
+    },
+    {
+     "need": "dial row (H5 / H6)",
+     "probe": "dial_p0.5_L12_kL",
+     "rung": "n60",
+     "dial": "reset",
+     "p": 0.5,
+     "L": 12,
+     "k": 12,
+     "found": true,
+     "source": "dial_redraw_2026-09-27T0308.csv",
+     "status": "converged",
+     "reason": null,
+     "fallback": "pauliprop_predictions.csv"
+    },
+    {
+     "need": "dial row (H5 / H6)",
+     "probe": "dial_p0.25_L8_kL_n40",
+     "rung": "n40",
+     "dial": "reset",
+     "p": 0.25,
+     "L": 8,
+     "k": 8,
+     "found": true,
+     "source": "gate1b_redraw_2026-10-04T0435.csv",
+     "status": "converged",
+     "reason": null,
+     "fallback": "pauliprop_predictions.csv"
+    },
+    {
+     "need": "dial row (H5 / H6)",
+     "probe": "dial_p0.25_L8_kL_n100",
+     "rung": "n100",
+     "dial": "reset",
+     "p": 0.25,
+     "L": 8,
+     "k": 8,
+     "found": true,
+     "source": "gate1b_redraw_2026-10-04T0435.csv",
+     "status": "converged",
+     "reason": null,
+     "fallback": "pauliprop_predictions.csv"
+    },
+    {
+     "need": "dial row (H5 / H6)",
+     "probe": "dephasing_dial_p0.5_L8_kL",
+     "rung": "n60",
+     "dial": "dephase",
+     "p": 0.5,
+     "L": 8,
+     "k": 8,
+     "found": true,
+     "source": "dial_redraw_2026-09-27T0308.csv",
+     "status": "sampled, trunc. deficit < 10%",
+     "reason": null,
+     "fallback": "pauliprop_predictions.csv"
+    },
+    {
+     "need": "H7 comparator (l = 2)",
+     "probe": "trunc_full_p0.5_L8, trunc_l2_p0.5_L8",
+     "rung": "n60",
+     "p": 0.5,
+     "L": 8,
+     "reset_kind": "reset",
+     "found": true,
+     "source": "h7_truncation_2026-10-04T0435.json",
+     "reason": null,
+     "rms_l2": 0.054858831656752365
+    }
+   ],
+   "record": "`docs/repack/2026-10-04_summary.json`, key `comparators.day3_dial_refs`",
+   "pass": false,
+   "note": "not a pass: the exit 0 rests on rows of an earlier package (`dial_redraw_2026-09-27T0308.csv`), matched on the qubit set alone; the rows must be drawn on this placement (Deviations 46 / 58)"
+  }
+ },
+ "precheck_all": {
+  "day1_null_grid_n20": {
+   "qubits": 99,
+   "couplers": 147,
+   "qfail": [
+    "Q14 init 5.1e-04",
+    "Q15 init 1.0e-03",
+    "Q19 init 8.2e-04",
+    "Q25 init 9.9e-04",
+    "Q26 init 1.2e-03",
+    "Q28 init 8.6e-04",
+    "Q29 init 6.8e-04"
+   ],
+   "cfail": [
+    "21-31 CZ 8.30e-03",
+    "30-31 CZ 6.86e-03",
+    "31-41 CZ 7.55e-03",
+    "80-90 CZ 5.57e-03",
+    "118-119 CZ 5.81e-03"
+   ],
+   "near": [
+    "Q12 (T1 80.6, T2 78.3, ro 0.0061, init 3.9e-04)",
+    "Q20 (T1 211.3, T2 137.6, ro 0.0076, init 5.0e-04)",
+    "Q21 (T1 170.2, T2 180.8, ro 0.0052, init 3.8e-04)",
+    "Q23 (T1 69.1, T2 111.7, ro 0.0087, init 3.7e-04)",
+    "Q34 (T1 115.5, T2 141.9, ro 0.0066, init 4.4e-04)",
+    "Q37 (T1 26.0, T2 43.8, ro 0.0211, init 1.0e-05)",
+    "Q52 (T1 120.0, T2 151.4, ro 0.0062, init 3.5e-04)",
+    "Q83 (T1 198.6, T2 246.8, ro 0.0034, init 3.6e-04)"
+   ],
+   "cz_near": [
+    "41-51 4.48e-03",
+    "84-94 4.50e-03"
+   ],
+   "passes": false,
+   "record": true,
+   "stamp": "2026-09-20T141736Z"
+  },
+  "day2_main_grid": {
+   "qubits": 85,
+   "couplers": 129,
+   "qfail": [
+    "Q25 init 9.9e-04",
+    "Q26 init 1.2e-03",
+    "Q28 init 8.6e-04",
+    "Q29 init 6.8e-04"
+   ],
+   "cfail": [
+    "21-31 CZ 8.30e-03",
+    "30-31 CZ 6.86e-03",
+    "31-41 CZ 7.55e-03",
+    "80-90 CZ 5.57e-03",
+    "118-119 CZ 5.81e-03"
+   ],
+   "near": [
+    "Q20 (T1 211.3, T2 137.6, ro 0.0076, init 5.0e-04)",
+    "Q21 (T1 170.2, T2 180.8, ro 0.0052, init 3.8e-04)",
+    "Q23 (T1 69.1, T2 111.7, ro 0.0087, init 3.7e-04)",
+    "Q34 (T1 115.5, T2 141.9, ro 0.0066, init 4.4e-04)",
+    "Q37 (T1 26.0, T2 43.8, ro 0.0211, init 1.0e-05)",
+    "Q52 (T1 120.0, T2 151.4, ro 0.0062, init 3.5e-04)",
+    "Q83 (T1 198.6, T2 246.8, ro 0.0034, init 3.6e-04)"
+   ],
+   "cz_near": [
+    "41-51 4.48e-03",
+    "84-94 4.50e-03"
+   ],
+   "passes": false,
+   "record": true,
+   "stamp": "2026-09-20T175012Z"
+  },
+  "day3_dial_refs": {
+   "qubits": 83,
+   "couplers": 124,
+   "qfail": [],
+   "cfail": [],
+   "near": [
+    "Q20 (T1 211.3, T2 137.6, ro 0.0076, init 5.0e-04)",
+    "Q21 (T1 170.2, T2 180.8, ro 0.0052, init 3.8e-04)",
+    "Q23 (T1 69.1, T2 111.7, ro 0.0087, init 3.7e-04)",
+    "Q34 (T1 115.5, T2 141.9, ro 0.0066, init 4.4e-04)",
+    "Q37 (T1 26.0, T2 43.8, ro 0.0211, init 1.0e-05)",
+    "Q52 (T1 120.0, T2 151.4, ro 0.0062, init 3.5e-04)",
+    "Q83 (T1 198.6, T2 246.8, ro 0.0034, init 3.6e-04)"
+   ],
+   "cz_near": [
+    "41-51 4.48e-03",
+    "84-94 4.50e-03"
+   ],
+   "passes": true,
+   "record": false,
+   "stamp": "2026-10-04T043542Z"
+  },
+  "dial_arm": {
+   "qubits": 83,
+   "couplers": 124,
+   "qfail": [],
+   "cfail": [],
+   "near": [
+    "Q20 (T1 211.3, T2 137.6, ro 0.0076, init 5.0e-04)",
+    "Q21 (T1 170.2, T2 180.8, ro 0.0052, init 3.8e-04)",
+    "Q23 (T1 69.1, T2 111.7, ro 0.0087, init 3.7e-04)",
+    "Q34 (T1 115.5, T2 141.9, ro 0.0066, init 4.4e-04)",
+    "Q37 (T1 26.0, T2 43.8, ro 0.0211, init 1.0e-05)",
+    "Q52 (T1 120.0, T2 151.4, ro 0.0062, init 3.5e-04)",
+    "Q83 (T1 198.6, T2 246.8, ro 0.0034, init 3.6e-04)"
+   ],
+   "cz_near": [
+    "41-51 4.48e-03",
+    "84-94 4.50e-03"
+   ],
+   "passes": true,
+   "record": false,
+   "stamp": "2026-10-04T043542Z"
+  },
+  "dial_arm_contingent": {
+   "qubits": 52,
+   "couplers": 74,
+   "qfail": [],
+   "cfail": [],
+   "near": [
+    "Q83 (T1 198.6, T2 246.8, ro 0.0034, init 3.6e-04)"
+   ],
+   "cz_near": [
+    "84-94 4.50e-03"
+   ],
+   "passes": true,
+   "record": false,
+   "stamp": "2026-10-04T043542Z"
+  },
+  "grid_n100": {
+   "qubits": 84,
+   "couplers": 127,
+   "qfail": [],
+   "cfail": [],
+   "near": [
+    "Q20 (T1 211.3, T2 137.6, ro 0.0076, init 5.0e-04)",
+    "Q21 (T1 170.2, T2 180.8, ro 0.0052, init 3.8e-04)",
+    "Q23 (T1 69.1, T2 111.7, ro 0.0087, init 3.7e-04)",
+    "Q34 (T1 115.5, T2 141.9, ro 0.0066, init 4.4e-04)",
+    "Q37 (T1 26.0, T2 43.8, ro 0.0211, init 1.0e-05)",
+    "Q52 (T1 120.0, T2 151.4, ro 0.0062, init 3.5e-04)",
+    "Q83 (T1 198.6, T2 246.8, ro 0.0034, init 3.6e-04)"
+   ],
+   "cz_near": [
+    "41-51 4.48e-03",
+    "84-94 4.50e-03"
+   ],
+   "passes": true,
+   "record": false,
+   "stamp": "2026-10-04T043542Z"
+  },
+  "grid_n100_16384": {
+   "qubits": 85,
+   "couplers": 129,
+   "qfail": [
+    "Q25 init 9.9e-04",
+    "Q26 init 1.2e-03",
+    "Q28 init 8.6e-04",
+    "Q29 init 6.8e-04"
+   ],
+   "cfail": [
+    "21-31 CZ 8.30e-03",
+    "30-31 CZ 6.86e-03",
+    "31-41 CZ 7.55e-03",
+    "80-90 CZ 5.57e-03",
+    "118-119 CZ 5.81e-03"
+   ],
+   "near": [
+    "Q20 (T1 211.3, T2 137.6, ro 0.0076, init 5.0e-04)",
+    "Q21 (T1 170.2, T2 180.8, ro 0.0052, init 3.8e-04)",
+    "Q23 (T1 69.1, T2 111.7, ro 0.0087, init 3.7e-04)",
+    "Q34 (T1 115.5, T2 141.9, ro 0.0066, init 4.4e-04)",
+    "Q37 (T1 26.0, T2 43.8, ro 0.0211, init 1.0e-05)",
+    "Q52 (T1 120.0, T2 151.4, ro 0.0062, init 3.5e-04)",
+    "Q83 (T1 198.6, T2 246.8, ro 0.0034, init 3.6e-04)"
+   ],
+   "cz_near": [
+    "41-51 4.48e-03",
+    "84-94 4.50e-03"
+   ],
+   "passes": false,
+   "record": true,
+   "stamp": "2026-09-20T175012Z"
+  },
+  "grid_n20": {
+   "qubits": 19,
+   "couplers": 27,
+   "qfail": [],
+   "cfail": [],
+   "near": [
+    "Q34 (T1 115.5, T2 141.9, ro 0.0066, init 4.4e-04)",
+    "Q37 (T1 26.0, T2 43.8, ro 0.0211, init 1.0e-05)"
+   ],
+   "cz_near": [],
+   "passes": true,
+   "record": false,
+   "stamp": "2026-10-04T043542Z"
+  },
+  "grid_n40": {
+   "qubits": 39,
+   "couplers": 55,
+   "qfail": [],
+   "cfail": [],
+   "near": [
+    "Q83 (T1 198.6, T2 246.8, ro 0.0034, init 3.6e-04)"
+   ],
+   "cz_near": [
+    "84-94 4.50e-03"
+   ],
+   "passes": true,
+   "record": false,
+   "stamp": "2026-10-04T043542Z"
+  },
+  "grid_n40_repeat": {
+   "qubits": 39,
+   "couplers": 55,
+   "qfail": [],
+   "cfail": [],
+   "near": [
+    "Q83 (T1 198.6, T2 246.8, ro 0.0034, init 3.6e-04)"
+   ],
+   "cz_near": [
+    "84-94 4.50e-03"
+   ],
+   "passes": true,
+   "record": false,
+   "stamp": "2026-10-04T043542Z"
+  },
+  "grid_n60": {
+   "qubits": 53,
+   "couplers": 77,
+   "qfail": [],
+   "cfail": [],
+   "near": [
+    "Q83 (T1 198.6, T2 246.8, ro 0.0034, init 3.6e-04)"
+   ],
+   "cz_near": [
+    "84-94 4.50e-03"
+   ],
+   "passes": true,
+   "record": false,
+   "stamp": "2026-10-04T043542Z"
+  },
+  "grid_n80": {
+   "qubits": 71,
+   "couplers": 105,
+   "qfail": [],
+   "cfail": [],
+   "near": [
+    "Q52 (T1 120.0, T2 151.4, ro 0.0062, init 3.5e-04)",
+    "Q83 (T1 198.6, T2 246.8, ro 0.0034, init 3.6e-04)"
+   ],
+   "cz_near": [
+    "41-51 4.48e-03",
+    "84-94 4.50e-03"
+   ],
+   "passes": true,
+   "record": false,
+   "stamp": "2026-10-04T043542Z"
+  },
+  "null_controls": {
+   "qubits": 84,
+   "couplers": 127,
+   "qfail": [],
+   "cfail": [],
+   "near": [
+    "Q20 (T1 211.3, T2 137.6, ro 0.0076, init 5.0e-04)",
+    "Q21 (T1 170.2, T2 180.8, ro 0.0052, init 3.8e-04)",
+    "Q23 (T1 69.1, T2 111.7, ro 0.0087, init 3.7e-04)",
+    "Q34 (T1 115.5, T2 141.9, ro 0.0066, init 4.4e-04)",
+    "Q37 (T1 26.0, T2 43.8, ro 0.0211, init 1.0e-05)",
+    "Q52 (T1 120.0, T2 151.4, ro 0.0062, init 3.5e-04)",
+    "Q83 (T1 198.6, T2 246.8, ro 0.0034, init 3.6e-04)"
+   ],
+   "cz_near": [
+    "41-51 4.48e-03",
+    "84-94 4.50e-03"
+   ],
+   "passes": true,
+   "record": false,
+   "stamp": "2026-10-04T043542Z"
+  },
+  "references_gate1b": {
+   "qubits": 83,
+   "couplers": 124,
+   "qfail": [],
+   "cfail": [],
+   "near": [
+    "Q20 (T1 211.3, T2 137.6, ro 0.0076, init 5.0e-04)",
+    "Q21 (T1 170.2, T2 180.8, ro 0.0052, init 3.8e-04)",
+    "Q23 (T1 69.1, T2 111.7, ro 0.0087, init 3.7e-04)",
+    "Q34 (T1 115.5, T2 141.9, ro 0.0066, init 4.4e-04)",
+    "Q37 (T1 26.0, T2 43.8, ro 0.0211, init 1.0e-05)",
+    "Q52 (T1 120.0, T2 151.4, ro 0.0062, init 3.5e-04)",
+    "Q83 (T1 198.6, T2 246.8, ro 0.0034, init 3.6e-04)"
+   ],
+   "cz_near": [
+    "41-51 4.48e-03",
+    "84-94 4.50e-03"
+   ],
+   "passes": true,
+   "record": false,
+   "stamp": "2026-10-04T043542Z"
+  },
+  "replication_01": {
+   "qubits": 84,
+   "couplers": 127,
+   "qfail": [],
+   "cfail": [],
+   "near": [
+    "Q20 (T1 211.3, T2 137.6, ro 0.0076, init 5.0e-04)",
+    "Q21 (T1 170.2, T2 180.8, ro 0.0052, init 3.8e-04)",
+    "Q23 (T1 69.1, T2 111.7, ro 0.0087, init 3.7e-04)",
+    "Q34 (T1 115.5, T2 141.9, ro 0.0066, init 4.4e-04)",
+    "Q37 (T1 26.0, T2 43.8, ro 0.0211, init 1.0e-05)",
+    "Q52 (T1 120.0, T2 151.4, ro 0.0062, init 3.5e-04)",
+    "Q83 (T1 198.6, T2 246.8, ro 0.0034, init 3.6e-04)"
+   ],
+   "cz_near": [
+    "41-51 4.48e-03",
+    "84-94 4.50e-03"
+   ],
+   "passes": true,
+   "record": false,
+   "stamp": "2026-10-04T043542Z"
+  },
+  "replication_01_16384": {
+   "qubits": 84,
+   "couplers": 127,
+   "qfail": [],
+   "cfail": [],
+   "near": [
+    "Q20 (T1 211.3, T2 137.6, ro 0.0076, init 5.0e-04)",
+    "Q21 (T1 170.2, T2 180.8, ro 0.0052, init 3.8e-04)",
+    "Q23 (T1 69.1, T2 111.7, ro 0.0087, init 3.7e-04)",
+    "Q34 (T1 115.5, T2 141.9, ro 0.0066, init 4.4e-04)",
+    "Q37 (T1 26.0, T2 43.8, ro 0.0211, init 1.0e-05)",
+    "Q52 (T1 120.0, T2 151.4, ro 0.0062, init 3.5e-04)",
+    "Q83 (T1 198.6, T2 246.8, ro 0.0034, init 3.6e-04)"
+   ],
+   "cz_near": [
+    "41-51 4.48e-03",
+    "84-94 4.50e-03"
+   ],
+   "passes": true,
+   "record": false,
+   "stamp": "2026-10-04T043542Z"
+  },
+  "section3c_blockC": {
+   "qubits": 84,
+   "couplers": 127,
+   "qfail": [],
+   "cfail": [],
+   "near": [
+    "Q20 (T1 211.3, T2 137.6, ro 0.0076, init 5.0e-04)",
+    "Q21 (T1 170.2, T2 180.8, ro 0.0052, init 3.8e-04)",
+    "Q23 (T1 69.1, T2 111.7, ro 0.0087, init 3.7e-04)",
+    "Q34 (T1 115.5, T2 141.9, ro 0.0066, init 4.4e-04)",
+    "Q37 (T1 26.0, T2 43.8, ro 0.0211, init 1.0e-05)",
+    "Q52 (T1 120.0, T2 151.4, ro 0.0062, init 3.5e-04)",
+    "Q83 (T1 198.6, T2 246.8, ro 0.0034, init 3.6e-04)"
+   ],
+   "cz_near": [
+    "41-51 4.48e-03",
+    "84-94 4.50e-03"
+   ],
+   "passes": true,
+   "record": false,
+   "stamp": "2026-10-04T043542Z"
+  }
+ },
+ "preflights": [
+  "06_paper1_day3_dial_2026-10-04.md",
+  "08_paper1_replication_2026-10-04.md",
+  "09_paper1_section3c_blockC_2026-10-04.md"
+ ],
+ "tests": {
+  "passed": 342,
+  "failed_known": [
+   "tests/test_analysis.py::test_loader_on_committed_marrakesh_run"
+  ],
+  "unexpected": [
+   "tests/test_dial_placement.py::test_h6_control_pair_comes_from_one_rung_and_placement"
+  ],
+  "skipped": [
+   "tests/test_paper1_joblists.py::test_lists_validate_and_refuse_to_submit[grid_n100_16384.json]",
+   "tests/test_paper1_joblists.py::test_lists_validate_and_refuse_to_submit[day1_null_grid_n20.json]",
+   "tests/test_paper1_joblists.py::test_lists_validate_and_refuse_to_submit[day2_main_grid.json]"
+  ],
+  "rerun": {
+   "still_failing": [
+    "tests/test_dial_placement.py::test_h6_control_pair_comes_from_one_rung_and_placement"
+   ],
+   "passed_serially": []
+  },
+  "shards": 7,
+  "wall_min": 9.3,
+  "report": "docs/repack/2026-10-04_tests.txt",
+  "deselected": []
+ },
+ "placement_prev": {
+  "day 3 dial n40": {
+   "patch": "4x10",
+   "n": 39,
+   "origin": [
+    8,
+    0
+   ],
+   "holes": [
+    107
+   ],
+   "component_holes": [],
+   "dial_excluded_holes": [],
+   "broken": [
+    "86-87",
+    "100-101",
+    "95-96",
+    "87-97",
+    "100-110"
+   ],
+   "edge": "93_103",
+   "live_couplers": 57,
+   "cone_L2": 16,
+   "qubits": [
+    80,
+    81,
+    82,
+    83,
+    84,
+    85,
+    86,
+    87,
+    88,
+    89,
+    90,
+    91,
+    92,
+    93,
+    94,
+    95,
+    96,
+    97,
+    98,
+    99,
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    108,
+    109,
+    110,
+    111,
+    112,
+    113,
+    114,
+    115,
+    116,
+    117,
+    118,
+    119
+   ]
+  },
+  "day 3 dial n60": {
+   "patch": "6x10",
+   "n": 52,
+   "origin": [
+    6,
+    0
+   ],
+   "holes": [
+    61,
+    62,
+    63,
+    72,
+    73,
+    77,
+    79,
+    107
+   ],
+   "component_holes": [],
+   "dial_excluded_holes": [
+    79
+   ],
+   "broken": [
+    "86-87",
+    "100-101",
+    "95-96",
+    "87-97",
+    "100-110"
+   ],
+   "edge": "84_85",
+   "live_couplers": 76,
+   "cone_L2": 16,
+   "qubits": [
+    60,
+    64,
+    65,
+    66,
+    67,
+    68,
+    69,
+    70,
+    71,
+    74,
+    75,
+    76,
+    78,
+    80,
+    81,
+    82,
+    83,
+    84,
+    85,
+    86,
+    87,
+    88,
+    89,
+    90,
+    91,
+    92,
+    93,
+    94,
+    95,
+    96,
+    97,
+    98,
+    99,
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    108,
+    109,
+    110,
+    111,
+    112,
+    113,
+    114,
+    115,
+    116,
+    117,
+    118,
+    119
+   ]
+  },
+  "day 3 dial n100": {
+   "patch": "10x10",
+   "n": 87,
+   "origin": [
+    2,
+    0
+   ],
+   "holes": [
+    27,
+    29,
+    37,
+    55,
+    59,
+    61,
+    62,
+    63,
+    72,
+    73,
+    77,
+    79,
+    107
+   ],
+   "component_holes": [
+    29
+   ],
+   "dial_excluded_holes": [
+    79
+   ],
+   "broken": [
+    "86-87",
+    "100-101",
+    "31-32",
+    "95-96",
+    "41-51",
+    "87-97",
+    "100-110"
+   ],
+   "edge": "75_85",
+   "live_couplers": 132,
+   "cone_L2": 12,
+   "qubits": [
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    28,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    38,
+    39,
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52,
+    53,
+    54,
+    56,
+    57,
+    58,
+    60,
+    64,
+    65,
+    66,
+    67,
+    68,
+    69,
+    70,
+    71,
+    74,
+    75,
+    76,
+    78,
+    80,
+    81,
+    82,
+    83,
+    84,
+    85,
+    86,
+    87,
+    88,
+    89,
+    90,
+    91,
+    92,
+    93,
+    94,
+    95,
+    96,
+    97,
+    98,
+    99,
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    108,
+    109,
+    110,
+    111,
+    112,
+    113,
+    114,
+    115,
+    116,
+    117,
+    118,
+    119
+   ]
+  },
+  "replication n20": {
+   "patch": "4x5",
+   "n": 20,
+   "origin": [
+    2,
+    0
+   ],
+   "holes": [],
+   "component_holes": [],
+   "dial_excluded_holes": [],
+   "broken": [
+    "31-32",
+    "41-51"
+   ],
+   "edge": "32_42",
+   "live_couplers": 29,
+   "cone_L2": 14,
+   "qubits": [
+    20,
+    21,
+    22,
+    23,
+    24,
+    30,
+    31,
+    32,
+    33,
+    34,
+    40,
+    41,
+    42,
+    43,
+    44,
+    50,
+    51,
+    52,
+    53,
+    54
+   ]
+  },
+  "plain n100": {
+   "patch": "10x10",
+   "n": 88,
+   "origin": [
+    2,
+    0
+   ],
+   "holes": [
+    27,
+    29,
+    37,
+    55,
+    59,
+    61,
+    62,
+    63,
+    72,
+    73,
+    77,
+    107
+   ],
+   "component_holes": [
+    29
+   ],
+   "dial_excluded_holes": [],
+   "broken": [
+    "86-87",
+    "100-101",
+    "31-32",
+    "95-96",
+    "41-51",
+    "69-79",
+    "87-97",
+    "100-110",
+    "79-89"
+   ],
+   "edge": "75_85",
+   "live_couplers": 133,
+   "cone_L2": 12,
+   "qubits": [
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    28,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    38,
+    39,
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52,
+    53,
+    54,
+    56,
+    57,
+    58,
+    60,
+    64,
+    65,
+    66,
+    67,
+    68,
+    69,
+    70,
+    71,
+    74,
+    75,
+    76,
+    78,
+    79,
+    80,
+    81,
+    82,
+    83,
+    84,
+    85,
+    86,
+    87,
+    88,
+    89,
+    90,
+    91,
+    92,
+    93,
+    94,
+    95,
+    96,
+    97,
+    98,
+    99,
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    108,
+    109,
+    110,
+    111,
+    112,
+    113,
+    114,
+    115,
+    116,
+    117,
+    118,
+    119
+   ]
+  },
+  "contingent dial n60": {
+   "patch": "6x10",
+   "n": 52,
+   "origin": [
+    6,
+    0
+   ],
+   "holes": [
+    61,
+    62,
+    63,
+    72,
+    73,
+    77,
+    79,
+    107
+   ],
+   "component_holes": [],
+   "dial_excluded_holes": [
+    79
+   ],
+   "broken": [
+    "86-87",
+    "100-101",
+    "95-96",
+    "87-97",
+    "100-110"
+   ],
+   "edge": "84_85",
+   "live_couplers": 76,
+   "cone_L2": 16,
+   "qubits": [
+    60,
+    64,
+    65,
+    66,
+    67,
+    68,
+    69,
+    70,
+    71,
+    74,
+    75,
+    76,
+    78,
+    80,
+    81,
+    82,
+    83,
+    84,
+    85,
+    86,
+    87,
+    88,
+    89,
+    90,
+    91,
+    92,
+    93,
+    94,
+    95,
+    96,
+    97,
+    98,
+    99,
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    108,
+    109,
+    110,
+    111,
+    112,
+    113,
+    114,
+    115,
+    116,
+    117,
+    118,
+    119
+   ]
+  },
+  "grid n20": {
+   "patch": "4x5",
+   "n": 20,
+   "origin": [
+    2,
+    0
+   ],
+   "holes": [],
+   "component_holes": [],
+   "dial_excluded_holes": [],
+   "broken": [
+    "31-32",
+    "41-51"
+   ],
+   "edge": "32_42",
+   "live_couplers": 29,
+   "cone_L2": 14,
+   "qubits": [
+    20,
+    21,
+    22,
+    23,
+    24,
+    30,
+    31,
+    32,
+    33,
+    34,
+    40,
+    41,
+    42,
+    43,
+    44,
+    50,
+    51,
+    52,
+    53,
+    54
+   ]
+  },
+  "grid n40": {
+   "patch": "4x10",
+   "n": 39,
+   "origin": [
+    8,
+    0
+   ],
+   "holes": [
+    107
+   ],
+   "component_holes": [],
+   "dial_excluded_holes": [],
+   "broken": [
+    "86-87",
+    "100-101",
+    "95-96",
+    "87-97",
+    "100-110"
+   ],
+   "edge": "93_103",
+   "live_couplers": 57,
+   "cone_L2": 16,
+   "qubits": [
+    80,
+    81,
+    82,
+    83,
+    84,
+    85,
+    86,
+    87,
+    88,
+    89,
+    90,
+    91,
+    92,
+    93,
+    94,
+    95,
+    96,
+    97,
+    98,
+    99,
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    108,
+    109,
+    110,
+    111,
+    112,
+    113,
+    114,
+    115,
+    116,
+    117,
+    118,
+    119
+   ]
+  },
+  "grid n60": {
+   "patch": "6x10",
+   "n": 53,
+   "origin": [
+    6,
+    0
+   ],
+   "holes": [
+    61,
+    62,
+    63,
+    72,
+    73,
+    77,
+    107
+   ],
+   "component_holes": [],
+   "dial_excluded_holes": [],
+   "broken": [
+    "86-87",
+    "100-101",
+    "95-96",
+    "69-79",
+    "87-97",
+    "100-110",
+    "79-89"
+   ],
+   "edge": "84_85",
+   "live_couplers": 77,
+   "cone_L2": 16,
+   "qubits": [
+    60,
+    64,
+    65,
+    66,
+    67,
+    68,
+    69,
+    70,
+    71,
+    74,
+    75,
+    76,
+    78,
+    79,
+    80,
+    81,
+    82,
+    83,
+    84,
+    85,
+    86,
+    87,
+    88,
+    89,
+    90,
+    91,
+    92,
+    93,
+    94,
+    95,
+    96,
+    97,
+    98,
+    99,
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    108,
+    109,
+    110,
+    111,
+    112,
+    113,
+    114,
+    115,
+    116,
+    117,
+    118,
+    119
+   ]
+  },
+  "grid n80": {
+   "patch": "8x10",
+   "n": 71,
+   "origin": [
+    4,
+    0
+   ],
+   "holes": [
+    55,
+    59,
+    61,
+    62,
+    63,
+    72,
+    73,
+    77,
+    107
+   ],
+   "component_holes": [],
+   "dial_excluded_holes": [],
+   "broken": [
+    "86-87",
+    "100-101",
+    "95-96",
+    "41-51",
+    "69-79",
+    "87-97",
+    "100-110",
+    "79-89"
+   ],
+   "edge": "84_85",
+   "live_couplers": 104,
+   "cone_L2": 16,
+   "qubits": [
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52,
+    53,
+    54,
+    56,
+    57,
+    58,
+    60,
+    64,
+    65,
+    66,
+    67,
+    68,
+    69,
+    70,
+    71,
+    74,
+    75,
+    76,
+    78,
+    79,
+    80,
+    81,
+    82,
+    83,
+    84,
+    85,
+    86,
+    87,
+    88,
+    89,
+    90,
+    91,
+    92,
+    93,
+    94,
+    95,
+    96,
+    97,
+    98,
+    99,
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    108,
+    109,
+    110,
+    111,
+    112,
+    113,
+    114,
+    115,
+    116,
+    117,
+    118,
+    119
+   ]
+  },
+  "grid n100": {
+   "patch": "10x10",
+   "n": 88,
+   "origin": [
+    2,
+    0
+   ],
+   "holes": [
+    27,
+    29,
+    37,
+    55,
+    59,
+    61,
+    62,
+    63,
+    72,
+    73,
+    77,
+    107
+   ],
+   "component_holes": [
+    29
+   ],
+   "dial_excluded_holes": [],
+   "broken": [
+    "86-87",
+    "100-101",
+    "31-32",
+    "95-96",
+    "41-51",
+    "69-79",
+    "87-97",
+    "100-110",
+    "79-89"
+   ],
+   "edge": "75_85",
+   "live_couplers": 133,
+   "cone_L2": 12,
+   "qubits": [
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    28,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    38,
+    39,
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52,
+    53,
+    54,
+    56,
+    57,
+    58,
+    60,
+    64,
+    65,
+    66,
+    67,
+    68,
+    69,
+    70,
+    71,
+    74,
+    75,
+    76,
+    78,
+    79,
+    80,
+    81,
+    82,
+    83,
+    84,
+    85,
+    86,
+    87,
+    88,
+    89,
+    90,
+    91,
+    92,
+    93,
+    94,
+    95,
+    96,
+    97,
+    98,
+    99,
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    108,
+    109,
+    110,
+    111,
+    112,
+    113,
+    114,
+    115,
+    116,
+    117,
+    118,
+    119
+   ]
+  }
+ },
+ "lists": {
+  "day3_dial_refs": {
+   "sha256": "d38995540d0265553c3da903bfac7b8c7c43d373a7399400463d6f5867abb351",
+   "sha256_prev": "e37c6f837f48cb2feffadd8ea796a103653548237a0ac40a009e85b6b53002ff",
+   "budget": {
+    "jobs": 132,
+    "pubs": 2313,
+    "min_at_1us": 30.904,
+    "min_at_250us": 353.92,
+    "working_min": 41.42
+   },
+   "budget_prev": {
+    "jobs": 134,
+    "pubs": 2313,
+    "min_at_1us": 31.004,
+    "min_at_250us": 354.02,
+    "working_min": 41.67
+   }
+  },
+  "dial_arm": {
+   "sha256": "aea756402fe8dbfcb6f3cdd30f2d3658fe68cd2618059a5f0e350d2d9874f836",
+   "sha256_prev": "7fb579542ee88bdc07a5cddd820cd051194ee2066cb3905a9cefe88bb801b775",
+   "budget": {
+    "jobs": 130,
+    "pubs": 2307,
+    "min_at_1us": 8.967,
+    "min_at_250us": 46.41,
+    "working_min": 18.9
+   },
+   "budget_prev": {
+    "jobs": 132,
+    "pubs": 2307,
+    "min_at_1us": 9.067,
+    "min_at_250us": 46.51,
+    "working_min": 19.15
+   }
+  },
+  "dial_arm_contingent": {
+   "sha256": "07d956950917a7e419c6f7ed2d3529f33fd03b0d01ba76bc887519ee07da5acc",
+   "sha256_prev": "48cf9593fa79987086ae848e681b29ac00f579477418620c7771dc7143870867",
+   "budget": {
+    "jobs": 90,
+    "pubs": 1536,
+    "min_at_1us": 6.107,
+    "min_at_250us": 29.91,
+    "working_min": 12.98
+   },
+   "budget_prev": {
+    "jobs": 90,
+    "pubs": 1536,
+    "min_at_1us": 6.107,
+    "min_at_250us": 29.91,
+    "working_min": 12.98
+   }
+  },
+  "grid_n100": {
+   "sha256": "64bbf7487dc85cc0fbfc4636925894040943a26f6898de4c234dff825f7f3ebd",
+   "sha256_prev": "78427d70f6cf68df746a8ede02660f5398023e9f3a4534d6f4eac5975ff81910",
+   "budget": {
+    "jobs": 21,
+    "pubs": 4400,
+    "min_at_1us": 14.136,
+    "min_at_250us": 218.12,
+    "working_min": 15.23
+   },
+   "budget_prev": {
+    "jobs": 21,
+    "pubs": 4400,
+    "min_at_1us": 14.136,
+    "min_at_250us": 218.12,
+    "working_min": 15.23
+   }
+  },
+  "grid_n20": {
+   "sha256": "47c724a794602e6a8f81afce56ff467106e4c21664d794fad160c88d78e938a0",
+   "sha256_prev": "c586f66657638a8be8616cded1c082e065255bdd94dd506ba329860f26960b04",
+   "budget": {
+    "jobs": 10,
+    "pubs": 2400,
+    "min_at_1us": 4.412,
+    "min_at_250us": 86.0,
+    "working_min": 5.03
+   },
+   "budget_prev": {
+    "jobs": 10,
+    "pubs": 2400,
+    "min_at_1us": 4.412,
+    "min_at_250us": 86.0,
+    "working_min": 5.03
+   }
+  },
+  "grid_n40": {
+   "sha256": "ac2c3be358c3e70c0bdd81fc4cf8c558f469e67bbbbcd5b19d48740b845b0d5a",
+   "sha256_prev": "c8ec8c12e77be4ff6e661b1f5d5b36eeb41cdb8104d3c00bb17918d9c3c92416",
+   "budget": {
+    "jobs": 18,
+    "pubs": 4800,
+    "min_at_1us": 14.55,
+    "min_at_250us": 232.13,
+    "working_min": 15.61
+   },
+   "budget_prev": {
+    "jobs": 18,
+    "pubs": 4800,
+    "min_at_1us": 14.55,
+    "min_at_250us": 232.13,
+    "working_min": 15.61
+   }
+  },
+  "grid_n40_repeat": {
+   "sha256": "d84cecf7bab53d1b60f596b4b9da8d0a2ff74308c2715ce65d012613467efd5a",
+   "sha256_prev": "9ffc66dcc1ffbff00534724a71bdb46ce80f17016ac8942af6e945a8e17a82c9",
+   "budget": {
+    "jobs": 8,
+    "pubs": 2000,
+    "min_at_1us": 3.795,
+    "min_at_250us": 71.79,
+    "working_min": 4.29
+   },
+   "budget_prev": {
+    "jobs": 8,
+    "pubs": 2000,
+    "min_at_1us": 3.795,
+    "min_at_250us": 71.79,
+    "working_min": 4.29
+   }
+  },
+  "grid_n60": {
+   "sha256": "57657d6e81a582dd7a57e3b1ea30251981ab8667571c730ac8081445f6012e21",
+   "sha256_prev": "248944428791a49bc7de7a6b56fd465123543004a525560514cdde044b063b67",
+   "budget": {
+    "jobs": 10,
+    "pubs": 2400,
+    "min_at_1us": 4.412,
+    "min_at_250us": 86.0,
+    "working_min": 5.03
+   },
+   "budget_prev": {
+    "jobs": 10,
+    "pubs": 2400,
+    "min_at_1us": 4.412,
+    "min_at_250us": 86.0,
+    "working_min": 5.03
+   }
+  },
+  "grid_n80": {
+   "sha256": "675e352b5f31b4206c55b02d0e7fb15bb825f55b21dba6d142e5cfb71fc51abe",
+   "sha256_prev": "d5c6111508ca8c8bd7ded7261abd41bc8af63671608aea4632089ba12c1c8c56",
+   "budget": {
+    "jobs": 10,
+    "pubs": 2400,
+    "min_at_1us": 4.412,
+    "min_at_250us": 86.0,
+    "working_min": 5.03
+   },
+   "budget_prev": {
+    "jobs": 10,
+    "pubs": 2400,
+    "min_at_1us": 4.412,
+    "min_at_250us": 86.0,
+    "working_min": 5.03
+   }
+  },
+  "null_controls": {
+   "sha256": "fa932c8f1120ed97737a8c7467e34005b026acd632de9ba696231c4c0878e62b",
+   "sha256_prev": "109976f578958eb0fc549359cef02ec54820e691aeaf1c1bc999c31098e8e3be",
+   "budget": {
+    "jobs": 5,
+    "pubs": 1200,
+    "min_at_1us": 1.596,
+    "min_at_250us": 42.39,
+    "working_min": 1.96
+   },
+   "budget_prev": {
+    "jobs": 5,
+    "pubs": 1200,
+    "min_at_1us": 1.596,
+    "min_at_250us": 42.39,
+    "working_min": 1.96
+   }
+  },
+  "references_gate1b": {
+   "sha256": "c4a98f867510660756112f8afeffde4188416c639f7d135c9e21ea4063199df1",
+   "sha256_prev": "7d234e3289373d18670dd025182f76b6c1bba64b0a897b7ac08d6cd733d1d8a2",
+   "budget": {
+    "jobs": 2,
+    "pubs": 6,
+    "min_at_1us": 21.937,
+    "min_at_250us": 307.51,
+    "working_min": 22.53
+   },
+   "budget_prev": {
+    "jobs": 2,
+    "pubs": 6,
+    "min_at_1us": 21.937,
+    "min_at_250us": 307.51,
+    "working_min": 22.53
+   }
+  },
+  "replication_01": {
+   "sha256": "39d009a60ae97171e5f71e5be41b25bd0f37740e1bb5fa4f81941d58eb81e0d2",
+   "sha256_prev": "6e70931f5c492cd38f6523920d8ab218a0df1dbbd2c84217eddbec5b2b678ae5",
+   "budget": {
+    "jobs": 6,
+    "pubs": 1200,
+    "min_at_1us": 2.001,
+    "min_at_250us": 42.8,
+    "working_min": 2.4
+   },
+   "budget_prev": {
+    "jobs": 6,
+    "pubs": 1200,
+    "min_at_1us": 2.001,
+    "min_at_250us": 42.8,
+    "working_min": 2.4
+   }
+  },
+  "replication_01_16384": {
+   "sha256": "5d821099f1ebfa3cdb74cf6f5e6312f15a1166ef803652f935071e6fe4e75ed6",
+   "sha256_prev": "9f8e6c738d06c95b39a1caae7f03be8ad1eb69d733a9f61167e3ae61cfbec5ad",
+   "budget": {
+    "jobs": 2,
+    "pubs": 400,
+    "min_at_1us": 2.455,
+    "min_at_250us": 56.85,
+    "working_min": 2.65
+   },
+   "budget_prev": {
+    "jobs": 2,
+    "pubs": 400,
+    "min_at_1us": 2.455,
+    "min_at_250us": 56.85,
+    "working_min": 2.65
+   }
+  },
+  "section3c_blockC": {
+   "sha256": "3068666030be0382747c1e28f82542d9279e8d05db662e3729537a9e9ffd93bd",
+   "sha256_prev": "c618a7afcc481ea6185bebf6d26f36dd278ee300d17e1dc57e48d392d05a14a6",
+   "budget": {
+    "jobs": 3,
+    "pubs": 600,
+    "min_at_1us": 16.141,
+    "min_at_250us": 342.51,
+    "working_min": 16.69
+   },
+   "budget_prev": {
+    "jobs": 3,
+    "pubs": 600,
+    "min_at_1us": 16.141,
+    "min_at_250us": 342.51,
+    "working_min": 16.69
+   }
+  }
+ },
+ "budget_total": {
+  "min_at_1us": 51.5,
+  "working_min": 63.2,
+  "prev_min_at_1us": 51.6,
+  "prev_working_min": 63.4
+ },
+ "predictions": [
+  {
+   "key": "dial n60 dephase p=0.5 L=8 k=1",
+   "new": NaN,
+   "new_sigma": NaN,
+   "prev": 1.4339625700694711e-05,
+   "prev_sigma": 2.0145597443502526e-06,
+   "diff_sigma": NaN,
+   "rel": NaN,
+   "source": "dial_redraw_2026-09-27T0308.csv"
+  },
+  {
+   "key": "dial n60 dephase p=0.5 L=8 k=L",
+   "new": NaN,
+   "new_sigma": NaN,
+   "prev": 1.5551322918178665e-05,
+   "prev_sigma": 2.0197115606107323e-06,
+   "diff_sigma": NaN,
+   "rel": NaN,
+   "source": "dial_redraw_2026-09-27T0308.csv"
+  },
+  {
+   "key": "dial n60 reset p=0.5 L=12 k=1",
+   "new": NaN,
+   "new_sigma": NaN,
+   "prev": 8.13734966945164e-17,
+   "prev_sigma": 6.078477651058593e-17,
+   "diff_sigma": NaN,
+   "rel": NaN,
+   "source": "dial_redraw_2026-09-27T0308.csv"
+  },
+  {
+   "key": "dial n60 reset p=0.5 L=12 k=L",
+   "new": NaN,
+   "new_sigma": NaN,
+   "prev": 0.0097513642903151,
+   "prev_sigma": 3.649760535222191e-05,
+   "diff_sigma": NaN,
+   "rel": NaN,
+   "source": "dial_redraw_2026-09-27T0308.csv"
+  },
+  {
+   "key": "dial n60 reset p=0.5 L=8 k=1",
+   "new": NaN,
+   "new_sigma": NaN,
+   "prev": 1.6554180372604233e-08,
+   "prev_sigma": 8.277090186302117e-09,
+   "diff_sigma": NaN,
+   "rel": NaN,
+   "source": "dial_redraw_2026-09-27T0308.csv"
+  },
+  {
+   "key": "dial n60 reset p=0.5 L=8 k=L",
+   "new": NaN,
+   "new_sigma": NaN,
+   "prev": 0.0097513742005651,
+   "prev_sigma": 3.649760020869753e-05,
+   "diff_sigma": NaN,
+   "rel": NaN,
+   "source": "dial_redraw_2026-09-27T0308.csv"
+  },
+  {
+   "key": "gate1b n100 delay p=0.0 L=12 k=12",
+   "new": 1.2285077662475096e-05,
+   "new_sigma": 1.3365993205330498e-06,
+   "prev": 1.100629127037122e-05,
+   "prev_sigma": 1.2877842041886644e-06,
+   "diff_sigma": 0.6889862981407359,
+   "rel": 0.11618685719742405,
+   "source": "gate1b_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "gate1b n100 delay p=0.0 L=8 k=8",
+   "new": 0.0003916217920366,
+   "new_sigma": 9.452743844700018e-06,
+   "prev": 0.0003715045681733,
+   "prev_sigma": 8.32112793306339e-06,
+   "diff_sigma": 1.597432694527339,
+   "rel": 0.05415067696803044,
+   "source": "gate1b_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "gate1b n100 reset p=0.25 L=12 k=12",
+   "new": 0.002076092152917,
+   "new_sigma": 2.6913596760635863e-05,
+   "prev": 0.0020766592547422,
+   "prev_sigma": 2.6922724557526703e-05,
+   "diff_sigma": -0.014897063195996261,
+   "rel": -0.0002730837155420218,
+   "source": "gate1b_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "gate1b n100 reset p=0.25 L=8 k=8",
+   "new": 0.0020800380340505,
+   "new_sigma": 2.691365375548717e-05,
+   "prev": 0.0020805295330886,
+   "prev_sigma": 2.6922773031627884e-05,
+   "diff_sigma": -0.012911046239212296,
+   "rel": -0.00023623747237577764,
+   "source": "gate1b_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "gate1b n40 delay p=0.0 L=12 k=12",
+   "new": 6.365042051245647e-06,
+   "new_sigma": 9.32628443876906e-07,
+   "prev": 5.232486684008052e-06,
+   "prev_sigma": 7.912931097615928e-07,
+   "diff_sigma": 0.9259814102798903,
+   "rel": 0.21644687041421484,
+   "source": "gate1b_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "gate1b n40 delay p=0.0 L=8 k=8",
+   "new": 0.0002720701714205,
+   "new_sigma": 7.422572681360948e-06,
+   "prev": 0.0002529054059137,
+   "prev_sigma": 6.792176274730248e-06,
+   "diff_sigma": 1.9048143696049031,
+   "rel": 0.07577839405038134,
+   "source": "gate1b_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "gate1b n40 reset p=0.25 L=12 k=12",
+   "new": 0.0020630254603178,
+   "new_sigma": 2.6797915784701105e-05,
+   "prev": 0.0021668582262356,
+   "prev_sigma": 2.686247677039813e-05,
+   "diff_sigma": -2.736498793758903,
+   "rel": -0.04791857845641556,
+   "source": "gate1b_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "gate1b n40 reset p=0.25 L=8 k=8",
+   "new": 0.0020668740936075,
+   "new_sigma": 2.679795351594464e-05,
+   "prev": 0.0021705907117598,
+   "prev_sigma": 2.686246278533419e-05,
+   "diff_sigma": -2.7334365283324087,
+   "rel": -0.04778266929384034,
+   "source": "gate1b_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "gate1b n60 delay p=0.0 L=12 k=12",
+   "new": 5.925997241149351e-06,
+   "new_sigma": 1.0032410931121036e-06,
+   "prev": 5.023376253023045e-06,
+   "prev_sigma": 8.696784764874505e-07,
+   "diff_sigma": 0.6798291765671701,
+   "rel": 0.17968412929115418,
+   "source": "gate1b_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "gate1b n60 delay p=0.0 L=8 k=8",
+   "new": 0.0002523117390248,
+   "new_sigma": 7.135729363939137e-06,
+   "prev": 0.000265377874659,
+   "prev_sigma": 7.598475296932944e-06,
+   "diff_sigma": -1.2534914729231736,
+   "rel": -0.04923596456935031,
+   "source": "gate1b_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "gate1b n60 reset p=0.25 L=12 k=12",
+   "new": 0.002008140976338,
+   "new_sigma": 2.614130053489185e-05,
+   "prev": 0.0020465330285929,
+   "prev_sigma": 2.6604868156586203e-05,
+   "diff_sigma": -1.029315788967209,
+   "rel": -0.018759556634811103,
+   "source": "gate1b_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "gate1b n60 reset p=0.25 L=8 k=8",
+   "new": 0.0020117452831997,
+   "new_sigma": 2.6141311261764392e-05,
+   "prev": 0.0020502182759232,
+   "prev_sigma": 2.6604900192120395e-05,
+   "diff_sigma": -1.0314850155149862,
+   "rel": -0.018765315466801158,
+   "source": "gate1b_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "h7 n60 reset p=0.5 L=8 rms_l2",
+   "new": 0.054858831656752365,
+   "new_sigma": 0.0001303446065292124,
+   "prev": 0.05535999941001015,
+   "prev_sigma": 0.00013145411388874984,
+   "diff_sigma": -2.707239621752118,
+   "rel": -0.00905288581284136,
+   "source": "h7_truncation_2026-10-04T0435.json"
+  },
+  {
+   "key": "main n100 L=12 k=1 noiseless pauli_propagation",
+   "new": 1.793120536953211e-05,
+   "new_sigma": 2.497475551036211e-06,
+   "prev": 1.9186990473419427e-05,
+   "prev_sigma": 2.4951438855259794e-06,
+   "diff_sigma": -0.3557147013172751,
+   "rel": -0.06544982161882096,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n100 L=12 k=1 nonunital pauli_propagation",
+   "new": 8.40822726103796e-06,
+   "new_sigma": 1.3246910172611918e-06,
+   "prev": 8.363042404966307e-06,
+   "prev_sigma": 1.2446512295219372e-06,
+   "diff_sigma": 0.024858522795793946,
+   "rel": 0.005402920837137115,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n100 L=12 k=1 unital pauli_propagation",
+   "new": 1.112511997601222e-05,
+   "new_sigma": 1.470900404476721e-06,
+   "prev": 9.002422877599118e-06,
+   "prev_sigma": 1.2910888569441955e-06,
+   "diff_sigma": 1.084582640898552,
+   "rel": 0.23579175598327473,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n100 L=12 k=12 noiseless pauli_propagation",
+   "new": 2.7317767523345535e-05,
+   "new_sigma": 2.6461556835340742e-06,
+   "prev": 2.9428096268326044e-05,
+   "prev_sigma": 3.1272759967501437e-06,
+   "diff_sigma": -0.5151436135543399,
+   "rel": -0.07171135793965344,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n100 L=12 k=12 nonunital pauli_propagation",
+   "new": 1.3147280965818932e-05,
+   "new_sigma": 1.3944409062353186e-06,
+   "prev": 1.2806564113271771e-05,
+   "prev_sigma": 1.324541171004769e-06,
+   "diff_sigma": 0.1771571977667396,
+   "rel": 0.02660486056475264,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n100 L=12 k=12 unital pauli_propagation",
+   "new": 1.5034185976610374e-05,
+   "new_sigma": 1.5221468160230298e-06,
+   "prev": 1.3467833611958884e-05,
+   "prev_sigma": 1.3629869078561243e-06,
+   "diff_sigma": 0.7666174333197873,
+   "rel": 0.11630321622481543,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n100 L=4 k=1 noiseless pauli_propagation",
+   "new": 0.0119148084716796,
+   "new_sigma": 6.662335811462925e-05,
+   "prev": 0.0119717842178344,
+   "prev_sigma": 6.673108990840121e-05,
+   "diff_sigma": -0.604223164952692,
+   "rel": -0.004759169152908971,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n100 L=4 k=1 nonunital pauli_propagation",
+   "new": 0.0100910794747793,
+   "new_sigma": 0.00010225825517065027,
+   "prev": 0.0101753912609926,
+   "prev_sigma": 5.7401545214915006e-05,
+   "diff_sigma": -0.7189691946795851,
+   "rel": -0.008285852017947404,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n100 L=4 k=1 unital pauli_propagation",
+   "new": 0.0101433655935699,
+   "new_sigma": 5.7092227159589765e-05,
+   "prev": 0.0101697797700712,
+   "prev_sigma": 5.694803933677188e-05,
+   "diff_sigma": -0.32756199136153247,
+   "rel": -0.0025973204040302678,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n100 L=4 k=4 noiseless pauli_propagation",
+   "new": 0.0160986327514648,
+   "new_sigma": 6.787273767584587e-05,
+   "prev": 0.0161896528701782,
+   "prev_sigma": 6.796718300520556e-05,
+   "diff_sigma": -0.947599605299384,
+   "rel": -0.0056221167583561105,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n100 L=4 k=4 nonunital pauli_propagation",
+   "new": 0.0136126274532876,
+   "new_sigma": 9.548728546404997e-05,
+   "prev": 0.0137013725503944,
+   "prev_sigma": 5.843694736375677e-05,
+   "diff_sigma": -0.7927241207112345,
+   "rel": -0.006477095399047839,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n100 L=4 k=4 unital pauli_propagation",
+   "new": 0.0136369566402561,
+   "new_sigma": 5.811084211530107e-05,
+   "prev": 0.013643477962061,
+   "prev_sigma": 5.796505116885202e-05,
+   "diff_sigma": -0.07945262539665857,
+   "rel": -0.00047798089482997685,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n100 L=8 k=1 noiseless pauli_propagation",
+   "new": 0.0004171725841164,
+   "new_sigma": 1.2032165741104903e-05,
+   "prev": 0.0004213818965926,
+   "prev_sigma": 1.2058985094263842e-05,
+   "diff_sigma": -0.24709749833268116,
+   "rel": -0.009989305450085917,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n100 L=8 k=1 nonunital pauli_propagation",
+   "new": 0.000280390290722,
+   "new_sigma": 8.515037144092051e-06,
+   "prev": 0.0002981356266897,
+   "prev_sigma": 8.787356165859511e-06,
+   "diff_sigma": -1.4502379349799015,
+   "rel": -0.05952101788280861,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n100 L=8 k=1 unital pauli_propagation",
+   "new": 0.0002899978265643,
+   "new_sigma": 8.54661806578342e-06,
+   "prev": 0.0002911742074478,
+   "prev_sigma": 8.614731119263181e-06,
+   "diff_sigma": -0.09694113665382587,
+   "rel": -0.004040127365027346,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n100 L=8 k=8 noiseless pauli_propagation",
+   "new": 0.0006164509852603,
+   "new_sigma": 1.2673979891389673e-05,
+   "prev": 0.0006182542580738,
+   "prev_sigma": 1.2690246557655523e-05,
+   "diff_sigma": -0.10054366728621707,
+   "rel": -0.0029167171757428223,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n100 L=8 k=8 nonunital pauli_propagation",
+   "new": 0.0004168508032356,
+   "new_sigma": 8.959071005926645e-06,
+   "prev": 0.0004307350130524,
+   "prev_sigma": 9.191184719266335e-06,
+   "diff_sigma": -1.0817275911574353,
+   "rel": -0.03223376181659732,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n100 L=8 k=8 unital pauli_propagation",
+   "new": 0.0004245142296622,
+   "new_sigma": 8.977043512760722e-06,
+   "prev": 0.0004207467882375,
+   "prev_sigma": 9.020297701826146e-06,
+   "diff_sigma": 0.29604102668208004,
+   "rel": 0.008954177500633431,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n20 L=1 k=1 noiseless statevector",
+   "new": 0.2420975553484765,
+   "new_sigma": 0.019573792693154523,
+   "prev": 0.2420975553484765,
+   "prev_sigma": 0.019573792693154523,
+   "diff_sigma": 0.0,
+   "rel": 0.0,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n20 L=1 k=1 nonunital density_matrix",
+   "new": 0.2242075587164676,
+   "new_sigma": 0.018638770949823365,
+   "prev": 0.2292745026259231,
+   "prev_sigma": 0.019075055390268027,
+   "diff_sigma": -0.1899903049163521,
+   "rel": -0.022099901434406655,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n20 L=1 k=1 unital density_matrix",
+   "new": 0.2242009841529984,
+   "new_sigma": 0.018668222637287152,
+   "prev": 0.2294202232850124,
+   "prev_sigma": 0.01911062476203513,
+   "diff_sigma": -0.1953636289671226,
+   "rel": -0.022749690752109752,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n20 L=12 k=1 noiseless pauli_propagation",
+   "new": 3.043449401855469e-05,
+   "new_sigma": 6.422149698596657e-06,
+   "prev": 7.895477294921875e-05,
+   "prev_sigma": 6.304443344087468e-06,
+   "diff_sigma": -5.391474500386444,
+   "rel": -0.6145325623552966,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n20 L=12 k=1 nonunital pauli_propagation",
+   "new": 1.0585799539179214e-05,
+   "new_sigma": 1.633978265198955e-06,
+   "prev": 4.189508103040202e-05,
+   "prev_sigma": 3.1436346029304977e-06,
+   "diff_sigma": -8.837125847371714,
+   "rel": -0.7473259562024139,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n20 L=12 k=1 unital pauli_propagation",
+   "new": 1.365038953628377e-05,
+   "new_sigma": 3.1754107578580665e-06,
+   "prev": 4.152566481350763e-05,
+   "prev_sigma": 2.9801268836412178e-06,
+   "diff_sigma": -6.401028031428686,
+   "rel": -0.6712782420802204,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n20 L=12 k=12 noiseless pauli_propagation",
+   "new": 7.555575561523438e-05,
+   "new_sigma": 1.5352192990686283e-05,
+   "prev": 0.0001407764663696,
+   "prev_sigma": 1.3380285623500007e-05,
+   "diff_sigma": -3.2026321324834752,
+   "rel": -0.46329271103546976,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n20 L=12 k=12 nonunital pauli_propagation",
+   "new": 2.8462085027802527e-05,
+   "new_sigma": 5.730238609834159e-06,
+   "prev": 6.737795456731732e-05,
+   "prev_sigma": 4.852338362746066e-06,
+   "diff_sigma": -5.182759265269097,
+   "rel": -0.5775757039438463,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n20 L=12 k=12 unital pauli_propagation",
+   "new": 3.036627439745499e-05,
+   "new_sigma": 6.613842841668248e-06,
+   "prev": 6.708748184202787e-05,
+   "prev_sigma": 4.582874909170378e-06,
+   "diff_sigma": -4.563642576929159,
+   "rel": -0.5473630316165539,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n20 L=2 k=1 noiseless statevector",
+   "new": 0.0730569510957073,
+   "new_sigma": 0.008735765752590356,
+   "prev": 0.0831600212161603,
+   "prev_sigma": 0.009902559731058776,
+   "diff_sigma": -0.7650893170453186,
+   "rel": -0.12148950869302677,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n20 L=2 k=1 nonunital statevector",
+   "new": 0.06484194955992,
+   "new_sigma": 0.007853572660685126,
+   "prev": 0.0742395425341874,
+   "prev_sigma": 0.00863284200750755,
+   "diff_sigma": -0.8052315816506653,
+   "rel": -0.1265847371020612,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n20 L=2 k=1 unital statevector",
+   "new": 0.0637299725827493,
+   "new_sigma": 0.007631099669919465,
+   "prev": 0.074219099615584,
+   "prev_sigma": 0.008856919939443826,
+   "diff_sigma": -0.8971992560621875,
+   "rel": -0.141326519550397,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n20 L=4 k=1 noiseless pauli_propagation",
+   "new": 0.0116939621582031,
+   "new_sigma": 6.668451829275659e-05,
+   "prev": 0.0190082175292968,
+   "prev_sigma": 8.349799275027922e-05,
+   "diff_sigma": -68.44804232291975,
+   "rel": -0.3847943848401596,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n20 L=4 k=1 noiseless statevector",
+   "new": 0.0127741365613619,
+   "new_sigma": 0.002488146861905153,
+   "prev": 0.0180741418720453,
+   "prev_sigma": 0.0029434846552190055,
+   "diff_sigma": -1.375119108357167,
+   "rel": -0.29323689878083503,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n20 L=4 k=1 nonunital pauli_propagation",
+   "new": 0.0090402862653894,
+   "new_sigma": 5.219163462820808e-05,
+   "prev": 0.0155654642162852,
+   "prev_sigma": 6.889454964319582e-05,
+   "diff_sigma": -75.49525994110604,
+   "rel": -0.4192086956243105,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n20 L=4 k=1 unital pauli_propagation",
+   "new": 0.0089662976615979,
+   "new_sigma": 5.176134603646884e-05,
+   "prev": 0.015561822472599,
+   "prev_sigma": 6.878068102764059e-05,
+   "diff_sigma": -76.61956762374031,
+   "rel": -0.4238272748975508,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n20 L=4 k=4 noiseless pauli_propagation",
+   "new": 0.0162221965332031,
+   "new_sigma": 6.821158137336915e-05,
+   "prev": 0.0244626909179687,
+   "prev_sigma": 8.429197810568357e-05,
+   "diff_sigma": -75.99540371599727,
+   "rel": -0.3368596861399523,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n20 L=4 k=4 nonunital pauli_propagation",
+   "new": 0.0123991280589059,
+   "new_sigma": 5.326485837373532e-05,
+   "prev": 0.0199381108799173,
+   "prev_sigma": 6.950321475639214e-05,
+   "diff_sigma": -86.09465221391241,
+   "rel": -0.3781192143236125,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n20 L=4 k=4 unital pauli_propagation",
+   "new": 0.0123166626023263,
+   "new_sigma": 5.282276547479845e-05,
+   "prev": 0.0199480785512515,
+   "prev_sigma": 6.93921662688951e-05,
+   "diff_sigma": -87.50658716492188,
+   "rel": -0.3825639612014873,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n20 L=8 k=1 noiseless pauli_propagation",
+   "new": 0.0004228564910888,
+   "new_sigma": 1.1866759659793955e-05,
+   "prev": 0.0010546538314819,
+   "prev_sigma": 2.004653136538705e-05,
+   "diff_sigma": -27.12092657257233,
+   "rel": -0.5990566018286381,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n20 L=8 k=1 nonunital pauli_propagation",
+   "new": 0.0002519959608178,
+   "new_sigma": 7.449795363966296e-06,
+   "prev": 0.0007198163930248,
+   "prev_sigma": 1.3934938321609963e-05,
+   "diff_sigma": -29.60640024521533,
+   "rel": -0.6499163352492335,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n20 L=8 k=1 unital pauli_propagation",
+   "new": 0.00025761010349,
+   "new_sigma": 8.484494016800011e-06,
+   "prev": 0.0007154535315449,
+   "prev_sigma": 1.3837191863813113e-05,
+   "diff_sigma": -28.207471614866076,
+   "rel": -0.6399345420327511,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n20 L=8 k=8 noiseless pauli_propagation",
+   "new": 0.0008043725433349,
+   "new_sigma": 2.351636113029999e-05,
+   "prev": 0.0016214317398071,
+   "prev_sigma": 2.4674369027099922e-05,
+   "diff_sigma": -23.97064188499798,
+   "rel": -0.503912176142182,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n20 L=8 k=8 nonunital pauli_propagation",
+   "new": 0.0004558734944736,
+   "new_sigma": 9.774297742850006e-06,
+   "prev": 0.0010757924493046,
+   "prev_sigma": 1.6870578473649942e-05,
+   "diff_sigma": -31.79475809212584,
+   "rel": -0.5762440099219139,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n20 L=8 k=8 unital pauli_propagation",
+   "new": 0.0004659582667067,
+   "new_sigma": 1.5148908494750008e-05,
+   "prev": 0.0010599106576196,
+   "prev_sigma": 1.475477648631046e-05,
+   "diff_sigma": -28.086925710100044,
+   "rel": -0.5603796760066813,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  }
+ ],
+ "flags": [
+  "day3_dial_refs: check_comparators is not a pass: the exit 0 rests on rows of an earlier package (`dial_redraw_2026-09-27T0308.csv`), matched on the qubit set alone; the rows must be drawn on this placement (Deviations 46 / 58) (held list: drawn in the cycle that dispatches day 3)",
+  "prediction dial n60 dephase p=0.5 L=8 k=1 missing in the new package (held list: drawn in the cycle that dispatches day 3)",
+  "prediction dial n60 dephase p=0.5 L=8 k=L missing in the new package (held list: drawn in the cycle that dispatches day 3)",
+  "prediction dial n60 reset p=0.5 L=12 k=1 missing in the new package (held list: drawn in the cycle that dispatches day 3)",
+  "prediction dial n60 reset p=0.5 L=12 k=L missing in the new package (held list: drawn in the cycle that dispatches day 3)",
+  "prediction dial n60 reset p=0.5 L=8 k=1 missing in the new package (held list: drawn in the cycle that dispatches day 3)",
+  "prediction dial n60 reset p=0.5 L=8 k=L missing in the new package (held list: drawn in the cycle that dispatches day 3)",
+  "day 3 dial n100: connected-component holes [31] (Deviation 62 rule active)",
+  "day 3 dial n100: n 87 -> 83 (more than 3)",
+  "plain n100: connected-component holes [31] (Deviation 62 rule active)",
+  "plain n100: n 88 -> 84 (more than 3)",
+  "grid n100: connected-component holes [31] (Deviation 62 rule active)",
+  "grid n100: n 88 -> 84 (more than 3)",
+  "1 test failure(s) not in the known list: tests/test_dial_placement.py::test_h6_control_pair_comes_from_one_rung_and_placement",
+  "L2-c5 (day-2 n100 rung) fails the live cuts on this snapshot: no L2-c5 attempt today"
+ ],
+ "notes_after_run": [
+  "**Test failure: a setup race, not the package.** `tests/test_dial_placement.py::test_h6_control_pair_comes_from_one_rung_and_placement` failed in this run because of a race in the test's own setup. Its two dry runs finished within one UTC second, so they shared the runner's job id `dryrun-<second>-<tag>` and one bundle. Fixed in `7263d9e`: each run gets its own output folder and starts in a later second, and the test's assertions are unchanged. The full suite re-run at `7263d9e` on Modal gave 345 passed, the known Marrakesh loader failure only, and 3 skipped: `docs/repack/2026-10-04_tests_rerun.txt`.",
+  "**The six 'dial n60 ... missing in the new package' flags are true (review M1).** This corrects the note of `c3f8077`, which called them false. The n60 rung keeps its 52 placed qubits and edge 84_85, but couplers 80-90 and 118-119 are newly broken on this placement (live couplers 76 -> 74), and the calibration is that of 4 Oct. Deviations 46 and 58 need rows drawn on exactly this placement. No p = 0.5 dial row was drawn on it: the dial re-draw counted the 27 Sep rows as covering its points because it matches rows on the qubit set alone. The six rows are a **held list: drawn in the cycle that dispatches day 3**, and the flags above say so. The 'standing' logic added in `7263d9e` is reverted: an earlier row never stands for a new placement.",
+  "**`day3_dial_refs`: the `check_comparators` exit 0 is not a pass.** Three of its 14 items, the n60 p = 0.5 dial points (reset at L = 8 and L = 12, dephasing at L = 8; the six rows above with k = 1 and k = L), were found only in the 27 Sep rows (`dial_redraw_2026-09-27T0308.csv`). The match was on the qubit set alone, because `scripts/predictions.py` matches on the qubit set on this branch (the Deviation 60 S-A fix is not here). Only the Gate 1b rows (`gate1b_redraw_2026-10-04T0435.csv`) and the H7 comparator (`h7_truncation_2026-10-04T0435.json`) were drawn on this placement. Pre-flight 06 cannot be armed from this package. From this correction on, the summary logic records `pass` false for such a record and flags it (`comparators.day3_dial_refs` in the JSON).",
+  "**Predictions table: the k = 1 propagation rows were missing.** The summary logic kept one row per main-grid propagation run (its k = L value) and dropped the k = 1 value that the same run carries. The rows the k = 1 points are read against (n20 L = 4, n100 L = 8 and L = 12, k = 1) therefore did not appear. With the fix, the table above is re-derived from the committed prediction files of both packages (`main_grid_redraw_2026-10-04T0435.csv`, `main_grid_redraw_2026-09-27T0308.csv`): 18 rows are added and none changed. No prediction file was touched.",
+  "Nothing in the lists or the predictions was changed. The pre-flight 06 note 'Not for dispatch' now also says that its p = 0.5 dial rows are not drawn on this placement and that the list cannot be armed from this package."
+ ]
+}

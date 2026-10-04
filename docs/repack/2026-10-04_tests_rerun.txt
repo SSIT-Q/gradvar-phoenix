@@ -1,0 +1,8 @@
+# Full test suite re-run of the same-day re-package 2026-10-04 at 7263d9e18d0012bb23f43ac057275af2ce8387cf (Modal, 7 shards, longest 675 s; modal/run_suite.sh); 345 passed
+# known failures (docs/repack/known_test_failures.txt):
+KNOWN   tests/test_analysis.py::test_loader_on_committed_marrakesh_run  # pre-existing on main since 21 Sep: IntCastingNaNError in gradvar/analysis/loader.py _repeat_index on the committed Marrakesh run data
+# other failures and errors (not known; each needs a look):
+# skipped:
+SKIPPED tests/test_paper1_joblists.py::test_lists_validate_and_refuse_to_submit[grid_n100_16384.json]
+SKIPPED tests/test_paper1_joblists.py::test_lists_validate_and_refuse_to_submit[day1_null_grid_n20.json]
+SKIPPED tests/test_paper1_joblists.py::test_lists_validate_and_refuse_to_submit[day2_main_grid.json]

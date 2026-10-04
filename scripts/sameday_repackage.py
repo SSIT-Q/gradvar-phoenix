@@ -406,6 +406,9 @@ def prediction_rows(tag: str, d: Path = PRED) -> dict:
             key = f"main {r['rung']} L={int(r['L'])} k={int(r['k'])} {r['model']} {meth}"
             if meth == "pauli_propagation" or not (r.get("var") == r.get("var")):
                 out[key] = (fnum(r["var_mc"]), _sigma(r, "var_mc", "se_mc", "var_pp"), f.name)
+                v1 = fnum(r.get("var_k1_mc"))
+                if int(r["k"]) != 1 and v1 == v1:                              # the same propagation run's k = 1 value (the k = 1 points)
+                    out[f"main {r['rung']} L={int(r['L'])} k=1 {r['model']} {meth}"] = (v1, _sigma(r, "var_k1_mc", "se_k1_mc", "var_k1_pp"), f.name)
             else:
                 out[key] = (fnum(r["var"]), (fnum(r["ci_hi"]) - fnum(r["ci_lo"])) / 3.92, f.name)
     f = d / f"dial_redraw_{tag}.csv"
@@ -486,6 +489,8 @@ def write_summary(S: dict, date: str) -> tuple:
           f"`scripts/sameday_repackage.py`, pairs {'on' if r.get('with_pairs') else 'off'}.", ""]
     if S.get("stop_reason"):
         L += [f"**Stopped:** {S['stop_reason']}", ""]
+    if S.get("holds"):
+        L += ["**Rendered for the record, not dispatched from this package:** " + "; ".join(f"`{n}` ({r})" for n, r in S["holds"].items()) + ".", ""]
     L += [f"Wall time {r.get('wall_min')} min (stages: " + ", ".join(f"{k} {v}" for k, v in (r.get('stage_min') or {}).items()) + f"); {r.get('cores')} cores; "
           f"Modal cost {r.get('modal_cost')}.", ""]
     pc = S.get("precheck_committed") or {}
@@ -527,7 +532,8 @@ def write_summary(S: dict, date: str) -> tuple:
         L.append("")
     cc = S.get("comparators") or {}
     if cc:
-        L += ["## Comparators (scripts/check_comparators.py)", ""] + [f"- `{n}`: exit {v.get('exit')}, {v.get('missing')} missing" for n, v in cc.items()] + [""]
+        L += ["## Comparators (scripts/check_comparators.py)", ""] + [f"- `{n}`: exit {v.get('exit')}, {v.get('missing')} missing"
+                                                                   + (f"; {v['note']}" if v.get("note") else "") for n, v in cc.items()] + [""]
     pa = S.get("precheck_all") or {}
     if pa:
         fails = [n for n, v in pa.items() if not v["passes"] and not v.get("record")]
@@ -571,6 +577,11 @@ def run(args) -> int:
                                          base_sha=args.base_sha, run_sha=run_sha, with_pairs=bool(args.with_pairs), cores=cores,
                                          started_utc=_dt.datetime.fromtimestamp(t_start, _dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")),
              approved_overrides=[])
+    holds = dict(h.split("=", 1) for h in (getattr(args, "hold", None) or []))
+    if set(holds) - {"day3_dial_refs"}:
+        raise SystemExit(f"--hold: only day3_dial_refs can be held (got {sorted(holds)})")
+    if holds:
+        S["holds"] = holds                                                     # rendered for the record, not dispatched from this package
     # previous package: the committed lists before regeneration
     prev_dir = out / "prev_lists"
     if prev_dir.exists():
@@ -705,6 +716,7 @@ def run(args) -> int:
                     res = dict(missing=None)
                 cc[n] = dict(exit=p.returncode, missing=res.get("missing"), items=res.get("items"),
                              record=f"`docs/repack/{date}_summary.json`, key `comparators.{n}`")
+                cc[n].update(comparator_pass(cc[n], tag))                      # review M1 (4 Oct): an earlier row never stands for a new placement
             S["comparators"] = cc
             if any(v["exit"] != 0 for v in cc.values()):
                 why = "scripts/check_comparators.py: " + "; ".join(f"{n} exit {v['exit']} ({v['missing']} missing)" for n, v in cc.items() if v["exit"] != 0)
@@ -739,10 +751,10 @@ def run(args) -> int:
             prev_files = sorted(p.name for p in (ROOT / "docs" / "preflight").glob(f"0[689]_paper1_*_{(prev_stamp or '')[:10]}.md"))
             try:
                 res = bp.build(out, csv.name, tag, f"{int(date[8:10])} {_dt.date(int(date[:4]), int(date[5:7]), 1).strftime('%b')} {date[:4]}", None,
-                               ROOT / "docs" / "preflight", review_txt=bp.review_template(date), precheck_res=dict(lists=pcs_bp, csv=csv.name, ibm_properties=upd,
+                               ROOT / "docs" / "preflight", review_txt=bp.review_template(date, bp.ibm_update_iso(str(props))), precheck_res=dict(lists=pcs_bp, csv=csv.name, ibm_properties=upd,
                                ibm_properties_placement=upd), pr="the same-day pull request", branch=f"repack-{date}", prev_pred_dir=str(PRED), root=str(ROOT),
                                prev_lists_dir=str(prev_dir), prev_fail_snaps=(), prev=bp.prev_package(prev_dir, PRED, ROOT / "docs" / "preflight"),
-                               pred_commit=PLACEHOLDER_COMMIT, with_pairs=bool(args.with_pairs), comparators=cc)
+                               pred_commit=PLACEHOLDER_COMMIT, with_pairs=bool(args.with_pairs), comparators=cc, hold=holds)
             except bp.PreflightRefused as ex:
                 S["flags"] = [f"pre-flights refused: {ex}"]
                 raise Stop(f"pre-flights refused: {ex}")
@@ -847,6 +859,20 @@ def run(args) -> int:
     return 0 if S["status"] in ("ok", "not needed") else 1
 
 
+HELD3 = " (held list: drawn in the cycle that dispatches day 3)"
+
+
+def comparator_pass(v: dict, tag: str) -> dict:
+    """``pass`` of one check_comparators record: exit 0 and every item found in a file of this package (``tag``). scripts/predictions.py matches a
+    row on the qubit set alone, so an item found only in an earlier package's file is not drawn on this placement (Deviations 46 / 58) and is not a pass."""
+    early = sorted({str(x.get("source")) for x in (v.get("items") or []) if x.get("found") and tag not in str(x.get("source"))})
+    out = {"pass": v.get("exit") == 0 and not early}
+    if early:
+        out["note"] = (f"not a pass: the exit {v.get('exit')} rests on rows of an earlier package ({', '.join(f'`{s}`' for s in early)}), matched on the qubit set "
+                       "alone; the rows must be drawn on this placement (Deviations 46 / 58)")
+    return out
+
+
 def review_flags(S: dict, prev_dir: Path) -> list:
     """Tolerance flags that force a full review (docs/repack/REVIEW_CHECKLIST.md, Section 3)."""
     fl = []
@@ -876,6 +902,12 @@ def review_flags(S: dict, prev_dir: Path) -> list:
         fl.append(f"budget of the four lists moved by more than 5 % ({t['prev_min_at_1us']} -> {t['min_at_1us']} min)")
     if t.get("working_min", 0) > 165 - 0:
         fl.append(f"working figure {t.get('working_min')} min exceeds the 165 min left under the cap")
+    held3 = "day3_dial_refs" in (S.get("holds") or {})
+    tag = str((S.get("run") or {}).get("stamp") or "")[:15]                # '2026-10-04T043542Z' -> '2026-10-04T0435'
+    for n, v in (S.get("comparators") or {}).items():
+        cp = comparator_pass(v, tag) if tag else {}
+        if cp.get("note"):
+            fl.append(f"{n}: check_comparators is {cp['note']}" + (HELD3 if held3 and n == "day3_dial_refs" else ""))
     pl, pp = S.get("placement") or {}, S.get("placement_prev") or {}
     same = {k for k, v in pl.items() if pp.get(k) and all(v[f] == pp[k][f] for f in ("qubits", "broken", "edge"))}
     rung_of = lambda key: key.split()[1] if len(key.split()) > 1 else ""
@@ -885,8 +917,8 @@ def review_flags(S: dict, prev_dir: Path) -> list:
         on_same = any(k.endswith(r) and k in same for k in pl) if r else False
         if z == z and abs(z) > 3 and on_same:
             fl.append(f"prediction {x['key']} moved {z:+.1f} sigma on an unchanged rung (check: calibration-only change?)")
-        if x["new"] != x["new"] and x["prev"] == x["prev"]:
-            fl.append(f"prediction {x['key']} missing in the new package")
+        if x["new"] != x["new"] and x["prev"] == x["prev"]:                    # an earlier row never stands for a new placement (review M1, 4 Oct)
+            fl.append(f"prediction {x['key']} missing in the new package" + (HELD3 if held3 and x["key"].split()[0] in ("dial", "h7") else ""))
     for k, v in pl.items():
         if v.get("component_holes"):
             fl.append(f"{k}: connected-component holes {v['component_holes']} (Deviation 62 rule active)")
@@ -923,7 +955,7 @@ def write_bundle(out: Path, S: dict, changed: list, csv: Path, date: str, args) 
         shutil.copytree(out / "logs", b / "logs")
     man = dict(date=date, snapshot=csv.name, stamp=S["run"]["stamp"], status=S["status"], stop_reason=S.get("stop_reason"), base_sha=args.base_sha,
                run_sha=S["run"].get("run_sha"), files=changed, summary=f"docs/repack/{date}_summary.md", with_pairs=bool(args.with_pairs),
-               exercise=bool(getattr(args, "exercise", False)), exercise_stops=S.get("exercise_stops", []),
+               exercise=bool(getattr(args, "exercise", False)), exercise_stops=S.get("exercise_stops", []), holds=S.get("holds", {}),
                complete=bool(S.get("flags") is not None and S.get("preflights")))
     (b / "manifest.json").write_text(json.dumps(man, indent=1) + "\n", encoding="utf-8")
     if args.bundle:
@@ -1032,6 +1064,9 @@ def publish(args) -> int:
     summ = docs.get(man["summary"], b"").decode("utf-8")
     warn = (f"**EXERCISE, not dispatchable:** {'; '.join(man['exercise_stops'])}. The same-day rule stops this cycle and nothing is dispatched; the "
             "remaining stages ran with `--exercise` to test the pipeline end to end. Do not merge.\n\n") if ex else ""
+    if man.get("holds"):
+        warn += ("**Rendered for the record, not dispatched from this package:** " + "; ".join(f"`{n}` ({r})" for n, r in man["holds"].items())
+                 + ". Its pre-flight says so in Section 1.\n\n")
     body = warn + (f"**Draft: same-day re-package {date}** on `{man['snapshot']}`. Nothing is armed or dispatched: every list has `dry_run` true and the "
             f"placeholder pre-flight record; `approved_overrides` is empty (the Deviation 26 override is closed). Review with "
             f"`docs/repack/REVIEW_CHECKLIST.md`; dispatch within the IBM properties update the pre-check passed on.\n\n" + summ[:60000])
@@ -1125,6 +1160,9 @@ def main(argv=None) -> int:
         ap.add_argument("--exercise", action="store_true",
                         help="pipeline test only: a Gate 1b FAIL is recorded but the remaining stages still run; the status stays 'stopped', every "
                              "generated pre-flight carries an EXERCISE banner, and publish refuses the bundle unless given --exercise too")
+        ap.add_argument("--hold", action="append", default=[], metavar="LIST=REASON",
+                        help="render the list's pre-flight for the record but mark it not for dispatch from this package (day3_dial_refs only), "
+                             "e.g. --hold 'day3_dial_refs=Deviation 60 part (7) pending'")
         ap.add_argument("--survey", action="store_true",
                         help="survey only (no commits): regeneration, the Gate 1b re-draw and the pre-check of every list on the snapshot; no other "
                              "re-draws, comparators, pre-flights, dry runs or tests; status 'survey' (publish refuses it)")

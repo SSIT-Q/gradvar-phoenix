@@ -1,0 +1,11 @@
+# Test run of the same-day re-package 2026-10-04 (run commit 0037e5e6aa81e748bf6a9afdd7c62ce6700c7839); 342 passed
+# known failures (docs/repack/known_test_failures.txt):
+KNOWN   tests/test_analysis.py::test_loader_on_committed_marrakesh_run  # pre-existing on main since 21 Sep: IntCastingNaNError in gradvar/analysis/loader.py _repeat_index on the committed Marrakesh run data
+# other failures and errors (not known; each needs a look):
+FAILED  tests/test_dial_placement.py::test_h6_control_pair_comes_from_one_rung_and_placement
+# serial re-run of the other failures:
+STILL   tests/test_dial_placement.py::test_h6_control_pair_comes_from_one_rung_and_placement
+# skipped:
+SKIPPED tests/test_paper1_joblists.py::test_lists_validate_and_refuse_to_submit[grid_n100_16384.json]
+SKIPPED tests/test_paper1_joblists.py::test_lists_validate_and_refuse_to_submit[day1_null_grid_n20.json]
+SKIPPED tests/test_paper1_joblists.py::test_lists_validate_and_refuse_to_submit[day2_main_grid.json]
