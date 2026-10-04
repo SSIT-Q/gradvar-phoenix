@@ -438,6 +438,47 @@ def compare_predictions(new_tag: str, prev_tag: str | None) -> list:
     return rows
 
 
+PRED_RUNG = {"dial": "day 3 dial {r}", "gate1b": "day 3 dial {r}", "h7": "day 3 dial {r}", "h7_pairs": "day 3 dial {r}"}
+
+
+def _pred_label(key: str) -> str | None:
+    """The placement-table rung a prediction row belongs to ('dial n60 reset p=0.5 L=8 k=L' -> 'day 3 dial n60')."""
+    kind, r = (key.split() + ["", ""])[:2]
+    if kind == "main":
+        return {"n20": "replication n20", "n100": "plain n100"}.get(r, f"grid {r}")
+    return PRED_RUNG[kind].format(r=r) if kind in PRED_RUNG else None
+
+
+def mark_standing(S: dict) -> list:
+    """Rows the new package does not re-draw because the re-draw program found them covered by the previous package's file on the same
+    placement (redraw_dial_points.py: 'every point is covered'). Such a row stands, and is reported as standing rather than missing,
+    when two things hold. First, its rung has the same placed qubits and edge as in the previous package (whether a coupler change
+    reaches the row's cone is the Deviation 46 program's decision). Second, the pipeline's check_comparators.py run found the matching
+    comparator item in that same previous file. Without that confirmation the row stays missing. Returns the keys marked."""
+    import math
+    pl, pp = S.get("placement") or {}, S.get("placement_prev") or {}
+    items = [it for v in (S.get("comparators") or {}).values() for it in (v.get("items") or []) if isinstance(it, dict)]
+    marked = []
+    for x in S.get("predictions") or []:
+        if not (x["new"] != x["new"] and x["prev"] == x["prev"]):
+            continue
+        lab = _pred_label(x["key"])
+        if not lab or lab not in pl or lab not in pp or any(pl[lab][f] != pp[lab][f] for f in ("qubits", "edge")):
+            continue
+        parts = x["key"].split()
+        kv = dict(p.split("=", 1) for p in parts if "=" in p)
+        rung, dial = parts[1], (parts[2] if len(parts) > 2 and "=" not in parts[2] else None)
+        conf = [it for it in items if it.get("found") and it.get("source") == x["source"] and it.get("rung") == rung
+                and (dial is None or it.get("dial", it.get("reset_kind")) == dial) and "p" in kv and it.get("p") is not None
+                and math.isclose(float(it["p"]), float(kv["p"])) and str(it.get("L")) == kv.get("L")]
+        if not conf:
+            continue
+        x.update(new=x["prev"], new_sigma=x["prev_sigma"], diff_sigma=0.0, rel=0.0, standing=True,
+                 source=f"{x['source']} (standing: same placed qubits and edge; check_comparators found it there)")
+        marked.append(x["key"])
+    return marked
+
+
 def rung_table(names_rungs: dict, d: Path) -> dict:
     out = {}
     for label, (n, r) in names_rungs.items():
@@ -802,6 +843,7 @@ def run(args) -> int:
                                  prev_min_at_1us=round(sum((S["lists"][n]["budget_prev"] or {}).get("min_at_1us", 0) for n in RUN_DAY), 2),
                                  prev_working_min=round(sum((S["lists"][n]["budget_prev"] or {}).get("working_min", 0) for n in RUN_DAY), 1))
         S["predictions"] = compare_predictions(tag, prev_tag)
+        S["standing_rows"] = mark_standing(S)                                  # unchanged rung: the previous row stands, not 'missing'
         S["flags"] = review_flags(S, prev_dir)
         if args.survey:
             S["status"] = "survey"
