@@ -148,9 +148,17 @@ def _stamp(name):
     return m.group(0) if m else None
 
 
+_MON = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+
+def _mon(stamp):
+    """Month abbreviation of '2026-10-01T...' or '20261001T...'."""
+    return _MON[int(str(stamp).replace("-", "")[4:6]) - 1]
+
+
 def _label(stamp):
     """'2026-09-27T030805Z' -> '27 Sep 03:08Z'."""
-    return f"{int(stamp[8:10])} Sep {stamp[11:13]}:{stamp[13:15]}Z"
+    return f"{int(stamp[8:10])} {_mon(stamp)} {stamp[11:13]}:{stamp[13:15]}Z"
 
 
 def ibm_update(props_path):
@@ -346,8 +354,199 @@ def long_resets(cal_dir, since="20260919T000000Z", cut=400):
         L = reset_lengths(p)
         assert len(L) == 120, p.name
         long |= {q for q, v in L.items() if v > cut}
-    lab = lambda s: f"{int(s[6:8])} Sep"
+    lab = lambda s: f"{int(s[6:8])} {_mon(s)}"
     return long, lab(fs[0][0]), lab(fs[-1][0]), len(fs)
+
+
+def _tagof(stamp):
+    return f"{stamp[:10]}T{stamp[11:15]}"
+
+
+def prev_package(prev_lists_dir, pred_dir, preflight_dir=None):
+    """The previous package (the committed lists before a re-package) for the change columns: its stamp, pre-flight files, Gate 1b fall / bar and
+    separation at L = 8, and its plain n100 L = 8, k = 1 non-unital row."""
+    d3 = json.load(open(Path(prev_lists_dir) / "day3_dial_refs.json", encoding="utf-8"))
+    r1 = json.load(open(Path(prev_lists_dir) / "replication_01.json", encoding="utf-8"))
+    st = d3["placement"]["stamp"]; tg = _tagof(st); dt = st[:10]
+    out = dict(date=f"{int(st[8:10])} {_mon(st)}", snap=_label(st), tag=tg, stamp=st,
+               files=(f"06_paper1_day3_dial_{dt}.md", f"08_paper1_replication_{dt}.md", f"09_paper1_section3c_blockC_{dt}.md"),
+               fall="n/a", sep8="n/a", n100_row="n/a", n100_n=r1["placement"]["rungs"]["n100"]["n"])
+    g = Path(pred_dir) / f"gate1b_redraw_{tg}.md"
+    if g.exists():
+        g1 = g.read_text(encoding="utf-8")
+        fall = {r[0]: r for r in _rows(g1, "| rung | fall frozen")}
+        sep = {(r[0], r[2]): r for r in _rows(g1, "| rung | n frozen -> redraw | L | V p=0 frozen")}
+        out["fall"] = " / ".join(fall[s][3].split("->")[1].strip() for s in ("4x10", "6x10", "10x10"))
+        out["sep8"] = " / ".join(sep[(s, "8")][8].split("->")[1].strip() for s in ("4x10", "6x10", "10x10"))
+    m = Path(pred_dir) / f"main_grid_redraw_{tg}.md"
+    if m.exists():
+        mg = m.read_text(encoding="utf-8")
+        mgr = {(r[0], r[2], r[3], r[4], r[5].split("->")[1].strip()): r for r in _rows(mg, "| rung | n frozen -> redraw | L | k | model")}
+        k = ("10x10", "8", "1", "nonunital", "pauli_propagation")
+        if k in mgr:
+            out["n100_row"] = mgr[k][7].split()[0]
+    return out
+
+
+class PreflightRefused(RuntimeError):
+    """A pre-flight cannot be rendered: a check it reports did not run, or did not pass."""
+
+
+DIAL_CHANNEL = {"reset": "reset dial (non-unital reset channel)", "dephase": "dephasing dial (unital dephasing channel)",
+                "dephasing": "dephasing dial (unital dephasing channel)", "delay": "delay-matched reference (no dial channel)",
+                "unital": "unital snapshot noise only (no dial channel)"}
+
+
+def _channel(dial):
+    """The channel of a prediction row, from its record's ``dial`` / ``reset_kind`` field (never a fixed phrase)."""
+    return DIAL_CHANNEL.get(str(dial), f"{dial} dial")
+
+
+def _cc_entry(cc, name):
+    """The pipeline's own run of scripts/check_comparators.py on list ``name`` ({exit, missing, items}): refuse unless it ran and exited 0."""
+    if not isinstance(cc, dict) or cc.get("exit") is None:
+        raise PreflightRefused(f"scripts/check_comparators.py was not run on {name}.json: no pre-flight is rendered")
+    if int(cc["exit"]) != 0:
+        raise PreflightRefused(f"scripts/check_comparators.py exited {cc['exit']} on {name}.json ({cc.get('missing')} missing): no pre-flight is rendered")
+    return cc
+
+
+def _cc_text(name, cc):
+    """'exits 0' only from a recorded run that returned 0 (_cc_entry first)."""
+    cc = _cc_entry(cc, name)
+    items = cc.get("items") or []
+    found = sum(1 for it in items if isinstance(it, dict) and it.get("found"))
+    return (f"`python scripts/check_comparators.py data/joblists/paper1/{name}.json` was run by the pipeline on these files and exited 0: {found} of "
+            f"{len(items)} comparator items found on this placement, {cc.get('missing') or 0} missing (items recorded in "
+            f"{cc.get('record') or 'the run summary'})")
+
+
+def comparators_par(pred_dir, tag, pred_commit, jl, cc=None):
+    """Review M3: the H5 / H6 p = 0.5 dial rows and the H7 comparator drawn on this placement, with their files and commit. ``cc`` is the
+    pipeline's run of scripts/check_comparators.py on day3_dial_refs.json ({exit, missing, items}); without a run that returned 0 nothing is
+    rendered (PreflightRefused)."""
+    import csv as _csv
+    cc_txt = _cc_text("day3_dial_refs", cc)
+    pred_dir = Path(pred_dir)
+    rows, h7 = [], []
+    f = pred_dir / f"dial_redraw_{tag}.csv"
+    if f.exists():
+        for r in _csv.DictReader(open(f, encoding="utf-8")):
+            v, se, vp = float(r["var_kL_mc"]), float(r["se_kL_mc"]), float(r["var_kL_pp"])
+            sig = max(2 * se, abs(v - vp)) / 2
+            bg = f", on the {r['model']} snapshot noise" if r.get("model") else ""
+            rows.append(f"{_channel(r['dial'])}{bg}, p = {float(r['p']):g}, L = {r['L']} on {r['rung']} (n = {r['n']}): V(k = L) {v:.4e} +/- {2 * sig:.1e}, "
+                        f"V(k = 1) {float(r['var_k1_mc']):.3e} ({r['status']})")
+    g = pred_dir / f"h7_truncation_{tag}.json"
+    bug = "n/a"
+    if g.exists():
+        H = json.load(open(g, encoding="utf-8"))
+        ic = H.get("ideal_check") or {}
+        bug = "passed" if (ic.get("passed") if isinstance(ic, dict) and "passed" in ic else all(c.get("passed") for c in (ic.get("checks") or [ic]) if isinstance(c, dict))) else "see the record"
+        for e in H.get("entries", []):
+            pt = e.get("point", {})
+            h7.append(f"{_channel(pt.get('reset_kind', 'reset'))}, p = {pt.get('p')}, L = {pt.get('L')}, l = 2 on {pt.get('rung')} (n = {pt.get('n')}): "
+                      f"sqrt(MSD(2)) = {e['rms_l2']:.5f} +/- {e['rms_l2_sigma']:.5f}")
+    txt = ("**Comparators drawn on this placement (review M3).** H5 / H6 dial rows at p = 0.5 (Deviation 46 program, `dial_redraw_" + tag + ".csv`; each row's "
+           "channel as its record gives it): " + ("; ".join(rows) if rows else "**missing**") + ". The p = 0.25 rows are the Gate 1b re-draw's (table above). "
+           "H7 comparator (`h7_truncation_" + tag + ".json`, noise-off bug check " + bug + "): " + ("; ".join(h7) if h7 else "**missing**") + ". Drawn through "
+           "their command lines, `python scripts/redraw_dial_points.py --joblist data/joblists/paper1/day3_dial_refs.json` and `python "
+           f"scripts/predict_h7_truncation.py --joblist data/joblists/paper1/day3_dial_refs.json`, and committed at {pred_commit} before this pre-flight "
+           f"(Deviation 54 order); {cc_txt}.")
+    return txt
+
+
+def review_template(date):
+    """Section 8 record template for a same-day package (filled by the reviewer; docs/repack/REVIEW_CHECKLIST.md)."""
+    return (f"> **Review ({date}): [GO / GO_WITH_NOTES / NO_GO].** Reviewer: [name or agent], [start-end UTC]. Reviewed branch `repack-{date}` at "
+            "[40-hex commit] (draft PR [#]); summary `docs/repack/" + date + "_summary.md`; checklist `docs/repack/REVIEW_CHECKLIST.md` (every item ticked or "
+            "noted below).\n>\n"
+            "> What changed (placement and placement-dependent values only): [rungs whose n, origin, holes, broken couplers or edge changed].\n>\n"
+            "> What was checked: [the flags of the summary; the rule re-applied to the snapshot for the run-day rungs; lists: design, seeds and budget unchanged "
+            "but n; the pre-check of every list on the placement snapshot; Gate 1b; comparators (check_comparators exit 0); tests (known failures only)].\n>\n"
+            "> Tolerance flags that forced a full review: [none / list].\n>\n"
+            "> Conditions for arming: the Deviation 26 override stays closed (`approved_overrides` empty); arming edits only `dry_run` and `preflight_review`; "
+            "arm only from a `main` commit at which this section carries the record; dispatch within the IBM properties update the pre-check passed on "
+            "([last_update_date]); a fresh calibration snapshot and Claude's pre-check first if IBM has updated since.")
+
+
+def render_pf10(OUT, snap_csv, tag, date_label, stamp, props_name, pred_dir, pred_commit, precheck_res, review_txt, pr, day3, root, cc=None):
+    """Pre-flight 10: the Deviation 63 truncation pairs (``dial_truncation_pairs.json``), dispatched right after day 3 in the same IBM window.
+    A template at docs/repack/templates/10_truncation_pairs.md (str.format fields as in ``fields`` below) replaces the built-in text. ``cc`` is the
+    pipeline's run of scripts/check_comparators.py on the pairs list; without a run that returned 0 nothing is rendered (PreflightRefused)."""
+    cc_txt = _cc_text("dial_truncation_pairs", cc)
+    OUT, pred_dir, root = Path(OUT), Path(pred_dir), Path(root)
+    jl = json.load(open(OUT / "A" / "joblists_paper1" / "dial_truncation_pairs.json", encoding="utf-8"))
+    pl = jl["placement"]; rung_name, rung = next(iter((k, v) for k, v in pl["rungs"].items() if k == "n60"), next(iter(pl["rungs"].items())))
+    b = jl["budget"]
+    work = b["minutes_at_1us"] * 1.02 + sum(7.5 - e["job_constant_seconds"] for e in b["per_job"]) / 60
+    probes = "\n".join(f"| `{q['id']}` | {q.get('reset_kind', 'reset')} | {q['p']} | {q['L']} | {q.get('truncate_to', 'full')} | {q.get('masks')} x {q['shots']} | "
+                       f"{q.get('M')} | {q['seed']} |" for q in jl["probes"])
+    comps = []
+    for stem in ("h7_truncation_pairs", "h7_truncation"):
+        f = pred_dir / f"{stem}_{tag}.json"
+        if f.exists():
+            for e in json.load(open(f, encoding="utf-8")).get("entries", []):
+                pt = e.get("point", {})
+                comps.append(f"`{f.name}`: {_channel(pt.get('reset_kind', 'reset'))}, p = {pt.get('p')}, L = {pt.get('L')}, l = 2: sqrt(MSD(2)) = "
+                             f"{e['rms_l2']:.5f} +/- {e['rms_l2_sigma']:.5f}")
+    pc = (precheck_res.get("lists") or {}).get("dial_truncation_pairs")
+    pcs = ("no failure" if pc and not (pc["qfail"] or pc["cfail"]) else ("failures: " + "; ".join(pc["qfail"] + pc["cfail"]) if pc else "not run"))
+    dry = OUT / "A" / "dryrun_dial_truncation_pairs.log"
+    dtxt = dry.read_text(encoding="utf-8", errors="replace") if dry.exists() else ""
+    fm = re.search(r"fake_nighthawk target durations: [\d.]+ min at 250 us, ([\d.]+) min at 1 us", dtxt)
+    rows = re.search(r"logged (\d+) rows", dtxt)
+    prot = _protected(pl)
+    fields = dict(date_label=date_label, snap_csv=snap_csv, stamp=stamp, props=props_name, tag=tag, rung=rung_name, n=rung["n"], origin=tuple(rung["origin"]),
+                  holes=", ".join(map(str, rung["holes"])), edge=rung["edge"], jobs=b["jobs"], pubs=b["pubs"], min1=f"{b['minutes_at_1us']:.2f}",
+                  work=f"{work:.1f}", probes=probes, comparators="; ".join(comps) or "**missing**", check_comparators=cc_txt, precheck=pcs,
+                  pred_commit=pred_commit, pr=pr,
+                  fake_min=fm.group(1) if fm else "n/a", csv_rows=rows.group(1) if rows else "n/a", review=review_txt,
+                  protected="; ".join(f"{r} (edge {pl['rungs'][r]['edge']}): {', '.join(map(str, qs))}" for r, qs in prot.items()),
+                  same_as_day3=all(pl["rungs"][r]["qubits"] == day3["placement"]["rungs"][r]["qubits"] for r in pl["rungs"] if r in day3["placement"]["rungs"]))
+    tpl = root / "docs" / "repack" / "templates" / "10_truncation_pairs.md"
+    if tpl.exists():
+        return tpl.read_text(encoding="utf-8").format(**fields)
+    f = fields
+    return f"""# Pre-flight 10 ({f['date_label']}): Deviation 63 truncation pairs (list `dial_truncation_pairs`)
+
+**Record: this document, committed to `main`; its commit-pinned GitHub URL is the pre-flight record (Deviation 58). Reviewer: see Section 8. List not armed
+(Owais arms it after day 3's dispatch, in the same IBM properties window).** Generated by `scripts/make_truncation_pairs.py` from `day3_dial_refs.json`
+(Deviation 63; the list is built from the day-3 list and shares its placement block).
+
+## 1. What runs
+
+Placed on the **{f['stamp'][:10]}T{f['stamp'][11:13]}:{f['stamp'][13:15]}Z snapshot** (`{f['snap_csv']}`, raw properties `{f['props']}`), pinned; the {f['rung']} rung of day 3
+(origin {f['origin']}, n = {f['n']}, holes {f['holes']}, edge {f['edge']}; identical to day 3's: {f['same_as_day3']}).
+
+| probe | dial | p | L | truncate_to | masks x shots | M | seed |
+|---|---|---|---|---|---|---|---|
+{f['probes']}
+
+Budget model v3: **{f['jobs']} jobs, {f['pubs']} pubs, {f['min1']} min at 1 us**, about {f['work']} min at day 2's per-job constant (7.5 s per job, charge ratio 1.02).
+
+## 2. Comparators on this placement
+
+{f['comparators']}. Drawn with `python scripts/predict_h7_truncation.py --joblist data/joblists/paper1/dial_truncation_pairs.json` (the pairs) and the day-3
+command (H7), committed at {f['pred_commit']} before this pre-flight; {f['check_comparators']}.
+
+## 3. Pre-check and dry run
+
+Pre-check on the placement snapshot (runner semantics, every placed qubit and live coupler): {f['precheck']}. Dry run (FakeNighthawk, sampled):
+{f['fake_min']} min at 1 us with the fake's durations, {f['csv_rows']} CSV rows; the fake's stale calibration fails the layout check (`enforced: false`).
+
+## 4. Override and arming
+
+**Override path closed (Deviation 62 review M1, option (c)):** `approved_overrides`: [] (empty); the Deviation 26 override is not available and `layout_check`
+stays `enforce`. Protected elements: {f['protected']}. **Arming edits only `dry_run` (false) and `preflight_review`** (review M2), from a `main` commit at which
+Section 8 carries the review ({f['pr']} merged, Deviation 63 adopted). Dispatch right after day 3's jobs are submitted, within the same IBM properties
+update; if IBM has updated since the pre-check, a fresh calibration snapshot and Claude's pre-check first.
+
+## 8. Review
+
+{f['review']}
+"""
+
 
 
 def _pc_par(name, pc_snap, pc_props, pcs, lists, placement_snap=None, steps="Section 6, step 1"):
@@ -368,9 +567,15 @@ def _pc_par(name, pc_snap, pc_props, pcs, lists, placement_snap=None, steps="Sec
 
 
 def build(OUT, snap_csv, tag, date_label, dial_pp, pdir, review_txt="(to be filled)", precheck_res=None, pr="(this pull request)", branch="dev62-repackage",
-          prev_pred_dir=None, root=".", prev_lists_dir=None, prev_fail_snaps=("ibm_phoenix_2026-09-26T030720Z.csv",)):
+          prev_pred_dir=None, root=".", prev_lists_dir=None, prev_fail_snaps=("ibm_phoenix_2026-09-26T030720Z.csv",), prev=None, pred_commit=None,
+          with_pairs=False, comparators=None):
+    # Reviewer finding (1): ``comparators`` is the pipeline's own run of scripts/check_comparators.py per list ({name: {exit, missing, items}});
+    # unless every list that carries comparators ran and exited 0, nothing is rendered and no file is written.
+    cc = {n: _cc_entry((comparators or {}).get(n), n) for n in ("day3_dial_refs",) + (("dial_truncation_pairs",) if with_pairs else ())}
     OUT = Path(OUT); stamp = re.search(r"\d{4}-\d{2}-\d{2}T\d{6}Z", snap_csv).group(0)
-    hhmm = f"{stamp[11:13]}:{stamp[13:15]}"; day = f"{int(stamp[8:10])} Sep"
+    hhmm = f"{stamp[11:13]}:{stamp[13:15]}"; day = f"{int(stamp[8:10])} {_mon(stamp)}"
+    P_ = prev or dict(PREV, fall="3.05 / 3.15 / 6.93", sep8="4.50 / 4.20 / 3.31", n100_row="4.924e-04", n100_n=87)
+    pred_commit = pred_commit or "(the commit of this pull request that adds the lists and predictions)"
     J = {n: json.load(open(OUT / "A" / "joblists_paper1" / f"{n}.json")) for n in ("day3_dial_refs", "replication_01", "replication_01_16384", "section3c_blockC",
                                                                                  "dial_arm", "dial_arm_contingent")}
     SJ = json.load(open(OUT / "A" / "joblists_paper1" / "summary.json"))
@@ -395,8 +600,8 @@ def build(OUT, snap_csv, tag, date_label, dial_pp, pdir, review_txt="(to be fill
     g1 = open(OUT / "B" / "predictions" / f"gate1b_redraw_{tag}.md", encoding="utf-8").read()
     mg = open(OUT / "C" / "predictions" / f"main_grid_redraw_{tag}.md", encoding="utf-8").read()
     prev_dir = Path(prev_pred_dir) if prev_pred_dir else OUT / "prev"
-    pg = json.load(open(prev_dir / f"gate1b_redraw_{PREV['tag']}.json"))["runday_placement"]["rungs"]
-    pm = json.load(open(prev_dir / f"main_grid_redraw_{PREV['tag']}.json"))["runday_placement"]["rungs"]
+    pg = json.load(open(prev_dir / f"gate1b_redraw_{P_['tag']}.json"))["runday_placement"]["rungs"]
+    pm = json.load(open(prev_dir / f"main_grid_redraw_{P_['tag']}.json"))["runday_placement"]["rungs"]
     OLD = dict(n40=pg["n40"], n60=pg["n60"], n100=pg["n100"], n20=pm["n20"])
     props_name = J["day3_dial_refs"]["placement"]["properties"]
     run_day = ("day3_dial_refs", "replication_01", "replication_01_16384", "section3c_blockC")
@@ -441,7 +646,7 @@ def build(OUT, snap_csv, tag, date_label, dial_pp, pdir, review_txt="(to be fill
     ref_jobs = sorted((round(e["seconds_at_1us"]) for e in b3["per_job"] if e["tag"].startswith("L0-probes-s16384")), reverse=True)
     def work(b, ratio=1.0):
         return b["minutes_at_1us"] * ratio + sum(7.5 - e["job_constant_seconds"] for e in b["per_job"]) / 60
-    work3, worka1, worka2, workc = work(b3), work(a1, 1.02), work(a2, 1.02), work(bc, 1.02)
+    work3, worka1, worka2, workc = work(b3, 1.02), work(a1, 1.02), work(a2, 1.02), work(bc, 1.02)
     total_mod = sum(b["minutes_at_1us"] for b in (b3, a1, a2, bc)); work_all = work3 + worka1 + worka2 + workc
     budget_line = (f"Budget of the four lists: **{total_mod:.1f} min modelled at 1 us** (model v3: 3.0 s per job) and **about {work_all:.0f} min at day 2's per-job constant** "
                    f"(7.5 s per job, charge ratio 1.02 on the rest): `day3_dial_refs` {b3['minutes_at_1us']:.2f} / {work3:.1f}, `replication_01` {a1['minutes_at_1us']:.2f} / {worka1:.1f}, "
@@ -469,18 +674,12 @@ def build(OUT, snap_csv, tag, date_label, dial_pp, pdir, review_txt="(to be fill
     prot_txt = lambda n: "; ".join(f"{r} (edge {J[n]['placement']['rungs'][r]['edge']}): {', '.join(map(str, qs))}" for r, qs in prot[n].items())
 
     def safety_net(pf, n):
-        return (f"**Dispatch safety net (Deviation 62; an operational use of Deviation 26's pre-registered override, stricter than its letter).** If the live layout check "
-                f"refuses this list, Owais may re-arm it with `\"layout_check\": \"override\"` and `\"layout_check_reason\"` set to exactly:\n\n"
-                f"> {REASON.format(pf=pf, sec={'06': 6, '08': 7, '09': 7}[pf])}\n\n"
-                "and only when Claude's pre-check on the newest committed snapshot (after a fresh Actions -> \"calibration snapshot\" run) shows **every** failing element "
-                "(qubits and couplers) (i) outside the observable edge and the L = 2 cone of every rung of the list, where a coupler counts as inside when either of its "
-                "qubits is an edge or cone qubit, and (ii) within **CZ error <= 1.0e-2, T1 and T2 >= 15 us, readout error <= 6.0e-2, initialisation error <= 1.0e-3**. "
-                "Otherwise he edits only `dry_run` and `preflight_review` (no override) and the list waits for the next calibration or a re-package. The runner accepts "
-                "the override only with a non-empty reason and never for a failing qubit on an edge or in its L = 2 cone (Deviation 26). The paper reports every "
-                "override; the post-run review checks the runner's logged failing set (`layout_check` in each job.json) against these limits. Protected qubits of this "
-                f"list (edge and L = 2 cone per rung): {prot_txt(n)}. On the newest snapshot: "
-                + ("no failure, so no override is needed." if not (pcs[n]["qfail"] or pcs[n]["cfail"]) else
-                   ("an override would be admissible." if elig[n][0] else "an override would **not** be admissible (" + "; ".join(elig[n][1]) + ").")))
+        return ("**Override path closed for this dispatch (Deviation 62 review M1, option (c)).** `approved_overrides`: [] (empty): the Deviation 26 "
+                "layout-check override is not available, and `layout_check` stays `enforce`. If the live layout check refuses this list, nothing is charged; the "
+                "list waits for IBM's next calibration (a pinned list may be dispatched again once every failing element is back inside its cut, Deviation 58) or "
+                "for a same-day re-package on the new snapshot (`scripts/sameday_repackage.py`). Protected elements of this list (observable edge and L = 2 cone "
+                f"per rung; a coupler counts when either qubit is protected): {prot_txt(n)}. On the placement snapshot: "
+                + ("no failure." if not (pcs[n]["qfail"] or pcs[n]["cfail"]) else "failures: " + "; ".join(pcs[n]["qfail"] + pcs[n]["cfail"]) + "."))
 
     _Qn, _CZn = _snap_values(str(snap_path))
     _ch = sorted({q for v in list(R3.values()) + [R20, R100] for q in v.get("component_holes", [])})
@@ -490,13 +689,14 @@ def build(OUT, snap_csv, tag, date_label, dial_pp, pdir, review_txt="(to be fill
     assert longq == {79}, longq
     rules62 = (f"**Placement rule (Deviation 62, draft):** the pre-registered cuts (Deviations 22, 26, 53) on the {day} {hhmm}Z snapshot, pinned (Deviation 58); no "
                "placement margin. (1) **Connected-component rule:** the qubits of a rectangle outside the largest connected component of its live-coupler graph (holes "
-               f"and broken couplers removed) become holes, where the pre-registered rule rejected the rectangle as disconnected; on this snapshot {iso}, so no 10x10 "
-               "rectangle was connected under the old rule (as on 26 Sep 03:07Z, where the rule was first needed). Holes the rule makes: "
+               f"and broken couplers removed) become holes, where the pre-registered rule rejected the rectangle as disconnected; " + (f"on this snapshot {iso}, so no 10x10 "
+               "rectangle was connected under the old rule (as on 26 Sep 03:07Z, where the rule was first needed)" if iso else "on this snapshot every rung's "
+               "live-coupler graph is connected, so the rule adds no hole (it was first needed on 26 Sep 03:07Z)") + ". Holes the rule makes: "
                f"{comp_txt} (the stop limit is 3 per rung of the run-day lists). (2) **Qubit 79 excluded from the dial patches** (Section 3b Implementation: 'qubit 79: "
                f"2140 ns, excluded from dial patches'; native reset 400 ns on the other 119 qubits, and no other qubit longer on any of the {lr_n} committed properties "
                f"snapshots, {lr_first} to {lr_last}): the patches of `day3_dial_refs` (and its sources `references_gate1b`, `dial_arm`) and `dial_arm_contingent` are placed with Q79 excluded, "
                "recorded as `placement.dial_exclude` [79] and applied by the runner (`gradvar.hardware.dial_exclusion`). **The 23 Sep lists violated this rule** "
-               f"(Q79 sat in their n60 and n100 dial patches) and the reviewed pre-flight 06 of 23 Sep did not catch it. The non-dial lists use the plain placement, so "
+               f"(Q79 sat in their n60 and n100 dial patches); neither pre-flight 06 of 23 Sep nor its independent review of 24 Sep caught it (found on 25 Sep; none of those lists was dispatched). The non-dial lists use the plain placement, so "
                f"their n100 rung (n = {R100['n']}, Q79 placed) differs from day 3's (n = {R100d['n']}, Q79 a hole) by that one qubit.")
 
     pf06 = f"""# Pre-flight 06 (reissued {date_label}): Paper 1 campaign day 3, the reset-dial arm and the Gate 1b references (list `day3_dial_refs`)
@@ -506,7 +706,7 @@ Reviewer: see Section 8. List not armed (Owais arms it; first of four lists).**
 
 Placed on the **{stamp[:10]}T{hhmm}Z snapshot** (`{snap_csv}`, raw properties `{props_name}`), to which the list is **pinned**
 (`placement.pin_snapshot`, Deviation 58): the runner builds it on this snapshot in the dry run and at submission, whatever snapshot is newest on the
-day of dispatch. Supersedes pre-flight 06 of {PREV['date']} (`{PREV['files'][0]}`, {PREV['snap']} data), which was reviewed but never dispatched: on the
+day of dispatch. Supersedes pre-flight 06 of {P_['date']} (`{P_['files'][0]}`, {P_['snap']} data), which was reviewed but never dispatched: on the
 {pf_prev['day3_dial_refs'][0][0]} snapshot (IBM properties of {precheck_res['ibm_properties_placement']}) its pinned placement fails the live cuts on {pf_prev['day3_dial_refs'][0][1]}{prev_more('day3_dial_refs')}.
 {q79_prev} **Nothing of this list has been submitted**; it is
 un-armed (`dry_run` true, placeholder permalink). Pre-registration **v0.17.0** as stamped in the lists (Deviation 62, draft, to be adopted and
@@ -544,18 +744,17 @@ Placement by the pre-registered rule (Deviations 22 / 26 / 46 / 53) and Deviatio
 operational, Deviation 22 init >= 5e-4 / ZZ >= 1 MHz to an excluded qubit, Deviation 53 coherence floor T1, T2 >= 25 us, the fixed list): {excl}. Plus, on these
 dial patches only, Q79 (Section 3b), and the connected-component holes above.
 
-| rung | patch | n | origin | holes | broken couplers | edge (rule) | live couplers | L = 2 cone | change vs pre-flight 06 of {PREV['date']} |
+| rung | patch | n | origin | holes | broken couplers | edge (rule) | live couplers | L = 2 cone | change vs pre-flight 06 of {P_['date']} |
 |---|---|---|---|---|---|---|---|---|---|
 {tab3}
 
-The dial patch (n60) is rows {R3['n60']['origin'][0]}-{R3['n60']['origin'][0] + 5} ({PREV['date']}: rows {OLD['n60']['origin'][0]}-{OLD['n60']['origin'][0] + 5}), so the dial-arm and reference predictions are the re-drawn rows of Section 2.5.
+The dial patch (n60) is rows {R3['n60']['origin'][0]}-{R3['n60']['origin'][0] + 5} ({P_['date']}: rows {OLD['n60']['origin'][0]}-{OLD['n60']['origin'][0] + 5}), so the dial-arm and reference predictions are the re-drawn rows of Section 2.5.
 The runner builds each rung at the origin recorded in the list (Deviation 58), with the list's `dial_exclude`; the placement is not re-derived on a newer snapshot.
 
 **Live layout check at submission (unchanged):** the Deviations 26 / 53 cuts on the union of the three rungs ({pcs['day3_dial_refs']['qubits']} qubits, {pcs['day3_dial_refs']['couplers']} live couplers)
 against the live calibration; a failing qubit anywhere refuses the whole list, nothing is charged. Under Deviation 58 a refused list **may be dispatched again
-after IBM's next calibration without re-packaging** once the failing qubit is back inside its cut (or, within the limits of Section 6, with the Deviation 62
-safety net); a qubit that stays out forces a re-package on a newer snapshot. **Watch list** on this snapshot (placed qubits within 25 percent of a
-cut): {wl3}. Placed qubits that failed a cut on an earlier committed snapshot since 20 Sep: {fl3 or 'none'}. Live couplers within 20 percent of the
+after IBM's next calibration without re-packaging** once the failing element is back inside its cut (no override: Section 6); an element that stays out forces a re-package on a newer snapshot.
+**Watch list** on this snapshot (placed qubits with T1 or T2 < 31.25 us, readout error >= 2.4e-2 or initialisation error >= 3.0e-4): {wl3}. Placed qubits that failed a cut on an earlier committed snapshot since 20 Sep: {fl3 or 'none'}. Live couplers within 20 percent of the
 5e-3 CZ cut: {czs(cz3)}.
 
 ### 2.5 Gate 1b references and dial predictions: the Deviation 46 re-draw on this placement
@@ -564,17 +763,20 @@ cut): {wl3}. Placed qubits that failed a cut on an earlier committed snapshot si
 {rundown.group(5)} core-min), on the dial placement (Q79 excluded): **{rundown.group(1)} of {rundown.group(2)} Gate 1b rows re-drawn, {rundown.group(3)} frozen rows standing**; frozen-reading
 regression max rel. diff {rundown.group(6)} ({rundown.group(7)} at 1e-9). Committed before this pre-flight as `data/predictions/gate1b_redraw_{tag}.{{json,csv,md}}` (Deviation 54 order).
 **Gate 1b {verdict}** under Deviations 27 + 45: clause (b) (delay-matched p = 0 fall L = 8 -> 12 against 3x the larger shot floor, 9.16e-5 at 16384
-shots) {cb.group(1)} ({re.sub(r'^[A-Za-z]+ [(]', '', cb.group(2))}), fall / bar **{fb('4x10')} / {fb('6x10')} / {fb('10x10')}** on n40 / n60 / n100 ({PREV['date']}: 3.05 / 3.15 / 6.93), fall / 2 sigma (M = 350)
+shots) {cb.group(1)} ({re.sub(r'^[A-Za-z]+ [(]', '', cb.group(2))}), fall / bar **{fb('4x10')} / {fb('6x10')} / {fb('10x10')}** on n40 / n60 / n100 ({P_['date']}: {P_['fall']}), fall / 2 sigma (M = 350)
 {f2('4x10')} / {f2('6x10')} / {f2('10x10')}; the separation clause (>= 3x the shot + pattern floor, pattern floor < separation / 2): {sep8} at L = 8 ({sp('4x10', '8')} / {sp('6x10', '8')} /
-{sp('10x10', '8')}x; {PREV['date']}: 4.50 / 4.20 / 3.31x), {sep12} at L = 12. The n40 reference is {n40ref[4].split()[0]} against the frozen {n40ref[3]}: the edge is {R3['n40']['edge']}
+{sp('10x10', '8')}x; {P_['date']}: {P_['sep8']}x), {sep12} at L = 12. The n40 reference is {n40ref[4].split()[0]} against the frozen {n40ref[3]}: the edge is {R3['n40']['edge']}
 ({R3['n40']['edge_rule']}).
 
 | rung | n | L | V(p = 0) reference (k = L) | V(p = 0.25) reset dial (k = L) | Var[C_mix] p = 0.25 | Dev. 33 k = L floor | k = L / floor | H6 V(12)/V(8), dial / reference |
 |---|---|---|---|---|---|---|---|---|
 {h56rows}
 
-These rows are what the day-3 post-run review reads the references and the dial points against. The H5 / H6 p = 0.5 rows and the H7 comparator on this
-placement are drawn by the Deviation 60 track once the placement is settled (not here). The main-grid rows of the n20 and plain n100 rungs are re-drawn in
+These rows are what the day-3 post-run review reads the references and the dial points against.
+
+{comparators_par(Path(prev_pred_dir or (Path(root) / 'data' / 'predictions')), tag, pred_commit, J['day3_dial_refs'], cc=cc['day3_dial_refs'])}
+
+The main-grid rows of the n20 and plain n100 rungs are re-drawn in
 the same session for pre-flights 08 and 09 (`main_grid_redraw_{tag}.*`).
 
 {_pc_par('06', pc_snap, pc_props, pcs, ['day3_dial_refs'], snap_csv)}
@@ -599,22 +801,22 @@ dispatch; no bundle over the 45 MB rule. Known limits unchanged (ambiguities 3, 
 ## 5. Science checks at the post-run review
 
 As in Section 5 of the 21 Sep document (Gate 1b clause (b) live per rung, H5 to H7, Deviation 38 masks, Deviation 19 flags), read against the
-re-drawn rows of Section 2.5 and, for H5 / H6 at p = 0.5 and H7, the comparators the Deviation 60 track draws on this placement.
+re-drawn rows of Section 2.5, including the H5 / H6 p = 0.5 rows and the H7 comparator drawn on this placement (committed at {pred_commit}).
 
 ## 6. Retrieval path and human steps (Owais), when the review says GO
 
 0. Before arming: the re-packaged lists are on `main` ({pr} merged, with Deviation 62 adopted in pre-registration v0.17.0); on `main`, each of the four lists'
-   `placement.snapshot` is `{snap_csv}` and `day3_dial_refs.json` carries `placement.dial_exclude` [79]. Edit only `dry_run` and `preflight_review` (removing
-   `pin_snapshot` would let the runner place the list afresh on the newest snapshot), plus, only under the safety net below, `layout_check` and `layout_check_reason`.
-1. Run Actions -> "calibration snapshot"; Claude pre-checks every placed qubit and live coupler of the list on the new snapshot and says whether it passes, fails
-   within the safety-net limits (override admissible), or fails outside them (wait or re-package).
+   `placement.snapshot` is `{snap_csv}` and `day3_dial_refs.json` carries `placement.dial_exclude` [79]. **Arming edits only `dry_run` (false) and `preflight_review`**
+   (review M2): nothing else changes; removing `pin_snapshot` would let the runner place the list afresh, and `layout_check` stays `enforce`.
+1. Run Actions -> "calibration snapshot"; Claude pre-checks every placed qubit and live coupler of the list on the new snapshot and says whether it passes; a list
+   that fails is not armed (no override) and waits for the next calibration or a same-day re-package.
 2. Arm: in `data/joblists/paper1/day3_dial_refs.json` set `"dry_run": false` and `"preflight_review": "<the commit-pinned URL of this file>"`
    (form `https://github.com/SSIT-Q/gradvar-phoenix/blob/<40-hex commit>/docs/preflight/06_paper1_day3_dial_{stamp[:10]}.md`, the commit on `main` at which
    Section 8 below carries the review; each list takes its own pre-flight's URL: the runner checks the form only), commit to `main`.
 3. Actions, "run hardware job list", branch `main`, `joblist` = `data/joblists/paper1/day3_dial_refs.json`, untick "Build and transpile only",
    tick `submit_only`, leave `only_job_tag` / `max_pubs` empty, Run. The log should show `placement pinned to {snap_csv}`;
-   it writes `data/runs/<date>/paper1_day3_dial_refs_job_ids.json`. If the live layout check refuses, note the qubits in the log and stop (Section 2, and the
-   safety net below). If a submitting run ends without the line `job ids written to`, do not dispatch the whole list again: the ids file is written after the
+   it writes `data/runs/<date>/paper1_day3_dial_refs_job_ids.json`. If the live layout check refuses, note the elements in the log and stop (Section 2; no override,
+   below). If a submitting run ends without the line `job ids written to`, do not dispatch the whole list again: the ids file is written after the
    submission loop, so the repeat guard cannot see a run cut off mid-loop; recover the job ids from its `submitted job` log lines first.
 4. When the {b3['jobs']} jobs are done (about {work3:.0f} QPU minutes): "retrieve hardware jobs" with that ids file; a failed job is resubmitted with `only_job_tag`.
 5. Post-run review `docs/postrun/05_paper1_day3_<date>.md`: kill rules (a)-(d), Gate 2 (e), Gate 1b clause (b) per rung, H5 to H7, Deviation 39, and any override.
@@ -643,7 +845,7 @@ re-drawn rows of Section 2.5 and, for H5 / H6 at p = 0.5 and H7, the comparators
 Reviewer: see Section 8. Lists not armed (Owais arms them after day 3's dispatch).**
 
 Placed on the **{stamp[:10]}T{hhmm}Z snapshot** (`{snap_csv}`), to which both lists are **pinned** (Deviation 58). Supersedes pre-flight 08
-of {PREV['date']} (`{PREV['files'][1]}`, {PREV['snap']} data; never dispatched: on the {pf_prev['replication_01'][0][0]} snapshot its placement fails the live cuts on
+of {P_['date']} (`{P_['files'][1]}`, {P_['snap']} data; never dispatched: on the {pf_prev['replication_01'][0][0]} snapshot its placement fails the live cuts on
 {pf_prev['replication_01'][0][1]}{prev_more('replication_01')}).
 Pre-registration **v0.17.0** as stamped in the lists (Deviation 62, draft): Deviation 19 (anomaly protocol, the two recorded flags), Deviation 57 (replication
 placement), Deviation 58 (the replication's 4x5 is placed by the rule among rectangles disjoint from day 1's; pinned snapshot), Deviation 62 (the
@@ -668,7 +870,7 @@ generator's test). `campaign.replication` in each list records the flags, day 1'
 
 - **n20 (flag 1).** Deviation 58 places the replication's 4x5 by the pre-registered ranking among the rectangles **disjoint from day 1's** (rows 8-11,
   columns 1-5), so Deviation 19's "different clean patch" holds by construction: **({R20['origin'][0]}, {R20['origin'][1]}), n = {R20['n']}, {('holes ' + ', '.join(map(str, R20['holes']))) if R20['holes'] else 'no hole'}, broken {_brk(R20)}, edge {R20['edge']},
-  {R20['live_couplers']} live couplers, L = 2 cone of {len(R20['cone_L2_qubits'])} qubits / {R20['cone_L2_couplers']} couplers** ({PREV['date']}: {_change(OLD['n20'], R20)}). No qubit in common with
+  {R20['live_couplers']} live couplers, L = 2 cone of {len(R20['cone_L2_qubits'])} qubits / {R20['cone_L2_couplers']} couplers** ({P_['date']}: {_change(OLD['n20'], R20)}). No qubit in common with
   day 1's patch; "clean" is read as "cleanest under the cuts among the disjoint rectangles", recorded as such. The connected-component rule adds {('no hole here' if not R20.get('component_holes') else 'holes ' + ', '.join(map(str, R20['component_holes'])) + ' here')}.
 - **n100 (flag 2).** The **plain** n100 rung (no reset dial here, so qubit 79 is placed): ({R100['origin'][0]}, {R100['origin'][1]}), n = {R100['n']} (holes {', '.join(map(str, R100['holes']))};
   component-rule hole {', '.join(f'Q{q}' for q in R100.get('component_holes', [])) or 'none'}), {len(R100['broken_edges'])} broken couplers, edge {R100['edge']}, {R100['live_couplers']} live couplers. It differs from day 3's dial
@@ -679,7 +881,7 @@ generator's test). `campaign.replication` in each list records the flags, day 1'
   IST date from both and several calibration cycles later.
 - **Live re-check at submission**: `layout_check: enforce` on the placed qubits of both rungs ({pcs['replication_01']['qubits']} qubits, {pcs['replication_01']['couplers']} live couplers in
   `replication_01`); a refusal charges nothing and, under Deviation 58, the list may be dispatched again after IBM's next calibration without re-packaging
-  (or under the safety net of Section 7). Watch list on the n20 rung, placed qubits within 25 percent of a cut: {wl20}; placed qubits that failed a cut on an
+  (no override: Section 7). Watch list on the n20 rung (T1 or T2 < 31.25 us, readout >= 2.4e-2, init >= 3.0e-4): {wl20}; placed qubits that failed a cut on an
   earlier snapshot: {fl20 or 'none'}; live couplers within 20 percent of the CZ cut: {czs(cz20)}. On the n100 rung: pre-flight 06 Section 2 (plus Q79, placed here).
 
 {_pc_par('08', pc_snap, pc_props, pcs, ['replication_01', 'replication_01_16384'], snap_csv, 'Section 7, step 0')}
@@ -707,9 +909,9 @@ placement; committed as `data/predictions/main_grid_redraw_{tag}.{{json,csv,md}}
 | rung, point | row the flag is read against (non-unital propagation, population) | unital | noiseless | other |
 |---|---|---|---|---|
 | n20 (n = {R20['n']}, edge {R20['edge']}), L = 4, k = 1 | **{n20['nu']}** | {n20['un']} | {n20['nl']} | exact noiseless statevector, M = 200 at seed 2026: {n20['ex']} |
-| n100 (n = {R100['n']}, edge {R100['edge']}), L = 8, k = 1 | **{n100['nu']}** | {n100['un']} | {n100['nl']} | day-2 run-day row at n = 85: 3.069e-04; {PREV['snap']} row at n = 87: 4.924e-04 |
+| n100 (n = {R100['n']}, edge {R100['edge']}), L = 8, k = 1 | **{n100['nu']}** | {n100['un']} | {n100['nl']} | day-2 run-day row at n = 85: 3.069e-04; {P_['snap']} row at n = {P_['n100_n']}: {P_['n100_row']} |
 
-The predictions are placement-specific: the n100 row is {n100['nu'].split()[0]} on this placement against 4.924e-04 on the {PREV['snap']} one (n = 87) and 3.069e-04 on day 2's
+The predictions are placement-specific: the n100 row is {n100['nu'].split()[0]} on this placement against {P_['n100_row']} on the {P_['snap']} one (n = {P_['n100_n']}) and 3.069e-04 on day 2's
 (n = 85); holes and broken couplers near the edge differ between them. Each replicated point is read against the row of the placement it runs on.
 
 Beside them at the post-run review, the Deviation 19 calibrated noisy simulations on the replication-day calibration: exact unital and non-unital
@@ -732,8 +934,7 @@ The fake's stale calibration fails the layout check (`enforced: false`), as for 
 
 ## 7. Human steps (Owais), after day 3's dispatch and when the review says GO
 
-0. As pre-flight 06 Section 6 step 0 ({pr} merged; `placement.snapshot` `{snap_csv}` on `main`; edit only `dry_run` and `preflight_review`, plus the safety-net
-   fields below; the stop rule for a submitting run that ends without `job ids written to`), and step 1 (fresh calibration snapshot, Claude's pre-check).
+0. As pre-flight 06 Section 6 step 0 ({pr} merged; `placement.snapshot` `{snap_csv}` on `main`; arming edits only `dry_run` and `preflight_review`; the stop rule for a submitting run that ends without `job ids written to`), and step 1 (fresh calibration snapshot, Claude's pre-check).
 1. (Claude, done) Regenerated on the pinned snapshot (`--replication`, `--check`), re-drawn predictions committed, this document committed.
 2. Arm **both** lists: in `data/joblists/paper1/replication_01.json` and `replication_01_16384.json` set `"dry_run": false` and
    `"preflight_review": "<the commit-pinned URL of this file>"` (`https://github.com/SSIT-Q/gradvar-phoenix/blob/<40-hex commit>/docs/preflight/08_paper1_replication_{stamp[:10]}.md`, the commit on `main` at which Section 8
@@ -760,7 +961,7 @@ The fake's stale calibration fails the layout check (`enforced: false`), as for 
 Reviewer: see Section 8. List not armed (Owais arms it after the replication lists' dispatch).**
 
 Placed on the **{stamp[:10]}T{hhmm}Z snapshot** (`{snap_csv}`), to which the list is **pinned** (Deviation 58). Supersedes pre-flight 09 of
-{PREV['date']} (`{PREV['files'][2]}`, {PREV['snap']} data; never dispatched: on the {pf_prev['section3c_blockC'][0][0]} snapshot its placement fails the live cuts on
+{P_['date']} (`{P_['files'][2]}`, {P_['snap']} data; never dispatched: on the {pf_prev['section3c_blockC'][0][0]} snapshot its placement fails the live cuts on
 {pf_prev['section3c_blockC'][0][1]}{prev_more('section3c_blockC')}). Pre-registration **v0.17.0** as stamped in the list (Deviation 62, draft): Section 3c /
 Deviation 56 (v0.15.0) and its erratum (v0.15.1: no per-draw noiseless comparison exists at n >= 84, L >= 8; Block C is compared with the propagation prediction
 and the L = 0 floors), Deviations 18, 22, 26, 37, 43, 46, 47, 53, 55, 58, 62; Section 5 Gate 2 (e). **Order: day 3 (pre-flight 06), then the Deviation 19
@@ -780,10 +981,10 @@ draws. `campaign.section3c` records the block, the decision, the shot count and 
 ## 2. Placement and its live re-check
 
 The **plain** n100 rung, as pre-flight 08 places it (pinned; no reset dial here, so Q79 is placed): origin ({R100['origin'][0]}, {R100['origin'][1]}), holes {', '.join(map(str, R100['holes']))}
-({_and(f'Q{q}' for q in R100.get('component_holes', [])) or 'none'} by the Deviation 62 connected-component rule); broken couplers {_brk(R100)}; edge {R100['edge']} (`interior_edge`). Against {PREV['date']}: {_change(OLD['n100'], R100)}.
+({_and(f'Q{q}' for q in R100.get('component_holes', [])) or 'none'} by the Deviation 62 connected-component rule); broken couplers {_brk(R100)}; edge {R100['edge']} (`interior_edge`). Against {P_['date']}: {_change(OLD['n100'], R100)}.
 Day 3's dial n100 differs from it only by Q79 (a hole there). The L = 8 and L = 10 light cones of the edge cover the whole patch: no exact per-draw noiseless
 reference exists (Section 4). Live re-check at submission as on every list (a refusal charges nothing; under Deviation 58 the list may be dispatched again after
-IBM's next calibration without re-packaging, or under the safety net of Section 7); watch list as in pre-flight 06 Section 2.
+IBM's next calibration without re-packaging; no override, Section 7); watch list as in pre-flight 06 Section 2.
 
 {_pc_par('09', pc_snap, pc_props, pcs, ['section3c_blockC'], snap_csv, 'Section 7, step 0')}
 
@@ -845,7 +1046,12 @@ L = 8 at 65,536 shots, ISA ops `cz, rz, sx`; `L0-probes-s65536`: SPAM-only, no g
 """
     pdir = Path(pdir); pdir.mkdir(parents=True, exist_ok=True)
     names = (f"06_paper1_day3_dial_{stamp[:10]}.md", f"08_paper1_replication_{stamp[:10]}.md", f"09_paper1_section3c_blockC_{stamp[:10]}.md")
-    for name, txt in zip(names, (pf06, pf08, pf09)):
+    texts = [pf06, pf08, pf09]
+    if with_pairs:
+        names = names + (f"10_paper1_truncation_pairs_{stamp[:10]}.md",)
+        texts.append(render_pf10(OUT, snap_csv, tag, date_label, stamp, props_name, Path(prev_pred_dir or (Path(root) / 'data' / 'predictions')), pred_commit,
+                                 precheck_res, review_txt, pr, J["day3_dial_refs"], Path(root), cc=cc["dial_truncation_pairs"]))
+    for name, txt in zip(names, texts):
         (pdir / name).write_text(txt, encoding="utf-8", newline="\n")
     return dict(names=names, work3=work3, total=total_mod, work_all=work_all, verdict=verdict, sep8=sep8, sep12=sep12, near3=near3, near20=near20, l10=l10,
                 eligible={n: elig[n] for n in run_day}, budget_line=budget_line)

@@ -35,6 +35,13 @@ def _jl(name):
     return json.loads((P1 / name).read_text())
 
 
+def _rect(v):
+    """The qubits of a rung's rectangle (placed qubits and holes)."""
+    r0, c0 = v["origin"]
+    rows, cols = (int(x) for x in v["patch"].split("x"))
+    return {10 * (r0 + dr) + c0 + dc for dr in range(rows) for dc in range(cols)}
+
+
 def test_component_rule_places_the_n100_rung_on_26_sep():
     """Q29 passes the qubit cuts on the 26 Sep 03:07Z snapshot but its three couplers are over the CZ cut: every 10x10 rectangle is
     disconnected under the old rule; under Deviation 62 Q29 becomes a hole of the (2, 0) rectangle."""
@@ -98,11 +105,13 @@ def test_dial_lists_exclude_q79_and_the_other_lists_do_not():
             assert v["dial_excluded_holes"] == ([79] if 79 in v["holes"] else []), (name, rung)
         assert "qubit 79" in pl["rules"]["dial_exclude"]["reason"]
     d3 = _jl("day3_dial_refs.json")["placement"]["rungs"]
-    assert 79 in d3["n60"]["holes"] and 79 in d3["n100"]["holes"]
+    for rung, v in d3.items():                                     # Q79 is a hole of every dial rung whose rectangle holds it (placement-agnostic)
+        assert (79 in v["holes"]) == (79 in _rect(v)), rung
     for name in PLAIN_N100_LISTS:
         pl = _jl(name)["placement"]
         assert "dial_exclude" not in pl and 79 in pl["rungs"]["n100"]["qubits"], name
-        assert pl["rungs"]["n100"]["n"] == d3["n100"]["n"] + 1 and pl["rungs"]["n100"]["origin"] == d3["n100"]["origin"], name
+        plain = pl["rungs"]["n100"]
+        assert plain["n"] == d3["n100"]["n"] + (1 if 79 in plain["qubits"] else 0) and plain["origin"] == d3["n100"]["origin"], name
     for name in ("grid_n60.json", "grid_n100.json"):
         assert "dial_exclude" not in _jl(name)["placement"]
 
@@ -113,7 +122,7 @@ def test_runner_applies_the_dial_exclusion():
     csv = hw.pinned_calibration_csv(jl)
     assert Path(csv).name == PLACED.name and component_rule_applies(PLACED)
     origins = hw.pinned_origins(jl, csv)
-    for rung in ("n60", "n100"):
+    for rung in [r for r, v in jl["placement"]["rungs"].items() if 79 in _rect(v) and 79 not in jl["placement"]["excluded"]]:
         v = jl["placement"]["rungs"][rung]
         entry = {"n": v["n"], "patch": v["patch"], "edge": v["edge"]}
         patch, _ = hw._placed_patch(entry, csv, rung, origins, hw.dial_exclusion(jl))
@@ -140,4 +149,5 @@ def test_component_holes_on_the_run_day_lists_within_the_stop_limit():
         for rung, v in _jl(name)["placement"]["rungs"].items():
             assert len(v["component_holes"]) <= 3, (name, rung)
             assert set(v["component_holes"]) <= set(v["holes"]) and not set(v["component_holes"]) & set(_jl(name)["placement"]["excluded"])
-    assert _jl("day3_dial_refs.json")["placement"]["rungs"]["n100"]["component_holes"] == [29]
+    if PLACED.name in ("ibm_phoenix_2026-09-26T030720Z.csv", "ibm_phoenix_2026-09-27T030805Z.csv"):   # the snapshots on which the rule was needed
+        assert _jl("day3_dial_refs.json")["placement"]["rungs"]["n100"]["component_holes"] == [29]

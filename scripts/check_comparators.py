@@ -13,6 +13,11 @@ run on (the list's ``placement`` block):
 
 A missing H7 comparator is drawn with ``scripts/predict_h7_truncation.py --joblist <list>``, missing dial rows with
 ``scripts/redraw_dial_points.py --joblist <list>``, before the pre-flight (Deviations 46, 58) or under Deviation 54.
+
+Deviation 63 (draft): a truncation arm is keyed by its dial kind as well (``reset_kind``), and its comparator is looked up for that
+kind (``truncation_prediction(reset_kind=...)``), so the Part A3 pairs of ``dial_truncation_pairs.json`` (the reset dial at p = 0.25,
+the dephasing dial at p = 0.5) each need their own entry; a list carrying the dephasing pair also needs H7's comparator (the reset
+dial at p = 0.5) on the same placement, which sets A3(b)'s pre-drawn margin.
 """
 from __future__ import annotations
 
@@ -49,8 +54,8 @@ def check(joblist: str | Path, pred_dir: str | Path = PRED) -> dict:
         if pr.get("kind") != "reset_dial":
             continue
         name, rung = _rung(jl, pr["patch"], int(pr["n"]), pr["edge"])
-        if pr.get("unshifted"):                                            # the truncation arm: one comparator per (point, seed)
-            key = (pr["patch"], int(pr["n"]), pr["edge"], int(pr["L"]), float(pr["p"]), int(pr.get("seed", 0)))
+        if pr.get("unshifted"):                                            # the truncation arm: one comparator per (point, dial kind, seed)
+            key = (pr["patch"], int(pr["n"]), pr["edge"], int(pr["L"]), float(pr["p"]), str(pr.get("reset_kind", "reset")), int(pr.get("seed", 0)))
             arms.setdefault(key, dict(name=name, rung=rung, probes=[]))["probes"].append(pr["id"])
             continue
         dial = P.DIAL_KIND.get(str(pr.get("reset_kind", "reset")), str(pr.get("reset_kind", "reset")))
@@ -62,14 +67,23 @@ def check(joblist: str | Path, pred_dir: str | Path = PRED) -> dict:
                                          qubits=rung.get("qubits"))
         items.append(dict(item, found=hit is not None, source=(hit or {}).get("source"), status=(hit or {}).get("status"),
                           reason=why or None, fallback=(fb or {}).get("source")))
-    for (patch, n, edge, L, p, seed), a in sorted(arms.items(), key=str):
-        item = dict(need="H7 comparator (l = 2)", probe=", ".join(a["probes"]), rung=a["name"], p=p, L=L)
+    margin_rungs = {}
+    for (patch, n, edge, L, p, kind, seed), a in sorted(arms.items(), key=str):
+        h7 = kind == "reset" and abs(p - 0.5) < 1e-12
+        item = dict(need="H7 comparator (l = 2)" if h7 else "A3 pair comparator (l = 2)", probe=", ".join(a["probes"]), rung=a["name"], p=p, L=L,
+                    reset_kind=kind)
         if a["rung"] is None:
             items.append(dict(item, found=False, reason=a["name"] or "no rung"))
             continue
-        comp, why = P.truncation_prediction(preds, patch=patch, edge=edge, n=n, p=p, L=L, qubits=a["rung"].get("qubits"))
+        if kind == "dephase" and not any(k[5] == "reset" and abs(k[4] - 0.5) < 1e-12 and k[:4] == (patch, n, edge, L) for k in arms):
+            margin_rungs[(patch, n, edge, L)] = a
+        comp, why = P.truncation_prediction(preds, patch=patch, edge=edge, n=n, p=p, L=L, qubits=a["rung"].get("qubits"), reset_kind=kind)
         items.append(dict(item, found=comp is not None, source=(comp or {}).get("file"), reason=why or None,
                           rms_l2=(comp or {}).get("rms_l2")))
+    for (patch, n, edge, L), a in sorted(margin_rungs.items(), key=str):   # Deviation 63 A3(b): the margin needs H7's comparator on this placement
+        comp, why = P.truncation_prediction(preds, patch=patch, edge=edge, n=n, p=0.5, L=L, qubits=a["rung"].get("qubits"), reset_kind="reset")
+        items.append(dict(need="H7 comparator (A3(b) margin)", probe="(day 3's trunc_full_p0.5_L8 / trunc_l2_p0.5_L8)", rung=a["name"], p=0.5, L=L,
+                          reset_kind="reset", found=comp is not None, source=(comp or {}).get("file"), reason=why or None, rms_l2=(comp or {}).get("rms_l2")))
     stamp = (jl.get("placement") or {}).get("stamp")
     return dict(joblist=Path(joblist).name, placement=stamp, items=items, missing=sum(1 for x in items if not x["found"]))
 

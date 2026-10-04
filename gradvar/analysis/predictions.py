@@ -115,10 +115,15 @@ def load_truncation_entries(directory: str | Path) -> List[Dict]:
     return out
 
 
-def _same_point(entry: Dict, patch, edge, n, p, L, qubits) -> tuple:
+def _same_point(entry: Dict, patch, edge, n, p, L, qubits, reset_kind: str = "reset") -> tuple:
     """(matches, reason) of a comparator entry against a truncation point. The placement must match on the placed qubit set,
-    which both sides must record (Deviation 60, review M5); the other keys are compared where both sides carry them."""
+    which both sides must record (Deviation 60, review M5); the other keys are compared where both sides carry them. The dial kind
+    must match too (Deviation 63, draft: the dephasing-dial pair shares the H7 point's patch, edge, n, p, L and qubits); an entry
+    without ``reset_kind`` is a reset-dial comparator, as every entry drawn before Deviation 63 is."""
     pt = entry.get("point", entry)
+    kind = str(pt.get("reset_kind") or "reset")
+    if kind != str(reset_kind or "reset"):
+        return False, f"reset_kind {kind} (comparator) vs {reset_kind} (run)"
     if qubits is None:
         return False, "the rows record no placed qubit set"
     if pt.get("qubits") is None:
@@ -133,24 +138,25 @@ def _same_point(entry: Dict, patch, edge, n, p, L, qubits) -> tuple:
     return True, ""
 
 
-def truncation_prediction(preds: Dict, patch=None, edge=None, n=None, p=None, L=None, qubits=None) -> tuple:
+def truncation_prediction(preds: Dict, patch=None, edge=None, n=None, p=None, L=None, qubits=None, reset_kind: str = "reset") -> tuple:
     """(comparator, note) for one truncation-arm point (H7, Deviation 60): ``preds['truncation']`` when the caller set one
     (it must carry ``rms_l2`` and the placed ``qubits``, and every placement key it carries must match), else the last committed
     ``h7_truncation_*`` entry drawn on this point's placement (the placed qubit set, which both sides must record, and patch,
-    edge, n, p, L). Predictions are placement-specific (Deviations 46, 58): a comparator of another placement, or one whose
-    placement cannot be checked, is not used. None when there is none."""
+    edge, n, p, L) and of this dial kind (``reset_kind``, default the reset dial of H7; Deviation 63, draft, adds the dephasing-dial
+    pair). Predictions are placement-specific (Deviations 46, 58): a comparator of another placement, or one whose placement cannot
+    be checked, is not used. None when there is none."""
     explicit = preds.get("truncation")
     if explicit:
         if explicit.get("rms_l2") is None:
             return None, "preds['truncation'] has no rms_l2"
-        ok, why = _same_point(explicit, patch, edge, n, p, L, qubits)
+        ok, why = _same_point(explicit, patch, edge, n, p, L, qubits, reset_kind)
         return (explicit, "") if ok else (None, f"preds['truncation'] is for another point: {why}")
     entries = [e for e in preds.get("truncation_entries", []) or [] if e.get("rms_l2") is not None]
     if not entries:
         return None, "no committed h7_truncation_*.json comparator"
     hits, reasons = [], []
     for e in entries:
-        ok, why = _same_point(e, patch, edge, n, p, L, qubits)
+        ok, why = _same_point(e, patch, edge, n, p, L, qubits, reset_kind)
         (hits if ok else reasons).append(e if ok else f"{e.get('file')}: {why}")
     if not hits:
         return None, "no comparator for this placement (" + "; ".join(reasons) + ")"
