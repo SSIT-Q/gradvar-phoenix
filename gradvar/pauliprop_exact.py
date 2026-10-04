@@ -272,3 +272,96 @@ def exact_moments(prog: Program, which: Sequence[str] = ("cost", "k1", "kL"), ve
         if verbose:
             print(run, out, flush=True)
     return out
+
+
+def _apply_copy1(V, A, q, m):
+    """A (4x4) on qubit q of copy 1 only."""
+    return np.moveaxis(np.tensordot(A, V, axes=([1], [q])), 0, q)
+
+
+def exact_truncation_moments(prog: Program, ells: Sequence[int]) -> Dict[int, Dict[str, float]]:
+    """Truncation arm (Section 3b, H7; Deviation 60) by brute force in the doubled space: for each l, E[C^2] (both copies the
+    full circuit), E[C C_trunc] (copy 2 runs only the last l layers from |0>, with the same angles and channels there, while
+    copy 1 runs the first L - l layers alone, its rotations averaged on their own) and E[C_trunc^2] (both copies cut), and
+    MSD(l) = E[C^2] - 2 E[C C_trunc] + E[C_trunc^2]. The layer boundaries are the program's (``pauliprop.cut_index``); no
+    Pauli-path argument enters."""
+    from .pauliprop import cut_index
+    m = prog.m
+    ops = list(prog.ops)
+    A_rot = _avg_pair(_rz_ptm)
+    a_rot1 = _avg_single(_rz_ptm)
+    lam_cache: Dict[tuple, np.ndarray] = {}
+    (ai, bi), (aj, bj) = prog.readout[prog.i], prog.readout[prog.j]
+    o = np.zeros((4,) * m)
+    idx0 = [0] * m
+
+    def put(val, zs):
+        ix = list(idx0)
+        for q in zs:
+            ix[q] = 3
+        o[tuple(ix)] += val
+    put(ai * aj, (prog.i, prog.j)); put(ai * bj, (prog.i,)); put(bi * aj, (prog.j,)); put(bi * bj, ())
+    c0 = np.zeros((4,) * m)
+    for zs in itertools.product((0, 3), repeat=m):
+        c0[zs] = 2.0 ** (-m)
+    oo = np.tensordot(o, o, axes=0)
+
+    def lam(op):
+        key = (op[1], op[2])
+        if key not in lam_cache:
+            lam_cache[key] = dial_zz_layer_ptm(op[1], op[2], m)
+        return lam_cache[key]
+
+    def run(cut: int | None, mode: str) -> float:
+        V = np.tensordot(c0, c0, axes=0)
+        for t in range(len(ops) - 1, -1, -1):
+            op = ops[t]
+            kind = op[0]
+            shared = mode == "full" or t < cut
+            if not shared and mode == "trunc":
+                continue                                   # both copies skip the deleted first L - l layers
+            if kind in ("mark", "proj"):
+                continue
+            if shared:
+                if kind == "rot":
+                    V = _apply_pair_coupled(V, A_rot, op[1], m)
+                elif kind == "sx":
+                    V = _apply_single(V, SX_PTM, op[1], m)
+                elif kind in ("n1", "dial"):
+                    V = _apply_single(V, _bloch_ptm(op[2]), op[1], m)
+                elif kind == "cz":
+                    V = _apply_two(V, CZ_PTM, op[1], op[2], m)
+                elif kind == "dep2":
+                    V = _apply_dep2(V, op[3], op[1], op[2], m)
+                elif kind == "dial_zz":
+                    Lm = lam(op)
+                    V = (Lm @ V.reshape(4 ** m, 4 ** m) @ Lm.T).reshape((4,) * (2 * m))
+                else:
+                    raise RuntimeError(kind)
+            else:                                          # 'cross', deleted layer: copy 1 only
+                if kind == "rot":
+                    V = _apply_copy1(V, a_rot1, op[1], m)
+                elif kind == "sx":
+                    V = _apply_copy1(V, SX_PTM, op[1], m)
+                elif kind in ("n1", "dial"):
+                    V = _apply_copy1(V, _bloch_ptm(op[2]), op[1], m)
+                elif kind == "cz":
+                    A = CZ_PTM.reshape(4, 4, 4, 4)
+                    V = np.moveaxis(np.tensordot(A, V, axes=([2, 3], [op[1], op[2]])), [0, 1], [op[1], op[2]])
+                elif kind == "dep2":
+                    fac = np.ones((4, 4)); fac[1:, :] = op[3]; fac[:, 1:] = op[3]
+                    shape = [1] * (2 * m); shape[op[1]] = 4; shape[op[2]] = 4
+                    V = V * fac.reshape(shape)
+                elif kind == "dial_zz":
+                    V = (lam(op) @ V.reshape(4 ** m, 4 ** m)).reshape((4,) * (2 * m))
+                else:
+                    raise RuntimeError(kind)
+        return float(4.0 ** m * np.tensordot(oo, V, axes=2 * m))
+
+    e2 = run(None, "full")
+    out = {}
+    for ell in ells:
+        cut = cut_index(prog, int(ell))
+        cr, tr = run(cut, "cross"), run(cut, "trunc")
+        out[int(ell)] = dict(E2=e2, cross=cr, trunc=tr, msd=e2 - 2.0 * cr + tr)
+    return out

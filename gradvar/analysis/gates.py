@@ -541,8 +541,9 @@ def gate1b_clause_b(points: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> 
         rung = dict(n=int(n), patch=a.patch, ref8=float(a.signal_variance), ref8_ci=[float(a.signal_ci_lo), float(a.signal_ci_hi)], shot_floor=floor8,
                     shot_floor_measured=float(a.shot_floor), shots=int(a.shots),
                     ref8_over_shot_floor=float(a.signal_variance / floor8) if floor8 else None, counted=bool(a.signal_variance > 3 * floor8), M=int(a.M), two_sigma_8=two_sigma)
-        pr8 = P.predicted_point(preds, int(n), 8, 8, "delay", 0.0, patch=a.patch, edge=a.edge)
-        pr12 = P.predicted_point(preds, int(n), 12, 12, "delay", 0.0, patch=a.patch, edge=a.edge)
+        placed = a.get("patch_qubits")                  # rows drawn on the run's placement only (Deviation 60, review M5)
+        pr8 = P.predicted_point(preds, int(n), 8, 8, "delay", 0.0, patch=a.patch, edge=a.edge, qubits=placed)
+        pr12 = P.predicted_point(preds, int(n), 12, 12, "delay", 0.0, patch=a.patch, edge=a.edge, qubits=placed)
         if pr8 and pr12:
             rung["predicted_fall"] = pr8["var"] - pr12["var"]
             rung["deviation_39_trigger_M600"] = bool(two_sigma > 0.5 * rung["predicted_fall"])

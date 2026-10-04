@@ -13,6 +13,7 @@ from typing import Dict, List
 import numpy as np
 import pandas as pd
 
+from . import anomaly_stats as A61
 from .estimators import Z95
 
 DEFAULT_DIR = Path(__file__).resolve().parents[2] / "data" / "predictions"
@@ -43,7 +44,123 @@ def load_predictions(directory: str | Path | None = None) -> Dict:
     g = d / "gate1_gradients.npz"
     if g.exists():
         out["gradients"] = dict(np.load(g))
+    out["truncation_entries"] = load_truncation_entries(d)
+    out["dial_rows"] = load_dial_rows(d)
     return out
+
+
+def qubit_key(qubits) -> str | None:
+    """Canonical text of a placed qubit set (list or space-separated text): the sorted ids joined by spaces; None when unknown."""
+    if qubits is None or (isinstance(qubits, float) and np.isnan(qubits)):
+        return None
+    items = str(qubits).replace(",", " ").split() if isinstance(qubits, str) else list(qubits)
+    return " ".join(str(q) for q in sorted(int(q) for q in items)) if items else None
+
+
+def _stamp_of_name(name: str) -> str | None:
+    import re
+    m = re.search(r"(\d{4}-\d{2}-\d{2}T\d{6}Z)", str(name or ""))
+    return m.group(1) if m else None
+
+
+def load_dial_rows(directory: str | Path) -> pd.DataFrame:
+    """Deviation 60 (review M5): every Section 3b dial prediction row with the placement it was drawn on, for the placement-matched
+    H5 / H6 lookup (``dial_prediction``). Sources, in this order: the dial rows of ``pauliprop_predictions.csv`` (the 19 Sep
+    ladder placement, qubit sets from ``ladder_placements.json``), each ``gate1b_redraw_<tag>.csv`` (the Deviation 46 run-day
+    re-draws; the qubit set of each row's rung from the ``runday_placement`` block of the same-named JSON, which the rows were
+    drawn for, "frozen stands" rows included) and each ``dial_redraw_<tag>.csv`` (``scripts/redraw_dial_points.py``: a
+    ``qubits`` column). Added columns: ``placement_qubits`` (``qubit_key``), ``placement_stamp`` and ``source`` (file name)."""
+    d = Path(directory)
+    frames = []
+    f = d / "pauliprop_predictions.csv"
+    if f.exists():
+        pp = pd.read_csv(f)
+        if "dial" in pp.columns:
+            pp = pp[pp.dial.notna() & (pp.dial.astype(str).str.strip() != "")].copy()
+            lf = d / "ladder_placements.json"
+            lp = json.loads(lf.read_text()) if lf.exists() else {}
+            q_of = {spec: qubit_key(v.get("qubits")) for spec, v in (lp.get("patches") or {}).items()}
+            ladder = (pp.placement.astype(str).str.startswith("ladder_placements.json") if "placement" in pp.columns
+                      else pd.Series(False, index=pp.index))
+            pp["placement_qubits"] = [q_of.get(str(s)) if ok else None for s, ok in zip(pp.patch, ladder)]
+            pp["placement_stamp"] = [_stamp_of_name(lp.get("calibration")) if ok else None for ok in ladder]
+            pp["source"] = f.name
+            frames.append(pp)
+    for f in sorted(d.glob("gate1b_redraw_*.csv")):
+        df = pd.read_csv(f)
+        j = f.with_suffix(".json")
+        meta = json.loads(j.read_text()) if j.exists() else {}
+        runday = meta.get("runday_placement") or {}
+        rungs = runday.get("rungs") or {}
+        df["placement_qubits"] = [qubit_key((rungs.get(str(r)) or {}).get("qubits")) for r in (df["rung"] if "rung" in df.columns else [None] * len(df))]
+        df["placement_stamp"] = runday.get("stamp") or (meta.get("snapshot") or {}).get("stamp")
+        df["source"] = f.name
+        frames.append(df)
+    for f in sorted(d.glob("dial_redraw_*.csv")):
+        df = pd.read_csv(f)
+        df["placement_qubits"] = df["qubits"].map(qubit_key) if "qubits" in df.columns else None
+        df["placement_stamp"] = df["snapshot_stamp"] if "snapshot_stamp" in df.columns else None
+        df["source"] = f.name
+        frames.append(df)
+    return pd.concat(frames, ignore_index=True, sort=False) if frames else pd.DataFrame()
+
+
+def load_truncation_entries(directory: str | Path) -> List[Dict]:
+    """Deviation 60: the committed H7 comparators, every ``entries`` item of ``h7_truncation_*.json`` in ``directory`` (file
+    order by name; each entry keyed by the placement it was drawn on, ``point``), tagged with its file name."""
+    out = []
+    for f in sorted(Path(directory).glob("h7_truncation_*.json")):
+        for e in json.loads(f.read_text()).get("entries", []):
+            out.append(dict(e, file=f.name))
+    return out
+
+
+def _same_point(entry: Dict, patch, edge, n, p, L, qubits, reset_kind: str = "reset") -> tuple:
+    """(matches, reason) of a comparator entry against a truncation point. The placement must match on the placed qubit set,
+    which both sides must record (Deviation 60, review M5); the other keys are compared where both sides carry them. The dial kind
+    must match too (Deviation 63, draft: the dephasing-dial pair shares the H7 point's patch, edge, n, p, L and qubits); an entry
+    without ``reset_kind`` is a reset-dial comparator, as every entry drawn before Deviation 63 is."""
+    pt = entry.get("point", entry)
+    kind = str(pt.get("reset_kind") or "reset")
+    if kind != str(reset_kind or "reset"):
+        return False, f"reset_kind {kind} (comparator) vs {reset_kind} (run)"
+    if qubits is None:
+        return False, "the rows record no placed qubit set"
+    if pt.get("qubits") is None:
+        return False, "the comparator records no placed qubit set"
+    checks = (("patch", patch, lambda a, b: str(a) == str(b)), ("edge", edge, lambda a, b: str(a).replace("-", "_") == str(b).replace("-", "_")),
+              ("n", n, lambda a, b: int(a) == int(b)), ("p", p, lambda a, b: np.isclose(float(a), float(b))), ("L", L, lambda a, b: int(a) == int(b)),
+              ("qubits", qubits, lambda a, b: sorted(int(q) for q in a) == sorted(int(q) for q in b)))
+    for key, want, same in checks:
+        have = pt.get(key)
+        if have is not None and want is not None and not same(have, want):
+            return False, f"{key} {have} (comparator) vs {want} (run)"
+    return True, ""
+
+
+def truncation_prediction(preds: Dict, patch=None, edge=None, n=None, p=None, L=None, qubits=None, reset_kind: str = "reset") -> tuple:
+    """(comparator, note) for one truncation-arm point (H7, Deviation 60): ``preds['truncation']`` when the caller set one
+    (it must carry ``rms_l2`` and the placed ``qubits``, and every placement key it carries must match), else the last committed
+    ``h7_truncation_*`` entry drawn on this point's placement (the placed qubit set, which both sides must record, and patch,
+    edge, n, p, L) and of this dial kind (``reset_kind``, default the reset dial of H7; Deviation 63, draft, adds the dephasing-dial
+    pair). Predictions are placement-specific (Deviations 46, 58): a comparator of another placement, or one whose placement cannot
+    be checked, is not used. None when there is none."""
+    explicit = preds.get("truncation")
+    if explicit:
+        if explicit.get("rms_l2") is None:
+            return None, "preds['truncation'] has no rms_l2"
+        ok, why = _same_point(explicit, patch, edge, n, p, L, qubits, reset_kind)
+        return (explicit, "") if ok else (None, f"preds['truncation'] is for another point: {why}")
+    entries = [e for e in preds.get("truncation_entries", []) or [] if e.get("rms_l2") is not None]
+    if not entries:
+        return None, "no committed h7_truncation_*.json comparator"
+    hits, reasons = [], []
+    for e in entries:
+        ok, why = _same_point(e, patch, edge, n, p, L, qubits, reset_kind)
+        (hits if ok else reasons).append(e if ok else f"{e.get('file')}: {why}")
+    if not hits:
+        return None, "no comparator for this placement (" + "; ".join(reasons) + ")"
+    return hits[-1], ""
 
 
 def _select_rows(df: pd.DataFrame, n: int, L: int, patch: str | None, edge: str | None, model: str) -> pd.DataFrame:
@@ -70,6 +187,42 @@ def _pp_lookup(pp: pd.DataFrame, n: int, L: int, k: int, model: str, dial: str |
         d = d[d.dial.isna()] if "dial" in d.columns else d
     else:
         d = d[(d.dial == dial) & (np.isclose(d.p.astype(float), float(p or 0.0)))]
+    return _prediction_from_rows(d, n, L, k, model, edge, "pauliprop_predictions.csv")
+
+
+def dial_prediction(preds: Dict, n: int, L: int, k: int, dial: str, p: float | None, patch: str | None = None, edge: str | None = None,
+                    qubits=None, stamp: str | None = None) -> tuple:
+    """(prediction, note, fallback) for one Section 3b dial point (H5 / H6; Deviations 46, 58; Deviation 60, review M5): the
+    unital-base dial row drawn on this point's placement, matched on the placed qubit set (``qubits``; else on the placement
+    ``stamp`` when the run gives one), patch, edge, L, dial kind and p, from ``preds['dial_rows']`` (``load_dial_rows``). Among
+    several matches converged rows are preferred and the last source file wins. None when no placement-matched row exists;
+    ``fallback`` is then the unmatched ``pauliprop_predictions.csv`` row (the 19 Sep record, reported beside the not-evaluable
+    sub-test, Deviation 54 (iii)), or None."""
+    fb = _pp_lookup(preds.get("pp", pd.DataFrame()), n, L, k, "unital", dial, p, patch, edge)
+    fallback = dict(fb, placement_matched=False) if fb else None
+    rows = preds.get("dial_rows")
+    qk = qubit_key(qubits)
+    if rows is None or not len(rows):
+        return None, "no dial prediction rows loaded", fallback
+    if qk is None and not stamp:
+        return None, "the point records no placed qubit set", fallback
+    d = rows[(rows.model == "unital") & (rows.L == L) & (rows.dial.astype(str) == str(dial)) & np.isclose(rows.p.astype(float), float(p or 0.0))]
+    if patch:
+        d = d[d.patch.astype(str) == str(patch)]
+    if edge:
+        d = d[d.edge.astype(str).str.replace("-", "_") == str(edge).replace("-", "_")]
+    d = d[d.placement_qubits == qk] if qk is not None else d[d.placement_stamp.astype(str) == str(stamp)]
+    what = f"{dial} p = {p} L = {L} on {patch} edge {edge}"
+    if d.empty:
+        return None, f"no {what} row drawn on this placement (" + ("qubit set" if qk is not None else f"stamp {stamp}") + " not in the prediction files)", fallback
+    hit = _prediction_from_rows(d, n, L, k, "unital", edge, None)
+    if hit is None:
+        return None, f"no k = {k} value for {what}", fallback
+    return hit, "", fallback
+
+
+def _prediction_from_rows(d: pd.DataFrame, n: int, L: int, k: int, model: str, edge: str | None, source: str | None) -> Dict | None:
+    """The prediction dict of the selected propagation rows (converged rows preferred, the last written wins)."""
     if d.empty:
         return None
     conv = d[d.status.astype(str).str.startswith("converged")] if "status" in d.columns else d
@@ -86,13 +239,16 @@ def _pp_lookup(pp: pd.DataFrame, n: int, L: int, k: int, model: str, dial: str |
     err2 = max(2 * se if np.isfinite(se) else 0.0, deficit if np.isfinite(deficit) else 0.0)   # Deviation 15 error: max(2 sigma, deficit)
     vc, vc_se = r.get("var_cost_mc"), r.get("se_cost_mc")
     vc = float(vc) if pd.notna(vc) else (float(r.get("var_cost_pp")) if pd.notna(r.get("var_cost_pp")) else float("nan"))
-    return dict(var=var, sigma=err2 / 2.0, error_2sigma=err2, source="pauliprop_predictions.csv", method="pauli_propagation",
-                status=str(r.get("status", "")), truncation_deficit=deficit, model=model, var_mask=r.get("var_mask"),
-                pattern_floor=r.get("pattern_floor"), mean_cost=r.get("mean_cost"), var_cost=vc,
-                var_cost_sigma=float(vc_se) if pd.notna(vc_se) else float("nan"), lower_bound_only=not np.isfinite(mc),
-                n=int(r["n"]) if pd.notna(r.get("n")) else n, patch=str(r.get("patch", "")), edge=str(r.get("edge", "")),
-                edge_matched=bool(edge and str(r.get("edge", "")).replace("-", "_") == str(edge).replace("-", "_")),
-                not_converged=bool(str(r.get("status", "")).startswith("not converged")))
+    out = dict(var=var, sigma=err2 / 2.0, error_2sigma=err2, source=source or str(r.get("source", "")), method="pauli_propagation",
+               status=str(r.get("status", "")), truncation_deficit=deficit, model=model, var_mask=r.get("var_mask"),
+               pattern_floor=r.get("pattern_floor"), mean_cost=r.get("mean_cost"), var_cost=vc,
+               var_cost_sigma=float(vc_se) if pd.notna(vc_se) else float("nan"), lower_bound_only=not np.isfinite(mc),
+               n=int(r["n"]) if pd.notna(r.get("n")) else n, patch=str(r.get("patch", "")), edge=str(r.get("edge", "")),
+               edge_matched=bool(edge and str(r.get("edge", "")).replace("-", "_") == str(edge).replace("-", "_")),
+               not_converged=bool(str(r.get("status", "")).startswith("not converged")))
+    if "placement_qubits" in r.index:
+        out.update(placement_matched=True, placement_stamp=r.get("placement_stamp"))
+    return out
 
 
 def _exact_lookup(exact: pd.DataFrame, n: int, L: int, k: int, model: str, patch: str | None = None, edge: str | None = None) -> Dict | None:
@@ -109,13 +265,21 @@ def _exact_lookup(exact: pd.DataFrame, n: int, L: int, k: int, model: str, patch
                 edge_matched=bool(edge and str(r.get("edge", "")).replace("-", "_") == str(edge).replace("-", "_")), not_converged=False)
 
 
+UNPLACED = object()     # predicted_point(qubits=UNPLACED): a dial lookup that does not check the placement (planting synthetic runs)
+
+
 def predicted_point(preds: Dict, n: int, L: int, k: int, arm: str = "grid", p: float | None = None,
-                    models=MODEL_PREFERENCE, patch: str | None = None, edge: str | None = None) -> Dict | None:
+                    models=MODEL_PREFERENCE, patch: str | None = None, edge: str | None = None, qubits=UNPLACED) -> Dict | None:
     """The pre-drawn Var_theta for one point: the exact Gate 1 grid first, else Deviation 15 propagation, under the
     first available model of ``models`` (the full calibrated non-unital model is the Gate 1 prediction of Deviation 19).
-    Dial points (arm reset / delay / dephase) use the Section 3b second-moment curves (unital base + dial channel)."""
+    Dial points (arm reset / delay / dephase) use the Section 3b second-moment curves (unital base + dial channel); when the
+    caller passes the point's placed ``qubits`` (every analysis call does), only a row drawn on that placement is used
+    (``dial_prediction``, Deviation 60 review M5) and None is returned when none exists."""
     if arm != "grid":
-        return _pp_lookup(preds["pp"], n, L, k, "unital", DIAL_KIND.get(str(arm), str(arm)), p, patch, edge)
+        dial = DIAL_KIND.get(str(arm), str(arm))
+        if qubits is not UNPLACED:
+            return dial_prediction(preds, n, L, k, dial, p, patch, edge, qubits)[0]
+        return _pp_lookup(preds["pp"], n, L, k, "unital", dial, p, patch, edge)
     for m in models:
         hit = _exact_lookup(preds["exact"], n, L, k, m, patch, edge) or _pp_lookup(preds["pp"], n, L, k, m, None, None, patch, edge)
         if hit:
@@ -162,6 +326,14 @@ def null_control_floor(preds: Dict, n: int, shots: int) -> Dict | None:
     return None
 
 
+def _num(x) -> float:
+    """float(x), or NaN when x is missing or not numeric."""
+    try:
+        return float(x)
+    except (TypeError, ValueError):
+        return float("nan")
+
+
 def compare_points(points: pd.DataFrame, preds: Dict) -> pd.DataFrame:
     """Measured signal variance (shot floor and, for the dial, pattern floor subtracted) against the pre-drawn value,
     with sigma^2 = (bootstrap half-width / 1.96)^2 + shot_floor^2 + sigma_pred^2 (Deviation 19 (i): "sigma combining the
@@ -170,7 +342,9 @@ def compare_points(points: pd.DataFrame, preds: Dict) -> pd.DataFrame:
     for r in points.to_dict("records"):
         if r.get("L") is None or r.get("k") is None or r.get("kind") == "null_control":
             continue
-        pr = predicted_point(preds, int(r["n"]), int(r["L"]), int(r["k"]), str(r["arm"]), r.get("p"), patch=r.get("patch"), edge=r.get("edge"))
+        dial = str(r["arm"]) != "grid"
+        placed = dict(qubits=r.get("patch_qubits")) if dial else {}           # dial points: a row drawn on this placement only (Deviation 60 M5)
+        pr = predicted_point(preds, int(r["n"]), int(r["L"]), int(r["k"]), str(r["arm"]), r.get("p"), patch=r.get("patch"), edge=r.get("edge"), **placed)
         meas = r.get("signal_variance", np.nan)
         hw = (r.get("signal_ci_hi", np.nan) - r.get("signal_ci_lo", np.nan)) / 2.0
         floor = r.get("shot_floor", np.nan)
@@ -178,15 +352,25 @@ def compare_points(points: pd.DataFrame, preds: Dict) -> pd.DataFrame:
                    resilience_level=r["resilience_level"], shots=r["shots"], measured=meas, measured_ci_lo=r.get("signal_ci_lo"),
                    measured_ci_hi=r.get("signal_ci_hi"), measured_raw=r.get("variance"), shot_floor=floor, M=r.get("M"))
         if pr is None:
-            rec.update(predicted=np.nan, pred_sigma=np.nan, sigma=np.nan, z=np.nan, source="none", status="no prediction", anomaly_single=False)
+            rec.update(predicted=np.nan, pred_sigma=np.nan, sigma=np.nan, z=np.nan, z_preflight08=np.nan, source="none", status="no prediction",
+                       anomaly_single=False)
         else:
             sig = float(np.sqrt((hw / Z95) ** 2 + (floor if np.isfinite(floor) else 0.0) ** 2 + (pr["sigma"] if np.isfinite(pr["sigma"]) else 0.0) ** 2))
             z = (meas - pr["var"]) / sig if sig > 0 and np.isfinite(meas) else np.nan
+            # Deviation 61: pre-flight 08's written statistic, the replication decision's z (raw variance against the row,
+            # bootstrap half-width / 1.96 and the row's sigma); reported beside the Deviation 19 pipeline z, flags unchanged
+            raw = _num(r.get("variance"))
+            hw_raw = (_num(r.get("ci_hi")) - _num(r.get("ci_lo"))) / 2.0
+            sig08 = float(np.sqrt((hw_raw / Z95) ** 2 + (pr["sigma"] if np.isfinite(pr["sigma"]) else 0.0) ** 2)) if np.isfinite(hw_raw) else np.nan
+            z08 = (raw - pr["var"]) / sig08 if np.isfinite(sig08) and sig08 > 0 and np.isfinite(raw) else np.nan
+            rec.update(z_preflight08=float(z08) if np.isfinite(z08) else np.nan)
             rec.update(predicted=pr["var"], pred_sigma=pr["sigma"], pred_model=pr["model"], sigma=sig, z=float(z) if np.isfinite(z) else np.nan,
                        source=pr["source"], status=pr["status"], truncation_deficit=pr.get("truncation_deficit"), edge_matched=pr.get("edge_matched"),
                        exploratory=bool(int(r["L"]) == 12 and (r["kind"] == "grid" or int(r["k"]) == 1)) or bool(pr.get("not_converged")),   # Deviation 37
                        hardware_only=bool(pr.get("lower_bound_only")), anomaly_single=bool(np.isfinite(z) and abs(z) > ANOMALY_SIGMA),
                        inside_prediction_2sigma=bool(np.isfinite(z) and abs(z) <= 2.0))
+        if pr is None and dial:
+            rec["status"] = "no placement-matched prediction"                # Deviation 60 M5: no dial row drawn on this placement
         rows.append(rec)
     return pd.DataFrame(rows)
 
@@ -215,10 +399,40 @@ def _monotone_runs(df: pd.DataFrame, axis: str, group_cols: List[str]) -> List[D
     return hits
 
 
+def holm_within(comparison: pd.DataFrame, alpha: float = A61.ALPHA_FW) -> Dict:
+    """A diagnostic, not the Deviation 61 firmness: Holm's step-down over this table's own Deviation 19 single-point tests on
+    pre-flight 08's written z (``z_preflight08``: raw variance, bootstrap interval and the prediction's sigma; the pipeline z
+    ``z`` only when that column is absent), two-sided p = erfc(|z| / sqrt 2); exploratory rows (Deviation 37) and resilience
+    level 2 (not read under Deviation 19) are outside the family. Firmness under Deviation 61 (ii) is grid-wide, over the 43
+    frozen tests with prediction-side uncertainty (``anomaly_stats.recorded_firmness`` and ``anomaly_stats.decide``); this
+    function labels no flag firm."""
+    stat = "z_preflight08" if "z_preflight08" in comparison.columns and np.isfinite(comparison["z_preflight08"].astype(float)).any() else "z"
+    if not len(comparison) or stat not in comparison.columns:
+        return dict(m=0, alpha=float(alpha), statistic=stat, flags=[], note="no tests")
+    d = comparison[np.isfinite(comparison[stat].astype(float))]
+    if "exploratory" in d.columns:
+        d = d[~d.exploratory.map(lambda v: bool(v) if isinstance(v, (bool, np.bool_)) else False).astype(bool)]
+    if "resilience_level" in d.columns:
+        d = d[d.resilience_level.astype(float) != 2]
+    fam = A61.holm_family(d[["point_id", stat]].reset_index(drop=True), stat, alpha)
+    flags = []
+    for r in comparison[comparison.get("anomaly_single", pd.Series(False, index=comparison.index)) == True].to_dict("records"):   # noqa: E712
+        hit = fam[fam.point_id == r["point_id"]]
+        flags.append(dict(point_id=r["point_id"], z=float(r["z"]), z_statistic=float(r.get(stat, np.nan)),
+                          p=float(hit.p.iloc[0]) if len(hit) else float("nan"),
+                          p_holm=float(hit.p_holm.iloc[0]) if len(hit) else float("nan"),
+                          within_run_holm_reject=bool(hit.holm_reject.iloc[0]) if len(hit) else None))
+    return dict(m=int(fam.attrs["m"]), alpha=float(alpha), statistic=stat, flags=flags,
+                note="diagnostic: within-run Holm over this table's Deviation 19 tests; the Deviation 61 firmness is grid-wide "
+                     "(gradvar.analysis.anomaly_stats, data/derived/dev61_reference_2026-09-25.csv)")
+
+
 def anomaly_protocol(comparison: pd.DataFrame) -> Dict:
     """Deviation 19 flags on a comparison table: single-point (|z| > 3) and monotone-run anomalies, and whether the
     protocol calls for replication from the reserve (another day, another clean patch, at most 20 reserve minutes;
-    the calibrated noisy simulations must also fail to reproduce the deviation). Unreplicated anomalies are exploratory."""
+    the calibrated noisy simulations must also fail to reproduce the deviation). Unreplicated anomalies are exploratory.
+    ``holm_within_run`` is a diagnostic Holm step-down over the table's own tests on pre-flight 08's z (``holm_within``); it
+    labels no flag firm (Deviation 61 firmness is grid-wide, in ``anomaly_stats``)."""
     single = comparison[comparison.anomaly_single == True] if len(comparison) else comparison   # noqa: E712
     runs = []
     if len(comparison):
@@ -234,4 +448,5 @@ def anomaly_protocol(comparison: pd.DataFrame) -> Dict:
                 monotone_runs=runs, flagged=flagged,
                 action=("replicate on another calendar day and another clean patch from the reserve (<= 20 min); run the calibrated "
                         "noisy simulations; unreplicated = exploratory" if flagged else "none"),
-                reserve_minutes=RESERVE_MINUTES_FOR_REPLICATION if flagged else 0, n_compared=int(np.isfinite(comparison.z).sum()) if len(comparison) else 0)
+                reserve_minutes=RESERVE_MINUTES_FOR_REPLICATION if flagged else 0, n_compared=int(np.isfinite(comparison.z).sum()) if len(comparison) else 0,
+                holm_within_run=holm_within(comparison))
