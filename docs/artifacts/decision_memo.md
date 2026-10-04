@@ -5,10 +5,10 @@
 | | |
 |---|---|
 | Artifact | https://claude.ai/artifact/Y7bcM82SzoXtD7gyqpVgSH |
-| Version | 19 September 2026 (artifact page Version 4) |
+| Version | 19 September 2026 (artifact page Version 5) |
 | Source HTML | [html/decision_memo.html](html/decision_memo.html) |
-| Source sha256 | `68012175d73d4a89` |
-| Last sync | 2026-09-21 |
+| Source sha256 | `2b5c1858ca07c588` |
+| Last sync | 2026-10-04 |
 | Note | Static. |
 
 ---
@@ -185,7 +185,7 @@ Through One Nation One Subscription; upload the PDFs to the thread. Quantum, Nat
 | medium | Banchi, Branford and Waghela, Overshifted parameter-shift rules, QST 11, 035031 (2026) | [10.1088/2058-9565/ae73ad](https://doi.org/10.1088/2058-9565/ae73ad) | General criterion for an exact two-term rule (generator with two distinct eigenvalues, Eqs. 3 to 8) and optimal shot allocation across shifts (Eqs. 17 to 19), which give the ZNE inflation \|\|c\|\|\_1^2; no hardware or transpilation content, so the shift rule's exactness on the transpiled circuit is checked by transpiling with unbound parameters |
 | medium | Aghaei Saem et al., Pitfalls when tackling the exponential concentration of parameterized quantum models, QST (2026) | [10.1088/2058-9565/ae2202](https://doi.org/10.1088/2058-9565/ae2202) | Resolution criterion epsilon_N = shot variance / (N x landscape variance) below 1 (Eq. 12) and the proof that post-processing cannot restore distinguishability under polynomial shots (Theorem 1, Corollary 1); used for the fixed-shot comparisons of Q1; nothing on the initialisation question |
 | low | Yao and Hasegawa, Direct gradient computation for barren plateaus, PRA 112, 062443 (2025) | [10.1103/PhysRevA.112.062443](https://doi.org/10.1103/PhysRevA.112.062443) | Size of the claimed non-zero gradient mean, which decides whether E\[(dC)^2\] is an acceptable proxy for Var\[dC\]; cite with care |
-| low | Angrisani et al., Classically estimating observables of noiseless quantum circuits, PRL 135, 170602 (2025), Supplemental Material | [10.1103/PhysRevLett.135.170602](https://doi.org/10.1103/PhysRevLett.135.170602) | Exact wording of the single-qubit-rotation-invariance hypothesis for the simulability paragraph |
+| low | Angrisani et al., Classically estimating observables of noiseless quantum circuits, PRL 135, 170602 (2025), Supplemental Material | [10.1103/lh6x-7rc3](https://doi.org/10.1103/lh6x-7rc3) | Exact wording of the single-qubit-rotation-invariance hypothesis for the simulability paragraph |
 | low | Li and Yin, Improve variational quantum eigensolver by many-body localization, Frontiers of Physics 20, 023202 (2025) | [10.15302/frontphys.2025.023202](https://doi.org/10.15302/frontphys.2025.023202) | Peer-reviewed noiseless variance figures (n = 4 to 18, depth to 250) for a kicked-Ising Floquet circuit with narrow X kick and full-range random Z and ZZ angles; the differentiated parameter is a ZZ angle and the observable a Hamiltonian sum. Uploaded and read |
 | low | Ebadi et al., Quantum optimization of maximum independent set using Rydberg atom arrays, Science 376, 1209 (2022), Supplementary Material | [10.1126/science.abo6587](https://doi.org/10.1126/science.abo6587) | Per-shot and iteration counts for the only 100+ qubit closed-loop variational optimisation |
 | low | Kim and Oz, Entanglement diagnostics for efficient VQA optimization, J. Stat. Mech. (2022) 073101 | [10.1088/1742-5468/ac7791](https://doi.org/10.1088/1742-5468/ac7791) | Entanglement velocity about 0.35 bits per brickwork layer and saturation depth proportional to n for a 1D Ry/CZ ansatz (noiseless, n at most 20), the same gate set as Q1; used to place the Q1 depth ladder relative to entanglement saturation on the square lattice, and for Q2 |

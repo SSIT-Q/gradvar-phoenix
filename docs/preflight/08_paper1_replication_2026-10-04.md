@@ -109,12 +109,45 @@ The fake's stale calibration fails the layout check (`enforced: false`), as for 
 
 ## 8. Review
 
-> **Review (2026-10-04): [GO / GO_WITH_NOTES / NO_GO].** Reviewer: [name or agent], [start-end UTC]. Reviewed branch `repack-2026-10-04` at [40-hex commit] (draft PR [#]); summary `docs/repack/2026-10-04_summary.md`; checklist `docs/repack/REVIEW_CHECKLIST.md` (every item ticked or noted below).
+> **Review (2026-10-04): GO** for dispatch of `replication_01`, `replication_01_16384` (pre-flight 08) and `section3c_blockC` (pre-flight 09). Reviewer: independent reviewer sub-agent, 4 Oct (Parts 1-2 to 16:30 UTC, Part 3 to 17:50 UTC).
 >
-> What changed (placement and placement-dependent values only): [rungs whose n, origin, holes, broken couplers or edge changed].
+> Reviewed branch `repack-2026-10-04` at 821a936913b22a463150e229deb3a168d14f6c12 (draft PR #9). This followed:
+> - the package at 7263d9e18d0012bb23f43ac057275af2ce8387cf;
+> - the full test re-run at c3f80777;
+> - M1 at bb7b4584.
 >
-> What was checked: [the flags of the summary; the rule re-applied to the snapshot for the run-day rungs; lists: design, seeds and budget unchanged but n; the pre-check of every list on the placement snapshot; Gate 1b; comparators (check_comparators exit 0); tests (known failures only)].
+> Summary `docs/repack/2026-10-04_summary.md`; checklist `docs/repack/REVIEW_CHECKLIST.md` (the floor of a full review; every item checked or noted in the record); record `docs/reviews/review_repack_2026-10-04.md`.
 >
-> Tolerance flags that forced a full review: [none / list].
+> What changed (placement and placement-dependent values only):
+> - n20: (2, 0) -> (3, 4), n 20 -> 19, hole 55, edge 32_42 -> 46_47;
+> - plain n100: n 88 -> 84 (hole 37 released; 24, 25, 26, 28 and component hole 31 new; 31-32, 41-51, 69-79, 79-89 recovered; 80-90, 118-119 newly broken; live 133 -> 127).
 >
-> Conditions for arming: the Deviation 26 override stays closed (`approved_overrides` empty); arming edits only `dry_run` and `preflight_review`; arm only from a `main` commit at which this section carries the record; Owais runs Actions -> calibration snapshot just before arming; if IBM's properties time is not 2026-10-04T03:50:36Z, the list is not dispatched on this package; otherwise Claude's pre-check on that snapshot must pass.
+> What was checked:
+> - the summary's flags;
+> - the rule re-applied independently to the 4 Oct 04:35Z snapshot: all 14 lists match;
+> - lists: design, seeds and budget unchanged but n, sha256 as in the summary, pinned, un-armed;
+> - the pre-check of every list on the placement snapshot passes (n100 rung: 84 qubits, 127 live couplers);
+> - Gate 1b PASS (fall / bar 2.90 / 2.69 / 4.14);
+> - the rows these lists are read against were drawn on this placement (n20 L = 4 k = 1 9.040e-03; n100 L = 8 k = 1 2.804e-04, L = 12 8.408e-06);
+> - `check_comparators` ran on `day3_dial_refs` only. Its exit 0 is not a pass, and day 3 is held.
+> - tests: the full suite at 7263d9e gave 345 passed, known failure only. At 821a936 the reviewer re-ran `test_sameday_preflights.py`, `test_sameday_summary.py` and `test_dial_placement.py`: 37 passed.
+>
+> Tolerance flags that forced a full review:
+> - code outside the checklist's Section 1;
+> - component hole Q31;
+> - n changes of more than 3;
+> - new n20 origin;
+> - one non-known test failure in the package run (a setup race, fixed at 7263d9e and cleared by the re-run);
+> - day 3's six p = 0.5 dial rows not drawn on this placement, and its `check_comparators` exit 0 not a pass (held list: drawn in the cycle that dispatches day 3; day 3 is not armed from this package).
+>
+> Conditions for arming:
+> - The Deviation 26 override stays closed (`approved_overrides` empty).
+> - Arming edits only `dry_run` and `preflight_review`.
+> - Arm only from a `main` commit at which v0.17.0 is adopted and this section carries the record.
+> - Owais runs Actions -> calibration snapshot just before arming. If IBM's properties time is not 2026-10-04T03:50:36Z, the list is not dispatched on this package; otherwise Claude's pre-check on that snapshot must pass.
+>
+> Watch:
+> - Q20 init 4.96e-04 (all three lists);
+> - Q37 T1 26.0 us and Q34 init 4.40e-04 (n20 cone);
+> - Q47, on the n20 edge, has no initialisation-error figure;
+> - couplers 84-94 (4.50e-03) and 41-51 (4.48e-03).
