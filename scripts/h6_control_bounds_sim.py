@@ -44,12 +44,13 @@ for i in range(DAYS):
     rows.append(dict(rule=c.get("rule"), within=c["within"], exceeds=c["exceeds"], control_ok=bool(c["within"] is not False and c["exceeds"]),
                      deph_point_le0=rb["signal_variance"] <= 0, deph_lo_le0=rb["signal_ci_lo"] <= 0, r_lo=ra["signal_ci_lo"], d_hi=rb["signal_ci_hi"],
                      example_rule=bool(ra["signal_ci_lo"] > F * rb["signal_ci_hi"]), h6=res["result"],
-                     nan_fields=any(isinstance(v, float) and not np.isfinite(v) for v in c.values() if v is not None)))
+                     nan_fields=any(isinstance(v, float) and not np.isfinite(v) for v in c.values() if v is not None),
+                     factor_not_tested=bool(c.get("rule") == "bounds" and c.get("factor_tested") is False)))
 d = pd.DataFrame(rows)
 out = dict(days=DAYS, F=F, shot=SHOT, deph_point_le0=float(d.deph_point_le0.mean()), bounds_path=float((d.rule == "bounds").mean()),
            control_ok=float(d.control_ok.mean()), control_ok_bounds=float(d[d.rule == "bounds"].control_ok.mean()),
            control_ok_ratio=float(d[d.rule == "ratio"].control_ok.mean()) if (d.rule == "ratio").any() else None,
            within_false=float((d.within == False).mean()), exceeds_false=float((~d.exceeds).mean()), example_rule_pass=float(d.example_rule.mean()),
            r_lo_median=float(d.r_lo.median()), d_hi_median=float(d.d_hi.median()), F_times_d_hi_median=float(F * d.d_hi.median()),
-           nan_in_control=bool(d.nan_fields.any()), h6_pass=float((d.h6 == "pass").mean()))
+           nan_in_control=bool(d.nan_fields.any()), h6_pass=float((d.h6 == "pass").mean()), factor_not_tested=float(d.factor_not_tested.mean()))
 print(json.dumps(out, indent=1))
