@@ -65,11 +65,14 @@ def null_control_point(n: int, var_excess: float = 0.0, L: int = 0, k: int = 0, 
 
 
 def dial_point(reset_kind: str, p: float, n: int, L: int, k: int, var: float, var_mask: float = 0.0, mean_c: float = 0.0, M: int = 100,
-               K: int = 256, shots: int = 16, resilience: int = 0, seed: int = 20260919, mask_share: float = 1.0, var_cost: float | None = None) -> dict:
+               K: int = 256, shots: int = 16, resilience: int = 0, seed: int = 20260919, mask_share: float = 1.0, var_cost: float | None = None,
+               shared_masks: bool = False) -> dict:
     """``mask_share`` is the fraction of the mask-noise variance common to the two shift circuits (1: shared masks, the
-    logged design; 0: independent masks), Deviation 38. ``var_cost`` plants Var_theta[C_mix] (>= ``var``; default 1.09 var)."""
+    logged design; 0: independent masks), Deviation 38. ``var_cost`` plants Var_theta[C_mix] (>= ``var``; default 1.09 var).
+    ``shared_masks`` logs the runner's mask seeds, seed + 1 + m for every draw (Deviation 48 packing), instead of per-draw seeds; the
+    planted values do not depend on the masks' bits."""
     return dict(kind="reset_dial", reset_kind=reset_kind, p=p, n=n, L=L, k=k, var=var, var_mask=var_mask, mean_c=mean_c, M=M, K=K, shots=shots,
-                resilience=resilience, seed=seed, mask_share=mask_share, var_cost=var_cost)
+                resilience=resilience, seed=seed, mask_share=mask_share, var_cost=var_cost, shared_masks=bool(shared_masks))
 
 
 def reset_error_probe(n: int, p1: Dict[int, float] | float, shots: int = 1024, probe_id: str = "reset_error_patch") -> dict:
@@ -201,14 +204,15 @@ class SyntheticRun:
                                       var_cost=spec.get("var_cost"))
             sig = np.sqrt(spec["var_mask"])
             for m in range(K):
+                ms = (spec["seed"] if spec.get("shared_masks") else seed) + 1 + m        # the logged mask seed (runner: point seed + 1 + m)
                 common = sig * np.sqrt(share) * self.rng.choice([-1.0, 1.0])          # bounded mask noise with variance var_mask (keeps |C| <= 1)
                 own = sig * np.sqrt(1 - share)
                 eta_p, eta_m = common + own * self.rng.choice([-1.0, 1.0]), common + own * self.rng.choice([-1.0, 1.0])
                 evp, sdp = _sample_ev(self.rng, cp + eta_p, shots)
                 evm, sdm = _sample_ev(self.rng, cm + eta_m, shots)
                 pid = f"{rk}_p{p:g}_n{n}_L{L}_k{k}"
-                desc = dict(probe_id=pid, kind="reset_dial", reset_kind=rk, mask_index=m, mask_hash=f"{seed + 1 + m:016x}", n=n, L=L, k_1based=k, p=p, prep="1",
-                            seed=seed, qubits=qubits, edge=edge, layout=None, param_hash=h, masks=K, mask_seed=seed + 1 + m,
+                desc = dict(probe_id=pid, kind="reset_dial", reset_kind=rk, mask_index=m, mask_hash=f"{ms:016x}", n=n, L=L, k_1based=k, p=p, prep="1",
+                            seed=seed, qubits=qubits, edge=edge, layout=None, param_hash=h, masks=K, mask_seed=ms,
                             dial_delay_ns=400.0 if rk == "delay" else None, synthetic_target_instructions=[], patch=patch, origin=[0, 0], holes=[],
                             broken_edges=[], lattice_qubits=qubits, lattice_edge=edge, observables=[[["ZZ", 1.0]]], param_values=None)
                 job["points"].append(desc)
@@ -219,7 +223,7 @@ class SyntheticRun:
                                                      target_durations_s={"reset": {str(q): self.reset_us * 1e-6 for q in qubits[:4]}} if rk == "reset" else {}))
                 job["gate_us"].append(L * (LAYER_US + 0.4))
                 job["pubs"].append((np.array([evp, evm]), np.array([sdp, sdm])))
-                self._row(job, desc, evp, evm, sdp, sdm, n, L, k, seed, rk, p, K, seed + 1 + m, depth=10 * L)
+                self._row(job, desc, evp, evm, sdp, sdm, n, L, k, seed, rk, p, K, ms, depth=10 * L)
 
     def add_reset_error(self, spec: dict):
         n, shots = spec["n"], spec["shots"]

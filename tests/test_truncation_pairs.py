@@ -400,6 +400,9 @@ def test_reset_errors_from_characterisation_enter_the_folded_value():
     u = 1 - 2 * eps[84]
     assert x["folded"] == pytest.approx(ai * aj * u * u * x["p_hat_both"] + ai * bj * u * x["p_hat_i"] + bi * aj * u * x["p_hat_j"] + bi * bj)
     assert x["eps_source"] == {84: "characterisation", 85: "characterisation"}
+    ladder = pd.DataFrame([dict(probe_id="ladder_rd1us_prep0", reset_kind="none", prep="0", qubit=q, p1=0.5, rep_delay_us=1.0) for q in (84, 85)])
+    named = re_.assign(probe_id=re_.probe_id, rep_delay_us=np.nan)
+    assert DH.reset_errors_from_characterisation(pd.concat([named, ladder], ignore_index=True))[84] == pytest.approx(eps[84])   # ladder rows ignored
 
 
 # ------------------------------------------------------------------------------------------------ the reading classifier
@@ -416,33 +419,40 @@ H7_OK = dict(id="H7", result="pass")
 PAIRS_OK = dict(a=dict(result="pass"), b=dict(result="pass", unital_as_fast=False))
 NOT_RUN = dict(a=dict(result="not-run"), b=dict(result="not-run"))
 CEIL_OK = dict(result="pass")
+MC_OK = dict(result="pass", points=[dict(point_id="reset p0.25 n52 L8 k8 r0", within=True)])
+
+
+def CR(h5, h6, h7, pairs=None, mean_check=MC_OK, h4=None, **kw):
+    """``classify_readings`` with an evaluated E[C_mix] check by default and ``pairs_final`` True unless given (it is required)."""
+    kw.setdefault("pairs_final", True)
+    return DH.classify_readings(h5, h6, h7, pairs, mean_check, h4, **kw)
 
 
 def test_reading_r1_its_wording_scope_and_conclusion():
-    r = DH.classify_readings(H5_OK, _h6(), H7_OK, PAIRS_OK, dict(result="pass"), None)
+    r = CR(H5_OK, _h6(), H7_OK, PAIRS_OK, dict(result="pass"), None)
     assert r["reading"] == "R1" and r["wording"] == "the dial as implemented" and r["scope"] == DH.RUNG_SCOPE["evaluated"]
     assert r["conclusion"]["stated"] and r["conclusion"]["cost_variance_clause"] and r["provisional"] is False
-    assert DH.classify_readings(H5_OK, _h6(), H7_OK, PAIRS_OK, dict(result="pass"), "not refuted")["wording"] == "the channel N_p"
-    assert DH.classify_readings(H5_OK, _h6(), H7_OK, NOT_RUN)["reading"] == "R1"                       # pairs not run (a technical stop)
-    h5_fail = DH.classify_readings(dict(H5_OK, result="fail"), _h6(), H7_OK, PAIRS_OK)                # M5: R1 without the cost-variance clause
+    assert CR(H5_OK, _h6(), H7_OK, PAIRS_OK, dict(result="pass"), "not refuted")["wording"] == "the channel N_p"
+    assert CR(H5_OK, _h6(), H7_OK, NOT_RUN)["reading"] == "R1"                       # pairs not run (a technical stop)
+    h5_fail = CR(dict(H5_OK, result="fail"), _h6(), H7_OK, PAIRS_OK)                # M5: R1 without the cost-variance clause
     assert h5_fail["reading"] == "R1" and h5_fail["conclusion"]["stated"] and not h5_fail["conclusion"]["cost_variance_clause"]
-    pending = DH.classify_readings(H5_OK, _h6(), H7_OK, NOT_RUN, pairs_final=False)                    # M4: booked, before their post-run review
+    pending = CR(H5_OK, _h6(), H7_OK, NOT_RUN, pairs_final=False)                    # M4: booked, before their post-run review
     assert pending["provisional"] is True and "pending the pairs" in pending["provisional_note"]
 
 
 def test_reading_scope_follows_the_h6_ladder():
-    assert DH.classify_readings(H5_OK, _h6(ladder=[], inconclusive=True), H7_OK, PAIRS_OK)["scope"] == DH.RUNG_SCOPE["inconclusive"]
-    r = DH.classify_readings(H5_OK, _h6(ladder=[]), H7_OK, PAIRS_OK)                                   # M6 (3): ladder not evaluated
+    assert CR(H5_OK, _h6(ladder=[], inconclusive=True), H7_OK, PAIRS_OK)["scope"] == DH.RUNG_SCOPE["inconclusive"]
+    r = CR(H5_OK, _h6(ladder=[]), H7_OK, PAIRS_OK)                                   # M6 (3): ladder not evaluated
     assert r["reading"] == "R1" and r["scope"] == DH.RUNG_SCOPE["not evaluated"] and "60-qubit rung only" in r["scope"]
-    assert DH.classify_readings(H5_OK, _h6(ladder=[dict(within=None)]), H7_OK, PAIRS_OK)["detail"]["ladder"] == "not evaluated"
+    assert CR(H5_OK, _h6(ladder=[dict(within=None)]), H7_OK, PAIRS_OK)["detail"]["ladder"] == "not evaluated"
 
 
 def test_reading_r3_overrides():
     for args in ((H5_OK, _h6(floors_below=True), H7_OK, PAIRS_OK), (dict(H5_OK, floors=[dict(below_floor_with_interval=True)]), _h6(), H7_OK, PAIRS_OK)):
-        assert DH.classify_readings(*args)["reading"] == "R3"
-    r = DH.classify_readings(H5_OK, _h6(), H7_OK, PAIRS_OK, dict(result="fail", points=[dict(point_id="x", within=False)]))
+        assert CR(*args)["reading"] == "R3"
+    r = CR(H5_OK, _h6(), H7_OK, PAIRS_OK, dict(result="fail", points=[dict(point_id="x", within=False)]))
     assert r["reading"] == "R3" and "realised-mask" in r["reasons"][0] and not r["conclusion"]["stated"]
-    h4 = DH.classify_readings(H5_OK, _h6(), H7_OK, PAIRS_OK, None, "refuted", ceiling=dict(result="fail"))   # R3 overrides the ceiling too
+    h4 = CR(H5_OK, _h6(), H7_OK, PAIRS_OK, None, "refuted", ceiling=dict(result="fail"))   # R3 overrides the ceiling too
     assert h4["reading"] == "R3" and "if that deviation is recorded" in h4["reasons"][0]
 
 
@@ -451,24 +461,24 @@ B_FAST = dict(a=dict(result="pass"), b=dict(result="fail", fails=["below the pre
 
 
 def test_reading_r2_needs_the_unital_dial_to_protect_and_the_ceiling():
-    r2 = DH.classify_readings(H5_OK, _h6("fail", UNITAL), H7_OK, B_FAST, ceiling=CEIL_OK)
+    r2 = CR(H5_OK, _h6("fail", UNITAL), H7_OK, B_FAST, ceiling=CEIL_OK)
     assert r2["reading"] == "R2" and "expected to be empty" in r2["text"].lower() and not r2["conclusion"]["stated"]
-    assert DH.classify_readings(H5_OK, _h6("fail", UNITAL), H7_OK, NOT_RUN, ceiling=CEIL_OK)["reading"] == "R2"
-    no_ceiling = DH.classify_readings(H5_OK, _h6("fail", UNITAL), H7_OK, B_FAST)                       # M2: R2 needs the ceiling check
+    assert CR(H5_OK, _h6("fail", UNITAL), H7_OK, NOT_RUN, ceiling=CEIL_OK)["reading"] == "R2"
+    no_ceiling = CR(H5_OK, _h6("fail", UNITAL), H7_OK, B_FAST)                       # M2: R2 needs the ceiling check
     assert no_ceiling["reading"] == "UNRESOLVED" and any("unital-ceiling check is not evaluated" in x for x in no_ceiling["reasons"])
-    broken = DH.classify_readings(H5_OK, _h6("fail", UNITAL), H7_OK, B_FAST, ceiling=dict(result="fail"))
+    broken = CR(H5_OK, _h6("fail", UNITAL), H7_OK, B_FAST, ceiling=dict(result="fail"))
     assert broken["reading"] == "UNRESOLVED" and broken["control_finding"] and "unital control not as modelled" in broken["reasons"][0]
     b_ne = dict(a=dict(result="pass"), b=dict(result="not-evaluable", note="no margin"))              # M6 (1): blocks R2 as it blocks R1
-    assert DH.classify_readings(H5_OK, _h6("fail", UNITAL), H7_OK, b_ne, ceiling=CEIL_OK)["reading"] == "UNRESOLVED"
+    assert CR(H5_OK, _h6("fail", UNITAL), H7_OK, b_ne, ceiling=CEIL_OK)["reading"] == "UNRESOLVED"
     a_fail = dict(a=dict(result="fail", fails=["comparator"]), b=B_FAST["b"])                          # M6 (2): (a), where it ran, passes
-    r = DH.classify_readings(H5_OK, _h6("fail", UNITAL), H7_OK, a_fail, ceiling=CEIL_OK)
+    r = CR(H5_OK, _h6("fail", UNITAL), H7_OK, a_fail, ceiling=CEIL_OK)
     assert r["reading"] == "UNRESOLVED" and any("A3(a) does not pass" in x for x in r["reasons"])
-    mixed = DH.classify_readings(H5_OK, _h6("fail", UNITAL), H7_OK, PAIRS_OK, ceiling=CEIL_OK)        # A3(b) shows the non-unital contrast
+    mixed = CR(H5_OK, _h6("fail", UNITAL), H7_OK, PAIRS_OK, ceiling=CEIL_OK)        # A3(b) shows the non-unital contrast
     assert mixed["reading"] == "UNRESOLVED"
     short = dict(measured=120.0, lo=60.0, hi=300.0, within=False, exceeds=True)                        # resolvably above, short of the factor
-    r = DH.classify_readings(H5_OK, _h6("fail", short), H7_OK, PAIRS_OK, ceiling=CEIL_OK)
+    r = CR(H5_OK, _h6("fail", short), H7_OK, PAIRS_OK, ceiling=CEIL_OK)
     assert r["reading"] == "UNRESOLVED" and any("off the pre-drawn factor" in x for x in r["reasons"])
-    assert DH.classify_readings(H5_OK, _h6("fail", UNITAL), dict(result="fail"), B_FAST, ceiling=CEIL_OK)["reading"] == "UNRESOLVED"
+    assert CR(H5_OK, _h6("fail", UNITAL), dict(result="fail"), B_FAST, ceiling=CEIL_OK)["reading"] == "UNRESOLVED"
 
 
 def _bounds(r_lo, d_lo, d_hi, pred=627.0, s=0.1):
@@ -480,32 +490,32 @@ def _bounds(r_lo, d_lo, d_hi, pred=627.0, s=0.1):
 
 def test_reading_h6_control_on_bounds():
     ok = _bounds(8e-3, -2e-5, 3e-5)                                   # exceeds and within: as modelled, R1 reachable on bounds (M3)
-    r = DH.classify_readings(H5_OK, _h6("pass", ok), H7_OK, PAIRS_OK)
+    r = CR(H5_OK, _h6("pass", ok), H7_OK, PAIRS_OK)
     assert DH._control_reading(ok) == "as_modelled" and r["reading"] == "R1" and any("on bounds" in x for x in r["reasons"])
     neg = _bounds(8e-3, -6e-5, -1e-5)                                 # d_hi <= 0: factor not tested, decided by 'exceeds' alone
     assert neg["within"] is False and DH._control_reading(neg) == "as_modelled"
     assert DH._control_reading(dict(neg, within=None, factor="not tested")) == "as_modelled"
-    r = DH.classify_readings(H5_OK, _h6("pass", dict(neg, within=None)), H7_OK, PAIRS_OK)
+    r = CR(H5_OK, _h6("pass", dict(neg, within=None)), H7_OK, PAIRS_OK)
     assert r["reading"] == "R1" and r["detail"]["factor_not_tested"] is True
     far = _bounds(8e-3, -1e-6, 1e-7)                                  # r_lo above F exp(1.96 s) d_hi: exceeds, not within
     assert DH._control_reading(far) == "partial"
     low = _bounds(2e-5, -2e-5, 3e-5)                                  # reset not above the dephasing upper bound
     assert DH._control_reading(low) == "unresolved"
-    r = DH.classify_readings(H5_OK, _h6("fail", low), H7_OK, B_FAST, ceiling=CEIL_OK)
+    r = CR(H5_OK, _h6("fail", low), H7_OK, B_FAST, ceiling=CEIL_OK)
     assert r["reading"] == "UNRESOLVED" and any("blocks R2 only" in x for x in r["reasons"])       # never R2 on bounds
     assert DH._control_reading(None) == "missing"
 
 
 def test_reading_unresolved_cases():
     nan_ctrl = dict(measured=np.nan, lo=np.nan, hi=np.nan, within=None, exceeds=False)  # a ratio-path control without a finite ratio
-    r = DH.classify_readings(H5_OK, _h6("fail", nan_ctrl), H7_OK, PAIRS_OK)
+    r = CR(H5_OK, _h6("fail", nan_ctrl), H7_OK, PAIRS_OK)
     assert r["reading"] == "UNRESOLVED" and any("no finite ratio" in x for x in r["reasons"]) and r["detail"]["h6_control"] == "unresolved"
-    one_p = DH.classify_readings(H5_OK, _h6(ratios=[dict(p=0.25, within=True)]), H7_OK, PAIRS_OK)
+    one_p = CR(H5_OK, _h6(ratios=[dict(p=0.25, within=True)]), H7_OK, PAIRS_OK)
     assert one_p["reading"] == "UNRESOLVED" and any("both p" in x for x in one_p["reasons"])
-    ran_ne = DH.classify_readings(H5_OK, _h6(), H7_OK, dict(a=dict(result="not-evaluable", note="no comparator"), b=dict(result="pass")))
+    ran_ne = CR(H5_OK, _h6(), H7_OK, dict(a=dict(result="not-evaluable", note="no comparator"), b=dict(result="pass")))
     assert ran_ne["reading"] == "UNRESOLVED" and any("A3(a) ran but is not evaluable" in x for x in ran_ne["reasons"])
-    assert DH.classify_readings(H5_OK, _h6(), dict(result="not-evaluable", note="no comparator"), PAIRS_OK)["reading"] == "UNRESOLVED"
-    assert DH.classify_readings(H5_OK, _h6(), H7_OK, dict(a=dict(result="fail", fails=["comparator"]), b=dict(result="pass")))["reading"] == "UNRESOLVED"
+    assert CR(H5_OK, _h6(), dict(result="not-evaluable", note="no comparator"), PAIRS_OK)["reading"] == "UNRESOLVED"
+    assert CR(H5_OK, _h6(), H7_OK, dict(a=dict(result="fail", fails=["comparator"]), b=dict(result="pass")))["reading"] == "UNRESOLVED"
 
 
 def _ceiling_points(v_deph, v_delay, M_=100, rng_seed=0, qubits=Q52, qubits_delay=None):
@@ -540,5 +550,88 @@ def test_pair_b_beside_a_failing_h7(synthetic):
 def test_evaluate_readings_runs_end_to_end_on_empty_points(synthetic):
     cols = ["kind", "arm", "p", "n", "L", "k", "patch", "edge", "patch_qubits", "point_id", "resilience_level"]
     out = DH.evaluate_readings(pd.DataFrame(columns=cols), synthetic["h7"], _comparators(), n_boot=200, pairs_final=False)
+    assert out["two_strength"]["result"] == "not-evaluable"
     assert out["pairs"]["a"]["result"] == out["pairs"]["b"]["result"] == "not-run" and out["mean_check"]["result"] == "not-evaluable"
     assert out["unital_ceiling"]["result"] == "not-evaluable" and out["reading"]["reading"] == "UNRESOLVED" and out["reading"]["provisional"]
+
+
+def test_pairs_final_is_required():
+    with pytest.raises(TypeError):
+        DH.classify_readings(H5_OK, _h6(), H7_OK, PAIRS_OK, MC_OK, None)                  # follow-up review C4: no default
+    with pytest.raises(TypeError):
+        DH.evaluate_readings(pd.DataFrame(), pd.DataFrame(), {})
+    assert DH.classify_readings(H5_OK, _h6(), H7_OK, NOT_RUN, MC_OK, None, pairs_final=False)["provisional"] is True
+
+
+def test_reading_needs_the_cmix_check_evaluated():
+    assert CR(H5_OK, _h6(), H7_OK, PAIRS_OK)["reading"] == "R1"
+    r = CR(H5_OK, _h6(), H7_OK, PAIRS_OK, None)                                          # S10: the check not run
+    assert r["reading"] == "UNRESOLVED" and any("E[C_mix] check was not run" in x for x in r["reasons"])
+    gap = dict(result="pass", points=[dict(point_id="reset p0.25 n52 L8 k8 r0", within=True),
+                                      dict(point_id="reset p0.5 n52 L8 k8 r0", within=None, note="the realised masks cannot be rebuilt")])
+    r = CR(H5_OK, _h6(), H7_OK, PAIRS_OK, gap)
+    assert r["reading"] == "UNRESOLVED" and any("not evaluated at reset p0.5 n52 L8 k8 r0" in x for x in r["reasons"])
+    assert CR(H5_OK, _h6("fail", UNITAL), H7_OK, B_FAST, gap, ceiling=CEIL_OK)["reading"] == "UNRESOLVED"     # R2 too
+    absent = dict(result="pass", points=[dict(point_id="reset p0.25 n52 L8 k8 r0", within=True), dict(patch="4x10", p=0.25, L=8, within=None,
+                                                                                                         note="not in the loaded runs (counts as not missing)")])
+    assert CR(H5_OK, _h6(), H7_OK, PAIRS_OK, absent)["reading"] == "R1"                  # members not run count as not missing
+    assert CR(H5_OK, _h6(), H7_OK, PAIRS_OK, dict(result="fail", points=[dict(point_id="x", within=False)]))["reading"] == "R3"
+
+
+def test_reading_reads_deviation_60_factor_fields():
+    tested_not = dict(_bounds(8e-3, -6e-5, -1e-5), within=None, factor_tested=False, factor_note="factor not tested: the dephasing interval lies at or below zero")
+    assert DH._control_reading(tested_not) == "as_modelled"
+    no_pred = dict(_bounds(8e-3, -2e-5, 3e-5), within=None, predicted=None, factor_tested=False, factor_note="no pre-drawn factor")
+    assert DH._control_reading(no_pred) == "unresolved"
+
+
+def _two_strength_points(v25, v50, M_=100, rng_seed=3):
+    rng = np.random.default_rng(rng_seed)
+    base = dict(kind="reset_dial", arm="reset", n=52, L=8, k=8, patch="6x10", edge="84_85", patch_qubits=" ".join(map(str, Q52)), n_placements=1,
+                resilience_level=0, var_cmix_floor=1e-4)
+    z = rng.normal(0, 1, (M_, 2))                                                          # the same draws at both strengths (paired)
+    return pd.DataFrame([dict(base, p=0.25, point_id="reset p0.25 n52 L8 k8 r0", cmix_draws=(np.sqrt(v25 + 1e-4) * z).tolist()),
+                         dict(base, p=0.5, point_id="reset p0.5 n52 L8 k8 r0", cmix_draws=(np.sqrt(v50 + 1e-4) * z + rng.normal(0, 0.01, (M_, 2))).tolist())])
+
+
+def test_two_strength_statement(monkeypatch):
+    rows = {0.25: dict(var_cost=3.568e-3, var_cost_sigma=1e-4), 0.5: dict(var_cost=1.8312e-2, var_cost_sigma=4e-4)}
+    monkeypatch.setattr(DH, "_pred", lambda preds, r, missing=None, **kw: rows[float(r.p)])
+    h6 = dict(depth_ratios=[dict(p=0.25, within=True), dict(p=0.5, within=True)])
+    ok = DH.two_strength_statement(_two_strength_points(3.568e-3, 1.8312e-2), {}, h6, n_boot=2000)
+    v = ok["value"]
+    assert ok["result"] == "reported" and v["predicted"] == pytest.approx(1.8312e-2 / 3.568e-3) and v["within"] is True and 3 < v["measured"] < 9
+    assert ok["h6_depth_ratios_both_within"] is True and "not a refutation criterion" in ok["text"]
+    off = DH.two_strength_statement(_two_strength_points(3.568e-3, 3.568e-3), {}, h6, n_boot=2000)   # no strength dependence: reported, outside
+    assert off["result"] == "reported" and off["value"]["within"] is False
+    one = DH.two_strength_statement(_two_strength_points(3.568e-3, 1.8312e-2).iloc[:1], {}, h6, n_boot=200)
+    assert one["result"] == "not-evaluable" and "missing" in one["note"]
+
+
+def test_readings_end_to_end_on_a_synthetic_run(tmp_path):
+    """Follow-up review S14: a non-empty synthetic run through the loader and report.analyse, with the runner's shared mask seeds and
+    the Section 3b characterisation probes, pins the reset_error, mask_seed and calibration interfaces of evaluate_readings."""
+    from gradvar.analysis import synthetic as S
+    from gradvar.analysis.report import analyse
+    snap = str(ROOT / "data" / "calibrations" / "ibm_phoenix_2026-09-19T192510Z.csv")
+    seed0 = 22991001
+    specs = [S.dial_point("reset", p, 53, 8, 8, v, var_mask=0.14, mean_c=mc, M=24, K=32, shots=128, resilience=0, seed=seed0, shared_masks=True)
+             for p, v, mc in ((0.25, 2e-3, 0.066), (0.5, 9e-3, 0.25))]
+    specs += [dict(kind="reset_error", reset_kind=rk, prep=prep, n=53, p1=p1, shots=4096, probe_id=pid, resilience=0)
+              for pid, rk, prep, p1 in (("reset_error_prep1", "reset", "1", 0.03), ("readout_ref_prep0", "none", "0", 0.01), ("readout_ref_prep1", "none", "1", 0.97))]
+    S.SyntheticRun(tmp_path, name="syn_dev63", seed=31, snapshot_csv=snap).add(specs).write()
+    res = analyse(str(tmp_path), None, snap, None, n_boot=300)
+    out = DH.evaluate_readings(res["points"], res["_run"].rows, res["_preds"], reset_error=res["reset_error"], snapshot_csv=snap, h4=None,
+                               pairs_final=False, n_boot=300)
+    qs = sorted(S.PATCH[53][2])
+    assert {84, 85} <= set(out["eps"]) and all(0 <= out["eps"][q] < 0.1 for q in (84, 85))                  # reset_error interface
+    mc = out["mean_check"]
+    assert mc["m"] == 6 and mc["n_evaluated"] == 2 and mc["result"] in ("pass", "fail")
+    for p in (0.25, 0.5):
+        x = next(v for v in mc["points"] if v.get("point_id") and v["p"] == p)
+        ref = np.array([mask_lottery(seed0, m, 8, 53, p)[7, [qs.index(84), qs.index(85)]] for m in range(32)])
+        assert x["K"] == 32 and x["p_hat_both"] == pytest.approx((ref[:, 0] & ref[:, 1]).mean())             # mask_seed interface
+        assert x["eps_source"] == {84: "characterisation", 85: "characterisation"} and 0.9 < x["a_i"] <= 1.0   # calibration interface
+    assert sum(1 for v in mc["points"] if v.get("point_id") is None) == 4
+    assert out["reading"]["provisional"] is True and out["reading"]["reading"] in ("R1", "R2", "R3", "UNRESOLVED")
+    assert out["two_strength"]["result"] in ("reported", "not-evaluable") and out["unital_ceiling"]["result"] == "not-evaluable"

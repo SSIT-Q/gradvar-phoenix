@@ -870,20 +870,30 @@ def _point_mask_seeds(rows: pd.DataFrame | None, point_id) -> tuple:
     return list(next(iter(sets))), None
 
 
+CHARACTERISATION_IDS = dict(reset="reset_error_prep1", ref0="readout_ref_prep0", ref1="readout_ref_prep1")   # Section 3b, day-3 list
+
+
 def reset_errors_from_characterisation(reset_error: pd.DataFrame | None) -> Dict[int, float]:
     """eps_q per qubit from the characterisation probes of the day's list (``RunData.reset_error``, ``EPS_TEXT``): P(1) after |1> ->
-    native reset -> measure (reset_kind 'reset', prep 1), unfolded with the readout references on the same qubits (reset_kind
-    'none', prep 0 and prep 1). Qubits without all three probes are absent (they take eps = 0 in ``mean_cmix_check``)."""
+    native reset -> measure, unfolded with the readout references on the same qubits. The probes are taken by their Section 3b ids
+    (``CHARACTERISATION_IDS``) when the table has them, else by kind (reset_kind 'reset' with prep 1; reset_kind 'none' with prep 0
+    and prep 1), never from a rep-delay ladder probe (``rep_delay_us`` set). Qubits without all three are absent (they take eps = 0
+    in ``mean_cmix_check``)."""
     if reset_error is None or not len(reset_error):
         return {}
     t = reset_error.assign(p1=pd.to_numeric(reset_error.p1, errors="coerce"), prep=reset_error.prep.astype(str),
                            reset_kind=reset_error.reset_kind.astype(str))
     t = t[np.isfinite(t.p1)]
+    if "rep_delay_us" in t.columns:
+        t = t[pd.to_numeric(t.rep_delay_us, errors="coerce").isna()]
+    ids = t.probe_id.astype(str) if "probe_id" in t.columns else pd.Series("", index=t.index)
 
-    def per(kind: str, prep: str) -> pd.Series:
-        return t[(t.reset_kind == kind) & (t.prep == prep)].groupby("qubit").p1.mean()
+    def per(key: str, kind: str, prep: str) -> pd.Series:
+        named = t[ids == CHARACTERISATION_IDS[key]]
+        x = named if len(named) else t[(t.reset_kind == kind) & (t.prep == prep)]
+        return x.groupby("qubit").p1.mean()
 
-    r1, e0, e1 = per("reset", "1"), per("none", "0"), per("none", "1")
+    r1, e0, e1 = per("reset", "reset", "1"), per("ref0", "none", "0"), per("ref1", "none", "1")
     out = {}
     for q, v in r1.items():
         if q in e0.index and q in e1.index and float(e1[q] - e0[q]) > 0:
@@ -1039,13 +1049,18 @@ def _h6_parts(h6: Dict) -> Dict:
 
 def _factor_not_tested(c: Dict) -> bool:
     """Deviation 60 part (6) with the sentence added at its adoption: when the dephasing interval lies entirely at or below zero
-    (d_hi <= 0), the factor condition is reported 'factor not tested' and the clause is decided by 'exceeds' (r_lo > 0) alone."""
-    if c.get("factor_tested") is False or str(c.get("factor") or "").lower() == "not tested":
+    (d_hi <= 0), the factor condition is reported 'factor not tested' and the clause is decided by 'exceeds' (r_lo > 0) alone. Read
+    from Deviation 60's record (``factor_tested`` False with ``factor_note`` 'factor not tested ...'), or from d_hi itself where the
+    record predates it. A control without a pre-drawn factor ('no pre-drawn factor') is not this case."""
+    note = str(c.get("factor_note") or "").lower()
+    if note.startswith("no pre-drawn factor"):
+        return False
+    if note.startswith("factor not tested") or str(c.get("factor") or "").lower() == "not tested":
         return True
     if isinstance(c.get("within"), str) and "not tested" in c["within"].lower():
         return True
     d_hi = c.get("dephasing_hi")
-    return d_hi is not None and np.isfinite(float(d_hi)) and float(d_hi) <= 0
+    return d_hi is not None and np.isfinite(float(d_hi)) and float(d_hi) <= 0 and c.get("predicted") is not None
 
 
 def _control_reading(c: Dict | None) -> str:
@@ -1074,6 +1089,15 @@ def _control_reading(c: Dict | None) -> str:
     return "as_modelled" if c.get("within") else "partial"
 
 
+def _cmix_gaps(mean_check: Dict | None) -> list:
+    """Follow-up review S10: the reasons the E[C_mix] check cannot support a final R1 or R2: not run, or not evaluated at a family
+    member that has a point in the loaded runs (a member not run counts as not missing)."""
+    if mean_check is None:
+        return ["the E[C_mix] check was not run (R3 (ii) cannot be read)"]
+    return [f"the E[C_mix] check is not evaluated at {x.get('point_id')}: {x.get('note')}" for x in mean_check.get("points", []) or []
+            if x.get("point_id") is not None and x.get("within") is None]
+
+
 def _conclusion(reading: str, h5: Dict | None) -> Dict:
     """``CONCLUSION_RULE`` applied to a reading."""
     if reading == "R1":
@@ -1085,7 +1109,7 @@ def _conclusion(reading: str, h5: Dict | None) -> Dict:
 
 
 def classify_readings(h5: Dict, h6: Dict, h7: Dict, pairs: Dict | None = None, mean_check: Dict | None = None, h4: str | None = None,
-                      ceiling: Dict | None = None, pairs_final: bool = True) -> Dict:
+                      ceiling: Dict | None = None, *, pairs_final: bool) -> Dict:
     """Deviation 63 (draft) Part A2, as corrected after the checkpoint review: the reading of the booked H5-H7 outcomes and the A3 pairs,
     from the verdicts of ``evaluate_h5`` / ``evaluate_h6`` / ``evaluate_h7`` / ``evaluate_truncation_pairs``, ``mean_cmix_check``,
     ``unital_ceiling_check`` (``ceiling``) and Paper 2's H4 outcome ``h4`` ('refuted', 'not refuted', or None while Q4's post-run
@@ -1094,18 +1118,21 @@ def classify_readings(h5: Dict, h6: Dict, h7: Dict, pairs: Dict | None = None, m
     1. R3 if a Deviation 33 floor fails (any H5 or H6 floor check below the floor with its interval), E[C_mix] misses its
        realised-mask folded value (``mean_check`` 'fail'), or H4 is refuted. It overrides everything below.
     2. UNRESOLVED, as a control finding, if the unital-ceiling check fails (``ceiling`` 'fail': unital control not as modelled).
-    3. R1 if H6 and H7 pass as pre-registered, with every sub-test the readings need evaluated (the H6 depth ratio at both p, the
+    3. Neither R1 nor R2 unless the E[C_mix] check was run and evaluated at every family member that has a point in the loaded
+       runs (members not run count as not missing): otherwise UNRESOLVED with the reason named (follow-up review S10).
+    4. R1 if H6 and H7 pass as pre-registered, with every sub-test the readings need evaluated (the H6 depth ratio at both p, the
        reset / dephasing control, H7's l = 2 comparator), and every A3 pair that ran passes (a pair that ran and is not evaluable
        blocks R1). Its scope follows the H6 ladder (``RUNG_SCOPE``): the three rungs when the ladder ratio is evaluated or declared
        inconclusive by H6's flat-reference rule (then said), else the 60-qubit rung only.
-    4. R2 if the reset-side sub-tests pass (the H6 floors, depth ratios at both p and ladder; H7; pair (a), where it ran), the H6
+    5. R2 if the reset-side sub-tests pass (the H6 floors, depth ratios at both p and ladder; H7; pair (a), where it ran), the H6
        control reads 'unital_protects' (a resolved dephasing variance), pair (b), where it ran, is evaluable and not resolvably above
        the reset's (``unital_as_fast``), and the unital-ceiling check passes. Expected to be empty (``READINGS['R2']``).
-    5. Otherwise UNRESOLVED.
+    6. Otherwise UNRESOLVED.
 
     Until H4 is reviewed (``h4`` None) R1 and R2 are worded 'the dial as implemented'; with H4 not refuted, 'the channel N_p'. Every
-    result carries ``conclusion`` (``CONCLUSION_RULE``); with ``pairs_final`` False (the pairs booked, their post-run review not yet
-    done) it is marked ``provisional`` (``PROVISIONAL``)."""
+    result carries ``conclusion`` (``CONCLUSION_RULE``). ``pairs_final`` is required (follow-up review C4): False at review 05 (the
+    pairs booked, their post-run review not yet done; the result is marked ``provisional``, ``PROVISIONAL``), True only at the pairs'
+    post-run review, with both lists loaded together."""
     hp = _h6_parts(h6 or {})
     h5_floor_fail = any(x.get("below_floor_with_interval") for x in (h5 or {}).get("floors", []) or [])
     h6_floor_fail = any(x.get("below_floor_with_interval") for x in hp["floors"])
@@ -1144,6 +1171,7 @@ def classify_readings(h5: Dict, h6: Dict, h7: Dict, pairs: Dict | None = None, m
         return done("UNRESOLVED", ["unital control not as modelled: the dephasing dial's floor-subtracted k = L variance is resolvably above the "
                                    "delay-matched p = 0 variance (reported as a control finding)"], None, control_finding=True)
     blocks, reasons = [], []
+    blocks += _cmix_gaps(mean_check)                                    # follow-up review S10: R3 (ii) may not be silently off
     both_p = all(p in hp["ratios"] and hp["ratios"][p].get("within") is not None for p in (0.25, 0.5))
     if not both_p:
         blocks.append("the H6 depth ratio is not evaluated at both p (the p = 0.5 rows need a placement-matched prediction, Deviation 60 item 5)")
@@ -1165,7 +1193,7 @@ def classify_readings(h5: Dict, h6: Dict, h7: Dict, pairs: Dict | None = None, m
                        + ("; factor not tested (d_hi <= 0), the clause decided by 'exceeds'" if detail["factor_not_tested"] else ""))
         return done("R1", why + [f"scope: {RUNG_SCOPE[ladder]}"], wording, scope=RUNG_SCOPE[ladder])
     b_ok = b_ is None or (b_.get("result") in ("pass", "fail") and bool(b_.get("unital_as_fast")))
-    if reset_side_ok and control == "unital_protects" and b_ok and ceil == "pass":
+    if reset_side_ok and control == "unital_protects" and b_ok and ceil == "pass" and not _cmix_gaps(mean_check):
         return done("R2", ["the reset-side sub-tests pass while the reset dial's k = L variance is not resolvably above the dephasing dial's",
                            "the unital-ceiling check passes"]
                     + (["A3(b): the dephasing RMS(2) is not resolvably above the reset's"] if b_ is not None else []), wording)
@@ -1199,16 +1227,58 @@ def evaluate_all(points: pd.DataFrame, rows: pd.DataFrame, preds: Dict, n_boot: 
     return {"H5": evaluate_h5(points, preds, n_boot), "H6": evaluate_h6(points, preds, n_boot), "H7": evaluate_h7(rows, preds, n_boot)}
 
 
+TWO_STRENGTH_TEXT = ("Deviation 63 (draft) part (4), reported only and not a refutation criterion: the H5 paired block bootstrap (floors "
+                     "subtracted, n_boot resamples) of Var[C_mix](p = 0.5) / Var[C_mix](p = 0.25) at L = 8 on the 60-qubit rung, both points "
+                     "on one seed and paired over draws, against the placement-matched pre-drawn ratio within the combined interval (log "
+                     "scale, as H5); H6's k = L depth ratios at both p are read together beside it. The realised-mask treatment of the "
+                     "Deviation 60 track (checkpoint review M7) applies to the comparison.")
+
+
+def two_strength_statement(points: pd.DataFrame, preds: Dict, h6: Dict | None = None, n_boot: int = 10_000) -> Dict:
+    """``TWO_STRENGTH_TEXT``: the part (4) report line (follow-up review S13). 'reported' with the ratio test, or 'not-evaluable'
+    with the reason; never 'pass' or 'fail'."""
+    d = points[(points.kind == "reset_dial") & (points.arm == "reset") & (points.k == points.L)] if len(points) else points
+    issues, missing = [], []
+    ratios = {float(x["p"]): x.get("within") for x in ((h6 or {}).get("depth_ratios") or [])}
+    base = dict(id="part (4) two-strength statement", text=TWO_STRENGTH_TEXT, h6_depth_ratios=ratios,
+                h6_depth_ratios_both_within=(all(ratios.get(p) is True for p in (0.25, 0.5)) if all(p in ratios for p in (0.25, 0.5)) else None))
+    lo_ = _one_point(_sel(d, "reset", 0.25, 8, n=CONTROL_N, patch=CONTROL_PATCH), "part (4), p = 0.25 point", issues) if len(d) else None
+    hi_ = _one_point(_sel(d, "reset", 0.5, 8, n=CONTROL_N, patch=CONTROL_PATCH), "part (4), p = 0.5 point", issues) if len(d) else None
+    if lo_ is None or hi_ is None:
+        return dict(base, result="not-evaluable", note="the p = 0.25 or the p = 0.5 point at L = 8 on the 60-qubit rung is missing" + _pairing_note(issues))
+    if _rung_key(lo_) != _rung_key(hi_):
+        return dict(base, result="not-evaluable", note="the two points are on different rungs or placements")
+    sa, sb = getattr(lo_, "draw_seeds", None), getattr(hi_, "draw_seeds", None)
+    if isinstance(sa, (list, tuple, np.ndarray)) and isinstance(sb, (list, tuple, np.ndarray)) and list(sa) != list(sb):
+        return dict(base, result="not-evaluable", note="the two points do not share their draws (no pairing)")
+    meas = _var_ratio_blocks(hi_.cmix_draws, lo_.cmix_draws, hi_.var_cmix_floor, lo_.var_cmix_floor, n_boot)
+    pr_lo, pr_hi = _pred(preds, lo_, missing=missing), _pred(preds, hi_, missing=missing)
+    pred = (pr_hi["var_cost"] / pr_lo["var_cost"]) if (pr_lo and pr_hi and pr_lo.get("var_cost") and pr_lo["var_cost"] > 0) else np.nan
+    ps = (pred * np.sqrt((pr_hi.get("var_cost_sigma", 0) / pr_hi["var_cost"]) ** 2 + (pr_lo.get("var_cost_sigma", 0) / pr_lo["var_cost"]) ** 2)
+          if np.isfinite(pred) else np.nan)
+    miss, miss_note = _missing(missing)
+    return dict(base, result="reported" if np.isfinite(pred) and np.isfinite(meas.get("ratio", np.nan)) else "not-evaluable",
+                value=_ratio_test(meas, pred, ps), points=[str(lo_.point_id), str(hi_.point_id)], missing_predictions=miss,
+                note=("reported only" if np.isfinite(pred) else "no placement-matched pre-drawn ratio") + miss_note)
+
+
 def evaluate_readings(points: pd.DataFrame, rows: pd.DataFrame, preds: Dict, reset_error: pd.DataFrame | None = None, snapshot_csv: str | None = None,
-                      h4: str | None = None, pairs_final: bool = True, n_boot: int = 10_000) -> Dict:
+                      h4: str | None = None, *, pairs_final: bool, n_boot: int = 10_000) -> Dict:
     """Deviation 63 (draft): everything the reading needs, from one analysis of the day-3 list and the pairs' list loaded together
     (``report.analyse`` gives ``points``, ``_run.rows`` and ``reset_error``): H5-H7, the A3 pairs (with H7's verdict, S3), eps from the
-    characterisation probes, the E[C_mix] check on the realised masks (M1), the unital-ceiling check (M2) and the reading
-    (``classify_readings``; ``pairs_final`` False marks it provisional, M4)."""
+    characterisation probes, the E[C_mix] check on the realised masks (M1), the unital-ceiling check (M2), the part (4) report line
+    (S13) and the reading (``classify_readings``). ``pairs_final`` is required (C4). The two calls are pinned in the Deviation (S11):
+
+    review 05:  evaluate_readings(res["points"], res["_run"].rows, res["_preds"], reset_error=res["reset_error"],
+                                  snapshot_csv=<day-3 placement snapshot CSV>, h4=<H4 status>, pairs_final=False)
+    the pairs:  the same call on the day-3 list and the pairs' list loaded together, with pairs_final=True
+
+    with ``res = report.analyse(<run directory>, <predictions directory>, <the same snapshot CSV>)``."""
     hyp = evaluate_all(points, rows, preds, n_boot)
     pairs = evaluate_truncation_pairs(rows, preds, n_boot, h7=hyp["H7"])
     eps = reset_errors_from_characterisation(reset_error)
     mean_check = mean_cmix_check(points, rows=rows, snapshot_csv=snapshot_csv, eps=eps, n_boot=n_boot)
     ceiling = unital_ceiling_check(points, n_boot=n_boot)
+    two_strength = two_strength_statement(points, preds, hyp["H6"], n_boot=n_boot)
     reading = classify_readings(hyp["H5"], hyp["H6"], hyp["H7"], pairs, mean_check, h4, ceiling=ceiling, pairs_final=pairs_final)
-    return dict(hypotheses=hyp, pairs=pairs, eps=eps, mean_check=mean_check, unital_ceiling=ceiling, reading=reading)
+    return dict(hypotheses=hyp, pairs=pairs, eps=eps, mean_check=mean_check, unital_ceiling=ceiling, two_strength=two_strength, reading=reading)
