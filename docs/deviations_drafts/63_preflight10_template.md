@@ -3,7 +3,9 @@
 Template for the lead's same-day pipeline (`--with-pairs`), which renders it with the day-3 list's pre-flight 06 in the same cycle. The
 pipeline code (`scripts/sameday_repackage.py`, `scripts/build_preflights.py`, `docs/repack/`) is not edited here. `{name}` fields are
 filled by the pipeline; the table at the end says where each comes from. The fixed text is Deviation 63's, as corrected after its
-checkpoint review (M4: booked, same-day cycle, same properties window, technical stops, never re-placed).
+checkpoint review (M4: booked, same-day cycle, same properties window, technical stops, never re-placed) and its follow-up review (S9:
+the countersignature cannot change whether the pairs count; S11: the pinned reading calls; S12: the GO checklist and the resubmission
+window).
 
 ---
 
@@ -17,7 +19,9 @@ equality asserted: {placement_identical}), pinned to **{snapshot}** (raw propert
 Deviation 58; `dial_exclude` {dial_exclude}). Generated in the same cycle as pre-flight 06 of {date}, by
 `python scripts/make_truncation_pairs.py {day3_list_path}` (without `--allow-dial-excluded`). **Never re-placed**: if this list cannot be
 dispatched in the same IBM properties window as day 3, the pairs are a technical stop and are reported as not run. Pre-registration
-{prereg_version} with Deviation 63 adopted at {dev63_adoption} (PI countersignature on return) and Deviation 60 part (6).
+{prereg_version} with Deviation 63 adopted at {dev63_adoption} and Deviation 60 part (6). PI countersignature on return; it cannot change
+whether the pairs count. If the PI declines, the pairs' data are still reported and enter the reading as pre-stated, and the refusal is
+recorded as dissent.
 
 ## 1. What runs
 
@@ -76,23 +80,43 @@ submission. Logging as for day 3; no bundle over the 45 MB rule.
   list that cannot be dispatched in the IBM properties window of day 3 ({properties_window}), a live-check failure without an admissible
   Deviation 26 override included. After a stop the pairs are reported as not run and are not re-placed. Day-3 **results** are not a stop:
   the pairs run whatever day 3 shows.
+- **Resubmission window (S12).** A failed job of this list may be resubmitted (`only_job_tag`) only within the IBM properties window of
+  day 3 ({properties_window}). A pair's full and cut circuits can sit in different jobs, so a later resubmission would put calibration
+  drift inside the pair's statistic. Otherwise the pair with circuits in the failed job is a technical stop, reported as not run; the
+  other pair stands. Jobs of this list and the pairs they carry: {jobs_by_pair}.
 
 ## 5. Science checks at the pairs' post-run review
 
 - A3(a) and A3(b) as in Deviation 63 part (3) (`evaluate_truncation_pairs`, with H7's verdict for (b)'s attribution).
 - The E[C_mix] check on the realised masks and the unital-ceiling check (`evaluate_readings`).
-- **The headline reading, classified once here** (`evaluate_readings(..., pairs_final=True)`). Review 05 reported H5–H7 and a provisional
-  reading, "pending the pairs".
+- The part (4) report line (`two_strength_statement`, reported only).
+- **The headline reading, classified once here**, by the pinned call (S11). With `res = report.analyse(<run directory holding both
+  lists' bundles>, "data/predictions", "data/calibrations/{snapshot}")`, the call is `evaluate_readings(res["points"], res["_run"].rows,
+  res["_preds"], reset_error=res["reset_error"], snapshot_csv="data/calibrations/{snapshot}", h4=<the H4 status>, pairs_final=True)`.
+  Review 05 made the same call on day 3 alone with `pairs_final=False`, giving the H5–H7 verdicts and a provisional reading,
+  "pending the pairs".
 
 ## 6. Human steps (Owais), when the review says GO
 
-0. Before arming: Deviation 63 adopted; this list, its comparator records and this pre-flight on `main`, from the same cycle as day 3's.
+0. **GO checklist (S12).** Arm only if every item holds; otherwise do not arm, and the pairs are a technical stop if the window closes.
+   - [ ] Deviation 63 adopted ({dev63_adoption}). This list, its comparator records and this pre-flight are on `main`, from the same
+     cycle as day 3's ({cycle_commit}).
+   - [ ] The noise-off bug check passes at both dials: (a) {a_bugcheck}; (b) {b_bugcheck}.
+   - [ ] `check_comparators` exits 0 on this list: {cc_exit}.
+   - [ ] The placement is identical to `day3_dial_refs.json`'s: {placement_identical}.
+   - [ ] The seed check is empty: {seed_check}.
+   - [ ] The budget equals the runner's `--budget` output: {budget_check}.
+   - [ ] The live pre-check passes, or the dispatch safety net admits the failures: {precheck_result}; {safety_net}.
+   - [ ] The M7 treatment is recorded: {m7_treatment}.
+   - [ ] Day 3 is already submitted in this IBM properties window: {day3_submitted} ({properties_window}).
+   - [ ] No day-3 result has been inspected before the pairs' dispatch: {no_day3_results}.
 1. Arm: in `data/joblists/paper1/dial_truncation_pairs.json` set `"dry_run": false` and `"preflight_review": "<the commit-pinned URL of
    this file>"`, and commit to `main`.
 2. Right after day 3's submission, in the same IBM properties window: Actions, "run hardware job list", `joblist` =
    `data/joblists/paper1/dial_truncation_pairs.json`, untick "Build and transpile only", tick `submit_only`, Run. The log should show
    `placement pinned to {snapshot}`. If the live layout check refuses and the safety net does not admit it, stop: technical stop, not run.
-3. When the {jobs} jobs are done: "retrieve hardware jobs" with the ids file; a failed job is resubmitted with `only_job_tag`.
+3. When the {jobs} jobs are done: "retrieve hardware jobs" with the ids file. A failed job is resubmitted with `only_job_tag` **only within
+   day 3's IBM properties window**; otherwise the pair with circuits in it is a technical stop, reported as not run (Section 4).
 4. The pairs' post-run review (Section 5).
 
 ## 7. Dry run
@@ -125,4 +149,6 @@ no reset).
 | `budget_check` | `python -m gradvar.hardware --joblist ... --budget` (must equal the list's budget) |
 | `kill_status`, `per_pair_minutes`, `h4_status`, `properties_window` | Day 3's kill-rule read-out; the list's per-job budget; Q4's post-run review status; day 3's `calibration_snapshot` (ids file) |
 | `dryrun_summary` | `--dry-run --dry-run-sample 2` on one copy of the list per probe (the runner packs all pubs into one group): n, rows and ISA ops per probe |
+| `jobs_by_pair` | The list's `budget.per_job` with each job's probes (which pair's full and cut circuits each job carries) |
+| `cycle_commit`, `day3_submitted`, `no_day3_results` | The cycle's commit on `main`; day 3's ids file (`submitted job` lines and their times) against the window; a statement by Owais that no day-3 result was opened |
 | `review` | Left for the reviewer |
