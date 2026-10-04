@@ -406,6 +406,9 @@ def prediction_rows(tag: str, d: Path = PRED) -> dict:
             key = f"main {r['rung']} L={int(r['L'])} k={int(r['k'])} {r['model']} {meth}"
             if meth == "pauli_propagation" or not (r.get("var") == r.get("var")):
                 out[key] = (fnum(r["var_mc"]), _sigma(r, "var_mc", "se_mc", "var_pp"), f.name)
+                v1 = fnum(r.get("var_k1_mc"))
+                if int(r["k"]) != 1 and v1 == v1:                              # the same propagation run's k = 1 value (the k = 1 points)
+                    out[f"main {r['rung']} L={int(r['L'])} k=1 {r['model']} {meth}"] = (v1, _sigma(r, "var_k1_mc", "se_k1_mc", "var_k1_pp"), f.name)
             else:
                 out[key] = (fnum(r["var"]), (fnum(r["ci_hi"]) - fnum(r["ci_lo"])) / 3.92, f.name)
     f = d / f"dial_redraw_{tag}.csv"
@@ -436,47 +439,6 @@ def compare_predictions(new_tag: str, prev_tag: str | None) -> list:
         rows.append(dict(key=k, new=v1, new_sigma=s1, prev=v0, prev_sigma=s0, diff_sigma=z, rel=(v1 / v0 - 1) if (v0 and v0 == v0 and v1 == v1) else math.nan,
                          source=src1 or src0))
     return rows
-
-
-PRED_RUNG = {"dial": "day 3 dial {r}", "gate1b": "day 3 dial {r}", "h7": "day 3 dial {r}", "h7_pairs": "day 3 dial {r}"}
-
-
-def _pred_label(key: str) -> str | None:
-    """The placement-table rung a prediction row belongs to ('dial n60 reset p=0.5 L=8 k=L' -> 'day 3 dial n60')."""
-    kind, r = (key.split() + ["", ""])[:2]
-    if kind == "main":
-        return {"n20": "replication n20", "n100": "plain n100"}.get(r, f"grid {r}")
-    return PRED_RUNG[kind].format(r=r) if kind in PRED_RUNG else None
-
-
-def mark_standing(S: dict) -> list:
-    """Rows the new package does not re-draw because the re-draw program found them covered by the previous package's file on the same
-    placement (redraw_dial_points.py: 'every point is covered'). Such a row stands, and is reported as standing rather than missing,
-    when two things hold. First, its rung has the same placed qubits and edge as in the previous package (whether a coupler change
-    reaches the row's cone is the Deviation 46 program's decision). Second, the pipeline's check_comparators.py run found the matching
-    comparator item in that same previous file. Without that confirmation the row stays missing. Returns the keys marked."""
-    import math
-    pl, pp = S.get("placement") or {}, S.get("placement_prev") or {}
-    items = [it for v in (S.get("comparators") or {}).values() for it in (v.get("items") or []) if isinstance(it, dict)]
-    marked = []
-    for x in S.get("predictions") or []:
-        if not (x["new"] != x["new"] and x["prev"] == x["prev"]):
-            continue
-        lab = _pred_label(x["key"])
-        if not lab or lab not in pl or lab not in pp or any(pl[lab][f] != pp[lab][f] for f in ("qubits", "edge")):
-            continue
-        parts = x["key"].split()
-        kv = dict(p.split("=", 1) for p in parts if "=" in p)
-        rung, dial = parts[1], (parts[2] if len(parts) > 2 and "=" not in parts[2] else None)
-        conf = [it for it in items if it.get("found") and it.get("source") == x["source"] and it.get("rung") == rung
-                and (dial is None or it.get("dial", it.get("reset_kind")) == dial) and "p" in kv and it.get("p") is not None
-                and math.isclose(float(it["p"]), float(kv["p"])) and str(it.get("L")) == kv.get("L")]
-        if not conf:
-            continue
-        x.update(new=x["prev"], new_sigma=x["prev_sigma"], diff_sigma=0.0, rel=0.0, standing=True,
-                 source=f"{x['source']} (standing: same placed qubits and edge; check_comparators found it there)")
-        marked.append(x["key"])
-    return marked
 
 
 def rung_table(names_rungs: dict, d: Path) -> dict:
@@ -570,7 +532,8 @@ def write_summary(S: dict, date: str) -> tuple:
         L.append("")
     cc = S.get("comparators") or {}
     if cc:
-        L += ["## Comparators (scripts/check_comparators.py)", ""] + [f"- `{n}`: exit {v.get('exit')}, {v.get('missing')} missing" for n, v in cc.items()] + [""]
+        L += ["## Comparators (scripts/check_comparators.py)", ""] + [f"- `{n}`: exit {v.get('exit')}, {v.get('missing')} missing"
+                                                                   + (f"; {v['note']}" if v.get("note") else "") for n, v in cc.items()] + [""]
     pa = S.get("precheck_all") or {}
     if pa:
         fails = [n for n, v in pa.items() if not v["passes"] and not v.get("record")]
@@ -753,6 +716,7 @@ def run(args) -> int:
                     res = dict(missing=None)
                 cc[n] = dict(exit=p.returncode, missing=res.get("missing"), items=res.get("items"),
                              record=f"`docs/repack/{date}_summary.json`, key `comparators.{n}`")
+                cc[n].update(comparator_pass(cc[n], tag))                      # review M1 (4 Oct): an earlier row never stands for a new placement
             S["comparators"] = cc
             if any(v["exit"] != 0 for v in cc.values()):
                 why = "scripts/check_comparators.py: " + "; ".join(f"{n} exit {v['exit']} ({v['missing']} missing)" for n, v in cc.items() if v["exit"] != 0)
@@ -843,7 +807,6 @@ def run(args) -> int:
                                  prev_min_at_1us=round(sum((S["lists"][n]["budget_prev"] or {}).get("min_at_1us", 0) for n in RUN_DAY), 2),
                                  prev_working_min=round(sum((S["lists"][n]["budget_prev"] or {}).get("working_min", 0) for n in RUN_DAY), 1))
         S["predictions"] = compare_predictions(tag, prev_tag)
-        S["standing_rows"] = mark_standing(S)                                  # unchanged rung: the previous row stands, not 'missing'
         S["flags"] = review_flags(S, prev_dir)
         if args.survey:
             S["status"] = "survey"
@@ -896,6 +859,20 @@ def run(args) -> int:
     return 0 if S["status"] in ("ok", "not needed") else 1
 
 
+HELD3 = " (held list: drawn in the cycle that dispatches day 3)"
+
+
+def comparator_pass(v: dict, tag: str) -> dict:
+    """``pass`` of one check_comparators record: exit 0 and every item found in a file of this package (``tag``). scripts/predictions.py matches a
+    row on the qubit set alone, so an item found only in an earlier package's file is not drawn on this placement (Deviations 46 / 58) and is not a pass."""
+    early = sorted({str(x.get("source")) for x in (v.get("items") or []) if x.get("found") and tag not in str(x.get("source"))})
+    out = {"pass": v.get("exit") == 0 and not early}
+    if early:
+        out["note"] = (f"not a pass: the exit {v.get('exit')} rests on rows of an earlier package ({', '.join(f'`{s}`' for s in early)}), matched on the qubit set "
+                       "alone; the rows must be drawn on this placement (Deviations 46 / 58)")
+    return out
+
+
 def review_flags(S: dict, prev_dir: Path) -> list:
     """Tolerance flags that force a full review (docs/repack/REVIEW_CHECKLIST.md, Section 3)."""
     fl = []
@@ -925,6 +902,12 @@ def review_flags(S: dict, prev_dir: Path) -> list:
         fl.append(f"budget of the four lists moved by more than 5 % ({t['prev_min_at_1us']} -> {t['min_at_1us']} min)")
     if t.get("working_min", 0) > 165 - 0:
         fl.append(f"working figure {t.get('working_min')} min exceeds the 165 min left under the cap")
+    held3 = "day3_dial_refs" in (S.get("holds") or {})
+    tag = str((S.get("run") or {}).get("stamp") or "")[:15]                # '2026-10-04T043542Z' -> '2026-10-04T0435'
+    for n, v in (S.get("comparators") or {}).items():
+        cp = comparator_pass(v, tag) if tag else {}
+        if cp.get("note"):
+            fl.append(f"{n}: check_comparators is {cp['note']}" + (HELD3 if held3 and n == "day3_dial_refs" else ""))
     pl, pp = S.get("placement") or {}, S.get("placement_prev") or {}
     same = {k for k, v in pl.items() if pp.get(k) and all(v[f] == pp[k][f] for f in ("qubits", "broken", "edge"))}
     rung_of = lambda key: key.split()[1] if len(key.split()) > 1 else ""
@@ -934,8 +917,8 @@ def review_flags(S: dict, prev_dir: Path) -> list:
         on_same = any(k.endswith(r) and k in same for k in pl) if r else False
         if z == z and abs(z) > 3 and on_same:
             fl.append(f"prediction {x['key']} moved {z:+.1f} sigma on an unchanged rung (check: calibration-only change?)")
-        if x["new"] != x["new"] and x["prev"] == x["prev"]:
-            fl.append(f"prediction {x['key']} missing in the new package")
+        if x["new"] != x["new"] and x["prev"] == x["prev"]:                    # an earlier row never stands for a new placement (review M1, 4 Oct)
+            fl.append(f"prediction {x['key']} missing in the new package" + (HELD3 if held3 and x["key"].split()[0] in ("dial", "h7") else ""))
     for k, v in pl.items():
         if v.get("component_holes"):
             fl.append(f"{k}: connected-component holes {v['component_holes']} (Deviation 62 rule active)")
