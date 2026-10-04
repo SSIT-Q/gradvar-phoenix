@@ -486,6 +486,8 @@ def write_summary(S: dict, date: str) -> tuple:
           f"`scripts/sameday_repackage.py`, pairs {'on' if r.get('with_pairs') else 'off'}.", ""]
     if S.get("stop_reason"):
         L += [f"**Stopped:** {S['stop_reason']}", ""]
+    if S.get("holds"):
+        L += ["**Rendered for the record, not dispatched from this package:** " + "; ".join(f"`{n}` ({r})" for n, r in S["holds"].items()) + ".", ""]
     L += [f"Wall time {r.get('wall_min')} min (stages: " + ", ".join(f"{k} {v}" for k, v in (r.get('stage_min') or {}).items()) + f"); {r.get('cores')} cores; "
           f"Modal cost {r.get('modal_cost')}.", ""]
     pc = S.get("precheck_committed") or {}
@@ -571,6 +573,11 @@ def run(args) -> int:
                                          base_sha=args.base_sha, run_sha=run_sha, with_pairs=bool(args.with_pairs), cores=cores,
                                          started_utc=_dt.datetime.fromtimestamp(t_start, _dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")),
              approved_overrides=[])
+    holds = dict(h.split("=", 1) for h in (getattr(args, "hold", None) or []))
+    if set(holds) - {"day3_dial_refs"}:
+        raise SystemExit(f"--hold: only day3_dial_refs can be held (got {sorted(holds)})")
+    if holds:
+        S["holds"] = holds                                                     # rendered for the record, not dispatched from this package
     # previous package: the committed lists before regeneration
     prev_dir = out / "prev_lists"
     if prev_dir.exists():
@@ -742,7 +749,7 @@ def run(args) -> int:
                                ROOT / "docs" / "preflight", review_txt=bp.review_template(date), precheck_res=dict(lists=pcs_bp, csv=csv.name, ibm_properties=upd,
                                ibm_properties_placement=upd), pr="the same-day pull request", branch=f"repack-{date}", prev_pred_dir=str(PRED), root=str(ROOT),
                                prev_lists_dir=str(prev_dir), prev_fail_snaps=(), prev=bp.prev_package(prev_dir, PRED, ROOT / "docs" / "preflight"),
-                               pred_commit=PLACEHOLDER_COMMIT, with_pairs=bool(args.with_pairs), comparators=cc)
+                               pred_commit=PLACEHOLDER_COMMIT, with_pairs=bool(args.with_pairs), comparators=cc, hold=holds)
             except bp.PreflightRefused as ex:
                 S["flags"] = [f"pre-flights refused: {ex}"]
                 raise Stop(f"pre-flights refused: {ex}")
@@ -923,7 +930,7 @@ def write_bundle(out: Path, S: dict, changed: list, csv: Path, date: str, args) 
         shutil.copytree(out / "logs", b / "logs")
     man = dict(date=date, snapshot=csv.name, stamp=S["run"]["stamp"], status=S["status"], stop_reason=S.get("stop_reason"), base_sha=args.base_sha,
                run_sha=S["run"].get("run_sha"), files=changed, summary=f"docs/repack/{date}_summary.md", with_pairs=bool(args.with_pairs),
-               exercise=bool(getattr(args, "exercise", False)), exercise_stops=S.get("exercise_stops", []),
+               exercise=bool(getattr(args, "exercise", False)), exercise_stops=S.get("exercise_stops", []), holds=S.get("holds", {}),
                complete=bool(S.get("flags") is not None and S.get("preflights")))
     (b / "manifest.json").write_text(json.dumps(man, indent=1) + "\n", encoding="utf-8")
     if args.bundle:
@@ -1032,6 +1039,9 @@ def publish(args) -> int:
     summ = docs.get(man["summary"], b"").decode("utf-8")
     warn = (f"**EXERCISE, not dispatchable:** {'; '.join(man['exercise_stops'])}. The same-day rule stops this cycle and nothing is dispatched; the "
             "remaining stages ran with `--exercise` to test the pipeline end to end. Do not merge.\n\n") if ex else ""
+    if man.get("holds"):
+        warn += ("**Rendered for the record, not dispatched from this package:** " + "; ".join(f"`{n}` ({r})" for n, r in man["holds"].items())
+                 + ". Its pre-flight says so in Section 1.\n\n")
     body = warn + (f"**Draft: same-day re-package {date}** on `{man['snapshot']}`. Nothing is armed or dispatched: every list has `dry_run` true and the "
             f"placeholder pre-flight record; `approved_overrides` is empty (the Deviation 26 override is closed). Review with "
             f"`docs/repack/REVIEW_CHECKLIST.md`; dispatch within the IBM properties update the pre-check passed on.\n\n" + summ[:60000])
@@ -1125,6 +1135,9 @@ def main(argv=None) -> int:
         ap.add_argument("--exercise", action="store_true",
                         help="pipeline test only: a Gate 1b FAIL is recorded but the remaining stages still run; the status stays 'stopped', every "
                              "generated pre-flight carries an EXERCISE banner, and publish refuses the bundle unless given --exercise too")
+        ap.add_argument("--hold", action="append", default=[], metavar="LIST=REASON",
+                        help="render the list's pre-flight for the record but mark it not for dispatch from this package (day3_dial_refs only), "
+                             "e.g. --hold 'day3_dial_refs=Deviation 60 part (7) pending'")
         ap.add_argument("--survey", action="store_true",
                         help="survey only (no commits): regeneration, the Gate 1b re-draw and the pre-check of every list on the snapshot; no other "
                              "re-draws, comparators, pre-flights, dry runs or tests; status 'survey' (publish refuses it)")

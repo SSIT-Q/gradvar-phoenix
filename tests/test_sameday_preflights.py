@@ -59,6 +59,15 @@ def test_comparator_paragraph_states_the_run_and_each_rows_channel(tmp_path):
     assert "(unital, Deviation 46" not in txt and "exits 0" not in txt
 
 
+def test_only_day3_can_be_held_and_a_bad_hold_writes_nothing(tmp_path):
+    pdir = tmp_path / "preflight"
+    pdir.mkdir()
+    with pytest.raises(ValueError):
+        bp.build(tmp_path / "out", "ibm_phoenix_2026-10-04T043542Z.csv", "2026-10-04T0435", "4 Oct 2026", None, pdir, root=str(ROOT),
+                 comparators={"day3_dial_refs": OK}, hold={"replication_01": "not today"})
+    assert list(pdir.iterdir()) == []
+
+
 def test_snapshot_labels_carry_the_snapshot_month():
     assert bp._label("2026-10-01T030805Z") == "1 Oct 03:08Z" and bp._label("2026-09-28T030856Z") == "28 Sep 03:08Z"
     assert bp._mon("20261003T030812Z") == "Oct"
