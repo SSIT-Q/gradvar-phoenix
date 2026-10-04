@@ -5,20 +5,27 @@
  "dry_run": true,
  "rep_delay_probe": true,
  "preflight_review": "TBD: pre-flight review permalink",
- "notes": "Paper 1 pre-registration v0.17.0 (26 Sep 2026); Deviation 56 (pre-registration v0.15.0, Section 3c, adopted 21 Sep 2026 on Owais's decision of 09:09-09:24 IST that the reserve conjecture test becomes Paper 1 Section 3c, no Paper 3): Block C on the n100 rung (10x10, actual n = 88, origin (2, 0), edge 75_85; the current placement under the Deviation 22 / 26 / 46 / 53 cuts, re-derived by the runner on the run day): k = 1 at L = 8 and L = 10, resilience 0, 65536 shots per shifted circuit (per-draw shot variance 1/(2N) = 7.63e-06, against 3.1e-5 at 16384 and 1.22e-4 at 4096), M = 200 draws per point in a new recorded seed block (seeds 25792001 at L = 8 and 25912001 at L = 10, draw d at seed + d; disjoint from every campaign, replication and reference block), plus the matched Deviation 43 L = 0 null control at 65536 shots (seed 25761001). L = 10 is outside the Section 2 ladder (1, 2, 4, 8, 12): it sits between the resolved L = 8 point and the shot-floor-limited L = 12 point of the same rung. What the block adds to Paper 1 (Section 3c): the L = 8 variance of the n100 rung resolved at a shot floor 16x below the 16384-shot headline point (draw sampling, not shots, then limits it), a third resolvable depth for H2 on the largest rung, and a per-draw record of 200 gradients at 65,536 shots (shot SE about 2.8e-3 per gradient) for the Section 3c per-draw comparison once a per-draw surrogate exists (Deviation 56: the transition map is conditional on a per-draw surrogate and the theorist's sign-off; without it the comparison is at the level of the variance and the distribution shape against the Pauli-propagation population moments). The Deviation 55 level-2 cap is recorded and does not bind (resilience 0 throughout). Order of runs (21 Sep 2026): day 3 (day3_dial_refs) first, then the Deviation 19 replication lists, then this list, each its own Batch, arming and ids file. Ledger: Section 6 main-grid line (190.5 min; the summary reports this block beside the main total). Pre-flight: docs/preflight/09_paper1_section3c_blockC_2026-09-21.md. Placement from snapshot 2026-09-27T030805Z (CSV plus raw properties; Deviations 22, 26 and 46 cuts plus the Deviation 53 coherence floor T1, T2 >= 25 us, on the newest committed calibration data; Deviation 62: qubits outside a rectangle's largest connected live-coupler component are holes): n100 = 10x10 n = 88 origin (2, 0) edge 75_85 broken [[86, 87], [100, 101], [31, 32], [95, 96], [41, 51], [69, 79], [87, 97], [100, 110], [79, 89]]. Deviation 46: the runner re-derives the placement and the observable edges from the run-day snapshot under the Deviation 22 / 26 cuts and the cone-graph edge rule (live re-check, layout_check enforce) and refuses a list whose n no longer matches; regenerate with scripts/make_paper1_joblists.py from the run-day snapshot and re-draw the Gate 1b reference predictions where the cone graph changed. Budget model v3 (Deviation 47: 3.0 s per job, +2.7 s at resilience >= 1, 5 us per execution, max(shots, 64) at resilience >= 1), jobs of at most 300 pubs (max_experiments; Deviation 48) and 12 MB of parameter values: 3 jobs, 600 pubs, 1200 parameter sets, 78643200 executions (+0 TREX), 16.141 min at the booked 1 us rep_delay (342.51 min at 250 us). Nothing is submitted while dry_run is true and the pre-flight review permalink is the placeholder.",
+ "notes": "Paper 1 pre-registration v0.17.0 (26 Sep 2026); Deviation 56 (pre-registration v0.15.0, Section 3c, adopted 21 Sep 2026 on Owais's decision of 09:09-09:24 IST that the reserve conjecture test becomes Paper 1 Section 3c, no Paper 3): Block C on the n100 rung (10x10, actual n = 84, origin (2, 0), edge 75_85; the current placement under the Deviation 22 / 26 / 46 / 53 cuts, re-derived by the runner on the run day): k = 1 at L = 8 and L = 10, resilience 0, 65536 shots per shifted circuit (per-draw shot variance 1/(2N) = 7.63e-06, against 3.1e-5 at 16384 and 1.22e-4 at 4096), M = 200 draws per point in a new recorded seed block (seeds 25792001 at L = 8 and 25912001 at L = 10, draw d at seed + d; disjoint from every campaign, replication and reference block), plus the matched Deviation 43 L = 0 null control at 65536 shots (seed 25761001). L = 10 is outside the Section 2 ladder (1, 2, 4, 8, 12): it sits between the resolved L = 8 point and the shot-floor-limited L = 12 point of the same rung. What the block adds to Paper 1 (Section 3c): the L = 8 variance of the n100 rung resolved at a shot floor 16x below the 16384-shot headline point (draw sampling, not shots, then limits it), a third resolvable depth for H2 on the largest rung, and a per-draw record of 200 gradients at 65,536 shots (shot SE about 2.8e-3 per gradient) for the Section 3c per-draw comparison once a per-draw surrogate exists (Deviation 56: the transition map is conditional on a per-draw surrogate and the theorist's sign-off; without it the comparison is at the level of the variance and the distribution shape against the Pauli-propagation population moments). The Deviation 55 level-2 cap is recorded and does not bind (resilience 0 throughout). Order of runs (21 Sep 2026): day 3 (day3_dial_refs) first, then the Deviation 19 replication lists, then this list, each its own Batch, arming and ids file. Ledger: Section 6 main-grid line (190.5 min; the summary reports this block beside the main total). Pre-flight: docs/preflight/09_paper1_section3c_blockC_2026-09-21.md. Placement from snapshot 2026-10-04T043542Z (CSV plus raw properties; Deviations 22, 26 and 46 cuts plus the Deviation 53 coherence floor T1, T2 >= 25 us, on the newest committed calibration data; Deviation 62: qubits outside a rectangle's largest connected live-coupler component are holes): n100 = 10x10 n = 84 origin (2, 0) edge 75_85 broken [[86, 87], [100, 101], [118, 119], [95, 96], [80, 90], [87, 97], [100, 110]]. Deviation 46: the runner re-derives the placement and the observable edges from the run-day snapshot under the Deviation 22 / 26 cuts and the cone-graph edge rule (live re-check, layout_check enforce) and refuses a list whose n no longer matches; regenerate with scripts/make_paper1_joblists.py from the run-day snapshot and re-draw the Gate 1b reference predictions where the cone graph changed. Budget model v3 (Deviation 47: 3.0 s per job, +2.7 s at resilience >= 1, 5 us per execution, max(shots, 64) at resilience >= 1), jobs of at most 300 pubs (max_experiments; Deviation 48) and 12 MB of parameter values: 3 jobs, 600 pubs, 1200 parameter sets, 78643200 executions (+0 TREX), 16.141 min at the booked 1 us rep_delay (342.51 min at 250 us). Nothing is submitted while dry_run is true and the pre-flight review permalink is the placeholder.",
  "layout_check": "enforce",
  "placement": {
-  "snapshot": "ibm_phoenix_2026-09-27T030805Z.csv",
-  "properties": "ibm_phoenix_properties_20260927T030805Z.json.gz",
-  "stamp": "2026-09-27T030805Z",
+  "snapshot": "ibm_phoenix_2026-10-04T043542Z.csv",
+  "properties": "ibm_phoenix_properties_20261004T043542Z.json.gz",
+  "stamp": "2026-10-04T043542Z",
   "excluded": [
    7,
    8,
    11,
+   14,
+   15,
    17,
    18,
+   19,
+   24,
+   25,
+   26,
    27,
-   37,
+   28,
+   29,
    55,
    59,
    61,
@@ -44,15 +51,19 @@
   "rungs": {
    "n100": {
     "patch": "10x10",
-    "n": 88,
+    "n": 84,
     "origin": [
      2,
      0
     ],
     "holes": [
+     24,
+     25,
+     26,
      27,
+     28,
      29,
-     37,
+     31,
      55,
      59,
      61,
@@ -68,17 +79,13 @@
      21,
      22,
      23,
-     24,
-     25,
-     26,
-     28,
      30,
-     31,
      32,
      33,
      34,
      35,
      36,
+     37,
      38,
      39,
      40,
@@ -163,20 +170,16 @@
       101
      ],
      [
-      31,
-      32
+      118,
+      119
      ],
      [
       95,
       96
      ],
      [
-      41,
-      51
-     ],
-     [
-      69,
-      79
+      80,
+      90
      ],
      [
       87,
@@ -185,27 +188,21 @@
      [
       100,
       110
-     ],
-     [
-      79,
-      89
      ]
     ],
     "broken_edge_cz_errors": {
-     "86_87": 0.014332708565592434,
-     "100_101": 0.0541443403012179,
-     "31_32": 0.0067488667044010575,
-     "95_96": 0.018157380324158146,
-     "41_51": 0.006209492067978023,
-     "69_79": 0.0072155746545901345,
-     "87_97": 0.01627532459742123,
-     "100_110": 0.005472899983412105,
-     "79_89": 0.007332427872239644
+     "86_87": 0.013995552986109994,
+     "100_101": 0.06132514619271259,
+     "118_119": 0.005811593610208554,
+     "95_96": 0.016831203714640475,
+     "80_90": 0.005570951328875529,
+     "87_97": 0.020499447349806132,
+     "100_110": 0.005533566659797096
     },
-    "live_couplers": 133,
+    "live_couplers": 127,
     "edge": "75_85",
     "edge_rule": "interior_edge",
-    "edge_cz_error": 0.0016371694855039642,
+    "edge_cz_error": 0.0009939044949142939,
     "cone_L2_qubits": [
      64,
      65,
@@ -223,7 +220,7 @@
     "cone_L2_couplers": 16,
     "cone_L2_matches_4x5": false,
     "component_holes": [
-     29
+     31
     ]
    }
   },
@@ -263,7 +260,7 @@
  },
  "points": [
   {
-   "n": 88,
+   "n": 84,
    "patch": "10x10",
    "edge": "75_85",
    "L": 8,
@@ -274,7 +271,7 @@
    "seed": 25792001
   },
   {
-   "n": 88,
+   "n": 84,
    "patch": "10x10",
    "edge": "75_85",
    "L": 10,
@@ -289,7 +286,7 @@
   {
    "id": "null_L0_n100_r0_s65536_3c",
    "kind": "null_control",
-   "n": 88,
+   "n": 84,
    "patch": "10x10",
    "edge": "75_85",
    "L": 0,
@@ -348,7 +345,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 3.0,
-    "param_mb": 3.661,
+    "param_mb": 3.494,
     "circuit_seconds_at_250us": 10345.251,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 10348.251,
@@ -369,7 +366,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 3.0,
-    "param_mb": 1.408,
+    "param_mb": 1.344,
     "circuit_seconds_at_250us": 3460.825,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 3463.825,

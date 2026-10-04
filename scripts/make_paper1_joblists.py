@@ -49,7 +49,7 @@ from gradvar.noise import (COHERENCE_FLOOR_SINCE, COHERENCE_FLOOR_US, COMPONENT_
 PLACEHOLDER = "TBD: pre-flight review permalink"
 PREREG = "Paper 1 pre-registration v0.17.0 (26 Sep 2026)"
 MAX_EXPERIMENTS = max_experiments("ibm_phoenix")   # 300 pubs per job (configuration ledger)
-DEFAULT_SNAPSHOT = Path("data/calibrations/ibm_phoenix_2026-09-27T030805Z.csv")   # Deviation 62: the 27 Sep 03:08Z daily snapshot (IBM properties 01:36Z), the newest when re-packaged; the pinned 23 Sep 16:35Z placement fails the live cuts on 26 Sep (Q96, Q103, couplers 24-25, 41-51, 106-116, 118-119) and on 27 Sep (couplers 41-51, 69-79, 79-89); lists placed on it are pinned to it (Deviation 58)
+DEFAULT_SNAPSHOT = Path("data/calibrations/ibm_phoenix_2026-10-04T043542Z.csv")   # same-day re-package of 2026-10-04 (scripts/sameday_repackage.py): the dispatch day's snapshot, the lists pinned to it (Deviations 58, 62)
 DIAL_LISTS = ("dial_arm.json", "dial_arm_contingent.json", "references_gate1b.json", "day3_dial_refs.json")   # Deviation 62: placed with DIAL_EXCLUDE (Section 3b: qubit 79 excluded from dial patches)
 PIN_SNAPSHOT_SINCE = "2026-09-22T030817Z"   # Deviation 58: lists placed on this snapshot or later carry pin_snapshot, and the runner builds them on it
 NLADDER_L = 8   # Section 3b n-ladder depth; Gate 1b (c): 12 when the re-drawn separation clause fails at L = 8 on the run-day placement and passes at 12 (a manual constant; 8 on the pinned 23 Sep placements)
