@@ -2002,7 +2002,9 @@
      "rms_l2": 0.054858831656752365
     }
    ],
-   "record": "`docs/repack/2026-10-04_summary.json`, key `comparators.day3_dial_refs`"
+   "record": "`docs/repack/2026-10-04_summary.json`, key `comparators.day3_dial_refs`",
+   "pass": false,
+   "note": "not a pass: the exit 0 rests on rows of an earlier package (`dial_redraw_2026-09-27T0308.csv`), matched on the qubit set alone; the rows must be drawn on this placement (Deviations 46 / 58)"
   }
  },
  "precheck_all": {
@@ -3823,6 +3825,36 @@
    "source": "h7_truncation_2026-10-04T0435.json"
   },
   {
+   "key": "main n100 L=12 k=1 noiseless pauli_propagation",
+   "new": 1.793120536953211e-05,
+   "new_sigma": 2.497475551036211e-06,
+   "prev": 1.9186990473419427e-05,
+   "prev_sigma": 2.4951438855259794e-06,
+   "diff_sigma": -0.3557147013172751,
+   "rel": -0.06544982161882096,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n100 L=12 k=1 nonunital pauli_propagation",
+   "new": 8.40822726103796e-06,
+   "new_sigma": 1.3246910172611918e-06,
+   "prev": 8.363042404966307e-06,
+   "prev_sigma": 1.2446512295219372e-06,
+   "diff_sigma": 0.024858522795793946,
+   "rel": 0.005402920837137115,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n100 L=12 k=1 unital pauli_propagation",
+   "new": 1.112511997601222e-05,
+   "new_sigma": 1.470900404476721e-06,
+   "prev": 9.002422877599118e-06,
+   "prev_sigma": 1.2910888569441955e-06,
+   "diff_sigma": 1.084582640898552,
+   "rel": 0.23579175598327473,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
    "key": "main n100 L=12 k=12 noiseless pauli_propagation",
    "new": 2.7317767523345535e-05,
    "new_sigma": 2.6461556835340742e-06,
@@ -3853,6 +3885,36 @@
    "source": "main_grid_redraw_2026-10-04T0435.csv"
   },
   {
+   "key": "main n100 L=4 k=1 noiseless pauli_propagation",
+   "new": 0.0119148084716796,
+   "new_sigma": 6.662335811462925e-05,
+   "prev": 0.0119717842178344,
+   "prev_sigma": 6.673108990840121e-05,
+   "diff_sigma": -0.604223164952692,
+   "rel": -0.004759169152908971,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n100 L=4 k=1 nonunital pauli_propagation",
+   "new": 0.0100910794747793,
+   "new_sigma": 0.00010225825517065027,
+   "prev": 0.0101753912609926,
+   "prev_sigma": 5.7401545214915006e-05,
+   "diff_sigma": -0.7189691946795851,
+   "rel": -0.008285852017947404,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n100 L=4 k=1 unital pauli_propagation",
+   "new": 0.0101433655935699,
+   "new_sigma": 5.7092227159589765e-05,
+   "prev": 0.0101697797700712,
+   "prev_sigma": 5.694803933677188e-05,
+   "diff_sigma": -0.32756199136153247,
+   "rel": -0.0025973204040302678,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
    "key": "main n100 L=4 k=4 noiseless pauli_propagation",
    "new": 0.0160986327514648,
    "new_sigma": 6.787273767584587e-05,
@@ -3880,6 +3942,36 @@
    "prev_sigma": 5.796505116885202e-05,
    "diff_sigma": -0.07945262539665857,
    "rel": -0.00047798089482997685,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n100 L=8 k=1 noiseless pauli_propagation",
+   "new": 0.0004171725841164,
+   "new_sigma": 1.2032165741104903e-05,
+   "prev": 0.0004213818965926,
+   "prev_sigma": 1.2058985094263842e-05,
+   "diff_sigma": -0.24709749833268116,
+   "rel": -0.009989305450085917,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n100 L=8 k=1 nonunital pauli_propagation",
+   "new": 0.000280390290722,
+   "new_sigma": 8.515037144092051e-06,
+   "prev": 0.0002981356266897,
+   "prev_sigma": 8.787356165859511e-06,
+   "diff_sigma": -1.4502379349799015,
+   "rel": -0.05952101788280861,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n100 L=8 k=1 unital pauli_propagation",
+   "new": 0.0002899978265643,
+   "new_sigma": 8.54661806578342e-06,
+   "prev": 0.0002911742074478,
+   "prev_sigma": 8.614731119263181e-06,
+   "diff_sigma": -0.09694113665382587,
+   "rel": -0.004040127365027346,
    "source": "main_grid_redraw_2026-10-04T0435.csv"
   },
   {
@@ -3943,6 +4035,36 @@
    "source": "main_grid_redraw_2026-10-04T0435.csv"
   },
   {
+   "key": "main n20 L=12 k=1 noiseless pauli_propagation",
+   "new": 3.043449401855469e-05,
+   "new_sigma": 6.422149698596657e-06,
+   "prev": 7.895477294921875e-05,
+   "prev_sigma": 6.304443344087468e-06,
+   "diff_sigma": -5.391474500386444,
+   "rel": -0.6145325623552966,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n20 L=12 k=1 nonunital pauli_propagation",
+   "new": 1.0585799539179214e-05,
+   "new_sigma": 1.633978265198955e-06,
+   "prev": 4.189508103040202e-05,
+   "prev_sigma": 3.1436346029304977e-06,
+   "diff_sigma": -8.837125847371714,
+   "rel": -0.7473259562024139,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n20 L=12 k=1 unital pauli_propagation",
+   "new": 1.365038953628377e-05,
+   "new_sigma": 3.1754107578580665e-06,
+   "prev": 4.152566481350763e-05,
+   "prev_sigma": 2.9801268836412178e-06,
+   "diff_sigma": -6.401028031428686,
+   "rel": -0.6712782420802204,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
    "key": "main n20 L=12 k=12 noiseless pauli_propagation",
    "new": 7.555575561523438e-05,
    "new_sigma": 1.5352192990686283e-05,
@@ -4003,6 +4125,16 @@
    "source": "main_grid_redraw_2026-10-04T0435.csv"
   },
   {
+   "key": "main n20 L=4 k=1 noiseless pauli_propagation",
+   "new": 0.0116939621582031,
+   "new_sigma": 6.668451829275659e-05,
+   "prev": 0.0190082175292968,
+   "prev_sigma": 8.349799275027922e-05,
+   "diff_sigma": -68.44804232291975,
+   "rel": -0.3847943848401596,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
    "key": "main n20 L=4 k=1 noiseless statevector",
    "new": 0.0127741365613619,
    "new_sigma": 0.002488146861905153,
@@ -4010,6 +4142,26 @@
    "prev_sigma": 0.0029434846552190055,
    "diff_sigma": -1.375119108357167,
    "rel": -0.29323689878083503,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n20 L=4 k=1 nonunital pauli_propagation",
+   "new": 0.0090402862653894,
+   "new_sigma": 5.219163462820808e-05,
+   "prev": 0.0155654642162852,
+   "prev_sigma": 6.889454964319582e-05,
+   "diff_sigma": -75.49525994110604,
+   "rel": -0.4192086956243105,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n20 L=4 k=1 unital pauli_propagation",
+   "new": 0.0089662976615979,
+   "new_sigma": 5.176134603646884e-05,
+   "prev": 0.015561822472599,
+   "prev_sigma": 6.878068102764059e-05,
+   "diff_sigma": -76.61956762374031,
+   "rel": -0.4238272748975508,
    "source": "main_grid_redraw_2026-10-04T0435.csv"
   },
   {
@@ -4040,6 +4192,36 @@
    "prev_sigma": 6.93921662688951e-05,
    "diff_sigma": -87.50658716492188,
    "rel": -0.3825639612014873,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n20 L=8 k=1 noiseless pauli_propagation",
+   "new": 0.0004228564910888,
+   "new_sigma": 1.1866759659793955e-05,
+   "prev": 0.0010546538314819,
+   "prev_sigma": 2.004653136538705e-05,
+   "diff_sigma": -27.12092657257233,
+   "rel": -0.5990566018286381,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n20 L=8 k=1 nonunital pauli_propagation",
+   "new": 0.0002519959608178,
+   "new_sigma": 7.449795363966296e-06,
+   "prev": 0.0007198163930248,
+   "prev_sigma": 1.3934938321609963e-05,
+   "diff_sigma": -29.60640024521533,
+   "rel": -0.6499163352492335,
+   "source": "main_grid_redraw_2026-10-04T0435.csv"
+  },
+  {
+   "key": "main n20 L=8 k=1 unital pauli_propagation",
+   "new": 0.00025761010349,
+   "new_sigma": 8.484494016800011e-06,
+   "prev": 0.0007154535315449,
+   "prev_sigma": 1.3837191863813113e-05,
+   "diff_sigma": -28.207471614866076,
+   "rel": -0.6399345420327511,
    "source": "main_grid_redraw_2026-10-04T0435.csv"
   },
   {
@@ -4074,12 +4256,13 @@
   }
  ],
  "flags": [
-  "prediction dial n60 dephase p=0.5 L=8 k=1 missing in the new package",
-  "prediction dial n60 dephase p=0.5 L=8 k=L missing in the new package",
-  "prediction dial n60 reset p=0.5 L=12 k=1 missing in the new package",
-  "prediction dial n60 reset p=0.5 L=12 k=L missing in the new package",
-  "prediction dial n60 reset p=0.5 L=8 k=1 missing in the new package",
-  "prediction dial n60 reset p=0.5 L=8 k=L missing in the new package",
+  "day3_dial_refs: check_comparators is not a pass: the exit 0 rests on rows of an earlier package (`dial_redraw_2026-09-27T0308.csv`), matched on the qubit set alone; the rows must be drawn on this placement (Deviations 46 / 58) (held list: drawn in the cycle that dispatches day 3)",
+  "prediction dial n60 dephase p=0.5 L=8 k=1 missing in the new package (held list: drawn in the cycle that dispatches day 3)",
+  "prediction dial n60 dephase p=0.5 L=8 k=L missing in the new package (held list: drawn in the cycle that dispatches day 3)",
+  "prediction dial n60 reset p=0.5 L=12 k=1 missing in the new package (held list: drawn in the cycle that dispatches day 3)",
+  "prediction dial n60 reset p=0.5 L=12 k=L missing in the new package (held list: drawn in the cycle that dispatches day 3)",
+  "prediction dial n60 reset p=0.5 L=8 k=1 missing in the new package (held list: drawn in the cycle that dispatches day 3)",
+  "prediction dial n60 reset p=0.5 L=8 k=L missing in the new package (held list: drawn in the cycle that dispatches day 3)",
   "day 3 dial n100: connected-component holes [31] (Deviation 62 rule active)",
   "day 3 dial n100: n 87 -> 83 (more than 3)",
   "plain n100: connected-component holes [31] (Deviation 62 rule active)",
@@ -4088,5 +4271,12 @@
   "grid n100: n 88 -> 84 (more than 3)",
   "1 test failure(s) not in the known list: tests/test_dial_placement.py::test_h6_control_pair_comes_from_one_rung_and_placement",
   "L2-c5 (day-2 n100 rung) fails the live cuts on this snapshot: no L2-c5 attempt today"
+ ],
+ "notes_after_run": [
+  "**Test failure: a setup race, not the package.** `tests/test_dial_placement.py::test_h6_control_pair_comes_from_one_rung_and_placement` failed in this run because of a race in the test's own setup. Its two dry runs finished within one UTC second, so they shared the runner's job id `dryrun-<second>-<tag>` and one bundle. Fixed in `7263d9e`: each run gets its own output folder and starts in a later second, and the test's assertions are unchanged. The full suite re-run at `7263d9e` on Modal gave 345 passed, the known Marrakesh loader failure only, and 3 skipped: `docs/repack/2026-10-04_tests_rerun.txt`.",
+  "**The six 'dial n60 ... missing in the new package' flags are true (review M1).** This corrects the note of `c3f8077`, which called them false. The n60 rung keeps its 52 placed qubits and edge 84_85, but couplers 80-90 and 118-119 are newly broken on this placement (live couplers 76 -> 74), and the calibration is that of 4 Oct. Deviations 46 and 58 need rows drawn on exactly this placement. No p = 0.5 dial row was drawn on it: the dial re-draw counted the 27 Sep rows as covering its points because it matches rows on the qubit set alone. The six rows are a **held list: drawn in the cycle that dispatches day 3**, and the flags above say so. The 'standing' logic added in `7263d9e` is reverted: an earlier row never stands for a new placement.",
+  "**`day3_dial_refs`: the `check_comparators` exit 0 is not a pass.** Three of its 14 items, the n60 p = 0.5 dial points (reset at L = 8 and L = 12, dephasing at L = 8; the six rows above with k = 1 and k = L), were found only in the 27 Sep rows (`dial_redraw_2026-09-27T0308.csv`). The match was on the qubit set alone, because `scripts/predictions.py` matches on the qubit set on this branch (the Deviation 60 S-A fix is not here). Only the Gate 1b rows (`gate1b_redraw_2026-10-04T0435.csv`) and the H7 comparator (`h7_truncation_2026-10-04T0435.json`) were drawn on this placement. Pre-flight 06 cannot be armed from this package. From this correction on, the summary logic records `pass` false for such a record and flags it (`comparators.day3_dial_refs` in the JSON).",
+  "**Predictions table: the k = 1 propagation rows were missing.** The summary logic kept one row per main-grid propagation run (its k = L value) and dropped the k = 1 value that the same run carries. The rows the k = 1 points are read against (n20 L = 4, n100 L = 8 and L = 12, k = 1) therefore did not appear. With the fix, the table above is re-derived from the committed prediction files of both packages (`main_grid_redraw_2026-10-04T0435.csv`, `main_grid_redraw_2026-09-27T0308.csv`): 18 rows are added and none changed. No prediction file was touched.",
+  "Nothing in the lists or the predictions was changed. The pre-flight 06 note 'Not for dispatch' now also says that its p = 0.5 dial rows are not drawn on this placement and that the list cannot be armed from this package."
  ]
 }
