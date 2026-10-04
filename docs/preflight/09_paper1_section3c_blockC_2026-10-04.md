@@ -5,7 +5,7 @@ Reviewer: see Section 8. List not armed (Owais arms it after the replication lis
 
 Placed on the **2026-10-04T04:35Z snapshot** (`ibm_phoenix_2026-10-04T043542Z.csv`), to which the list is **pinned** (Deviation 58). Supersedes pre-flight 09 of
 27 Sep (`09_paper1_section3c_blockC_2026-09-27.md`, 27 Sep 03:08Z data; never dispatched: on the 4 Oct 04:35Z snapshot its placement fails the live cuts on
-Q24 (readout 9.47e-02), Q25 (init 9.9e-04), Q26 (init 1.2e-03), Q28 (init 8.6e-04) and couplers 21-31 (CZ 8.30e-03), 23-24 (CZ 6.51e-03), 24-25 (CZ 9.93e-03), 24-34 (CZ 8.00e-03), 30-31 (CZ 6.86e-03), 31-41 (CZ 7.55e-03), 80-90 (CZ 5.57e-03) and 118-119 (CZ 5.81e-03)). Pre-registration **v0.17.0** as stamped in the list (Deviation 62, draft): Section 3c /
+Q24 (readout 9.47e-02), Q25 (init 9.85e-04), Q26 (init 1.15e-03), Q28 (init 8.58e-04) and couplers 21-31 (CZ 8.30e-03), 23-24 (CZ 6.51e-03), 24-25 (CZ 9.93e-03), 24-34 (CZ 8.00e-03), 30-31 (CZ 6.86e-03), 31-41 (CZ 7.55e-03), 80-90 (CZ 5.57e-03) and 118-119 (CZ 5.81e-03)). Pre-registration **v0.17.0** as stamped in the list, with Deviation 62 adopted in v0.17.0 (4 Oct 2026): Section 3c /
 Deviation 56 (v0.15.0) and its erratum (v0.15.1: no per-draw noiseless comparison exists at n >= 84, L >= 8; Block C is compared with the propagation prediction
 and the L = 0 floors), Deviations 18, 22, 26, 37, 43, 46, 47, 53, 55, 58, 62; Section 5 Gate 2 (e). **Order on 4 Oct (Owais's decision): day 3 is held (Deviation 60 part (7) pending); the Deviation 19 replication lists (pre-flight 08), then this list.**
 
@@ -23,12 +23,11 @@ draws. `campaign.section3c` records the block, the decision, the shot count and 
 ## 2. Placement and its live re-check
 
 The **plain** n100 rung, as pre-flight 08 places it (pinned; no reset dial here, so Q79 is placed): origin (2, 0), holes 24, 25, 26, 27, 28, 29, 31, 55, 59, 61, 62, 63, 72, 73, 77, 107
-(Q31 by the Deviation 62 connected-component rule); broken couplers 86-87, 100-101, 118-119, 95-96, 80-90, 87-97, 100-110; edge 75_85 (`interior_edge`). Against 27 Sep: n 87 -> 84 (holes 37, 79 released; 24, 25, 26, 28, 31 new); broken 31-32, 41-51 recovered; 80-90, 118-119 new; live 132 -> 127.
+(Q31 by the Deviation 62 connected-component rule); broken couplers 86-87, 100-101, 118-119, 95-96, 80-90, 87-97, 100-110; edge 75_85 (`interior_edge`). Against 27 Sep: n 88 -> 84 (hole 37 released; 24, 25, 26, 28, 31 new); broken 31-32, 41-51, 69-79, 79-89 recovered; 80-90, 118-119 new; live 133 -> 127.
 Day 3's dial n100 differs from it only by Q79 (a hole there). The L = 8 and L = 10 light cones of the edge cover the whole patch: no exact per-draw noiseless
-reference exists (Section 4). Live re-check at submission as on every list (a refusal charges nothing; under Deviation 58 the list may be dispatched again after
-IBM's next calibration without re-packaging; no override, Section 7); watch list as in pre-flight 06 Section 2.
+reference exists (Section 4). Live re-check at submission as on every list (a refusal charges nothing; the list is not dispatched again on this package, and a later dispatch needs a new same-day package (Deviation 62 (iv)); no override, Section 7); watch list as in pre-flight 06 Section 2.
 
-**Pre-check against the newest committed snapshot** (`ibm_phoenix_2026-10-04T043542Z.csv`, IBM properties of 4 Oct 03:50Z; `run_precheck` semantics: the runner's live cuts on every placed qubit and live coupler of `section3c_blockC`): **every placed qubit and live coupler is inside the cuts (no failures)**; nearest qubits: Q20 (T1 211.3, T2 137.6, ro 0.0076, init 5.0e-04), Q21 (T1 170.2, T2 180.8, ro 0.0052, init 3.8e-04), Q23 (T1 69.1, T2 111.7, ro 0.0087, init 3.7e-04), Q34 (T1 115.5, T2 141.9, ro 0.0066, init 4.4e-04), Q37 (T1 26.0, T2 43.8, ro 0.0211, init 1.0e-05), Q52 (T1 120.0, T2 151.4, ro 0.0062, init 3.5e-04), Q83 (T1 198.6, T2 246.8, ro 0.0034, init 3.6e-04); couplers at 4.4e-3 to 5e-3: 41-51 4.48e-03, 84-94 4.50e-03. This is the placement snapshot itself, so it passes by construction; IBM updates its properties one to three times a day, so before arming Owais runs Actions -> "calibration snapshot" and Claude repeats this check on the new snapshot (Section 7, step 0).
+**Pre-check against the newest committed snapshot** (`ibm_phoenix_2026-10-04T043542Z.csv`, IBM properties of 4 Oct 03:50Z; `run_precheck` semantics: the runner's live cuts on every placed qubit and live coupler of `section3c_blockC`): **every placed qubit and live coupler is inside the cuts (no failures)**; nearest qubits: Q20 (T1 211.3, T2 137.6, ro 0.0076, init 4.96e-04), Q21 (T1 170.2, T2 180.8, ro 0.0052, init 3.80e-04), Q23 (T1 69.1, T2 111.7, ro 0.0087, init 3.69e-04), Q34 (T1 115.5, T2 141.9, ro 0.0066, init 4.40e-04), Q37 (T1 26.0, T2 43.8, ro 0.0211, init 1.00e-05), Q52 (T1 120.0, T2 151.4, ro 0.0062, init 3.54e-04), Q83 (T1 198.6, T2 246.8, ro 0.0034, init 3.60e-04); couplers at 4.4e-3 to 5e-3: 41-51 4.48e-03, 84-94 4.50e-03. This is the placement snapshot itself, so it passes by construction; IBM updates its properties one to three times a day: Owais runs Actions -> calibration snapshot just before arming; if IBM's properties time is not 2026-10-04T03:50:36Z, the list is not dispatched on this package; otherwise Claude's pre-check on that snapshot must pass (Section 7, step 0).
 
 ## 3. Cost, guards, logged, known limits
 
@@ -68,7 +67,7 @@ L = 8 at 65,536 shots, ISA ops `cz, rz, sx`; `L0-probes-s65536`: SPAM-only, no g
 
 ## 7. Human steps (Owais), after the replication lists' dispatch and when the review says GO
 
-0. As pre-flight 06 Section 6 steps 0 and 1.
+0. As pre-flight 06 Section 6 step 0. Then: Owais runs Actions -> calibration snapshot just before arming; if IBM's properties time is not 2026-10-04T03:50:36Z, the list is not dispatched on this package; otherwise Claude's pre-check on that snapshot must pass.
 1. (Claude, done) Checked against the published Deviation 56 text (v0.15.0) and its erratum (v0.15.1): unchanged; regenerated on the pinned snapshot
    (`--section3c`, `--check`); this document committed.
 2. Arm: in `data/joblists/paper1/section3c_blockC.json` set `"dry_run": false` and `"preflight_review": "<the commit-pinned URL of this file>"`
@@ -80,7 +79,7 @@ L = 8 at 65,536 shots, ISA ops `cz, rz, sx`; `L0-probes-s65536`: SPAM-only, no g
 5. Post-run review `docs/postrun/07_paper1_section3c_blockC_<date>.md` (charge against the main line, Gate 2 (e), null floor and claimability, the
    L = 8 sample beside day 2's and the replication's, the L = 10 point against the interpolated band and H2, the moments against the propagation rows, any override).
 
-**Override path closed for this dispatch (Deviation 62 review M1, option (c)).** `approved_overrides`: [] (empty): the Deviation 26 layout-check override is not available, and `layout_check` stays `enforce`. If the live layout check refuses this list, nothing is charged; the list waits for IBM's next calibration (a pinned list may be dispatched again once every failing element is back inside its cut, Deviation 58) or for a same-day re-package on the new snapshot (`scripts/sameday_repackage.py`). Protected elements of this list (observable edge and L = 2 cone per rung; a coupler counts when either qubit is protected): n100 (edge 75_85): 64, 65, 66, 67, 74, 75, 76, 84, 85, 86, 94, 95. On the placement snapshot: no failure.
+**Override path closed for this dispatch (Deviation 62 review M1, option (c)).** `approved_overrides`: [] (empty): the Deviation 26 layout-check override is not available, and `layout_check` stays `enforce`. At the live layout check, a refusal charges nothing; the list is not dispatched again on this package, and a later dispatch needs a new same-day package (Deviation 62 (iv)); a new package is built with `scripts/sameday_repackage.py`. Protected elements of this list (observable edge and L = 2 cone per rung; a coupler counts when either qubit is protected): n100 (edge 75_85): 64, 65, 66, 67, 74, 75, 76, 84, 85, 86, 94, 95. On the placement snapshot: no failure.
 
 ## 8. Review
 
@@ -92,4 +91,4 @@ L = 8 at 65,536 shots, ISA ops `cz, rz, sx`; `L0-probes-s65536`: SPAM-only, no g
 >
 > Tolerance flags that forced a full review: [none / list].
 >
-> Conditions for arming: the Deviation 26 override stays closed (`approved_overrides` empty); arming edits only `dry_run` and `preflight_review`; arm only from a `main` commit at which this section carries the record; dispatch within the IBM properties update the pre-check passed on ([last_update_date]); a fresh calibration snapshot and Claude's pre-check first if IBM has updated since.
+> Conditions for arming: the Deviation 26 override stays closed (`approved_overrides` empty); arming edits only `dry_run` and `preflight_review`; arm only from a `main` commit at which this section carries the record; Owais runs Actions -> calibration snapshot just before arming; if IBM's properties time is not 2026-10-04T03:50:36Z, the list is not dispatched on this package; otherwise Claude's pre-check on that snapshot must pass.
