@@ -603,6 +603,7 @@ def run(args) -> int:
         S["generator"] = regenerate(csv, date, args.with_pairs, logs, env)
         val = validate_lists(csv, args.with_pairs)
         S["validation"] = val
+        S["placement"] = rung_table(RUNGS, P1)                                 # recorded now, so that a later stop still reports it
         if val["problems"]:
             raise Stop("regenerated lists: " + "; ".join(val["problems"]))
         stage_t["b_regenerate"] = time.time() - t
@@ -610,7 +611,7 @@ def run(args) -> int:
         # (c)
         t = time.time()
         py = sys.executable
-        w = max(4, cores // 3)
+        w = args.workers or max(4, cores // 3)
         tasks = [Task("gate1b", [py, "scripts/redraw_gate1b.py", "--snapshot", str(csv), "--tag", tag, "--workers", str(w), "--checkpoint",
                                  str(out / "gate1b_ckpt.jsonl")], logs / "redraw_gate1b.log", env=env1),
                  Task("main_grid", [py, "scripts/redraw_gate1b.py", "--main-grid", "--no-gate1b", "--exact", "--rungs", "20", "100", "--snapshot", str(csv),
@@ -633,6 +634,8 @@ def run(args) -> int:
                 desel = [x for d in (args.deselect or []) if d.split("::")[0] in files for x in ("--deselect", d)]
                 tasks.append(Task(f"tests_{i}", [py, "-m", "pytest", "-q", "-ra", "-p", "no:cacheprovider", f"--basetemp=/tmp/sameday_pt_{i}",
                                                  f"--junitxml={shards[-1]}", *desel, *files], out / "tests" / f"shard_{i}.log", env=env))
+        if args.survey:                                                       # survey: regeneration, Gate 1b and the pre-check only
+            tasks, shards = [tk for tk in tasks if tk.name == "gate1b"], []
         pending, running, done = list(tasks), [], []
         stop_reason = None
         while pending or running:
@@ -658,7 +661,7 @@ def run(args) -> int:
                             S["gate1b"] = gate1b_verdict(md)
                             if S["gate1b"]["verdict"] != "PASS":
                                 why = f"Gate 1b {S['gate1b']['verdict']} under Deviations 27 + 45 on this placement"
-                                if getattr(args, "exercise", False):
+                                if getattr(args, "exercise", False) or args.survey:
                                     S.setdefault("exercise_stops", []).append(why)
                                     log(f"(c) {why}: recorded; --exercise runs the remaining stages for testing only")
                                 else:
@@ -678,63 +681,67 @@ def run(args) -> int:
         rp = (g1j.get("runday_placement") or {}).get("rungs") or {}
         if any(sorted(rp.get(r, {}).get("qubits", [])) != sorted(d3[r]["qubits"]) for r in ("n40", "n60", "n100")):
             raise Stop("the Gate 1b re-draw was not drawn on the day-3 dial placement")
-        # check_comparators (must exit 0)
-        cc = {}
-        for n in ["day3_dial_refs"] + ([PAIRS] if args.with_pairs else []):
-            p = subprocess.run([py, "scripts/check_comparators.py", f"data/joblists/paper1/{n}.json", "--json"], cwd=ROOT, capture_output=True, text=True, env=env)
-            (logs / f"check_comparators_{n}.json").write_text(p.stdout + p.stderr, encoding="utf-8")
-            try:
-                res = json.loads(p.stdout)
-            except ValueError:
-                res = dict(missing=None)
-            cc[n] = dict(exit=p.returncode, missing=res.get("missing"), items=res.get("items"),
-                         record=f"`docs/repack/{date}_summary.json`, key `comparators.{n}`")
-        S["comparators"] = cc
-        if any(v["exit"] != 0 for v in cc.values()):
-            why = "scripts/check_comparators.py: " + "; ".join(f"{n} exit {v['exit']} ({v['missing']} missing)" for n, v in cc.items() if v["exit"] != 0)
-            S["flags"] = [f"{why}; no pre-flight is rendered (build_preflights refuses without a zero exit)"]
-            raise Stop(why)
-        log("(c) comparators: every H7 comparator and dial row is on the lists' placement")
+        if not args.survey:
+            # check_comparators (must exit 0)
+            cc = {}
+            for n in ["day3_dial_refs"] + ([PAIRS] if args.with_pairs else []):
+                p = subprocess.run([py, "scripts/check_comparators.py", f"data/joblists/paper1/{n}.json", "--json"], cwd=ROOT, capture_output=True, text=True, env=env)
+                (logs / f"check_comparators_{n}.json").write_text(p.stdout + p.stderr, encoding="utf-8")
+                try:
+                    res = json.loads(p.stdout)
+                except ValueError:
+                    res = dict(missing=None)
+                cc[n] = dict(exit=p.returncode, missing=res.get("missing"), items=res.get("items"),
+                             record=f"`docs/repack/{date}_summary.json`, key `comparators.{n}`")
+            S["comparators"] = cc
+            if any(v["exit"] != 0 for v in cc.values()):
+                why = "scripts/check_comparators.py: " + "; ".join(f"{n} exit {v['exit']} ({v['missing']} missing)" for n, v in cc.items() if v["exit"] != 0)
+                S["flags"] = [f"{why}; no pre-flight is rendered (build_preflights refuses without a zero exit)"]
+                raise Stop(why)
+            log("(c) comparators: every H7 comparator and dial row is on the lists' placement")
         # (e) pre-check of every list (every un-armed list must pass)
         t = time.time()
         pa = precheck_lists(list_names(), P1, csv)
         S["precheck_all"] = pa
         S["l2c5"] = l2c5_check(csv)
         fails = [n for n, v in pa.items() if not v["passes"] and not v["record"]]
-        if fails:
+        if fails and args.survey:
+            S.setdefault("exercise_stops", []).append("pre-check on the placement snapshot fails for " + ", ".join(fails))
+        elif fails:
             raise Stop("pre-check on the placement snapshot fails for " + ", ".join(fails))
         stage_t["e_precheck"] = time.time() - t
-        # (d) pre-flights
-        t = time.time()
-        a = out / "A"
-        if (a / "joblists_paper1").exists():
-            shutil.rmtree(a / "joblists_paper1")
-        shutil.copytree(P1, a / "joblists_paper1")
-        (a / "status.log").write_text(f"head {run_sha[:7]}\n", encoding="utf-8")
-        for sub, f in (("B", f"gate1b_redraw_{tag}.md"), ("C", f"main_grid_redraw_{tag}.md")):
-            (out / sub / "predictions").mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(PRED / f, out / sub / "predictions" / f)
-        bp = import_builder()
-        pcs_bp = {n: bp.precheck(load(n)["placement"], str(csv)) for n in RUN_DAY + (("dial_arm_contingent",) + ((PAIRS,) if args.with_pairs else ()))}
-        upd = bp.ibm_update(str(props))
-        prev_files = sorted(p.name for p in (ROOT / "docs" / "preflight").glob(f"0[689]_paper1_*_{(prev_stamp or '')[:10]}.md"))
-        try:
-            res = bp.build(out, csv.name, tag, f"{int(date[8:10])} {_dt.date(int(date[:4]), int(date[5:7]), 1).strftime('%b')} {date[:4]}", None,
-                           ROOT / "docs" / "preflight", review_txt=bp.review_template(date), precheck_res=dict(lists=pcs_bp, csv=csv.name, ibm_properties=upd,
-                           ibm_properties_placement=upd), pr="the same-day pull request", branch=f"repack-{date}", prev_pred_dir=str(PRED), root=str(ROOT),
-                           prev_lists_dir=str(prev_dir), prev_fail_snaps=(), prev=bp.prev_package(prev_dir, PRED, ROOT / "docs" / "preflight"),
-                           pred_commit=PLACEHOLDER_COMMIT, with_pairs=bool(args.with_pairs), comparators=cc)
-        except bp.PreflightRefused as ex:
-            S["flags"] = [f"pre-flights refused: {ex}"]
-            raise Stop(f"pre-flights refused: {ex}")
-        S["preflights"] = list(res["names"])
-        if S.get("exercise_stops"):
-            banner = ("> **EXERCISE ONLY, not a dispatch record.** " + "; ".join(S["exercise_stops"]) + ". The same-day rule stops this cycle and nothing is "
-                      "dispatched; this document was generated with `--exercise` to test the pipeline and is not reviewed for dispatch or merged.\n\n")
-            for nm in res["names"]:
-                pth = ROOT / "docs" / "preflight" / nm
-                pth.write_text(banner + pth.read_text(encoding="utf-8"), encoding="utf-8", newline="\n")
-        stage_t["d_preflights"] = time.time() - t
+        if not args.survey:
+            # (d) pre-flights
+            t = time.time()
+            a = out / "A"
+            if (a / "joblists_paper1").exists():
+                shutil.rmtree(a / "joblists_paper1")
+            shutil.copytree(P1, a / "joblists_paper1")
+            (a / "status.log").write_text(f"head {run_sha[:7]}\n", encoding="utf-8")
+            for sub, f in (("B", f"gate1b_redraw_{tag}.md"), ("C", f"main_grid_redraw_{tag}.md")):
+                (out / sub / "predictions").mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(PRED / f, out / sub / "predictions" / f)
+            bp = import_builder()
+            pcs_bp = {n: bp.precheck(load(n)["placement"], str(csv)) for n in RUN_DAY + (("dial_arm_contingent",) + ((PAIRS,) if args.with_pairs else ()))}
+            upd = bp.ibm_update(str(props))
+            prev_files = sorted(p.name for p in (ROOT / "docs" / "preflight").glob(f"0[689]_paper1_*_{(prev_stamp or '')[:10]}.md"))
+            try:
+                res = bp.build(out, csv.name, tag, f"{int(date[8:10])} {_dt.date(int(date[:4]), int(date[5:7]), 1).strftime('%b')} {date[:4]}", None,
+                               ROOT / "docs" / "preflight", review_txt=bp.review_template(date), precheck_res=dict(lists=pcs_bp, csv=csv.name, ibm_properties=upd,
+                               ibm_properties_placement=upd), pr="the same-day pull request", branch=f"repack-{date}", prev_pred_dir=str(PRED), root=str(ROOT),
+                               prev_lists_dir=str(prev_dir), prev_fail_snaps=(), prev=bp.prev_package(prev_dir, PRED, ROOT / "docs" / "preflight"),
+                               pred_commit=PLACEHOLDER_COMMIT, with_pairs=bool(args.with_pairs), comparators=cc)
+            except bp.PreflightRefused as ex:
+                S["flags"] = [f"pre-flights refused: {ex}"]
+                raise Stop(f"pre-flights refused: {ex}")
+            S["preflights"] = list(res["names"])
+            if S.get("exercise_stops"):
+                banner = ("> **EXERCISE ONLY, not a dispatch record.** " + "; ".join(S["exercise_stops"]) + ". The same-day rule stops this cycle and nothing is "
+                          "dispatched; this document was generated with `--exercise` to test the pipeline and is not reviewed for dispatch or merged.\n\n")
+                for nm in res["names"]:
+                    pth = ROOT / "docs" / "preflight" / nm
+                    pth.write_text(banner + pth.read_text(encoding="utf-8"), encoding="utf-8", newline="\n")
+            stage_t["d_preflights"] = time.time() - t
         # (f) tests
         if shards:
             tr = parse_junit(shards)
@@ -777,7 +784,11 @@ def run(args) -> int:
                                  prev_working_min=round(sum((S["lists"][n]["budget_prev"] or {}).get("working_min", 0) for n in RUN_DAY), 1))
         S["predictions"] = compare_predictions(tag, prev_tag)
         S["flags"] = review_flags(S, prev_dir)
-        if S.get("exercise_stops"):
+        if args.survey:
+            S["status"] = "survey"
+            if S.get("exercise_stops"):
+                S["stop_reason"] = "; ".join(S["exercise_stops"]) + " (survey: the same-day rule stops this cycle; nothing would be dispatched)"
+        elif S.get("exercise_stops"):
             S["status"] = "stopped"
             S["stop_reason"] = "; ".join(S["exercise_stops"]) + " (--exercise: the remaining stages ran to test the pipeline; not a dispatchable package)"
             S["flags"].insert(0, "EXERCISE: " + "; ".join(S["exercise_stops"]) + "; the same-day rule stops this cycle and nothing is dispatched")
@@ -1102,6 +1113,10 @@ def main(argv=None) -> int:
         ap.add_argument("--exercise", action="store_true",
                         help="pipeline test only: a Gate 1b FAIL is recorded but the remaining stages still run; the status stays 'stopped', every "
                              "generated pre-flight carries an EXERCISE banner, and publish refuses the bundle unless given --exercise too")
+        ap.add_argument("--survey", action="store_true",
+                        help="survey only (no commits): regeneration, the Gate 1b re-draw and the pre-check of every list on the snapshot; no other "
+                             "re-draws, comparators, pre-flights, dry runs or tests; status 'survey' (publish refuses it)")
+        ap.add_argument("--workers", type=int, default=None, help="re-draw worker processes (default max(4, cores // 3))")
         ap.add_argument("--deselect", action="append", default=[], metavar="NODE",
                         help="pytest node id to leave out (surveys only, e.g. the 9-min snapshot-independent frozen-row regression; recorded and flagged)")
         ap.add_argument("--no-publish", action="store_true")
