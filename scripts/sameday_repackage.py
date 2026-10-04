@@ -451,6 +451,8 @@ def rung_table(names_rungs: dict, d: Path) -> dict:
     return out
 
 
+SLOW_TEST = "tests/test_redraw_gate1b.py::test_frozen_placement_reproduces_frozen_reference_rows_to_1e9_slow"   # ~9 min, snapshot-independent
+
 RUNGS = {"day 3 dial n40": ("day3_dial_refs", "n40"), "day 3 dial n60": ("day3_dial_refs", "n60"), "day 3 dial n100": ("day3_dial_refs", "n100"),
          "replication n20": ("replication_01", "n20"), "plain n100": ("replication_01", "n100"), "contingent dial n60": ("dial_arm_contingent", "n60"),
          "grid n20": ("grid_n20", "n20"), "grid n40": ("grid_n40", "n40"), "grid n60": ("grid_n60", "n60"), "grid n80": ("grid_n80", "n80"),
@@ -629,11 +631,21 @@ def run(args) -> int:
         shards = []
         if not args.no_tests:
             (out / "tests").mkdir(exist_ok=True)
+            # Tests read data/predictions, so they start only once every re-draw has written its files (a test that ran beside the pairs
+            # re-draw passed on a half-written predictions directory, 28 Sep). The one snapshot-independent 9-min regression gets its own
+            # shard and starts at once, so the wall time stays that of the re-draws plus the other shards.
+            redraws = tuple(tk.name for tk in tasks if tk.name in ("gate1b", "main_grid", "h7", "dial_rows", "pairs"))
+            skip = set(args.deselect or [])
+            if SLOW_TEST not in skip:
+                shards.append(out / "tests" / "shard_slow.xml")
+                tasks.append(Task("tests_slow", [py, "-m", "pytest", "-q", "-ra", "-p", "no:cacheprovider", "--basetemp=/tmp/sameday_pt_slow",
+                                                 f"--junitxml={shards[-1]}", SLOW_TEST], out / "tests" / "shard_slow.log", env=env))
+                skip.add(SLOW_TEST)
             for i, files in enumerate(shard_tests(max(2, min(6, cores // 6)))):
                 shards.append(out / "tests" / f"shard_{i}.xml")
-                desel = [x for d in (args.deselect or []) if d.split("::")[0] in files for x in ("--deselect", d)]
+                desel = [x for d in sorted(skip) if d.split("::")[0] in files for x in ("--deselect", d)]
                 tasks.append(Task(f"tests_{i}", [py, "-m", "pytest", "-q", "-ra", "-p", "no:cacheprovider", f"--basetemp=/tmp/sameday_pt_{i}",
-                                                 f"--junitxml={shards[-1]}", *desel, *files], out / "tests" / f"shard_{i}.log", env=env))
+                                                 f"--junitxml={shards[-1]}", *desel, *files], out / "tests" / f"shard_{i}.log", deps=redraws, env=env))
         if args.survey:                                                       # survey: regeneration, Gate 1b and the pre-check only
             tasks, shards = [tk for tk in tasks if tk.name == "gate1b"], []
         pending, running, done = list(tasks), [], []
