@@ -568,12 +568,27 @@ def _pc_par(name, pc_snap, pc_props, pcs, lists, placement_snap=None, steps="Sec
 
 def build(OUT, snap_csv, tag, date_label, dial_pp, pdir, review_txt="(to be filled)", precheck_res=None, pr="(this pull request)", branch="dev62-repackage",
           prev_pred_dir=None, root=".", prev_lists_dir=None, prev_fail_snaps=("ibm_phoenix_2026-09-26T030720Z.csv",), prev=None, pred_commit=None,
-          with_pairs=False, comparators=None):
+          with_pairs=False, comparators=None, hold=None):
     # Reviewer finding (1): ``comparators`` is the pipeline's own run of scripts/check_comparators.py per list ({name: {exit, missing, items}});
     # unless every list that carries comparators ran and exited 0, nothing is rendered and no file is written.
     cc = {n: _cc_entry((comparators or {}).get(n), n) for n in ("day3_dial_refs",) + (("dial_truncation_pairs",) if with_pairs else ())}
     OUT = Path(OUT); stamp = re.search(r"\d{4}-\d{2}-\d{2}T\d{6}Z", snap_csv).group(0)
     hhmm = f"{stamp[11:13]}:{stamp[13:15]}"; day = f"{int(stamp[8:10])} {_mon(stamp)}"
+    # ``hold``: {list name: reason} for a list rendered for the record but not dispatched from this package (Owais's decision of the day).
+    # Only day 3 can be held: pre-flight 06 says so at the top of Section 1, and pre-flights 08 / 09 state the day's order without it.
+    hold = dict(hold or {})
+    if set(hold) - {"day3_dial_refs"}:
+        raise ValueError(f"hold: only day3_dial_refs can be held, got {sorted(hold)}")
+    h3 = hold.get("day3_dial_refs")
+    hold06 = (f"**Not for dispatch on {day}: {h3}.** This pre-flight is rendered for the record with the same-day package of {day}; the list is not "
+              "armed or dispatched from this package (Owais's decision of the day).\n\n") if h3 else ""
+    arm08 = (f"Lists not armed (Owais arms them; day 3 is not dispatched on {day}, {h3}, so these lists go first)." if h3
+             else "Lists not armed (Owais arms them after day 3's dispatch).")
+    order08 = (f"**Order on {day} (Owais's decision): day 3 is held ({h3}); these two lists first, then Section 3c Block C (pre-flight 09).**" if h3
+               else "**Order: day 3 (`day3_dial_refs`, pre-flight 06) first, then these two lists, then Section 3c Block C (pre-flight 09).**")
+    order09 = (f"**Order on {day} (Owais's decision): day 3 is held ({h3}); the Deviation 19 replication lists (pre-flight 08), then this list.**" if h3
+               else "**Order: day 3 (pre-flight 06), then the Deviation 19\nreplication lists (pre-flight 08), then this list.**")
+    steps08 = f"when the review says GO (day 3 is held on {day})" if h3 else "after day 3's dispatch and when the review says GO"
     P_ = prev or dict(PREV, fall="3.05 / 3.15 / 6.93", sep8="4.50 / 4.20 / 3.31", n100_row="4.924e-04", n100_n=87)
     pred_commit = pred_commit or "(the commit of this pull request that adds the lists and predictions)"
     J = {n: json.load(open(OUT / "A" / "joblists_paper1" / f"{n}.json")) for n in ("day3_dial_refs", "replication_01", "replication_01_16384", "section3c_blockC",
@@ -722,7 +737,7 @@ Each is its own arming, dispatch (`submit_only`) and ids file; the next list is 
 
 ## 1. What runs
 
-`data/joblists/paper1/day3_dial_refs.json` (generator `--day3`, ledger line `day3:dial`): `references_gate1b.json` + `dial_arm.json`, probe for probe
+{hold06}`data/joblists/paper1/day3_dial_refs.json` (generator `--day3`, ledger line `day3:dial`): `references_gate1b.json` + `dial_arm.json`, probe for probe
 ({len(J['day3_dial_refs']['probes'])} probes, no points): the six delay-matched p = 0, k = L references at L = 8 / 12 on n40 / n60 / n100 (M = 350, 16384 shots,
 `mask_p` 1); the Section 3b core on the n60 rung (reset dial p in {{0.25, 0.5}} at L in {{8, 12}}, k = L, M = 100, 256 masks x 16 shots), the p = 0.25,
 L = 8 n-ladder points on n40 and n100 (`NLADDER_L` = 8: the Gate 1b separation clause {'passes' if sep8 == 'PASS' else 'FAILS'} at L = 8 on this placement, Section 2.5), the dephasing
@@ -842,7 +857,7 @@ re-drawn rows of Section 2.5, including the H5 / H6 p = 0.5 rows and the H7 comp
     pf08 = f"""# Pre-flight 08 (reissued {date_label}): Deviation 19 replication 01 (Paper 1, lists `replication_01` and `replication_01_16384`)
 
 **Record: this document, committed to `main`; its commit-pinned GitHub URL is the pre-flight record (Deviation 58, handover Section 0).
-Reviewer: see Section 8. Lists not armed (Owais arms them after day 3's dispatch).**
+Reviewer: see Section 8. {arm08}**
 
 Placed on the **{stamp[:10]}T{hhmm}Z snapshot** (`{snap_csv}`), to which both lists are **pinned** (Deviation 58). Supersedes pre-flight 08
 of {P_['date']} (`{P_['files'][1]}`, {P_['snap']} data; never dispatched: on the {pf_prev['replication_01'][0][0]} snapshot its placement fails the live cuts on
@@ -850,7 +865,7 @@ of {P_['date']} (`{P_['files'][1]}`, {P_['snap']} data; never dispatched: on the
 Pre-registration **v0.17.0** as stamped in the lists (Deviation 62, draft): Deviation 19 (anomaly protocol, the two recorded flags), Deviation 57 (replication
 placement), Deviation 58 (the replication's 4x5 is placed by the rule among rectangles disjoint from day 1's; pinned snapshot), Deviation 62 (the
 connected-component rule; these lists carry no reset dial, so Q79 is placed here), Deviations 18, 22, 26, 37, 43, 46, 53, 55; Section 5 Gate 2 (e). Tracker
-P1.3.9. **Order: day 3 (`day3_dial_refs`, pre-flight 06) first, then these two lists, then Section 3c Block C (pre-flight 09).** Each list is its own Batch,
+P1.3.9. {order08} Each list is its own Batch,
 arming, dispatch and ids file.
 
 ## 1. What runs (unchanged in design)
@@ -932,7 +947,7 @@ sampled bundles (`L0`, `L1`: n = {R20['n']} L = 4, ISA ops `cz, rz, sx`; `L0-pro
 `replication_01_16384.json`: {a2['jobs']} jobs ({fakemin['replication_01_16384']} min); `L0` n = {R100['n']} L = 8 at 16384 shots, ops `cz, rz, sx`; `L0-probes-s16384` SPAM-only; {csvrows['replication_01_16384']} CSV rows.
 The fake's stale calibration fails the layout check (`enforced: false`), as for every list.
 
-## 7. Human steps (Owais), after day 3's dispatch and when the review says GO
+## 7. Human steps (Owais), {steps08}
 
 0. As pre-flight 06 Section 6 step 0 ({pr} merged; `placement.snapshot` `{snap_csv}` on `main`; arming edits only `dry_run` and `preflight_review`; the stop rule for a submitting run that ends without `job ids written to`), and step 1 (fresh calibration snapshot, Claude's pre-check).
 1. (Claude, done) Regenerated on the pinned snapshot (`--replication`, `--check`), re-drawn predictions committed, this document committed.
@@ -964,8 +979,7 @@ Placed on the **{stamp[:10]}T{hhmm}Z snapshot** (`{snap_csv}`), to which the lis
 {P_['date']} (`{P_['files'][2]}`, {P_['snap']} data; never dispatched: on the {pf_prev['section3c_blockC'][0][0]} snapshot its placement fails the live cuts on
 {pf_prev['section3c_blockC'][0][1]}{prev_more('section3c_blockC')}). Pre-registration **v0.17.0** as stamped in the list (Deviation 62, draft): Section 3c /
 Deviation 56 (v0.15.0) and its erratum (v0.15.1: no per-draw noiseless comparison exists at n >= 84, L >= 8; Block C is compared with the propagation prediction
-and the L = 0 floors), Deviations 18, 22, 26, 37, 43, 46, 47, 53, 55, 58, 62; Section 5 Gate 2 (e). **Order: day 3 (pre-flight 06), then the Deviation 19
-replication lists (pre-flight 08), then this list.**
+and the L = 0 floors), Deviations 18, 22, 26, 37, 43, 46, 47, 53, 55, 58, 62; Section 5 Gate 2 (e). {order09}
 
 ## 1. What runs (unchanged in design)
 
