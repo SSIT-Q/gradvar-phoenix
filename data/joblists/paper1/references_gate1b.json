@@ -5,27 +5,32 @@
  "dry_run": true,
  "rep_delay_probe": true,
  "preflight_review": "TBD: pre-flight review permalink",
- "notes": "Paper 1 pre-registration v0.16.0 (23 Sep 2026), Section 3b Gate 1b clause (b) unital references (Deviations 28-30 frozen clause, 35, 44-45): the six delay-matched p = 0, k = L points at L = 8 and L = 12 on the three ladder rungs n = 40 / 60 / 100 (actual n = 39 / 52 / 87), M = 350, 16384 shots, resilience 0, no masks (700 parameter sets per point: 3 jobs per point in the pre-registration's count; under the Deviation 48 packing one pub per point carrying the 350 shifted pairs as rows, the six pubs packed into jobs of at most 300 pubs and 12 MB of parameter values). The n = 60, L = 8 point doubles as Section 3b matched control (a) at k = L. Evaluated per rung on the measured, floor-subtracted references: a rung whose L = 8 reference lies below 3 shot floors is 'reference unresolvable'; clause (b) passes with at least two counted rungs all passing. Runs before dial_arm.json on the same day and patches (order of runs). Ledger: 23.6 min at 1 us in the pre-registration's arithmetic, funded as 6.4 (dial line) + 8.0 (Deviation 44 reserve item) + 9.5 (Deviation 45 top-up line); about 22.7 min under model v3 in the pre-registration's arithmetic (Deviation 47). Placement from snapshot 2026-09-23T163534Z (CSV plus raw properties; Deviations 22, 26 and 46 cuts plus the Deviation 53 coherence floor T1, T2 >= 25 us, on the newest committed calibration data): n40 = 4x10 n = 39 origin (8, 0) edge 93_103 broken [[86, 87], [100, 101], [95, 96], [87, 97], [100, 110]]; n60 = 6x10 n = 52 origin (6, 0) edge 84_85 broken [[86, 87], [100, 101], [95, 96], [87, 97], [100, 110]]; n100 = 10x10 n = 87 origin (2, 0) edge 75_85 broken [[86, 87], [100, 101], [31, 32], [95, 96], [87, 97], [100, 110]]. Deviation 46: the runner re-derives the placement and the observable edges from the run-day snapshot under the Deviation 22 / 26 cuts and the cone-graph edge rule (live re-check, layout_check enforce) and refuses a list whose n no longer matches; regenerate with scripts/make_paper1_joblists.py from the run-day snapshot and re-draw the Gate 1b reference predictions where the cone graph changed. Budget model v3 (Deviation 47: 3.0 s per job, +2.7 s at resilience >= 1, 5 us per execution, max(shots, 64) at resilience >= 1), jobs of at most 300 pubs (max_experiments; Deviation 48) and 12 MB of parameter values: 2 jobs, 6 pubs, 4200 parameter sets, 68812800 executions (+0 TREX), 21.937 min at the booked 1 us rep_delay (307.51 min at 250 us). Nothing is submitted while dry_run is true and the pre-flight review permalink is the placeholder.",
+ "notes": "Paper 1 pre-registration v0.17.0 (26 Sep 2026), Section 3b Gate 1b clause (b) unital references (Deviations 28-30 frozen clause, 35, 44-45): the six delay-matched p = 0, k = L points at L = 8 and L = 12 on the three ladder rungs n = 40 / 60 / 100 (actual n = 39 / 52 / 83), M = 350, 16384 shots, resilience 0, no masks (700 parameter sets per point: 3 jobs per point in the pre-registration's count; under the Deviation 48 packing one pub per point carrying the 350 shifted pairs as rows, the six pubs packed into jobs of at most 300 pubs and 12 MB of parameter values). The n = 60, L = 8 point doubles as Section 3b matched control (a) at k = L. Evaluated per rung on the measured, floor-subtracted references: a rung whose L = 8 reference lies below 3 shot floors is 'reference unresolvable'; clause (b) passes with at least two counted rungs all passing. Runs before dial_arm.json on the same day and patches (order of runs). Ledger: 23.6 min at 1 us in the pre-registration's arithmetic, funded as 6.4 (dial line) + 8.0 (Deviation 44 reserve item) + 9.5 (Deviation 45 top-up line); about 22.7 min under model v3 in the pre-registration's arithmetic (Deviation 47). Placement from snapshot 2026-10-04T043542Z (CSV plus raw properties; Deviations 22, 26 and 46 cuts plus the Deviation 53 coherence floor T1, T2 >= 25 us, on the newest committed calibration data; Deviation 62: qubits outside a rectangle's largest connected live-coupler component are holes; Deviation 62: qubit(s) [79] excluded from these dial patches (Section 3b Implementation: qubit 79, native reset 2140 ns, excluded from dial patches), recorded as placement.dial_exclude and applied by the runner): n40 = 4x10 n = 39 origin (8, 0) edge 93_103 broken [[86, 87], [100, 101], [118, 119], [95, 96], [80, 90], [87, 97], [100, 110]]; n60 = 6x10 n = 52 origin (6, 0) edge 84_85 broken [[86, 87], [100, 101], [118, 119], [95, 96], [80, 90], [87, 97], [100, 110]]; n100 = 10x10 n = 83 origin (2, 0) edge 75_85 broken [[86, 87], [100, 101], [118, 119], [95, 96], [80, 90], [87, 97], [100, 110]]. Deviation 46: the runner re-derives the placement and the observable edges from the run-day snapshot under the Deviation 22 / 26 cuts and the cone-graph edge rule (live re-check, layout_check enforce) and refuses a list whose n no longer matches; regenerate with scripts/make_paper1_joblists.py from the run-day snapshot and re-draw the Gate 1b reference predictions where the cone graph changed. Budget model v3 (Deviation 47: 3.0 s per job, +2.7 s at resilience >= 1, 5 us per execution, max(shots, 64) at resilience >= 1), jobs of at most 300 pubs (max_experiments; Deviation 48) and 12 MB of parameter values: 2 jobs, 6 pubs, 4200 parameter sets, 68812800 executions (+0 TREX), 21.937 min at the booked 1 us rep_delay (307.51 min at 250 us). Nothing is submitted while dry_run is true and the pre-flight review permalink is the placeholder.",
  "layout_check": "enforce",
  "placement": {
-  "snapshot": "ibm_phoenix_2026-09-23T163534Z.csv",
-  "properties": "ibm_phoenix_properties_20260923T163534Z.json.gz",
-  "stamp": "2026-09-23T163534Z",
+  "snapshot": "ibm_phoenix_2026-10-04T043542Z.csv",
+  "properties": "ibm_phoenix_properties_20261004T043542Z.json.gz",
+  "stamp": "2026-10-04T043542Z",
   "excluded": [
    7,
    8,
    11,
+   14,
+   15,
    17,
    18,
+   19,
+   24,
+   25,
+   26,
    27,
+   28,
    29,
-   37,
    55,
    59,
    61,
    62,
    63,
-   66,
    72,
    73,
    77,
@@ -36,7 +41,19 @@
    "init_error_cut": 0.0005,
    "zz_cut_mhz": 1.0,
    "cz_cut": 0.005,
-   "coherence_floor_us": 25.0
+   "coherence_floor_us": 25.0,
+   "component_rule": {
+    "deviation": "62",
+    "since": "2026-09-26T030720Z",
+    "rule": "qubits outside the largest connected component of the rectangle's live-coupler graph are holes"
+   },
+   "dial_exclude": {
+    "deviation": "62",
+    "qubits": [
+     79
+    ],
+    "reason": "Section 3b Implementation: qubit 79 (native reset 2140 ns; 400 ns on the other 119 qubits) is excluded from dial patches"
+   }
   },
   "rungs": {
    "n40": {
@@ -100,8 +117,16 @@
       101
      ],
      [
+      118,
+      119
+     ],
+     [
       95,
       96
+     ],
+     [
+      80,
+      90
      ],
      [
       87,
@@ -113,16 +138,18 @@
      ]
     ],
     "broken_edge_cz_errors": {
-     "86_87": 0.014215607141416259,
-     "100_101": 0.040990425147964665,
-     "95_96": 0.032139042591438044,
-     "87_97": 0.018098784899698378,
-     "100_110": 0.00570275839990278
+     "86_87": 0.013995552986109994,
+     "100_101": 0.06132514619271259,
+     "118_119": 0.005811593610208554,
+     "95_96": 0.016831203714640475,
+     "80_90": 0.005570951328875529,
+     "87_97": 0.020499447349806132,
+     "100_110": 0.005533566659797096
     },
-    "live_couplers": 57,
+    "live_couplers": 55,
     "edge": "93_103",
     "edge_rule": "Deviation 36's (93, 103) as written (its L = 2 cone graph differs from the 4x5 rung's on this snapshot; Deviation 46 fallback)",
-    "edge_cz_error": 0.0011904153828659891,
+    "edge_cz_error": 0.0009705135520853003,
     "cone_L2_qubits": [
      82,
      83,
@@ -142,7 +169,9 @@
      115
     ],
     "cone_L2_couplers": 24,
-    "cone_L2_matches_4x5": false
+    "cone_L2_matches_4x5": false,
+    "component_holes": [],
+    "dial_excluded_holes": []
    },
    "n60": {
     "patch": "6x10",
@@ -155,16 +184,17 @@
      61,
      62,
      63,
-     66,
      72,
      73,
      77,
+     79,
      107
     ],
     "qubits": [
      60,
      64,
      65,
+     66,
      67,
      68,
      69,
@@ -174,7 +204,6 @@
      75,
      76,
      78,
-     79,
      80,
      81,
      82,
@@ -225,8 +254,16 @@
       101
      ],
      [
+      118,
+      119
+     ],
+     [
       95,
       96
+     ],
+     [
+      80,
+      90
      ],
      [
       87,
@@ -238,19 +275,23 @@
      ]
     ],
     "broken_edge_cz_errors": {
-     "86_87": 0.014215607141416259,
-     "100_101": 0.040990425147964665,
-     "95_96": 0.032139042591438044,
-     "87_97": 0.018098784899698378,
-     "100_110": 0.00570275839990278
+     "86_87": 0.013995552986109994,
+     "100_101": 0.06132514619271259,
+     "118_119": 0.005811593610208554,
+     "95_96": 0.016831203714640475,
+     "80_90": 0.005570951328875529,
+     "87_97": 0.020499447349806132,
+     "100_110": 0.005533566659797096
     },
-    "live_couplers": 76,
+    "live_couplers": 74,
     "edge": "84_85",
     "edge_rule": "interior_edge",
-    "edge_cz_error": 0.0011502838290557982,
+    "edge_cz_error": 0.0011521417561443092,
     "cone_L2_qubits": [
      64,
      65,
+     66,
+     67,
      74,
      75,
      76,
@@ -264,29 +305,37 @@
      94,
      95
     ],
-    "cone_L2_couplers": 19,
-    "cone_L2_matches_4x5": false
+    "cone_L2_couplers": 22,
+    "cone_L2_matches_4x5": false,
+    "component_holes": [],
+    "dial_excluded_holes": [
+     79
+    ]
    },
    "n100": {
     "patch": "10x10",
-    "n": 87,
+    "n": 83,
     "origin": [
      2,
      0
     ],
     "holes": [
+     24,
+     25,
+     26,
      27,
+     28,
      29,
-     37,
+     31,
      55,
      59,
      61,
      62,
      63,
-     66,
      72,
      73,
      77,
+     79,
      107
     ],
     "qubits": [
@@ -294,17 +343,13 @@
      21,
      22,
      23,
-     24,
-     25,
-     26,
-     28,
      30,
-     31,
      32,
      33,
      34,
      35,
      36,
+     37,
      38,
      39,
      40,
@@ -328,6 +373,7 @@
      60,
      64,
      65,
+     66,
      67,
      68,
      69,
@@ -337,7 +383,6 @@
      75,
      76,
      78,
-     79,
      80,
      81,
      82,
@@ -388,12 +433,16 @@
       101
      ],
      [
-      31,
-      32
+      118,
+      119
      ],
      [
       95,
       96
+     ],
+     [
+      80,
+      90
      ],
      [
       87,
@@ -405,20 +454,23 @@
      ]
     ],
     "broken_edge_cz_errors": {
-     "86_87": 0.014215607141416259,
-     "100_101": 0.040990425147964665,
-     "31_32": 0.0159505482336936,
-     "95_96": 0.032139042591438044,
-     "87_97": 0.018098784899698378,
-     "100_110": 0.00570275839990278
+     "86_87": 0.013995552986109994,
+     "100_101": 0.06132514619271259,
+     "118_119": 0.005811593610208554,
+     "95_96": 0.016831203714640475,
+     "80_90": 0.005570951328875529,
+     "87_97": 0.020499447349806132,
+     "100_110": 0.005533566659797096
     },
-    "live_couplers": 132,
+    "live_couplers": 124,
     "edge": "75_85",
     "edge_rule": "interior_edge",
-    "edge_cz_error": 0.0010745000640388358,
+    "edge_cz_error": 0.0009939044949142939,
     "cone_L2_qubits": [
      64,
      65,
+     66,
+     67,
      74,
      75,
      76,
@@ -428,14 +480,23 @@
      94,
      95
     ],
-    "cone_L2_couplers": 13,
-    "cone_L2_matches_4x5": false
+    "cone_L2_couplers": 16,
+    "cone_L2_matches_4x5": false,
+    "component_holes": [
+     31
+    ],
+    "dial_excluded_holes": [
+     79
+    ]
    }
   },
+  "dial_exclude": [
+   79
+  ],
   "pin_snapshot": true
  },
  "campaign": {
-  "pre_registration": "Paper 1 pre-registration v0.16.0 (23 Sep 2026)",
+  "pre_registration": "Paper 1 pre-registration v0.17.0 (26 Sep 2026)",
   "ledger_line": "dial",
   "budget_model_version": 3,
   "max_experiments": 300,
@@ -524,7 +585,7 @@
    "id": "ref_p0_delay_L8_kL_n100",
    "kind": "reset_dial",
    "reset_kind": "delay",
-   "n": 87,
+   "n": 83,
    "patch": "10x10",
    "edge": "75_85",
    "L": 8,
@@ -535,14 +596,14 @@
    "shots": 16384,
    "resilience": 0,
    "seed": 25191001,
-   "purpose": "Gate 1b clause (b) reference (Deviations 28-30, 35, 44-45): delay-matched p = 0, k = L, L = 8 on the n100 rung (actual n = 87); every qubit idles 400 ns after every layer (mask_p = 1: delay on all qubits, no lottery, no pattern floor), M = 350 draws (rule M = 17.5(1.3 kappa - 1), kappa = 14.2), 16384 shots (floor 3.05e-5); the L = 8 to L = 12 fall on this rung must exceed 3x the larger shot floor (9.2e-5) and 2x the L = 8 point's measured bootstrap 2 sigma; Deviation 39 on-day M = 600 rule. Deviation 48 packing: one pub carrying the 350 draws' shifted pairs as parameter rows",
+   "purpose": "Gate 1b clause (b) reference (Deviations 28-30, 35, 44-45): delay-matched p = 0, k = L, L = 8 on the n100 rung (actual n = 83); every qubit idles 400 ns after every layer (mask_p = 1: delay on all qubits, no lottery, no pattern floor), M = 350 draws (rule M = 17.5(1.3 kappa - 1), kappa = 14.2), 16384 shots (floor 3.05e-5); the L = 8 to L = 12 fall on this rung must exceed 3x the larger shot floor (9.2e-5) and 2x the L = 8 point's measured bootstrap 2 sigma; Deviation 39 on-day M = 600 rule. Deviation 48 packing: one pub carrying the 350 draws' shifted pairs as parameter rows",
    "mask_p": 1.0
   },
   {
    "id": "ref_p0_delay_L12_kL_n100",
    "kind": "reset_dial",
    "reset_kind": "delay",
-   "n": 87,
+   "n": 83,
    "patch": "10x10",
    "edge": "75_85",
    "L": 12,
@@ -553,7 +614,7 @@
    "shots": 16384,
    "resilience": 0,
    "seed": 25201001,
-   "purpose": "Gate 1b clause (b) reference (Deviations 28-30, 35, 44-45): delay-matched p = 0, k = L, L = 12 on the n100 rung (actual n = 87); every qubit idles 400 ns after every layer (mask_p = 1: delay on all qubits, no lottery, no pattern floor), M = 350 draws (rule M = 17.5(1.3 kappa - 1), kappa = 14.2), 16384 shots (floor 3.05e-5); the L = 8 to L = 12 fall on this rung must exceed 3x the larger shot floor (9.2e-5) and 2x the L = 8 point's measured bootstrap 2 sigma; Deviation 39 on-day M = 600 rule. Deviation 48 packing: one pub carrying the 350 draws' shifted pairs as parameter rows",
+   "purpose": "Gate 1b clause (b) reference (Deviations 28-30, 35, 44-45): delay-matched p = 0, k = L, L = 12 on the n100 rung (actual n = 83); every qubit idles 400 ns after every layer (mask_p = 1: delay on all qubits, no lottery, no pattern floor), M = 350 draws (rule M = 17.5(1.3 kappa - 1), kappa = 14.2), 16384 shots (floor 3.05e-5); the L = 8 to L = 12 fall on this rung must exceed 3x the larger shot floor (9.2e-5) and 2x the L = 8 point's measured bootstrap 2 sigma; Deviation 39 on-day M = 600 rule. Deviation 48 packing: one pub carrying the 350 draws' shifted pairs as parameter rows",
    "mask_p": 1.0
   }
  ],
@@ -626,7 +687,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 3.0,
-    "param_mb": 9.744,
+    "param_mb": 9.296,
     "circuit_seconds_at_250us": 6148.194,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 6151.194,

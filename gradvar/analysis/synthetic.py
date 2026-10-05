@@ -19,6 +19,16 @@ import pandas as pd
 from ..hardware import LOG_COLUMNS
 from .loader import encode_ndarray
 
+def _ladder_calibration() -> str | None:
+    """The calibration CSV of the 19 Sep ladder placement (``ladder_placements.json``), recorded as the synthetic run's placement
+    snapshot, so its dial points are matched to the committed 19 Sep rows on the qubit set and snapshot (Deviation 60, S-A)."""
+    f = Path(__file__).resolve().parents[2] / "data" / "predictions" / "ladder_placements.json"
+    try:
+        return json.loads(f.read_text()).get("calibration")
+    except (OSError, ValueError):
+        return None
+
+
 def _ladder_qubits(spec: str, fallback: list) -> list:
     """The placed qubits of ``spec`` on the 19 Sep ladder placement (``data/predictions/ladder_placements.json``), on which the
     committed dial rows of ``pauliprop_predictions.csv`` were drawn; ``fallback`` when the file is absent."""
@@ -65,14 +75,11 @@ def null_control_point(n: int, var_excess: float = 0.0, L: int = 0, k: int = 0, 
 
 
 def dial_point(reset_kind: str, p: float, n: int, L: int, k: int, var: float, var_mask: float = 0.0, mean_c: float = 0.0, M: int = 100,
-               K: int = 256, shots: int = 16, resilience: int = 0, seed: int = 20260919, mask_share: float = 1.0, var_cost: float | None = None,
-               shared_masks: bool = False) -> dict:
+               K: int = 256, shots: int = 16, resilience: int = 0, seed: int = 20260919, mask_share: float = 1.0, var_cost: float | None = None) -> dict:
     """``mask_share`` is the fraction of the mask-noise variance common to the two shift circuits (1: shared masks, the
-    logged design; 0: independent masks), Deviation 38. ``var_cost`` plants Var_theta[C_mix] (>= ``var``; default 1.09 var).
-    ``shared_masks`` logs the runner's mask seeds, seed + 1 + m for every draw (Deviation 48 packing), instead of per-draw seeds; the
-    planted values do not depend on the masks' bits."""
+    logged design; 0: independent masks), Deviation 38. ``var_cost`` plants Var_theta[C_mix] (>= ``var``; default 1.09 var)."""
     return dict(kind="reset_dial", reset_kind=reset_kind, p=p, n=n, L=L, k=k, var=var, var_mask=var_mask, mean_c=mean_c, M=M, K=K, shots=shots,
-                resilience=resilience, seed=seed, mask_share=mask_share, var_cost=var_cost, shared_masks=bool(shared_masks))
+                resilience=resilience, seed=seed, mask_share=mask_share, var_cost=var_cost)
 
 
 def reset_error_probe(n: int, p1: Dict[int, float] | float, shots: int = 1024, probe_id: str = "reset_error_patch") -> dict:
@@ -92,12 +99,14 @@ class SyntheticRun:
     properties.json carries the snapshot's confusion and gate errors so the Deviation 33 floor reads run-day values."""
 
     def __init__(self, out_dir, name="synthetic", backend="ibm_phoenix", seed=0, rep_delay_s=1e-6, per_exec_us=None, mid_circuit_measures=0,
-                 reset_us=0.4, fail_reset_job_level=None, readout_scale=1.0, snapshot_csv=None, level1_scale=1.07, job_overhead_s=2.0):
+                 reset_us=0.4, fail_reset_job_level=None, readout_scale=1.0, snapshot_csv=None, level1_scale=1.07, job_overhead_s=2.0,
+                 placement_snapshot="ladder"):
         self.out, self.name, self.backend = Path(out_dir), name, backend
         self.rng = np.random.default_rng(seed)
         self.rep_delay_s, self.per_exec_us, self.job_overhead_s = rep_delay_s, per_exec_us, job_overhead_s
         self.mid_circuit_measures, self.reset_us, self.fail_level = mid_circuit_measures, reset_us, fail_reset_job_level
         self.readout_scale, self.snapshot_csv, self.level1_scale = readout_scale, snapshot_csv, level1_scale
+        self.placement_snapshot = _ladder_calibration() if placement_snapshot == "ladder" else placement_snapshot
         self.rows: List[dict] = []
         self.jobs: Dict[str, dict] = {}
         self._level0: Dict[tuple, tuple] = {}     # (seed, n, L, k, shots) -> level-0 measured (evp, sdp, evm, sdm): levels 1 / 2 build on it
@@ -203,16 +212,15 @@ class SyntheticRun:
             cp, cm = self._ideal_pair(spec["var"], spec["mean_c"], key=[seed, n, L, k, int(round(100 * p)), {"reset": 1, "delay": 2, "dephase": 3}.get(rk, 9)],
                                       var_cost=spec.get("var_cost"))
             sig = np.sqrt(spec["var_mask"])
-            for m in range(K):
-                ms = (spec["seed"] if spec.get("shared_masks") else seed) + 1 + m        # the logged mask seed (runner: point seed + 1 + m)
+            for m in range(K):                       # mask m logs mask_seed = probe seed + 1 + m for every draw (runner, Deviation 48)
                 common = sig * np.sqrt(share) * self.rng.choice([-1.0, 1.0])          # bounded mask noise with variance var_mask (keeps |C| <= 1)
                 own = sig * np.sqrt(1 - share)
                 eta_p, eta_m = common + own * self.rng.choice([-1.0, 1.0]), common + own * self.rng.choice([-1.0, 1.0])
                 evp, sdp = _sample_ev(self.rng, cp + eta_p, shots)
                 evm, sdm = _sample_ev(self.rng, cm + eta_m, shots)
                 pid = f"{rk}_p{p:g}_n{n}_L{L}_k{k}"
-                desc = dict(probe_id=pid, kind="reset_dial", reset_kind=rk, mask_index=m, mask_hash=f"{ms:016x}", n=n, L=L, k_1based=k, p=p, prep="1",
-                            seed=seed, qubits=qubits, edge=edge, layout=None, param_hash=h, masks=K, mask_seed=ms,
+                desc = dict(probe_id=pid, kind="reset_dial", reset_kind=rk, mask_index=m, mask_hash=f"{spec['seed'] + 1 + m:016x}", n=n, L=L, k_1based=k, p=p, prep="1",
+                            seed=seed, qubits=qubits, edge=edge, layout=None, param_hash=h, masks=K, mask_seed=spec["seed"] + 1 + m,
                             dial_delay_ns=400.0 if rk == "delay" else None, synthetic_target_instructions=[], patch=patch, origin=[0, 0], holes=[],
                             broken_edges=[], lattice_qubits=qubits, lattice_edge=edge, observables=[[["ZZ", 1.0]]], param_values=None)
                 job["points"].append(desc)
@@ -223,7 +231,7 @@ class SyntheticRun:
                                                      target_durations_s={"reset": {str(q): self.reset_us * 1e-6 for q in qubits[:4]}} if rk == "reset" else {}))
                 job["gate_us"].append(L * (LAYER_US + 0.4))
                 job["pubs"].append((np.array([evp, evm]), np.array([sdp, sdm])))
-                self._row(job, desc, evp, evm, sdp, sdm, n, L, k, seed, rk, p, K, ms, depth=10 * L)
+                self._row(job, desc, evp, evm, sdp, sdm, n, L, k, seed, rk, p, K, spec["seed"] + 1 + m, depth=10 * L)
 
     def add_reset_error(self, spec: dict):
         n, shots = spec["n"], spec["shots"]
@@ -312,7 +320,8 @@ class SyntheticRun:
                 dynamic_reprate_enabled=True, rep_delay_probe=True,
                 isa_instruction_names=sorted({n for c in job["circuits"] for n in c["isa_instruction_names"]}), joblist_entries=[],
                 layout_check=dict(verdict="pass", enforced=True, action="submit"), budget=dict(model_version=2),
-                budget_estimate_with_target_durations=dict(model_version=2, per_job=per_job), points=job["points"]), default=str))
+                budget_estimate_with_target_durations=dict(model_version=2, per_job=per_job), points=job["points"],
+                placement_snapshot=self.placement_snapshot), default=str))
             if failed:
                 (d / "result.json").write_text(json.dumps(dict(note="job failed: no PrimitiveResult")))
             else:
@@ -375,3 +384,44 @@ def specs_from_predictions(preds: Dict, M: int = 200, M_dial: int = 100, K: int 
     if null_control:
         out.append(null_control_point(20, var_excess=2e-5, M=M, shots=shots))
     return out
+
+
+def realised_rows(run_dir, preds: Dict, scale: float = 1.0, rel_se: float = 0.01, n_boot: int = 50) -> pd.DataFrame:
+    """Deviation 60 part (7): realised-mask comparator rows, in the ``dial_realised_<tag>.csv`` layout that
+    ``predictions.load_realised_rows`` reads, for the mask-lottery dial points of the synthetic run in ``run_dir`` (one row per
+    point, keyed as the analysis keys it: placement, point, probe seed and mask count). Each carries its placement-matched mixture
+    row times ``scale``, a sampling error of ``rel_se`` times the value, and the mask counts of the realised Deviation 33 floors
+    at their expected values for the point's p and K. A synthetic run plants the mixture predictions and has no physical masks,
+    so with ``scale`` = 1 its realised comparators are the planted values."""
+    from . import predictions as P
+    from .estimators import point_table
+    from .loader import load_run
+    pts = point_table(load_run(str(run_dir)).rows, n_boot=n_boot)
+    out = []
+    for r in pts.to_dict("records"):
+        if r.get("kind") != "reset_dial" or not P.realised_applies(r.get("arm"), r.get("probe_K")):
+            continue
+        seed, K = r.get("probe_seed"), r.get("probe_K")
+        if seed is None or K is None or pd.isna(seed) or pd.isna(K) or int(K) < 2:
+            continue
+        dial = P.DIAL_KIND.get(str(r["arm"]), str(r["arm"]))
+        hit, _why, _fb = P.dial_prediction(preds, int(r["n"]), int(r["L"]), int(r["k"]), dial, float(r["p"]), patch=r.get("patch"), edge=r.get("edge"),
+                                           qubits=r.get("patch_qubits"), stamp=r.get("placement_stamp"))
+        if hit is None:
+            continue
+        p, K = float(r["p"]), int(K)
+        q = p / 2.0 if dial == "dephase" else p
+        n1, n2 = int(round(K * (1 - q) * q * q)), int(round(K * (1 - q) ** 2 * q))
+        n_rr, n_rk = int(round(K * q * q)), int(round(K * q * (1 - q)))
+        var = scale * float(hit["var"])
+        vc = scale * float(hit.get("var_cost") if hit.get("var_cost") is not None and np.isfinite(float(hit.get("var_cost"))) else hit["var"])
+        tag = "kL" if int(r["k"]) == int(r["L"]) else "k1"
+        row = dict(probe_id=str(r.get("point_id")), mask_seed=int(seed), K=K, mask_p=q, patch=r.get("patch"), n=int(r["n"]), edge=r.get("edge"),
+                   L=int(r["L"]), k=int(r["L"]), dial=dial, p=p, model="unital", qubits=P.qubit_key(r.get("patch_qubits")),
+                   snapshot_stamp=r.get("placement_stamp"), var_kL_realised=np.nan, se_kL_realised=np.nan, var_k1_realised=np.nan,
+                   se_k1_realised=np.nan, var_cost_realised=vc, se_cost_realised=rel_se * abs(vc), pattern_floor_kL_realised=hit.get("pattern_floor"),
+                   n_RR=n_rr, n_RK=n_rk, n_KR=n_rk, n_KK=K - n_rr - 2 * n_rk, n1_i=n1, n2_i=n2, n1_j=n1, n2_j=n2,
+                   var_kL_mixture=hit.get("var"), status="realised (synthetic: the planted mixture values)")
+        row[f"var_{tag}_realised"], row[f"se_{tag}_realised"] = var, rel_se * abs(var)
+        out.append(row)
+    return pd.DataFrame(out)

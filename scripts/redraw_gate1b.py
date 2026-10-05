@@ -53,7 +53,7 @@ import numpy as np                                                          # no
 import pandas as pd                                                         # noqa: E402
 
 from gradvar import noise, pauliprop as pp                                  # noqa: E402
-from gradvar.analysis.floors import Calibration, dial_floor                 # noqa: E402
+from gradvar.analysis.floors import Calibration, dial_floor, mask_floor_stats, realised_floor   # noqa: E402
 from gradvar.circuits import light_cone                                    # noqa: E402
 from gradvar.lattice import Patch, interior_edge                           # noqa: E402
 from gradvar.noise import CZ_CUT, READOUT_CUT, cz_errors_from_calibration, exclusion_from_calibration, load_calibration, place_patch   # noqa: E402
@@ -357,6 +357,64 @@ def predict_at_edge(patch: Patch, spec: str, L: int, edge: tuple, csv: str, prop
                    pattern_runtime_s=pv["runtime_s"], pattern_samples=int(pattern_samples or n_samples))
     out["status"] = g1pp.status_of(out)
     return out
+
+
+# --------------------------------------------------------------------------- realised masks (Deviation 60 part (7))
+
+REALISED = dict(n_samples=2_000_000, seed=0, chunk=25_000)     # sampler settings of every committed realised-mask comparator
+
+
+def probe_masks(jl: dict, pr: dict, prog, patch: Patch, csv: str):
+    """A list probe's K realised masks, rebuilt from its seed with the runner's own placement call (``hardware._probe_patch`` with
+    the list's pinned origins and, where the code has it, the Deviation 62 dial exclusion) and ``hardware.mask_lottery``. Returns
+    (masks over the program's cone columns (K, L, m), masks over the patch's local columns (K, L, n), the runner's Patch)."""
+    from gradvar import hardware as hw
+    origins = hw.pinned_origins(jl, csv)
+    excl = hw.dial_exclusion(jl) if hasattr(hw, "dial_exclusion") else ()
+    runner, layout = hw._probe_patch(pr, {}, csv, origins, excl) if excl else hw._probe_patch(pr, {}, csv, origins)
+    if layout is not None or tuple(runner.qubits) != tuple(patch.qubits):
+        raise SystemExit(f"probe {pr.get('id')}: the runner places it on {list(runner.qubits)}, the list's rung is {list(patch.qubits)}")
+    L, K, seed = int(pr["L"]), int(pr.get("masks", 1)), int(pr["seed"])
+    mask_p = float(pr.get("mask_p", pr["p"]))
+    full = np.stack([hw.mask_lottery(seed, m, L, runner.n, mask_p) for m in range(K)])
+    cols = [runner.local(int(q)) for q in prog.qubits]
+    return full[:, :, cols], full, runner
+
+
+def realised_dial_row(jl: dict, pr: dict, rung: dict, csv: str, props: str, settings: dict = REALISED) -> dict:
+    """The realised-mask comparator of one dial probe (Deviation 60 part (7)) on the Deviation 46 program of its point
+    (``dial_program``): ``pauliprop.propagate_realised`` on the probe's masks for the k = L and k = 1 variances (the off-diagonal
+    moment the shared-mask estimator estimates) and Var[C_mix] (that moment minus S^2(c0) / K, ``realised_prefix_constants``),
+    each with its sampling error; the expected pattern floors; the mixture values from the same paths; the mask counts of the
+    realised Deviation 33 floors (``floors.mask_floor_stats``) with those floors and the mixture floors on the snapshot."""
+    t0 = time.time()
+    kind = "dephase" if str(pr.get("reset_kind", "reset")) in ("dephase", "dephasing") else str(pr.get("reset_kind", "reset"))
+    L, p = int(pr["L"]), float(pr["p"])
+    patch, edge = rung_patch(rung), rung_edge(rung)
+    prog, _meta = dial_program(patch, rung["patch"], L, edge, csv, props, model="unital", dial_kind=kind, p=p)
+    masks, full, runner = probe_masks(jl, pr, prog, patch, csv)
+    mask_p = float(pr.get("mask_p", p))
+    res = pp.propagate_realised(prog, masks, kind, p=p, mask_p=mask_p, n_samples=settings["n_samples"], seed=settings["seed"], chunk=settings["chunk"])
+    K = int(masks.shape[0])
+    c0 = pp.realised_prefix_constants(prog, masks, kind, p=p, mask_p=mask_p)
+    spread = float(np.var(c0, ddof=1) / K)
+    stats = mask_floor_stats(full, L, runner.local(edge[0]), runner.local(edge[1]))
+    f_mix = dial_floor(p, Calibration.from_csv(csv), edge, patch.qubits, resilience=0)
+    f_real = realised_floor(stats, f_mix["a_i"], f_mix["b_i"], f_mix["a_j"], f_mix["b_j"], f_mix["g_i"], f_mix["g_j"]) if kind == "reset" else {}
+    nan = float("nan")
+    return dict(probe_id=pr["id"], mask_seed=int(pr["seed"]), mask_p=mask_p, patch=rung["patch"], n=int(rung["n"]), edge=rung["edge"], L=L, k=L,
+                dial=kind, p=p, model="unital", n_cone=prog.m, qubits=" ".join(str(q) for q in sorted(int(q) for q in rung["qubits"])),
+                var_kL_realised=res["kL_off"], se_kL_realised=res["se_kL_off"], var_k1_realised=res["k1_off"], se_k1_realised=res["se_k1_off"],
+                var_cost_T=res["cost_off"], se_cost_T=res["se_cost_off"], c0_mean=float(np.mean(c0)), c0_spread_over_K=spread,
+                var_cost_realised=res["cost_off"] - spread, se_cost_realised=res["se_cost_off"],
+                pattern_floor_kL_realised=(res["kL_diag"] - res["kL_off"]) / K, pattern_floor_cost_realised=(res["cost_diag"] - res["cost_off"]) / K + spread,
+                var_kL_mix_paths=res["kL_mix"], se_kL_mix_paths=res["se_kL_mix"], var_cost_mix_paths=res["cost_mix"], se_cost_mix_paths=res["se_cost_mix"],
+                ratio_kL=res.get("ratio_kL_off", nan), se_ratio_kL=res.get("se_ratio_kL_off", nan),
+                ratio_cost_T=res.get("ratio_cost_off", nan), se_ratio_cost_T=res.get("se_ratio_cost_off", nan), **stats,
+                dev33_floor_grad=f_mix["floor_grad"], dev33_floor_cost=f_mix["floor_cost"],
+                floor_grad_realised=f_real.get("floor_grad", nan), floor_cost_realised=f_real.get("floor_cost", nan),
+                floor_grad_tested=f_real.get("grad_tested"), floor_cost_tested=f_real.get("cost_tested"),
+                n_samples=res["n_samples"], sampler_seed=res["seed"], chunk=res["chunk"], runtime_s=time.time() - t0, status="realised")
 
 
 def _run_job(job: dict) -> dict:
@@ -704,7 +762,9 @@ def markdown_block(res: dict) -> str:
     pl = res["placement"]
     L.append(f"### Deviation 46 re-draw: run-day snapshot {res['snapshot']['stamp']} vs the frozen 20 Sep numbers\n")
     L.append(f"Snapshot `{res['snapshot']['csv']}` with raw properties `{res['snapshot']['properties']}`; excluded qubits {res['snapshot']['excluded']}. "
-             f"Placement rule: {res['placement_source']}. Frozen numbers: the Deviation 34 layer-model Gate 1b rows drawn on the 19 Sep 19:25Z placement "
+             + (f"Dial patches (Deviation 62): qubit(s) {res['snapshot']['dial_exclude']} also excluded (Section 3b: qubit 79, native reset 2140 ns). " if res['snapshot'].get('dial_exclude') else "")
+             + ("Deviation 62 connected-component rule applied (qubits outside a rectangle's largest live-coupler component are holes). " if (res.get('placement_rules') or {}).get('component_rule') else "")
+             +              f"Placement rule: {res['placement_source']}. Frozen numbers: the Deviation 34 layer-model Gate 1b rows drawn on the 19 Sep 19:25Z placement "
              f"(`ladder_placements.json`; committed 20 Sep 2026 05:11 UTC). Model: unital snapshot noise + static whole-layer ZZ rzz(zeta tau_layer / 2) "
              f"(ZZ_ANGLE_SCALE = 0.5) + idle ZZ rzz(zeta 400 ns / 2) in the dial layer; tau_layer per coupler from `zz_layer_timing.json`; "
              f"Pauli-path sampler seed {SEED}, {res['settings']['n_samples']:.0e} paths ({res['settings']['pattern_samples']:.0e} per pattern-floor run, seed {SEED + PATTERN_SEED_OFFSET}). "
@@ -869,9 +929,14 @@ def main(argv=None) -> int:
     t_start = time.time()
     record = frozen_placement()
     runday = place_rungs(snapshot)
+    try:                                     # Deviation 62: the Gate 1b rows sit on the dial lists' patches (qubit 79 excluded, Section 3b)
+        runday_g1b = place_rungs(snapshot, dial=True)
+    except TypeError:                        # a place_rungs without the Deviation 62 dial placement
+        runday_g1b = runday
     reference = place_rungs(str(REFERENCE_20SEP_SNAPSHOT)) if REFERENCE_20SEP_SNAPSHOT.exists() else None
     ref_notes = check_reference_20sep(reference) if reference else ["20 Sep 03:08Z snapshot not in data/calibrations"]
     ptable = placement_table(record, reference, runday)
+    ptable_g1b = placement_table(record, reference, runday_g1b)
     kappa = kurtosis_measured()
     fdf = frozen_rows()
     fr = readings(fdf, kappa)
@@ -891,7 +956,10 @@ def main(argv=None) -> int:
         print("reference check:", "; ".join(ref_notes))
     print(f"frozen-reading regression vs pauliprop_summary.json: max rel diff {frozen_check['max_rel_diff']:.1e} -> {'PASS' if frozen_check['passes'] else 'FAIL'}")
 
-    jobs, stand = plan_rows(record, runday, fdf, force=args.force)
+    if runday_g1b is not runday:
+        print("Gate 1b (dial-list) placement, dial_exclude " + str(runday_g1b.get("dial_exclude")) + ": "
+              + "; ".join(f"{r} n={runday_g1b['rungs'][r]['n']} origin {tuple(runday_g1b['rungs'][r]['origin'])} edge {runday_g1b['rungs'][r]['edge']}" for r in GATE1B_RUNGS))
+    jobs, stand = plan_rows(record, runday_g1b, fdf, force=args.force)
     if args.no_gate1b:
         jobs, stand = [], []
     for j in jobs:
@@ -993,14 +1061,15 @@ def main(argv=None) -> int:
     all_rows = rows + stand
     rdf = g1pp.with_zz_column(pd.DataFrame(all_rows)) if all_rows else fdf.iloc[0:0]
     rr = readings(rdf, kappa)
-    floors = {SPEC_OF[r]: dial_floors(snapshot, runday["rungs"][r]) for r in GATE1B_RUNGS}
+    floors = {SPEC_OF[r]: dial_floors(snapshot, runday_g1b["rungs"][r]) for r in GATE1B_RUNGS}
     floors_frozen = {SPEC_OF[r]: dial_floors(str(CAL_DIR / record["snapshot"]), record["rungs"][r]) for r in GATE1B_RUNGS}
     rr["h5_h6"] = h5_h6(rdf, floors)
     fr["h5_h6"] = h5_h6(fdf, floors_frozen)
     res = dict(deviation="46", generated_utc=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-               snapshot=dict(csv=Path(snapshot).name, properties=Path(props).name, stamp=stamp, excluded=runday["excluded"]),
-               placement_source=PLACEMENT_SOURCE + "; " + PLACEMENT_SOURCE_PROPERTIES, placement_rules=runday.get("rules"),
-               placement=ptable, runday_placement=runday, record_placement=record, reference_20sep_placement=reference, reference_20sep_notes=ref_notes,
+               snapshot=dict(csv=Path(snapshot).name, properties=Path(props).name, stamp=stamp, excluded=runday_g1b["excluded"],
+                             dial_exclude=runday_g1b.get("dial_exclude", [])),
+               placement_source=PLACEMENT_SOURCE + "; " + PLACEMENT_SOURCE_PROPERTIES, placement_rules=runday_g1b.get("rules"),
+               placement=ptable_g1b, runday_placement=runday_g1b, record_placement=record, reference_20sep_placement=reference, reference_20sep_notes=ref_notes,
                settings=dict(n_samples=args.n_samples, pattern_samples=args.pattern_samples, n_cap=args.n_cap, time_limit_s=args.time_limit, seed=SEED,
                              pattern_seed=SEED + PATTERN_SEED_OFFSET, deltas=[1e-6, 1e-7], K_masks=K_MASKS, zz_angle_scale=pp.ZZ_ANGLE_SCALE,
                              zz_convention=pp.ZZ_CONVENTIONS[pp.ZZ_ANGLE_SCALE], layer_timing=str(LAYER_TIMING.relative_to(ROOT)), force=args.force),

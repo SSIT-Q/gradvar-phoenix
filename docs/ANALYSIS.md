@@ -44,6 +44,7 @@ writes a run in the live format whose planted variances are the predictions plus
 | `estimators.fit_exponential_vs_powerlaw` | Section 3 "Fits": weighted least squares on log Var, AIC comparison |
 | `estimators.paired_ratio`, `delay_matched_comparison` | Section 3b "Pairing" and matched control (a) |
 | `predictions` | join to `gate1_predictions.csv` (exact grid, M = 200 bootstrap interval), `pauliprop_predictions.csv` (Deviation 15 rows, error max(2σ, truncation deficit); Gate 1b / dial rows keyed by reset kind and p), `gate1_layer_index.csv`, `gate1_null_control.json`, **keyed by (patch, edge, L, k)** (Deviations 34 / 36: regenerated CSVs hold the n = 39 rows on edge (93, 103) beside the old (94, 95) rows; an unmatched edge falls back to n and is flagged `edge_matched = False`; converged rows preferred, last written wins); z = (measured − predicted)/σ with σ² = (bootstrap half-width/1.96)² + shot_floor² + σ_pred²; Deviation 19 anomaly protocol: (i) |z| > 3, (ii) ≥ 3 adjacent points in n or L with same-sign monotone deviation; the flag names the replication action (another day, another patch, ≤ 20 reserve minutes) |
+| `anomaly_stats` | **Deviation 61 (draft; analysis-only, before the replication-01 data are read)**: the four statistics added to the Deviation 19 protocol and the pre-flight 08 replication reading with and without them (`replication_decision`, `decide`; CLI `python -m gradvar.analysis.anomaly_stats decide spec.json`): (i) prediction-side uncertainty in pre-flight 08's z (`calibration_se`, `rate_drift`; the fixed conformal factor `PHI`), (ii) grid-wide Holm over the frozen family (`holm`, `holm_family`, `decision_family`), (iii) the kappa inversion (`gate_attenuation`, `kappa_inversion`, `grid_kappa`, `kappa_consistency`; the frozen `KAPPA_HAT`), (iv) the per-draw regression at n = 19 / 20 (`per_draw_regression`); the frozen reference sets (`reference_table`, `data/derived/dev61_reference_2026-09-25.csv`), the decisive tests (`decision_role`) and the recorded flags' firmness (`recorded_firmness`, `phi_firmness_threshold`); numpy / pandas only. `predictions.compare_points` also reports `z_preflight08`; `predictions.anomaly_protocol` adds a diagnostic within-run Holm line (`holm_within_run`) that labels no flag firm |
 | `hypotheses` | H1–H4 (below) |
 | `gates` | kill rules (a)–(d) (Deviation 41 for (b)), Gate 2 (a)–(e), `gate1b_clause_b` (Deviations 35 / 39 flags on the measured references), `preregistered_main_grid` / `main_grid_constants` (the Section 2 grid through the budget model in force, v3 since Deviation 47, shared by Gate 2 (b) and (d)) |
 | `figures` | the four pre-registered panels, log scale, shot floor and null-control floor on every panel |
@@ -81,7 +82,8 @@ the dephasing dial by the pre-drawn factor within the combined interval and abov
 variance is not resolvably positive, the lower end of its 95 % interval at or below zero or no positive paired-ratio denominator,
 no ratio is formed; with r_lo the lower end of the reset point's interval and d_hi the upper end of the dephasing point's, read
 as an upper bound, the clause holds when r_lo > max(d_hi, 0) and r_lo ≤ F·exp(1.96 s)·d_hi, F the pre-drawn factor and s its
-relative σ); the k = 1 fall is reported only (k = 1 rows are upper bounds, Deviation 40; exploratory at L = 12, Deviation 37);
+relative σ; when the dephasing interval lies entirely at or below zero, d_hi ≤ 0, the factor is reported 'not tested' and
+r_lo > 0 decides); the k = 1 fall is reported only (k = 1 rows are upper bounds, Deviation 40; exploratory at L = 12, Deviation 37);
 a delay-matched reference that does not fall
 from L = 8 to L = 12 makes the ladder comparison inconclusive rather than refuting. **H7** (Deviation 60): the loader maps
 the truncation probes (`reset_dial` with `unshifted`; `truncate_to` = ℓ, the full circuit ℓ = 0) to kind `truncation` with an
@@ -100,23 +102,33 @@ centred on mean(diff)², which adds Var<sub>m</sub>(diff)/K back (shot plus resi
 Deviation 60 (shot term kept) is reported as `rms_with_shot`.
 `evaluate_h7` compares the ℓ = 2 RMS with the committed comparator sqrt(MSD(2)) ± `rms_l2_sigma`
 (`data/predictions/h7_truncation_<tag>.json`, drawn on the rows' placement by `scripts/predict_h7_truncation.py` and matched on
-the placed qubit set, which both sides must record, and patch, edge, n, p, L; an explicit `preds['truncation']` takes
-precedence and must carry the qubit set) within the combined interval; it is not-evaluable without that comparator, with
-pairing errors, or with rows from more than one placement (point keys, placed qubit set or, where the bundles record it,
-broken-coupler set; review M4). ℓ = 4 is an upper-bound point by rule (Deviation 60 rule (a)): its RMS and interval are
+the placed qubit set and the placement snapshot of the list that ran, which both sides must record (Deviation 60, S-A), and
+patch, edge, n, p, L; comparators of more than one file for one placement are ambiguous and not used; an explicit
+`preds['truncation']` takes precedence and must carry the qubit set) within the combined interval; it is not-evaluable without
+that comparator, with pairing errors, or with rows from more than one placement (point keys, placed qubit set, placement
+snapshot or, where the bundles record it, broken-coupler set; review M4). ℓ = 4 is an upper-bound point by rule (Deviation 60 rule (a)): its RMS and interval are
 reported and the upper end of the interval is the bound. The one-sided ℓ = 4 < ℓ = 2 test, run when the measured std(C_mix)
 exceeds 0.1, is the paired bootstrap over draws of RMS(2) − RMS(4) (`truncation_fall`, review M2: the draws resampled jointly
 for both ℓ against the same full circuit, one joint mask replicate per selected draw; ℓ = 4 is below ℓ = 2 when the 5th
 percentile exceeds 0).
+Deviation 60 part (7): the comparator H7 tests against is the realised-mask entry (`data/predictions/h7_realised_<tag>.json`,
+drawn by `scripts/predict_h7_truncation.py`, `--realised-only` when the mixture entry is committed): sqrt(MSD(ℓ)) of the
+off-diagonal moment over the truncation probes' K realised masks (the full probe's seed and masks rebuilt with the runner's
+placement call and lottery), which the shared-mask statistic estimates, with its sampling error as `rms_l2_sigma`. It is
+matched as above and on the probe seed and mask count the rows record (`mask_seed` − 1 − `mask_index`, `K`); the mixture entry
+is recorded beside it (`comparator['mixture']`) and is not used. Without the realised entry H7 is not evaluable.
 
 **Dial predictions by placement** (Deviation 60, review M5): H5 / H6, the dial comparisons (`compare_points`, the report) and
 the Gate 1b flags use the unital-base dial row drawn on the point's placement (`predictions.dial_prediction`: matched on the
-placed qubit set, then patch, edge, L, dial kind and p, over the dial rows of `pauliprop_predictions.csv` (19 Sep ladder
-placement), `gate1b_redraw_*.csv` (run-day re-draws, Deviation 46) and `dial_redraw_*.csv` (`scripts/redraw_dial_points.py`)).
-A sub-test without such a row is not evaluable, and its record carries the unmatched 19 Sep row as the fallback (Deviation 54
-(iii)). The H6 control rung and the ladder rungs are selected by patch (6x10; 4x10 and 10x10) or by the registered n, because
+placed qubit set and the placement snapshot of the list that ran, then patch, edge, L, dial kind and p, over the dial rows of
+`pauliprop_predictions.csv` (19 Sep ladder placement), `gate1b_redraw_*.csv` (run-day re-draws, Deviation 46) and
+`dial_redraw_*.csv` (`scripts/redraw_dial_points.py`)). The run's snapshot is the bundle's `placement_snapshot` (written by the
+runner), else its retrieval record's `calibration_csv`, else that of the ids file listing the job; for a pinned list it is
+the list's placement snapshot (Deviation 60, S-A: same-day re-placements reuse qubit sets on new snapshots). A sub-test without
+such a row is not evaluable, and its record carries the unmatched 19 Sep row as the fallback (Deviation 54 (iii)); rows of
+more than one file for one placement are ambiguous and not evaluable (never the last file). The H6 control rung and the ladder rungs are selected by patch (6x10; 4x10 and 10x10) or by the registered n, because
 the placed n moves with the placement (52 on the pinned 23 Sep 6x10 rung). Every paired H5 / H6 sub-test takes its points from
-one rung and placement (patch, n, placed qubit set): the depth ratios, the reset / dephasing control, and the two ladder rungs, whose
+one rung and placement (patch, n, placed qubit set, placement snapshot): the depth ratios, the reset / dephasing control, and the two ladder rungs, whose
 placement-matched predictions must be of one placement. More than one candidate, or a point pooling rows of more than one placement
 (`n_placements` in the point table: two runs with the same point ids loaded together), makes that sub-test not evaluable, listed
 under `pairing` (two runs of one list share their seeds, so a cross-run pairing would otherwise look valid).
@@ -125,6 +137,22 @@ the rows it would draw; without `--plan` it draws them into `data/predictions/di
 settings (other values need `--exploratory` and are written as `dial_exploratory_<tag>.*`, which the analysis does not read).
 `scripts/check_comparators.py <list>` is the pre-flight check: exit 0 only when the list's own placement has the H7 comparator and
 every dial row the analysis will look up.
+
+**Realised masks** (Deviation 60 part (7)): the runner shares one set of K masks across all draws of a dial point, so the
+shared-mask estimators estimate the off-diagonal moment over the probe's realised masks, not the mixture value of the dial rows
+above. Every dial point with a mask lottery (reset and dephasing dial, two or more masks; `predictions.realised_applies`) is
+therefore compared with the realised-mask row of its probe (`data/predictions/dial_realised_<tag>.csv`, drawn by
+`scripts/redraw_dial_points.py` beside the mixture rows: `pauliprop.propagate_realised` on the K masks rebuilt from the probe's
+seed with the runner's placement call, 2e6 paths): the k = L (or k = 1) variance and Var[C_mix] (the off-diagonal moment minus
+S²(c0)/K, the spread of the per-mask constants that the cost floor removes) with their sampling errors as sigma. The lookup is
+`dial_prediction(..., probe_seed, K, realised=True)`, keyed on the point's placement, the probe seed (`mask_seed` − 1 −
+`mask_index`) and the mask count; the mixture row must exist beside it and is recorded (`mixture`, `mixture_source`;
+`compare_points` columns `mixture_predicted`, `mixture_source`; `predicted_mixture` in the H5 / H6 records) but is not used in
+any test. The Deviation 33 floor clauses of H5 and H6 use the floors re-derived on the realised masks (`floors.realised_floor`,
+option (b): the realised pair counts of the bound's three-position event, `floors.REALISED_FLOOR_RULE`), tested only where the
+readout offsets b = p10 − p01 that enter the bound are non-negative and the floor is positive; the mixture floor is reported
+beside it (`floor_mixture`). The delay references (one mask, no lottery) and the report's dial comparisons (control (a)
+separation) keep the mixture rows. `scripts/check_comparators.py` requires the realised rows and entries.
 
 **Gate 1b clause (b) on the day** (Deviations 35, 39, 44, 45; flags, not a gate decision): per rung, the delay-matched
 p = 0 k = L reference at L = 8 (16384 shots under Deviation 44) is counted only if its measured, floor-subtracted variance
@@ -236,3 +264,49 @@ therefore `estimators.level2_shot_variance` = 4 x 1/(2N) per draw (4.9e-4 at 409
 reported per-draw std at level 2 is the extrapolator's conservative error (2.1e-3 to 2.6e-3 on day 2, above the draw variance itself) and is
 not subtracted (it produced a negative "signal" and a spurious z = -7.9 on the n = 85 L = 8 level-2 point in the first day-2 run). H4's
 inflation reading still uses the two repeats where they exist and the reported std ratio only as a labelled proxy.
+
+## Deviation 61 (draft, 25 Sep 2026; revised 26 Sep): Deviation 19 statistics and the replication reading
+
+Analysis-only; to be adopted before any replication-01 datum is read (draft and expected outcomes:
+`docs/deviations_drafts/61_dev19_statistics_2026-09-25.md`). The decision table of pre-flight 08 (Section 4 of
+`docs/preflight/08_paper1_replication_2026-09-21.md`, restated by the 24 Sep reissue) gains four conditions, each of which can only
+remove a route to "confirmed"; `anomaly_stats.replication_decision` returns both readings and raises if the amended one confirms a
+flag the pre-flight 08 reading does not.
+
+- **Statistic.** The decision statistic is pre-flight 08's written z: raw variance against the re-draw row, SE_boot = the half-width
+  of the 10,000-resample percentile interval / 1.96, SE_pred = the row's σ (Deviation 15 error / 2). `compare_points` reports it as
+  `z_preflight08` beside the Deviation 19 pipeline z (signal variance, shot floor in σ); both flag the same three of the 43 grid tests.
+  Deviation 19 flags, including an opposite-sign flag on a replication, are raised on the registered z; Deviation 61 governs firmness
+  labels and confirmation of single-point flags only.
+- **Frozen reference sets.** `data/derived/dev61_reference_2026-09-25.csv` (taken from `maingrid_points.csv` at 420c20d; sha256 in
+  `anomaly_stats.REFERENCE_SHA256`, checked on every read) fixes the 43 grid tests of the Holm family with their z61, the 19 points
+  behind φ and the 11 points behind κ̂. They are not recomputed at post-run review 06, and the decision refuses any other φ, κ̂ or
+  family.
+- **(i) Prediction-side uncertainty.** z_r = (V_r − P) / (φ √(SE_boot² + SE_pred² + SE_cal²)). SE_cal = P (|ln F_gate| s_gate +
+  |ln F_ro| s_ro): F_pred = P / P_noiseless of the same re-draw, F_ro = (a_i a_j)² its readout folding (a = 1 − p01 − p10, the
+  propagation model's level-0 observable), F_gate = F_pred / F_ro; `rate_drift` gives s_gate (the largest relative spread of the
+  placement's mean CZ error, sx error, 1/T1, 1/T2: a bound across classes; within a class the placement mean is a proxy) and s_ro (the
+  observable qubits' p01 + p10) over the distinct committed snapshots of the 7 days before the run, locations over a cut left out of
+  that snapshot's average. φ = 1.2320 (`PHI`), fixed: the 14th smallest |z| of the 19 unflagged tested grid points at L ≥ 4 on the
+  signal scale (free of the shot-variance offset of the raw z), applied to the raw-scale test. Row 3 (the calibrated simulation) widens
+  the simulation interval by its SE_cal and the measured interval by φ.
+- **(ii) Grid-wide Holm.** Two-sided p = erfc(|z| / √2) over the 43 frozen grid tests and the four replication tests
+  (`REPLICATION_TESTS`; one that does not run enters with p = 1, so m = 47), Holm step-down at family-wise 0.05 (`decision_family`).
+  A recorded flag is firm if its adjusted p ≤ 0.05; firmness is reported (`recorded_firmness`) and does not remove the flag from the
+  replication decision. Confirmation also needs the decisive replication test's adjusted p ≤ 0.05.
+- **(iii) Kappa inversion.** κ_e = 1 + ln R / ln F_gate at level 0 (R = signal variance / P), with the interval from the signal's
+  bootstrap interval, beside the frozen κ̂_e = 1.27 [0.35, 2.18] (`KAPPA_HAT`: DerSimonian–Laird over the 11 unflagged level-0 points
+  with F_gate ≤ 0.95). A replicated flag consistent with a grid-wide excess (κ̂_e's interval above 1 and |z_κ| ≤ 3) would close as a
+  calibration effect; on the frozen set that route cannot fire.
+- **(iv) Per-draw regression** (n = 19 / 20, L = 4, where exact per-draw noiseless gradients exist): slope b of the hardware on
+  the noiseless gradients of the same draws (pairs resampled, 10,000 resamples, seed 61), z_dm = (b² − F_pred) /
+  √(SE(b²)² + (F_pred SE_cal / P)²), with D = Var(g_noiseless) / P_noiseless, the paired attenuation A (R = D A / F_pred) and κ_e of
+  b² / F_pred. Required for the n19 flag's decisive test: the flag is confirmed only if z_dm < −3; otherwise it closes as draw sampling.
+
+Decisive tests (`FLAGS`, `decision_role`): the n19 flag on replication_01 n20 L4 at level 0 (level 1, the same draws, reported
+beside it); the n85 flag on replication_01_16384 (level 0, 16,384 shots), with the 4,096-shot test reported as pre-flight 08's
+diagnostic. `decide` returns one decision per flag. The pipeline's `anomaly_protocol` line (`holm_within_run`) is a within-run
+diagnostic on pre-flight 08's z and labels no flag firm. Run-day inputs for post-run review 06: the replication-day re-draw rows
+(non-unital and noiseless), the calibrated simulations of Deviation 19, the snapshots up to the replication-day one and the noiseless
+rebuild of the 200 fresh n20 draws (as in post-run 03 Section 4b). `tests/test_anomaly_stats.py` covers every reading on synthetic
+inputs, checks the reference file and pins the recorded flags' expected outcomes.
