@@ -45,19 +45,50 @@ def test_comparator_paragraphs_refuse_without_a_recorded_zero_exit(tmp_path, cc)
                        ROOT, cc=cc)
 
 
+def _realised_fixture(d, tag="T"):
+    """A dial_realised / h7_realised / h7_truncation fixture of one placement (Deviation 60 part (7))."""
+    cols = ["probe_id", "mask_seed", "K", "rung", "n", "L", "dial", "p", "model", "var_kL_realised", "se_kL_realised", "var_k1_realised", "se_k1_realised",
+            "var_cost_realised", "se_cost_realised", "var_kL_mixture", "var_cost_mixture", "mixture_source"]
+    rows = [["dephasing_dial_p0.5_L8_kL", "22991001", "256", "n60", "51", "8", "dephase", "0.5", "unital", "1.7e-05", "1e-06", "1.6e-05", "1e-06", "2.1e-02", "3e-05",
+             "1.6e-05", "2.0e-02", f"dial_redraw_{tag}.csv"],
+            ["dial_p0.5_L8_kL", "22991001", "256", "n60", "51", "8", "reset", "0.5", "unital", "7.041e-03", "1.3e-05", "7.0e-03", "1.3e-05", "2.08e-02", "3e-05",
+             "9.751e-03", "2.5e-02", f"dial_redraw_{tag}.csv"],
+            ["dial_p0.5_L12_kL", "23001001", "256", "n60", "51", "12", "reset", "0.5", "unital", "7.226e-03", "1.3e-05", "7.2e-03", "1.3e-05", "2.1e-02", "3e-05",
+             "9.751e-03", "2.5e-02", f"dial_redraw_{tag}.csv"]]
+    (d / f"dial_realised_{tag}.csv").write_text("\n".join(",".join(r) for r in [cols] + rows) + "\n", encoding="utf-8")
+    pt = dict(reset_kind="reset", p=0.5, L=8, rung="n60", n=51)
+    (d / f"h7_realised_{tag}.json").write_text(json.dumps(dict(entries=[dict(point=pt, K=256, mask_seed=23291001, rms_l2=0.06208, rms_l2_sigma=0.00009,
+                                                                           mixture=dict(rms_l2=0.05536, rms_l2_sigma=0.00013, file=f"h7_truncation_{tag}.json"))])), encoding="utf-8")
+    (d / f"h7_truncation_{tag}.json").write_text(json.dumps(dict(ideal_check=dict(passed=True), entries=[dict(point=pt, rms_l2=0.05536, rms_l2_sigma=0.00013)])),
+                                                encoding="utf-8")
+
+
 def test_comparator_paragraph_states_the_run_and_each_rows_channel(tmp_path):
-    cols = ["rung", "dial", "p", "L", "n", "model", "var_kL_mc", "se_kL_mc", "var_kL_pp", "var_k1_mc", "status"]
-    rows = [["n60", "dephase", "0.5", "8", "51", "unital", "1.7e-05", "2e-06", "1.6e-05", "1.6e-05", "converged"],
-            ["n60", "reset", "0.5", "8", "51", "unital", "9.76e-03", "3e-05", "9.75e-03", "1.4e-08", "converged"],
-            ["n60", "reset", "0.5", "12", "51", "unital", "9.76e-03", "3e-05", "9.75e-03", "1.6e-14", "converged"]]
-    (tmp_path / "dial_redraw_T.csv").write_text("\n".join(",".join(r) for r in [cols] + rows) + "\n", encoding="utf-8")
-    h7 = dict(ideal_check=dict(passed=True), entries=[dict(point=dict(reset_kind="reset", p=0.5, L=8, rung="n60", n=51), rms_l2=0.0556, rms_l2_sigma=0.00013)])
-    (tmp_path / "h7_truncation_T.json").write_text(json.dumps(h7), encoding="utf-8")
+    """Deviation 60 part (7): the comparators cited are the realised-mask values (bold), the mixture values beside them; each row's channel is its record's."""
+    _realised_fixture(tmp_path)
     txt = bp.comparators_par(tmp_path, "T", "abc1234", {}, cc=OK)
     assert "was run by the pipeline on these files and exited 0: 3 of 3 comparator items found on this placement, 0 missing" in txt
-    assert "dephasing dial (unital dephasing channel), on the unital snapshot noise, p = 0.5, L = 8" in txt
+    assert "| dephasing dial (unital dephasing channel), on the unital snapshot noise | n60 (51) | 8 | 0.5 | 256 (22991001) |" in txt
+    assert "| **7.0410e-03** +/- 1.3e-05 | 9.7510e-03 | 0.722 |" in txt                                     # realised, mixture beside, ratio
+    assert "| **0.06208** +/- 0.00009 | 0.05536 +/- 0.00013 | 1.121 |" in txt and "noise-off bug check passed" in txt
     assert txt.count("reset dial (non-unital reset channel)") == 3                   # two dial rows and the H7 comparator
-    assert "(unital, Deviation 46" not in txt and "exits 0" not in txt
+    assert "(unital, Deviation 46" not in txt and "exits 0" not in txt and "**missing**" not in txt
+
+
+def test_comparator_paragraph_without_realised_rows_says_missing(tmp_path):
+    txt = bp.comparators_par(tmp_path, "T", "abc1234", {}, cc=OK)
+    assert txt.count("**missing**") == 2
+
+
+def test_a_dispatched_list_that_is_not_a_pass_renders_nothing_and_a_held_one_is_recorded(tmp_path):
+    """Deviation 62 (iv): the gate keys on the pipeline's 'pass', not only on the exit code; a held list is rendered for the record."""
+    with pytest.raises(bp.PreflightRefused, match="not a pass"):
+        bp._cc_entry(dict(OK, **{"pass": False, "note": "x"}), "day3_dial_refs")
+    held = {"exit": 1, "missing": 2, "pass": False, "items": [{"found": False}, {"found": False}, {"found": True, "source": "dial_realised_T.csv"}]}
+    with pytest.raises(bp.PreflightRefused):
+        bp.comparators_par(tmp_path, "T", "abc1234", {}, cc=held)
+    txt = bp.comparators_par(tmp_path, "T", "abc1234", {}, cc=held, held=True)
+    assert "exited 1: 2 of its 3 comparator items are not drawn on this placement, so it is **not a pass**" in txt
 
 
 def test_only_day3_can_be_held_and_a_bad_hold_writes_nothing(tmp_path):
@@ -75,10 +106,13 @@ def test_snapshot_labels_carry_the_snapshot_month():
 
 
 def test_an_exit_0_on_an_earlier_packages_rows_is_not_a_pass(tmp_path):
-    """Review M1 (4 Oct): items found only in an earlier package's rows (a match on the qubit set alone) are not drawn on this placement."""
+    """Review M1 (4 Oct): items found only in an earlier package's rows are not drawn on this placement: refused for a dispatched list,
+    reported as not a pass for a held one."""
     cc = {"exit": 0, "missing": 0, "items": [{"found": True, "source": "dial_redraw_2026-09-27T0308.csv"},
                                              {"found": True, "source": "h7_truncation_2026-10-04T0435.json"}]}
-    txt = bp.comparators_par(tmp_path, "2026-10-04T0435", "abc1234", {}, cc=cc)
+    with pytest.raises(bp.PreflightRefused, match="earlier package"):
+        bp.comparators_par(tmp_path, "2026-10-04T0435", "abc1234", {}, cc=cc)
+    txt = bp.comparators_par(tmp_path, "2026-10-04T0435", "abc1234", {}, cc=cc, held=True)
     assert "**not a pass**" in txt and "`dial_redraw_2026-09-27T0308.csv`" in txt and "1 of 2 items found on this placement" in txt
     assert "comparator items found on this placement, 0 missing (items" not in txt
 

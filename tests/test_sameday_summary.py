@@ -58,3 +58,44 @@ def test_k1_value_of_a_propagation_run_is_its_own_row(tmp_path):
     kl, k1 = rows["main n100 L=8 k=8 nonunital pauli_propagation"], rows["main n100 L=8 k=1 nonunital pauli_propagation"]
     assert kl[0] == 6.0e-4 and k1[0] == 2.8e-4 and math.isclose(k1[1], 8.5e-6) and k1[2] == f"main_grid_redraw_{TAG}.csv"
     assert "main n20 L=4 k=1 noiseless statevector" in rows and not [k for k in rows if k.startswith("main n20") and "pauli" in k]
+
+
+def test_comparator_gate_keys_on_pass_and_spares_a_held_list():
+    """Deviation 62 (iv): a dispatched list whose check is not a pass stops the cycle, whatever its exit code; a held list does not."""
+    cc = {"day3_dial_refs": dict(exit=0, **{"pass": False}), "dial_truncation_pairs": dict(exit=0, **{"pass": True})}
+    assert SR.comparator_gate(cc, {}) == ["day3_dial_refs"]
+    assert SR.comparator_gate(cc, {"day3_dial_refs": "Deviation 60 part (7) pending"}) == []
+    assert SR.comparator_gate({"dial_truncation_pairs": dict(exit=1, **{"pass": False})}, {"day3_dial_refs": "x"}) == ["dial_truncation_pairs"]
+
+
+def _realised_files(d):
+    import json
+    import pandas as pd
+    pd.DataFrame([dict(probe_id="dial_p0.5_L8_kL", mask_seed=22991001, K=256, rung="n60", n=52, L=8, dial="reset", p=0.5, var_kL_realised=7.0e-3,
+                       se_kL_realised=1.3e-5, var_k1_realised=6.9e-3, se_k1_realised=1.2e-5, var_cost_realised=2.0e-2, se_cost_realised=3e-5,
+                       var_kL_mixture=9.75e-3, se_kL_mixture=3.6e-5, var_cost_mixture=2.5e-2, se_cost_mixture=4e-5,
+                       mixture_source=f"dial_redraw_{TAG}.csv")]).to_csv(d / f"dial_realised_{TAG}.csv", index=False)
+    pt = dict(rung="n60", n=52, reset_kind="reset", p=0.5, L=8)
+    for stem, kind in (("h7_realised", "reset"), ("h7_realised_pairs", "dephase")):
+        e = dict(point=dict(pt, reset_kind=kind), probes=["trunc_full_p0.5_L8"], K=256, mask_seed=23291001, rms_l2=0.062, rms_l2_sigma=9e-5,
+                 mixture=dict(rms_l2=0.0554, rms_l2_sigma=1.3e-4, file=f"h7_truncation_{TAG}.json"))
+        (d / f"{stem}_{TAG}.json").write_text(json.dumps(dict(entries=[e])), encoding="utf-8")
+
+
+def test_realised_values_are_the_comparators_with_the_mixture_beside(tmp_path):
+    _realised_files(tmp_path)
+    cv = SR.realised_values(TAG, tmp_path)
+    assert [x["comparator"] for x in cv] == ["dial n60 reset p=0.5 L=8 V(k = L)", "dial n60 reset p=0.5 L=8 Var[C_mix]",
+                                             "H7 n60 reset p=0.5 L=8 sqrt(MSD(2))", "A3 pair n60 dephase p=0.5 L=8 sqrt(MSD(2))"]
+    assert math.isclose(cv[0]["ratio"], 7.0e-3 / 9.75e-3) and cv[2]["mixture_file"] == f"h7_truncation_{TAG}.json"
+    rows = SR.prediction_rows(TAG, tmp_path)
+    assert rows["dial_realised n60 reset p=0.5 L=8 k=L"][0] == 7.0e-3 and rows["dial_realised n60 reset p=0.5 L=8 k=1"][0] == 6.9e-3
+    assert rows["h7_realised n60 reset p=0.5 L=8 rms_l2"][0] == 0.062 and "h7_realised_pairs n60 dephase p=0.5 L=8 rms_l2" in rows
+
+
+def test_mixture_committed_needs_this_placement_snapshot(tmp_path):
+    import json
+    assert not SR.mixture_committed("h7_truncation", TAG, "2026-10-04T043542Z", tmp_path)
+    (tmp_path / f"h7_truncation_{TAG}.json").write_text(json.dumps(dict(snapshot=dict(stamp="2026-10-04T043542Z"), entries=[{}])), encoding="utf-8")
+    assert SR.mixture_committed("h7_truncation", TAG, "2026-10-04T043542Z", tmp_path)
+    assert not SR.mixture_committed("h7_truncation", TAG, "2026-10-06T031000Z", tmp_path)

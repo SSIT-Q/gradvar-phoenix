@@ -439,22 +439,38 @@ def _channel(dial):
     return DIAL_CHANNEL.get(str(dial), f"{dial} dial")
 
 
-def _cc_entry(cc, name):
-    """The pipeline's own run of scripts/check_comparators.py on list ``name`` ({exit, missing, items}): refuse unless it ran and exited 0."""
+def _cc_entry(cc, name, held=False):
+    """The pipeline's own run of scripts/check_comparators.py on list ``name`` ({exit, missing, items, pass}). Deviation 62 (iv): for a
+    dispatched list the run must be a pass (exit 0 and, when the pipeline recorded it, ``pass`` true), else nothing is rendered; a held list
+    (``held``) is rendered for the record with its check as it is."""
     if not isinstance(cc, dict) or cc.get("exit") is None:
         raise PreflightRefused(f"scripts/check_comparators.py was not run on {name}.json: no pre-flight is rendered")
+    if held:
+        return cc
     if int(cc["exit"]) != 0:
         raise PreflightRefused(f"scripts/check_comparators.py exited {cc['exit']} on {name}.json ({cc.get('missing')} missing): no pre-flight is rendered")
+    if cc.get("pass") is False:
+        raise PreflightRefused(f"scripts/check_comparators.py on {name}.json is not a pass ({cc.get('note') or 'an item is not drawn on this placement'}): "
+                               "no pre-flight is rendered (Deviation 62 (iv))")
     return cc
 
 
-def _cc_text(name, cc, tag=None):
+def _cc_text(name, cc, tag=None, held=False):
     """'exits 0' only from a recorded run that returned 0 (_cc_entry first). Review M1 (4 Oct): items found only in an earlier package's rows
-    (scripts/predictions.py matches on the qubit set alone) are not drawn on this placement, so such a run is reported as not a pass."""
-    cc = _cc_entry(cc, name)
+    are not drawn on this placement, so such a run is not a pass: refused for a dispatched list, reported for a held one."""
+    cc = _cc_entry(cc, name, held)
     items = cc.get("items") or []
     found = sum(1 for it in items if isinstance(it, dict) and it.get("found"))
     early = [it for it in items if isinstance(it, dict) and it.get("found") and tag and tag not in str(it.get("source"))]
+    n_real = sum(1 for it in items if isinstance(it, dict) and (it.get("realised") or "realised masks" in str(it.get("need"))))
+    real = f"; {n_real} of them on the probes' realised masks (Deviation 60 part (7))" if n_real else ""
+    if int(cc["exit"]) != 0:                                                    # a held list only (_cc_entry)
+        return (f"`python scripts/check_comparators.py data/joblists/paper1/{name}.json` was run by the pipeline on these files and exited {cc['exit']}: "
+                f"{cc.get('missing')} of its {len(items)} comparator items are not drawn on this placement, so it is **not a pass**{real} (items recorded in "
+                f"{cc.get('record') or 'the run summary'})")
+    if early and not held:
+        raise PreflightRefused(f"scripts/check_comparators.py on {name}.json: {len(early)} items found only in an earlier package's rows: not a pass, "
+                               "no pre-flight is rendered (Deviation 62 (iv))")
     if early:
         files = ", ".join(f"`{s}`" for s in sorted({str(it.get("source")) for it in early}))
         return (f"`python scripts/check_comparators.py data/joblists/paper1/{name}.json` was run by the pipeline on these files and exited 0, but {len(early)} "
@@ -462,42 +478,80 @@ def _cc_text(name, cc, tag=None):
                 f"({found - len(early)} of {len(items)} items found on this placement, {cc.get('missing') or 0} missing; items recorded in "
                 f"{cc.get('record') or 'the run summary'})")
     return (f"`python scripts/check_comparators.py data/joblists/paper1/{name}.json` was run by the pipeline on these files and exited 0: {found} of "
-            f"{len(items)} comparator items found on this placement, {cc.get('missing') or 0} missing (items recorded in "
+            f"{len(items)} comparator items found on this placement, {cc.get('missing') or 0} missing{real} (items recorded in "
             f"{cc.get('record') or 'the run summary'})")
 
 
-def comparators_par(pred_dir, tag, pred_commit, jl, cc=None):
-    """Review M3: the H5 / H6 p = 0.5 dial rows and the H7 comparator drawn on this placement, with their files and commit. ``cc`` is the
-    pipeline's run of scripts/check_comparators.py on day3_dial_refs.json ({exit, missing, items}); without a run that returned 0 nothing is
-    rendered (PreflightRefused)."""
+def _g(x, fmt=".3e"):
+    try:
+        x = float(x)
+    except (TypeError, ValueError):
+        return "n/a"
+    return "n/a" if x != x else format(x, fmt)
+
+
+def realised_tables(pred_dir, tag, stems=("h7_realised",)):
+    """Deviation 60 part (7): the comparators as the analysis uses them, drawn on the probes' realised masks, with the mixture values beside
+    them: the dial rows of ``dial_realised_<tag>.csv`` and the l = 2 truncation entries of ``<stem>_<tag>.json``; (dial table rows, H7 table rows)."""
     import csv as _csv
-    cc_txt = _cc_text("day3_dial_refs", cc, tag)
     pred_dir = Path(pred_dir)
     rows, h7 = [], []
-    f = pred_dir / f"dial_redraw_{tag}.csv"
+    f = pred_dir / f"dial_realised_{tag}.csv"
     if f.exists():
         for r in _csv.DictReader(open(f, encoding="utf-8")):
-            v, se, vp = float(r["var_kL_mc"]), float(r["se_kL_mc"]), float(r["var_kL_pp"])
-            sig = max(2 * se, abs(v - vp)) / 2
+            try:
+                rat = f"{float(r['var_kL_realised']) / float(r['var_kL_mixture']):.3f}"
+            except (TypeError, ValueError, ZeroDivisionError):
+                rat = "n/a"
             bg = f", on the {r['model']} snapshot noise" if r.get("model") else ""
-            rows.append(f"{_channel(r['dial'])}{bg}, p = {float(r['p']):g}, L = {r['L']} on {r['rung']} (n = {r['n']}): V(k = L) {v:.4e} +/- {2 * sig:.1e}, "
-                        f"V(k = 1) {float(r['var_k1_mc']):.3e} ({r['status']})")
+            rows.append(f"| {_channel(r['dial'])}{bg} | {r['rung']} ({r['n']}) | {r['L']} | {float(r['p']):g} | {r['K']} ({r['mask_seed']}) | "
+                        f"**{_g(r['var_kL_realised'], '.4e')}** +/- {_g(r['se_kL_realised'], '.1e')} | {_g(r.get('var_kL_mixture'), '.4e')} | {rat} | "
+                        f"{_g(r.get('var_k1_realised'))} +/- {_g(r.get('se_k1_realised'), '.1e')} | **{_g(r['var_cost_realised'])}** +/- "
+                        f"{_g(r['se_cost_realised'], '.1e')} | {_g(r.get('var_cost_mixture'))} | `{r.get('mixture_source') or 'n/a'}` |")
+    for stem in stems:
+        g = pred_dir / f"{stem}_{tag}.json"
+        if g.exists():
+            for e in json.load(open(g, encoding="utf-8")).get("entries", []):
+                pt, mx = e.get("point", {}), e.get("mixture") or {}
+                try:
+                    rat = f"{float(e['rms_l2']) / float(mx['rms_l2']):.3f}"
+                except (TypeError, ValueError, KeyError, ZeroDivisionError):
+                    rat = "n/a"
+                h7.append(f"| {_channel(pt.get('reset_kind', 'reset'))} | {pt.get('rung')} ({pt.get('n')}) | {pt.get('L')} | {pt.get('p')} | {e.get('K')} "
+                          f"({e.get('mask_seed')}) | **{_g(e.get('rms_l2'), '.5f')}** +/- {_g(e.get('rms_l2_sigma'), '.5f')} | {_g(mx.get('rms_l2'), '.5f')} +/- "
+                          f"{_g(mx.get('rms_l2_sigma'), '.5f')} | {rat} | `{g.name}`; `{mx.get('file') or 'n/a'}` |")
+    return rows, h7
+
+
+DIAL_TABLE_HEAD = ("| dial comparator (channel as its record gives it) | rung (n) | L | p | masks (seed) | V(k = L) realised +/- s.e. | mixture | realised / "
+                   "mixture | V(k = 1) realised +/- s.e. | Var[C_mix] realised +/- s.e. | mixture | mixture row |\n|---|---|---|---|---|---|---|---|---|---|---|---|")
+H7_TABLE_HEAD = ("| truncation comparator, l = 2 | rung (n) | L | p | masks (seed) | sqrt(MSD(2)) realised +/- sigma | mixture +/- sigma | realised / mixture | "
+                 "files (realised; mixture) |\n|---|---|---|---|---|---|---|---|---|")
+
+
+def comparators_par(pred_dir, tag, pred_commit, jl, cc=None, held=False):
+    """Review M3 and Deviation 60 part (7): the H5 / H6 dial comparators and the H7 comparator drawn on this placement, cited as the values
+    drawn on the probes' realised masks (the analysis compares with them), the mixture values beside them, with their files and commit.
+    ``cc`` is the pipeline's run of scripts/check_comparators.py on day3_dial_refs.json; for a dispatched list nothing is rendered unless
+    it is a pass (PreflightRefused); a held list (``held``) is rendered for the record."""
+    cc_txt = _cc_text("day3_dial_refs", cc, tag, held)
+    pred_dir = Path(pred_dir)
+    rows, h7 = realised_tables(pred_dir, tag)
     g = pred_dir / f"h7_truncation_{tag}.json"
     bug = "n/a"
     if g.exists():
         H = json.load(open(g, encoding="utf-8"))
         ic = H.get("ideal_check") or {}
         bug = "passed" if (ic.get("passed") if isinstance(ic, dict) and "passed" in ic else all(c.get("passed") for c in (ic.get("checks") or [ic]) if isinstance(c, dict))) else "see the record"
-        for e in H.get("entries", []):
-            pt = e.get("point", {})
-            h7.append(f"{_channel(pt.get('reset_kind', 'reset'))}, p = {pt.get('p')}, L = {pt.get('L')}, l = 2 on {pt.get('rung')} (n = {pt.get('n')}): "
-                      f"sqrt(MSD(2)) = {e['rms_l2']:.5f} +/- {e['rms_l2_sigma']:.5f}")
-    txt = ("**Comparators drawn on this placement (review M3).** H5 / H6 dial rows at p = 0.5 (Deviation 46 program, `dial_redraw_" + tag + ".csv`; each row's "
-           "channel as its record gives it): " + ("; ".join(rows) if rows else "**missing**") + ". The p = 0.25 rows are the Gate 1b re-draw's (table above). "
-           "H7 comparator (`h7_truncation_" + tag + ".json`, noise-off bug check " + bug + "): " + ("; ".join(h7) if h7 else "**missing**") + ". Drawn through "
-           "their command lines, `python scripts/redraw_dial_points.py --joblist data/joblists/paper1/day3_dial_refs.json` and `python "
-           f"scripts/predict_h7_truncation.py --joblist data/joblists/paper1/day3_dial_refs.json`, and committed at {pred_commit} before this pre-flight "
-           f"(Deviation 54 order); {cc_txt}.")
+    txt = ("**Comparators drawn on this placement (review M3; Deviation 60 part (7)).** The comparators are the values drawn on the probes' realised masks "
+           "(each probe's masks rebuilt from its seed with the runner's placement call): the analysis compares with them (bold). The mixture values "
+           f"are recorded beside them and no test uses them (the Deviation 46 rows `dial_redraw_{tag}.csv` and `gate1b_redraw_{tag}.csv`; H7: "
+           f"`h7_truncation_{tag}.json`, noise-off bug check {bug}). H5 / H6 dial comparators (`dial_realised_{tag}.csv`):"
+           + (("\n\n" + DIAL_TABLE_HEAD + "\n" + "\n".join(rows) + "\n\n") if rows else " **missing**. ")
+           + f"H7 comparator (`h7_realised_{tag}.json`):" + (("\n\n" + H7_TABLE_HEAD + "\n" + "\n".join(h7) + "\n\n") if h7 else " **missing**. ")
+           + "Drawn through their command lines, `python scripts/redraw_dial_points.py --joblist data/joblists/paper1/day3_dial_refs.json` and `python "
+           "scripts/predict_h7_truncation.py --joblist data/joblists/paper1/day3_dial_refs.json` (with `--realised-only` when the mixture entry of this "
+           f"placement is committed), and committed at {pred_commit} before this pre-flight (Deviation 54 order); {cc_txt}.")
     return txt
 
 
@@ -526,14 +580,7 @@ def render_pf10(OUT, snap_csv, tag, date_label, stamp, props_name, pred_dir, pre
     work = b["minutes_at_1us"] * 1.02 + sum(7.5 - e["job_constant_seconds"] for e in b["per_job"]) / 60
     probes = "\n".join(f"| `{q['id']}` | {q.get('reset_kind', 'reset')} | {q['p']} | {q['L']} | {q.get('truncate_to', 'full')} | {q.get('masks')} x {q['shots']} | "
                        f"{q.get('M')} | {q['seed']} |" for q in jl["probes"])
-    comps = []
-    for stem in ("h7_truncation_pairs", "h7_truncation"):
-        f = pred_dir / f"{stem}_{tag}.json"
-        if f.exists():
-            for e in json.load(open(f, encoding="utf-8")).get("entries", []):
-                pt = e.get("point", {})
-                comps.append(f"`{f.name}`: {_channel(pt.get('reset_kind', 'reset'))}, p = {pt.get('p')}, L = {pt.get('L')}, l = 2: sqrt(MSD(2)) = "
-                             f"{e['rms_l2']:.5f} +/- {e['rms_l2_sigma']:.5f}")
+    _r, comps = realised_tables(pred_dir, tag, stems=("h7_realised_pairs", "h7_realised"))  # Deviation 60 part (7): realised masks, mixture beside
     pc = (precheck_res.get("lists") or {}).get("dial_truncation_pairs")
     pcs = ("no failure" if pc and not (pc["qfail"] or pc["cfail"]) else ("failures: " + "; ".join(pc["qfail"] + pc["cfail"]) if pc else "not run"))
     dry = OUT / "A" / "dryrun_dial_truncation_pairs.log"
@@ -544,7 +591,9 @@ def render_pf10(OUT, snap_csv, tag, date_label, stamp, props_name, pred_dir, pre
     _pp = root / "data" / "calibrations" / props_name
     fields = dict(arm_window=_arm_window(ibm_update_iso(_pp) if _pp.exists() else None), date_label=date_label, snap_csv=snap_csv, stamp=stamp, props=props_name, tag=tag, rung=rung_name, n=rung["n"], origin=tuple(rung["origin"]),
                   holes=", ".join(map(str, rung["holes"])), edge=rung["edge"], jobs=b["jobs"], pubs=b["pubs"], min1=f"{b['minutes_at_1us']:.2f}",
-                  work=f"{work:.1f}", probes=probes, comparators="; ".join(comps) or "**missing**", check_comparators=cc_txt, precheck=pcs,
+                  work=f"{work:.1f}", probes=probes, comparators=(("The comparators are the values drawn on the truncation probes' realised masks (bold; the analysis "
+                  "compares with them), the mixture entries beside them (Deviation 60 part (7)):\n\n" + H7_TABLE_HEAD + "\n" + "\n".join(comps) + "\n\n") if comps
+                  else "Comparators on the realised masks (`h7_realised_pairs_<tag>.json`, `h7_realised_<tag>.json`): **missing**. "), check_comparators=cc_txt, precheck=pcs,
                   pred_commit=pred_commit, pr=pr,
                   fake_min=fm.group(1) if fm else "n/a", csv_rows=rows.group(1) if rows else "n/a", review=review_txt,
                   protected="; ".join(f"{r} (edge {pl['rungs'][r]['edge']}): {', '.join(map(str, qs))}" for r, qs in prot.items()),
@@ -572,8 +621,9 @@ Budget model v3: **{f['jobs']} jobs, {f['pubs']} pubs, {f['min1']} min at 1 us**
 
 ## 2. Comparators on this placement
 
-{f['comparators']}. Drawn with `python scripts/predict_h7_truncation.py --joblist data/joblists/paper1/dial_truncation_pairs.json` (the pairs) and the day-3
-command (H7), committed at {f['pred_commit']} before this pre-flight; {f['check_comparators']}.
+{f['comparators']}Drawn with `python scripts/predict_h7_truncation.py --joblist data/joblists/paper1/dial_truncation_pairs.json` (the pairs) and the day-3
+command (H7), with `--realised-only` when the mixture entry of this placement is committed, and committed at {f['pred_commit']} before this pre-flight;
+{f['check_comparators']}.
 
 ## 3. Pre-check and dry run
 
@@ -612,9 +662,8 @@ def _pc_par(name, pc_snap, pc_props, pcs, lists, placement_snap=None, steps="Sec
 def build(OUT, snap_csv, tag, date_label, dial_pp, pdir, review_txt="(to be filled)", precheck_res=None, pr="(this pull request)", branch="dev62-repackage",
           prev_pred_dir=None, root=".", prev_lists_dir=None, prev_fail_snaps=("ibm_phoenix_2026-09-26T030720Z.csv",), prev=None, pred_commit=None,
           with_pairs=False, comparators=None, hold=None):
-    # Reviewer finding (1): ``comparators`` is the pipeline's own run of scripts/check_comparators.py per list ({name: {exit, missing, items}});
-    # unless every list that carries comparators ran and exited 0, nothing is rendered and no file is written.
-    cc = {n: _cc_entry((comparators or {}).get(n), n) for n in ("day3_dial_refs",) + (("dial_truncation_pairs",) if with_pairs else ())}
+    # Reviewer finding (1) and Deviation 62 (iv): ``comparators`` is the pipeline's own run of scripts/check_comparators.py per list ({name: {exit,
+    # missing, items, pass}}); unless every dispatched list that carries comparators ran and is a pass, nothing is rendered and no file is written.
     OUT = Path(OUT); stamp = re.search(r"\d{4}-\d{2}-\d{2}T\d{6}Z", snap_csv).group(0)
     hhmm = f"{stamp[11:13]}:{stamp[13:15]}"; day = f"{int(stamp[8:10])} {_mon(stamp)}"
     # ``hold``: {list name: reason} for a list rendered for the record but not dispatched from this package (Owais's decision of the day).
@@ -622,6 +671,8 @@ def build(OUT, snap_csv, tag, date_label, dial_pp, pdir, review_txt="(to be fill
     hold = dict(hold or {})
     if set(hold) - {"day3_dial_refs"}:
         raise ValueError(f"hold: only day3_dial_refs can be held, got {sorted(hold)}")
+    # Deviation 62 (iv): a dispatched list's comparator check must be a pass; a held list is rendered for the record with its check as it is
+    cc = {n: _cc_entry((comparators or {}).get(n), n, held=n in hold) for n in ("day3_dial_refs",) + (("dial_truncation_pairs",) if with_pairs else ())}
     h3 = hold.get("day3_dial_refs")
     hold06 = (f"**Not for dispatch on {day}: {h3}.** This pre-flight is rendered for the record with the same-day package of {day}; the list is not "
               "armed or dispatched from this package (Owais's decision of the day).\n\n") if h3 else ""
@@ -675,8 +726,8 @@ def build(OUT, snap_csv, tag, date_label, dial_pp, pdir, review_txt="(to be fill
     # this package's dial re-draw has them and no check_comparators item was found in an earlier package's file (a match on the qubit set alone).
     _pdir = Path(prev_pred_dir or (Path(root) / "data" / "predictions"))
     _it3 = [x for x in (cc["day3_dial_refs"].get("items") or []) if isinstance(x, dict) and x.get("found") and tag not in str(x.get("source"))]
-    dial_drawn = (_pdir / f"dial_redraw_{tag}.csv").exists() and not _it3
-    h7_drawn = (_pdir / f"h7_truncation_{tag}.json").exists()
+    dial_drawn = (_pdir / f"dial_realised_{tag}.csv").exists() and not _it3 and int(cc["day3_dial_refs"]["exit"]) == 0   # Deviation 60 part (7)
+    h7_drawn = (_pdir / f"h7_realised_{tag}.json").exists()
     if h3 and not dial_drawn:
         early_txt = ""
         if _it3:
@@ -685,10 +736,11 @@ def build(OUT, snap_csv, tag, date_label, dial_pp, pdir, review_txt="(to be fill
             early_txt = (f" The `check_comparators` exit 0 of Section 2.5 rests on a match on the qubit set alone to the rows of an earlier package ({_files}) "
                          "and is not a pass" + (f" ({_chg})" if _chg else "") + ".")
         hold06 = (hold06[:-2] + " Its H5 / H6 p = 0.5 dial rows are **not drawn on this placement** (Section 2.5); "
-                  + (f"the H7 comparator (`h7_truncation_{tag}.json`) is." if h7_drawn else "nor is the H7 comparator.") + early_txt
+                  + (f"the H7 comparator (`h7_realised_{tag}.json`, the mixture `h7_truncation_{tag}.json` beside it) is." if h7_drawn else "nor is the H7 comparator.") + early_txt
                   + " **This list cannot be armed from this package**: its comparators are drawn in the cycle that dispatches day 3.\n\n")
     if dial_drawn:
-        sec5 = f", including the H5 / H6 p = 0.5 rows and the H7 comparator drawn on this placement (committed at {pred_commit})."
+        sec5 = (", including the H5 / H6 and H7 comparators drawn on this placement on the probes' realised masks, the mixture values beside them "
+                f"(Deviation 60 part (7); committed at {pred_commit}).")
     else:                                                                       # should-fix (d): never claim the p = 0.5 rows are drawn here
         sec5 = ((f" and the H7 comparator drawn on this placement (committed at {pred_commit})" if h7_drawn else "")
                 + ". The H5 / H6 p = 0.5 dial rows are not drawn on this placement (Section 2.5)"
@@ -861,7 +913,7 @@ shots) {cb.group(1)} ({re.sub(r'^[A-Za-z]+ [(]', '', cb.group(2))}), fall / bar 
 
 These rows are what the day-3 post-run review reads the references and the dial points against.
 
-{comparators_par(Path(prev_pred_dir or (Path(root) / 'data' / 'predictions')), tag, pred_commit, J['day3_dial_refs'], cc=cc['day3_dial_refs'])}
+{comparators_par(Path(prev_pred_dir or (Path(root) / 'data' / 'predictions')), tag, pred_commit, J['day3_dial_refs'], cc=cc['day3_dial_refs'], held=bool(h3))}
 
 The main-grid rows of the n20 and plain n100 rungs are re-drawn in
 the same session for pre-flights 08 and 09 (`main_grid_redraw_{tag}.*`).

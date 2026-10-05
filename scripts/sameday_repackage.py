@@ -18,9 +18,13 @@ gates, kill rules, budget and ledger lines and the pre-registered text do not.
     ``--day3`` and ``--check``; with ``--with-pairs`` also ``scripts/make_truncation_pairs.py`` (Deviation 63, draft; off by default). The run
     stops with a per-rung report when the rule cannot place a rung, or when the Deviation 62 connected-component rule adds more than 3 holes
     to a rung of a run-day list;
-(c) in parallel: the Gate 1b re-draw (followed by the dial rows, ``scripts/redraw_dial_points.py``, which count its rows as covered), the
-    main-grid re-draw, the H7 comparator (``scripts/predict_h7_truncation.py``; the pairs' comparators with ``--with-pairs``), the sampled
-    FakeNighthawk dry runs and the test suite. The run stops if Gate 1b fails. ``scripts/check_comparators.py`` must then exit 0;
+(c) in parallel: the Gate 1b re-draw (followed by the dial rows, ``scripts/redraw_dial_points.py``, which count its rows as covered and
+    draw every dial comparator on the probes' realised masks too, ``dial_realised_<tag>.*``, Deviation 60 part (7)), the main-grid re-draw,
+    the H7 comparator (``scripts/predict_h7_truncation.py``: the mixture entry and the realised-mask comparator ``h7_realised_<tag>.*``, or
+    ``--realised-only`` when the mixture entry of this placement is committed; with ``--with-pairs`` the pairs' comparators,
+    ``h7_realised_pairs_<tag>.*``), the sampled FakeNighthawk dry runs and the test suite. The run stops if Gate 1b fails, if a realised-mask
+    file is not written, or if ``scripts/check_comparators.py`` is not a pass for a dispatched list (exit 0 and every item drawn on this
+    placement; Deviation 62 (iv));
 (d) pre-flights 06 / 08 / 09 (and 10 for the pairs) rendered by ``scripts/build_preflights.py``;
 (e) the pre-check of every placed qubit and live coupler of every list on the snapshot, exactly as the runner's live check (every list
     must pass), and of the day-2 n100 rung that an L2-c5 resubmission is checked on (reported);
@@ -424,7 +428,56 @@ def prediction_rows(tag: str, d: Path = PRED) -> dict:
                 pt = e.get("point", {})
                 key = f"{stem.replace('_truncation', '')} {pt.get('rung')} {pt.get('reset_kind', 'reset')} p={pt.get('p')} L={pt.get('L')} rms_l2"
                 out[key] = (fnum(e.get("rms_l2")), fnum(e.get("rms_l2_sigma")), f.name)
+    f = d / f"dial_realised_{tag}.csv"                                          # Deviation 60 part (7): the comparators on the realised masks
+    if f.exists():
+        for r in pd.read_csv(f).to_dict("records"):
+            base = f"dial_realised {r['rung']} {r['dial']} p={r['p']} L={int(r['L'])}"
+            out[base + " k=L"] = (fnum(r["var_kL_realised"]), fnum(r["se_kL_realised"]), f.name)
+            v1 = fnum(r.get("var_k1_realised"))
+            if v1 == v1:
+                out[base + " k=1"] = (v1, fnum(r.get("se_k1_realised")), f.name)
+    for stem in ("h7_realised", "h7_realised_pairs"):
+        f = d / f"{stem}_{tag}.json"
+        if f.exists():
+            for e in json.loads(f.read_text(encoding="utf-8")).get("entries", []):
+                pt = e.get("point", {})
+                out[f"{stem} {pt.get('rung')} {pt.get('reset_kind', 'reset')} p={pt.get('p')} L={pt.get('L')} rms_l2"] = (fnum(e.get("rms_l2")), fnum(e.get("rms_l2_sigma")), f.name)
     return out
+
+
+def realised_values(tag: str, d: Path = PRED) -> list:
+    """Deviation 60 part (7): the comparators of this package as the analysis uses them, drawn on the probes' realised masks, each with the
+    mixture value beside it (``dial_realised_<tag>.csv``, ``h7_realised_<tag>.json``, ``h7_realised_pairs_<tag>.json``)."""
+    import pandas as pd
+    out = []
+    f = d / f"dial_realised_{tag}.csv"
+    if f.exists():
+        for r in pd.read_csv(f).to_dict("records"):
+            for what, v, se, m, ms in (("V(k = L)", "var_kL_realised", "se_kL_realised", "var_kL_mixture", "se_kL_mixture"),
+                                       ("Var[C_mix]", "var_cost_realised", "se_cost_realised", "var_cost_mixture", "se_cost_mixture")):
+                out.append(dict(comparator=f"dial {r['rung']} {r['dial']} p={float(r['p']):g} L={int(r['L'])} {what}", probe=r.get("probe_id"), K=int(r["K"]),
+                                mask_seed=int(r["mask_seed"]), realised=_num(r.get(v)), realised_se=_num(r.get(se)), mixture=_num(r.get(m)), mixture_se=_num(r.get(ms)),
+                                file=f.name, mixture_file=r.get("mixture_source")))
+    for stem in ("h7_realised", "h7_realised_pairs"):
+        f = d / f"{stem}_{tag}.json"
+        if f.exists():
+            for e in json.loads(f.read_text(encoding="utf-8")).get("entries", []):
+                pt, mx = e.get("point", {}), e.get("mixture") or {}
+                out.append(dict(comparator=f"{'H7' if stem == 'h7_realised' else 'A3 pair'} {pt.get('rung')} {pt.get('reset_kind', 'reset')} p={pt.get('p')} "
+                                           f"L={pt.get('L')} sqrt(MSD(2))", probe=", ".join(e.get("probes") or []), K=e.get("K"), mask_seed=e.get("mask_seed"),
+                                realised=_num(e.get("rms_l2")), realised_se=_num(e.get("rms_l2_sigma")), mixture=_num(mx.get("rms_l2")),
+                                mixture_se=_num(mx.get("rms_l2_sigma")), file=f.name, mixture_file=mx.get("file")))
+    for x in out:
+        x["ratio"] = x["realised"] / x["mixture"] if (x["mixture"] and x["mixture"] == x["mixture"]) else float("nan")
+    return out
+
+
+def _num(x) -> float:
+    try:
+        x = float(x)
+        return x if x == x else float("nan")
+    except (TypeError, ValueError):
+        return float("nan")
 
 
 def compare_predictions(new_tag: str, prev_tag: str | None) -> list:
@@ -532,8 +585,16 @@ def write_summary(S: dict, date: str) -> tuple:
         L.append("")
     cc = S.get("comparators") or {}
     if cc:
-        L += ["## Comparators (scripts/check_comparators.py)", ""] + [f"- `{n}`: exit {v.get('exit')}, {v.get('missing')} missing"
+        L += ["## Comparators (scripts/check_comparators.py)", ""] + [f"- `{n}`: exit {v.get('exit')}, {v.get('missing')} missing, pass {v.get('pass')}"
                                                                    + (f"; {v['note']}" if v.get("note") else "") for n, v in cc.items()] + [""]
+    cv = S.get("comparator_values") or []
+    if cv:
+        e3 = lambda x: "n/a" if x != x else f"{x:.4g}"
+        L += ["## Comparator values: drawn on the realised masks (Deviation 60 part (7)), mixture beside", "",
+              "The analysis compares with the realised values; the mixture values are recorded beside them and no test uses them.", "",
+              "| comparator | masks (seed) | realised +/- s.e. | mixture +/- s.e. | realised / mixture | files (realised; mixture) |", "|---|---|---|---|---|---|"]
+        L += [f"| {x['comparator']} | {x['K']} ({x['mask_seed']}) | {e3(x['realised'])} +/- {e3(x['realised_se'])} | {e3(x['mixture'])} +/- {e3(x['mixture_se'])} | "
+              f"{e3(x['ratio'])} | `{x['file']}`; `{x.get('mixture_file')}` |" for x in cv] + [""]
     pa = S.get("precheck_all") or {}
     if pa:
         fails = [n for n, v in pa.items() if not v["passes"] and not v.get("record")]
@@ -629,11 +690,14 @@ def run(args) -> int:
                                  str(out / "gate1b_ckpt.jsonl")], logs / "redraw_gate1b.log", env=env1),
                  Task("main_grid", [py, "scripts/redraw_gate1b.py", "--main-grid", "--no-gate1b", "--exact", "--rungs", "20", "100", "--snapshot", str(csv),
                                     "--tag", tag, "--workers", str(w), "--checkpoint", str(out / "mg_ckpt.jsonl")], logs / "redraw_main_grid.log", env=env1),
-                 Task("h7", [py, "scripts/predict_h7_truncation.py", "--joblist", "data/joblists/paper1/day3_dial_refs.json"], logs / "h7_comparator.log", env=env1),
+                 Task("h7", [py, "scripts/predict_h7_truncation.py", "--joblist", "data/joblists/paper1/day3_dial_refs.json"]
+                      + (["--realised-only"] if mixture_committed("h7_truncation", tag, stamp) else []), logs / "h7_comparator.log", env=env1),
                  Task("dial_rows", [py, "scripts/redraw_dial_points.py", "--joblist", "data/joblists/paper1/day3_dial_refs.json", "--workers", "4"],
                       logs / "dial_rows.log", deps=("gate1b",), env=env1)]
         if args.with_pairs:
-            tasks.append(Task("pairs", [py, "scripts/predict_h7_truncation.py", "--joblist", f"data/joblists/paper1/{PAIRS}.json"], logs / "pairs_comparators.log", env=env1))
+            tasks.append(Task("pairs", [py, "scripts/predict_h7_truncation.py", "--joblist", f"data/joblists/paper1/{PAIRS}.json"]
+                              + (["--realised-only"] if mixture_committed("h7_truncation_pairs", tag, stamp) else []), logs / "pairs_comparators.log", env=env1))
+        S["realised_only"] = {tk.name: "--realised-only" in tk.cmd for tk in tasks if tk.name in ("h7", "pairs")}
         dry_lists = list(RUN_DAY) + ([PAIRS] if args.with_pairs else [])
         dry_sh = " && ".join(f"{py} -m gradvar.hardware --joblist data/joblists/paper1/{n}.json --dry-run-sample 2 --run-root /tmp/sameday_dry/runs "
                              f"--log-dir /tmp/sameday_dry/jobs > {out}/A/dryrun_{n}.log 2>&1" for n in dry_lists)
@@ -705,7 +769,13 @@ def run(args) -> int:
         if any(sorted(rp.get(r, {}).get("qubits", [])) != sorted(d3[r]["qubits"]) for r in ("n40", "n60", "n100")):
             raise Stop("the Gate 1b re-draw was not drawn on the day-3 dial placement")
         if not args.survey:
-            # check_comparators (must exit 0)
+            # Deviation 60 part (7): the comparators are drawn on the realised masks; their files are part of the package
+            want = [f"dial_realised_{tag}.csv", f"h7_realised_{tag}.json"] + ([f"h7_realised_pairs_{tag}.json"] if args.with_pairs else [])
+            S["realised_files"] = {f: (PRED / f).exists() for f in want}
+            miss = [f for f, ok in S["realised_files"].items() if not ok]
+            if miss:
+                raise Stop("Deviation 60 part (7): the realised-mask comparators were not written: " + ", ".join(miss))
+            # check_comparators: a dispatched list's check must be a pass (exit 0 and every item drawn on this placement), Deviation 62 (iv)
             cc = {}
             for n in ["day3_dial_refs"] + ([PAIRS] if args.with_pairs else []):
                 p = subprocess.run([py, "scripts/check_comparators.py", f"data/joblists/paper1/{n}.json", "--json"], cwd=ROOT, capture_output=True, text=True, env=env)
@@ -718,11 +788,15 @@ def run(args) -> int:
                              record=f"`docs/repack/{date}_summary.json`, key `comparators.{n}`")
                 cc[n].update(comparator_pass(cc[n], tag))                      # review M1 (4 Oct): an earlier row never stands for a new placement
             S["comparators"] = cc
-            if any(v["exit"] != 0 for v in cc.values()):
-                why = "scripts/check_comparators.py: " + "; ".join(f"{n} exit {v['exit']} ({v['missing']} missing)" for n, v in cc.items() if v["exit"] != 0)
-                S["flags"] = [f"{why}; no pre-flight is rendered (build_preflights refuses without a zero exit)"]
+            S["comparator_values"] = realised_values(tag)
+            bad = comparator_gate(cc, holds)
+            if bad:
+                why = "scripts/check_comparators.py: " + "; ".join(
+                    f"{n} not a pass (exit {cc[n]['exit']}, {cc[n]['missing']} missing" + (f"; {cc[n]['note']}" if cc[n].get("note") else "") + ")" for n in bad)
+                S["flags"] = [f"{why}; no pre-flight is rendered (Deviation 62 (iv): a dispatched list's comparator check must be a pass)"]
                 raise Stop(why)
-            log("(c) comparators: every H7 comparator and dial row is on the lists' placement")
+            log("(c) comparators: every comparator of the dispatched lists is drawn on the lists' placement (realised masks, mixture beside)"
+                + ("; held: " + ", ".join(f"{n} pass {cc[n]['pass']}" for n in cc if n in holds) if any(n in holds for n in cc) else ""))
         # (e) pre-check of every list (every un-armed list must pass)
         t = time.time()
         pa = precheck_lists(list_names(), P1, csv)
@@ -862,9 +936,30 @@ def run(args) -> int:
 HELD3 = " (held list: drawn in the cycle that dispatches day 3)"
 
 
+def comparator_gate(cc: dict, holds: dict) -> list:
+    """Deviation 62 (iv): the dispatched lists (not held) whose check_comparators record is not a pass; any one stops the cycle and no
+    pre-flight is rendered. A held list is rendered for the record with its check as it is."""
+    return [n for n, v in cc.items() if n not in (holds or {}) and not v.get("pass")]
+
+
+def mixture_committed(stem: str, tag: str, stamp: str, d: Path | None = None) -> bool:
+    """Deviation 60 part (7): the mixture record ``<stem>_<tag>.json`` (h7_truncation / h7_truncation_pairs) is committed for this placement
+    snapshot, so the stage draws the realised-mask comparators alone (``predict_h7_truncation.py --realised-only``)."""
+    f = (d or PRED) / f"{stem}_{tag}.json"
+    if not f.exists():
+        return False
+    try:
+        rec = json.loads(f.read_text(encoding="utf-8"))
+    except ValueError:
+        return False
+    snap = rec.get("snapshot")
+    st = snap.get("stamp") if isinstance(snap, dict) else stamp_of(str(snap or ""))
+    return st == stamp and bool(rec.get("entries"))
+
+
 def comparator_pass(v: dict, tag: str) -> dict:
-    """``pass`` of one check_comparators record: exit 0 and every item found in a file of this package (``tag``). scripts/predictions.py matches a
-    row on the qubit set alone, so an item found only in an earlier package's file is not drawn on this placement (Deviations 46 / 58) and is not a pass."""
+    """``pass`` of one check_comparators record: exit 0 and every item found in a file of this package (``tag``). An item found only in an
+    earlier package's file is not drawn on this placement (Deviations 46 / 58; on 4 Oct predictions.py still matched on the qubit set alone)."""
     early = sorted({str(x.get("source")) for x in (v.get("items") or []) if x.get("found") and tag not in str(x.get("source"))})
     out = {"pass": v.get("exit") == 0 and not early}
     if early:
@@ -918,7 +1013,7 @@ def review_flags(S: dict, prev_dir: Path) -> list:
         if z == z and abs(z) > 3 and on_same:
             fl.append(f"prediction {x['key']} moved {z:+.1f} sigma on an unchanged rung (check: calibration-only change?)")
         if x["new"] != x["new"] and x["prev"] == x["prev"]:                    # an earlier row never stands for a new placement (review M1, 4 Oct)
-            fl.append(f"prediction {x['key']} missing in the new package" + (HELD3 if held3 and x["key"].split()[0] in ("dial", "h7") else ""))
+            fl.append(f"prediction {x['key']} missing in the new package" + (HELD3 if held3 and x["key"].split()[0].startswith(("dial", "h7")) else ""))
     for k, v in pl.items():
         if v.get("component_holes"):
             fl.append(f"{k}: connected-component holes {v['component_holes']} (Deviation 62 rule active)")
