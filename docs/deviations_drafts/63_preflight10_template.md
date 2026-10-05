@@ -5,7 +5,7 @@ pipeline code (`scripts/sameday_repackage.py`, `scripts/build_preflights.py`, `d
 filled by the pipeline; the table at the end says where each comes from. The fixed text is Deviation 63's, as corrected after its
 checkpoint review (M4: booked, same-day cycle, same properties window, technical stops, never re-placed) and its follow-up review (S9:
 the countersignature cannot change whether the pairs count; S11: the pinned reading calls; S12: the GO checklist and the resubmission
-window).
+window), and as merged with Deviation 60 part (7) (the comparators drawn on the probes' realised masks; the draft's Section 0d).
 
 ---
 
@@ -19,7 +19,8 @@ equality asserted: {placement_identical}), pinned to **{snapshot}** (raw propert
 Deviation 58; `dial_exclude` {dial_exclude}). Generated in the same cycle as pre-flight 06 of {date}, by
 `python scripts/make_truncation_pairs.py {day3_list_path}` (without `--allow-dial-excluded`). **Never re-placed**: if this list cannot be
 dispatched in the same IBM properties window as day 3, the pairs are a technical stop and are reported as not run. Pre-registration
-{prereg_version} with Deviation 63 adopted at {dev63_adoption} and Deviation 60 part (6). PI countersignature on return; it cannot change
+{prereg_version}, in which Deviations 60 and 63 were adopted together (v0.18.0, {dev63_adoption}): Deviation 60's part (6) and its
+realised-mask comparators and floors (part (7)) apply. PI countersignature on return; it cannot change
 whether the pairs count. If the PI declines, the pairs' data are still reported and enter the reading as pre-stated, and the refusal is
 recorded as dissent.
 
@@ -53,17 +54,20 @@ applied to this rung only: {safety_net}.
 
 ### 2.5 Comparators (drawn in this cycle, before this review)
 
-`python scripts/predict_h7_truncation.py --joblist data/joblists/paper1/dial_truncation_pairs.json` → `{pairs_record}`, M7 treatment:
-{m7_treatment}.
+`python scripts/predict_h7_truncation.py --joblist data/joblists/paper1/dial_truncation_pairs.json` → `{pairs_record}` (mixture) and
+`{pairs_realised_record}` (Deviation 60 part (7): each pair on its own realised masks, probe seed {seed}, K = 256, each entry keyed by its
+dial kind). The analysis compares with the realised values; the mixture values are recorded beside them only.
 
-| Comparator | RMS(2) | σ | Noise-off bug check |
-|---|---|---|---|
-| Pair (a), reset p = 0.25 | {a_rms} | {a_sigma} | {a_bugcheck} |
-| Pair (b), dephase p = 0.5 | {b_rms} | {b_sigma} | {b_bugcheck} |
-| H7, reset p = 0.5 (from `{h7_record}`), for (b)'s margin | {h7_rms} | {h7_sigma} | (day-3 record) |
+| Comparator | RMS(2), realised masks | σ | Mixture (recorded only) | Noise-off bug check |
+|---|---|---|---|---|
+| Pair (a), reset p = 0.25 | {a_rms} | {a_sigma} | {a_mix} | {a_bugcheck} |
+| Pair (b), dephase p = 0.5 | {b_rms} | {b_sigma} | {b_mix} | {b_bugcheck} |
+| H7, reset p = 0.5 (from `{h7_realised_record}`: the one realised entry on the placement, probe seed {h7_seed}, K = {h7_K}), for (b)'s margin | {h7_rms} | {h7_sigma} | {h7_mix} | (day-3 record) |
 
-Margin of (b): {margin} ± {margin_sigma}. `python scripts/check_comparators.py data/joblists/paper1/dial_truncation_pairs.json`: exit
-{cc_exit} ({cc_summary}). Ideal-chain illustrations (not test values): RMS(2) 0.130 (a), 0.265 (b), 0.057 (H7).
+Margin of (b): {margin} ± {margin_sigma} on the realised comparators (mixture {margin_mix}, recorded only).
+`python scripts/check_comparators.py data/joblists/paper1/dial_truncation_pairs.json`: exit {cc_exit} ({cc_summary}; it needs both pairs'
+realised entries and exactly one realised H7 entry on the placement). Ideal-chain illustrations (not test values): RMS(2) 0.130 (a),
+0.265 (b), 0.057 (H7).
 
 ## 3. Cost, guards, logged, known limits
 
@@ -99,7 +103,7 @@ submission. Logging as for day 3; no bundle over the 45 MB rule.
 ## 6. Human steps (Owais), when the review says GO
 
 0. **GO checklist (S12).** Arm only if every item holds; otherwise do not arm, and the pairs are a technical stop if the window closes.
-   - [ ] Deviation 63 adopted ({dev63_adoption}). This list, its comparator records and this pre-flight are on `main`, from the same
+   - [ ] Deviations 60 and 63 adopted in v0.18.0 ({dev63_adoption}). This list, its comparator records and this pre-flight are on `main`, from the same
      cycle as day 3's ({cycle_commit}).
    - [ ] The noise-off bug check passes at both dials: (a) {a_bugcheck}; (b) {b_bugcheck}.
    - [ ] `check_comparators` exits 0 on this list: {cc_exit}.
@@ -107,7 +111,8 @@ submission. Logging as for day 3; no bundle over the 45 MB rule.
    - [ ] The seed check is empty: {seed_check}.
    - [ ] The budget equals the runner's `--budget` output: {budget_check}.
    - [ ] The live pre-check passes, or the dispatch safety net admits the failures: {precheck_result}; {safety_net}.
-   - [ ] The M7 treatment is recorded: {m7_treatment}.
+   - [ ] The comparators are the realised-mask entries (Deviation 60 part (7)): `{pairs_realised_record}` for both pairs and
+     `{h7_realised_record}` for (b)'s margin: {realised_check}.
    - [ ] Day 3 is already submitted in this IBM properties window: {day3_submitted} ({properties_window}).
    - [ ] No day-3 result has been inspected before the pairs' dispatch: {no_day3_results}.
 1. Arm: in `data/joblists/paper1/dial_truncation_pairs.json` set `"dry_run": false` and `"preflight_review": "<the commit-pinned URL of
@@ -136,15 +141,18 @@ no reset).
 |---|---|
 | `date`, `snapshot`, `properties`, `stamp`, `dial_exclude` | The day-3 list's `placement` block of the same cycle |
 | `day3_list_path`, `day3_commit`, `placement_identical` | The day-3 list generated in the cycle; `pairs["placement"] == day3["placement"]` |
-| `prereg_version`, `dev63_adoption` | The pre-registration stamp in the lists; the Deviation 63 row's adoption time |
+| `prereg_version`, `dev63_adoption` | The pre-registration stamp in the lists (v0.18.0 or later); the adoption time of the Deviation 60 and 63 rows |
 | `patch`, `n`, `origin`, `edge`, `qubits`, `holes`, `broken_edges`, `live_couplers`, `cone`, `protected` | `placement.rungs.n60` and the cone of edge (L = 2), as for pre-flight 06's n60 row |
 | `seed`, `seed_end`, `seed_check` | `campaign.seed_block` of the pairs' list (seed + 257); `make_truncation_pairs.seed_clashes` = [] |
 | `jobs`, `pubs`, `circuits`, `executions`, `min_1us`, `min_250us` | The list's `budget` (`estimate_budget`) |
 | `min_day2`, `day3_min_day2`, `line_min_day2` | minutes_at_1us + jobs × (7.5 − 3.0) / 60 |
 | `day3_min_1us`, `line_min_1us`, `line_with_contingent` | The day-3 list's budget; the sum; plus `dial_arm_contingent.json`'s |
 | `precheck_snapshot`, `precheck_properties_time`, `precheck_result`, `safety_net` | The cycle's live pre-check of the n60 rung (as pre-flight 06, Section 6, step 1) |
-| `pairs_record`, `a_rms`, `a_sigma`, `b_rms`, `b_sigma`, `a_bugcheck`, `b_bugcheck`, `m7_treatment` | `data/predictions/h7_truncation_pairs_<tag>.json` (`entries[].rms_l2`, `rms_l2_sigma`, the bug-check block) |
-| `h7_record`, `h7_rms`, `h7_sigma`, `margin`, `margin_sigma` | H7's record for the same placement; margin = b − H7, σ in quadrature |
+| `pairs_record`, `a_bugcheck`, `b_bugcheck` | `data/predictions/h7_truncation_pairs_<tag>.json` (the mixture entries and the bug-check block) |
+| `pairs_realised_record`, `a_rms`, `a_sigma`, `a_mix`, `b_rms`, `b_sigma`, `b_mix` | `data/predictions/h7_realised_pairs_<tag>.json`: per entry, by `point.reset_kind`, `rms_l2`, `rms_l2_sigma`, and `mixture.rms_l2` beside |
+| `h7_realised_record`, `h7_seed`, `h7_K`, `h7_rms`, `h7_sigma`, `h7_mix` | H7's realised entry on the same placement (`h7_realised_<tag>.json`, drawn from the day-3 list; exactly one): `mask_seed`, `K`, `rms_l2`, `rms_l2_sigma`, `mixture.rms_l2` |
+| `margin`, `margin_sigma`, `margin_mix` | b − H7 on the realised values, σ in quadrature; the mixture difference beside |
+| `realised_check` | `check_comparators`: every 'realised masks' item found, from the files named |
 | `cc_exit`, `cc_summary` | `scripts/check_comparators.py` on the pairs' list (must be 0) |
 | `budget_check` | `python -m gradvar.hardware --joblist ... --budget` (must equal the list's budget) |
 | `kill_status`, `per_pair_minutes`, `h4_status`, `properties_window` | Day 3's kill-rule read-out; the list's per-job budget; Q4's post-run review status; day 3's `calibration_snapshot` (ids file) |
