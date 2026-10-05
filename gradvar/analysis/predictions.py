@@ -13,6 +13,7 @@ from typing import Dict, List
 import numpy as np
 import pandas as pd
 
+from . import anomaly_stats as A61
 from .estimators import Z95
 
 DEFAULT_DIR = Path(__file__).resolve().parents[2] / "data" / "predictions"
@@ -160,12 +161,17 @@ def load_realised_truncation(directory: str | Path) -> List[Dict]:
     return out
 
 
-def _same_point(entry: Dict, patch, edge, n, p, L, qubits, stamp=None, need_stamp: bool = False) -> tuple:
+def _same_point(entry: Dict, patch, edge, n, p, L, qubits, stamp=None, need_stamp: bool = False, reset_kind: str = "reset") -> tuple:
     """(matches, reason) of a comparator entry against a truncation point. The placement must match on the placed qubit set,
     which both sides must record (Deviation 60, review M5), and on the placement snapshot (S-A): a committed comparator
-    (``need_stamp``) and the rows must both record it; an explicit comparator is compared on it when it carries one. The other
-    keys are compared where both sides carry them."""
+    (``need_stamp``) and the rows must both record it; an explicit comparator is compared on it when it carries one. The dial kind
+    must match too (Deviation 63, draft: the dephasing-dial pair shares the H7 point's patch, edge, n, p, L and qubits); an entry
+    without ``reset_kind`` is a reset-dial comparator, as every entry drawn before Deviation 63 is. The other keys are compared
+    where both sides carry them."""
     pt = entry.get("point", entry)
+    kind = str(pt.get("reset_kind") or "reset")
+    if kind != str(reset_kind or "reset"):
+        return False, f"reset_kind {kind} (comparator) vs {reset_kind} (run)"
     if qubits is None:
         return False, "the rows record no placed qubit set"
     if pt.get("qubits") is None:
@@ -188,28 +194,29 @@ def _same_point(entry: Dict, patch, edge, n, p, L, qubits, stamp=None, need_stam
 
 
 def truncation_prediction(preds: Dict, patch=None, edge=None, n=None, p=None, L=None, qubits=None, stamp=None, seed=None, K=None,
-                          realised: bool = False) -> tuple:
+                          realised: bool = False, reset_kind: str = "reset") -> tuple:
     """(comparator, note) for one truncation-arm point (H7, Deviation 60): ``preds['truncation']`` when the caller set one
     (it must carry ``rms_l2`` and the placed ``qubits``, and every placement key it carries must match), else the committed
     ``h7_truncation_*`` entry drawn on this point's placement: the placed qubit set and the placement snapshot ``stamp`` of the
-    list that ran, which both sides must record (Deviation 60, S-A), and patch, edge, n, p, L. Predictions are placement-specific
-    (Deviations 46, 58): a comparator of another placement, or one whose placement cannot be checked, is not used, and entries of
-    more than one file for the same placement are ambiguous (never the last file). None when there is none.
-    ``realised`` (Deviation 60 part (7); the analysis always sets it): the comparator is the ``h7_realised_*`` entry of the same
-    placement drawn on the probe's realised masks (``seed``, ``K``), with the mixture entry recorded beside it under ``mixture``;
-    None without it. An explicit ``preds['truncation']`` (tests) is used as given."""
+    list that ran, which both sides must record (Deviation 60, S-A), and patch, edge, n, p, L; and of this dial kind
+    (``reset_kind``, default the reset dial of H7; Deviation 63, draft, adds the dephasing-dial pair). Predictions are
+    placement-specific (Deviations 46, 58): a comparator of another placement, or one whose placement cannot be checked, is not
+    used, and entries of more than one file for the same placement and dial kind are ambiguous (never the last file). None when
+    there is none. ``realised`` (Deviation 60 part (7); the analysis always sets it): the comparator is the ``h7_realised_*``
+    entry of the same placement and dial kind drawn on the probe's realised masks (``seed``, ``K``), with the mixture entry
+    recorded beside it under ``mixture``; None without it. An explicit ``preds['truncation']`` (tests) is used as given."""
     explicit = preds.get("truncation")
     if explicit:
         if explicit.get("rms_l2") is None:
             return None, "preds['truncation'] has no rms_l2"
-        ok, why = _same_point(explicit, patch, edge, n, p, L, qubits, stamp)
+        ok, why = _same_point(explicit, patch, edge, n, p, L, qubits, stamp, reset_kind=reset_kind)
         return (explicit, "") if ok else (None, f"preds['truncation'] is for another point: {why}")
     entries = [e for e in preds.get("truncation_entries", []) or [] if e.get("rms_l2") is not None]
     if not entries:
         return None, "no committed h7_truncation_*.json comparator"
     hits, reasons = [], []
     for e in entries:
-        ok, why = _same_point(e, patch, edge, n, p, L, qubits, stamp, need_stamp=True)
+        ok, why = _same_point(e, patch, edge, n, p, L, qubits, stamp, need_stamp=True, reset_kind=reset_kind)
         (hits if ok else reasons).append(e if ok else f"{e.get('file')}: {why}")
     if not hits:
         return None, "no comparator for this placement (" + "; ".join(reasons) + ")"
@@ -218,17 +225,17 @@ def truncation_prediction(preds: Dict, patch=None, edge=None, n=None, p=None, L=
         return None, f"ambiguous: comparators for this placement in {len(files)} files ({', '.join(files)})"
     if not realised:
         return hits[-1], ""
-    return _realised_truncation(preds, hits[-1], patch, edge, n, p, L, qubits, stamp, seed, K)
+    return _realised_truncation(preds, hits[-1], patch, edge, n, p, L, qubits, stamp, seed, K, reset_kind)
 
 
-def _realised_truncation(preds: Dict, mixture: Dict, patch, edge, n, p, L, qubits, stamp, seed, K) -> tuple:
-    """(comparator, note): the realised-mask H7 entry for the placement and probe (``seed``, ``K``), the mixture entry beside it."""
+def _realised_truncation(preds: Dict, mixture: Dict, patch, edge, n, p, L, qubits, stamp, seed, K, reset_kind: str = "reset") -> tuple:
+    """(comparator, note): the realised-mask H7 entry for the placement, dial kind and probe (``seed``, ``K``), the mixture entry beside it."""
     if seed is None or K is None:
         return None, "the truncation rows record no probe mask seed and mask count (realised-mask comparator, Deviation 60 part (7))"
     ents = [e for e in preds.get("truncation_realised", []) or [] if e.get("rms_l2") is not None]
     hits, reasons = [], []
     for e in ents:
-        ok, why = _same_point(e, patch, edge, n, p, L, qubits, stamp, need_stamp=True)
+        ok, why = _same_point(e, patch, edge, n, p, L, qubits, stamp, need_stamp=True, reset_kind=reset_kind)
         if ok and (int(e.get("mask_seed", -1)) != int(seed) or int(e.get("K", -1)) != int(K)):
             ok, why = False, f"probe seed {e.get('mask_seed')} / K {e.get('K')} (comparator) vs {seed} / {K} (run)"
         (hits if ok else reasons).append(e if ok else f"{e.get('file')}: {why}")
@@ -458,6 +465,14 @@ def null_control_floor(preds: Dict, n: int, shots: int) -> Dict | None:
     return None
 
 
+def _num(x) -> float:
+    """float(x), or NaN when x is missing or not numeric."""
+    try:
+        return float(x)
+    except (TypeError, ValueError):
+        return float("nan")
+
+
 def compare_points(points: pd.DataFrame, preds: Dict) -> pd.DataFrame:
     """Measured signal variance (shot floor and, for the dial, pattern floor subtracted) against the pre-drawn value,
     with sigma^2 = (bootstrap half-width / 1.96)^2 + shot_floor^2 + sigma_pred^2 (Deviation 19 (i): "sigma combining the
@@ -478,10 +493,18 @@ def compare_points(points: pd.DataFrame, preds: Dict) -> pd.DataFrame:
                    resilience_level=r["resilience_level"], shots=r["shots"], measured=meas, measured_ci_lo=r.get("signal_ci_lo"),
                    measured_ci_hi=r.get("signal_ci_hi"), measured_raw=r.get("variance"), shot_floor=floor, M=r.get("M"))
         if pr is None:
-            rec.update(predicted=np.nan, pred_sigma=np.nan, sigma=np.nan, z=np.nan, source="none", status="no prediction", anomaly_single=False)
+            rec.update(predicted=np.nan, pred_sigma=np.nan, sigma=np.nan, z=np.nan, z_preflight08=np.nan, source="none", status="no prediction",
+                       anomaly_single=False)
         else:
             sig = float(np.sqrt((hw / Z95) ** 2 + (floor if np.isfinite(floor) else 0.0) ** 2 + (pr["sigma"] if np.isfinite(pr["sigma"]) else 0.0) ** 2))
             z = (meas - pr["var"]) / sig if sig > 0 and np.isfinite(meas) else np.nan
+            # Deviation 61: pre-flight 08's written statistic, the replication decision's z (raw variance against the row,
+            # bootstrap half-width / 1.96 and the row's sigma); reported beside the Deviation 19 pipeline z, flags unchanged
+            raw = _num(r.get("variance"))
+            hw_raw = (_num(r.get("ci_hi")) - _num(r.get("ci_lo"))) / 2.0
+            sig08 = float(np.sqrt((hw_raw / Z95) ** 2 + (pr["sigma"] if np.isfinite(pr["sigma"]) else 0.0) ** 2)) if np.isfinite(hw_raw) else np.nan
+            z08 = (raw - pr["var"]) / sig08 if np.isfinite(sig08) and sig08 > 0 and np.isfinite(raw) else np.nan
+            rec.update(z_preflight08=float(z08) if np.isfinite(z08) else np.nan)
             rec.update(predicted=pr["var"], pred_sigma=pr["sigma"], pred_model=pr["model"], sigma=sig, z=float(z) if np.isfinite(z) else np.nan,
                        source=pr["source"], status=pr["status"], truncation_deficit=pr.get("truncation_deficit"), edge_matched=pr.get("edge_matched"),
                        exploratory=bool(int(r["L"]) == 12 and (r["kind"] == "grid" or int(r["k"]) == 1)) or bool(pr.get("not_converged")),   # Deviation 37
@@ -518,10 +541,40 @@ def _monotone_runs(df: pd.DataFrame, axis: str, group_cols: List[str]) -> List[D
     return hits
 
 
+def holm_within(comparison: pd.DataFrame, alpha: float = A61.ALPHA_FW) -> Dict:
+    """A diagnostic, not the Deviation 61 firmness: Holm's step-down over this table's own Deviation 19 single-point tests on
+    pre-flight 08's written z (``z_preflight08``: raw variance, bootstrap interval and the prediction's sigma; the pipeline z
+    ``z`` only when that column is absent), two-sided p = erfc(|z| / sqrt 2); exploratory rows (Deviation 37) and resilience
+    level 2 (not read under Deviation 19) are outside the family. Firmness under Deviation 61 (ii) is grid-wide, over the 43
+    frozen tests with prediction-side uncertainty (``anomaly_stats.recorded_firmness`` and ``anomaly_stats.decide``); this
+    function labels no flag firm."""
+    stat = "z_preflight08" if "z_preflight08" in comparison.columns and np.isfinite(comparison["z_preflight08"].astype(float)).any() else "z"
+    if not len(comparison) or stat not in comparison.columns:
+        return dict(m=0, alpha=float(alpha), statistic=stat, flags=[], note="no tests")
+    d = comparison[np.isfinite(comparison[stat].astype(float))]
+    if "exploratory" in d.columns:
+        d = d[~d.exploratory.map(lambda v: bool(v) if isinstance(v, (bool, np.bool_)) else False).astype(bool)]
+    if "resilience_level" in d.columns:
+        d = d[d.resilience_level.astype(float) != 2]
+    fam = A61.holm_family(d[["point_id", stat]].reset_index(drop=True), stat, alpha)
+    flags = []
+    for r in comparison[comparison.get("anomaly_single", pd.Series(False, index=comparison.index)) == True].to_dict("records"):   # noqa: E712
+        hit = fam[fam.point_id == r["point_id"]]
+        flags.append(dict(point_id=r["point_id"], z=float(r["z"]), z_statistic=float(r.get(stat, np.nan)),
+                          p=float(hit.p.iloc[0]) if len(hit) else float("nan"),
+                          p_holm=float(hit.p_holm.iloc[0]) if len(hit) else float("nan"),
+                          within_run_holm_reject=bool(hit.holm_reject.iloc[0]) if len(hit) else None))
+    return dict(m=int(fam.attrs["m"]), alpha=float(alpha), statistic=stat, flags=flags,
+                note="diagnostic: within-run Holm over this table's Deviation 19 tests; the Deviation 61 firmness is grid-wide "
+                     "(gradvar.analysis.anomaly_stats, data/derived/dev61_reference_2026-09-25.csv)")
+
+
 def anomaly_protocol(comparison: pd.DataFrame) -> Dict:
     """Deviation 19 flags on a comparison table: single-point (|z| > 3) and monotone-run anomalies, and whether the
     protocol calls for replication from the reserve (another day, another clean patch, at most 20 reserve minutes;
-    the calibrated noisy simulations must also fail to reproduce the deviation). Unreplicated anomalies are exploratory."""
+    the calibrated noisy simulations must also fail to reproduce the deviation). Unreplicated anomalies are exploratory.
+    ``holm_within_run`` is a diagnostic Holm step-down over the table's own tests on pre-flight 08's z (``holm_within``); it
+    labels no flag firm (Deviation 61 firmness is grid-wide, in ``anomaly_stats``)."""
     single = comparison[comparison.anomaly_single == True] if len(comparison) else comparison   # noqa: E712
     runs = []
     if len(comparison):
@@ -537,4 +590,5 @@ def anomaly_protocol(comparison: pd.DataFrame) -> Dict:
                 monotone_runs=runs, flagged=flagged,
                 action=("replicate on another calendar day and another clean patch from the reserve (<= 20 min); run the calibrated "
                         "noisy simulations; unreplicated = exploratory" if flagged else "none"),
-                reserve_minutes=RESERVE_MINUTES_FOR_REPLICATION if flagged else 0, n_compared=int(np.isfinite(comparison.z).sum()) if len(comparison) else 0)
+                reserve_minutes=RESERVE_MINUTES_FOR_REPLICATION if flagged else 0, n_compared=int(np.isfinite(comparison.z).sum()) if len(comparison) else 0,
+                holm_within_run=holm_within(comparison))

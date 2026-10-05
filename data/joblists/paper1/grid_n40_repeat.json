@@ -5,27 +5,32 @@
  "dry_run": true,
  "rep_delay_probe": true,
  "preflight_review": "TBD: pre-flight review permalink",
- "notes": "Paper 1 pre-registration v0.16.0 (23 Sep 2026), Section 2 control (d): repeat of the n = 40 ladder (4x10 rung, actual n = 39) on a second calendar day to estimate drift; L in [1, 2, 4, 8, 12], k = 1, resilience 0 and 1, M = 200 draws with their own seed block (fresh draws), 4096 shots. Run at least one day after grid_n40.json (order of runs, docs/PAPER1_JOBLISTS.md). Ledger: Section 6 main-grid line (the 10-point day-2 repeat of the Section 2 point count). Placement from snapshot 2026-09-23T163534Z (CSV plus raw properties; Deviations 22, 26 and 46 cuts plus the Deviation 53 coherence floor T1, T2 >= 25 us, on the newest committed calibration data): n40 = 4x10 n = 39 origin (8, 0) edge 93_103 broken [[86, 87], [100, 101], [95, 96], [87, 97], [100, 110]]. Deviation 46: the runner re-derives the placement and the observable edges from the run-day snapshot under the Deviation 22 / 26 cuts and the cone-graph edge rule (live re-check, layout_check enforce) and refuses a list whose n no longer matches; regenerate with scripts/make_paper1_joblists.py from the run-day snapshot and re-draw the Gate 1b reference predictions where the cone graph changed. Budget model v3 (Deviation 47: 3.0 s per job, +2.7 s at resilience >= 1, 5 us per execution, max(shots, 64) at resilience >= 1), jobs of at most 300 pubs (max_experiments; Deviation 48) and 12 MB of parameter values: 8 jobs, 2000 pubs, 4000 parameter sets, 16384000 executions (+0 TREX), 3.795 min at the booked 1 us rep_delay (71.789 min at 250 us). Nothing is submitted while dry_run is true and the pre-flight review permalink is the placeholder.",
+ "notes": "Paper 1 pre-registration v0.17.0 (26 Sep 2026), Section 2 control (d): repeat of the n = 40 ladder (4x10 rung, actual n = 39) on a second calendar day to estimate drift; L in [1, 2, 4, 8, 12], k = 1, resilience 0 and 1, M = 200 draws with their own seed block (fresh draws), 4096 shots. Run at least one day after grid_n40.json (order of runs, docs/PAPER1_JOBLISTS.md). Ledger: Section 6 main-grid line (the 10-point day-2 repeat of the Section 2 point count). Placement from snapshot 2026-10-04T043542Z (CSV plus raw properties; Deviations 22, 26 and 46 cuts plus the Deviation 53 coherence floor T1, T2 >= 25 us, on the newest committed calibration data; Deviation 62: qubits outside a rectangle's largest connected live-coupler component are holes): n40 = 4x10 n = 39 origin (8, 0) edge 93_103 broken [[86, 87], [100, 101], [118, 119], [95, 96], [80, 90], [87, 97], [100, 110]]. Deviation 46: the runner re-derives the placement and the observable edges from the run-day snapshot under the Deviation 22 / 26 cuts and the cone-graph edge rule (live re-check, layout_check enforce) and refuses a list whose n no longer matches; regenerate with scripts/make_paper1_joblists.py from the run-day snapshot and re-draw the Gate 1b reference predictions where the cone graph changed. Budget model v3 (Deviation 47: 3.0 s per job, +2.7 s at resilience >= 1, 5 us per execution, max(shots, 64) at resilience >= 1), jobs of at most 300 pubs (max_experiments; Deviation 48) and 12 MB of parameter values: 8 jobs, 2000 pubs, 4000 parameter sets, 16384000 executions (+0 TREX), 3.795 min at the booked 1 us rep_delay (71.789 min at 250 us). Nothing is submitted while dry_run is true and the pre-flight review permalink is the placeholder.",
  "layout_check": "enforce",
  "placement": {
-  "snapshot": "ibm_phoenix_2026-09-23T163534Z.csv",
-  "properties": "ibm_phoenix_properties_20260923T163534Z.json.gz",
-  "stamp": "2026-09-23T163534Z",
+  "snapshot": "ibm_phoenix_2026-10-04T043542Z.csv",
+  "properties": "ibm_phoenix_properties_20261004T043542Z.json.gz",
+  "stamp": "2026-10-04T043542Z",
   "excluded": [
    7,
    8,
    11,
+   14,
+   15,
    17,
    18,
+   19,
+   24,
+   25,
+   26,
    27,
+   28,
    29,
-   37,
    55,
    59,
    61,
    62,
    63,
-   66,
    72,
    73,
    77,
@@ -36,7 +41,12 @@
    "init_error_cut": 0.0005,
    "zz_cut_mhz": 1.0,
    "cz_cut": 0.005,
-   "coherence_floor_us": 25.0
+   "coherence_floor_us": 25.0,
+   "component_rule": {
+    "deviation": "62",
+    "since": "2026-09-26T030720Z",
+    "rule": "qubits outside the largest connected component of the rectangle's live-coupler graph are holes"
+   }
   },
   "rungs": {
    "n40": {
@@ -100,8 +110,16 @@
       101
      ],
      [
+      118,
+      119
+     ],
+     [
       95,
       96
+     ],
+     [
+      80,
+      90
      ],
      [
       87,
@@ -113,16 +131,18 @@
      ]
     ],
     "broken_edge_cz_errors": {
-     "86_87": 0.014215607141416259,
-     "100_101": 0.040990425147964665,
-     "95_96": 0.032139042591438044,
-     "87_97": 0.018098784899698378,
-     "100_110": 0.00570275839990278
+     "86_87": 0.013995552986109994,
+     "100_101": 0.06132514619271259,
+     "118_119": 0.005811593610208554,
+     "95_96": 0.016831203714640475,
+     "80_90": 0.005570951328875529,
+     "87_97": 0.020499447349806132,
+     "100_110": 0.005533566659797096
     },
-    "live_couplers": 57,
+    "live_couplers": 55,
     "edge": "93_103",
     "edge_rule": "Deviation 36's (93, 103) as written (its L = 2 cone graph differs from the 4x5 rung's on this snapshot; Deviation 46 fallback)",
-    "edge_cz_error": 0.0011904153828659891,
+    "edge_cz_error": 0.0009705135520853003,
     "cone_L2_qubits": [
      82,
      83,
@@ -142,13 +162,14 @@
      115
     ],
     "cone_L2_couplers": 24,
-    "cone_L2_matches_4x5": false
+    "cone_L2_matches_4x5": false,
+    "component_holes": []
    }
   },
   "pin_snapshot": true
  },
  "campaign": {
-  "pre_registration": "Paper 1 pre-registration v0.16.0 (23 Sep 2026)",
+  "pre_registration": "Paper 1 pre-registration v0.17.0 (26 Sep 2026)",
   "ledger_line": "main",
   "budget_model_version": 3,
   "max_experiments": 300,

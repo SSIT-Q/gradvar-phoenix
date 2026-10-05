@@ -264,12 +264,15 @@ def test_h7_not_evaluable_when_the_pairs_do_not_match(day3_run, tmp_path):
 def test_committed_comparator_is_matched_by_placement():
     entries = P.load_truncation_entries(ROOT / "data" / "predictions")
     assert entries and all(e["file"].startswith("h7_truncation_") and e["rms_l2"] > 0 for e in entries)
-    e, st = entries[-1]["point"], entries[-1]["placement_stamp"]            # Deviation 60 (S-A): the placement snapshot as well
+    # the newest H7 comparator (reset dial): the Deviation 63 pair files (h7_truncation_pairs_*, reset p = 0.25 and dephasing p = 0.5 on the
+    # same placement) sort after it by name, so "the last entry" is not the H7 one once the pairs are drawn
+    h7 = [x for x in entries if not x["file"].startswith("h7_truncation_pairs_") and x["point"].get("reset_kind", "reset") == "reset"]
+    e, st = h7[-1]["point"], h7[-1]["placement_stamp"]                    # Deviation 60 (S-A): the placement snapshot as well
     assert st
     comp, _ = P.truncation_prediction(dict(truncation_entries=entries), patch=e["patch"], edge=e["edge"], n=e["n"], p=e["p"], L=e["L"], qubits=e["qubits"], stamp=st)
-    assert comp is entries[-1]
-    none, why = P.truncation_prediction(dict(truncation_entries=entries), patch=e["patch"], edge=e["edge"], n=e["n"], p=0.25, L=e["L"], qubits=e["qubits"], stamp=st)
-    assert none is None and "p " in why
+    assert comp is h7[-1]
+    none, why = P.truncation_prediction(dict(truncation_entries=entries), patch=e["patch"], edge=e["edge"], n=e["n"], p=0.125, L=e["L"], qubits=e["qubits"], stamp=st)
+    assert none is None and "p " in why                                  # no comparator at this p on any placement
     nostamp, why3 = P.truncation_prediction(dict(truncation_entries=entries), patch=e["patch"], edge=e["edge"], n=e["n"], p=e["p"], L=e["L"], qubits=e["qubits"])
     assert nostamp is None and "no placement snapshot" in why3
     unplaced, why2 = P.truncation_prediction(dict(truncation_entries=entries), patch=e["patch"], edge=e["edge"], n=e["n"], p=e["p"], L=e["L"])

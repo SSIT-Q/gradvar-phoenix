@@ -241,17 +241,27 @@ def two_runs(tmp_path_factory):
     out = tmp_path_factory.mktemp("two_runs")
     csvs = {}
     for tag, snap, seed in (("a", SNAP_A, 1), ("b", SNAP_B, 2)):          # one data tree, as the committed data/ holds several runs
-        if tag == "b":      # a dry run's job id is 'dryrun-<UTC second>-<tag>': two runs within one second would share their bundles
-            time.sleep(1.1)
         jl = dict(base, probes=probes)
         jl.pop("budget", None)
         (out / f"list_{tag}.json").write_text(json.dumps(jl))
         before = set((out / "jobs").glob("*.csv")) if (out / "jobs").exists() else set()
-        run_joblist(str(out / f"list_{tag}.json"), submit=False, run_root=str(out / "runs"), log_dir=str(out / "jobs"), calibration_csv=str(snap))
+        # Each run writes its bundles to its own folder of the one data tree, and starts in a later UTC second than the previous run: the
+        # runner's dry-run job id is dryrun-<UTC second>-<job tag>, and the loader keys bundles by job id, so two runs finishing within one
+        # second shared one job id and one bundle (the 4 Oct same-day run on Modal).
+        _next_clock_second()
+        run_joblist(str(out / f"list_{tag}.json"), submit=False, run_root=str(out / "runs" / tag), log_dir=str(out / "jobs"), calibration_csv=str(snap))
         (csv,) = set((out / "jobs").glob("*.csv")) - before
         _plant_dial(csv, seed)
         csvs[tag] = csv
+    ids = {t: set(pd.read_csv(c).job_id.astype(str)) for t, c in csvs.items()}
+    assert not ids["a"] & ids["b"], f"the two runs share a job id: {ids}"
     return out, csvs
+
+
+def _next_clock_second():
+    """Sleep into the next UTC second (the resolution of the runner's dry-run job ids)."""
+    import time
+    time.sleep(1.0 - time.time() % 1.0 + 0.02)
 
 
 def test_h6_control_pair_comes_from_one_rung_and_placement(two_runs, preds, monkeypatch):

@@ -5,27 +5,32 @@
  "dry_run": true,
  "rep_delay_probe": true,
  "preflight_review": "TBD: pre-flight review permalink",
- "notes": "Paper 1 pre-registration v0.16.0 (23 Sep 2026), Section 3b 'Minute budget' contingent items, in the pre-registered order of first call on unspent reserve: (1) k = 1 at L = 12 (p = 0.25, 0.5; 12.0 min), (2) truncation l = 4 (3.4 min), (3) k = 1 at L = 8 (p = 0.25, 0.5) with its delay-matched p = 0 control at k = 1 (12.2 min); about 27.5 min at 1 us in all. NOT part of the booked 65-minute dial line: armed only by an explicit reserve decision recorded as a deviation (Section 6 surplus rule, second call after Deviation 17's M increase). Design (Section 3b, Deviations 27 and 48): K = 256 Bernoulli(p) reset masks per gradient point, 16 shots per mask (4096 executions per shifted circuit), the two shift circuits of a draw sharing their mask (Deviation 38, logged as shared) and all M draws sharing the K masks (the draws ride in the mask pub as parameter rows; docs/PAPER1_JOBLISTS.md section 7, item 13), draw d of a probe taking theta from seed + d and mask m from the lottery stream (seed + 1 + m, MASK_STREAM), so probes with the same seed are paired draw by draw and mask by mask (Section 3b 'Pairing'). Native reset (400 ns on the target; kill rule (c) checks the transpiled circuit for measure-plus-conditional-X); resilience 0 (the Section 3b budget quotes the dial at resilience 0; kill rule (d) at resilience 1 was tested by the smoke test's probes). Deviation 48 packing: one Estimator pub per mask carrying the 100 draws as parameter rows (a (100, 2, nL) bindings array of the shifted pairs, so both shifts of a draw share the mask), 256 pubs per gradient point in jobs of at most 300 pubs and 12 MB of parameter values (about 15 jobs per point at n = 50, L = 8; the Deviation's 512-pub / 2-job count puts the shifts in separate pubs and carries no payload cap), against the 171 one-row-circuit jobs of Deviation 27 on which kill rule (b) fired (Deviation 41: 7.0 min per point; model v3 gives about 1.0 min here). Gated by Gate 1b; same day and same patches as the ladder points it is compared with. Ledger: Section 6 dial line (65 min at 1 us; the six p = 0 references are in references_gate1b.json). Placement from snapshot 2026-09-23T163534Z (CSV plus raw properties; Deviations 22, 26 and 46 cuts plus the Deviation 53 coherence floor T1, T2 >= 25 us, on the newest committed calibration data): n60 = 6x10 n = 52 origin (6, 0) edge 84_85 broken [[86, 87], [100, 101], [95, 96], [87, 97], [100, 110]]. Deviation 46: the runner re-derives the placement and the observable edges from the run-day snapshot under the Deviation 22 / 26 cuts and the cone-graph edge rule (live re-check, layout_check enforce) and refuses a list whose n no longer matches; regenerate with scripts/make_paper1_joblists.py from the run-day snapshot and re-draw the Gate 1b reference predictions where the cone graph changed. Budget model v3 (Deviation 47: 3.0 s per job, +2.7 s at resilience >= 1, 5 us per execution, max(shots, 64) at resilience >= 1), jobs of at most 300 pubs (max_experiments; Deviation 48) and 12 MB of parameter values: 90 jobs, 1536 pubs, 281600 parameter sets, 5734400 executions (+0 TREX), 6.107 min at the booked 1 us rep_delay (29.905 min at 250 us). Nothing is submitted while dry_run is true and the pre-flight review permalink is the placeholder.",
+ "notes": "Paper 1 pre-registration v0.17.0 (26 Sep 2026), Section 3b 'Minute budget' contingent items, in the pre-registered order of first call on unspent reserve: (1) k = 1 at L = 12 (p = 0.25, 0.5; 12.0 min), (2) truncation l = 4 (3.4 min), (3) k = 1 at L = 8 (p = 0.25, 0.5) with its delay-matched p = 0 control at k = 1 (12.2 min); about 27.5 min at 1 us in all. NOT part of the booked 65-minute dial line: armed only by an explicit reserve decision recorded as a deviation (Section 6 surplus rule, second call after Deviation 17's M increase). Design (Section 3b, Deviations 27 and 48): K = 256 Bernoulli(p) reset masks per gradient point, 16 shots per mask (4096 executions per shifted circuit), the two shift circuits of a draw sharing their mask (Deviation 38, logged as shared) and all M draws sharing the K masks (the draws ride in the mask pub as parameter rows; docs/PAPER1_JOBLISTS.md section 7, item 13), draw d of a probe taking theta from seed + d and mask m from the lottery stream (seed + 1 + m, MASK_STREAM), so probes with the same seed are paired draw by draw and mask by mask (Section 3b 'Pairing'). Native reset (400 ns on the target; kill rule (c) checks the transpiled circuit for measure-plus-conditional-X); resilience 0 (the Section 3b budget quotes the dial at resilience 0; kill rule (d) at resilience 1 was tested by the smoke test's probes). Deviation 48 packing: one Estimator pub per mask carrying the 100 draws as parameter rows (a (100, 2, nL) bindings array of the shifted pairs, so both shifts of a draw share the mask), 256 pubs per gradient point in jobs of at most 300 pubs and 12 MB of parameter values (about 15 jobs per point at n = 50, L = 8; the Deviation's 512-pub / 2-job count puts the shifts in separate pubs and carries no payload cap), against the 171 one-row-circuit jobs of Deviation 27 on which kill rule (b) fired (Deviation 41: 7.0 min per point; model v3 gives about 1.0 min here). Gated by Gate 1b; same day and same patches as the ladder points it is compared with. Ledger: Section 6 dial line (65 min at 1 us; the six p = 0 references are in references_gate1b.json). Placement from snapshot 2026-10-04T043542Z (CSV plus raw properties; Deviations 22, 26 and 46 cuts plus the Deviation 53 coherence floor T1, T2 >= 25 us, on the newest committed calibration data; Deviation 62: qubits outside a rectangle's largest connected live-coupler component are holes; Deviation 62: qubit(s) [79] excluded from these dial patches (Section 3b Implementation: qubit 79, native reset 2140 ns, excluded from dial patches), recorded as placement.dial_exclude and applied by the runner): n60 = 6x10 n = 52 origin (6, 0) edge 84_85 broken [[86, 87], [100, 101], [118, 119], [95, 96], [80, 90], [87, 97], [100, 110]]. Deviation 46: the runner re-derives the placement and the observable edges from the run-day snapshot under the Deviation 22 / 26 cuts and the cone-graph edge rule (live re-check, layout_check enforce) and refuses a list whose n no longer matches; regenerate with scripts/make_paper1_joblists.py from the run-day snapshot and re-draw the Gate 1b reference predictions where the cone graph changed. Budget model v3 (Deviation 47: 3.0 s per job, +2.7 s at resilience >= 1, 5 us per execution, max(shots, 64) at resilience >= 1), jobs of at most 300 pubs (max_experiments; Deviation 48) and 12 MB of parameter values: 90 jobs, 1536 pubs, 281600 parameter sets, 5734400 executions (+0 TREX), 6.107 min at the booked 1 us rep_delay (29.905 min at 250 us). Nothing is submitted while dry_run is true and the pre-flight review permalink is the placeholder.",
  "layout_check": "enforce",
  "placement": {
-  "snapshot": "ibm_phoenix_2026-09-23T163534Z.csv",
-  "properties": "ibm_phoenix_properties_20260923T163534Z.json.gz",
-  "stamp": "2026-09-23T163534Z",
+  "snapshot": "ibm_phoenix_2026-10-04T043542Z.csv",
+  "properties": "ibm_phoenix_properties_20261004T043542Z.json.gz",
+  "stamp": "2026-10-04T043542Z",
   "excluded": [
    7,
    8,
    11,
+   14,
+   15,
    17,
    18,
+   19,
+   24,
+   25,
+   26,
    27,
+   28,
    29,
-   37,
    55,
    59,
    61,
    62,
    63,
-   66,
    72,
    73,
    77,
@@ -36,7 +41,19 @@
    "init_error_cut": 0.0005,
    "zz_cut_mhz": 1.0,
    "cz_cut": 0.005,
-   "coherence_floor_us": 25.0
+   "coherence_floor_us": 25.0,
+   "component_rule": {
+    "deviation": "62",
+    "since": "2026-09-26T030720Z",
+    "rule": "qubits outside the largest connected component of the rectangle's live-coupler graph are holes"
+   },
+   "dial_exclude": {
+    "deviation": "62",
+    "qubits": [
+     79
+    ],
+    "reason": "Section 3b Implementation: qubit 79 (native reset 2140 ns; 400 ns on the other 119 qubits) is excluded from dial patches"
+   }
   },
   "rungs": {
    "n60": {
@@ -50,16 +67,17 @@
      61,
      62,
      63,
-     66,
      72,
      73,
      77,
+     79,
      107
     ],
     "qubits": [
      60,
      64,
      65,
+     66,
      67,
      68,
      69,
@@ -69,7 +87,6 @@
      75,
      76,
      78,
-     79,
      80,
      81,
      82,
@@ -120,8 +137,16 @@
       101
      ],
      [
+      118,
+      119
+     ],
+     [
       95,
       96
+     ],
+     [
+      80,
+      90
      ],
      [
       87,
@@ -133,19 +158,23 @@
      ]
     ],
     "broken_edge_cz_errors": {
-     "86_87": 0.014215607141416259,
-     "100_101": 0.040990425147964665,
-     "95_96": 0.032139042591438044,
-     "87_97": 0.018098784899698378,
-     "100_110": 0.00570275839990278
+     "86_87": 0.013995552986109994,
+     "100_101": 0.06132514619271259,
+     "118_119": 0.005811593610208554,
+     "95_96": 0.016831203714640475,
+     "80_90": 0.005570951328875529,
+     "87_97": 0.020499447349806132,
+     "100_110": 0.005533566659797096
     },
-    "live_couplers": 76,
+    "live_couplers": 74,
     "edge": "84_85",
     "edge_rule": "interior_edge",
-    "edge_cz_error": 0.0011502838290557982,
+    "edge_cz_error": 0.0011521417561443092,
     "cone_L2_qubits": [
      64,
      65,
+     66,
+     67,
      74,
      75,
      76,
@@ -159,14 +188,21 @@
      94,
      95
     ],
-    "cone_L2_couplers": 19,
-    "cone_L2_matches_4x5": false
+    "cone_L2_couplers": 22,
+    "cone_L2_matches_4x5": false,
+    "component_holes": [],
+    "dial_excluded_holes": [
+     79
+    ]
    }
   },
+  "dial_exclude": [
+   79
+  ],
   "pin_snapshot": true
  },
  "campaign": {
-  "pre_registration": "Paper 1 pre-registration v0.16.0 (23 Sep 2026)",
+  "pre_registration": "Paper 1 pre-registration v0.17.0 (26 Sep 2026)",
   "ledger_line": "dial_contingent",
   "budget_model_version": 3,
   "max_experiments": 300,

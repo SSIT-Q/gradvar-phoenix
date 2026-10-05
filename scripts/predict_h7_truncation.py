@@ -28,7 +28,18 @@
    rebuilt from its seed with the runner's placement call, ``redraw_gate1b.probe_masks``; ``pauliprop.propagate_realised`` with the cut
    accumulators, 2e6 paths, seed 0): sqrt(MSD(l)) of the off-diagonal moment the shared-mask statistic estimates, sigma its sampling
    error, with the mixture entry recorded beside it. Written as ``data/predictions/h7_realised_<tag>.json`` / ``.md``
-   (``predictions.load_realised_truncation``). ``--realised-only`` draws these entries alone (a list whose mixture entry is committed).
+   (``predictions.load_realised_truncation``). ``--realised-only`` draws these entries alone (a list whose mixture entry is committed). A pairs list (item 5)
+   writes ``h7_realised_pairs_<tag>.*``, each entry keyed by its dial kind as well.
+5. Deviation 63 (draft): the same machinery draws the comparators of the two new truncation pairs (Part A3) on a pairs list's
+   placement (``python scripts/predict_h7_truncation.py --joblist data/joblists/paper1/dial_truncation_pairs.json``, the list of
+   ``scripts/make_truncation_pairs.py``): (a) the reset dial at p = 0.25 and (b) the unital dephasing dial at p = 0.5 (``reset_kind``
+   'dephase', ``pauliprop.dephasing_dial_bloch``: X, Y -> (1 - p) e^{-400 ns / T2}, Z unchanged, t = 0), each at the Deviation 46
+   settings. The bug check runs at every point, with the dial of that point: noise off, the engine against the note's chain with
+   the chain's squared-weight rule for that dial (the note's rule for the reset dial; X, Y -> (1 - p)^2, Z -> Z, no identity feed
+   for the dephasing dial, whose mean state has E<Z_S> = 0 after every layer, so B_l is the identity weight alone), E[C_mix] = t_z^2
+   (p^2, or 0 for the dephasing dial); the note's quoted values are checked on the day-3 reset point only. A list whose truncation
+   points are not all H7's (the reset dial at p = 0.5) writes ``h7_truncation_pairs_<tag>.*``, so the day-3 record of the same placement
+   is not overwritten; ``evaluate_h7`` and ``predictions.truncation_prediction`` select entries by dial kind as well as placement.
 """
 from __future__ import annotations
 
@@ -58,7 +69,9 @@ DEFAULT_JOBLIST = ROOT / "data" / "joblists" / "paper1" / "day3_dial_refs.json"
 DEV46 = dict(deltas=(1e-6, 1e-7), n_samples=500_000, seed=rd.SEED, n_cap=400_000, time_limit_s=600.0)   # the Gate 1b re-draw settings
 IDEAL_DELTAS = (1e-10, 1e-11)
 # the dial-law note's quoted ideal-model values on the day-3 H7 point (n60 rung, n = 52, edge 84_85, p = 0.5, L = 8), printed digits
-NOTE_POINT = dict(patch="6x10", n=52, edge="84_85", p=0.5, L=8)
+NOTE_POINT = dict(patch="6x10", n=52, edge="84_85", p=0.5, L=8, reset_kind="reset")
+H7_POINT = dict(reset_kind="reset", p=0.5)                                  # the registered H7 point; any other truncation point is a Deviation 63 pair
+TZ = dict(reset=lambda p: p, dephase=lambda p: 0.0)                         # the dial's translation t_z (E<Z> after a dial layer, ideal model)
 NOTE_VALUES = dict(rms_l2=(0.0572, 4), rms_l4=(0.0070, 4), std_cmix=(0.138, 3))
 CRITERION = ("dial-law note (24 Sep), Section 6 item 1: with noise switched off, the engine must reproduce the note's ideal chain on the n60 rung "
              "(RMS(2) = 0.0572, RMS(4) = 0.0070) within its own truncation or sampling error; a failure triggers a documented code audit")
@@ -117,12 +130,34 @@ def check_placement(jl: dict, snapshot: str, rung_name: str, rung: dict) -> dict
 
 # --------------------------------------------------------------------------- bug check (noise off)
 
-def ideal_program(patch, L: int, edge: tuple, p: float, csv: str):
-    """The repository engine's program with every noise source off: noiseless gates, ideal readout, the pure mixture dial N_p."""
+def ideal_program(patch, L: int, edge: tuple, p: float, csv: str, reset_kind: str = "reset"):
+    """The repository engine's program with every noise source off: noiseless gates, ideal readout, the pure dial: the mixture N_p
+    for the reset dial, the Z-mask mixture (X, Y -> 1 - p, Z unchanged, t = 0) for the dephasing dial (Deviation 63)."""
     cone = light_cone(patch, L, edge)
-    dial = {cone.index(q): pp.reset_dial_bloch(p, None, idle_dephasing=False) for q in cone}
+    if reset_kind == "reset":
+        bloch = pp.reset_dial_bloch(p, None, idle_dephasing=False)
+    elif reset_kind == "dephase":
+        bloch = pp.dephasing_dial_bloch(p, None)
+    else:
+        raise SystemExit(f"no noise-off bug check for reset_kind {reset_kind!r}")
+    dial = {cone.index(q): bloch for q in cone}
     ch = pp.channels_from_models("noiseless", csv, cone, patch.edges(), dial=dial, readout=False)
     return pp.build_program(patch, L, L, ch, cone, edge)
+
+
+def chain_reference(cp, reset_kind: str, p: float, L: int, ells, delta: float) -> dict:
+    """The note's chain for one dial: ``chain_quantities`` unchanged for the reset dial; for the dephasing dial (Deviation 63) the chain's
+    ``chain_run`` with the squared-weight rule X, Y -> (1 - p)^2, Z -> Z (no identity feed), E[C] = 0, and B_l = the identity weight at
+    the cut (the mean state has E<Z_S> = 0 for every non-empty S after a layer at uniform angles and t = 0), so MSD(l) = E[C^2] - 2 B_l + A_l
+    from the chain's own cut histogram (``dial_law_chain.py`` is not edited)."""
+    if reset_kind == "reset":
+        return chain.chain_quantities(cp, p, L, ells=ells, delta=delta, grads=False)
+    if reset_kind != "dephase":
+        raise SystemExit(f"no chain reference for reset_kind {reset_kind!r}")
+    r = chain.chain_run(cp, p, L, cuts=ells, delta=delta, rule=((1 - p) ** 2, (1 - p) ** 2, 1.0, 0.0))
+    out = dict(EC2=r["EC2"], var_c=r["EC2"], drop_total=r["drop"][-1], nmax=r["nmax"])
+    out["msd"] = {l: r["EC2"] - 2 * float(c["hist"].get(0, 0.0)) + c["A"] for l, c in r["cuts"].items()}
+    return out
 
 
 def _tolerance(eng_f, eng_c, ch_f, ch_c) -> float:
@@ -131,16 +166,17 @@ def _tolerance(eng_f, eng_c, ch_f, ch_c) -> float:
 
 def ideal_check(patch, rung: dict, point: dict, csv: str, n_samples: int, seed: int, deltas=IDEAL_DELTAS, sampled: bool = True) -> dict:
     L, p, edge = point["L"], point["p"], tuple(int(x) for x in point["edge"].split("_"))
+    kind = point.get("reset_kind", "reset")
     ells = tuple(range(1, L))
     t0 = time.time()
-    prog = ideal_program(patch, L, edge, p, csv)
+    prog = ideal_program(patch, L, edge, p, csv, kind)
     eng = {d: pp.propagate_truncated(prog, delta=d, cuts=ells) for d in deltas}
     mc = pp.propagate_sampled(prog, n_samples, seed, cuts=ells) if sampled else None
     r, c = (int(x) for x in rung["patch"].split("x"))
     cp = chain.lattice_patch(r, c, origin=tuple(rung["origin"]), width=10, holes=rung["holes"], broken=[tuple(e) for e in rung["broken_edges"]], obs=edge)
     if sorted(cp.qubits) != sorted(rung["qubits"]) or len(cp.edges) != len(patch.edges()):
         raise SystemExit("the chain's patch differs from the rung (qubits or couplers)")
-    ch = {d: chain.chain_quantities(cp, p, L, ells=ells, delta=d, grads=False) for d in deltas}
+    ch = {d: chain_reference(cp, kind, p, L, ells, d) for d in deltas}
     fine, coarse = deltas[-1], deltas[0]
 
     def q(src, d, name):
@@ -167,13 +203,14 @@ def ideal_check(patch, rung: dict, point: dict, csv: str, n_samples: int, seed: 
     if all(point[k] == v for k, v in NOTE_POINT.items()):
         note = {k: dict(quoted=v, digits=dgt, engine=vals[k], rounds_to_quoted=bool(round(vals[k], dgt) == v)) for k, (v, dgt) in NOTE_VALUES.items()}
         ok &= all(x["rounds_to_quoted"] for x in note.values())
-    ok &= abs(vals["mean_cost"] - p ** 2) < 1e-12                       # E[C_mix] = p^2 exactly in the ideal model
+    ok &= abs(vals["mean_cost"] - TZ[kind](p) ** 2) < 1e-12              # E[C_mix] = t_z^2 exactly in the ideal model (p^2; 0 for the dephasing dial)
     return dict(passed=bool(ok), criterion=CRITERION,
                 rule=("|engine - chain| <= 2 (engine + chain truncation error, delta 1e-10 -> 1e-11) + 1e-9 |chain| at delta 1e-11 for "
                       "Var[C_mix], MSD(2), MSD(4); sampled engine within 3 s.e. + 2 x chain truncation error; the note's quoted values at "
-                      "their printed digits on the day-3 point; E[C_mix] = p^2"),
+                      "their printed digits on the day-3 point; E[C_mix] = t_z^2 (p^2 for the reset dial, 0 for the dephasing dial)"),
                 rule_recorded=RULE_RECORDED,
-                model="noise off: noiseless gates, readout a = 1 b = 0, pure mixture dial N_p, no ZZ", deltas=list(deltas), n_samples=n_samples if sampled else 0,
+                model=("noise off: noiseless gates, readout a = 1 b = 0, " + ("pure mixture dial N_p" if kind == "reset" else
+                       "pure dephasing dial (Z with probability p/2)") + ", no ZZ"), reset_kind=kind, deltas=list(deltas), n_samples=n_samples if sampled else 0,
                 seed=seed, values=vals, note_values=note, rows=rows, n_cone=prog.m, engine_n_strings_max=eng[fine].n_max,
                 engine_discarded=eng[fine].discarded, chain_nmax=ch[fine]["nmax"], chain_dropped=ch[fine]["drop_total"], runtime_s=time.time() - t0)
 
@@ -232,7 +269,8 @@ def realised_entry(jl: dict, point: dict, rung_name: str, rung: dict, csv: str, 
 
 
 def markdown_realised(rec: dict) -> str:
-    lines = [f"# H7 comparator on the realised masks, placement {rec['snapshot']['stamp']} (Deviation 60 part (7))", "",
+    title = ("Truncation-pair comparators on the realised masks" if rec.get("pairs") else "H7 comparator on the realised masks")
+    lines = [f"# {title}, placement {rec['snapshot']['stamp']} (Deviation 60 part (7))", "",
              f"List `{rec['joblist']}`; code {rec.get('git_commit') or 'uncommitted'}; generated {rec['generated_utc']}; command `{rec['command']}`.", "",
              "sqrt(MSD(l)) of the off-diagonal moment over the truncation probes' realised masks, the target of the shared-mask statistic; "
              "sigma = sampling error. The mixture comparator is recorded beside it and is not used in any test.", "",
@@ -241,39 +279,50 @@ def markdown_realised(rec: dict) -> str:
         mix = e.get("mixture") or {}
         for ell, b in sorted(e["by_ell"].items(), key=lambda kv: int(kv[0])):
             m = (mix.get("by_ell") or {}).get(ell, {}).get("rms") if mix else None
-            lines.append(f"| {e['point']['rung']} | {e['point']['p']} | {e['point']['L']} | {e['mask_seed']} | {e['K']} | {ell} | {b['rms']:.6f} +/- {b['rms_sigma']:.1e} | "
+            kind = e["point"].get("reset_kind", "reset")
+            lines.append(f"| {e['point']['rung']}{'' if kind == 'reset' else ' (' + kind + ' dial)'} | {e['point']['p']} | {e['point']['L']} | {e['mask_seed']} | {e['K']} | {ell} | {b['rms']:.6f} +/- {b['rms_sigma']:.1e} | "
                          + (f"{m:.6f} | {b['rms'] / m:.3f} |" if m else " | |"))
     return "\n".join(lines) + "\n"
 
 
 def markdown(rec: dict) -> str:
-    lines = [f"# H7 comparator (Deviation 60), placement {rec['snapshot']['stamp']}", "",
+    title = ("Truncation-pair comparators (Deviation 63, draft; the Deviation 60 machinery)" if rec.get("pairs") else "H7 comparator (Deviation 60)")
+    lines = [f"# {title}, placement {rec['snapshot']['stamp']}", "",
              f"Job list `{rec['joblist']}`; snapshot `{rec['snapshot']['csv']}` (properties `{rec['snapshot']['properties']}`); "
              f"code {rec.get('git_commit') or 'uncommitted'}; generated {rec['generated_utc']}; command `{rec['command']}`.", ""]
     ic = rec.get("ideal_check")
     if ic:
-        lines += [f"## Bug check, noise off: {'PASS' if ic['passed'] else 'FAIL'}", "",
-                  f"Pre-specified criterion: {ic.get('criterion', CRITERION)}.", "",
-                  f"Numerical rule, recorded {ic.get('rule_recorded', RULE_RECORDED)}: {ic['rule']}.", "",
-                  "| quantity | engine (1e-11) | chain (1e-11) | difference (rel.) | engine trunc. error | chain trunc. error | rule tolerance | "
-                  "sampled +/- s.e. | within |", "|---|---|---|---|---|---|---|---|---|"]
-        for r in ic["rows"]:
-            mc = f"{r['mc']:.6e} +/- {r['mc_se']:.1e}" if "mc" in r else "-"
-            ok_r = r["within"] and r.get("mc_within", True)
-            verdict = ("yes" if ok_r else "NO") if r["tested"] else ("yes (not tested)" if ok_r else "no (not tested)")
-            diff = r.get("diff", r["engine"] - r["chain"])
-            lines.append(f"| {r['quantity']}{'' if r['tested'] else ' (reported)'} | {r['engine']:.10e} | {r['chain']:.10e} | {diff:+.2e} ({r['rel_diff']:+.1e}) | "
-                         f"{r.get('engine_truncation_error', abs(r['engine'] - r['engine_coarse'])):.1e} | "
-                         f"{r.get('chain_truncation_error', abs(r['chain'] - r['chain_coarse'])):.1e} | {r['tolerance']:.1e} | {mc} | {verdict} |")
-        v = ic["values"]
-        lines += ["", f"Engine, noise off: std(C_mix) = {v['std_cmix']:.6f}, RMS(2) = {v['rms_l2']:.6f}, RMS(4) = {v['rms_l4']:.6f}, E[C_mix] = {v['mean_cost']:.12f}."]
-        if ic.get("note_values"):
-            lines.append("Note's quoted values: " + "; ".join(f"{k} {x['quoted']:.{x['digits']}f} ({'reproduced' if x['rounds_to_quoted'] else 'NOT reproduced'})"
-                                                        for k, x in ic["note_values"].items()) + ".")
-        lines.append("")
+        pts = ic.get("points") or []                                           # several points (the Deviation 63 pairs): one table per point
+        first = pts[0] if pts else ic
+        lines += [f"## Bug check, noise off: {'PASS' if ic['passed'] else 'FAIL'}"
+                  + (" (every point, each with its own dial)" if pts else ""), "",
+                  f"Pre-specified criterion: {ic.get('criterion', first.get('criterion', CRITERION))}.", "",
+                  f"Numerical rule, recorded {ic.get('rule_recorded', first.get('rule_recorded', RULE_RECORDED))}: {ic['rule']}.", ""]
+        for c in (pts or [ic]):
+            if pts:
+                cp = c.get("point", {})
+                lines += [f"### {cp.get('rung', '')} {cp.get('reset_kind', 'reset')} dial, p = {cp.get('p')}, L = {cp.get('L')}: "
+                          f"{'PASS' if c['passed'] else 'FAIL'}", ""]
+            lines += ["| quantity | engine (1e-11) | chain (1e-11) | difference (rel.) | engine trunc. error | chain trunc. error | rule tolerance | "
+                      "sampled +/- s.e. | within |", "|---|---|---|---|---|---|---|---|---|"]
+            for r in c["rows"]:
+                mc = f"{r['mc']:.6e} +/- {r['mc_se']:.1e}" if "mc" in r else "-"
+                ok_r = r["within"] and r.get("mc_within", True)
+                verdict = ("yes" if ok_r else "NO") if r["tested"] else ("yes (not tested)" if ok_r else "no (not tested)")
+                diff = r.get("diff", r["engine"] - r["chain"])
+                lines.append(f"| {r['quantity']}{'' if r['tested'] else ' (reported)'} | {r['engine']:.10e} | {r['chain']:.10e} | {diff:+.2e} ({r['rel_diff']:+.1e}) | "
+                             f"{r.get('engine_truncation_error', abs(r['engine'] - r['engine_coarse'])):.1e} | "
+                             f"{r.get('chain_truncation_error', abs(r['chain'] - r['chain_coarse'])):.1e} | {r['tolerance']:.1e} | {mc} | {verdict} |")
+            v = c["values"]
+            lines += ["", f"Engine, noise off: std(C_mix) = {v['std_cmix']:.6f}, RMS(2) = {v['rms_l2']:.6f}, RMS(4) = {v['rms_l4']:.6f}, E[C_mix] = {v['mean_cost']:.12f}."]
+            if c.get("note_values"):
+                lines.append("Note's quoted values: " + "; ".join(f"{k} {x['quoted']:.{x['digits']}f} ({'reproduced' if x['rounds_to_quoted'] else 'NOT reproduced'})"
+                                                            for k, x in c["note_values"].items()) + ".")
+            lines.append("")
     for e in rec.get("entries", []):
         pt = e["point"]
-        lines += [f"## Comparator: {pt['patch']} n = {pt['n']}, edge {pt['edge']}, p = {pt['p']}, L = {pt['L']} (probes {', '.join(e['probes'])})", "",
+        lines += [f"## Comparator: {pt.get('reset_kind', 'reset')} dial, {pt['patch']} n = {pt['n']}, edge {pt['edge']}, p = {pt['p']}, L = {pt['L']} "
+                  f"(probes {', '.join(e['probes'])})", "",
                   f"**rms_l2 = {e['rms_l2']:.6f}, rms_l2_sigma = {e['rms_l2_sigma']:.2e}** ({e['rms_l2_source']}; truncated {e['rms_l2_pp']:.6f}, "
                   f"sampled {e['rms_l2_mc']:.6f} +/- {e['rms_l2_se_mc']:.1e}); std(C_mix) = {e['std_cmix']:.5f}; E[C_mix] = {e['mean_cost']:.5f}.", "",
                   "| l | RMS (comparator rule) | sigma | truncated (1e-7) | truncated (1e-6) | sampled +/- s.e. |", "|---|---|---|---|---|---|"]
@@ -312,10 +361,12 @@ def main(argv=None) -> int:
     cmd = "python scripts/predict_h7_truncation.py" + ("" if jl_path.resolve() == DEFAULT_JOBLIST.resolve() else f" --joblist {rel.as_posix()}") + \
           (" --check-only" if args.check_only else "") + (f" --n-samples {args.n_samples}" if args.n_samples != DEV46["n_samples"] else "") + \
           (" --realised-only" if args.realised_only else "") + (f" --realised-samples {args.realised_samples}" if args.realised_samples != rd.REALISED["n_samples"] else "")
-    rec = dict(deviation="60", generated_utc=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), script="scripts/predict_h7_truncation.py", command=cmd,
+    pairs = any(not (pt["reset_kind"] == H7_POINT["reset_kind"] and np.isclose(pt["p"], H7_POINT["p"])) for pt in points)
+    rec = dict(deviation="60" if not pairs else "60 (machinery), 63 (draft; the Part A3 pairs)", pairs=pairs, generated_utc=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), script="scripts/predict_h7_truncation.py", command=cmd,
                git_commit=_git_commit(), joblist=str(rel.as_posix() if hasattr(rel, "as_posix") else rel),
                snapshot=dict(csv=pl["snapshot"], properties=pl["properties"], stamp=stamp, pinned=bool(pl.get("pin_snapshot"))),
-               settings=dict(model="unital (snapshot) + reset dial with idle dephasing + dial-idle ZZ + Deviation 34 layer ZZ, raw readout, k = L",
+               settings=dict(model="unital (snapshot) + the point's dial (reset dial with idle dephasing; dephasing dial with the 400 ns idle) + dial-idle ZZ "
+                                   "+ Deviation 34 layer ZZ, raw readout, k = L",
                              deltas=list(settings["deltas"]), n_samples=settings["n_samples"], seed=settings["seed"], n_cap=settings["n_cap"],
                              time_limit_s=settings["time_limit_s"], zz_angle_scale=pp.ZZ_ANGLE_SCALE, zz_convention=pp.ZZ_CONVENTIONS[pp.ZZ_ANGLE_SCALE],
                              layer_timing=str(rd.LAYER_TIMING.relative_to(ROOT).as_posix()),
@@ -337,7 +388,7 @@ def main(argv=None) -> int:
         ic = ideal_check(patch, rung, point, snapshot, settings["n_samples"], settings["seed"], sampled=not args.no_ideal_mc)
         ic.update(point=dict(point, rung=rung_name))
         checks.append(ic)
-        print(f"bug check {rung_name} p={point['p']} L={point['L']}: {'PASS' if ic['passed'] else 'FAIL'} "
+        print(f"bug check {rung_name} {point['reset_kind']} p={point['p']} L={point['L']}: {'PASS' if ic['passed'] else 'FAIL'} "
               f"(std {ic['values']['std_cmix']:.6f}, RMS(2) {ic['values']['rms_l2']:.6f}, RMS(4) {ic['values']['rms_l4']:.6f}; {ic['runtime_s']:.0f}s)", flush=True)
         if not ic["passed"] or args.check_only:
             continue
@@ -347,12 +398,13 @@ def main(argv=None) -> int:
                      probes=[point["full"]] + [point["cuts"][k] for k in sorted(point["cuts"])], ells_in_list=sorted(point["cuts"]), theta_seed=point["seed"],
                      placement_check=placement, **comp)
         rec["entries"].append(entry)
-        print(f"comparator {rung_name}: rms_l2 = {entry['rms_l2']:.6f} +/- {entry['rms_l2_sigma']:.2e} ({entry['rms_l2_source']}); "
+        print(f"comparator {rung_name} {point['reset_kind']} p={point['p']}: rms_l2 = {entry['rms_l2']:.6f} +/- {entry['rms_l2_sigma']:.2e} ({entry['rms_l2_source']}); "
               f"std(C_mix) {entry['std_cmix']:.5f}; {comp['runtime_s']:.0f}s", flush=True)
     rec["ideal_check"] = checks[0] if len(checks) == 1 else dict(passed=all(c["passed"] for c in checks), points=checks, rule=checks[0]["rule"], rows=[], values={})
     rec["runtime_s"] = time.time() - t_start
     failed = not all(c["passed"] for c in checks)
-    name = f"h7_ideal_check_{tag}" if (args.check_only or failed) else f"h7_truncation_{tag}"
+    stem = "pairs_" if pairs else ""                                           # Deviation 63: never overwrite the day-3 record of the same placement
+    name = f"h7_ideal_check_{stem}{tag}" if (args.check_only or failed) else f"h7_truncation_{stem}{tag}"
     (out_dir / f"{name}.json").write_text(json.dumps(rec, indent=1, default=rd._json_default), encoding="utf-8")
     (out_dir / f"{name}.md").write_text(markdown(rec), encoding="utf-8")
     print(f"wrote {name}.json / .md in {out_dir}; {rec['runtime_s']:.0f}s")
@@ -367,33 +419,34 @@ def main(argv=None) -> int:
 def write_realised(jl: dict, points: list, rec: dict, snapshot: str, props: str, stamp: str, tag: str, out_dir: Path, n_samples: int,
                    mixture_entries: list, t_start: float) -> int:
     """Deviation 60 part (7): the realised-mask comparator of every truncation arm, the mixture entry (drawn now or committed)
-    recorded beside it; written as h7_realised_<tag>.json / .md."""
+    recorded beside it; written as h7_realised_<tag>.json / .md (a pairs list, Deviation 63 draft: h7_realised_pairs_<tag>.*)."""
     from gradvar.analysis import predictions as P
     committed = P.load_truncation_entries(PRED)
-    out = dict(rec, deviation="60 part (7)", settings=dict(rec.get("settings", {}), realised=dict(rd.REALISED, n_samples=int(n_samples)),
+    stem = "pairs_" if rec.get("pairs") else ""                               # Deviation 63: never overwrite the day-3 record of the same placement
+    out = dict(rec, deviation="60 part (7)" if not stem else "60 part (7) (machinery), 63 (draft; the Part A3 pairs)", settings=dict(rec.get("settings", {}), realised=dict(rd.REALISED, n_samples=int(n_samples)),
                                                          comparator_rule="rms = sqrt of the realised-mask off-diagonal MSD(l); rms_sigma = its "
                                                                          "sampling error (Deviation 60 part (7))"), entries=[])
     for point in points:
         rung_name, rung = rung_for(jl, point)
         full = next(p for p in jl["probes"] if p["id"] == point["full"])
-        if not P.realised_applies("reset", full.get("masks", 1)):
+        if not P.realised_applies(P.DIAL_KIND.get(point["reset_kind"], point["reset_kind"]), full.get("masks", 1)):
             print(f"{rung_name}: {point['full']} carries one mask: no realised-mask comparator (the mixture entry stands)", flush=True)
             continue
         e = realised_entry(jl, point, rung_name, rung, snapshot, props, n_samples)
         mix = None
         for m in list(mixture_entries) + committed:
             ok, _why = P._same_point(m, e["point"]["patch"], e["point"]["edge"], e["point"]["n"], e["point"]["p"], e["point"]["L"], e["point"]["qubits"],
-                                     stamp, need_stamp=bool(m.get("placement_stamp")))
+                                     stamp, need_stamp=bool(m.get("placement_stamp")), reset_kind=e["point"]["reset_kind"])
             if ok:
                 mix = m
         if mix is not None:
-            e["mixture"] = dict(rms_l2=mix.get("rms_l2"), rms_l2_sigma=mix.get("rms_l2_sigma"), file=mix.get("file", f"h7_truncation_{tag}.json"),
+            e["mixture"] = dict(rms_l2=mix.get("rms_l2"), rms_l2_sigma=mix.get("rms_l2_sigma"), file=mix.get("file", f"h7_truncation_{stem}{tag}.json"),
                                 by_ell={k: dict(rms=v.get("rms"), rms_sigma=v.get("rms_sigma")) for k, v in (mix.get("by_ell") or {}).items()})
         out["entries"].append(e)
-        print(f"realised comparator {rung_name}: rms_l2 = {e['rms_l2']:.6f} +/- {e['rms_l2_sigma']:.1e}"
+        print(f"realised comparator {rung_name} {point['reset_kind']} p={point['p']}: rms_l2 = {e['rms_l2']:.6f} +/- {e['rms_l2_sigma']:.1e}"
               + (f" (mixture {e['mixture']['rms_l2']:.6f})" if mix is not None else " (no mixture entry found)") + f"; {e['runtime_s']:.0f}s", flush=True)
     out["runtime_s"] = time.time() - t_start
-    name = f"h7_realised_{tag}"
+    name = f"h7_realised_{stem}{tag}"
     (out_dir / f"{name}.json").write_text(json.dumps(out, indent=1, default=rd._json_default), encoding="utf-8")
     (out_dir / f"{name}.md").write_text(markdown_realised(out), encoding="utf-8")
     print(f"wrote {name}.json / .md in {out_dir}")
