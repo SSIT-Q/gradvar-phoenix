@@ -781,7 +781,9 @@ def two_sample_rms(a_full: pd.DataFrame, a_trunc: pd.DataFrame, b_full: pd.DataF
 
 def _pair_stat(t: pd.DataFrame, preds: Dict, arm: str, n_boot: int) -> Dict:
     """One truncation pair at l = 2 on one placement: its point, the Deviation 60 statistic, the comparator of its dial kind and
-    placement, and the rows (``full``, ``cut``); {'error': ...} when the rows do not form one pair on one placement."""
+    placement, and the rows (``full``, ``cut``); {'error': ...} when the rows do not form one pair on one placement. The comparator is
+    looked up as H7's is (Deviation 60 part (7)): the realised-mask entry (``h7_realised_*``; a pairs list's are ``h7_realised_pairs_*``)
+    of the same placement and snapshot, dial kind, probe seed and mask count, with the mixture entry recorded beside it."""
     point = _truncation_point(t)
     if "error" in point:
         return dict(error=point["error"])
@@ -792,19 +794,35 @@ def _pair_stat(t: pd.DataFrame, preds: Dict, arm: str, n_boot: int) -> Dict:
     stat = truncation_rms(full, cut, K, n_boot)
     if stat["pairing_errors"]:
         return dict(error=f"full and truncated circuits do not pair (theta or mask seed differs): {stat['pairing_errors']}", point=point, stat=stat)
-    comp, why = P.truncation_prediction(preds, reset_kind=arm, **{k: point[k] for k in ("patch", "edge", "n", "p", "L", "qubits")})
+    comp, why = P.truncation_prediction(preds, reset_kind=arm,
+                                        **{k: point[k] for k in ("patch", "edge", "n", "p", "L", "qubits", "stamp", "seed", "K")},
+                                        realised=P.realised_applies(arm, point["K"]))       # Deviation 60 part (7): the pair's realised masks
     return dict(point=point, stat=stat, comparator=comp, why=why, full=full, cut=cut)
 
 
+def _comparator_note(comp: Dict | None, label: str) -> str:
+    """How a comparator was drawn: on the probe's realised masks (Deviation 60 part (7)), the mixture entry recorded only."""
+    if not comp:
+        return ""
+    s = f"{label} {comp.get('file', 'preds[truncation]')}: sqrt(MSD(2)) = {float(comp['rms_l2']):.4g}"
+    if comp.get("realised"):
+        mix = (comp.get("mixture") or {}).get("rms_l2")
+        s += " on the probe's realised masks (Deviation 60 part (7))" + (f"; the mixture value {float(mix):.4g} is recorded only" if mix is not None else "")
+    return s
+
+
 def _same_placement(a: Dict, b: Dict) -> bool:
-    keys = ("patch", "edge", "n", "L", "qubits", "broken_edges")
+    """The pair and day 3's pair on one placement: rung, placed qubit set, broken couplers and placement snapshot (Deviation 60, S-A;
+    Deviation 63 M4: the pairs are never re-placed)."""
+    keys = ("patch", "edge", "n", "L", "qubits", "broken_edges", "stamp")
     return all(a.get(k) == b.get(k) for k in keys)
 
 
 def evaluate_truncation_pairs(rows: pd.DataFrame, preds: Dict, n_boot: int = 10_000, h7: Dict | None = None) -> Dict[str, Dict]:
     """Deviation 63 (draft) Part A3 on the truncation rows of the loaded runs (the pairs' list and day 3's list loaded together): per
     pair, RMS(2) by ``truncation_rms`` (the Deviation 60 statistic and interval) against the pre-drawn comparator of its dial kind on
-    the rows' placement (``predictions.truncation_prediction(reset_kind=...)``), and the comparison with day 3's reset p = 0.5 pair
+    the rows' placement (``predictions.truncation_prediction(reset_kind=...)``), drawn on the pair's realised masks (Deviation 60 part
+    (7); A3(b)'s margin is the difference of two realised comparators, H7's as H7 reads it), and the comparison with day 3's reset p = 0.5 pair
     (H7's rows, same placement) by ``two_sample_rms``. (a) fails if its RMS(2) misses its comparator by more than the combined interval
     or is not above p = 0.5's (one-sided 95 percent); (b) fails if RMS_dephase(2) - RMS_reset(2) lies below the comparators' difference
     by more than the combined interval. 'not-run' when a pair has no rows; 'not-evaluable' without its comparator, without day 3's pair
@@ -849,7 +867,8 @@ def evaluate_truncation_pairs(rows: pd.DataFrame, preds: Dict, n_boot: int = 10_
                 continue
             fails = ([] if checks["l2"]["within"] else ["comparator"]) + ([] if between["a_above_b"] else ["not above p = 0.5"])
             out[key] = verdict(hid, text, "fail" if fails else "pass", value=dict(rms_l2=stat["rms"], minus_p05=between["point_difference"]),
-                               threshold=dict(rms_l2_predicted=float(comp["rms_l2"]), rms_l2_sigma=ps, q05_above=0.0), fails=fails, checks=checks, **common)
+                               threshold=dict(rms_l2_predicted=float(comp["rms_l2"]), rms_l2_sigma=ps, q05_above=0.0), fails=fails, checks=checks,
+                               note=_comparator_note(comp, "comparator"), **common)
             continue
         ref_comp = ref.get("comparator")
         if ref_comp is None:
@@ -860,7 +879,9 @@ def evaluate_truncation_pairs(rows: pd.DataFrame, preds: Dict, n_boot: int = 10_
         s_d, s_r = (float(x) if x is not None else 0.0 for x in (comp.get("rms_l2_sigma"), ref_comp.get("rms_l2_sigma")))
         m_sigma = float(np.hypot(s_d, s_r))
         mt = _value_test(between["point_difference"], between["lo"], between["hi"], margin, m_sigma)
-        checks["margin"] = dict(mt, margin=margin, margin_sigma=m_sigma)
+        mixes = [(c.get("mixture") or {}).get("rms_l2") for c in (comp, ref_comp)]
+        checks["margin"] = dict(mt, margin=margin, margin_sigma=m_sigma, realised=bool(comp.get("realised") and ref_comp.get("realised")),
+                                margin_mixture=(float(mixes[0]) - float(mixes[1])) if None not in mixes else None)   # recorded only (part (7))
         if mt["within"] is None:
             out[key] = verdict(hid, text, "not-evaluable", note="the difference or the margin is not finite", checks=checks, **common)
             continue
@@ -876,6 +897,7 @@ def evaluate_truncation_pairs(rows: pd.DataFrame, preds: Dict, n_boot: int = 10_
                  else "(b) passes its margin test")))
         out[key] = verdict(hid, text, "fail" if fails else "pass", value=dict(rms_l2=stat["rms"], minus_reset=between["point_difference"]),
                            threshold=dict(margin=margin, margin_sigma=m_sigma), fails=fails, checks=checks,
+                           note="; ".join(x for x in (_comparator_note(comp, "comparator"), _comparator_note(ref_comp, "margin: H7's comparator")) if x),
                            unital_as_fast=bool(not between["a_above_b"]), **extra, **common)
     return out
 
@@ -1034,9 +1056,10 @@ def mean_cmix_check(points: pd.DataFrame, rows: pd.DataFrame | None = None, snap
 CEILING_TEXT = ("Deviation 63 (draft), R2's unital-ceiling check (checkpoint review M2, option (b)): the dephasing dial is the delay-matched "
                 "circuit with exact virtual-Z frame changes added, and a Pauli channel can only shrink the gradient's uniform-angle second "
                 "moments, so in any unital model the dephasing dial's k = L variance cannot exceed the delay-matched p = 0 k = L variance on "
-                "the same rung at L = 8 (pre-drawn on the 27 Sep 03:08Z placement: 2.65e-4, against the reset dial's Deviation 33 floor of "
-                "7.54e-3 and the dephasing dial's own prediction of 1.56e-5; R2 would need a dephasing variance of about 1.9e-3, "
-                "provisional). If the dephasing dial's floor-subtracted k = L variance is resolvably above the delay-matched one (two-sample "
+                "the same rung at L = 8 (pre-drawn on the 27 Sep 03:08Z placement: 2.65e-4, no mask lottery at p = 0; against the reset dial's "
+                "Deviation 33 floor of 4.82e-3 and the dephasing dial's own prediction of 1.73e-5, both on the realised masks of Deviation 60 "
+                "part (7) (mixture 7.54e-3 and 1.56e-5); R2 would need a dephasing variance of about 1.2e-3, the review's 1.9e-3 rescaled "
+                "to the realised floor, provisional). If the dephasing dial's floor-subtracted k = L variance is resolvably above the delay-matched one (two-sample "
                 "bootstrap over draws, the two points having their own seeds; one-sided 95 percent, the pattern floor's error added), "
                 "the pattern is 'unital control not as modelled': UNRESOLVED, reported as a control finding.")
 Z90 = 1.6448536269514722
@@ -1083,7 +1106,7 @@ READINGS = {
     "R2": ("Added noise only: the reset dial behaves as pre-drawn (pair (a), where it ran, passes), but the unital dephasing dial at matched X "
            "and Y attenuation keeps the last-layer gradient (and, where A3(b) ran, forgets its early layers) as well as the reset dial does. "
            "Expected to be empty on the booked statistics: in any unital model the dephasing dial's k = L variance is capped by the "
-           "delay-matched p = 0 variance (2.65e-4 pre-drawn), while R2 needs about 1.9e-3 (provisional). Question 2 is open on hardware, "
+           "delay-matched p = 0 variance (2.65e-4 pre-drawn), while R2 needs about 1.2e-3 on the realised floor (provisional). Question 2 is open on hardware, "
            "not in theory."),
     "R3": ("Channel not as modelled: a Deviation 33 floor fails, E[C_mix] misses its realised-mask folded value, or Paper 2's H4 is refuted; "
            "reported as a channel finding, with no trainability claim."),
@@ -1161,6 +1184,21 @@ def _cmix_gaps(mean_check: Dict | None) -> list:
             if x.get("point_id") is not None and x.get("within") is None]
 
 
+def _floor_gaps(h5: Dict | None, h6: Dict | None) -> list:
+    """Deviation 60 part (7): the Deviation 33 floors that R3 (i) reads are re-derived on each point's realised masks and are not
+    tested without the realised mask counts or the run-day readout and gain factors. An untested floor at a point H5 or H6 reads keeps
+    R3 (i) from being decided there, so it blocks R1 and R2 with the point and the reason named (as follow-up review S10 does for
+    E[C_mix])."""
+    out = []
+    for name, v in (("H5", h5), ("H6", h6)):
+        for x in (v or {}).get("floors", []) or []:
+            if x.get("floor_tested") is False or x.get("below_floor_with_interval") is None:
+                why = x.get("floor_note") or ("the measured value or the floor is not finite" if x.get("floor_tested") is not False else "")
+                out.append(f"the Deviation 33 floor is not tested at the {name} point p = {float(x.get('p', np.nan)):g}, n = {x.get('n')}, "
+                           f"L = {x.get('L')}" + (f" ({why})" if why else "") + ": R3 (i) is not decided there (Deviation 60 part (7))")
+    return out
+
+
 def _conclusion(reading: str, h5: Dict | None) -> Dict:
     """``CONCLUSION_RULE`` applied to a reading."""
     if reading == "R1":
@@ -1182,7 +1220,9 @@ def classify_readings(h5: Dict, h6: Dict, h7: Dict, pairs: Dict | None = None, m
        realised-mask folded value (``mean_check`` 'fail'), or H4 is refuted. It overrides everything below.
     2. UNRESOLVED, as a control finding, if the unital-ceiling check fails (``ceiling`` 'fail': unital control not as modelled).
     3. Neither R1 nor R2 unless the E[C_mix] check was run and evaluated at every family member that has a point in the loaded
-       runs (members not run count as not missing): otherwise UNRESOLVED with the reason named (follow-up review S10).
+       runs (members not run count as not missing), and every Deviation 33 floor check of H5 and H6 was tested (the floors are the
+       realised-mask floors of Deviation 60 part (7), ``_floor_gaps``): otherwise UNRESOLVED with the reason named (follow-up review
+       S10).
     4. R1 if H6 and H7 pass as pre-registered, with every sub-test the readings need evaluated (the H6 depth ratio at both p, the
        reset / dephasing control, H7's l = 2 comparator), and every A3 pair that ran passes (a pair that ran and is not evaluable
        blocks R1). Its scope follows the H6 ladder (``RUNG_SCOPE``): the three rungs when the ladder ratio is evaluated or declared
@@ -1219,7 +1259,7 @@ def classify_readings(h5: Dict, h6: Dict, h7: Dict, pairs: Dict | None = None, m
     detail = dict(h5=(h5 or {}).get("result"), h6=(h6 or {}).get("result"), h7=(h7 or {}).get("result"), h6_control=control,
                   h6_control_rule=(ctrl or {}).get("rule"), factor_not_tested=bool(ctrl and ctrl.get("rule") == "bounds" and _factor_not_tested(ctrl)),
                   h6_depth_ratios={p: x.get("within") for p, x in hp["ratios"].items()}, ladder=ladder, pairs={k: v.get("result") for k, v in pairs.items()},
-                  mean_check=(mean_check or {}).get("result"), unital_ceiling=ceil, h4=h4)
+                  mean_check=(mean_check or {}).get("result"), unital_ceiling=ceil, h4=h4, floor_gaps=_floor_gaps(h5, h6))
 
     def done(reading: str, reasons: list, wording_: str | None, **extra) -> Dict:
         res = dict(reading=reading, text=READINGS[reading], reasons=reasons, wording=wording_, detail=detail, conclusion=_conclusion(reading, h5),
@@ -1235,6 +1275,7 @@ def classify_readings(h5: Dict, h6: Dict, h7: Dict, pairs: Dict | None = None, m
                                    "delay-matched p = 0 variance (reported as a control finding)"], None, control_finding=True)
     blocks, reasons = [], []
     blocks += _cmix_gaps(mean_check)                                    # follow-up review S10: R3 (ii) may not be silently off
+    blocks += detail["floor_gaps"]                                      # nor R3 (i) on the realised floors (Deviation 60 part (7))
     both_p = all(p in hp["ratios"] and hp["ratios"][p].get("within") is not None for p in (0.25, 0.5))
     if not both_p:
         blocks.append("the H6 depth ratio is not evaluated at both p (the p = 0.5 rows need a placement-matched prediction, Deviation 60 item 5)")
@@ -1256,7 +1297,7 @@ def classify_readings(h5: Dict, h6: Dict, h7: Dict, pairs: Dict | None = None, m
                        + ("; factor not tested (d_hi <= 0), the clause decided by 'exceeds'" if detail["factor_not_tested"] else ""))
         return done("R1", why + [f"scope: {RUNG_SCOPE[ladder]}"], wording, scope=RUNG_SCOPE[ladder])
     b_ok = b_ is None or (b_.get("result") in ("pass", "fail") and bool(b_.get("unital_as_fast")))
-    if reset_side_ok and control == "unital_protects" and b_ok and ceil == "pass" and not _cmix_gaps(mean_check):
+    if reset_side_ok and control == "unital_protects" and b_ok and ceil == "pass" and not _cmix_gaps(mean_check) and not detail["floor_gaps"]:
         return done("R2", ["the reset-side sub-tests pass while the reset dial's k = L variance is not resolvably above the dephasing dial's",
                            "the unital-ceiling check passes"]
                     + (["A3(b): the dephasing RMS(2) is not resolvably above the reset's"] if b_ is not None else []), wording)
@@ -1322,6 +1363,8 @@ def two_strength_statement(points: pd.DataFrame, preds: Dict, h6: Dict | None = 
     miss, miss_note = _missing(missing)
     return dict(base, result="reported" if np.isfinite(pred) and np.isfinite(meas.get("ratio", np.nan)) else "not-evaluable",
                 value=_ratio_test(meas, pred, ps), points=[str(lo_.point_id), str(hi_.point_id)], missing_predictions=miss,
+                realised=bool(pr_lo and pr_hi and pr_lo.get("realised") and pr_hi.get("realised")),       # Deviation 60 part (7)
+                predicted_mixture=_mix_ratio(pr_hi, pr_lo, "var_cost") if (pr_lo and pr_hi) else None,
                 note=("reported only" if np.isfinite(pred) else "no placement-matched pre-drawn ratio") + miss_note)
 
 

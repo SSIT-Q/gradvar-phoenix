@@ -39,6 +39,15 @@ def _day3():
     return json.loads(DAY3.read_text(encoding="utf-8"))
 
 
+def _with_q79(day3):
+    """The committed day-3 list with qubit 79 put back into its n60 rung, as the pinned 23 Sep 16:35Z list had it (the list Deviation
+    62 re-placed; the current package excludes it, ``dial_exclude``)."""
+    bad = copy.deepcopy(day3)
+    rung = bad["placement"]["rungs"]["n60"]
+    rung["qubits"] = sorted(set(int(q) for q in rung["qubits"]) | {79})
+    return bad
+
+
 # ------------------------------------------------------------------------------------------------ the pairs' list
 
 def test_pairs_list_follows_the_day3_placement_and_the_booked_pair():
@@ -61,13 +70,16 @@ def test_pairs_list_follows_the_day3_placement_and_the_booked_pair():
     assert jl["budget"] == estimate_budget(jl)
     assert jl["budget"]["pubs"] == 4 * 256 and jl["budget"]["executions"] == 4 * 100 * 256 * 64 and jl["budget"]["trex_executions"] == 0
     assert "Deviation 63" in jl["notes"] and jl["campaign"]["deviation"].startswith("Deviation 63")
-    assert jl["campaign"]["dial_excluded_in_rung"] == [79] and "DRY CHECK ONLY" in jl["notes"]       # the pinned 23 Sep n60 rung holds qubit 79
+    held = sorted(set(int(q) for q in day3["placement"]["rungs"]["n60"]["qubits"]) & {79})         # [] on a Deviation 62 placement
+    assert jl["campaign"]["dial_excluded_in_rung"] == held and ("DRY CHECK ONLY" in jl["notes"]) == bool(held)
+    dry = MTP.build(_with_q79(day3), "day3_dial_refs.json", allow_dial_excluded=True)                 # the 23 Sep rung held qubit 79
+    assert dry["campaign"]["dial_excluded_in_rung"] == [79] and "DRY CHECK ONLY" in dry["notes"]
 
 
 def test_pairs_list_refusals():
     day3 = _day3()
     with pytest.raises(SystemExit, match="Section 3b excludes"):
-        MTP.build(day3, "day3")                                                                  # qubit 79 in the n60 rung
+        MTP.build(_with_q79(day3), "day3")                                                       # qubit 79 in the n60 rung
     ok = copy.deepcopy(day3)                                                                     # a rung without it builds without the flag
     ok["placement"]["rungs"]["n60"]["qubits"] = [q for q in ok["placement"]["rungs"]["n60"]["qubits"] if q != 79]
     jl = MTP.build(ok, "day3")
@@ -87,18 +99,25 @@ def test_pairs_list_refusals():
 
 
 def test_pairs_script_writes_a_valid_list(tmp_path):
+    """The script as the same-day cycle calls it (``scripts/sameday_repackage.py --with-pairs``: the committed day-3 list, no flag), and its
+    refusal of a day-3 list whose n60 rung holds qubit 79 unless ``--allow-dial-excluded`` is given."""
     out = tmp_path / "dial_truncation_pairs.json"
     r = subprocess.run([sys.executable, "scripts/make_truncation_pairs.py", "data/joblists/paper1/day3_dial_refs.json", "--out", str(out)],
                        cwd=ROOT, capture_output=True, text=True, timeout=600)
-    assert r.returncode == 1 and "Section 3b excludes" in r.stderr                              # refuses the pinned 23 Sep list by default
-    r = subprocess.run([sys.executable, "scripts/make_truncation_pairs.py", "data/joblists/paper1/day3_dial_refs.json", "--out", str(out),
-                        "--allow-dial-excluded"], cwd=ROOT, capture_output=True, text=True, timeout=600)
-    assert r.returncode == 0, r.stderr
+    assert r.returncode == 0, r.stderr                                                           # Deviation 62's placement: no qubit 79
     jl = load_joblist(str(out))
-    assert jl["name"] == MTP.LIST_NAME and len(jl["probes"]) == 4
-    r = subprocess.run([sys.executable, "scripts/make_truncation_pairs.py", "data/joblists/paper1/day3_dial_refs.json", "--out", str(out),
-                        "--allow-dial-excluded", "--check"], cwd=ROOT, capture_output=True, text=True, timeout=600)
+    assert jl["name"] == MTP.LIST_NAME and len(jl["probes"]) == 4 and jl["placement"] == _day3()["placement"]
+    r = subprocess.run([sys.executable, "scripts/make_truncation_pairs.py", "data/joblists/paper1/day3_dial_refs.json", "--out", str(out), "--check"],
+                       cwd=ROOT, capture_output=True, text=True, timeout=600)
     assert r.returncode == 0 and "matches" in r.stdout
+    q79 = tmp_path / "day3_q79.json"
+    q79.write_text(json.dumps(_with_q79(_day3())))
+    r = subprocess.run([sys.executable, "scripts/make_truncation_pairs.py", str(q79), "--out", str(tmp_path / "x.json")],
+                       cwd=ROOT, capture_output=True, text=True, timeout=600)
+    assert r.returncode == 1 and "Section 3b excludes" in r.stderr                              # refused by default
+    r = subprocess.run([sys.executable, "scripts/make_truncation_pairs.py", str(q79), "--out", str(tmp_path / "x.json"), "--allow-dial-excluded"],
+                       cwd=ROOT, capture_output=True, text=True, timeout=600)
+    assert r.returncode == 0, r.stderr
 
 
 # ------------------------------------------------------------------------------------------------ the runner
@@ -208,44 +227,107 @@ def test_truncation_points_of_the_pairs_list_and_the_note_point():
     assert not all(note_like.get(k) == v for k, v in h7.NOTE_POINT.items())
 
 
-def _entry(kind, p, rms, qubits, sigma=0.002, file="t.json", **pt):
+STAMP = "2026-10-04T043542Z"                                         # the placement snapshot both sides record (Deviation 60, S-A)
+
+
+def _entry(kind, p, rms, qubits, sigma=0.002, file="t.json", stamp=STAMP, **pt):
+    """A mixture comparator entry (``h7_truncation_*``) of one dial kind on the 6x10 / 84_85 / n = 52 placement."""
     point = dict(patch="6x10", edge="84_85", n=52, p=p, L=8, reset_kind=kind, qubits=qubits)
     point.update(pt)
-    return dict(point=point, rms_l2=rms, rms_l2_sigma=sigma, file=file)
+    return dict(point=point, rms_l2=rms, rms_l2_sigma=sigma, file=file, placement_stamp=stamp)
+
+
+def _realised(kind, p, rms, qubits, seed, K=32, sigma=0.002, file="t_realised.json", stamp=STAMP, **pt):
+    """The realised-mask entry (``h7_realised_*``, Deviation 60 part (7)) of the probe with mask seed ``seed`` and ``K`` masks."""
+    return dict(_entry(kind, p, rms, qubits, sigma, file, stamp, **pt), mask_seed=seed, K=K)
 
 
 def test_comparator_lookup_matches_the_dial_kind():
     q = list(range(52))
+    kw = dict(patch="6x10", edge="84_85", n=52, p=0.5, L=8, qubits=q, stamp=STAMP)
     preds = dict(truncation_entries=[_entry("reset", 0.5, 0.055, q, file="a.json"), _entry("dephase", 0.5, 0.25, q, file="b.json")])
-    hit, _ = P.truncation_prediction(preds, patch="6x10", edge="84_85", n=52, p=0.5, L=8, qubits=q)
+    hit, _ = P.truncation_prediction(preds, **kw)
     assert hit["rms_l2"] == 0.055                                 # H7's lookup (default reset_kind) never takes the dephasing entry, listed last
-    hit, _ = P.truncation_prediction(preds, patch="6x10", edge="84_85", n=52, p=0.5, L=8, qubits=q, reset_kind="dephase")
+    hit, _ = P.truncation_prediction(preds, **kw, reset_kind="dephase")
     assert hit["rms_l2"] == 0.25
-    legacy = dict(truncation_entries=[dict(point=dict(patch="6x10", edge="84_85", n=52, p=0.5, L=8, qubits=q), rms_l2=0.05, file="c.json")])
-    assert P.truncation_prediction(legacy, patch="6x10", edge="84_85", n=52, p=0.5, L=8, qubits=q)[0]["rms_l2"] == 0.05   # no kind = reset
-    none, why = P.truncation_prediction(legacy, patch="6x10", edge="84_85", n=52, p=0.5, L=8, qubits=q, reset_kind="dephase")
+    legacy = dict(truncation_entries=[dict(point=dict(patch="6x10", edge="84_85", n=52, p=0.5, L=8, qubits=q), rms_l2=0.05, file="c.json",
+                                           placement_stamp=STAMP)])
+    assert P.truncation_prediction(legacy, **kw)[0]["rms_l2"] == 0.05                             # no kind = reset
+    none, why = P.truncation_prediction(legacy, **kw, reset_kind="dephase")
     assert none is None and "reset_kind" in why
+    # Deviation 60 part (7): the realised-mask entry of the same dial kind, probe seed and mask count, the mixture recorded beside it
+    real = dict(preds, truncation_realised=[_realised("reset", 0.5, 0.062, q, 23291001, K=256, file="ar.json"),
+                                            _realised("dephase", 0.5, 0.26, q, 23891001, K=256, file="br.json")])
+    hit, _ = P.truncation_prediction(real, **kw, seed=23891001, K=256, realised=True, reset_kind="dephase")
+    assert hit["rms_l2"] == 0.26 and hit["realised"] is True and hit["mixture"]["rms_l2"] == 0.25 and hit["mixture"]["file"] == "b.json"
+    hit, _ = P.truncation_prediction(real, **kw, seed=23291001, K=256, realised=True)                # H7's: the reset entry
+    assert hit["rms_l2"] == 0.062 and hit["mixture"]["rms_l2"] == 0.055
+    none, why = P.truncation_prediction(real, **kw, seed=23291001, K=256, realised=True, reset_kind="dephase")
+    assert none is None and "probe seed" in why                   # the dephasing entry is keyed by the pair's own probe seed
+    none, why = P.truncation_prediction(real, **dict(kw, stamp="2026-09-27T030805Z"), seed=23891001, K=256, realised=True, reset_kind="dephase")
+    assert none is None and "snapshot" in why                     # another placement snapshot: never used
+    assert P.truncation_prediction(preds, **kw, seed=23891001, K=256, realised=True, reset_kind="dephase")[0] is None   # no realised file
+
+
+def _pairs_preds(pred_dir, jl, day3, h7_rms=0.062, a_rms=0.12, b_rms=0.2, deph_kind="dephase", extra_h7=False):
+    """The four comparator files of the same-day cycle on the pairs list's placement: H7's mixture and realised entries (the day-3
+    list's truncation probes) and the pairs' mixture and realised entries (``h7_truncation_pairs_<tag>`` / ``h7_realised_pairs_<tag>``)."""
+    pl = jl["placement"]
+    r = pl["rungs"]["n60"]
+    tag = pl["stamp"][:13] + pl["stamp"][14:16]                   # 2026-10-04T043542Z -> 2026-10-04T0435
+    pt = dict(patch=r["patch"], edge=r["edge"], n=int(r["n"]), L=8, k=8, qubits=sorted(int(q) for q in r["qubits"]))
+    snap = dict(csv=pl["snapshot"], stamp=pl["stamp"])
+    h7seed = int(next(p for p in day3["probes"] if p["id"] == "trunc_full_p0.5_L8")["seed"])
+
+    def ent(kind, p, rms, seed=None):
+        e = dict(point=dict(pt, p=p, reset_kind=kind), rms_l2=rms, rms_l2_sigma=0.001, probes=[])
+        return e if seed is None else dict(e, mask_seed=seed, K=256)
+    write = lambda name, entries: (pred_dir / f"{name}_{tag}.json").write_text(json.dumps(dict(snapshot=snap, entries=entries)))
+    write("h7_truncation", [ent("reset", 0.5, h7_rms - 0.007)])
+    write("h7_realised", [ent("reset", 0.5, h7_rms, h7seed)] + ([ent("reset", 0.5, h7_rms, h7seed + 7)] if extra_h7 else []))
+    write("h7_truncation_pairs", [ent("reset", 0.25, a_rms - 0.01), ent(deph_kind, 0.5, b_rms - 0.01)])
+    write("h7_realised_pairs", [ent("reset", 0.25, a_rms, MTP.PAIRS_SEED), ent(deph_kind, 0.5, b_rms, MTP.PAIRS_SEED)])
+    return tag
 
 
 def test_check_comparators_on_the_pairs_list(tmp_path):
-    jl = MTP.build(_day3(), "day3", allow_dial_excluded=True)
+    """check_comparators on the pairs list under Deviation 60 part (7): each pair needs the realised-mask entry of its dial kind, probe
+    seed and mask count on the placement (``h7_realised_pairs_<tag>.json``, its mixture entry beside it), and A3(b)'s margin needs
+    exactly one realised H7 entry on the placement (the day-3 list's truncation probes)."""
+    day3 = _day3()
+    jl = MTP.build(day3, "day3")
     f = tmp_path / "pairs.json"
     f.write_text(json.dumps(jl))
-    res = CC.check(f)
-    need = {x["need"]: x for x in res["items"]}
-    assert res["missing"] == 2 and not need["A3 pair comparator (l = 2)"]["found"]
-    assert need["H7 comparator (A3(b) margin)"]["found"] and need["H7 comparator (A3(b) margin)"]["source"] == "h7_truncation_2026-09-23T1635.json"
-    q = jl["placement"]["rungs"]["n60"]["qubits"]
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    res = CC.check(f, empty)
+    need = [x["need"] for x in res["items"] if not x["found"]]
+    assert res["missing"] == 3 and need.count("A3 pair comparator (l = 2), realised masks") == 2
+    assert "H7 comparator (A3(b) margin), realised masks" in need
     pred_dir = tmp_path / "pred"
     pred_dir.mkdir()
-    rec = json.loads((ROOT / "data" / "predictions" / "h7_truncation_2026-09-23T1635.json").read_text())
-    (pred_dir / "h7_truncation_2026-09-23T1635.json").write_text(json.dumps(rec))
-    pairs = dict(entries=[dict(_entry("reset", 0.25, 0.12, q, file=None), probes=[]), dict(_entry("dephase", 0.5, 0.2, q, file=None), probes=[])])
-    (pred_dir / "h7_truncation_pairs_2026-09-23T1635.json").write_text(json.dumps(pairs))
-    assert CC.check(f, pred_dir)["missing"] == 0
-    day3 = CC.check(DAY3, pred_dir)                               # the day-3 list's H7 lookup is untouched by the pairs' file
-    h7item = [x for x in day3["items"] if x["need"] == "H7 comparator (l = 2)"]
-    assert len(h7item) == 1 and h7item[0]["found"] and h7item[0]["rms_l2"] == rec["entries"][0]["rms_l2"]
+    _pairs_preds(pred_dir, jl, day3)
+    res = CC.check(f, pred_dir)
+    assert res["missing"] == 0, [(x["need"], x.get("reason")) for x in res["items"] if not x["found"]]
+    margin = next(x for x in res["items"] if x["need"].startswith("H7 comparator (A3(b) margin)"))
+    assert margin["rms_l2"] == 0.062 and margin["rms_l2_mixture"] == pytest.approx(0.055)          # realised, the mixture beside it
+    pairs = {x["reset_kind"]: x for x in res["items"] if x["need"].startswith("A3 pair")}
+    assert pairs["reset"]["rms_l2"] == 0.12 and pairs["dephase"]["rms_l2"] == 0.2 and pairs["dephase"]["p"] == 0.5
+    assert pairs["reset"]["rms_l2_mixture"] == pytest.approx(0.11) and pairs["dephase"]["rms_l2_mixture"] == pytest.approx(0.19)
+    day3_res = CC.check(DAY3, pred_dir)                           # the day-3 list's H7 lookup is untouched by the pairs' files
+    h7item = [x for x in day3_res["items"] if x["need"].startswith("H7 comparator (l = 2)")]
+    assert len(h7item) == 1 and h7item[0]["found"] and h7item[0]["rms_l2"] == 0.062
+    two = tmp_path / "two"
+    two.mkdir()
+    _pairs_preds(two, jl, day3, extra_h7=True)                    # two realised H7 entries (probe seeds) on the placement
+    margin = next(x for x in CC.check(f, two)["items"] if x["need"].startswith("H7 comparator (A3(b) margin)"))
+    assert not margin["found"] and "ambiguous" in margin["reason"]
+    wrong = tmp_path / "wrong"
+    wrong.mkdir()
+    _pairs_preds(wrong, jl, day3, deph_kind="reset")             # the dephasing pair's entries carry the reset dial's kind
+    res = CC.check(f, wrong)
+    deph = next(x for x in res["items"] if x["need"].startswith("A3 pair") and x["reset_kind"] == "dephase")
+    assert not deph["found"] and "reset_kind" in deph["reason"]
 
 
 # ------------------------------------------------------------------------------------------------ analysis on synthetic rows
@@ -254,9 +336,10 @@ Q52 = list(range(52))
 BROKEN = "[[86, 87], [100, 101]]"
 
 
-def _pair_rows(arm, p, delta, seed0, M_=60, K_=32, s=64, resid=0.1, shared=0.3, rng_seed=4, qubits=Q52):
+def _pair_rows(arm, p, delta, seed0, M_=60, K_=32, s=64, resid=0.1, shared=0.3, rng_seed=4, qubits=Q52, stamp=STAMP):
     """Truncation rows of one pair in the loader's schema: C_full = c_d + eta_dm + rho_dm, C_cut = c_d + eta_dm - s_d delta, binomial
-    shots; RMS(2) = delta exactly (the statistic subtracts the shot and residual pattern terms)."""
+    shots; RMS(2) = delta exactly (the statistic subtracts the shot and residual pattern terms). The rows record the placement snapshot
+    and the runner's mask seeds (seed0 + 1 + m), the keys of the realised-mask comparator (Deviation 60 part (7))."""
     rng = np.random.default_rng(rng_seed)
     out = []
     for d in range(M_):
@@ -268,7 +351,7 @@ def _pair_rows(arm, p, delta, seed0, M_=60, K_=32, s=64, resid=0.1, shared=0.3, 
                 ev = 2 * rng.binomial(s, (1 + np.clip(val, -1, 1)) / 2) / s - 1
                 out.append(dict(kind="truncation", ell=float(ell), arm=arm, reset_kind=arm, p=p, patch="6x10", edge="84_85", n=52, L=8, k=8,
                                 patch_qubits=" ".join(map(str, qubits)), broken_edges=BROKEN, draw=d, mask_index=m, seed=seed0 + d,
-                                mask_seed=seed0 + 1 + m, ev_plus=ev, std_plus=np.nan, shots=s, resilience_level=0))
+                                mask_seed=seed0 + 1 + m, ev_plus=ev, std_plus=np.nan, shots=s, resilience_level=0, placement_stamp=stamp))
     return pd.DataFrame(out)
 
 
@@ -281,8 +364,15 @@ def synthetic():
     return dict(h7=h7rows, a=a, b=b, same=same)
 
 
-def _comparators(q=Q52, h7_rms=0.06, a_rms=0.13, b_rms=0.25):
-    return dict(truncation_entries=[_entry("reset", 0.5, h7_rms, q), _entry("reset", 0.25, a_rms, q), _entry("dephase", 0.5, b_rms, q)])
+H7_SEED, PAIRS_SEED = 23291001, 23891001
+
+
+def _comparators(q=Q52, h7_rms=0.06, a_rms=0.13, b_rms=0.25, mix_shift=-0.007, keep=("h7", "a", "b")):
+    """Mixture and realised-mask entries for H7 and the two pairs (Deviation 60 part (7)): the analysis compares with the realised
+    value; the mixture value (``mix_shift`` apart, as 0.05536 against 0.06208 on 27 Sep) is recorded beside it only."""
+    spec = dict(h7=("reset", 0.5, h7_rms, H7_SEED), a=("reset", 0.25, a_rms, PAIRS_SEED), b=("dephase", 0.5, b_rms, PAIRS_SEED))
+    return dict(truncation_entries=[_entry(k, p, r + mix_shift, q, file=f"mix_{n}.json") for n, (k, p, r, _s) in spec.items() if n in keep],
+                truncation_realised=[_realised(k, p, r, q, s, file=f"real_{n}.json") for n, (k, p, r, s) in spec.items() if n in keep])
 
 
 def test_h7_reads_only_its_own_point(synthetic):
@@ -308,6 +398,10 @@ def test_pair_evaluations_pass_at_the_planted_values(synthetic):
     assert b["result"] == "pass", b.get("note")
     assert b["checks"]["margin"]["margin"] == pytest.approx(0.25 - 0.06) and b["unital_as_fast"] is False
     assert b["checks"]["l2"]["within"] is True                                   # reported beside the margin test
+    assert a["comparator"]["realised"] is True and a["comparator"]["rms_l2"] == 0.13 and a["comparator"]["mixture"]["rms_l2"] == pytest.approx(0.123)
+    m = b["checks"]["margin"]                                                     # Deviation 60 part (7): realised comparators on both sides
+    assert m["realised"] is True and m["margin_mixture"] == pytest.approx((0.25 - 0.007) - (0.06 - 0.007))
+    assert "realised masks" in a["note"] and "H7's comparator" in b["note"] and "real_h7.json" in b["note"]
 
 
 def test_pair_evaluations_fail_and_guards(synthetic):
@@ -320,16 +414,27 @@ def test_pair_evaluations_fail_and_guards(synthetic):
     assert below["a"]["result"] == "fail" and below["a"]["fails"] == ["not above p = 0.5"]
     none = DH.evaluate_truncation_pairs(synthetic["h7"], _comparators(), n_boot=200)
     assert none["a"]["result"] == none["b"]["result"] == "not-run"
-    nocomp = DH.evaluate_truncation_pairs(pd.concat(base + [synthetic["b"]]), dict(truncation_entries=[_entry("reset", 0.5, 0.06, Q52)]), n_boot=200)
+    nocomp = DH.evaluate_truncation_pairs(pd.concat(base + [synthetic["b"]]), _comparators(keep=("h7",)), n_boot=200)
     assert nocomp["a"]["result"] == nocomp["b"]["result"] == "not-evaluable" and "comparator" in nocomp["a"]["note"]
+    mixonly = _comparators()                                                      # part (7): the mixture entry alone is not a comparator
+    mixonly["truncation_realised"] = [e for e in mixonly["truncation_realised"] if e["point"]["p"] == 0.5 and e["point"]["reset_kind"] == "reset"]
+    r = DH.evaluate_truncation_pairs(pd.concat(base + [synthetic["b"]]), mixonly, n_boot=200)
+    assert r["a"]["result"] == r["b"]["result"] == "not-evaluable" and "realised" in r["a"]["note"]
     noh7 = DH.evaluate_truncation_pairs(pd.concat([synthetic["a"], synthetic["b"]]), _comparators(), n_boot=200)
     assert noh7["a"]["result"] == noh7["b"]["result"] == "not-evaluable" and "day 3" in noh7["a"]["note"]
-    no_margin = DH.evaluate_truncation_pairs(pd.concat(base + [synthetic["b"]]), dict(truncation_entries=_comparators()["truncation_entries"][1:]), n_boot=200)
+    no_margin = DH.evaluate_truncation_pairs(pd.concat(base + [synthetic["b"]]), _comparators(keep=("a", "b")), n_boot=200)
     assert no_margin["b"]["result"] == "not-evaluable" and "margin" in no_margin["b"]["note"]
     moved = _pair_rows("reset", 0.25, 0.13, 23891001, rng_seed=2, qubits=list(range(1, 53)))
-    other = DH.evaluate_truncation_pairs(pd.concat([synthetic["h7"], moved]), dict(truncation_entries=[_entry("reset", 0.5, 0.06, Q52),
-                                                                                                       _entry("reset", 0.25, 0.13, list(range(1, 53)))]), n_boot=200)
+    other = DH.evaluate_truncation_pairs(pd.concat([synthetic["h7"], moved]), dict(
+        truncation_entries=[_entry("reset", 0.5, 0.06, Q52), _entry("reset", 0.25, 0.13, list(range(1, 53)))],
+        truncation_realised=[_realised("reset", 0.5, 0.06, Q52, H7_SEED), _realised("reset", 0.25, 0.13, list(range(1, 53)), PAIRS_SEED)]), n_boot=200)
     assert other["a"]["result"] == "not-evaluable" and "different placements" in other["a"]["note"]
+    replaced = _pair_rows("reset", 0.25, 0.13, 23891001, rng_seed=2, stamp="2026-10-05T031000Z")   # M4: a re-placed pairs list
+    comps = _comparators()
+    comps["truncation_entries"].append(_entry("reset", 0.25, 0.123, Q52, file="mix_new.json", stamp="2026-10-05T031000Z"))
+    comps["truncation_realised"].append(_realised("reset", 0.25, 0.13, Q52, PAIRS_SEED, file="real_new.json", stamp="2026-10-05T031000Z"))
+    r = DH.evaluate_truncation_pairs(pd.concat([synthetic["h7"], replaced]), comps, n_boot=200)
+    assert r["a"]["result"] == "not-evaluable" and "different placements" in r["a"]["note"]
 
 
 def test_mask_reconstruction_matches_the_runner():
@@ -578,6 +683,21 @@ def test_reading_needs_the_cmix_check_evaluated():
     assert CR(H5_OK, _h6(), H7_OK, PAIRS_OK, dict(result="fail", points=[dict(point_id="x", within=False)]))["reading"] == "R3"
 
 
+def test_reading_needs_the_realised_floors_tested():
+    """Deviation 60 part (7): the floors R3 (i) reads are the realised-mask floors; one not tested (no realised mask counts, or no run-day
+    readout / gain factors) blocks R1 and R2 with the point named, as an E[C_mix] gap does (S10); a tested floor below with its interval
+    is still R3."""
+    untested = dict(p=0.5, n=52, L=8, floor_tested=False, floor_note="no realised-mask comparator with mask counts", below_floor_with_interval=None)
+    r = CR(H5_OK, dict(_h6(), floors=[untested]), H7_OK, PAIRS_OK)
+    assert r["reading"] == "UNRESOLVED" and any("floor is not tested at the H6 point p = 0.5, n = 52, L = 8" in x and "mask counts" in x for x in r["reasons"])
+    assert len(r["detail"]["floor_gaps"]) == 1 and CR(H5_OK, _h6(), H7_OK, PAIRS_OK)["detail"]["floor_gaps"] == []
+    h5u = dict(H5_OK, floors=[dict(untested, floor_note="no run-day readout / gain factors for the floor")])
+    assert CR(h5u, _h6(), H7_OK, PAIRS_OK)["reading"] == "UNRESOLVED"
+    assert CR(H5_OK, dict(_h6("fail", UNITAL), floors=[untested]), H7_OK, B_FAST, ceiling=CEIL_OK)["reading"] == "UNRESOLVED"   # R2 too
+    tested_below = dict(p=0.25, n=52, L=8, floor_tested=True, below_floor_with_interval=True)
+    assert CR(H5_OK, dict(_h6(), floors=[untested, tested_below]), H7_OK, PAIRS_OK)["reading"] == "R3"
+
+
 def test_reading_reads_deviation_60_factor_fields():
     tested_not = dict(_bounds(8e-3, -6e-5, -1e-5), within=None, factor_tested=False, factor_note="factor not tested: the dephasing interval lies at or below zero")
     assert DH._control_reading(tested_not) == "as_modelled"
@@ -606,16 +726,23 @@ def test_two_strength_statement(monkeypatch):
     assert off["result"] == "reported" and off["value"]["within"] is False
     one = DH.two_strength_statement(_two_strength_points(3.568e-3, 1.8312e-2).iloc[:1], {}, h6, n_boot=200)
     assert one["result"] == "not-evaluable" and "missing" in one["note"]
+    assert ok["realised"] is False and ok["predicted_mixture"] is None                  # plain rows: no realised value, no mixture beside
+    real = {p: dict(v, realised=True, mixture=dict(var_cost=v["var_cost"] * f)) for (p, v), f in zip(rows.items(), (1.0, 0.924))}
+    monkeypatch.setattr(DH, "_pred", lambda preds, r, missing=None, **kw: real[float(r.p)])          # part (7): realised rows
+    rr = DH.two_strength_statement(_two_strength_points(3.568e-3, 1.8312e-2), {}, h6, n_boot=500)
+    assert rr["realised"] is True and rr["value"]["predicted"] == pytest.approx(1.8312e-2 / 3.568e-3)
+    assert rr["predicted_mixture"] == pytest.approx(0.924 * 1.8312e-2 / 3.568e-3)                  # recorded beside, not used
 
 
 def test_readings_end_to_end_on_a_synthetic_run(tmp_path):
-    """Follow-up review S14: a non-empty synthetic run through the loader and report.analyse, with the runner's shared mask seeds and
+    """Follow-up review S14: a non-empty synthetic run through the loader and report.analyse, with the runner's mask seeds (logged by
+    every synthetic run since Deviation 60 part (7)) and
     the Section 3b characterisation probes, pins the reset_error, mask_seed and calibration interfaces of evaluate_readings."""
     from gradvar.analysis import synthetic as S
     from gradvar.analysis.report import analyse
     snap = str(ROOT / "data" / "calibrations" / "ibm_phoenix_2026-09-19T192510Z.csv")
     seed0 = 22991001
-    specs = [S.dial_point("reset", p, 53, 8, 8, v, var_mask=0.14, mean_c=mc, M=24, K=32, shots=128, resilience=0, seed=seed0, shared_masks=True)
+    specs = [S.dial_point("reset", p, 53, 8, 8, v, var_mask=0.14, mean_c=mc, M=24, K=32, shots=128, resilience=0, seed=seed0)
              for p, v, mc in ((0.25, 2e-3, 0.066), (0.5, 9e-3, 0.25))]
     specs += [dict(kind="reset_error", reset_kind=rk, prep=prep, n=53, p1=p1, shots=4096, probe_id=pid, resilience=0)
               for pid, rk, prep, p1 in (("reset_error_prep1", "reset", "1", 0.03), ("readout_ref_prep0", "none", "0", 0.01), ("readout_ref_prep1", "none", "1", 0.97))]
