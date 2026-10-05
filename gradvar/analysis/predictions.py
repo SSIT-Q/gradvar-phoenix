@@ -22,6 +22,20 @@ ANOMALY_RUN = 3
 RESERVE_MINUTES_FOR_REPLICATION = 20
 MODEL_PREFERENCE = ("nonunital", "unital", "noiseless")
 DIAL_KIND = {"reset": "reset", "delay": "delay", "dephase": "dephase", "dephasing": "dephase"}
+LOTTERY_ARMS = ("reset", "dephase", "dephasing")   # dial arms with a mask lottery: their comparators are drawn on the realised masks (part (7))
+
+
+def realised_applies(dial, K=None) -> bool:
+    """Deviation 60 part (7): a point's comparator is drawn on its probe's realised masks when the dial has a mask lottery
+    (``LOTTERY_ARMS``; the truncation arm is a reset dial) and the probe carries two or more masks; an unknown mask count
+    counts as two or more (the realised lookup then reports the missing key). A one-mask probe (only the dry-run pipeline
+    check list carries one) keeps the mixture row: there is no pair of distinct masks."""
+    if str(dial) not in LOTTERY_ARMS:
+        return False
+    try:
+        return int(K) >= 2
+    except (TypeError, ValueError):
+        return True
 
 
 def mele_floor(p: float) -> float:
@@ -46,6 +60,8 @@ def load_predictions(directory: str | Path | None = None) -> Dict:
         out["gradients"] = dict(np.load(g))
     out["truncation_entries"] = load_truncation_entries(d)
     out["dial_rows"] = load_dial_rows(d)
+    out["dial_realised"] = load_realised_rows(d)
+    out["truncation_realised"] = load_realised_truncation(d)
     return out
 
 
@@ -110,16 +126,48 @@ def load_truncation_entries(directory: str | Path) -> List[Dict]:
     order by name; each entry keyed by the placement it was drawn on, ``point``), tagged with its file name."""
     out = []
     for f in sorted(Path(directory).glob("h7_truncation_*.json")):
-        for e in json.loads(f.read_text()).get("entries", []):
-            out.append(dict(e, file=f.name))
+        rec = json.loads(f.read_text())
+        snap = rec.get("snapshot")
+        stamp = (snap.get("stamp") or _stamp_of_name(snap.get("csv"))) if isinstance(snap, dict) else _stamp_of_name(snap)
+        for e in rec.get("entries", []):
+            out.append(dict(e, file=f.name, placement_stamp=e.get("placement_stamp") or stamp))   # the snapshot it was drawn on (S-A)
     return out
 
 
-def _same_point(entry: Dict, patch, edge, n, p, L, qubits, reset_kind: str = "reset") -> tuple:
+def load_realised_rows(directory: str | Path) -> pd.DataFrame:
+    """Deviation 60 part (7): the realised-mask dial comparators, every ``dial_realised_<tag>.csv`` (``scripts/redraw_dial_points.py``),
+    one row per dial probe of a list (its seed ``mask_seed``, ``K`` masks, the placement it was drawn on). Added columns as
+    ``load_dial_rows``: ``placement_qubits``, ``placement_stamp``, ``source``."""
+    frames = []
+    for f in sorted(Path(directory).glob("dial_realised_*.csv")):
+        df = pd.read_csv(f)
+        df["placement_qubits"] = df["qubits"].map(qubit_key) if "qubits" in df.columns else None
+        df["placement_stamp"] = df["snapshot_stamp"] if "snapshot_stamp" in df.columns else None
+        df["source"] = f.name
+        frames.append(df)
+    return pd.concat(frames, ignore_index=True, sort=False) if frames else pd.DataFrame()
+
+
+def load_realised_truncation(directory: str | Path) -> List[Dict]:
+    """Deviation 60 part (7): the realised-mask H7 comparators, every ``entries`` item of ``h7_realised_*.json``
+    (``scripts/predict_h7_truncation.py``), tagged with its file name and placement stamp."""
+    out = []
+    for f in sorted(Path(directory).glob("h7_realised_*.json")):
+        rec = json.loads(f.read_text())
+        snap = rec.get("snapshot")
+        stamp = (snap.get("stamp") or _stamp_of_name(snap.get("csv"))) if isinstance(snap, dict) else _stamp_of_name(snap)
+        for e in rec.get("entries", []):
+            out.append(dict(e, file=f.name, placement_stamp=e.get("placement_stamp") or stamp))
+    return out
+
+
+def _same_point(entry: Dict, patch, edge, n, p, L, qubits, stamp=None, need_stamp: bool = False, reset_kind: str = "reset") -> tuple:
     """(matches, reason) of a comparator entry against a truncation point. The placement must match on the placed qubit set,
-    which both sides must record (Deviation 60, review M5); the other keys are compared where both sides carry them. The dial kind
+    which both sides must record (Deviation 60, review M5), and on the placement snapshot (S-A): a committed comparator
+    (``need_stamp``) and the rows must both record it; an explicit comparator is compared on it when it carries one. The dial kind
     must match too (Deviation 63, draft: the dephasing-dial pair shares the H7 point's patch, edge, n, p, L and qubits); an entry
-    without ``reset_kind`` is a reset-dial comparator, as every entry drawn before Deviation 63 is."""
+    without ``reset_kind`` is a reset-dial comparator, as every entry drawn before Deviation 63 is. The other keys are compared
+    where both sides carry them."""
     pt = entry.get("point", entry)
     kind = str(pt.get("reset_kind") or "reset")
     if kind != str(reset_kind or "reset"):
@@ -128,6 +176,13 @@ def _same_point(entry: Dict, patch, edge, n, p, L, qubits, reset_kind: str = "re
         return False, "the rows record no placed qubit set"
     if pt.get("qubits") is None:
         return False, "the comparator records no placed qubit set"
+    have_stamp = entry.get("placement_stamp") or pt.get("placement_stamp")
+    if need_stamp and not stamp:
+        return False, "the rows record no placement snapshot"
+    if need_stamp and not have_stamp:
+        return False, "the comparator records no placement snapshot"
+    if have_stamp and stamp and str(have_stamp) != str(stamp):
+        return False, f"placement snapshot {have_stamp} (comparator) vs {stamp} (run)"
     checks = (("patch", patch, lambda a, b: str(a) == str(b)), ("edge", edge, lambda a, b: str(a).replace("-", "_") == str(b).replace("-", "_")),
               ("n", n, lambda a, b: int(a) == int(b)), ("p", p, lambda a, b: np.isclose(float(a), float(b))), ("L", L, lambda a, b: int(a) == int(b)),
               ("qubits", qubits, lambda a, b: sorted(int(q) for q in a) == sorted(int(q) for q in b)))
@@ -138,29 +193,61 @@ def _same_point(entry: Dict, patch, edge, n, p, L, qubits, reset_kind: str = "re
     return True, ""
 
 
-def truncation_prediction(preds: Dict, patch=None, edge=None, n=None, p=None, L=None, qubits=None, reset_kind: str = "reset") -> tuple:
+def truncation_prediction(preds: Dict, patch=None, edge=None, n=None, p=None, L=None, qubits=None, stamp=None, seed=None, K=None,
+                          realised: bool = False, reset_kind: str = "reset") -> tuple:
     """(comparator, note) for one truncation-arm point (H7, Deviation 60): ``preds['truncation']`` when the caller set one
-    (it must carry ``rms_l2`` and the placed ``qubits``, and every placement key it carries must match), else the last committed
-    ``h7_truncation_*`` entry drawn on this point's placement (the placed qubit set, which both sides must record, and patch,
-    edge, n, p, L) and of this dial kind (``reset_kind``, default the reset dial of H7; Deviation 63, draft, adds the dephasing-dial
-    pair). Predictions are placement-specific (Deviations 46, 58): a comparator of another placement, or one whose placement cannot
-    be checked, is not used. None when there is none."""
+    (it must carry ``rms_l2`` and the placed ``qubits``, and every placement key it carries must match), else the committed
+    ``h7_truncation_*`` entry drawn on this point's placement: the placed qubit set and the placement snapshot ``stamp`` of the
+    list that ran, which both sides must record (Deviation 60, S-A), and patch, edge, n, p, L; and of this dial kind
+    (``reset_kind``, default the reset dial of H7; Deviation 63, draft, adds the dephasing-dial pair). Predictions are
+    placement-specific (Deviations 46, 58): a comparator of another placement, or one whose placement cannot be checked, is not
+    used, and entries of more than one file for the same placement and dial kind are ambiguous (never the last file). None when
+    there is none. ``realised`` (Deviation 60 part (7); the analysis always sets it): the comparator is the ``h7_realised_*``
+    entry of the same placement and dial kind drawn on the probe's realised masks (``seed``, ``K``), with the mixture entry
+    recorded beside it under ``mixture``; None without it. An explicit ``preds['truncation']`` (tests) is used as given."""
     explicit = preds.get("truncation")
     if explicit:
         if explicit.get("rms_l2") is None:
             return None, "preds['truncation'] has no rms_l2"
-        ok, why = _same_point(explicit, patch, edge, n, p, L, qubits, reset_kind)
+        ok, why = _same_point(explicit, patch, edge, n, p, L, qubits, stamp, reset_kind=reset_kind)
         return (explicit, "") if ok else (None, f"preds['truncation'] is for another point: {why}")
     entries = [e for e in preds.get("truncation_entries", []) or [] if e.get("rms_l2") is not None]
     if not entries:
         return None, "no committed h7_truncation_*.json comparator"
     hits, reasons = [], []
     for e in entries:
-        ok, why = _same_point(e, patch, edge, n, p, L, qubits, reset_kind)
+        ok, why = _same_point(e, patch, edge, n, p, L, qubits, stamp, need_stamp=True, reset_kind=reset_kind)
         (hits if ok else reasons).append(e if ok else f"{e.get('file')}: {why}")
     if not hits:
         return None, "no comparator for this placement (" + "; ".join(reasons) + ")"
-    return hits[-1], ""
+    files = sorted({str(h.get("file")) for h in hits})
+    if len(files) > 1:
+        return None, f"ambiguous: comparators for this placement in {len(files)} files ({', '.join(files)})"
+    if not realised:
+        return hits[-1], ""
+    return _realised_truncation(preds, hits[-1], patch, edge, n, p, L, qubits, stamp, seed, K, reset_kind)
+
+
+def _realised_truncation(preds: Dict, mixture: Dict, patch, edge, n, p, L, qubits, stamp, seed, K, reset_kind: str = "reset") -> tuple:
+    """(comparator, note): the realised-mask H7 entry for the placement, dial kind and probe (``seed``, ``K``), the mixture entry beside it."""
+    if seed is None or K is None:
+        return None, "the truncation rows record no probe mask seed and mask count (realised-mask comparator, Deviation 60 part (7))"
+    ents = [e for e in preds.get("truncation_realised", []) or [] if e.get("rms_l2") is not None]
+    hits, reasons = [], []
+    for e in ents:
+        ok, why = _same_point(e, patch, edge, n, p, L, qubits, stamp, need_stamp=True, reset_kind=reset_kind)
+        if ok and (int(e.get("mask_seed", -1)) != int(seed) or int(e.get("K", -1)) != int(K)):
+            ok, why = False, f"probe seed {e.get('mask_seed')} / K {e.get('K')} (comparator) vs {seed} / {K} (run)"
+        (hits if ok else reasons).append(e if ok else f"{e.get('file')}: {why}")
+    if not hits:
+        return None, ("no realised-mask comparator (h7_realised_*.json) for this placement and probe seed"
+                      + (" (" + "; ".join(reasons) + ")" if reasons else ""))
+    files = sorted({str(h.get("file")) for h in hits})
+    if len(files) > 1:
+        return None, f"ambiguous: realised-mask comparators for this placement in {len(files)} files ({', '.join(files)})"
+    e = hits[-1]
+    comp = dict(e, realised=True, mixture=dict(rms_l2=mixture.get("rms_l2"), rms_l2_sigma=mixture.get("rms_l2_sigma"), file=mixture.get("file")))
+    return comp, ""
 
 
 def _select_rows(df: pd.DataFrame, n: int, L: int, patch: str | None, edge: str | None, model: str) -> pd.DataFrame:
@@ -191,33 +278,83 @@ def _pp_lookup(pp: pd.DataFrame, n: int, L: int, k: int, model: str, dial: str |
 
 
 def dial_prediction(preds: Dict, n: int, L: int, k: int, dial: str, p: float | None, patch: str | None = None, edge: str | None = None,
-                    qubits=None, stamp: str | None = None) -> tuple:
-    """(prediction, note, fallback) for one Section 3b dial point (H5 / H6; Deviations 46, 58; Deviation 60, review M5): the
-    unital-base dial row drawn on this point's placement, matched on the placed qubit set (``qubits``; else on the placement
-    ``stamp`` when the run gives one), patch, edge, L, dial kind and p, from ``preds['dial_rows']`` (``load_dial_rows``). Among
-    several matches converged rows are preferred and the last source file wins. None when no placement-matched row exists;
-    ``fallback`` is then the unmatched ``pauliprop_predictions.csv`` row (the 19 Sep record, reported beside the not-evaluable
-    sub-test, Deviation 54 (iii)), or None."""
+                    qubits=None, stamp: str | None = None, probe_seed=None, K=None, realised: bool = False) -> tuple:
+    """(prediction, note, fallback) for one Section 3b dial point (H5 / H6; Deviations 46, 58; Deviation 60, review M5 and S-A):
+    the unital-base dial row drawn on this point's placement, matched on the placed qubit set (``qubits``) AND the placement
+    snapshot of the list that ran (``stamp``), then patch, edge, L, dial kind and p, from ``preds['dial_rows']``
+    (``load_dial_rows``). Matches must come from one prediction file (within it converged rows are preferred); matches in more
+    than one file are ambiguous and not used (never the last file). None when no such row exists, the point records no qubit
+    set or no snapshot, or the match is ambiguous; ``fallback`` is then the unmatched ``pauliprop_predictions.csv`` row (the
+    19 Sep record, reported beside the not-evaluable sub-test, Deviation 54 (iii)), or None. ``realised`` (Deviation 60 part (7);
+    the analysis sets it for every dial point with a mask lottery): the comparator is the ``dial_realised_*`` row of the same
+    placement and point drawn on the probe's realised masks (``probe_seed``, ``K``), ``var`` / ``sigma`` and ``var_cost`` /
+    ``var_cost_sigma`` its values and sampling errors, the mixture row recorded beside it under ``mixture``; None without it."""
     fb = _pp_lookup(preds.get("pp", pd.DataFrame()), n, L, k, "unital", dial, p, patch, edge)
     fallback = dict(fb, placement_matched=False) if fb else None
     rows = preds.get("dial_rows")
     qk = qubit_key(qubits)
     if rows is None or not len(rows):
         return None, "no dial prediction rows loaded", fallback
-    if qk is None and not stamp:
+    if qk is None:
         return None, "the point records no placed qubit set", fallback
+    if not stamp:
+        return None, "the point records no placement snapshot", fallback
     d = rows[(rows.model == "unital") & (rows.L == L) & (rows.dial.astype(str) == str(dial)) & np.isclose(rows.p.astype(float), float(p or 0.0))]
     if patch:
         d = d[d.patch.astype(str) == str(patch)]
     if edge:
         d = d[d.edge.astype(str).str.replace("-", "_") == str(edge).replace("-", "_")]
-    d = d[d.placement_qubits == qk] if qk is not None else d[d.placement_stamp.astype(str) == str(stamp)]
+    d = d[(d.placement_qubits == qk) & (d.placement_stamp.astype(str) == str(stamp))]
     what = f"{dial} p = {p} L = {L} on {patch} edge {edge}"
     if d.empty:
-        return None, f"no {what} row drawn on this placement (" + ("qubit set" if qk is not None else f"stamp {stamp}") + " not in the prediction files)", fallback
+        return None, f"no {what} row drawn on this placement (qubit set and snapshot {stamp} not in the prediction files)", fallback
+    files = sorted(set(d.source.astype(str)))
+    if len(files) > 1:
+        return None, f"ambiguous: {what} rows drawn on this placement in {len(files)} files ({', '.join(files)})", fallback
     hit = _prediction_from_rows(d, n, L, k, "unital", edge, None)
     if hit is None:
         return None, f"no k = {k} value for {what}", fallback
+    if not realised:
+        return hit, "", fallback
+    return _realised_dial(preds, hit, L, k, dial, p, patch, edge, qk, stamp, probe_seed, K, fallback)
+
+
+MASK_STAT_KEYS = ("n_RR", "n_RK", "n_KR", "n_KK", "n1_i", "n2_i", "n1_j", "n2_j")
+
+
+def _realised_dial(preds: Dict, mixture: Dict, L: int, k: int, dial: str, p, patch, edge, qk, stamp, probe_seed, K, fallback) -> tuple:
+    """(prediction, note, fallback): the realised-mask row of the probe (``probe_seed``, ``K``) on the placement, the mixture beside."""
+    what = f"{dial} p = {p} L = {L} on {patch} edge {edge}"
+    if probe_seed is None or K is None or (isinstance(probe_seed, float) and np.isnan(probe_seed)) or (isinstance(K, float) and np.isnan(K)):
+        return None, "the point records no probe mask seed and mask count (realised-mask comparator, Deviation 60 part (7))", fallback
+    rr = preds.get("dial_realised")
+    if rr is None or not len(rr):
+        return None, "no realised-mask comparator rows loaded (dial_realised_*.csv, Deviation 60 part (7))", fallback
+    d = rr[(rr.L == L) & (rr.dial.astype(str) == str(dial)) & np.isclose(rr.p.astype(float), float(p or 0.0))]
+    if patch:
+        d = d[d.patch.astype(str) == str(patch)]
+    if edge:
+        d = d[d.edge.astype(str).str.replace("-", "_") == str(edge).replace("-", "_")]
+    d = d[(d.placement_qubits == qk) & (d.placement_stamp.astype(str) == str(stamp)) & (d.mask_seed.astype(int) == int(probe_seed)) & (d.K.astype(int) == int(K))]
+    if d.empty:
+        return None, f"no realised-mask {what} row for probe seed {int(probe_seed)} (K = {int(K)}) on this placement", fallback
+    files = sorted(set(d.source.astype(str)))
+    if len(files) > 1:
+        return None, f"ambiguous: realised-mask {what} rows for probe seed {int(probe_seed)} in {len(files)} files ({', '.join(files)})", fallback
+    r = d.iloc[-1]
+    tag = "kL" if k == L else ("k1" if k == 1 else None)
+    if tag is None or not np.isfinite(float(r.get(f"var_{tag}_realised", np.nan))):
+        return None, f"no realised-mask k = {k} value for {what}", fallback
+    se = float(r[f"se_{tag}_realised"])
+    hit = dict(mixture)
+    hit.update(var=float(r[f"var_{tag}_realised"]), sigma=se, error_2sigma=2.0 * se, var_cost=float(r.var_cost_realised),
+               var_cost_sigma=float(r.se_cost_realised), realised=True, realised_source=str(r.source), probe_id=r.get("probe_id"),
+               mask_seed=int(r.mask_seed), K=int(r.K), mask_stats={key: int(r[key]) for key in MASK_STAT_KEYS if key in r and pd.notna(r[key])},
+               pattern_floor=r.get(f"pattern_floor_{tag}_realised"), pattern_floor_cost=r.get("pattern_floor_cost_realised"),
+               truncation_deficit=float("nan"), lower_bound_only=False,
+               mixture=dict(var=mixture["var"], sigma=mixture["sigma"], var_cost=mixture.get("var_cost"), var_cost_sigma=mixture.get("var_cost_sigma"),
+                            pattern_floor=mixture.get("pattern_floor"), source=mixture.get("source")),
+               source=str(r.source), mixture_source=mixture.get("source"))
     return hit, "", fallback
 
 
@@ -269,16 +406,18 @@ UNPLACED = object()     # predicted_point(qubits=UNPLACED): a dial lookup that d
 
 
 def predicted_point(preds: Dict, n: int, L: int, k: int, arm: str = "grid", p: float | None = None,
-                    models=MODEL_PREFERENCE, patch: str | None = None, edge: str | None = None, qubits=UNPLACED) -> Dict | None:
+                    models=MODEL_PREFERENCE, patch: str | None = None, edge: str | None = None, qubits=UNPLACED,
+                    stamp: str | None = None, probe_seed=None, K=None, realised: bool = False) -> Dict | None:
     """The pre-drawn Var_theta for one point: the exact Gate 1 grid first, else Deviation 15 propagation, under the
     first available model of ``models`` (the full calibrated non-unital model is the Gate 1 prediction of Deviation 19).
     Dial points (arm reset / delay / dephase) use the Section 3b second-moment curves (unital base + dial channel); when the
-    caller passes the point's placed ``qubits`` (every analysis call does), only a row drawn on that placement is used
-    (``dial_prediction``, Deviation 60 review M5) and None is returned when none exists."""
+    caller passes the point's placed ``qubits`` and placement ``stamp`` (every analysis call does), only a row drawn on that
+    placement is used (``dial_prediction``, Deviation 60 review M5 and S-A) and None is returned when none exists; with
+    ``realised`` the probe's realised-mask row (Deviation 60 part (7))."""
     if arm != "grid":
         dial = DIAL_KIND.get(str(arm), str(arm))
         if qubits is not UNPLACED:
-            return dial_prediction(preds, n, L, k, dial, p, patch, edge, qubits)[0]
+            return dial_prediction(preds, n, L, k, dial, p, patch, edge, qubits, stamp, probe_seed, K, realised)[0]
         return _pp_lookup(preds["pp"], n, L, k, "unital", dial, p, patch, edge)
     for m in models:
         hit = _exact_lookup(preds["exact"], n, L, k, m, patch, edge) or _pp_lookup(preds["pp"], n, L, k, m, None, None, patch, edge)
@@ -343,7 +482,9 @@ def compare_points(points: pd.DataFrame, preds: Dict) -> pd.DataFrame:
         if r.get("L") is None or r.get("k") is None or r.get("kind") == "null_control":
             continue
         dial = str(r["arm"]) != "grid"
-        placed = dict(qubits=r.get("patch_qubits")) if dial else {}           # dial points: a row drawn on this placement only (Deviation 60 M5)
+        placed = dict(qubits=r.get("patch_qubits"), stamp=r.get("placement_stamp")) if dial else {}   # dial points: this placement only (Deviation 60 M5, S-A)
+        if dial and realised_applies(r["arm"], r.get("probe_K")):      # Deviation 60 part (7): the probe's realised-mask comparator
+            placed.update(probe_seed=r.get("probe_seed"), K=r.get("probe_K"), realised=True)
         pr = predicted_point(preds, int(r["n"]), int(r["L"]), int(r["k"]), str(r["arm"]), r.get("p"), patch=r.get("patch"), edge=r.get("edge"), **placed)
         meas = r.get("signal_variance", np.nan)
         hw = (r.get("signal_ci_hi", np.nan) - r.get("signal_ci_lo", np.nan)) / 2.0
@@ -368,7 +509,8 @@ def compare_points(points: pd.DataFrame, preds: Dict) -> pd.DataFrame:
                        source=pr["source"], status=pr["status"], truncation_deficit=pr.get("truncation_deficit"), edge_matched=pr.get("edge_matched"),
                        exploratory=bool(int(r["L"]) == 12 and (r["kind"] == "grid" or int(r["k"]) == 1)) or bool(pr.get("not_converged")),   # Deviation 37
                        hardware_only=bool(pr.get("lower_bound_only")), anomaly_single=bool(np.isfinite(z) and abs(z) > ANOMALY_SIGMA),
-                       inside_prediction_2sigma=bool(np.isfinite(z) and abs(z) <= 2.0))
+                       inside_prediction_2sigma=bool(np.isfinite(z) and abs(z) <= 2.0), realised=bool(pr.get("realised")),
+                       mixture_predicted=(pr.get("mixture") or {}).get("var"), mixture_source=pr.get("mixture_source"))   # part (7): beside, not used
         if pr is None and dial:
             rec["status"] = "no placement-matched prediction"                # Deviation 60 M5: no dial row drawn on this placement
         rows.append(rec)

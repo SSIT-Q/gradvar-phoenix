@@ -328,6 +328,53 @@ def delay_matched_comparison(reset: Dict, delay: Dict, g_reset=None, g_delay=Non
     return out
 
 
+def _n_placements(g: pd.DataFrame) -> int:
+    """Placements pooled in one point: distinct (placed qubit set, placement snapshot) pairs (Deviation 60, S-A)."""
+    if "patch_qubits" not in g.columns:
+        return 1
+    stamps = g.placement_stamp.astype(str) if "placement_stamp" in g.columns else ""
+    return int((g.patch_qubits.astype(str) + "|" + stamps).nunique())
+
+
+def _one_stamp(g: pd.DataFrame):
+    """The point's placement stamp when all its rows record the same one, else None (Deviation 60, S-A)."""
+    if "placement_stamp" not in g.columns or g.placement_stamp.isna().any():
+        return None
+    s = set(g.placement_stamp.astype(str))
+    return next(iter(s)) if len(s) == 1 else None
+
+
+def probe_mask_seed(g: pd.DataFrame):
+    """(probe seed, K) of a dial or truncation point: the probe's seed from its rows' per-mask seeds (``mask_seed`` = seed + 1 +
+    mask_index, ``hardware.mask_lottery``) and its mask count, or (None, None) when the rows do not record one consistent value
+    (Deviation 60 part (7): the realised-mask comparator is drawn per probe seed). K (the planned count, or the largest index + 1
+    where the rows carry none) is returned only when every draw of every probe carries exactly the masks 0 .. K - 1; otherwise
+    (seed, None), and the point is not evaluable: a point that lost masks (failed pubs, partial retrieval) is not compared with the
+    full-set comparator (addendum 3, S1)."""
+    if not {"mask_seed", "mask_index"} <= set(g.columns):
+        return None, None
+    ms, mi = pd.to_numeric(g.mask_seed, errors="coerce"), pd.to_numeric(g.mask_index, errors="coerce")
+    ok = ms.notna() & mi.notna()
+    if not ok.all():
+        return None, None
+    seeds = set((ms[ok] - 1 - mi[ok]).astype(int))
+    if len(seeds) != 1:
+        return None, None
+    seed = int(next(iter(seeds)))
+    K = pd.to_numeric(g.K, errors="coerce") if "K" in g.columns else pd.Series(dtype=float)
+    Ks = set(K.dropna().astype(int)) if len(K) else set()
+    if len(Ks) > 1:
+        return seed, None
+    K = int(next(iter(Ks))) if Ks else int(mi[ok].max()) + 1
+    keys = [c for c in ("probe_id", "draw") if c in g.columns]          # a dial row's 'repeat' is its mask (loader)
+    groups = g.assign(_mi=mi.astype(int)).groupby(keys, sort=False, dropna=False) if keys else [(None, g.assign(_mi=mi.astype(int)))]
+    want = list(range(K))
+    for _, d in groups:
+        if sorted(d["_mi"].tolist()) != want:
+            return seed, None
+    return seed, K
+
+
 def point_table(rows: pd.DataFrame, n_boot: int = N_BOOT) -> pd.DataFrame:
     """One row per point of the tidy table: grid points through ``variance_point`` (per-draw gradients), dial points
     through ``dial_point`` (masks pooled per draw). Columns identify the point (kind, arm, p, n, L, k, resilience,
@@ -341,7 +388,7 @@ def point_table(rows: pd.DataFrame, n_boot: int = N_BOOT) -> pd.DataFrame:
                     resilience_level=int(first.resilience_level), shots=int(first.shots), patch=first.patch, edge=first.edge, patch_qubits=first.patch_qubits,
                     properties_file=first.properties_file, backend=first.backend, jobs=sorted(set(g.job_id.astype(str))), n_rows=int(len(g)),
                     status=",".join(sorted(set(g.status.astype(str)))),
-                    n_placements=int(g.patch_qubits.astype(str).nunique()) if "patch_qubits" in g.columns else 1)   # > 1: runs of several placements pooled
+                    n_placements=_n_placements(g), placement_stamp=_one_stamp(g))   # n_placements > 1: runs of several placements pooled
         if first.kind == "grid":
             level2 = int(first.resilience_level) == 2
             sv = np.full(len(g), level2_shot_variance(int(first.shots))) if level2 else g.shot_var.astype(float)
@@ -359,6 +406,8 @@ def point_table(rows: pd.DataFrame, n_boot: int = N_BOOT) -> pd.DataFrame:
                 est["repeat_shot_vars"] = [g[g.repeat == r].sort_values("draw").shot_var.astype(float).tolist() for r in range(est["n_repeats"])]
         elif first.kind == "reset_dial":
             est = dial_point(g, n_boot=n_boot)
+            est["probe_id"] = first.probe_id if "probe_id" in g.columns else None
+            est["probe_seed"], est["probe_K"] = probe_mask_seed(g)       # Deviation 60 part (7): the realised-mask comparator's key
             est["gradients"] = [(a.ev_plus.mean() - a.ev_minus.mean()) / 2.0 for _, a in g.groupby("draw", sort=True)]
             est["draw_hashes"] = [str(a.param_hash.iloc[0]) for _, a in g.groupby("draw", sort=True)]
             est["shot_vars"] = [est["combined_floor"]] * len(est["gradients"])       # shot + pattern floor per draw

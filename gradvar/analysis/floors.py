@@ -104,6 +104,57 @@ def dial_floor(p: float, cal: Calibration, edge: Sequence[int], patch_qubits: It
                 mele_floor=float(p) ** 4 / 9.0, resilience_level=int(resilience), source=cal.source)
 
 
+REALISED_FLOOR_RULE = (
+    "Deviation 60 part (7): the Deviation 33 bound keeps one Fourier mode, the path on which j is reset and i kept in layer L and i "
+    "is reset in layer L - 1 (amplitude c_i g_i p), and drops the others as non-negative. Under shared masks the floor-subtracted "
+    "statistic is the mean over ordered pairs of distinct realised masks of E_theta[X_m X_m'], to which every mode contributes "
+    "sum_{m != m'} a_m a_m' >= 0 when its per-mask coefficients share a sign: true for the reset dial when the readout offsets "
+    "b = p10 - p01 of the edge qubits are non-negative (b_j for the gradient, b_i and b_j for the cost; every other factor on a path "
+    "is non-negative). The same mode then gives the floor with the realised pair counts of that three-position event in place of "
+    "((1 - p) p p)^2 (n1 masks with i kept and j reset in layer L and i reset in layer L - 1, n2 with j kept instead: "
+    "Q = [(n1 (a_j + b_j) + n2 b_j)^2 - n1 (a_j + b_j)^2 - n2 b_j^2] / (K (K - 1)), floor_grad = 1/2 g_i^2 a_i^2 Q); no independence "
+    "across positions is used. The cost floor adds the j mode and subtracts S^2(c0) / K, the spread of the per-mask constants that "
+    "the Deviation 38 cost floor removes under shared masks. A negative offset, or a floor that is not positive, leaves the clause "
+    "not tested at that point.")
+
+
+def mask_floor_stats(masks: np.ndarray, L: int, i: int, j: int) -> Dict[str, int]:
+    """Counts of the realised masks (K, L, n) bool (reset = True) that the realised Deviation 33 floors use: the layer-L classes
+    of (i, j) (R reset, K kept: n_RR, n_RK, n_KR, n_KK) and the floor modes' events n1_i / n2_i (i kept in layer L, i reset in layer
+    L - 1, j reset / kept in layer L) and n1_j / n2_j (the same with i and j exchanged). ``i`` / ``j``: the mask columns."""
+    mk = np.asarray(masks, dtype=bool)
+    ri, rj = mk[:, L - 1, i], mk[:, L - 1, j]
+    pi, pj = (mk[:, L - 2, i], mk[:, L - 2, j]) if L >= 2 else (np.zeros_like(ri), np.zeros_like(rj))
+    c = lambda x: int(np.count_nonzero(x))                      # noqa: E731
+    return dict(K=int(mk.shape[0]), n_RR=c(ri & rj), n_RK=c(ri & ~rj), n_KR=c(~ri & rj), n_KK=c(~ri & ~rj),
+                n1_i=c(~ri & rj & pi), n2_i=c(~ri & ~rj & pi), n1_j=c(~rj & ri & pj), n2_j=c(~rj & ~ri & pj))
+
+
+def realised_floor(stats: Dict, a_i: float, b_i: float, a_j: float, b_j: float, g_i: float, g_j: float) -> Dict:
+    """Deviation 60 part (7): the Deviation 33 floors on a probe's realised masks (``REALISED_FLOOR_RULE``) from the mask counts
+    of ``mask_floor_stats`` and the edge qubits' readout (a, b) and last-layer gains g (``dial_floor``'s factors). Returns
+    floor_grad / floor_cost, whether each is tested (``grad_tested`` / ``cost_tested``) and a note when not."""
+    K = int(stats["K"])
+
+    def pair_mean(n1, n2, a, b):
+        s1 = n1 * (a + b) + n2 * b
+        s2 = n1 * (a + b) ** 2 + n2 * b ** 2
+        return (s1 * s1 - s2) / (K * (K - 1))
+
+    qi = pair_mean(stats["n1_i"], stats["n2_i"], a_j, b_j)
+    qj = pair_mean(stats["n1_j"], stats["n2_j"], a_i, b_i)
+    c0 = np.repeat([(a_i + b_i) * (a_j + b_j), (a_i + b_i) * b_j, b_i * (a_j + b_j), b_i * b_j],
+                   [stats["n_RR"], stats["n_RK"], stats["n_KR"], stats["n_KK"]])
+    spread = float(c0.var(ddof=1) / K) if c0.size > 1 else float("nan")
+    fg = 0.5 * g_i ** 2 * a_i ** 2 * qi
+    fc = 0.5 * (g_i ** 2 * a_i ** 2 * qi + g_j ** 2 * a_j ** 2 * qj) - spread
+    grad_ok, cost_ok = bool(b_j >= 0 and fg > 0), bool(b_i >= 0 and b_j >= 0 and fc > 0)
+    note_g = "" if grad_ok else ("readout offset b_j < 0: the realised bound does not hold" if b_j < 0 else "the realised floor is not positive")
+    note_c = "" if cost_ok else ("a readout offset b < 0: the realised bound does not hold" if min(b_i, b_j) < 0 else "the realised floor is not positive")
+    return dict(floor_grad=float(fg), floor_cost=float(fc), c0_spread_over_K=spread, Q_i=float(qi), Q_j=float(qj), grad_tested=grad_ok,
+                cost_tested=cost_ok, grad_note=note_g, cost_note=note_c, rule=REALISED_FLOOR_RULE)
+
+
 def calibration_for(properties_file: str | None, snapshot_csv: str | None) -> Calibration | None:
     """The run-day calibration: the bundle's ``properties.json`` when it carries confusion and gate errors (real
     backends), else the ``--snapshot-csv`` planning snapshot, labelled by ``source``."""

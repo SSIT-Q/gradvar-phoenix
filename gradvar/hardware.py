@@ -1903,7 +1903,7 @@ def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int,
         raise SystemExit(f"refusing to submit: {_layout_check_message(chk)}; {remedy}")
     extra = dict(instance_plan=instance_plan, budget=jl.get("budget"), budget_estimate_with_target_durations=budget_target,
                  layout_check=chk, max_experiments=max_experiments(jl.get("backend"), backend), max_job_param_mb=MAX_JOB_PARAM_MB,
-                 dry_run_sample=sampled, resubmission=resubmission)
+                 dry_run_sample=sampled, resubmission=resubmission, placement_snapshot=placement_snapshot_name(jl, calibration_csv))
     root = Path(run_root)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     rows: List[dict] = []
@@ -2040,6 +2040,18 @@ def pinned_calibration_csv(jl: dict) -> str | None:
     if not p.is_file():
         raise JoblistError(f"placement.pin_snapshot is set but the placement snapshot {p} is not committed")
     return str(p)
+
+
+def placement_snapshot_name(jl: dict, calibration_csv: str | None = None) -> str | None:
+    """Deviation 60 (S-A): the file name of the calibration CSV the list's pubs are placed on (an explicit build CSV, else the
+    list's pinned placement snapshot, else the newest committed CSV), written to every bundle's job.json as ``placement_snapshot``:
+    the analysis matches the dial predictions and the H7 comparator on the placed qubit set and this snapshot."""
+    from .noise import latest_calibration_csv
+    try:
+        csv = calibration_csv or pinned_calibration_csv(jl) or latest_calibration_csv()
+    except Exception:                                                   # noqa: BLE001 - a record field, never a build failure
+        return None
+    return Path(csv).name if csv else None
 
 
 def prior_submissions(jl: dict, path: str, run_root: str) -> List[Path]:
@@ -2479,6 +2491,7 @@ def retrieve_jobs(ids_path: str, joblist_path: str | None = None, run_root: str 
         extra = dict(instance_plan=plan, budget=jl.get("budget"), budget_estimate_with_target_durations=budget_target, layout_check=chk,
                      max_experiments=max_experiments(jl.get("backend"), backend), max_job_param_mb=MAX_JOB_PARAM_MB, dry_run_sample=None,
                      resubmission=resub, job_tag=tag, retrieved=True, submission_run=ids.get("submission_run"),
+                     placement_snapshot=Path(csv).name if csv else None,
                      retrieval=dict(ids_file=str(ids_path), retrieval_run=run_id, retrieved_utc=now, job_status=status, submitted_utc=submitted,
                                     properties_source=props_label, calibration_csv=csv, calibration_snapshot=snapshot,
                                     calibration_snapshot_at_retrieval=snapshot_now, inputs_verification=verif))

@@ -90,10 +90,27 @@ def _qubits(rows):
     return sorted(int(q) for q in qs.split())
 
 
-def _preds(rows, **entry):
+def _stamp(rows):
+    """The placement snapshot the fixture's truncation rows record (the dry run's job.json; Deviation 60, S-A)."""
+    (st,) = set(rows[rows.kind == "truncation"].placement_stamp)
+    return st
+
+
+def _full_seed():
+    return int(next(p for p in _probes() if p["id"] == FULL_ID)["seed"])
+
+
+def _preds(rows, mixture_rms=None, **entry):
+    """The comparator records of the fixture's placement: the mixture entry (``h7_truncation_*``) and the realised-mask entry of the
+    truncation probes' seed and mask count (``h7_realised_*``, Deviation 60 part (7)), which H7 compares with; ``mixture_rms`` sets
+    the mixture value apart from the realised one."""
     point = dict(patch="4x5", edge="94_104", n=20, p=0.5, L=8, qubits=_qubits(rows))
     point.update(entry.pop("point", {}))
-    return dict(truncation_entries=[dict(point=point, rms_l2=entry.pop("rms_l2", DELTA[2]), rms_l2_sigma=entry.pop("rms_l2_sigma", 0.001), file="test.json", **entry)])
+    rms, sig, stamp = entry.pop("rms_l2", DELTA[2]), entry.pop("rms_l2_sigma", 0.001), entry.pop("placement_stamp", _stamp(rows))
+    seed, k = entry.pop("mask_seed", _full_seed()), entry.pop("K", K)
+    mix = dict(point=point, rms_l2=rms if mixture_rms is None else mixture_rms, rms_l2_sigma=sig, file="test.json", placement_stamp=stamp, **entry)
+    real = dict(point=point, rms_l2=rms, rms_l2_sigma=sig, file="test_realised.json", placement_stamp=stamp, mask_seed=seed, K=k, **entry)
+    return dict(truncation_entries=[mix], truncation_realised=[real])
 
 
 # ------------------------------------------------------------------------------------------------ loader
@@ -146,6 +163,7 @@ def test_h5_h6_exclude_the_truncation_probes(day3_run, tmp_path):
         assert set(pts.kind) == {"reset_dial"} and list(pts.point_id) == ["reset p0.5 n20 L8 k8 r0"]
         dial = pts.iloc[0]
         assert dial.n_rows == M * K and dial.M == M and dial.K == K and len(dial.jobs) == 1
+        assert dial.probe_seed == int(next(p for p in _probes() if p["id"] == DIAL_ID)["seed"]) and dial.probe_K == K   # part (7) key
         sel = DH._sel(pts[pts.kind == "reset_dial"], "reset", 0.5, 8)
         assert len(sel) == 1 and sel.iloc[0].n_rows == M * K
         assert set(rows[rows.kind == "reset_dial"].probe_id) == {DIAL_ID}
@@ -204,9 +222,14 @@ def test_h7_end_to_end_on_the_day3_row_schema(day3_run):
     f4 = res["checks"]["l4_fall"]                                                  # review M2: the paired bootstrap of RMS(2) - RMS(4)
     assert f4["M"] == M and f4["n_boot"] == 500 and f4["q05"] > 0 and f4["point_difference"] == pytest.approx(r2["rms"] - r4["rms"], rel=1e-9)
     assert r2["n_boot"] == 500 and r2["n_mask_replicates"] == DH.N_MASK_REPLICATES and np.isfinite(r2["kurtosis"])
-    assert res["point"]["patch"] == "4x5" and res["point"]["n"] == 20 and res["comparator"]["file"] == "test.json"
+    assert res["point"]["patch"] == "4x5" and res["point"]["n"] == 20 and res["comparator"]["file"] == "test_realised.json"
+    assert res["point"]["seed"] == _full_seed() and res["point"]["K"] == K and res["comparator"]["mixture"]["file"] == "test.json"
     far = DH.evaluate_h7(rows, _preds(rows, rms_l2=0.09), n_boot=500)
     assert far["result"] == "fail" and far["checks"]["l2"]["within"] is False
+    # Deviation 60 part (7): the realised-mask value decides; the mixture value is recorded only
+    assert DH.evaluate_h7(rows, _preds(rows, mixture_rms=0.09), n_boot=500)["result"] == "pass"
+    off = DH.evaluate_h7(rows, _preds(rows, rms_l2=0.09, mixture_rms=DELTA[2]), n_boot=500)
+    assert off["result"] == "fail" and "realised masks" in off["note"] and "recorded only" in off["note"]
 
 
 def test_h7_not_evaluable_without_a_comparator(day3_run):
@@ -214,7 +237,9 @@ def test_h7_not_evaluable_without_a_comparator(day3_run):
     one-sided l = 4 test alone decided it)."""
     rows = load_run(day3_run).rows
     q = _qubits(rows)
+    mixture_only = dict(truncation_entries=_preds(rows)["truncation_entries"])           # Deviation 60 part (7): no realised-mask entry
     for preds in ({}, dict(truncation={"rms_l2_sigma": 0.001}), _preds(rows, point=dict(edge="93_103")), _preds(rows, point=dict(qubits=[1, 2, 3])),
+                  mixture_only, _preds(rows, mask_seed=_full_seed() + 1), _preds(rows, K=K + 1),
                   _preds(rows, point=dict(qubits=None)), dict(truncation=dict(rms_l2=DELTA[2], rms_l2_sigma=0.001))):   # the last two: no placement
         res = DH.evaluate_h7(rows, preds, n_boot=200)
         assert res["result"] == "not-evaluable" and "Deviation 60" in res["note"] and res["checks"]["std_cmix"] > 0.1, (preds, res["note"])
@@ -242,11 +267,14 @@ def test_committed_comparator_is_matched_by_placement():
     # the newest H7 comparator (reset dial): the Deviation 63 pair files (h7_truncation_pairs_*, reset p = 0.25 and dephasing p = 0.5 on the
     # same placement) sort after it by name, so "the last entry" is not the H7 one once the pairs are drawn
     h7 = [x for x in entries if not x["file"].startswith("h7_truncation_pairs_") and x["point"].get("reset_kind", "reset") == "reset"]
-    e = h7[-1]["point"]
-    comp, _ = P.truncation_prediction(dict(truncation_entries=entries), patch=e["patch"], edge=e["edge"], n=e["n"], p=e["p"], L=e["L"], qubits=e["qubits"])
+    e, st = h7[-1]["point"], h7[-1]["placement_stamp"]                    # Deviation 60 (S-A): the placement snapshot as well
+    assert st
+    comp, _ = P.truncation_prediction(dict(truncation_entries=entries), patch=e["patch"], edge=e["edge"], n=e["n"], p=e["p"], L=e["L"], qubits=e["qubits"], stamp=st)
     assert comp is h7[-1]
-    none, why = P.truncation_prediction(dict(truncation_entries=entries), patch=e["patch"], edge=e["edge"], n=e["n"], p=0.125, L=e["L"], qubits=e["qubits"])
+    none, why = P.truncation_prediction(dict(truncation_entries=entries), patch=e["patch"], edge=e["edge"], n=e["n"], p=0.125, L=e["L"], qubits=e["qubits"], stamp=st)
     assert none is None and "p " in why                                  # no comparator at this p on any placement
+    nostamp, why3 = P.truncation_prediction(dict(truncation_entries=entries), patch=e["patch"], edge=e["edge"], n=e["n"], p=e["p"], L=e["L"], qubits=e["qubits"])
+    assert nostamp is None and "no placement snapshot" in why3
     unplaced, why2 = P.truncation_prediction(dict(truncation_entries=entries), patch=e["patch"], edge=e["edge"], n=e["n"], p=e["p"], L=e["L"])
     assert unplaced is None and "no placed qubit set" in why2            # review M5: no match without the run's qubit set
 
