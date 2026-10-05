@@ -3,7 +3,8 @@ moment over a probe's K realised masks that the shared-mask estimators estimate,
 Pauli paths. Checked on 2x2, L = 3 programs (reset and dephasing dials, dial-idle and layer ZZ): its mixture output against the
 deterministic engine (``propagate_truncated`` at delta = 0); with K identical masks, off-diagonal = diagonal = the deterministic and
 exact (doubled-space) moments of the fixed-mask program; its off-diagonal and diagonal values against the independent pair
-estimator (``propagate_realised_pairs``); the dial branches, the per-mask prefix constants and the argument checks."""
+estimator (``propagate_realised_pairs``) and, with a different mask on each copy, against the exact doubled-space moments
+(``pauliprop_exact.exact_pair_moments``; addendum 3, S2); the dial branches, the per-mask prefix constants and the argument checks."""
 import sys
 from pathlib import Path
 
@@ -16,7 +17,7 @@ sys.path.insert(0, str(ROOT))
 from gradvar import noise, predict, pauliprop as pp                  # noqa: E402,F401  (qiskit first, as in tests/test_pauliprop.py)
 from gradvar.circuits import hea_observable, light_cone               # noqa: E402
 from gradvar.lattice import rect_patch                                # noqa: E402
-from gradvar.pauliprop_exact import exact_truncation_moments          # noqa: E402
+from gradvar.pauliprop_exact import exact_moments, exact_pair_moments, exact_truncation_moments   # noqa: E402
 
 CSV = str(noise.DEFAULT_CALIBRATION)
 PROPS = str(ROOT / "data" / "calibrations" / "ibm_phoenix_properties_20260919T192510Z.json.gz")
@@ -121,3 +122,30 @@ def test_mask_arguments_are_checked():
         pp.propagate_realised(prog, np.zeros((1, prog.L, prog.m), bool), "reset", n_samples=100)
     with pytest.raises(ValueError):
         pp.propagate_realised(_program("dephase", 0.5), np.zeros((2, prog.L, prog.m), bool), "dephase", p=None, n_samples=100)
+
+
+@pytest.mark.parametrize("kind,p,mask_p", DIALS)
+def test_distinct_masks_match_the_exact_two_copy_moments(kind, p, mask_p):
+    """Addendum 3, S2: the off-diagonal and diagonal moments against exact values with a different mask on each copy. The exact
+    engine runs the program of mask m on copy 1 and that of mask m' on copy 2 with shared angles (``exact_pair_moments``, no
+    Pauli-path argument); the off-diagonal moment is its mean over the pairs m != m', the diagonal its mean over m = m'. Cost, k = L,
+    k = 1 and MSD(1), MSD(2); with one mask on both copies the engine gives the fixed-mask program's exact moments."""
+    prog = _program(kind, p)
+    q = mask_p or p
+    masks = _masks(prog, 4, q, 13)
+    assert len({m.tobytes() for m in masks}) == 4                          # four distinct masks
+    rv = pp.propagate_realised(prog, masks, kind, p=p, mask_p=mask_p, n_samples=400_000, seed=6, chunk=50_000, cuts=(1, 2))
+    fixed = [pp.fixed_mask_program(prog, m, kind, p, q) for m in masks]
+    pair = {(a, b): exact_pair_moments(fixed[a], fixed[b], ells=(1, 2)) for a in range(4) for b in range(a, 4)}
+    off = {key: float(np.mean([pair[(a, b)][key] for a in range(4) for b in range(a + 1, 4)])) for key in KEYS}
+    diag = {key: float(np.mean([pair[(a, a)][key] for a in range(4)])) for key in KEYS}
+    for key in KEYS:
+        assert abs(rv[f"{key}_off"] - off[key]) < 4 * rv[f"se_{key}_off"] + 1e-12, (key, rv[f"{key}_off"], off[key], rv[f"se_{key}_off"])
+        assert abs(rv[f"{key}_diag"] - diag[key]) < 4 * rv[f"se_{key}_diag"] + 1e-12, (key, rv[f"{key}_diag"], diag[key], rv[f"se_{key}_diag"])
+    ex, tr = exact_moments(fixed[0]), exact_truncation_moments(fixed[0], (1, 2))
+    same = pair[(0, 0)]
+    assert same["cost"] == pytest.approx(ex["var_cost"], rel=1e-10, abs=1e-14)
+    assert (same["kL"], same["k1"]) == (pytest.approx(ex["var_kL"], rel=1e-10, abs=1e-14), pytest.approx(ex["var_k1"], rel=1e-10, abs=1e-14))
+    assert (same["msd1"], same["msd2"]) == (pytest.approx(tr[1]["msd"], rel=1e-10, abs=1e-14), pytest.approx(tr[2]["msd"], rel=1e-10, abs=1e-14))
+    assert pair[(0, 1)]["kL"] == pytest.approx(exact_pair_moments(fixed[1], fixed[0], which=("kL",))["kL"], rel=1e-10, abs=1e-15)
+    assert off["kL"] < diag["kL"]                                         # distinct masks decorrelate the copies

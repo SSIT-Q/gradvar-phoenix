@@ -347,7 +347,10 @@ def _one_stamp(g: pd.DataFrame):
 def probe_mask_seed(g: pd.DataFrame):
     """(probe seed, K) of a dial or truncation point: the probe's seed from its rows' per-mask seeds (``mask_seed`` = seed + 1 +
     mask_index, ``hardware.mask_lottery``) and its mask count, or (None, None) when the rows do not record one consistent value
-    (Deviation 60 part (7): the realised-mask comparator is drawn per probe seed)."""
+    (Deviation 60 part (7): the realised-mask comparator is drawn per probe seed). K (the planned count, or the largest index + 1
+    where the rows carry none) is returned only when every draw of every probe carries exactly the masks 0 .. K - 1; otherwise
+    (seed, None), and the point is not evaluable: a point that lost masks (failed pubs, partial retrieval) is not compared with the
+    full-set comparator (addendum 3, S1)."""
     if not {"mask_seed", "mask_index"} <= set(g.columns):
         return None, None
     ms, mi = pd.to_numeric(g.mask_seed, errors="coerce"), pd.to_numeric(g.mask_index, errors="coerce")
@@ -355,11 +358,21 @@ def probe_mask_seed(g: pd.DataFrame):
     if not ok.all():
         return None, None
     seeds = set((ms[ok] - 1 - mi[ok]).astype(int))
-    K = pd.to_numeric(g.K, errors="coerce") if "K" in g.columns else pd.Series(dtype=float)
-    Ks = set(K.dropna().astype(int)) if len(K) else set()
     if len(seeds) != 1:
         return None, None
-    return int(next(iter(seeds))), (int(next(iter(Ks))) if len(Ks) == 1 else int(mi[ok].max()) + 1)
+    seed = int(next(iter(seeds)))
+    K = pd.to_numeric(g.K, errors="coerce") if "K" in g.columns else pd.Series(dtype=float)
+    Ks = set(K.dropna().astype(int)) if len(K) else set()
+    if len(Ks) > 1:
+        return seed, None
+    K = int(next(iter(Ks))) if Ks else int(mi[ok].max()) + 1
+    keys = [c for c in ("probe_id", "draw") if c in g.columns]          # a dial row's 'repeat' is its mask (loader)
+    groups = g.assign(_mi=mi.astype(int)).groupby(keys, sort=False, dropna=False) if keys else [(None, g.assign(_mi=mi.astype(int)))]
+    want = list(range(K))
+    for _, d in groups:
+        if sorted(d["_mi"].tolist()) != want:
+            return seed, None
+    return seed, K
 
 
 def point_table(rows: pd.DataFrame, n_boot: int = N_BOOT) -> pd.DataFrame:

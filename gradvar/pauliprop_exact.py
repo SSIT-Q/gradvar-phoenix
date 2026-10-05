@@ -365,3 +365,130 @@ def exact_truncation_moments(prog: Program, ells: Sequence[int]) -> Dict[int, Di
         cr, tr = run(cut, "cross"), run(cut, "trunc")
         out[int(ell)] = dict(E2=e2, cross=cr, trunc=tr, msd=e2 - 2.0 * cr + tr)
     return out
+
+
+# --------------------------------------------------------------------------- a different channel on each copy (realised masks)
+
+def _apply_on_copy(V, A, q, m, c):
+    """A (4x4) on qubit q of copy c (0 or 1) only."""
+    ax = c * m + q
+    return np.moveaxis(np.tensordot(A, V, axes=([1], [ax])), 0, ax)
+
+
+def _apply_two_on_copy(V, A16, a, b, m, c):
+    A = A16.reshape(4, 4, 4, 4)
+    off = c * m
+    V = np.tensordot(A, V, axes=([2, 3], [off + a, off + b]))
+    return np.moveaxis(V, [0, 1], [off + a, off + b])
+
+
+def _apply_dep2_on_copy(V, f, a, b, m, c):
+    fac = np.ones((4, 4))
+    fac[1:, :] = f
+    fac[:, 1:] = f
+    shape = [1] * (2 * m)
+    shape[c * m + a] = 4
+    shape[c * m + b] = 4
+    return V * fac.reshape(shape)
+
+
+def exact_pair_moments(prog_a: Program, prog_b: Program, which: Sequence[str] = ("cost", "k1", "kL"),
+                       ells: Sequence[int] = ()) -> Dict[str, float]:
+    """Two-copy theta-averaged moments with a different channel on each copy (Deviation 60 part (7); addendum 3, S2): copy 1 runs
+    ``prog_a`` and copy 2 ``prog_b``, two programs with the same gates, rotations, layer boundaries and observable that differ only
+    in their channel ops (the programs of two realised masks, ``pauliprop.fixed_mask_program``), the angles shared by the copies.
+
+    Returns ``cost`` = E_theta[C_a C_b] - E[C_a] E[C_b] (each copy's cost less its own theta-mean), ``k1`` / ``kL`` =
+    E_theta[dC_a dC_b] at the differentiated rotation, and for each l in ``ells`` ``msd<l>`` = E_theta[(C_a - C_a^trunc)
+    (C_b - C_b^trunc)], the truncated circuit running the last l layers of its own program from |0> (``exact_truncation_moments``'
+    construction per copy); also ``E2`` and the two means. With prog_a = prog_b these are ``exact_moments`` /
+    ``exact_truncation_moments`` of that program. Brute force in the doubled Pauli-transfer space, cost 4^(2m); no Pauli-path,
+    orthogonality or factorisation argument enters."""
+    from .pauliprop import cut_index
+    m = prog_a.m
+    ops_a, ops_b = list(prog_a.ops), list(prog_b.ops)
+    if (prog_b.m != m or len(ops_a) != len(ops_b) or (prog_a.i, prog_a.j) != (prog_b.i, prog_b.j)
+            or prog_a.readout != prog_b.readout or prog_a.layer_start != prog_b.layer_start):
+        raise ValueError("the two programs must share their structure (cone, ops, observable, readout, layers)")
+    for oa, ob in zip(ops_a, ops_b):
+        if oa[0] != ob[0] or (oa[0] not in ("n1", "dial", "dial_zz") and oa != ob):
+            raise ValueError(f"the programs differ outside their channel ops: {oa!r} vs {ob!r}")
+        if oa[0] == "dial_zz" and oa[2] != ob[2]:
+            raise ValueError("the programs' dial layers act on different couplers")
+    deriv = {"k1": set(), "kL": set()}
+    for t, op in enumerate(ops_a):
+        if op[0] in ("proj", "mark"):
+            nxt = next(u for u in range(t + 1, len(ops_a)) if ops_a[u][0] == "rot" and ops_a[u][1] == op[1])
+            deriv["k1" if op[0] == "proj" else "kL"].add(nxt)
+    A_rot, A_der, a_rot1 = _avg_pair(_rz_ptm), _avg_pair(_rz_ptm_derivative), _avg_single(_rz_ptm)
+    lam_cache: Dict[tuple, np.ndarray] = {}
+
+    def lam(op):
+        key = (op[1], op[2])
+        if key not in lam_cache:
+            lam_cache[key] = dial_zz_layer_ptm(op[1], op[2], m)
+        return lam_cache[key]
+
+    (ai, bi), (aj, bj) = prog_a.readout[prog_a.i], prog_a.readout[prog_a.j]
+    o = np.zeros((4,) * m)
+    idx0 = [0] * m
+
+    def put(val, zs):
+        ix = list(idx0)
+        for q in zs:
+            ix[q] = 3
+        o[tuple(ix)] += val
+    put(ai * aj, (prog_a.i, prog_a.j)); put(ai * bj, (prog_a.i,)); put(bi * aj, (prog_a.j,)); put(bi * bj, ())
+    c0 = np.zeros((4,) * m)
+    for zs in itertools.product((0, 3), repeat=m):
+        c0[zs] = 2.0 ** (-m)
+    oo = np.tensordot(o, o, axes=0)
+
+    def run(modes, cut=None, der=frozenset()):
+        V = np.tensordot(c0, c0, axes=0)
+        for t in range(len(ops_a) - 1, -1, -1):
+            kind = ops_a[t][0]
+            if kind in ("mark", "proj"):
+                continue
+            act = [c for c in (0, 1) if modes[c] == "full" or (cut is not None and t < cut)]
+            if not act:
+                continue
+            if kind == "rot":
+                q = ops_a[t][1]
+                if len(act) == 2:
+                    V = _apply_pair_coupled(V, A_der if t in der else A_rot, q, m)
+                elif t in der:
+                    raise RuntimeError("the differentiated rotation lies in a deleted layer")
+                else:
+                    V = _apply_on_copy(V, a_rot1, q, m, act[0])
+                continue
+            for c in act:
+                op = (ops_a, ops_b)[c][t]
+                if kind == "sx":
+                    V = _apply_on_copy(V, SX_PTM, op[1], m, c)
+                elif kind in ("n1", "dial"):
+                    V = _apply_on_copy(V, _bloch_ptm(op[2]), op[1], m, c)
+                elif kind == "cz":
+                    V = _apply_two_on_copy(V, CZ_PTM, op[1], op[2], m, c)
+                elif kind == "dep2":
+                    V = _apply_dep2_on_copy(V, op[3], op[1], op[2], m, c)
+                elif kind == "dial_zz":
+                    M2 = V.reshape(4 ** m, 4 ** m)
+                    V = (lam(op) @ M2 if c == 0 else M2 @ lam(op).T).reshape((4,) * (2 * m))
+                else:
+                    raise RuntimeError(kind)
+        return float(4.0 ** m * np.tensordot(oo, V, axes=2 * m))
+
+    mean_a = exact_moments(prog_a, which=())["mean_cost"]
+    mean_b = exact_moments(prog_b, which=())["mean_cost"]
+    e2 = run(("full", "full"))
+    out: Dict[str, float] = dict(E2=e2, mean_a=mean_a, mean_b=mean_b)
+    if "cost" in which:
+        out["cost"] = e2 - mean_a * mean_b
+    for key in ("k1", "kL"):
+        if key in which:
+            out[key] = run(("full", "full"), der=frozenset(deriv[key]))
+    for ell in ells:
+        cut = cut_index(prog_a, int(ell))
+        out[f"msd{int(ell)}"] = e2 - run(("full", "trunc"), cut) - run(("trunc", "full"), cut) + run(("trunc", "trunc"), cut)
+    return out

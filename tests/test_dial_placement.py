@@ -720,3 +720,31 @@ def test_redraw_scripts_draw_the_realised_comparators_on_the_runners_masks(tmp_p
     other, why = P.truncation_prediction(P.load_predictions(d), **kw, seed=23291002, K=256, realised=True)
     assert other is None and "probe seed" in why
 
+
+def test_probe_mask_seed_needs_every_mask_in_every_draw(preds):
+    """Addendum 3, S1: the realised comparator's key (probe seed, K) only when every draw of every probe carries exactly the masks
+    0 .. K - 1. A point that lost a mask (a failed pub, a partial retrieval) or carries a duplicate gets K = None, and its H5 sub-test
+    is not evaluable rather than compared with the full-set comparator."""
+    seed, K = 22991001, 4
+
+    def rows(probes=("dial_p0.5_L8_kL",), drop=None, extra=None, k_col=K):
+        out = [dict(probe_id=pid, draw=d, repeat=mi, mask_index=mi, mask_seed=seed + 1 + mi, K=k_col)
+               for pid in probes for d in range(3) for mi in range(K) if (pid, d, mi) != drop]
+        return pd.DataFrame(out + ([extra] if extra else []))
+
+    assert E.probe_mask_seed(rows()) == (seed, K)
+    assert E.probe_mask_seed(rows(probes=("trunc_full_p0.5_L8", "trunc_l2_p0.5_L8"))) == (seed, K)      # the truncation arm's two probes
+    assert E.probe_mask_seed(rows().drop(columns="K")) == (seed, K)                                     # K from the indices
+    assert E.probe_mask_seed(rows(drop=("dial_p0.5_L8_kL", 1, 2))) == (seed, None)                      # mask 2 lost in draw 1
+    assert E.probe_mask_seed(rows(drop=("dial_p0.5_L8_kL", 1, 3))) == (seed, None)                      # the last mask lost in one draw
+    dup = dict(probe_id="dial_p0.5_L8_kL", draw=0, repeat=1, mask_index=1, mask_seed=seed + 2, K=K)
+    assert E.probe_mask_seed(rows(extra=dup)) == (seed, None)                                           # a duplicated mask
+    assert E.probe_mask_seed(rows(k_col=5)) == (seed, None)                                             # 5 planned, 0 .. 3 present
+    other = rows()
+    other.loc[0, "mask_seed"] = seed + 7
+    assert E.probe_mask_seed(other) == (None, None)                                                     # no single probe seed
+    full = _point(0.25, 8, 52, Q52, seed=4)
+    lost = dict(full, probe_K=None)                                                                     # the point table's key after a lost mask
+    res = DH.evaluate_h5(pd.DataFrame([lost]), _with_realised(preds, [full]), n_boot=200)
+    assert all(v["within"] is None for v in res["values"])
+    assert any("mask seed and mask count" in str(m.get("reason")) for m in res["missing_predictions"])
