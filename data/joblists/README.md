@@ -133,7 +133,13 @@ succeeded jobs, and exits non-zero naming the failed jobs (the Action commits th
    pubs are rebuilt from the job list on the ids file's `calibration_csv` with the recorded seeds and checked against the
    stored inputs (`inputs_verification` in job.json: pub count, ISA op counts, observables, parameter values; a mismatch
    fails the run after everything is written). Every retrieved job.json carries `retrieved: true`, `submission_run` and
-   a `retrieval` record; what it lacks against a live bundle is only the runner-side submission timestamp
+   a `retrieval` record. That record holds `execution_span`: the job's `created`, `running` and `finished` times as the
+   service gives them (`job.metrics()["timestamps"]`), `queued_s`, `running_s`, their `source` and `complete` (false when
+   a time is missing); and `properties_label`, which says what properties.json holds: "properties at job creation"
+   (also written into properties.json as `_label`), or that they are the live properties at retrieval when the service
+   returned none for the creation time. They are never the properties at execution: a job can wait in the queue across
+   an IBM properties update, and `execution_span` is what a review sets against the update times. Both fields are
+   records only; no gate, check or reading consumes them. What a retrieved bundle lacks against a live bundle is only the runner-side submission timestamp
    (`timestamps.submitted_local` is the job's creation time) and the live properties at submission (replaced by the
    properties in force at the job's creation time). An ids file written by hand may carry `job_id: null` with a
    `discovery` window (`created_after` / `created_before`, UTC): the runner lists the account's jobs on the backend in
@@ -199,7 +205,7 @@ conversion.
 | `result.json` | the full `PrimitiveResult` serialised with `qiskit_ibm_runtime.RuntimeEncoder` |
 | `metadata.json` | `result.metadata` and every pub's metadata (shots, twirling, resilience / mitigation settings, execution spans, num_randomizations as returned) |
 | `options.json` | the `EstimatorV2` options object actually used |
-| `properties.json`, `target.json` | `backend.properties()` at submission and a summary of `backend.target` |
+| `properties.json`, `target.json` | `backend.properties()` at submission (a retrieved bundle: the properties at the job's creation, labelled `_source` and `_label` "properties at job creation"; the job's `created` / `running` / `finished` times are in job.json under `retrieval.execution_span`) and a summary of `backend.target` |
 | `circuits.qpy`, `circuits.json` | the transpiled ISA circuits, and per circuit: depth, two-qubit gate count, op counts, `isa_instruction_names`, `mid_circuit_measures` (Estimator circuits have no terminal readout, so any `measure` means reset was compiled to measure-plus-conditional-X: Section 3b kill rule (c)), `reset_count`, `delay_count`, the scheduled `delays` (duration, unit, and `duration_ns` converted with the target's `dt_s`), `delay_durations_ns` (the distinct delay lengths: 400 ns for the dial control) and `target_durations_s` of reset / measure / delay instructions on the qubits they act on |
 
 The dry run (no `--yes-submit`, or `dry_run: true`) writes the same layout against the fake backend with

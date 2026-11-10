@@ -2350,6 +2350,55 @@ def verify_job_inputs(inputs: dict, group: Sequence) -> dict:
     return out
 
 
+PROPERTIES_AT_CREATION = "properties at job creation"
+
+
+def properties_label(props_label: str) -> str:
+    """What a retrieved bundle's properties.json holds, in words (its ``_label``): the properties at the job's creation when the
+    service returned them for that time (``properties_at`` label ``retrieved: ...``); otherwise the label says that they are the
+    live properties at retrieval. They are never the properties at execution: a job can wait in the queue across an IBM update."""
+    if str(props_label).startswith("retrieved:"):
+        return PROPERTIES_AT_CREATION
+    return f"properties live at retrieval, not at job creation ({props_label})"
+
+
+def execution_span(metrics, created=None) -> dict:
+    """The job's ``created`` / ``running`` / ``finished`` times as the service gives them (``job.metrics()['timestamps']``), with the
+    seconds queued and running. A record only: no gate, check or reading consumes it. ``created`` falls back to the job's
+    ``creation_date``; a missing time is None and ``complete`` is false."""
+    ts = dict(metrics.get("timestamps") or {}) if isinstance(metrics, dict) else {}
+    out = dict(created=ts.get("created") or _utc_iso(created), running=ts.get("running"), finished=ts.get("finished"),
+               created_source="job.metrics()['timestamps']" if ts.get("created") else ("job.creation_date" if created else None),
+               source="job.metrics()['timestamps'], read at retrieval")
+
+    def secs(a, b):
+        try:
+            return round((_parse_utc(b) - _parse_utc(a)).total_seconds(), 3)
+        except (TypeError, ValueError):
+            return None
+    out["queued_s"] = secs(out["created"], out["running"])
+    out["running_s"] = secs(out["running"], out["finished"])
+    out["complete"] = all(out[k] for k in ("created", "running", "finished"))
+    return out
+
+
+def record_execution_span(bundle_dir, created=None, props_label: str | None = None) -> dict:
+    """Add to a retrieved bundle's job.json, under ``retrieval``: ``execution_span`` (``execution_span`` of the job.json's own
+    ``metrics``) and ``properties_label`` (what properties.json holds: ``properties_label``). Nothing else in the bundle changes and
+    nothing reads these fields: they record when the job ran, so that a review can set the execution against IBM's properties
+    updates. Returns the span."""
+    jp = Path(bundle_dir) / "job.json"
+    job = json.loads(jp.read_text())
+    span = execution_span(job.get("metrics"), created or job.get("creation_date"))
+    rec = dict(job.get("retrieval") or {})
+    rec["execution_span"] = span
+    if props_label is not None:
+        rec["properties_label"] = properties_label(props_label)
+    job["retrieval"] = rec
+    _dump(jp, job)
+    return span
+
+
 def properties_at(backend, when) -> Tuple[Any, str]:
     """``backend.properties(datetime=when)``, the calibration in force when the job was created, labelled ``retrieved``;
     a backend that does not take ``datetime`` (fake backends) or returns None falls back to the live properties, and the
@@ -2383,7 +2432,10 @@ def retrieve_jobs(ids_path: str, joblist_path: str | None = None, run_root: str 
     the same CSV rows (``_point_rows``), under ``<run_root>/<job creation day>/<job_id>/``. The pubs are rebuilt from the
     job list on the ids file's ``calibration_csv`` with the recorded seeds and checked against the stored inputs
     (``verify_job_inputs``; a mismatch is flagged in job.json and fails the run after everything is written). Every
-    job.json carries ``retrieved: true``, ``submission_run`` and a ``retrieval`` record. A job with ``job_id`` null is
+    job.json carries ``retrieved: true``, ``submission_run`` and a ``retrieval`` record, which holds ``execution_span`` (the job's
+    created / running / finished times from ``metrics()``, with the seconds queued and running) and ``properties_label`` (what
+    properties.json holds: "properties at job creation", also written there as ``_label``; never the properties at execution). Both
+    are records only: no gate, check or reading consumes them. A job with ``job_id`` null is
     identified in the ids file's discovery window by its signature (``match_jobs_by_signature``) and the ids file is
     rewritten with the ids found. A calibration snapshot at retrieval time goes to ``snapshot_dir`` (metadata only, no QPU
     time). Submits nothing; the token and CRN are read as on the live path and never written."""
@@ -2483,9 +2535,9 @@ def retrieve_jobs(ids_path: str, joblist_path: str | None = None, run_root: str 
         props_dict = None
         if props is not None:
             try:
-                props_dict = dict(props.to_dict(), _source=props_label)
+                props_dict = dict(props.to_dict(), _source=props_label, _label=properties_label(props_label))
             except Exception as e:  # pragma: no cover
-                props_dict = dict(error=str(e), _source=props_label)
+                props_dict = dict(error=str(e), _source=props_label, _label=properties_label(props_label))
         now = datetime.now(timezone.utc).isoformat()
         submitted = j.get("submitted_utc") or created_iso
         extra = dict(instance_plan=plan, budget=jl.get("budget"), budget_estimate_with_target_durations=budget_target, layout_check=chk,
@@ -2513,13 +2565,15 @@ def retrieve_jobs(ids_path: str, joblist_path: str | None = None, run_root: str 
             failures.append(f"{job_id} ({tag}): {error}")
             d = write_job_bundle(root, job_id, group, backend, options, level, gshots, jl, job=job, error=error, timestamps=ts, extra=extra,
                                  day=day, properties=props_dict)
+            record_execution_span(d, created_iso, props_label)      # record only: created / running / finished as the service gives them
             print(f"job {job_id} ({tag}) has no result ({error}); wrote {d}", file=sys.stderr, flush=True)
             continue
         d = write_job_bundle(root, job_id, group, backend, options, level, gshots, jl, result=result, job=job, timestamps=ts, extra=extra,
                              day=day, properties=props_dict)
+        span = record_execution_span(d, created_iso, props_label)   # record only: created / running / finished as the service gives them
         rows += _point_rows(backend, job_id, snapshot, group, level, gshots, result, options=options, submit_time=submitted)
         print(f"retrieved {job_id} ({tag}: resilience {level}, {len(group)} pubs, shots {gshots}, status {status}, inputs "
-              f"{'match' if verif.get('match') else 'MISMATCH'}): wrote {d}", flush=True)
+              f"{'match' if verif.get('match') else 'MISMATCH'}): wrote {d}; created {span['created']}, running {span['running']}, finished {span['finished']}", flush=True)
     if rows:
         _append_rows(str(log_path), rows)
         print(f"logged {len(rows)} rows to {log_path}", flush=True)

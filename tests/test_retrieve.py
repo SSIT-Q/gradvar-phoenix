@@ -202,6 +202,12 @@ def test_retrieved_bundles_match_the_live_path_and_discovery_fills_a_missing_id(
         assert opts["default_shots"] == 1024 and opts["resilience_level"] == a["resilience_level"] and opts["options_source"].startswith("job.inputs")
         props = json.loads((retr[name] / "properties.json").read_text())
         assert props["_source"] == r["properties_source"] and props["qubits"]
+        # record only (pipeline change of 10 Nov 2026): when the job ran, as the service gives it, and what properties.json holds
+        span = r["execution_span"]
+        assert (span["created"], span["running"], span["finished"]) == ("2026-09-20T04:47:12.5Z", "2026-09-20T09:58:01Z", "2026-09-20T09:58:07Z")
+        assert span["queued_s"] == 18648.5 and span["running_s"] == 6.0 and span["complete"] is True and span == hw.execution_span(b["metrics"])
+        assert r["properties_label"] == props["_label"] and props["_label"].startswith("properties live at retrieval, not at job creation")   # fake backends take no datetime
+        assert "execution_span" not in a and "_label" not in json.loads((live[name] / "properties.json").read_text())                       # the live path is untouched
     live_csv = pd.read_csv(tmp_path / "live" / "jobs" / "live.csv")
     retr_csv = pd.read_csv(next((tmp_path / "retr" / "jobs").glob("*_retrieved_*.csv")))
     assert list(live_csv.columns) == list(retr_csv.columns) == hw.LOG_COLUMNS and len(retr_csv) == len(live_csv) == 12
