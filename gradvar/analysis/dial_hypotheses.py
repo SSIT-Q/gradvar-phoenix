@@ -94,16 +94,23 @@ H6_CONTROL_BOUNDS = ("Deviation 60 part (6): when the lower end of the dephasing
                      "holds when r_lo > max(d_hi, 0) (the reset variance above the dephasing variance: 'above 1') and r_lo <= F exp(1.96 s) "
                      "d_hi, F the pre-drawn factor and s its relative sigma (F inside the combined interval, open above); otherwise it fails. "
                      "When the dephasing interval lies entirely at or below zero (d_hi <= 0) the factor condition is reported 'factor not "
-                     "tested' and the clause is decided by r_lo > 0 alone. With a resolvably positive dephasing variance the "
+                     "tested' and the clause is decided by r_lo > 0 alone. When the upper end d_hi of the dephasing interval is not "
+                     "finite the clause is not evaluable (a computation gap, not evidence against the clause): it is not counted as a "
+                     "miss, and H6 is then not-evaluable unless another sub-test fails. With a resolvably positive dephasing variance the "
                      "paired-bootstrap ratio test is unchanged.")
+H6_CONTROL_NOT_EVALUABLE = "not evaluable: the dephasing interval is not finite"
 
 
 def _control_bounds_test(ra, rb, pred: float, pred_sigma: float) -> Dict:
     """H6 reset / dephasing control on the two points' intervals (``H6_CONTROL_BOUNDS``): ``ra`` the reset point, ``rb`` the
     dephasing point, ``pred`` the pre-drawn factor Var_reset / Var_dephase with ``pred_sigma``. No ratio with a non-positive
-    denominator is formed; ``lo`` (reported only) is r_lo / d_hi when d_hi > 0."""
+    denominator is formed; ``lo`` (reported only) is r_lo / d_hi when d_hi > 0. With a non-finite d_hi (the end of the dephasing
+    interval this rule reads) nothing is compared: ``evaluable`` is False, ``exceeds`` and ``within`` are None and ``factor_note``
+    is ``H6_CONTROL_NOT_EVALUABLE`` (Deviation 63 follow-up review, addendum 2, N2: not a failure of H6, and not 'no pre-drawn
+    factor')."""
     r_lo, d_lo, d_hi = float(ra.signal_ci_lo), float(rb.signal_ci_lo), float(rb.signal_ci_hi)
-    finite = bool(np.isfinite(r_lo) and np.isfinite(d_hi))
+    evaluable = bool(np.isfinite(d_hi))
+    finite = bool(np.isfinite(r_lo) and evaluable)
     has_pred = bool(np.isfinite(pred) and pred > 0)
     s = (pred_sigma / pred) if (has_pred and np.isfinite(pred_sigma)) else 0.0
     f_hi = pred * np.exp(Z95 * s) if has_pred else np.nan
@@ -113,9 +120,10 @@ def _control_bounds_test(ra, rb, pred: float, pred_sigma: float) -> Dict:
                 dephasing_hi=d_hi, predicted=float(pred) if has_pred else None,
                 predicted_sigma=float(pred_sigma) if (has_pred and np.isfinite(pred_sigma)) else None,
                 factor_hi=float(f_hi) if has_pred else None, within=bool(r_lo <= f_hi * d_hi) if tested else None,
-                factor_tested=tested, factor_note=None if tested else ("factor not tested: the dephasing interval lies at or below zero"
+                factor_tested=tested, factor_note=None if tested else (H6_CONTROL_NOT_EVALUABLE if not evaluable else
+                                                                       "factor not tested: the dephasing interval lies at or below zero"
                                                                        if finite and has_pred else "no pre-drawn factor"),
-                exceeds=bool(finite and r_lo > max(d_hi, 0.0)), note=H6_CONTROL_BOUNDS)
+                exceeds=bool(finite and r_lo > max(d_hi, 0.0)) if evaluable else None, evaluable=evaluable, note=H6_CONTROL_BOUNDS)
 
 
 def _value_test(meas: float, lo: float, hi: float, pred: float, pred_sigma: float) -> Dict:
@@ -403,25 +411,30 @@ def evaluate_h6(points: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict
     ev = [x for x in ratios + ladder if x["within"] is not None]
     miss, miss_note = _missing(missing)
     miss_note += _pairing_note(pairing)
-    if not fl and not ev and not controls:
-        return verdict("H6", H_TEXT["H6"], "not-evaluable", note="no reset k = L point with a Deviation 33 floor or a pre-drawn ratio" + miss_note, floors=floors,
+    # a control whose dephasing interval is not finite is not evaluable (N2): neither a miss nor a pass of the clause
+    control_gap = [x for x in controls if x.get("evaluable") is False]
+    tested_controls = [x for x in controls if x.get("evaluable") is not False]
+    gap_note = f"; reset / dephasing control {H6_CONTROL_NOT_EVALUABLE} (a computation gap, not counted as a miss)" if control_gap else ""
+    if not fl and not ev and not tested_controls:
+        return verdict("H6", H_TEXT["H6"], "not-evaluable", note="no reset k = L point with a Deviation 33 floor or a pre-drawn ratio" + gap_note + miss_note, floors=floors,
                        depth_ratios=ratios, ladder=ladder, controls=controls, k1_series=k1, unital_reference=flat_reference, missing_predictions=miss,
                        pairing=pairing)
     inconclusive = flat_reference is not None and not flat_reference["falls"]
-    fails = [x for x in fl if x["below_floor_with_interval"]] + [x for x in ratios if x["within"] is False] + [x for x in controls if x["within"] is False or not x["exceeds"]]
+    fails = [x for x in fl if x["below_floor_with_interval"]] + [x for x in ratios if x["within"] is False] + [x for x in tested_controls if x["within"] is False or not x["exceeds"]]
     if not inconclusive:
         fails += [x for x in ladder if x["within"] is False]
-    result = "fail" if fails else "pass"
+    # a failing sub-test refutes whatever the control shows; without one, a control that could not be computed leaves H6 undecided
+    result = "fail" if fails else ("not-evaluable" if control_gap else "pass")
     return verdict("H6", H_TEXT["H6"], result,
                    value=dict(below_floor=sum(1 for x in fl if x["below_floor_with_interval"]), depth_ratio_misses=sum(1 for x in ratios if x["within"] is False),
-                              ladder_misses=sum(1 for x in ladder if x["within"] is False), control_misses=sum(1 for x in controls if x["within"] is False or not x["exceeds"])),
+                              ladder_misses=sum(1 for x in ladder if x["within"] is False), control_misses=sum(1 for x in tested_controls if x["within"] is False or not x["exceeds"])),
                    threshold="0 of each", comparison="headline: floor-subtracted k = L variance / (1/2 c_i^2 g_i^2 p^2) with its interval above 1",
                    note=f"{len(fl)} floor checks, {len(ratios)} depth ratios, {len(ladder)} ladder ratios, {len(controls)} dephasing comparisons; k = 1 fall reported only"
                         + ("; unital reference flat on the day: ladder comparison inconclusive (not refuting)" if inconclusive else "")
                         + ("; dephasing variance not resolvably positive: reset / dephasing clause read on bounds (Deviation 60 part (6))"
                            if any(x.get("rule") == "bounds" for x in controls) else "")
                         + ("; dephasing interval at or below zero: factor not tested, decided by the reset lower bound above zero"
-                           if any(str(x.get("factor_note") or "").startswith("factor not tested") for x in controls) else "") + miss_note,
+                           if any(str(x.get("factor_note") or "").startswith("factor not tested") for x in controls) else "") + gap_note + miss_note,
                    headline=[dict(p=x["p"], n=x["n"], L=x["L"], ratio_to_floor=x["headline_ratio"], lo=x["headline_lo"], hi=x["headline_hi"]) for x in floors],
                    floors=floors, depth_ratios=ratios, ladder=ladder, controls=controls, k1_series=k1, unital_reference=flat_reference, ladder_inconclusive=inconclusive,
                    missing_predictions=miss, pairing=pairing)
