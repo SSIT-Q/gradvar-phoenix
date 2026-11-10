@@ -30,6 +30,12 @@ jobs waited 1 h 40 min 49 s or more between creation and running, and ran from 1
 properties in force while they ran, this placement fails the runner's cuts on four placed qubits.** Unlike review 06, the side
 of the update is established here.
 
+**Reading (Section 9, second commit).** Null floor at 65,536 shots 1.9018e-07; both points claimable. L = 8: V =
+3.0433e-04 [1.8891e-04, 4.3993e-04], 0.71 [0.44, 1.03] of this placement's row 4.2589e-04; Deviation 19 statistic
+z = -1.98, no flag. L = 10: signal 7.7356e-05 [5.0304e-05, 1.0947e-04]; no prediction row exists at L = 10; the
+interpolated value 9.753e-05 lies inside the interval and no rule reads that comparison. H2 `not-evaluable` by the evaluator
+(two depths). Every comparison carries N1. Nothing here changes review 06's reading.
+
 ## 0. Presence and integrity (logging rule)
 
 | item | `L0` (`dbpfom8ou4as73ctjes0`) | `L0-c2` (`dbpfon8qtr0c738ebgj0`) | `L0-probes-s65536` (`dbpfontt7fqc7389bsu0`) |
@@ -315,3 +321,224 @@ edge, origin and n). k = 1 values are `var_k1_mc` of the propagation rows, read 
 - **Not available, stated in advance:** a per-draw noiseless or surrogate comparison (Deviation 56: waits for the surrogate and
   the theorist's sign-off); a prediction row at L = 10; a fourth-moment row; any prediction on the 11:35:39Z properties; a
   65,536-shot L = 12 point (not in the block); the 4,096-shot diagnostic of `replication_01` (not run).
+
+## 9. The reading (second commit; computed after Sections 0 to 8 were pushed as 382df23489825bc32add0b54bdfc13d92578b211 at 14:25:37 UTC)
+
+**A note from the lead, and when it arrived.** A note dated 14:27 UTC on 10 Nov reached this review after the first commit
+was pushed and **before any Block C measured value had been opened**; the first measured value was opened by the pipeline run
+below, after the note was read. It records that the independent check of review 06 is back (CONFIRMED_WITH_CORRECTIONS) and
+fixes three decisions, taken by the lead under the PI's delegation without knowledge of any Block C value: (1) the day-2 flag is
+decided on review 06's reading alone (not replicated, the flag closes, with N1 as a stated caveat); Block C's L = 8 sample is
+reported beside it and is not a decision input; the PI's countersignature is owed. (2) A job whose running-to-finished window
+contains IBM's 11:35:39Z update is read against the rows of the 10:16Z re-draw, with the caveat, and is neither voided nor
+re-read against later rows. (3) Gate 2 (e): the evaluator passes on the properties in force at submission; on IBM's 11:35:39Z
+figures the pause condition is met; the campaign is treated as paused for any further dispatch until the cause is logged and
+the PI signs a recorded deviation; retrieval and review are not affected and no datum is voided; this review evaluates both
+sets of figures and does not decide it. **None of the three changes anything done before the note:** Section 8 had already
+fixed the 10:16Z rows as the rows read, Section 3 already places each job against both later updates, and Section 6 already
+reports Gate 2 (e) on both sets without deciding it. One point of wording for the lead: decision (2) speaks of a window that
+contains the update. No Block C window contains it; all three lie wholly after it (Section 3). They are read here against the
+10:16Z rows, as Section 8 fixed and as the decision's reason ("the placement and calibration it was dispatched on") implies,
+but the decision's wording does not literally cover them.
+
+**Value-level integrity** (after the first commit): every decoded expectation value and standard deviation is finite, every
+|ev| <= 1; `ev_plus`, `ev_minus` in the CSV equal the decoded `result.json` values exactly, `std_*` and `ensemble_se_*` to
+1e-15, `gradient` = (`ev_plus` - `ev_minus`) / 2 exactly, on 300 + 100 + 200 rows. No failed or partial pub.
+
+**Evaluators** (`gradvar.analysis.gates`, `hypotheses`, on the run directory): kill rules (a) to (d) `not-evaluable` (no dial);
+Gate 2 (a), (b), (c) `not-evaluable` (no n20 point, no ladder); Gate 2 (d) `pass` (12.99 us per execution, per-job constant
+6.35 s, grid extrapolation 54.3 min <= 200); **Gate 2 (e) `pass`, max live / snapshot 1.00 over 82 patch qubits**, on the
+properties at job creation. On IBM's 11:35:39Z figures, in force while the jobs ran: 12 of 82 above 1.5x, Q31 and Q98 above
+the cut; on the 13:37:31Z figures: 10 above 1.5x, Q98 above the cut, one L = 2 cone qubit (Q84) at 1.61x (Section 6). Both
+are reported; it is not decided here. H1, H3, H4 `not-evaluable`; H2 below.
+
+**Measured** (`python -m gradvar.analysis.report <run dir> --out postrun_07 --predictions data/predictions --snapshot-csv
+data/calibrations/ibm_phoenix_2026-11-10T101610Z.csv --n-boot 10000` at f11dc7aa; `points.csv`; seeded bootstrap):
+
+| point | jobs | M | raw variance V [95 percent interval, 10,000 resamples] | Estimator shot variance (1/(2N) = 7.6294e-06) | signal [interval] | kurtosis |
+|---|---|---|---|---|---|---|
+| L = 8, k = 1 | `L0` | 200 | **3.0433e-04 [1.8891e-04, 4.3993e-04]** | 7.6246e-06 | 2.9670e-04 [1.8128e-04, 4.3231e-04] | 9.94 |
+| L = 10, k = 1 | `L0` (draws 1-100), `L0-c2` (101-200) | 200 | **8.4984e-05 [5.7932e-05, 1.1710e-04]** | 7.6282e-06 | 7.7356e-05 [5.0304e-05, 1.0947e-04] | 7.58 |
+| L = 0 null control | probes | 200 | 1.9018e-07 [1.5632e-07, 2.2426e-07] | 1.8656e-07 | 3.6e-09 [-3.0e-08, 3.8e-08] | 2.65 |
+
+All of these were measured under IBM's 11:35:39Z properties (N1).
+
+### 9a. The L = 0 floor and claimability (Deviations 37, 43; Section 3c: "compared with ... the L = 0 floors")
+
+- Measured null floor at n = 82, 65,536 shots, level 0: **1.9018e-07 [1.5632e-07, 2.2426e-07]**, bootstrap sigma 1.733e-08;
+  claimability bar = floor + 3 sigma = **2.4218e-07** (`gates.null_floors`; `hypotheses.mark_claimable`, `hypotheses.py:46-62`). The
+  null control's shot-subtracted variance is 3.6e-09 [-3.0e-08, 3.8e-08], an interval that contains zero.
+- **L = 8: `claimable: True`** (signal interval starts at 1.8128e-04, 749 times the bar; eps_N 0.026).
+  **L = 10: `claimable: True`** (signal interval starts at 5.0304e-05, 208 times the bar; eps_N 0.099;
+  signal 10.1 times 1/(2N)). By pre-flight 09 Section 4 the bar "decides whether the L = 10 point is confirmatory or
+  exploratory": on that rule the point is not exploratory for want of resolution.
+- **Stop rule (ii)** of pre-flight 09 ("the null floor at 65,536 shots below the L = 10 prediction band, else L = 10 is declared
+  exploratory"): the floor is 0.19 percent of the interpolated value 9.753e-05, and the bar is 0.26 percent of the
+  orientation interval's lower end. Met.
+
+### 9b. The L = 8 point against the propagation row of this placement
+
+`predictions.compare_points` with the 10:16Z re-draw's propagation rows as its table (`predictions.py:337-375`):
+
+| quantity | value |
+|---|---|
+| V against P8 = 4.2589e-04 (non-unital, converged; n = 82) | ratio **0.715 [0.444, 1.033]** |
+| signal against P8 | 0.697 [0.426, 1.015] |
+| Deviation 19 single-point statistic, pipeline form (signal; sigma = bootstrap, shot floor, row) | **z = -1.983** (sigma 6.5148e-05); `anomaly_single: False` |
+| pre-flight 08's written z (raw; sigma = bootstrap, row) | z = -1.879 |
+| Block C's own family (Deviation 61 (ii)); tests with a row | m = 1; no flag (`anomaly_protocol`: `flagged: False`) |
+| unital and noiseless rows beside it | unital 4.0702e-04 inside the measured interval; noiseless 6.2225e-04 above it |
+
+- **No Deviation 19 flag on Block C's L = 8 point:** |z| < 3 on both forms. The measured value is 0.71 of the row, low by 1.9 to
+  2.0 sigma. The interval of V / P8 contains 1.0 and contains 0.50.
+- Deviation 15's hardware-only test does not apply to this row: its error 1.85e-05 is below half the unital-to-noiseless
+  separation 1.08e-04.
+
+### 9c. The three L = 8 samples of the rung, each against its own placement's row (pre-flight 08 Section 4; Deviation 61)
+
+| sample | n | shots | V [95 percent interval] | its row P | V / P | signal / P | z, pre-flight 08 form | z, Deviation 19 pipeline form | SE_boot / V |
+|---|---|---|---|---|---|---|---|---|---|
+| day 2 (21 Sep 00:05-00:12 UTC) | 85 | 16,384 | 1.5269e-04 [1.0202e-04, 2.1684e-04] | 3.0693e-04 | 0.497 [0.332, 0.706] | 0.398 [0.233, 0.607] | -5.21 | -4.34 | 0.192 |
+| replication (10 Nov, review 06) | 82 | 16,384 | 3.9258e-04 [2.5006e-04, 5.5506e-04] | 4.2589e-04 | 0.922 [0.587, 1.303] | 0.850 [0.516, 1.232] | -0.43 | -0.76 | 0.198 |
+| Block C (10 Nov) | 82 | 65,536 | 3.0433e-04 [1.8891e-04, 4.3993e-04] | 4.2589e-04 | 0.715 [0.444, 1.033] | 0.697 [0.426, 1.015] | -1.88 | -1.98 | 0.210 |
+
+- Day 2's values are the frozen reference file's; the replication's were recomputed here from `main`'s bundles with the same
+  pipeline and equal review 06's text at ed05d44e (V and signal with their intervals, to the printed digits); Block C's are 9b.
+  Same rectangle and edge on all three; 78 of the placed qubits are common to day 2 and today (review 06 Section 10).
+- **This does not change review 06's reading and is not an input to it.** By the lead's decision (1) above and Deviation 61,
+  the day-2 flag is decided on `replication_01_16384` alone.
+- **Scatter of the three ratios** (what pre-flight 08 asks the review to report beside its table; three values, two degrees of
+  freedom): signal / P = 0.398, 0.850, 0.697: mean 0.648, standard deviation 0.230, relative 0.35. The single-sample
+  bootstrap relative errors are 0.19, 0.20 and 0.21; pre-flight 08 expected 0.19 to 0.26 from draw sampling. The two
+  10 Nov samples share a placement and a row and differ in V by 8.825e-05, 0.88 of the combined bootstrap error.
+  The three samples also differ in day, n, row and, for Block C, in the calibration under which they ran, so the scatter is
+  not a clean measurement of draw sampling alone.
+
+### 9d. The L = 10 point: what the registered text lets one conclude, and what it does not
+
+- **It is resolved and claimable** (9a): a depth-10 point above the shot floor and the null floor on the largest rung, which is
+  the stated purpose of the block (Section 3c (i): "lift ... a depth-10 point above the shot floor").
+- **Beside the interpolated value** (pre-flight 09 Section 7 step 5; no rule reads it): signal 7.7356e-05 [5.0304e-05, 1.0947e-04]
+  against the geometric interpolation 9.753e-05 of the L = 8 and L = 12 non-unital rows (orientation interval
+  [9.320e-05, 1.071e-04], Section 8). The interpolated value lies inside the measured interval; the measured signal is
+  0.79 [0.52, 1.12] of it. Unital interpolation 9.393e-05: inside; noiseless 1.647e-04: above the interval.
+- **What that is not.** There is no propagation row at L = 10; `compare_points` returns "no prediction" for the point and forms
+  no z. The interpolation's upper depth is an L = 12 row, exploratory under Deviation 37 ("no confirmatory statistic is formed
+  from them"), with recorded status "sampled, trunc. deficit < 10%" on this placement (not "not converged"; Section 8), 0.6 of a
+  percentage point from the line at which it would be labelled not converged and would "enter no ratio". So the registered text
+  supports: the point is claimable; the null floor is far below the band; the measured value and the interpolated value are
+  reported side by side. It does not support: a test of the noise model at L = 10, a Deviation 19 flag or its absence at L = 10,
+  or any statement that the device agrees or disagrees with the prediction at that depth. And N1 applies to it as to L = 8.
+
+### 9e. H2
+
+- `hypotheses.evaluate_h2`: **`not-evaluable`**, "0 series with >= 3 claimable depths" (`hypotheses.py:143-167`; `docs/ANALYSIS.md:63-65`).
+  This run has two claimable depths at (n = 82, k = 1, level 0); no other depth has been measured on an n = 82 placement, and
+  the evaluator groups by n, so the rung's earlier depths (n = 85, day 2) do not join them.
+- H2's refutation clause is written for depths <= 8: "Refuted if the variance at fixed n does not fall with L once the shot floor
+  is subtracted over any evaluable series with both depths <= 8" (`paper1_preregistration.md:32`). An L = 8 / L = 10 pair is
+  outside that clause and Section 3c "adds no claim to Sections 1-5". What can be stated: the measured signal is lower at L = 10
+  than at L = 8 (7.74e-05 against 2.97e-04, intervals disjoint: [5.03e-05, 1.09e-04] and [1.81e-04, 4.32e-04]),
+  which is the direction H2 describes. A fitted fall is under "Exploratory".
+
+### 9f. Moments
+
+- Second moment: 9b (L = 8) and 9d (L = 10).
+- Fourth moment: the measured kurtosis of the 200 gradients is 9.94 at L = 8 and 7.58 at L = 10 (raw gradients, shot noise
+  included). No fourth-moment row exists in the re-draw files for this placement, so there is no propagation value to compare
+  with; the shape reference the 21 Sep pre-flight names is "the kurtosis 14.2 of the noiseless draws, Deviation 30". Deviation 39
+  puts the sampling error of a kurtosis at 20 to 30 percent at M = 350. Reported; no rule reads it.
+
+### 9g. Not evaluable or not available (nothing substituted)
+
+(1) A prediction row at L = 10. (2) H2 by the evaluator (two depths). (3) A fourth-moment prediction. (4) A per-draw
+comparison: Deviation 56 makes it wait for the surrogate of Section 3c (ii) and the theorist's sign-off; none exists.
+(5) A prediction on the properties under which the jobs ran. (6) The 4,096-shot sample of the rung (`replication_01`, not run),
+so the rung has three samples, not four. (7) The report's own comparison line for L = 8: it used the frozen 19 Sep row
+(2.9037e-04, n = 87) and printed z = +0.10; not used.
+
+## 10. What this review does and does not establish
+
+- **Established by the audit.** The three jobs are the armed list's, complete, on the list's placement, with no override; 15.87
+  min charged to the main-grid line (57.67 of 190.5). All three ran after IBM's 11:35:39Z update, under published properties on
+  which four placed qubits inside the measured light cones are over a cut (N1). Gate 2 (e) reads `pass` on the evaluator and
+  meets Deviation 49's pause condition on the figures in force during the run; by the lead's provisional decision the campaign
+  is paused for further dispatch until a recorded deviation is signed (not decided here).
+- **Reported, as the registered text asks.** Both Block C points are above the L = 0 floor's claimability bar by more than two
+  orders of magnitude. The L = 8 point reads 0.71 [0.44, 1.03] of its row, z about -1.9 to -2.0, no Deviation 19 flag. The
+  L = 10 point's interval contains the interpolated value. The variance is lower at L = 10 than at L = 8.
+- **Beside review 06's decision, without changing it.** Block C's L = 8 ratio (0.71) lies between day 2's (0.50) and the
+  replication's (0.92). Its interval contains both 0.50 and 1.0, so on its own it separates neither.
+- **Not established.** That the device follows the non-unital row at L = 8 or the interpolation at L = 10: each comparison
+  pairs a measurement under one calibration with a prediction under an earlier one (N1), and the L = 10 comparison has no
+  registered prediction. Anything about H2 as a registered test. Anything about per-draw tracking. Why day 2 read low.
+- **For the lead and the PI.** (a) Whether Block C's points stand as Section 3c records with N1 stated, or are re-measured on
+  a package whose jobs run under the calibration they were placed on. (b) The Gate 2 (e) deviation. (c) Confirmation that
+  decision (2) covers a window wholly after the update. (d) The tracker's main-grid line and ledger, untouched by this branch.
+
+## 11. Exploratory, not registered
+
+None of this enters Sections 9 and 10.
+
+- **Fall from L = 8 to L = 10.** Ratio of signal variances 3.84 [2.12, 6.78] (`estimators.paired_ratio`, 10,000 resamples),
+  that is 0.67 [0.37, 0.96] per layer in ln V; the two non-unital rows give 0.737 per layer between L = 8 and
+  L = 12. The estimator resampled the two depths with common indices because they have equal length (`paired: True`), although
+  they are independent draw sets; see E3.
+- **L = 10 by job.** Draws 1 to 100 (`L0`, finished 13:31:41Z): V = 8.049e-05 [5.162e-05, 1.122e-04]; draws 101 to 200
+  (`L0-c2`, finished 13:10:40Z): 9.017e-05 [4.458e-05, 1.467e-04] (`estimators.variance_point`, M = 100 each). They differ by
+  0.32 of their combined bootstrap error.
+- **Block C's L = 8 point in the Deviation 61 (i) form** (phi = 1.2320, SE_cal of Section 8; Block C is not one of the four
+  named tests, so this is not a Deviation 61 test): z = -1.48.
+- **Scatter with two degrees of freedom.** For normal ratios a sample standard deviation of 0.35 (relative) from three values
+  is compatible with a true relative spread anywhere from about 0.18 to 2.2 (95 percent); the expected 0.19 to 0.26 is inside.
+- **abs(g) of the samples of the rung** (raw gradients):
+
+| sample | M | median abs(g) | 90th percentile of abs(g) | max abs(g) | share of sum g^2 in the 10 largest draws | kurtosis |
+|---|---|---|---|---|---|---|
+| day 2 | 200 | 0.0060 | 0.0196 | 0.0704 | 0.47 | 8.51 |
+| replication | 200 | 0.0073 | 0.0288 | 0.0920 | 0.57 | 8.99 |
+| Block C L8 | 200 | 0.0068 | 0.0249 | 0.0859 | 0.58 | 9.94 |
+| Block C L10 | 200 | 0.0044 | 0.0141 | 0.0463 | 0.49 | 7.58 |
+
+  In every L = 8 sample about half of the variance sits in ten of the 200 draws.
+
+## 12. Defects and gaps found (reported, not fixed here)
+
+- **E1. Deviation 62 (iv) did not do what it was adopted for.** The list was dispatched within the properties update of its
+  package and its jobs ran 1 h 19 min after the next one, on properties that fail the placement's cuts. The post-run check
+  cannot see this (review 06, D1); here it is established from `metrics.timestamps`. A check of the properties at each job's
+  `running` time against the placement would have caught it.
+- **E2. Gate 2 (e)'s evaluator** passes by construction (review 06, D2); for Block C its "live" figures were superseded
+  before the jobs ran.
+- **E3. `estimators.paired_ratio` decides pairing by equal length**, not by shared draws: two independent 200-draw points are
+  resampled as pairs and labelled `paired: True`.
+- **E4. `hypotheses.evaluate_h2` groups series by the placed n**, so a rung whose n changes between days never forms a depth
+  series; pre-flight 09's "three resolved points (L = 4, 8, 10)" cannot be evaluated by it, and no L = 4 point exists at n = 82.
+- **E5. A status that is the first package's travelled with the second.** The "not converged" label of the L = 12 row belongs
+  to `main_grid_redraw_2026-11-10T0821.csv`; pre-flight 09 does not state the row's status, and the brief for this review
+  carried the old one. `status_of` (`scripts/gate1_pauliprop.py:133-152`) computes the status from the row's k = L quantities
+  (`var_mc`, `var_pp`), and the k = 1 value read here inherits it; today it is 9.4 percent against a 10 percent line.
+- **E6. The report's figures** again draw a "null-control floor" near 9e-5 (review 06, D10). In `variance_vs_L.png` that line
+  lies above the L = 10 point, which reads as if the point were under its null floor; the measured floor is 1.9e-07.
+- **E7. `gradvar.analysis.report` compared the L = 8 point with the frozen n = 87 row** (review 06, D6): z = +0.10 in `report.md`.
+- **E8. As in review 06:** the live layout check is in the Actions log only; `job.json` carries the retrieval run's commit;
+  input verification is a pub count; `L0`'s QPY is an expiring artefact; pre-flight 09's header names its own file as the one
+  it supersedes and Section 3 counts against a 210-minute cap; the tracker is of 25 Sep.
+
+## 13. Reproduction
+
+```
+git checkout f11dc7aa831bc2c55522a182a2f22a919b129bc8
+mkdir -p run07/jobs run07/runs/2026-11-10
+cp data/jobs/section3c_blockC_retrieved_20261110T135646Z.csv run07/jobs/
+for j in dbpfom8ou4as73ctjes0 dbpfon8qtr0c738ebgj0 dbpfontt7fqc7389bsu0; do cp -r data/runs/2026-11-10/$j run07/runs/2026-11-10/; done
+python -m gradvar.analysis.report run07 --out postrun_07 --predictions data/predictions \
+  --snapshot-csv data/calibrations/ibm_phoenix_2026-11-10T101610Z.csv --n-boot 10000
+```
+Then, in Python at the same commit: rows from `predictions._prediction_from_rows` on the n = 82, 10x10, 75_85, `dev15` rows of
+`data/predictions/main_grid_redraw_2026-11-10T1016.csv` at L = 8 and L = 12 (k = 1); the L = 8 comparison from `predictions.compare_points(points, preds)` with
+`preds["pp"]` set to those `dev15` rows and `preds["exact"]` empty; floors and claimability from `postrun_07/results.json` and
+`points.csv`; light cones from `gradvar.circuits.light_cone(patch, L, (75, 85))` on the patch of
+`gradvar.hardware.joblist_points(list, csv)`; the layout re-checks from `gradvar.hardware.layout_check(None, qubits, couplers,
+props=...)` on the two retrieval snapshots. Python 3.12.14, numpy 2.4.6, pandas 3.0.6, qiskit 2.5.2, qiskit-ibm-runtime 0.49.0.
+The machine-readable numbers are kept with the session's artifacts (`postrun_07_numbers.json`), not in the repository.
