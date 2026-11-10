@@ -1021,7 +1021,7 @@ def mean_cmix_check(points: pd.DataFrame, rows: pd.DataFrame | None = None, snap
             continue
         if len(cand) > 1 or _n_placements(cand.iloc[0]) > 1:
             out.append(dict(member, within=None, points=[str(x) for x in cand.point_id],
-                            note=f"{len(cand)} candidate points, or rows of several placements pooled (counts as not missing)"))
+                            note=f"{len(cand)} candidate points, or rows of several placements pooled (not a miss of the check; a gap for R1 and R2)"))
             continue
         r = cand.iloc[0]
         base = dict(member, point_id=r.point_id, n=int(r.n))
@@ -1190,11 +1190,18 @@ def _control_reading(c: Dict | None) -> str:
 
 def _cmix_gaps(mean_check: Dict | None) -> list:
     """Follow-up review S10: the reasons the E[C_mix] check cannot support a final R1 or R2: not run, or not evaluated at a family
-    member that has a point in the loaded runs (a member not run counts as not missing)."""
+    member that has a point in the loaded runs (a member not run counts as not missing). A member with several candidate points, or
+    with rows of several placements pooled, has points in the loaded runs but no single evaluated one: ``mean_cmix_check`` records it
+    with ``points`` and without a ``point_id``, and it is a gap as well (follow-up review addendum 2, N1)."""
     if mean_check is None:
         return ["the E[C_mix] check was not run (R3 (ii) cannot be read)"]
-    return [f"the E[C_mix] check is not evaluated at {x.get('point_id')}: {x.get('note')}" for x in mean_check.get("points", []) or []
-            if x.get("point_id") is not None and x.get("within") is None]
+    out = []
+    for x in mean_check.get("points", []) or []:
+        if x.get("within") is None and (x.get("point_id") is not None or x.get("points")):
+            where = x.get("point_id") if x.get("point_id") is not None else (
+                f"the family member {x.get('patch')}, p = {float(x.get('p', np.nan)):g}, L = {x.get('L')} (" + ", ".join(str(v) for v in x["points"]) + ")")
+            out.append(f"the E[C_mix] check is not evaluated at {where}: {x.get('note')}")
+    return out
 
 
 def _floor_gaps(h5: Dict | None, h6: Dict | None) -> list:

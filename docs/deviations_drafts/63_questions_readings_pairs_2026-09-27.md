@@ -208,6 +208,20 @@ placement (`dial_realised_2026-09-27T0308.*`, `h7_realised_2026-09-27T0308.*`):
   entries, and the margin's realised H7 entry (no `h7_realised_2026-10-04T0435.*` is committed). They are drawn in the same-day cycle on
   the placement that runs (Section 8).
 
+### 0e. Follow-up review, addendum 2 (5 Oct 2026): N1, and the second merge of `dev60-h7-analysis`
+
+- **Merge.** `dev60-h7-analysis` at 94f4737 is merged (ac20512; no conflicts): 69aa4cc (Deviation 60 addendum 3, S1 and S2), d57e991 (the
+  Deviation 60 draft) and 94f4737 (N2 of the addendum, on the Deviation 60 track: a non-finite dephasing interval makes H6's reset /
+  dephasing control, and H6 unless another sub-test fails, not-evaluable in place of failing). With such a control the reading is
+  UNRESOLVED, as it was when H6 failed.
+- **Fixture.** The S1 mask-count guard counts the masks 0 .. K − 1 per probe and draw. The hand-built rows of `_pair_rows` in
+  `tests/test_truncation_pairs.py` carried no `probe_id`, so four tests read H7 and the pairs as not-evaluable after the merge. The rows
+  now carry the loader's probe ids (45281f9; test fixture only, no analysis code).
+- **N1.** `mean_cmix_check` records a member with several candidate points, or with rows of several placements pooled, with `points`
+  and without a `point_id`, and `_cmix_gaps` skipped it. It now counts as a gap: neither R1 nor R2 is read, and the reason names the
+  member and its points. The row's text ("evaluated at every family member that has a point in the loaded runs") is unchanged. Test
+  `test_reading_counts_an_ambiguous_cmix_member_as_a_gap`.
+
 ---
 
 ## 1. The Section 9 row (exact)
@@ -289,7 +303,8 @@ in order:
 **The E[C_mix] check must be evaluated (follow-up review S10).** Neither R1 nor R2 is read unless the check was run and evaluated at
 every family member that has a point in the loaded runs. A member not run counts as not missing. Otherwise the reading is UNRESOLVED,
 with the reason named (`_cmix_gaps`): for example, a call without `snapshot_csv` on bundles without a properties file, or rows without
-`mask_seed`.
+`mask_seed`. A member with several candidate points, or with rows of several placements pooled, has points in the loaded runs but no
+single evaluated one: it is a gap as well, named with its points (follow-up review addendum 2, N1; before, `_cmix_gaps` skipped it).
 
 Every result carries `conclusion` (M5): under R1 the Section 3b conclusion is stated, with its cost-variance clause only if H5 passes;
 otherwise it is not reached. **`pairs_final` has no default (C4).** With `pairs_final` False, because the pairs are booked and their
@@ -521,6 +536,10 @@ dephasing circuits; the cut θ rows = the full θ[:, 6n:]; the reset p = 0.25 an
   rows where it expects 145. The three skips are the `test_paper1_joblists` lists that the same-day runs also skip.
 - **Local** (Windows, Python 3.12.14, qiskit 2.5.2, qiskit-aer 0.17.2, pytest 9.1.1): `tests/test_truncation_pairs.py`, 32 passed. A local
   run of the other touched suites stalled in a subprocess on this Windows host and was stopped; the Modal run covers them.
+- **After Section 0e** (the second merge, the fixture adaptation and N1), locally (same versions): `tests/test_truncation_pairs.py`
+  collects 31 tests at 3207303 and 32 with the N1 test, and gives 32 passed. `test_reading_counts_an_ambiguous_cmix_member_as_a_gap`
+  fails at 3207303 and at the commit before N1 (the reading is R1 where UNRESOLVED is expected) and passes with the change. The full
+  suite at the new head is run on Modal after the commit and recorded with the pull request.
 
 **Dry checks (nothing committed).**
 

@@ -687,6 +687,27 @@ def test_reading_needs_the_cmix_check_evaluated():
     assert CR(H5_OK, _h6(), H7_OK, PAIRS_OK, dict(result="fail", points=[dict(point_id="x", within=False)]))["reading"] == "R3"
 
 
+def test_reading_counts_an_ambiguous_cmix_member_as_a_gap():
+    """Follow-up review addendum 2, N1: a family member with several candidate points, or with rows of several placements pooled, has
+    points in the loaded runs but no single evaluated one, and ``mean_cmix_check`` records it with ``points`` and without a
+    ``point_id``. Before, ``_cmix_gaps`` skipped such a member, so R1 or R2 could be read with R3 (ii) undecided there; now it blocks
+    both, with the member and its points named. Members not run still count as not missing."""
+    ids = ["reset p0.25 n52 L8 k8 r0", "reset p0.25 n52 L8 k8 r1"]
+    a, rows_a = _cmix_point(Q52, 0.06, point_id=ids[0])
+    b, rows_b = _cmix_point(Q52, 0.06, point_id=ids[1], seed0=22992001)
+    two = DH.mean_cmix_check(pd.concat([a, b], ignore_index=True), rows=pd.concat([rows_a, rows_b], ignore_index=True), snapshot_csv=SNAP20, n_boot=200)
+    pooled = DH.mean_cmix_check(a.assign(n_placements=2), rows=rows_a, snapshot_csv=SNAP20, n_boot=200)
+    assert CR(H5_OK, _h6(), H7_OK, PAIRS_OK)["reading"] == "R1" and CR(H5_OK, _h6("fail", UNITAL), H7_OK, B_FAST, ceiling=CEIL_OK)["reading"] == "R2"
+    for mc, want in ((two, ids), (pooled, ids[:1])):
+        (amb,) = [x for x in mc["points"] if x.get("points")]
+        assert amb["within"] is None and amb.get("point_id") is None and amb["points"] == want and len(mc["points"]) == 6
+        r = CR(H5_OK, _h6(), H7_OK, PAIRS_OK, mc)
+        assert r["reading"] == "UNRESOLVED"                                                              # R1 is blocked ...
+        assert CR(H5_OK, _h6("fail", UNITAL), H7_OK, B_FAST, mc, ceiling=CEIL_OK)["reading"] == "UNRESOLVED"     # ... and R2
+        gaps = DH._cmix_gaps(mc)                                                                         # one gap: the 5 members not run are none
+        assert len(gaps) == 1 and "6x10, p = 0.25, L = 8" in gaps[0] and all(i in gaps[0] for i in want) and gaps[0] in r["reasons"]
+
+
 def test_reading_needs_the_realised_floors_tested():
     """Deviation 60 part (7): the floors R3 (i) reads are the realised-mask floors; one not tested (no realised mask counts, or no run-day
     readout / gain factors) blocks R1 and R2 with the point named, as an E[C_mix] gap does (S10); a tested floor below with its interval
