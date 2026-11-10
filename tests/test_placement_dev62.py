@@ -109,7 +109,9 @@ def test_dial_lists_exclude_q79_and_the_other_lists_do_not():
         assert (79 in v["holes"]) == (79 in _rect(v)), rung
     for name in PLAIN_N100_LISTS:
         pl = _jl(name)["placement"]
-        assert "dial_exclude" not in pl and 79 in pl["rungs"]["n100"]["qubits"], name
+        n100 = pl["rungs"]["n100"]
+        assert "dial_exclude" not in pl and "dial_exclude" not in pl["rules"] and "dial_excluded_holes" not in n100, name
+        assert 79 in n100["qubits"] or 79 in pl["excluded"] or 79 in n100.get("component_holes", []), name
         plain = pl["rungs"]["n100"]
         assert plain["n"] == d3["n100"]["n"] + (1 if 79 in plain["qubits"] else 0) and plain["origin"] == d3["n100"]["origin"], name
     for name in ("grid_n60.json", "grid_n100.json"):

@@ -1,0 +1,8 @@
+# Test run of the same-day re-package 2026-11-10 (run commit f5fe8f2a31bc449a814dd78cb8daff9affc3481d); 351 passed
+# known failures (docs/repack/known_test_failures.txt):
+KNOWN   tests/test_analysis.py::test_loader_on_committed_marrakesh_run  # pre-existing on main since 21 Sep: IntCastingNaNError in gradvar/analysis/loader.py _repeat_index on the committed Marrakesh run data
+# other failures and errors (not known; each needs a look):
+# skipped:
+SKIPPED tests/test_paper1_joblists.py::test_lists_validate_and_refuse_to_submit[grid_n100_16384.json]
+SKIPPED tests/test_paper1_joblists.py::test_lists_validate_and_refuse_to_submit[day1_null_grid_n20.json]
+SKIPPED tests/test_paper1_joblists.py::test_lists_validate_and_refuse_to_submit[day2_main_grid.json]
