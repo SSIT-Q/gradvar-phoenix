@@ -33,6 +33,11 @@ P1 = ROOT / "data" / "joblists" / "paper1"
 DAY3 = P1 / "day3_dial_refs.json"
 SNAP20 = str(ROOT / "data" / "calibrations" / "ibm_phoenix_2026-09-20T030813Z.csv")   # 4x5 at origin (8, 2), edge 94_104
 NEW_IDS = ["trunc_full_p0.25_L8", "trunc_l2_p0.25_L8", "trunc_full_dephase_p0.5_L8", "trunc_l2_dephase_p0.5_L8"]
+N60_REVIEWED = [60, 64, 65, 66, 67, 68, 69, 70, 71, 74, 75, 76, 78, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100,
+                101, 102, 103, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119]
+# The 52 placed qubits of the n60 dial rung (edge 84_85) on the 27 Sep 03:08Z and 4 Oct 04:35Z day-3 lists: the placement on which the
+# reviews' mask values below were computed. The committed day-3 list is re-placed in every same-day cycle (Deviation 62 (iv)), so the
+# tests that assert those values take the qubit set from here, not from the list.
 
 
 def _day3():
@@ -444,8 +449,7 @@ def test_pair_evaluations_fail_and_guards(synthetic):
 def test_mask_reconstruction_matches_the_runner():
     from gradvar import hardware as HW
     assert DH.MASK_STREAM == HW.MASK_STREAM
-    day3 = _day3()
-    qs = sorted(int(q) for q in day3["placement"]["rungs"]["n60"]["qubits"])
+    qs = list(N60_REVIEWED)
     cols = [qs.index(84), qs.index(85)]
     bits = DH.realised_last_layer([22991001 + 1 + m for m in range(256)], 8, 52, 0.25, cols)
     ref = np.array([mask_lottery(22991001, m, 8, 52, 0.25)[7, cols] for m in range(256)])
@@ -468,7 +472,7 @@ def test_mean_cmix_check_uses_the_realised_masks():
     from gradvar.analysis.floors import Calibration
     cal = Calibration.from_csv(SNAP20)
     (ai, bi), (aj, bj) = cal.ab(84, 0), cal.ab(85, 0)
-    qs = sorted(int(q) for q in _day3()["placement"]["rungs"]["n60"]["qubits"])
+    qs = list(N60_REVIEWED)
     bits = DH.realised_last_layer([22991001 + 1 + m for m in range(256)], 8, 52, 0.25, [qs.index(84), qs.index(85)])
     pi, pj, pb = bits[:, 0].mean(), bits[:, 1].mean(), (bits[:, 0] & bits[:, 1]).mean()
     f_hat = ai * aj * pb + ai * bj * pi + bi * aj * pj + bi * bj
@@ -503,7 +507,7 @@ def test_reset_errors_from_characterisation_enter_the_folded_value():
     assert DH.reset_errors_from_characterisation(re_.assign(p1=np.where(re_.reset_kind == "reset", 0.0, re_.p1)))[84] == 0.0   # clipped at 0
     from gradvar.analysis.floors import Calibration
     (ai, bi), (aj, bj) = Calibration.from_csv(SNAP20).ab(84, 0), Calibration.from_csv(SNAP20).ab(85, 0)
-    qs = sorted(int(q) for q in _day3()["placement"]["rungs"]["n60"]["qubits"])
+    qs = list(N60_REVIEWED)
     pts, rows = _cmix_point(qs, 0.06)
     x = DH.mean_cmix_check(pts, rows=rows, snapshot_csv=SNAP20, eps=eps, n_boot=200)["points"][0]
     u = 1 - 2 * eps[84]
