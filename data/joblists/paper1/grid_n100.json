@@ -5,14 +5,13 @@
  "dry_run": true,
  "rep_delay_probe": true,
  "preflight_review": "TBD: pre-flight review permalink",
- "notes": "Paper 1 pre-registration v0.17.0 (26 Sep 2026), Section 2 (design) main grid for the n100 rung rung (10x10, actual n = 79): depth ladder L in [1, 2, 4, 8, 12] at k = 1 (the differentiated parameter on the first qubit of the observable edge, layer 1), resilience 0 and 1 (Section 2 'Mitigation'), M = 200 parameter draws per point (Section 2 'Samples'; Deviation 17 minimum; the where-affordable targets 400 at L = 2 and 700 at L >= 4 are the Section 6 surplus rule, applied after Gate 2's recompute, not booked here), 4096 shots per shifted circuit, draw d of a point at seed + d; levels 0 and 1 of one point share their draws (paired H4 ratio). L = 12 rows are exploratory (Deviations 37, 43). The Section 2 control (a) null control at L = 1 (the same HEA with the shifted pair on a patch qubit outside the observable's L = 1 light cone, ideal gradient zero) runs as null_control probes at resilience 0 and 1 with the same M and shots. Feeds H1 part 1 (n-scaling at L <= 8 across rungs), H2 (depth fall at fixed n), H4 (level 1 against level 0), Gate 2 (a) (n = 20 only) and Gate 1 criterion (d)'s claimability bar (Deviation 37) with the measured null floor of null_controls.json. Ledger: Section 6 main-grid line (190.5 min at 1 us). Also here (Section 2): the level-2 (ZNE, linear extrapolation from gains 1 and 3) reduced grid at L = 2 and 8, each point run twice with independent draws (H4 variance inflation against ||c||_1^2 = 4), and the layer-index sweep at L = 8 and 12, k in {1, L/2, L-1, L} at resilience 1 (H3 statistic of Deviation 14 where the k = 1 denominator clears the shot floor, Deviation 40; the four k of a depth share their draws; the k = 1 sweep point is the within-day repeat of the main-grid point, with its own seed block so its rows are distinguishable). Placement from snapshot 2026-11-10T082134Z (CSV plus raw properties; Deviations 22, 26 and 46 cuts plus the Deviation 53 coherence floor T1, T2 >= 25 us, on the newest committed calibration data; Deviation 62: qubits outside a rectangle's largest connected live-coupler component are holes): n100 = 10x10 n = 79 origin (2, 0) edge 75_85 broken [[86, 87], [100, 101], [31, 32], [87, 97]]. Deviation 46: the runner re-derives the placement and the observable edges from the run-day snapshot under the Deviation 22 / 26 cuts and the cone-graph edge rule (live re-check, layout_check enforce) and refuses a list whose n no longer matches; regenerate with scripts/make_paper1_joblists.py from the run-day snapshot and re-draw the Gate 1b reference predictions where the cone graph changed. Budget model v3 (Deviation 47: 3.0 s per job, +2.7 s at resilience >= 1, 5 us per execution, max(shots, 64) at resilience >= 1), jobs of at most 300 pubs (max_experiments; Deviation 48) and 12 MB of parameter values: 21 jobs, 4400 pubs, 8800 parameter sets, 36044800 executions (+0 TREX), 14.136 min at the booked 1 us rep_delay (218.117 min at 250 us). Nothing is submitted while dry_run is true and the pre-flight review permalink is the placeholder.",
+ "notes": "Paper 1 pre-registration v0.17.0 (26 Sep 2026), Section 2 (design) main grid for the n100 rung rung (10x10, actual n = 82): depth ladder L in [1, 2, 4, 8, 12] at k = 1 (the differentiated parameter on the first qubit of the observable edge, layer 1), resilience 0 and 1 (Section 2 'Mitigation'), M = 200 parameter draws per point (Section 2 'Samples'; Deviation 17 minimum; the where-affordable targets 400 at L = 2 and 700 at L >= 4 are the Section 6 surplus rule, applied after Gate 2's recompute, not booked here), 4096 shots per shifted circuit, draw d of a point at seed + d; levels 0 and 1 of one point share their draws (paired H4 ratio). L = 12 rows are exploratory (Deviations 37, 43). The Section 2 control (a) null control at L = 1 (the same HEA with the shifted pair on a patch qubit outside the observable's L = 1 light cone, ideal gradient zero) runs as null_control probes at resilience 0 and 1 with the same M and shots. Feeds H1 part 1 (n-scaling at L <= 8 across rungs), H2 (depth fall at fixed n), H4 (level 1 against level 0), Gate 2 (a) (n = 20 only) and Gate 1 criterion (d)'s claimability bar (Deviation 37) with the measured null floor of null_controls.json. Ledger: Section 6 main-grid line (190.5 min at 1 us). Also here (Section 2): the level-2 (ZNE, linear extrapolation from gains 1 and 3) reduced grid at L = 2 and 8, each point run twice with independent draws (H4 variance inflation against ||c||_1^2 = 4), and the layer-index sweep at L = 8 and 12, k in {1, L/2, L-1, L} at resilience 1 (H3 statistic of Deviation 14 where the k = 1 denominator clears the shot floor, Deviation 40; the four k of a depth share their draws; the k = 1 sweep point is the within-day repeat of the main-grid point, with its own seed block so its rows are distinguishable). Placement from snapshot 2026-11-10T101610Z (CSV plus raw properties; Deviations 22, 26 and 46 cuts plus the Deviation 53 coherence floor T1, T2 >= 25 us, on the newest committed calibration data; Deviation 62: qubits outside a rectangle's largest connected live-coupler component are holes): n100 = 10x10 n = 82 origin (2, 0) edge 75_85 broken [[86, 87], [100, 101], [31, 32], [87, 97]]. Deviation 46: the runner re-derives the placement and the observable edges from the run-day snapshot under the Deviation 22 / 26 cuts and the cone-graph edge rule (live re-check, layout_check enforce) and refuses a list whose n no longer matches; regenerate with scripts/make_paper1_joblists.py from the run-day snapshot and re-draw the Gate 1b reference predictions where the cone graph changed. Budget model v3 (Deviation 47: 3.0 s per job, +2.7 s at resilience >= 1, 5 us per execution, max(shots, 64) at resilience >= 1), jobs of at most 300 pubs (max_experiments; Deviation 48) and 12 MB of parameter values: 21 jobs, 4400 pubs, 8800 parameter sets, 36044800 executions (+0 TREX), 14.136 min at the booked 1 us rep_delay (218.117 min at 250 us). Nothing is submitted while dry_run is true and the pre-flight review permalink is the placeholder.",
  "layout_check": "enforce",
  "placement": {
-  "snapshot": "ibm_phoenix_2026-11-10T082134Z.csv",
-  "properties": "ibm_phoenix_properties_20261110T082134Z.json.gz",
-  "stamp": "2026-11-10T082134Z",
+  "snapshot": "ibm_phoenix_2026-11-10T101610Z.csv",
+  "properties": "ibm_phoenix_properties_20261110T101610Z.json.gz",
+  "stamp": "2026-11-10T101610Z",
   "excluded": [
-   3,
    4,
    7,
    8,
@@ -21,7 +20,6 @@
    18,
    20,
    24,
-   28,
    34,
    37,
    55,
@@ -34,8 +32,6 @@
    72,
    73,
    77,
-   79,
-   90,
    91,
    107
   ],
@@ -54,7 +50,7 @@
   "rungs": {
    "n100": {
     "patch": "10x10",
-    "n": 79,
+    "n": 82,
     "origin": [
      2,
      0
@@ -62,7 +58,6 @@
     "holes": [
      20,
      24,
-     28,
      34,
      37,
      49,
@@ -76,8 +71,6 @@
      72,
      73,
      77,
-     79,
-     90,
      91,
      99,
      107
@@ -89,6 +82,7 @@
      25,
      26,
      27,
+     28,
      29,
      30,
      31,
@@ -126,6 +120,7 @@
      75,
      76,
      78,
+     79,
      80,
      81,
      82,
@@ -136,6 +131,7 @@
      87,
      88,
      89,
+     90,
      92,
      93,
      94,
@@ -187,7 +183,7 @@
      "31_32": 0.018006578344524876,
      "87_97": 0.010557400698804537
     },
-    "live_couplers": 112,
+    "live_couplers": 119,
     "edge": "75_85",
     "edge_rule": "interior_edge",
     "edge_cz_error": 0.001116364522319363,
@@ -229,7 +225,7 @@
  },
  "points": [
   {
-   "n": 79,
+   "n": 82,
    "patch": "10x10",
    "edge": "75_85",
    "L": 1,
@@ -240,7 +236,7 @@
    "seed": 24262001
   },
   {
-   "n": 79,
+   "n": 82,
    "patch": "10x10",
    "edge": "75_85",
    "L": 1,
@@ -251,7 +247,7 @@
    "seed": 24262001
   },
   {
-   "n": 79,
+   "n": 82,
    "patch": "10x10",
    "edge": "75_85",
    "L": 2,
@@ -262,7 +258,7 @@
    "seed": 24272001
   },
   {
-   "n": 79,
+   "n": 82,
    "patch": "10x10",
    "edge": "75_85",
    "L": 2,
@@ -273,7 +269,7 @@
    "seed": 24272001
   },
   {
-   "n": 79,
+   "n": 82,
    "patch": "10x10",
    "edge": "75_85",
    "L": 4,
@@ -284,7 +280,7 @@
    "seed": 24282001
   },
   {
-   "n": 79,
+   "n": 82,
    "patch": "10x10",
    "edge": "75_85",
    "L": 4,
@@ -295,7 +291,7 @@
    "seed": 24282001
   },
   {
-   "n": 79,
+   "n": 82,
    "patch": "10x10",
    "edge": "75_85",
    "L": 12,
@@ -306,7 +302,7 @@
    "seed": 24302001
   },
   {
-   "n": 79,
+   "n": 82,
    "patch": "10x10",
    "edge": "75_85",
    "L": 12,
@@ -317,7 +313,7 @@
    "seed": 24302001
   },
   {
-   "n": 79,
+   "n": 82,
    "patch": "10x10",
    "edge": "75_85",
    "L": 2,
@@ -328,7 +324,7 @@
    "seed": 24472001
   },
   {
-   "n": 79,
+   "n": 82,
    "patch": "10x10",
    "edge": "75_85",
    "L": 2,
@@ -339,7 +335,7 @@
    "seed": 24572001
   },
   {
-   "n": 79,
+   "n": 82,
    "patch": "10x10",
    "edge": "75_85",
    "L": 8,
@@ -350,7 +346,7 @@
    "seed": 24492001
   },
   {
-   "n": 79,
+   "n": 82,
    "patch": "10x10",
    "edge": "75_85",
    "L": 8,
@@ -361,7 +357,7 @@
    "seed": 24592001
   },
   {
-   "n": 79,
+   "n": 82,
    "patch": "10x10",
    "edge": "75_85",
    "L": 8,
@@ -372,7 +368,7 @@
    "seed": 24391001
   },
   {
-   "n": 79,
+   "n": 82,
    "patch": "10x10",
    "edge": "75_85",
    "L": 8,
@@ -383,7 +379,7 @@
    "seed": 24391001
   },
   {
-   "n": 79,
+   "n": 82,
    "patch": "10x10",
    "edge": "75_85",
    "L": 8,
@@ -394,7 +390,7 @@
    "seed": 24391001
   },
   {
-   "n": 79,
+   "n": 82,
    "patch": "10x10",
    "edge": "75_85",
    "L": 8,
@@ -405,7 +401,7 @@
    "seed": 24391001
   },
   {
-   "n": 79,
+   "n": 82,
    "patch": "10x10",
    "edge": "75_85",
    "L": 12,
@@ -416,7 +412,7 @@
    "seed": 24401001
   },
   {
-   "n": 79,
+   "n": 82,
    "patch": "10x10",
    "edge": "75_85",
    "L": 12,
@@ -427,7 +423,7 @@
    "seed": 24401001
   },
   {
-   "n": 79,
+   "n": 82,
    "patch": "10x10",
    "edge": "75_85",
    "L": 12,
@@ -438,7 +434,7 @@
    "seed": 24401001
   },
   {
-   "n": 79,
+   "n": 82,
    "patch": "10x10",
    "edge": "75_85",
    "L": 12,
@@ -453,7 +449,7 @@
   {
    "id": "null_L1_n100_r0",
    "kind": "null_control",
-   "n": 79,
+   "n": 82,
    "patch": "10x10",
    "edge": "75_85",
    "L": 1,
@@ -467,7 +463,7 @@
   {
    "id": "null_L1_n100_r1",
    "kind": "null_control",
-   "n": 79,
+   "n": 82,
    "patch": "10x10",
    "edge": "75_85",
    "L": 1,
@@ -527,7 +523,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 3.0,
-    "param_mb": 0.506,
+    "param_mb": 0.525,
     "circuit_seconds_at_250us": 633.782,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 636.782,
@@ -548,7 +544,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 3.0,
-    "param_mb": 1.264,
+    "param_mb": 1.312,
     "circuit_seconds_at_250us": 637.272,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 640.272,
@@ -569,7 +565,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 3.0,
-    "param_mb": 3.034,
+    "param_mb": 3.149,
     "circuit_seconds_at_250us": 434.93,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 437.93,
@@ -590,7 +586,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 5.7,
-    "param_mb": 0.506,
+    "param_mb": 0.525,
     "circuit_seconds_at_250us": 633.782,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 639.482,
@@ -611,7 +607,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 5.7,
-    "param_mb": 1.264,
+    "param_mb": 1.312,
     "circuit_seconds_at_250us": 637.272,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 642.972,
@@ -632,7 +628,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 5.7,
-    "param_mb": 4.045,
+    "param_mb": 4.198,
     "circuit_seconds_at_250us": 650.068,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 655.768,
@@ -653,7 +649,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 5.7,
-    "param_mb": 3.034,
+    "param_mb": 3.149,
     "circuit_seconds_at_250us": 645.415,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 651.115,
@@ -674,7 +670,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 5.7,
-    "param_mb": 3.034,
+    "param_mb": 3.149,
     "circuit_seconds_at_250us": 645.415,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 651.115,
@@ -695,7 +691,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 5.7,
-    "param_mb": 4.045,
+    "param_mb": 4.198,
     "circuit_seconds_at_250us": 650.068,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 655.768,
@@ -716,7 +712,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 5.7,
-    "param_mb": 4.55,
+    "param_mb": 4.723,
     "circuit_seconds_at_250us": 652.394,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 658.094,
@@ -737,7 +733,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 5.7,
-    "param_mb": 4.55,
+    "param_mb": 4.723,
     "circuit_seconds_at_250us": 652.394,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 658.094,
@@ -758,7 +754,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 5.7,
-    "param_mb": 0.253,
+    "param_mb": 0.262,
     "circuit_seconds_at_250us": 641.925,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 647.625,
@@ -779,7 +775,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 5.7,
-    "param_mb": 0.253,
+    "param_mb": 0.262,
     "circuit_seconds_at_250us": 641.925,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 647.625,
@@ -800,7 +796,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 5.7,
-    "param_mb": 0.253,
+    "param_mb": 0.262,
     "circuit_seconds_at_250us": 641.925,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 647.625,
@@ -821,7 +817,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 5.7,
-    "param_mb": 0.253,
+    "param_mb": 0.262,
     "circuit_seconds_at_250us": 641.925,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 647.625,
@@ -842,7 +838,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 5.7,
-    "param_mb": 1.011,
+    "param_mb": 1.05,
     "circuit_seconds_at_250us": 673.333,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 679.033,
@@ -863,7 +859,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 5.7,
-    "param_mb": 1.011,
+    "param_mb": 1.05,
     "circuit_seconds_at_250us": 673.333,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 679.033,
@@ -884,7 +880,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 5.7,
-    "param_mb": 1.011,
+    "param_mb": 1.05,
     "circuit_seconds_at_250us": 673.333,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 679.033,
@@ -905,7 +901,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 5.7,
-    "param_mb": 1.011,
+    "param_mb": 1.05,
     "circuit_seconds_at_250us": 673.333,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 679.033,
@@ -926,7 +922,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 3.0,
-    "param_mb": 0.253,
+    "param_mb": 0.262,
     "circuit_seconds_at_250us": 422.134,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 425.134,
@@ -947,7 +943,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 5.7,
-    "param_mb": 0.253,
+    "param_mb": 0.262,
     "circuit_seconds_at_250us": 422.134,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 427.834,

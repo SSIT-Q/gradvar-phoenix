@@ -5,14 +5,13 @@
  "dry_run": true,
  "rep_delay_probe": true,
  "preflight_review": "TBD: pre-flight review permalink",
- "notes": "Paper 1 pre-registration v0.17.0 (26 Sep 2026), Deviation 43 null_control point type (Section 2 control (a), second form): at each rung of the ladder one L = 0 shifted-pair point, state preparation and measurement only (no Ry/CZ layer, no parameter, so k does not apply), M = 200 draws and 4096 shots as on the grid, resilience 0 on the five rungs plus one level-1 check on the n = 20 rung; each draw is one pub of two identical parameter-free evaluations, so the logged gradient (ev_plus - ev_minus) / 2 is pure SPAM noise and its variance over draws is the measured null floor used by the Deviation 37 claimability bar (signal above the null floor plus 3 bootstrap sigma) and by Gate 2 (a). Runs first, before the main grid, on the same day as the n = 20 grid list (order of runs). Ledger: 2.6 min at 1 us from the Section 6 reserve (Deviation 43; 400 circuits per rung in 2 jobs in the pre-registration's count; here 200 pubs per rung, the six probes packed consecutively into jobs of at most 300 pubs, about 0.27 min per rung under model v3). Placement from snapshot 2026-11-10T082134Z (CSV plus raw properties; Deviations 22, 26 and 46 cuts plus the Deviation 53 coherence floor T1, T2 >= 25 us, on the newest committed calibration data; Deviation 62: qubits outside a rectangle's largest connected live-coupler component are holes): n20 = 4x5 n = 18 origin (1, 2) edge 23_33 broken [[15, 16]]; n40 = 4x10 n = 36 origin (8, 0) edge 93_103 broken [[86, 87], [100, 101], [87, 97]]; n60 = 6x10 n = 47 origin (6, 0) edge 84_85 broken [[86, 87], [100, 101], [87, 97]]; n80 = 8x10 n = 64 origin (4, 0) edge 84_85 broken [[86, 87], [100, 101], [87, 97]]; n100 = 10x10 n = 79 origin (2, 0) edge 75_85 broken [[86, 87], [100, 101], [31, 32], [87, 97]]. Deviation 46: the runner re-derives the placement and the observable edges from the run-day snapshot under the Deviation 22 / 26 cuts and the cone-graph edge rule (live re-check, layout_check enforce) and refuses a list whose n no longer matches; regenerate with scripts/make_paper1_joblists.py from the run-day snapshot and re-draw the Gate 1b reference predictions where the cone graph changed. Budget model v3 (Deviation 47: 3.0 s per job, +2.7 s at resilience >= 1, 5 us per execution, max(shots, 64) at resilience >= 1), jobs of at most 300 pubs (max_experiments; Deviation 48) and 12 MB of parameter values: 5 jobs, 1200 pubs, 2400 parameter sets, 9830400 executions (+0 TREX), 1.596 min at the booked 1 us rep_delay (42.392 min at 250 us). Nothing is submitted while dry_run is true and the pre-flight review permalink is the placeholder.",
+ "notes": "Paper 1 pre-registration v0.17.0 (26 Sep 2026), Deviation 43 null_control point type (Section 2 control (a), second form): at each rung of the ladder one L = 0 shifted-pair point, state preparation and measurement only (no Ry/CZ layer, no parameter, so k does not apply), M = 200 draws and 4096 shots as on the grid, resilience 0 on the five rungs plus one level-1 check on the n = 20 rung; each draw is one pub of two identical parameter-free evaluations, so the logged gradient (ev_plus - ev_minus) / 2 is pure SPAM noise and its variance over draws is the measured null floor used by the Deviation 37 claimability bar (signal above the null floor plus 3 bootstrap sigma) and by Gate 2 (a). Runs first, before the main grid, on the same day as the n = 20 grid list (order of runs). Ledger: 2.6 min at 1 us from the Section 6 reserve (Deviation 43; 400 circuits per rung in 2 jobs in the pre-registration's count; here 200 pubs per rung, the six probes packed consecutively into jobs of at most 300 pubs, about 0.27 min per rung under model v3). Placement from snapshot 2026-11-10T101610Z (CSV plus raw properties; Deviations 22, 26 and 46 cuts plus the Deviation 53 coherence floor T1, T2 >= 25 us, on the newest committed calibration data; Deviation 62: qubits outside a rectangle's largest connected live-coupler component are holes): n20 = 4x5 n = 18 origin (1, 2) edge 23_33 broken [[15, 16]]; n40 = 4x10 n = 37 origin (8, 0) edge 93_103 broken [[86, 87], [100, 101], [87, 97]]; n60 = 6x10 n = 49 origin (6, 0) edge 84_85 broken [[86, 87], [100, 101], [87, 97]]; n80 = 8x10 n = 66 origin (4, 0) edge 84_85 broken [[86, 87], [100, 101], [87, 97]]; n100 = 10x10 n = 82 origin (2, 0) edge 75_85 broken [[86, 87], [100, 101], [31, 32], [87, 97]]. Deviation 46: the runner re-derives the placement and the observable edges from the run-day snapshot under the Deviation 22 / 26 cuts and the cone-graph edge rule (live re-check, layout_check enforce) and refuses a list whose n no longer matches; regenerate with scripts/make_paper1_joblists.py from the run-day snapshot and re-draw the Gate 1b reference predictions where the cone graph changed. Budget model v3 (Deviation 47: 3.0 s per job, +2.7 s at resilience >= 1, 5 us per execution, max(shots, 64) at resilience >= 1), jobs of at most 300 pubs (max_experiments; Deviation 48) and 12 MB of parameter values: 5 jobs, 1200 pubs, 2400 parameter sets, 9830400 executions (+0 TREX), 1.596 min at the booked 1 us rep_delay (42.392 min at 250 us). Nothing is submitted while dry_run is true and the pre-flight review permalink is the placeholder.",
  "layout_check": "enforce",
  "placement": {
-  "snapshot": "ibm_phoenix_2026-11-10T082134Z.csv",
-  "properties": "ibm_phoenix_properties_20261110T082134Z.json.gz",
-  "stamp": "2026-11-10T082134Z",
+  "snapshot": "ibm_phoenix_2026-11-10T101610Z.csv",
+  "properties": "ibm_phoenix_properties_20261110T101610Z.json.gz",
+  "stamp": "2026-11-10T101610Z",
   "excluded": [
-   3,
    4,
    7,
    8,
@@ -21,7 +20,6 @@
    18,
    20,
    24,
-   28,
    34,
    37,
    55,
@@ -34,8 +32,6 @@
    72,
    73,
    77,
-   79,
-   90,
    91,
    107
   ],
@@ -117,13 +113,12 @@
    },
    "n40": {
     "patch": "4x10",
-    "n": 36,
+    "n": 37,
     "origin": [
      8,
      0
     ],
     "holes": [
-     90,
      91,
      99,
      107
@@ -139,6 +134,7 @@
      87,
      88,
      89,
+     90,
      92,
      93,
      94,
@@ -185,7 +181,7 @@
      "100_101": 0.010323193584063445,
      "87_97": 0.010557400698804537
     },
-    "live_couplers": 50,
+    "live_couplers": 52,
     "edge": "93_103",
     "edge_rule": "Deviation 36's (93, 103) as written (its L = 2 cone graph differs from the 4x5 rung's on this snapshot; Deviation 46 fallback)",
     "edge_cz_error": 0.001227287786129655,
@@ -215,7 +211,7 @@
    },
    "n60": {
     "patch": "6x10",
-    "n": 47,
+    "n": 49,
     "origin": [
      6,
      0
@@ -229,8 +225,6 @@
      72,
      73,
      77,
-     79,
-     90,
      91,
      99,
      107
@@ -247,6 +241,7 @@
      75,
      76,
      78,
+     79,
      80,
      81,
      82,
@@ -257,6 +252,7 @@
      87,
      88,
      89,
+     90,
      92,
      93,
      94,
@@ -303,7 +299,7 @@
      "100_101": 0.010323193584063445,
      "87_97": 0.010557400698804537
     },
-    "live_couplers": 65,
+    "live_couplers": 69,
     "edge": "84_85",
     "edge_rule": "interior_edge",
     "edge_cz_error": 0.0008179991092352179,
@@ -333,7 +329,7 @@
    },
    "n80": {
     "patch": "8x10",
-    "n": 64,
+    "n": 66,
     "origin": [
      4,
      0
@@ -350,8 +346,6 @@
      72,
      73,
      77,
-     79,
-     90,
      91,
      99,
      107
@@ -385,6 +379,7 @@
      75,
      76,
      78,
+     79,
      80,
      81,
      82,
@@ -395,6 +390,7 @@
      87,
      88,
      89,
+     90,
      92,
      93,
      94,
@@ -441,7 +437,7 @@
      "100_101": 0.010323193584063445,
      "87_97": 0.010557400698804537
     },
-    "live_couplers": 91,
+    "live_couplers": 95,
     "edge": "84_85",
     "edge_rule": "interior_edge",
     "edge_cz_error": 0.0008179991092352179,
@@ -472,7 +468,7 @@
    },
    "n100": {
     "patch": "10x10",
-    "n": 79,
+    "n": 82,
     "origin": [
      2,
      0
@@ -480,7 +476,6 @@
     "holes": [
      20,
      24,
-     28,
      34,
      37,
      49,
@@ -494,8 +489,6 @@
      72,
      73,
      77,
-     79,
-     90,
      91,
      99,
      107
@@ -507,6 +500,7 @@
      25,
      26,
      27,
+     28,
      29,
      30,
      31,
@@ -544,6 +538,7 @@
      75,
      76,
      78,
+     79,
      80,
      81,
      82,
@@ -554,6 +549,7 @@
      87,
      88,
      89,
+     90,
      92,
      93,
      94,
@@ -605,7 +601,7 @@
      "31_32": 0.018006578344524876,
      "87_97": 0.010557400698804537
     },
-    "live_couplers": 112,
+    "live_couplers": 119,
     "edge": "75_85",
     "edge_rule": "interior_edge",
     "edge_cz_error": 0.001116364522319363,
@@ -676,7 +672,7 @@
   {
    "id": "null_L0_n40_r0",
    "kind": "null_control",
-   "n": 36,
+   "n": 37,
    "patch": "4x10",
    "edge": "93_103",
    "L": 0,
@@ -684,12 +680,12 @@
    "shots": 4096,
    "resilience": 0,
    "seed": 21861001,
-   "purpose": "Deviation 43: L = 0 shifted-pair null control on the n40 rung (actual n = 36), state preparation and measurement of Z_i Z_j on edge 93_103 only, 200 draws x 2 identical circuits x 4096 shots; the variance of the logged gradient over draws is the measured null floor"
+   "purpose": "Deviation 43: L = 0 shifted-pair null control on the n40 rung (actual n = 37), state preparation and measurement of Z_i Z_j on edge 93_103 only, 200 draws x 2 identical circuits x 4096 shots; the variance of the logged gradient over draws is the measured null floor"
   },
   {
    "id": "null_L0_n60_r0",
    "kind": "null_control",
-   "n": 47,
+   "n": 49,
    "patch": "6x10",
    "edge": "84_85",
    "L": 0,
@@ -697,12 +693,12 @@
    "shots": 4096,
    "resilience": 0,
    "seed": 22861001,
-   "purpose": "Deviation 43: L = 0 shifted-pair null control on the n60 rung (actual n = 47), state preparation and measurement of Z_i Z_j on edge 84_85 only, 200 draws x 2 identical circuits x 4096 shots; the variance of the logged gradient over draws is the measured null floor"
+   "purpose": "Deviation 43: L = 0 shifted-pair null control on the n60 rung (actual n = 49), state preparation and measurement of Z_i Z_j on edge 84_85 only, 200 draws x 2 identical circuits x 4096 shots; the variance of the logged gradient over draws is the measured null floor"
   },
   {
    "id": "null_L0_n80_r0",
    "kind": "null_control",
-   "n": 64,
+   "n": 66,
    "patch": "8x10",
    "edge": "84_85",
    "L": 0,
@@ -710,12 +706,12 @@
    "shots": 4096,
    "resilience": 0,
    "seed": 23861001,
-   "purpose": "Deviation 43: L = 0 shifted-pair null control on the n80 rung (actual n = 64), state preparation and measurement of Z_i Z_j on edge 84_85 only, 200 draws x 2 identical circuits x 4096 shots; the variance of the logged gradient over draws is the measured null floor"
+   "purpose": "Deviation 43: L = 0 shifted-pair null control on the n80 rung (actual n = 66), state preparation and measurement of Z_i Z_j on edge 84_85 only, 200 draws x 2 identical circuits x 4096 shots; the variance of the logged gradient over draws is the measured null floor"
   },
   {
    "id": "null_L0_n100_r0",
    "kind": "null_control",
-   "n": 79,
+   "n": 82,
    "patch": "10x10",
    "edge": "75_85",
    "L": 0,
@@ -723,7 +719,7 @@
    "shots": 4096,
    "resilience": 0,
    "seed": 24861001,
-   "purpose": "Deviation 43: L = 0 shifted-pair null control on the n100 rung (actual n = 79), state preparation and measurement of Z_i Z_j on edge 75_85 only, 200 draws x 2 identical circuits x 4096 shots; the variance of the logged gradient over draws is the measured null floor"
+   "purpose": "Deviation 43: L = 0 shifted-pair null control on the n100 rung (actual n = 82), state preparation and measurement of Z_i Z_j on edge 75_85 only, 200 draws x 2 identical circuits x 4096 shots; the variance of the logged gradient over draws is the measured null floor"
   }
  ],
  "budget": {
