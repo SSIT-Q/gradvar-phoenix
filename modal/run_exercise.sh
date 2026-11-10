@@ -13,8 +13,9 @@
 set -u
 SHA=$1; LISTS_SHA=$2; TAG=$3; shift 3
 WORK=$PWD
+OUTW=/tmp/sameday_work            # the run's working files stay out of ./out: only the bundle, the logs and the records below are harvested
 T0=$(date +%s)
-mkdir -p $WORK/out/sameday
+mkdir -p $WORK/out/sameday $OUTW
 python - "$SHA" "$LISTS_SHA" <<'EOF'
 import io, sys, urllib.request, zipfile
 for sha, dst in ((sys.argv[1], "/tmp/src"), (sys.argv[2], "/tmp/prev")):
@@ -44,7 +45,7 @@ RR.require_consistent(here)
 EOF
 export PYTHONHASHSEED=0 GRADVAR_COMMIT=$SHA
 python scripts/sameday_repackage.py run --no-modal --exercise --run-sha $SHA --t0 $T0 --cost-cores ${COST_CORES:-32} --cost-mem-gib ${COST_MEM_GIB:-64} \
-    --out $WORK/out/sameday --bundle $WORK/out/sameday/bundle.tgz "$@" > $WORK/out/sameday/run.log 2>&1
+    --out $OUTW --bundle $WORK/out/sameday/bundle.tgz "$@" > $WORK/out/sameday/run.log 2>&1
 RC=$?
 echo "exit $RC" > $WORK/out/sameday/EXIT
 # what the exercise re-drew against the committed files of the same tag (byte comparison of the CSV files; the JSON / md files carry run times)
@@ -57,6 +58,6 @@ for p in sorted(Path("/tmp").glob(f"committed_*_{tag}.*")):
     out[new.name] = dict(redrawn=new.exists(), identical=new.exists() and hashlib.sha256(new.read_bytes()).hexdigest() == hashlib.sha256(p.read_bytes()).hexdigest())
 print(json.dumps(out, indent=1))
 EOF
-mkdir -p $WORK/out/sameday/dry && cp $WORK/out/sameday/A/dryrun_*.log $WORK/out/sameday/dry/ 2>/dev/null
+tar -czf $WORK/out/sameday/extras.tgz -C $OUTW A/status.log $(cd $OUTW && ls A/dryrun_*.log tests/*.log tests/*.xml 2>/dev/null) 2>/dev/null
 tail -n 30 $WORK/out/sameday/run.log
 exit 0
