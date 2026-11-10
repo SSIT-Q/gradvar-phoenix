@@ -1,0 +1,13 @@
+# Test run of the same-day re-package 2026-11-10 (run commit cee7d69cbe5f95b54ebe21abc8a59d8f515b2572); 349 passed
+# known failures (docs/repack/known_test_failures.txt):
+KNOWN   tests/test_analysis.py::test_loader_on_committed_marrakesh_run  # pre-existing on main since 21 Sep: IntCastingNaNError in gradvar/analysis/loader.py _repeat_index on the committed Marrakesh run data
+# other failures and errors (not known; each needs a look):
+FAILED  tests/test_noise_predict.py::test_deviation_26_on_the_19_sep_1925_snapshot_breaks_the_4x10_bad_couplers
+FAILED  tests/test_placement_dev62.py::test_dial_lists_exclude_q79_and_the_other_lists_do_not
+# serial re-run of the other failures:
+STILL   tests/test_noise_predict.py::test_deviation_26_on_the_19_sep_1925_snapshot_breaks_the_4x10_bad_couplers
+STILL   tests/test_placement_dev62.py::test_dial_lists_exclude_q79_and_the_other_lists_do_not
+# skipped:
+SKIPPED tests/test_paper1_joblists.py::test_lists_validate_and_refuse_to_submit[grid_n100_16384.json]
+SKIPPED tests/test_paper1_joblists.py::test_lists_validate_and_refuse_to_submit[day1_null_grid_n20.json]
+SKIPPED tests/test_paper1_joblists.py::test_lists_validate_and_refuse_to_submit[day2_main_grid.json]
