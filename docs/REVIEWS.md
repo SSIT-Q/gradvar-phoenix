@@ -29,6 +29,7 @@ Every independent review filed for the gradvar-phoenix programme (Owais's review
 | review_lit_breakthrough_map_2026-09-22.md ([copy](reviews/review_lit_breakthrough_map_2026-09-22.md)) | 22 Sep 2026 | Review record: lit_breakthrough_map_2026-09-22.md (version 1) | GO_WITH_CORRECTIONS |
 | review_response_lit_breakthrough_map_2026-09-22.md ([copy](reviews/review_response_lit_breakthrough_map_2026-09-22.md)) | 22 Sep 2026 | Correction log: literature map, version 1 to version 2 | GO_WITH_CORRECTIONS: 2 must-fix, 12 should-fix and 7 optional corrections, all applied in version 2. |
 | review_dev58_preflights_2026-09-24.md ([copy](preflight/reviews/review_dev58_preflights_2026-09-24.md)) | 24 Sep 2026 | Pre-dispatch review: Deviation 58 lists and pre-flights 06 / 08 / 09 (branch dev58-pinned-placement at 84fef50) | GO_WITH_NOTES (no must-fix) |
+| review_postrun_06_2026-11-10.md ([copy](reviews/review_postrun_06_2026-11-10.md)) | 10 Nov 2026 | Independent review of post-run review 06 (Paper 1, list `replication_01_16384`, 10 November 2026) | CONFIRMED_WITH_CORRECTIONS. The registered reading is confirmed. The audit facts are confirmed. Six text corrections (Section 8 below), none of which changes a number of the reading or the decision. |
 
 Not indexed: the scratch inputs beside the reviews (`_*.txt` flattened pages, `prereg*.txt`, `diag*.py`, `run_all.sh`, `test_joblists_dryrun.patch`, and the `arxiv/`, `jobs/`, `runs/`, `theorist/` folders holding the fetched sources, dry-run CSVs and check scripts the reviews cite).
 

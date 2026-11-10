@@ -16,7 +16,8 @@ draws, n = 82) and `dbpfnrgqtr0c738ebeog` (`L0-probes-s16384`: its matched L = 0
 **Order of work.** Sections 0 to 7 (the audit) and Section 8 (the prediction-side inputs of the registered reading) were written
 and committed before any variance, interval or other summary of the measured gradients was computed. What had been looked at in the
 measured files by then: equality of the CSV values with `result.json`, finiteness, and the first CSV row of each job (one draw's
-`ev_plus`, `ev_minus`, `gradient`), displayed during the integrity check. Sections 9 onward are a second commit.
+`ev_plus`, `ev_minus`, `gradient`), displayed during the integrity check. Sections 9 onward are a second commit. Section 14 and six
+text corrections are a third commit, made after the independent check; no number of the reading changed (Section 14).
 
 **Audit verdict: CLEAN_WITH_NOTES.** Nothing required by the logging rule is missing, the jobs are the armed list's jobs, and the
 Deviation 62 (iv) check passes as written. Two notes are material to how the result is read (N1, N2 in Section 7): the `L0`
@@ -95,7 +96,7 @@ to decide on, and it carries N1: it is not established that the measurement and 
 | ISA | | depth 64, 952 CZ (119 x 8), ops `cz, rz, sx` on all 200; 0 mid-circuit measures, resets, delays | depth 0, no gate, on all 200 |
 | rep_delay | default (probe) | default 1 us, range 0 to 2000 us, dynamic_reprate true, submitted `default` | the same |
 
-- Seed blocks 25692001.. and 25661001.. overlap no point or probe block of the other 19 committed lists under `data/joblists/`.
+- Seed blocks 25692001.. and 25661001.. overlap no point or probe block of the other 25 committed list files under `data/joblists/`.
 - **Credentials.** The 19 files of the two bot commits (the committed QPY as bytes) were scanned for token, key, CRN,
   bearer and account patterns: no hit. The only instance value in any of them is the alias `flex`.
 - **Limit of the identity check (known, unchanged).** `retrieval.inputs_verification` is `match: true` on pub counts only
@@ -164,9 +165,12 @@ IBM's properties time, by source:
   `circuits.json` hold no timestamp), so the repository cannot place those 82.7 s inside the 83-minute window. IBM was not
   polled. Block C's three 65,536-shot jobs were submitted to the same backend at 11:13:20 to 11:13:34Z in Batch
   `89d24a5d-a2e0-44fa-a62a-ccc1f524ef45`; whether they ran inside `L0`'s window is for review 07 to read from their bundles.
-- **What the update changed** (retrieval snapshot against each job's own `properties.json`, all 120 qubits and 436 couplers):
+- **What the update changed** (retrieval snapshot against each job's own `properties.json`, all 120 qubits and 436 directed CZ entries (218 couplers)):
   - CZ error and length, sx / x / rz error, T1 and T2: **no value changed** on any qubit or coupler.
-  - Readout (`readout_error`, `prob_meas0_prep1`, `prob_meas1_prep0`): changed on 118 of 120 qubits (80 of the 82 placed).
+    The only other gate value that changed is the `rzz` error of coupler 52-62 (0.154 -> 1, both directions); Q62 is a hole and
+    `rzz` is not in these circuits.
+  - Readout: `readout_error` changed on 118 of 120 qubits (80 of the 82 placed), `prob_meas0_prep1` on 111 (77 placed) and
+    `prob_meas1_prep0` on 112 (75 placed); at least one of the three changed on all 120 qubits (all 82 placed).
     In the 09:07:11Z set every readout value is dated **9 Nov 04:54:44 to 04:54:47Z**; in the 11:35:39Z set every one is dated
     **10 Nov 11:05:20Z**, 6 min 21 s before the first job was created. So the readout figures on which the placement, the
     prediction and the live layout check rest were about 30 hours old at dispatch, and IBM's figures dated 11:05:20Z were not
@@ -258,8 +262,12 @@ values dated 11:05:20Z), 12 of the 82 gate qubits are above 1.5x the planning va
 
 The L = 2 cone's largest ratio is 1.48 (Q84); the edge qubits read 0.74 (Q75) and 0.88 (Q85). Deviation 49's rule is "two or more
 such qubits, or any qubit above the cut, pause as before"; Deviation 52 (ii) applies the 1.5x rule and the pause condition "to the
-cone qubits of the measured patches", and the evaluator takes every gate qubit of the patch (82 at L = 8). On the later figures
-the pause condition is met on the evaluator's qubit set (Q31, Q98 above the cut) and not met on the L = 2 cone. Day 2's review
+cone qubits of the measured patches"; the pre-flight for this list fixes the set as "Gate 2 (e): readout per placed qubit against
+this snapshot" (`docs/preflight/08_paper1_replication_2026-11-10.md:84`), which is the evaluator's set (82 qubits; at L = 8 the
+light cone is the whole patch). On the later figures the pause condition is met on that set on both limbs (12 qubits above 1.5x; Q31
+and Q98 above the cut). The L = 2 cone (largest ratio 1.48) is Deviation 26's protected set, not the set of this clause. The three
+earlier applications read the properties in force at submission (Deviation 49; post-run 03 Section 3; post-run 04 Section 3, "at
+submission and through the run"); on those the ratio is 1.00 on 82 of 82. Day 2's review
 read an excursion in a snapshot taken after the last job as post-run. Today the figures are dated before dispatch, were
 published during `L0`'s window and after the probe job. Which reading governs is not decided here; it goes to the coordinator
 and the reviewer with the PI's delegation. It does not change what can be dispatched: IBM's properties have changed, so under
@@ -277,7 +285,7 @@ placement used is the list's, and Deviation 62 (iv)'s check passes as written. N
   Q31 and Q98 (readout 6.5e-2 and 6.4e-2), none protected, all inside the L = 8 light cone; gate, T1 and T2 figures are
   unchanged and the observable qubits' readout is 22 percent lower. The probe job finished before the update (Section 3).
 - **N2.** Gate 2 (e) passes on the evaluator by construction and, on IBM's later figures (readout dated 11:05:20Z, before
-  dispatch), meets Deviation 49's pause condition on the gate qubits (Section 6). Undecided here.
+  dispatch), meets Deviation 49's pause condition on the 82 placed qubits, the set pre-flight 08 Section 5 names (Section 6). Undecided here.
 - **N3.** Deviation 62 (iv)'s check reads a field that the retrieval path reconstructs from the properties at job creation; it
   cannot detect a job that waits or runs across an update. It passed, and N1 is what it could not see.
 - **N4.** The live enforced layout check is recorded only in the Actions log of run 42805302416; each `job.json` holds the
@@ -449,8 +457,11 @@ established that measurement and prediction share a calibration.
   - Whether today's `L0` measurement was taken under the calibration its prediction was drawn on (N1), and whether Gate 2 (e)
     pauses the campaign on IBM's later readout figures (N2).
   - Anything about Block C or day 3.
-- **What remains for the PI's decision under the delegation.** (a) Whether the flag is closed on this reading given N1, or held
-  until Block C's bundles show when the large-rung jobs executed relative to 11:35:39Z, or until the rung is re-measured. (b) The
+- **What remains for the PI's decision under the delegation.** (a) Whether the flag is closed on this reading given N1. The
+  registered table has no held outcome, and Deviation 61 makes Block C's L = 8 sample "reported beside the decision (pre-flight 08),
+  not used as a decision input". Block C's bundles will carry, like these, only each job's created, running and finished times and
+  its circuit time; they can narrow but not place the `L0` job's 82.7 s. A hold or a re-measurement would be a recorded departure,
+  to be decided before Block C's variance is read. (b) The
   reading of Gate 2 (e) (N2). (c) If closed: the pre-registration's Deviation 19 row, tracker P1.3.9 and the handover are updated
   (pre-flight Section 7 step 5); none of them is touched by this branch. (d) The countersignatures already requested for
   Deviations 57 and 61.
@@ -509,8 +520,9 @@ None of this enters the reading of Section 9.
 - **D10. The report's figures** draw a "null-control floor" near 9e-5, consistent with the simulated n = 20, 4,096-shot entry
   (8.99e-5) of the floors table; this run's measured floor is 7.29e-7. No number here uses the figures.
 - **D11.** `L0`'s QPY exists only as an Action artefact that expires 2027-02-08; the tracker's ledger and cap are those of 25 Sep.
-- **For review 07.** Block C's three jobs were created 11:13:20 to 11:13:34Z on the same placement snapshot; each job's
-  running-to-finished window should be read against 11:35:39Z, and its `L0` jobs measure this same rung.
+- **For review 07.** Block C's three jobs were submitted 11:13:20.86Z to 11:13:34.97Z (`submitted_utc` in the ids file; IBM's
+  creation times are not in the repository until retrieval) on the same placement snapshot; each job's running-to-finished window
+  should be read against 11:35:39Z, and its `L0` jobs measure this same rung.
 
 ## 13. Reproduction
 
@@ -531,3 +543,68 @@ layout re-check of Section 3 is `gradvar.hardware.layout_check(None, qubits, cou
 `data/calibrations/ibm_phoenix_properties_2026-11-10T124546Z.json`. Python 3.12.14, numpy 2.4.6, pandas 3.0.6, qiskit 2.5.2,
 qiskit-ibm-runtime 0.49.0. The machine-readable numbers of this review are kept with the session's artifacts
 (`postrun_06_numbers.json`), not in the repository.
+
+## 14. Independent check and decision (third commit; no number of the reading changes)
+
+Added 10 Nov 2026, 15:31 UTC, after the check and the lead's decisions. Sections 0 to 13 stand as written at
+ed05d44e8334936297fbf405cbb3ac627a507ee8 except for the six corrections listed below.
+
+**The independent check.** A reviewer that wrote neither this review, the package nor the pre-flight checked this file at ed05d44e.
+Its record is committed with this section as `docs/reviews/review_postrun_06_2026-11-10.md` (line endings set to LF, otherwise as
+received), with a row in `docs/REVIEWS.md`. **Verdict: CONFIRMED_WITH_CORRECTIONS.** In its words: "The registered reading is
+confirmed. Every number of the review's Section 9 reproduces, from the bundles and the committed prediction file, by the
+repository's pre-committed code and by separate arithmetic." "The audit facts are confirmed (timestamps, the 11:35:39Z properties
+update, the four failing qubits, the layout-check field's provenance, the charge)." "Six text corrections (Section 8 below), none of
+which changes a number of the reading or the decision." The check read no Actions log or artefact (its Section 11): the live
+layout-check line of 11:11:32Z, the QPY artefact's size, hash and expiry, D4 and the QPY part of D11 remain this review's
+statements. The check keeps one placeholder link of the session that wrote it (a double-brace `artifact:` reference to its
+machine-readable numbers); it cannot be followed from the repository.
+
+**The six corrections, applied in this commit as worded in the check's Section 8** (line numbers of this file at ed05d44e):
+
+| # | where | what changed |
+|---|---|---|
+| 1 | Section 3, line 169 | readout changes are counted per property (118, 111 and 112 of 120 qubits; 80, 77 and 75 of the 82 placed), not as one figure for the three |
+| 2 | Section 3, lines 167-168 | "436 couplers" becomes "436 directed CZ entries (218 couplers)"; the `rzz` change on coupler 52-62 is added |
+| 3 | Section 6, lines 259-262; N2 in Section 7, lines 279-280 | the qubit set of Gate 2 (e) is the 82 placed qubits, fixed by pre-flight 08 line 84; the "not met on the L = 2 cone" alternative is withdrawn as not a registered reading |
+| 4 | Section 1, line 98 | "the other 19 committed lists" becomes "the other 25 committed list files" |
+| 5 | Section 10, lines 452-453 | the "held" alternative is replaced: the registered table has no held outcome |
+| 6 | Section 12, line 512 | Block C's jobs "were submitted 11:13:20.86Z to 11:13:34.97Z", not "created" |
+
+Each replacement was re-checked against the committed files before it was applied: the per-property counts and the `rzz` entries
+(each job's `properties.json` against `ibm_phoenix_properties_2026-11-10T124546Z.json`), the 436 directed CZ entries on 218
+couplers, line 84 of the pre-flight, the quoted words of post-run 04, and `submitted_utc` in
+`data/runs/2026-11-10/paper1_section3c_blockC_job_ids.json`. The count 19 of line 98 was wrong: `data/joblists/` holds 25 other list
+files (16 in `paper1/`, 5 in `paper2/`, 3 in `dryrun/`, `example_smoke_test.json`); a repeat of the seed scan over them and
+`paper1/summary.json` finds no overlap with the two blocks. One character beyond the check's wording was changed: in Section 10 the
+comma before the replaced clause became a full stop, so that the replacement starts a sentence. The header gained one sentence
+pointing here. Sections 8, 9, 11 and 13 are byte-identical to ed05d44e: no value, interval, statistic or verdict changed.
+
+**The decisions.** Taken by the lead under the PI's delegation at **14:27 UTC on 10 Nov 2026**, in a note to post-run reviews 06 and
+07, "without knowledge of any Block C value" (the note's words; the first commit of review 07 was pushed at 14:25:37 UTC, before any
+Block C measured value was opened). Recorded as given:
+
+1. **The day-2 flag (n = 85, L = 8)** is "decided on review 06's registered reading alone: not replicated, the flag closes
+   (pre-flight 08 row 1), with audit note N1 carried as a stated caveat. It is not held for Block C. Block C's L = 8 sample is
+   reported beside that decision and is not a decision input (Deviation 61)."
+2. **A job whose window contains the update.** "A job whose running-to-finished window contains IBM's 11:35:39Z properties update is
+   read against the prediction rows of the 10:16Z re-draw (the placement and calibration it was dispatched on), with the same stated
+   caveat as N1; it is neither voided nor re-read against rows drawn on later properties." This is the rule under which the `L0` job
+   of this list is read; the caveat is N1 (Section 7), restated in Section 9.
+3. **Gate 2 (e).** "the lead adopts the reviewer's reading provisionally. On the properties in force at submission the registered
+   evaluator passes; on IBM's 11:35:39Z figures (readout dated 11:05:20Z) the pause condition is met on the 82 placed qubits (12
+   above 1.5x; Q31 and Q98 above the cut). The campaign is treated as paused for any further dispatch until the cause is logged and
+   the PI signs a recorded deviation; retrieval and review of today's data are not affected and no datum is voided."
+
+**Owed.** (a) The PI's countersignature of decision 1: "The PI's countersignature of this decision is still to be obtained." Until
+it is given, the closing of the flag is the lead's decision under the delegation. (b) Under decision 3, the logged cause and the
+PI's signature on a recorded deviation, before any further dispatch. (c) The entries that follow from decision 1 (the
+pre-registration's Deviation 19 row, tracker P1.3.9, the handover; Section 10 (c)); none is touched by this branch. (d) The
+countersignatures already requested for Deviations 57 and 61.
+
+**How the earlier sections read after this.** "Undecided here" in N2 and items (a) and (b) of Section 10 describe the state when
+this review was written; decisions 1 and 3 are where they were taken. The evaluation of Section 9 and the audit verdict are
+unchanged. Block C is reported in post-run review 07 (`docs/postrun/07_paper1_section3c_blockC_2026-11-10.md`, branch
+`postrun-07-2026-11-10`, draft PR #16). Its three jobs (bundles on `main` at f11dc7aa831bc2c55522a182a2f22a919b129bc8) began running
+at 12:54:18Z, after this list's `L0` job had finished (12:35:07Z), so their bundles do not narrow when the `L0` circuits executed;
+N1 stays as stated.
