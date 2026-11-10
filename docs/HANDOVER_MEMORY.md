@@ -1,6 +1,6 @@
 # Handover memory digest (gradvar-phoenix programme, #mitacs channel)
 
-_Updated 18:40 IST, 10 Nov 2026 (handover Version 11): Sections 1 and 3 to 8 now run through 10 Nov; statements that rest on M. Owais's relay are marked. Earlier update: 01:30 IST, 25 Sep 2026 (handover Version 10), through 24 Sep on Claude Science; the Slack-era text is otherwise unchanged._
+_Updated 18:40 IST and again 21:10 IST, 10 Nov 2026 (handover Version 11): Sections 1 and 3 to 8 now run through 10 Nov; statements that rest on M. Owais's relay are marked. Earlier update: 01:30 IST, 25 Sep 2026 (handover Version 10), through 24 Sep on Claude Science; the Slack-era text is otherwise unchanged._
 
 **Read this first if you are a successor on any surface other than the original Slack channel.** The Claude sessions that ran this programme
 from 16 to 21 September 2026 kept their working memory in per-topic files on the Slack side (`/tmp/claude/memory/team/channel/`, 40 files). That
@@ -144,7 +144,13 @@ not required reading. Dates are absolute; times are IST unless marked UTC (IST =
   GO_WITH_CORRECTIONS for adoption together in v0.18.0. From 5 Oct to 9 Nov `main` received only the daily calibration snapshots.
 - **10 Nov**: fixes N1 and N2, a final review (GO_WITH_CORRECTIONS for both Deviations, patch N3), v0.18.0 written on `dev63-questions`
   (not merged); two same-day cycles (the first void at IBM's 09:07:11 UTC update); **first dispatch since 21 Sep**: `replication_01_16384`
-  (2 jobs, 11:11 UTC) and `section3c_blockC` (3 jobs, 11:13 UTC), armed and dispatched by Owais; `replication_01_16384` **retrieved 12:45 UTC** (`4182865`), its data unread; Block C not yet retrieved; `replication_01`
+  (2 jobs, 11:11 UTC) and `section3c_blockC` (3 jobs, 11:13 UTC), armed and dispatched by Owais; `replication_01_16384` retrieved 12:45 UTC (`4182865`); `section3c_blockC` was retrieved at 13:57 UTC (`f11dc7a`); post-run review 07 is drafted (draft PR #16) and not yet independently checked.
+  Post-run review 06 (draft PR #15): audit CLEAN_WITH_NOTES; registered reading for the day-2 flag "not replicated: the flag closes" (pre-flight 08 row 1),
+  independently confirmed with six wording corrections; its notes: IBM's 11:35:39Z update inside the `L0` job's run window, and the
+  Gate 2 (e) pause condition met on the later readout figures. Lead's decisions of 14:27 UTC under the PI's delegation (his
+  countersignature owed): the day-2 flag closes on that reading with the caveat stated; a job whose window contains that update is read
+  against the 10:16Z re-draw rows with the caveat; the campaign is treated as paused for further dispatch until the cause is logged
+  and the PI signs a recorded deviation. `replication_01`
   NO_GO; day 3 held. The H7 comparator check found that the comparators model a perfect reset (predicted sensitivity about 20 percent
   inside Paper 2's H4 box; a prediction, not a result); Deviation 64 drafted (PR #12).
 - **Science so far** (days 1 and 2, `docs/postrun/03`, `04`): L <= 4 points inside their prediction intervals on every rung (ratios 0.80 to 1.26);
@@ -166,8 +172,8 @@ State on 24 Sep: 44.67 spent; the four waiting lists 51.6 min modelled (about 63
 booked until settled (Deviation 59); the contingent dial items (`dial_arm_contingent.json`) 6.1 modelled (about 13 with
 overhead) against about 1.9 in the surplus rule, not booked; 165 usable under the 210 cap.
 
-State on 10 Nov: 44.67 booked; the 10 Nov dispatch (`replication_01_16384` 2.46 min and `section3c_blockC` 16.14 min modelled at 1 us) is
-not booked yet (it is booked from IBM's per-job usage in the post-run reviews); instance cap 360 as Owais states (was 210 with 45 used); Flex expiry around February
+State on 10 Nov: 47.24 spent by the per-job sum (44.67 through 21 Sep + 2.567 for `replication_01_16384`, 154 QPU s); Block C (16.14 min
+modelled at 1 us) is not included until post-run review 07 is checked; instance cap 360 as Owais states (was 210 with 45 used); Flex expiry around February
 to March 2027 as Owais states (exact date open). Still waiting: `day3_dial_refs` (30.60 min modelled at 1 us on the 10 Nov placement),
 `replication_01` (2.00), the Deviation 63 pairs (2.37 modelled, per the v0.18.0 text), L2-c5 (3.36 booked).
 
@@ -255,14 +261,17 @@ records: after 10 Nov `replication_01_16384` and `section3c_blockC` must be trea
   pre-arming snapshot 11:03 UTC; Owais armed and dispatched `replication_01_16384` (11:11 UTC) and `section3c_blockC` (11:13 UTC); `replication_01_16384` retrieved 12:45 UTC; Owais's
   statements at about 11:25 UTC (PI's confirmation as relayed, cap 360, Flex expiry, physics co-author); v0.18.0 written on
   `dev63-questions` (17:05 IST; status-line records 17:47 IST); Deviation 64 draft (PR #12); test fix (PR #13); documents updated.
+  Later that day: `section3c_blockC` retrieved 13:57 UTC (`f11dc7a`); post-run review 06 (draft PR #15) and its independent check; the
+  lead's decisions of 14:27 UTC; post-run review 07 drafted (draft PR #16); the independent review before merge; C62-1 and C62-2
+  applied on `dev63-questions` (`78e0675`).
 
-## 8. Open items (order as of 10 Nov 2026 18:40 IST; details in `docs/HANDOVER.md` Section 10)
+## 8. Open items (order as of 10 Nov 2026 21:10 IST; details in `docs/HANDOVER.md` Section 10)
 
-1. Retrieval of `section3c_blockC` (Owais, "retrieve hardware jobs" with its ids file; `replication_01_16384` was retrieved at 12:45 UTC on
-   10 Nov, `4182865`, and its data are unread), then post-run reviews 06
-   (replication, the n85 flag) and 07 (Block C) before any analysis; the ledger booked from IBM's per-job usage.
-2. Independent check and merge of v0.18.0: PR #13 first, then PR #6 into `main`, then PR #8 retargeted to `main`. Unreviewed commits to
-   check: `8b1674c`, `63c4e76`, `27487f2`, `61231da`.
+1. Post-run reviews: 06 (draft PR #15, `49e7243`) is independently confirmed, its six wording corrections applied, and waits to be merged; 07
+   (draft PR #16) is drafted and not yet independently checked. The PI's countersignature of the lead's decisions of 14:27 UTC on 10 Nov
+   is owed, and the campaign is treated as paused for further dispatch until the cause is logged and the PI signs a recorded deviation.
+2. Merge of v0.18.0 after the independent review before merge (#13 GO, #6 GO, #8 and #14 GO_WITH_CORRECTIONS, corrections applied): PR
+   #13 first, then PR #6 into `main`, then PR #8 retargeted to `main`; then PR #14 and one more documents pass (the merge time).
 3. Deviation 64 (draft, PR #12): Owais's decisions and an independent review; no day-3 or pairs datum is read before it is adopted.
 4. The pipeline changes for armed records (`scripts/sameday_repackage.py`, `scripts/build_preflights.py`; file and line in PR #13) and a
    cycle that fits in under one hour.
