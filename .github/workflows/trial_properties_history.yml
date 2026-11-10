@@ -1,0 +1,89 @@
+name: "trial: properties history (no QPU, no results)"
+
+# Draft Deviation 65, Section 8 item 9: asks the IBM service for the calibration history around jobs that have ALREADY run
+# (job metadata and backend properties only). It submits nothing, never fetches a result and spends no QPU time. The sets
+# and the report are committed to a new branch named by the run, never to main.
+on:
+  workflow_dispatch:
+    inputs:
+      ids_files:
+        description: "Ids files under data/runs/, separated by blanks (default: the two lists of 10 Nov 2026)"
+        required: true
+        type: string
+        default: "data/runs/2026-11-10/paper1_replication_01_16384_job_ids.json data/runs/2026-11-10/paper1_section3c_blockC_job_ids.json"
+      margin_hours:
+        description: "Hours after a job's finish at which the newest set is asked for (the walk-back covers what lies between)"
+        required: true
+        type: string
+        default: "6"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: trial-properties-history
+  cancel-in-progress: false
+
+jobs:
+  trial:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTHONUNBUFFERED: "1"
+      BRANCH: trial-properties-history-run-${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install qiskit-ibm-runtime
+        run: pip install "qiskit-ibm-runtime==0.49.0" "pandas==3.0.6"
+      - name: Check the inputs
+        env:
+          IDS_FILES: ${{ inputs.ids_files }}
+          MARGIN_HOURS: ${{ inputs.margin_hours }}
+        run: |
+          set -f
+          for f in $IDS_FILES; do
+            case "$f" in
+              data/runs/*.json) test -f "$f" ;;
+              *) echo "ids file must be a committed file under data/runs/: $f"; exit 1 ;;
+            esac
+          done
+          case "$MARGIN_HOURS" in
+            ""|*[!0-9.]*) echo "margin_hours must be a number"; exit 1 ;;
+          esac
+      # Metadata only (job metrics, backend properties): no QPU time is spent, nothing is submitted, no result is fetched.
+      # A refused call ends this step with status 2; the next two steps still run, so the partial record is kept.
+      - name: Read the properties history of the finished jobs
+        env:
+          IDS_FILES: ${{ inputs.ids_files }}
+          MARGIN_HOURS: ${{ inputs.margin_hours }}
+          QISKIT_IBM_TOKEN: ${{ secrets.QISKIT_IBM_TOKEN }}
+          QISKIT_IBM_INSTANCE: ${{ secrets.QISKIT_IBM_INSTANCE }}
+        run: |
+          set -f
+          python scripts/trial_properties_history.py --ids-file $IDS_FILES --margin-hours "$MARGIN_HOURS"
+      - name: Show the report on the run page
+        if: ${{ always() }}
+        run: |
+          for f in docs/deviations_drafts/65_support/trial_properties_history_*.md; do
+            if [ -f "$f" ]; then cat "$f" >> "$GITHUB_STEP_SUMMARY"; fi
+          done
+      - name: Commit the sets and the report to a new branch (never to main)
+        if: ${{ always() }}
+        run: |
+          git config user.name "gradvar-calibration-bot"
+          git config user.email "gradvar-calibration-bot@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          mkdir -p data/calibrations/trial_2026-11-10 docs/deviations_drafts/65_support
+          git add data/calibrations/trial_2026-11-10/ docs/deviations_drafts/65_support/
+          if git diff --cached --quiet; then
+            echo "nothing to commit"
+          else
+            git commit -m "trial: properties history of finished jobs $(date -u +%Y-%m-%dT%H:%MZ) (run $GITHUB_RUN_ID)"
+            git push origin "HEAD:refs/heads/$BRANCH"
+            echo "outputs committed to branch $BRANCH"
+          fi
