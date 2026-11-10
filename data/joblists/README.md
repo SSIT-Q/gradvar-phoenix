@@ -108,7 +108,9 @@ succeeded jobs, and exits non-zero naming the failed jobs (the Action commits th
 4. Run the action with `dry_run: false`. The runner verifies the instance plan, re-checks the layout against the live
    properties (`layout_check`, refusing on a failed cut unless overridden), then writes `data/jobs/<name>_<utc>.csv`
    (schema in the main README), the calibration snapshot to `data/calibrations/`, and one bundle per job under
-   `data/runs/<date>/<job_id>/`, and commits all.
+   `data/runs/<date>/<job_id>/`, and commits all. Every bundle's `job.json` records `placement_snapshot`, the file name of the
+   calibration CSV the list was placed on (the pinned snapshot of a pinned list); the analysis matches the dial predictions
+   and the H7 comparator on it and the placed qubit set (Deviation 60, S-A).
 5. Long queues (the ibm_phoenix Flex queue held the 20 Sep 2026 smoke test for over six hours): GitHub kills an Action
    job at 360 minutes, so `run_jobs.yml` now runs with `timeout-minutes: 350` and, right after the last submission,
    writes `data/runs/<date>/<list name>_job_ids.json` (`gradvar.hardware.write_ids_file`: job id, tag, level, shots,

@@ -291,6 +291,25 @@ recorded after this comparison; the sampled half is in the committed record.
 
 **Comparator (H7).** On the pinned day-3 placement (n60 rung, n = 52, edge 84_85, p = 0.5, L = 8; snapshot `ibm_phoenix_2026-09-23T163534Z.csv`), the Deviation 46 program and settings give sqrt(MSD(2)) = 0.05540 +/- 1.3e-04 (sampled; truncated 0.05526) and sqrt(MSD(4)) = 0.00663 +/- 6.7e-05; every l in `data/predictions/h7_truncation_2026-09-23T1635.md` (commit cbc4ea9, `python scripts/predict_h7_truncation.py`).
 
+### Deviation 60 part (7): moments on the realised masks (`propagate_realised`)
+
+The runner shares one set of K masks across all draws of a dial point (`hardware.mask_lottery`), and the dial estimators subtract
+the spread across masks within each draw, so with X_m a per-mask quantity of zero theta-mean (the k = L or k = 1 gradient, the
+cost minus its constant, the full-minus-truncated cost) they estimate the off-diagonal moment over the realised masks,
+T = 1 / (K (K - 1)) sum_{m != m'} E_theta[X_m X_m'], not the mixture value that `propagate_sampled` / `propagate_truncated` give.
+`propagate_realised(prog, masks, kind, p, mask_p, n_samples, seed, chunk, cuts)` estimates T, the diagonal mean
+D = mean_m E_theta[X_m^2] and the mixture value from one set of Pauli paths: every pair factor factorises over the two copies,
+so a path carries a vector over the K masks (the product of the copy-m coefficients at the dial sites, which depend on that
+copy's mask bit only: the branches B0 / B1 of `dial_branches`, whose mixture (1 - q) B0 + q B1 is the program's channel; the
+reset dial B0 = idle, B1 = reset, q = p; the dephasing dial B0 = (d, d, 1, 0), B1 = (-d, -d, 1, 0), q = p / 2), and the pair
+weight of masks (m, m') is the product of the two entries. The cost estimand excludes the per-mask constants c0_m
+(`realised_prefix_constants`); the estimator's Var[C_mix] then targets T_cost - S^2(c0) / K. `propagate_realised_pairs` is an
+independent cross-check (one mask pair per path), and `fixed_mask_program` gives the program of one mask, whose moments are the
+diagonal. Tests: `tests/test_pauliprop_realised.py` (mixture output against `propagate_truncated` at delta = 0; K identical
+masks against the fixed-mask program's deterministic and doubled-space exact moments; vector against pair estimator; branches,
+prefix constants, argument checks). The realised-mask comparators of a list are drawn by `scripts/redraw_dial_points.py`
+(`data/predictions/dial_realised_<tag>.*`) and `scripts/predict_h7_truncation.py` (`h7_realised_<tag>.*`), 2e6 paths, seed 0.
+
 ## Validation
 
 See `data/predictions/pauliprop_validation.csv` (table below is written by `scripts/pauliprop_validate.py`).
