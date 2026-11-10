@@ -9,9 +9,9 @@
   "reason": "Deviation 55 (to be): resilience-2 jobs on rungs of n >= 69 hold at most 100 pubs (day-2 job L2-c5, 300 pubs of n = 85 L = 8, IBM 1336 out of memory; 100 pubs ran)"
  },
  "m_rule": "baseline",
- "snapshot": "ibm_phoenix_2026-11-10T082134Z.csv",
- "properties": "ibm_phoenix_properties_20261110T082134Z.json.gz",
- "stamp": "2026-11-10T082134Z",
+ "snapshot": "ibm_phoenix_2026-11-10T101610Z.csv",
+ "properties": "ibm_phoenix_properties_20261110T101610Z.json.gz",
+ "stamp": "2026-11-10T101610Z",
  "rungs": {
   "n20": {
    "n": 18,
@@ -34,7 +34,7 @@
    ]
   },
   "n40": {
-   "n": 36,
+   "n": 37,
    "patch": "4x10",
    "origin": [
     8,
@@ -57,14 +57,13 @@
     ]
    ],
    "holes": [
-    90,
     91,
     99,
     107
    ]
   },
   "n60": {
-   "n": 47,
+   "n": 49,
    "patch": "6x10",
    "origin": [
     6,
@@ -95,15 +94,13 @@
     72,
     73,
     77,
-    79,
-    90,
     91,
     99,
     107
    ]
   },
   "n80": {
-   "n": 64,
+   "n": 66,
    "patch": "8x10",
    "origin": [
     4,
@@ -137,15 +134,13 @@
     72,
     73,
     77,
-    79,
-    90,
     91,
     99,
     107
    ]
   },
   "n100": {
-   "n": 79,
+   "n": 82,
    "patch": "10x10",
    "origin": [
     2,
@@ -174,7 +169,6 @@
    "holes": [
     20,
     24,
-    28,
     34,
     37,
     49,
@@ -188,8 +182,6 @@
     72,
     73,
     77,
-    79,
-    90,
     91,
     99,
     107
@@ -219,7 +211,7 @@
    "dial_excluded_holes": []
   },
   "n40": {
-   "n": 36,
+   "n": 37,
    "patch": "4x10",
    "origin": [
     8,
@@ -242,7 +234,6 @@
     ]
    ],
    "holes": [
-    90,
     91,
     99,
     107
@@ -250,7 +241,7 @@
    "dial_excluded_holes": []
   },
   "n60": {
-   "n": 47,
+   "n": 48,
    "patch": "6x10",
    "origin": [
     6,
@@ -282,7 +273,6 @@
     73,
     77,
     79,
-    90,
     91,
     99,
     107
@@ -292,7 +282,7 @@
    ]
   },
   "n80": {
-   "n": 64,
+   "n": 65,
    "patch": "8x10",
    "origin": [
     4,
@@ -327,7 +317,6 @@
     73,
     77,
     79,
-    90,
     91,
     99,
     107
@@ -337,7 +326,7 @@
    ]
   },
   "n100": {
-   "n": 79,
+   "n": 81,
    "patch": "10x10",
    "origin": [
     2,
@@ -366,7 +355,6 @@
    "holes": [
     20,
     24,
-    28,
     34,
     37,
     49,
@@ -381,7 +369,6 @@
     73,
     77,
     79,
-    90,
     91,
     99,
     107
@@ -413,9 +400,9 @@
    "executions": 163840000
   },
   "dial": {
-   "minutes_at_1us": 30.554,
-   "minutes_at_250us": 353.575,
-   "jobs": 125,
+   "minutes_at_1us": 30.604,
+   "minutes_at_250us": 353.625,
+   "jobs": 126,
    "executions": 77836288
   },
   "null_controls": {
@@ -436,7 +423,7 @@
   "dial": true,
   "null_controls": true
  },
- "booked_total_min_at_1us": 80.987,
+ "booked_total_min_at_1us": 81.037,
  "day1": {
   "list": "day1_null_grid_n20.json",
   "source_lists": [
@@ -479,10 +466,10 @@
   "ledger_lines": [
    "dial"
   ],
-  "jobs": 125,
-  "minutes_at_1us": 30.554,
-  "source_lists_jobs": 125,
-  "source_lists_min_at_1us": 30.554,
+  "jobs": 126,
+  "minutes_at_1us": 30.604,
+  "source_lists_jobs": 126,
+  "source_lists_min_at_1us": 30.604,
   "note": "Deviation 50 day-3 packaging of the references and the dial-arm core (same pubs, same seeds); not counted again in the totals"
  },
  "replication": {
@@ -597,13 +584,13 @@
   },
   "dial_arm.json": {
    "ledger_line": "dial",
-   "jobs": 123,
+   "jobs": 124,
    "pubs": 2307,
    "circuits": 409603,
    "executions": 9023488,
    "trex_executions": 0,
-   "minutes_at_1us": 8.617,
-   "minutes_at_250us": 46.065,
+   "minutes_at_1us": 8.667,
+   "minutes_at_250us": 46.115,
    "points": 0,
    "probes": 12
   },
@@ -669,13 +656,13 @@
   },
   "day3_dial_refs.json": {
    "ledger_line": "day3:dial",
-   "jobs": 125,
+   "jobs": 126,
    "pubs": 2313,
    "circuits": 413803,
    "executions": 77836288,
    "trex_executions": 0,
-   "minutes_at_1us": 30.554,
-   "minutes_at_250us": 353.575,
+   "minutes_at_1us": 30.604,
+   "minutes_at_250us": 353.625,
    "points": 0,
    "probes": 18
   },

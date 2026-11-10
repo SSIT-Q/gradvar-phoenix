@@ -5,14 +5,13 @@
  "dry_run": true,
  "rep_delay_probe": true,
  "preflight_review": "TBD: pre-flight review permalink",
- "notes": "Paper 1 pre-registration v0.17.0 (26 Sep 2026), Deviation 19 anomaly protocol (pre-registered exploratory analysis; tracker P1.3.9), replication 01, list 1 of 2 (4096 shots): (a) the n20 rung's L = 4, k = 1 point at resilience 0 and 1 (day 1, 20 Sep 2026: 0.61x its prediction, z = -4.0 at both levels), M = 200 fresh draws (seed block 21582001, role 'replication', disjoint from day 1's 20282001), placed by the pre-registered rule on the run-day snapshot: 4x5 n = 18 at origin (1, 2), holes [24, 34], broken couplers [[15, 16]], edge 23_33, a different patch from day 1's (8, 1) / hole 114 / edge 93_103 (no 4x5 rectangle free of excluded qubits and broken couplers exists on the 21 Sep snapshots, so 'clean' is the cleanest placement under the Deviation 22 / 26 / 53 cuts); (b) the n100 rung's L = 8, k = 1 point at resilience 0 and 4096 shots, M = 200 fresh draws (seed block 25592001; the flagged day-2 point ran at 16384 shots and is replicated at that shot count in replication_01_16384.json; this 4096-shot point sits beside day 2's level-1 4096-shot point on other seeds, which read 1.30x), on the same 10x10 rung (10x10 n = 79 at origin (2, 0), edge 75_85; the run-day holes decide n): no alternative 10x10 placement exists, so this is a recorded departure from 'different clean patch'; plus the matched Deviation 43 L = 0 null controls (n20 rung at resilience 0 and 1, n100 rung at resilience 0; same shots, M = 200). Predictions: the Deviation 46 re-draw on the replication-day placement, committed before the pre-flight, and the calibrated noisy simulations of Deviation 19 beside them; the decision rules (what closes a flag, what confirms it) are fixed in docs/preflight/08_paper1_replication_2026-09-21.md before any data. Ledger: Section 6 reserve, 'anomaly replications' item (20 min); both lists together are targeted at <= 8 min at 1 us. Placement from snapshot 2026-11-10T082134Z (CSV plus raw properties; Deviations 22, 26 and 46 cuts plus the Deviation 53 coherence floor T1, T2 >= 25 us, on the newest committed calibration data; Deviation 62: qubits outside a rectangle's largest connected live-coupler component are holes): n20 = 4x5 n = 18 origin (1, 2) edge 23_33 broken [[15, 16]]; n100 = 10x10 n = 79 origin (2, 0) edge 75_85 broken [[86, 87], [100, 101], [31, 32], [87, 97]]. Deviation 46: the runner re-derives the placement and the observable edges from the run-day snapshot under the Deviation 22 / 26 cuts and the cone-graph edge rule (live re-check, layout_check enforce) and refuses a list whose n no longer matches; regenerate with scripts/make_paper1_joblists.py from the run-day snapshot and re-draw the Gate 1b reference predictions where the cone graph changed. Budget model v3 (Deviation 47: 3.0 s per job, +2.7 s at resilience >= 1, 5 us per execution, max(shots, 64) at resilience >= 1), jobs of at most 300 pubs (max_experiments; Deviation 48) and 12 MB of parameter values: 6 jobs, 1200 pubs, 2400 parameter sets, 9830400 executions (+0 TREX), 2.001 min at the booked 1 us rep_delay (42.797 min at 250 us). Nothing is submitted while dry_run is true and the pre-flight review permalink is the placeholder.",
+ "notes": "Paper 1 pre-registration v0.17.0 (26 Sep 2026), Deviation 19 anomaly protocol (pre-registered exploratory analysis; tracker P1.3.9), replication 01, list 1 of 2 (4096 shots): (a) the n20 rung's L = 4, k = 1 point at resilience 0 and 1 (day 1, 20 Sep 2026: 0.61x its prediction, z = -4.0 at both levels), M = 200 fresh draws (seed block 21582001, role 'replication', disjoint from day 1's 20282001), placed by the pre-registered rule on the run-day snapshot: 4x5 n = 18 at origin (1, 2), holes [24, 34], broken couplers [[15, 16]], edge 23_33, a different patch from day 1's (8, 1) / hole 114 / edge 93_103 (no 4x5 rectangle free of excluded qubits and broken couplers exists on the 21 Sep snapshots, so 'clean' is the cleanest placement under the Deviation 22 / 26 / 53 cuts); (b) the n100 rung's L = 8, k = 1 point at resilience 0 and 4096 shots, M = 200 fresh draws (seed block 25592001; the flagged day-2 point ran at 16384 shots and is replicated at that shot count in replication_01_16384.json; this 4096-shot point sits beside day 2's level-1 4096-shot point on other seeds, which read 1.30x), on the same 10x10 rung (10x10 n = 82 at origin (2, 0), edge 75_85; the run-day holes decide n): no alternative 10x10 placement exists, so this is a recorded departure from 'different clean patch'; plus the matched Deviation 43 L = 0 null controls (n20 rung at resilience 0 and 1, n100 rung at resilience 0; same shots, M = 200). Predictions: the Deviation 46 re-draw on the replication-day placement, committed before the pre-flight, and the calibrated noisy simulations of Deviation 19 beside them; the decision rules (what closes a flag, what confirms it) are fixed in docs/preflight/08_paper1_replication_2026-09-21.md before any data. Ledger: Section 6 reserve, 'anomaly replications' item (20 min); both lists together are targeted at <= 8 min at 1 us. Placement from snapshot 2026-11-10T101610Z (CSV plus raw properties; Deviations 22, 26 and 46 cuts plus the Deviation 53 coherence floor T1, T2 >= 25 us, on the newest committed calibration data; Deviation 62: qubits outside a rectangle's largest connected live-coupler component are holes): n20 = 4x5 n = 18 origin (1, 2) edge 23_33 broken [[15, 16]]; n100 = 10x10 n = 82 origin (2, 0) edge 75_85 broken [[86, 87], [100, 101], [31, 32], [87, 97]]. Deviation 46: the runner re-derives the placement and the observable edges from the run-day snapshot under the Deviation 22 / 26 cuts and the cone-graph edge rule (live re-check, layout_check enforce) and refuses a list whose n no longer matches; regenerate with scripts/make_paper1_joblists.py from the run-day snapshot and re-draw the Gate 1b reference predictions where the cone graph changed. Budget model v3 (Deviation 47: 3.0 s per job, +2.7 s at resilience >= 1, 5 us per execution, max(shots, 64) at resilience >= 1), jobs of at most 300 pubs (max_experiments; Deviation 48) and 12 MB of parameter values: 6 jobs, 1200 pubs, 2400 parameter sets, 9830400 executions (+0 TREX), 2.001 min at the booked 1 us rep_delay (42.797 min at 250 us). Nothing is submitted while dry_run is true and the pre-flight review permalink is the placeholder.",
  "layout_check": "enforce",
  "placement": {
-  "snapshot": "ibm_phoenix_2026-11-10T082134Z.csv",
-  "properties": "ibm_phoenix_properties_20261110T082134Z.json.gz",
-  "stamp": "2026-11-10T082134Z",
+  "snapshot": "ibm_phoenix_2026-11-10T101610Z.csv",
+  "properties": "ibm_phoenix_properties_20261110T101610Z.json.gz",
+  "stamp": "2026-11-10T101610Z",
   "excluded": [
-   3,
    4,
    7,
    8,
@@ -21,7 +20,6 @@
    18,
    20,
    24,
-   28,
    34,
    37,
    55,
@@ -34,8 +32,6 @@
    72,
    73,
    77,
-   79,
-   90,
    91,
    107
   ],
@@ -117,7 +113,7 @@
    },
    "n100": {
     "patch": "10x10",
-    "n": 79,
+    "n": 82,
     "origin": [
      2,
      0
@@ -125,7 +121,6 @@
     "holes": [
      20,
      24,
-     28,
      34,
      37,
      49,
@@ -139,8 +134,6 @@
      72,
      73,
      77,
-     79,
-     90,
      91,
      99,
      107
@@ -152,6 +145,7 @@
      25,
      26,
      27,
+     28,
      29,
      30,
      31,
@@ -189,6 +183,7 @@
      75,
      76,
      78,
+     79,
      80,
      81,
      82,
@@ -199,6 +194,7 @@
      87,
      88,
      89,
+     90,
      92,
      93,
      94,
@@ -250,7 +246,7 @@
      "31_32": 0.018006578344524876,
      "87_97": 0.010557400698804537
     },
-    "live_couplers": 112,
+    "live_couplers": 119,
     "edge": "75_85",
     "edge_rule": "interior_edge",
     "edge_cz_error": 0.001116364522319363,
@@ -351,7 +347,7 @@
    "seed": 21582001
   },
   {
-   "n": 79,
+   "n": 82,
    "patch": "10x10",
    "edge": "75_85",
    "L": 8,
@@ -392,7 +388,7 @@
   {
    "id": "null_L0_n100_r0_s4096_repl",
    "kind": "null_control",
-   "n": 79,
+   "n": 82,
    "patch": "10x10",
    "edge": "75_85",
    "L": 0,
@@ -451,7 +447,7 @@
     "n_bases": 2,
     "trex_executions": 0,
     "job_constant_seconds": 3.0,
-    "param_mb": 1.242,
+    "param_mb": 1.28,
     "circuit_seconds_at_250us": 640.762,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 643.762,
@@ -472,7 +468,7 @@
     "n_bases": 1,
     "trex_executions": 0,
     "job_constant_seconds": 3.0,
-    "param_mb": 1.011,
+    "param_mb": 1.05,
     "circuit_seconds_at_250us": 215.138,
     "trex_seconds_at_250us": 0.0,
     "seconds_at_250us": 218.138,
