@@ -95,11 +95,12 @@ The fake's stale calibration fails the layout check (`enforced: false`), as for 
 
 0. As pre-flight 06 Section 6 step 0 (the same-day pull request merged; `placement.snapshot` `ibm_phoenix_2026-11-10T101610Z.csv` on `main`; arming edits only `dry_run` and `preflight_review`; the stop rule for a submitting run that ends without `job ids written to`). Then: Owais runs Actions -> calibration snapshot just before arming; if IBM's properties time is not 2026-11-10T09:07:11Z, the list is not dispatched on this package; otherwise Claude's pre-check on that snapshot must pass.
 1. (Claude, done) Regenerated on the pinned snapshot (`--replication`, `--check`), re-drawn predictions committed, this document committed.
-2. Arm **both** lists: in `data/joblists/paper1/replication_01.json` and `replication_01_16384.json` set `"dry_run": false` and
+2. Arm **`replication_01_16384` only** (`replication_01` is held: NO_GO on this package, Section 8): in
+   `data/joblists/paper1/replication_01_16384.json` set `"dry_run": false` and
    `"preflight_review": "<the commit-pinned URL of this file>"` (`https://github.com/SSIT-Q/gradvar-phoenix/blob/<40-hex commit>/docs/preflight/08_paper1_replication_2026-11-10.md`, the commit on `main` at which Section 8
-   carries the review), commit to `main`.
-3. Actions, "run hardware job list", branch `main`, `joblist` = `data/joblists/paper1/replication_01.json`, untick "Build and transpile only", tick
-   `submit_only`, Run; when it has written its ids file, dispatch again with `joblist` = `data/joblists/paper1/replication_01_16384.json`. Then Block C.
+   carries the review), commit to `main`. `replication_01.json` is not edited.
+3. Actions, "run hardware job list", branch `main`, `joblist` = `data/joblists/paper1/replication_01_16384.json`, untick "Build and transpile only", tick
+   `submit_only`, Run. `replication_01.json` is not dispatched from this package. Then Block C.
 4. When the jobs are done (about 5 QPU minutes): "retrieve hardware jobs" once per ids file; a failed job is resubmitted with `only_job_tag`.
 5. Post-run review `docs/postrun/06_paper1_replication_<date>.md` (Section 4 table per flag, the Deviation 19 simulations, the null floors, Gate 2 (e), any override);
    Claude evaluates, the coordinator with the reviewer decides each flag under the PI's delegation; the pre-registration's Deviation 19 row, tracker
