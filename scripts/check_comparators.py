@@ -123,17 +123,93 @@ def check(joblist: str | Path, pred_dir: str | Path = PRED) -> dict:
     return dict(joblist=Path(joblist).name, placement=stamp, items=items, missing=sum(1 for x in items if not x["found"]))
 
 
+def check_vertices(joblist: str | Path, pred_dir: str | Path = PRED) -> dict:
+    """Deviation 64 (draft): {'items': [...], 'missing': int, 'levels': [...]}: for every probe whose comparator is drawn on its
+    realised masks (dial probes with a mask lottery, truncation arms, and H7's comparator where a pairs list needs the A3(b)
+    margin) and every pre-drawn level of the dial-channel table, whether every vertex value is committed for the list's placement,
+    probe seed and mask count (``predictions.dial_members`` / ``truncation_members``). An item whose designed-channel comparator is
+    missing is missing here too."""
+    from gradvar.analysis import dial_channel as dc
+    table = dc.load_table()
+    jl = json.loads(Path(joblist).read_text(encoding="utf-8"))
+    preds = P.load_predictions(pred_dir)
+    pl = jl.get("placement") or {}
+    stamp = pl.get("stamp") or P._stamp_of_name(pl.get("snapshot"))
+    items, arms = [], {}
+
+    def add(base, missing_by_level):
+        for level in dc.levels(table):
+            miss, why = missing_by_level(level)
+            items.append(dict(base, level=level, found=not miss, missing_vertices=miss, reason=why or None))
+
+    for pr in jl.get("probes", []) or []:
+        if pr.get("kind") != "reset_dial":
+            continue
+        name, rung = _rung(jl, pr["patch"], int(pr["n"]), pr["edge"])
+        dial = P.DIAL_KIND.get(str(pr.get("reset_kind", "reset")), str(pr.get("reset_kind", "reset")))
+        if not P.realised_applies(dial, pr.get("masks", 1)):
+            continue
+        if pr.get("unshifted"):
+            key = (pr["patch"], int(pr["n"]), pr["edge"], int(pr["L"]), float(pr["p"]), str(pr.get("reset_kind", "reset")), int(pr.get("seed", 0)))
+            arms.setdefault(key, dict(name=name, rung=rung, probes=[], K=int(pr.get("masks", 1))))["probes"].append(pr["id"])
+            continue
+        base = dict(need="dial row vertices (H5 / H6)", probe=pr["id"], rung=name, dial=dial, p=float(pr["p"]), L=int(pr["L"]), k=int(pr["k"]))
+        kw = dict(patch=pr["patch"], edge=pr["edge"], qubits=(rung or {}).get("qubits"), stamp=stamp, probe_seed=int(pr.get("seed", 0)), K=int(pr.get("masks", 1)))
+        hit, why, _fb = (P.dial_prediction(preds, int(pr["n"]), int(pr["L"]), int(pr["k"]), dial, float(pr["p"]), realised=True, **kw)
+                         if rung is not None else (None, name or "no rung", None))
+        if hit is None:
+            add(base, lambda level, why=why: (["designed"], f"designed-channel comparator: {why}"))
+            continue
+        add(base, lambda level, hit=hit, pr=pr, dial=dial, kw=kw: P.dial_members(preds, hit, level, int(pr["L"]), int(pr["k"]), dial, float(pr["p"]), table=table, **kw)[1:])
+    margin_rungs = {}
+    for (patch, n, edge, L, p, kind, seed), a in sorted(arms.items(), key=str):
+        h7 = kind == "reset" and abs(p - 0.5) < 1e-12
+        base = dict(need="H7 comparator vertices (l = 2)" if h7 else "A3 pair comparator vertices (l = 2)", probe=", ".join(a["probes"]), rung=a["name"],
+                    p=p, L=L, reset_kind=kind)
+        if kind == "dephase" and not any(k[5] == "reset" and abs(k[4] - 0.5) < 1e-12 and k[:4] == (patch, n, edge, L) for k in arms):
+            margin_rungs[(patch, n, edge, L)] = a
+        kw = dict(patch=patch, edge=edge, n=n, p=p, L=L, qubits=(a["rung"] or {}).get("qubits"), stamp=stamp, seed=seed, K=a["K"], reset_kind=kind)
+        comp, why = P.truncation_prediction(preds, realised=True, **kw) if a["rung"] is not None else (None, a["name"] or "no rung")
+        if comp is None:
+            add(base, lambda level, why=why: (["designed"], f"designed-channel comparator: {why}"))
+            continue
+        add(base, lambda level, comp=comp, kw=kw: P.truncation_members(preds, comp, level, table=table, **kw)[1:])
+    for (patch, n, edge, L), a in sorted(margin_rungs.items(), key=str):
+        base = dict(need="H7 comparator vertices (A3(b) margin)", probe="(day 3's trunc_full_p0.5_L8 / trunc_l2_p0.5_L8)", rung=a["name"], p=0.5, L=L,
+                    reset_kind="reset")
+        comp, why = _h7_margin(preds, patch, edge, n, L, a["rung"].get("qubits"), stamp)
+        if comp is None:
+            add(base, lambda level, why=why: (["designed"], f"designed-channel comparator: {why}"))
+            continue
+        kw = dict(patch=patch, edge=edge, n=n, p=0.5, L=L, qubits=a["rung"].get("qubits"), stamp=stamp, seed=comp.get("mask_seed"), K=comp.get("K"), reset_kind="reset")
+        add(base, lambda level, comp=comp, kw=kw: P.truncation_members(preds, comp, level, table=table, **kw)[1:])
+    return dict(joblist=Path(joblist).name, placement=stamp, levels=dc.levels(table), table_sha256=table["_sha256"], table_status=table["status"],
+                adopted=bool(table["adopted"]), items=items, missing=sum(1 for x in items if not x["found"]))
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("joblist")
     ap.add_argument("--pred-dir", default=str(PRED))
     ap.add_argument("--json", action="store_true", help="print the result as JSON")
+    ap.add_argument("--require-vertices", action="store_true",
+                    help="Deviation 64 (draft): also require every vertex value of every pre-drawn level (the default once the "
+                         "dial-channel table says 'adopted'; until then only with this option)")
     args = ap.parse_args(argv)
     try:
         res = check(args.joblist, args.pred_dir)
     except (OSError, ValueError, KeyError) as ex:
         print(f"cannot check {args.joblist}: {ex}", file=sys.stderr)
         return 2
+    from gradvar.analysis import dial_channel as _dc
+    vres = None
+    if args.require_vertices or _dc.band_enabled():
+        try:
+            vres = check_vertices(args.joblist, args.pred_dir)
+        except (OSError, ValueError, KeyError) as ex:
+            print(f"cannot check the vertex values of {args.joblist}: {ex}", file=sys.stderr)
+            return 2
+        res = dict(res, vertices=vres)
     if args.json:
         print(json.dumps(res, indent=1, default=str))
     else:
@@ -144,6 +220,15 @@ def main(argv=None) -> int:
         print("OK: every H7 comparator and dial row is on the list's placement" if not res["missing"]
               else f"MISSING {res['missing']} item(s): draw them with scripts/predict_h7_truncation.py / scripts/redraw_dial_points.py "
                    "--joblist <list> before the pre-flight")
+        if vres is not None:
+            for x in vres["items"]:
+                print(f"  {'found  ' if x['found'] else 'MISSING'} {x['need']:38} level {x['level']!r:6} {x['probe']:34} {'' if x['found'] else x.get('reason')}")
+            print(f"vertices (table {vres['table_status']}, adopted {vres['adopted']}, levels {vres['levels']}): "
+                  + ("OK: every vertex value of every pre-drawn level is on the list's placement" if not vres["missing"]
+                     else f"MISSING at {vres['missing']} item(s): draw them with scripts/predict_h7_truncation.py --vertices / "
+                          "scripts/redraw_dial_points.py --vertices --joblist <list>"))
+    if vres is not None and vres["missing"]:
+        return 1
     return 0 if not res["missing"] else 1
 
 

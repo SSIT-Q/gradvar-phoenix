@@ -1,0 +1,148 @@
+{
+ "table": "Deviation 64: range of the dial channel, pre-drawn levels and vertex set (the only place these values live; the code reads this file)",
+ "status": "PROVISIONAL",
+ "provisional_note": "Every value below is the draft's (docs/deviations_drafts/64_dial_channel_comparators_2026-11-10.md on branch dev64-dial-channel at a2630a01, pull request 12), which is with an independent reviewer. The PI's approval of the draft's recommendations on its eight decisions was relayed by the operator and reached the lead between 19:41 and 19:54 UTC on 10 Nov 2026; the review may return some of them to him. A correction changes this file, not code. Deviation 64 is not adopted: 'adopted' is false and the analysis reads the designed-channel comparators as under pre-registration v0.18.0 until the adoption commit sets it to true.",
+ "adopted": false,
+ "decisions_relayed": {
+  "2": "gamma bound 0.016",
+  "3": "(a) the list gains a reset probe prepared in |0>; eps0 is then bounded by its own probe",
+  "4": "the |+> probe is not added",
+  "7": "levels 1e-2 and 2e-2 are pre-drawn"
+ },
+ "range": {
+  "kappa": {
+   "reset": [
+    -0.005,
+    0.105
+   ],
+   "dephase": [
+    -0.005,
+    0.005
+   ],
+   "note": "extra transverse contraction of the kept branch, d (1 - kappa); the dephasing dial resets no qubit, so only the T2 model error applies"
+  },
+  "gamma": {
+   "interval": [
+    0.0,
+    0.016
+   ],
+   "note": "T1 loss over the 400 ns idle at the placement rule's 25 us coherence floor; both dials"
+  },
+  "eps1": {
+   "interval": [
+    0.0,
+    "level"
+   ],
+   "note": "P(1) after a reset of |1>; the level comes from the day's characterisation probes"
+  },
+  "eps0": {
+   "interval": [
+    0.0,
+    "level"
+   ],
+   "note": "P(1) after a reset of |0>; from its own probe when the list carries one, else stated no worse than eps1's level"
+  },
+  "r": {
+   "rule": "abs(r) <= sqrt(eps1 * (1 - eps0))",
+   "note": "transverse residual of the reset; complete positivity"
+  }
+ },
+ "kept_branch_cp_clip": true,
+ "levels": [
+  0.01,
+  0.02
+ ],
+ "levels_note": "pre-drawn values of eps_A; the largest is kill rule (a)'s bound. The draft's third level 5e-3 is not pre-drawn (decision 7).",
+ "level_rule": {
+  "z": 1.96,
+  "statistic": "u_q = eps_hat_q + z * s_q per dial-patch qubit, s_q the binomial standard error from the probes' counts",
+  "choice": "the smallest level with u_q <= level on every dial-patch qubit (eps1, and eps0 when its probe is in the list)",
+  "above_largest_level": "not evaluable"
+ },
+ "band": {
+  "z": 1.96,
+  "members": "the designed channel and every vertex at the day's level",
+  "edges": "smallest value minus z sigma of its engine error; largest value plus z sigma of its engine error",
+  "ratios": "formed vertex by vertex, both members at the same vertex",
+  "dephase": "the dephasing dial takes the vertex's gamma and its kappa clipped to the dephasing dial's interval; eps1, eps0 and r do not enter"
+ },
+ "vertices": [
+  {
+   "id": "V1",
+   "kappa": "hi",
+   "gamma": "hi",
+   "eps1": 0.0,
+   "eps0": "level",
+   "r": 0.0,
+   "extreme_of": "(below V2 for H7)"
+  },
+  {
+   "id": "V2",
+   "kappa": "hi",
+   "gamma": "hi",
+   "eps1": 0.002,
+   "eps0": "level",
+   "r": "-bound",
+   "extreme_of": "lowest H7 and pair (a) comparator"
+  },
+  {
+   "id": "V3",
+   "kappa": "lo",
+   "gamma": 0.0,
+   "eps1": "level",
+   "eps0": 0.0,
+   "r": "+bound",
+   "extreme_of": "highest H7 and pair (a) comparator"
+  },
+  {
+   "id": "V4",
+   "kappa": "hi",
+   "gamma": "hi",
+   "eps1": "level",
+   "eps0": 0.0,
+   "r": "+bound",
+   "extreme_of": "smallest A3(b) margin"
+  },
+  {
+   "id": "V5",
+   "kappa": 0.0,
+   "gamma": "hi",
+   "eps1": 0.0,
+   "eps0": 0.0,
+   "r": 0.0,
+   "extreme_of": "highest H5 / H6 rows; largest control factor"
+  },
+  {
+   "id": "V6",
+   "kappa": 0.0,
+   "gamma": 0.0,
+   "eps1": "level",
+   "eps0": "level",
+   "r": 0.0,
+   "extreme_of": "lowest H5 / H6 rows; lowest floors"
+  },
+  {
+   "id": "V7",
+   "kappa": 0.0,
+   "gamma": 0.0,
+   "eps1": 0.0,
+   "eps0": "level",
+   "r": 0.0,
+   "extreme_of": ""
+  },
+  {
+   "id": "V8",
+   "kappa": 0.0,
+   "gamma": 0.0,
+   "eps1": "level",
+   "eps0": 0.0,
+   "r": "-bound",
+   "extreme_of": ""
+  }
+ ],
+ "vertex_symbols": {
+  "lo / hi": "the interval's end for the dial (kappa, gamma)",
+  "level": "eps_A, the day's level",
+  "+bound / -bound": "+- sqrt(eps1 * (1 - eps0))"
+ }
+}

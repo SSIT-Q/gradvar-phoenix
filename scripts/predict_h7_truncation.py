@@ -236,14 +236,18 @@ def comparator(patch, spec: str, point: dict, csv: str, props: str, settings: di
                 zz_layer_tau_sources=meta["tau_src"], runtime_s=time.time() - t0)
 
 
-def realised_entry(jl: dict, point: dict, rung_name: str, rung: dict, csv: str, props: str, n_samples: int) -> dict:
+def realised_entry(jl: dict, point: dict, rung_name: str, rung: dict, csv: str, props: str, n_samples: int, channel=None) -> dict:
     """Deviation 60 part (7): the H7 comparator on the truncation probes' realised masks (the full probe's seed and masks; the
-    truncated probes share them for their kept layers), every l = 1 .. L - 1 from one sampled propagation with the cut accumulators."""
+    truncated probes share them for their kept layers), every l = 1 .. L - 1 from one sampled propagation with the cut accumulators.
+    ``channel`` (``pauliprop.DialChannel``, Deviation 64 draft): the same entry at a channel other than the designed one (same masks,
+    same sampler stream), with ``channel`` and ``mix_exact`` added; None: the entry and its keys as before."""
     t0 = time.time()
+    if channel is not None and channel.designed():
+        channel = None
     pr = next(p for p in jl["probes"] if p["id"] == point["full"])
     L, p, kind = point["L"], point["p"], point["reset_kind"]
     patch, edge = rd.rung_patch(rung), rd.rung_edge(rung)
-    prog, _meta = rd.dial_program(patch, rung["patch"], L, edge, csv, props, model="unital", dial_kind=kind, p=p, zz_layer_on=True)
+    prog, _meta = rd.dial_program(patch, rung["patch"], L, edge, csv, props, model="unital", dial_kind=kind, p=p, zz_layer_on=True, channel=channel)
     masks, _full, _runner = rd.probe_masks(jl, pr, prog, patch, csv)
     mask_p = float(pr.get("mask_p", p))
     res = pp.propagate_realised(prog, masks, kind, p=p, mask_p=mask_p, n_samples=int(n_samples), seed=rd.REALISED["seed"], chunk=rd.REALISED["chunk"],
@@ -258,7 +262,7 @@ def realised_entry(jl: dict, point: dict, rung_name: str, rung: dict, csv: str, 
                                 ratio_to_mixture=res.get(f"ratio_msd{ell}_off"), se_ratio_to_mixture=res.get(f"se_ratio_msd{ell}_off"),
                                 residual_pattern_expected=(res[f"msd{ell}_diag"] - msd) / K)
     l2 = by_ell["2"]
-    return dict(point=dict(patch=rung["patch"], edge=rung["edge"], n=int(rung["n"]), p=p, L=L, k=L, reset_kind=kind,
+    entry = dict(point=dict(patch=rung["patch"], edge=rung["edge"], n=int(rung["n"]), p=p, L=L, k=L, reset_kind=kind,
                            qubits=sorted(int(q) for q in rung["qubits"]), rung=rung_name, origin=rung["origin"], holes=rung["holes"],
                            broken_edges=rung["broken_edges"]),
                 probes=[point["full"]] + [point["cuts"][k] for k in sorted(point["cuts"])], ells_in_list=sorted(point["cuts"]),
@@ -266,6 +270,9 @@ def realised_entry(jl: dict, point: dict, rung_name: str, rung: dict, csv: str, 
                 rms_l2=l2["rms"], rms_l2_sigma=l2["rms_sigma"], rms_l2_source="realised masks (pauliprop.propagate_realised, off-diagonal moment)",
                 by_ell=by_ell, var_cost_T=res["cost_off"], se_cost_T=res["se_cost_off"], var_kL_realised=res["kL_off"], se_kL_realised=res["se_kL_off"],
                 n_cone=prog.m, n_samples=res["n_samples"], sampler_seed=res["seed"], chunk=res["chunk"], runtime_s=time.time() - t0)
+    if channel is not None:
+        entry.update(channel=res["channel"], mix_exact=res["mix_exact"])
+    return entry
 
 
 def markdown_realised(rec: dict) -> str:
@@ -345,6 +352,11 @@ def main(argv=None) -> int:
     ap.add_argument("--realised-samples", type=int, default=rd.REALISED["n_samples"], help="Deviation 60 part (7): paths of the realised-mask draw (2e6)")
     ap.add_argument("--realised-only", action="store_true",
                     help="draw only the realised-mask comparators (h7_realised_<tag>), the mixture entry being committed; no bug check")
+    ap.add_argument("--vertices", action="store_true",
+                    help="Deviation 64 (draft): draw only the vertex entries of the dial-channel range (h7_vertices_<tag>.json); no bug check, "
+                         "the designed-channel records are not touched")
+    ap.add_argument("--plan", action="store_true", help="with --vertices: print the entries that would be drawn; no simulation")
+    ap.add_argument("--workers", type=int, default=4, help="with --vertices: processes")
     args = ap.parse_args(argv)
     t_start = time.time()
     jl_path = Path(args.joblist)
@@ -376,6 +388,8 @@ def main(argv=None) -> int:
                entries=[])
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
+    if args.vertices:
+        return write_vertices(jl, points, rec, snapshot, props, stamp, tag, out_dir, args.realised_samples, args.workers, args.plan, t_start)
     if args.realised_only:
         return write_realised(jl, points, rec, snapshot, props, stamp, tag, out_dir, args.realised_samples, [], t_start)
     checks = []
@@ -414,6 +428,67 @@ def main(argv=None) -> int:
     if args.check_only:
         return 0
     return write_realised(jl, points, dict(rec, entries=[]), snapshot, props, stamp, tag, out_dir, args.realised_samples, rec["entries"], time.time())
+
+
+def _vertex_entry(job: dict) -> dict:
+    e = realised_entry(job["jl"], job["point"], job["rung_name"], job["rung"], job["csv"], job["props"], job["n_samples"],
+                       channel=pp.DialChannel(**job["channel"]))
+    e.update(channel_key=job["channel_key"], serves=[[lv, vid] for lv, vid in job["serves"]])
+    return e
+
+
+def write_vertices(jl: dict, points: list, rec: dict, snapshot: str, props: str, stamp: str, tag: str, out_dir: Path, n_samples: int,
+                   workers: int, plan_only: bool, t_start: float) -> int:
+    """Deviation 64 (draft): the realised-mask H7 comparator of every truncation arm at the distinct channels of every pre-drawn
+    level (``dial_channel.channels_to_draw``), written as h7_vertices_<tag>.json (a pairs list: h7_vertices_pairs_<tag>.json) beside
+    the designed-channel records, which it does not touch. A path count other than the registered one is written as
+    h7_exploratory_vertices_*, which the analysis does not read."""
+    from gradvar.analysis import dial_channel as dc
+    from gradvar.analysis import predictions as P
+    table = dc.load_table()
+    jobs = []
+    for point in points:
+        rung_name, rung = rung_for(jl, point)
+        full = next(p for p in jl["probes"] if p["id"] == point["full"])
+        kind = P.DIAL_KIND.get(point["reset_kind"], point["reset_kind"])
+        if not P.realised_applies(kind, full.get("masks", 1)):
+            print(f"{rung_name}: {point['full']} carries one mask: no realised-mask comparator, no vertex entries", flush=True)
+            continue
+        for c in dc.channels_to_draw(table, kind):
+            jobs.append(dict(jl=jl, point=point, rung_name=rung_name, rung=rung, csv=snapshot, props=props, n_samples=int(n_samples),
+                             channel=c["channel"], channel_key=c["key"], serves=c["serves"]))
+    tb = dict(path=Path(table["_path"]).name, sha256=table["_sha256"], status=table["status"], adopted=table["adopted"], levels=dc.levels(table))
+    print(f"Deviation 64 (draft) vertex entries; table {tb['path']} ({tb['status']}, adopted {tb['adopted']}), levels {tb['levels']}; {len(jobs)} entries")
+    for j in jobs:
+        print(f"  to draw  {j['rung_name']} {j['point']['full']} serves {' '.join(f'{lv!r}:{vid}' for lv, vid in j['serves'])}")
+    if plan_only or not jobs:
+        return 0
+    entries = []
+
+    def done(e):
+        entries.append(e)
+        print(f"  drawn    {e['point']['rung']} {e['probes'][0]} [{' '.join(f'{lv!r}:{vid}' for lv, vid in e['serves'])}] rms_l2 = {e['rms_l2']:.6f} "
+              f"+/- {e['rms_l2_sigma']:.1e}; {e['runtime_s']:.0f}s", flush=True)
+
+    if workers <= 1:
+        for j in jobs:
+            done(_vertex_entry(j))
+    else:
+        from concurrent.futures import ProcessPoolExecutor, as_completed
+        with ProcessPoolExecutor(max_workers=workers) as ex:
+            for fut in as_completed([ex.submit(_vertex_entry, j) for j in jobs]):
+                done(fut.result())
+    entries.sort(key=lambda e: (e["point"]["rung"], e["probes"][0], e["channel_key"]))
+    stem = "pairs_" if rec.get("pairs") else ""
+    registered = int(n_samples) == rd.REALISED["n_samples"]
+    out = dict(rec, deviation="64 (draft, not adopted): vertex entries of the dial-channel range", table=tb, command=rec["command"] + " --vertices",
+               settings=dict(rec.get("settings", {}), realised=dict(rd.REALISED, n_samples=int(n_samples)), exploratory=not registered, workers=int(workers),
+                             comparator_rule="rms = sqrt of the realised-mask off-diagonal MSD(l) at the vertex's dial channel; rms_sigma = its sampling error"),
+               entries=entries, runtime_s=time.time() - t_start)
+    name = f"h7_vertices_{stem}{tag}" if registered else f"h7_exploratory_vertices_{stem}{tag}"
+    (out_dir / f"{name}.json").write_text(json.dumps(out, indent=1, default=rd._json_default), encoding="utf-8")
+    print(f"wrote {name}.json in {out_dir}; {out['runtime_s']:.0f}s" + ("" if registered else " (EXPLORATORY: not read by the analysis)"))
+    return 0
 
 
 def write_realised(jl: dict, points: list, rec: dict, snapshot: str, props: str, stamp: str, tag: str, out_dir: Path, n_samples: int,

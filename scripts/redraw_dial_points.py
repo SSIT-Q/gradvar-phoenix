@@ -252,6 +252,98 @@ def draw_realised(job: dict) -> dict:
     return out
 
 
+# --------------------------------------------------------------------------- Deviation 64 (draft): vertex rows
+
+def vertex_plan(joblists: list, table: dict | None = None) -> dict:
+    """Deviation 64 (draft): the vertex rows of lists sharing one placement. One job per dial probe with a mask lottery
+    (``realised_probes``) and per distinct channel of every pre-drawn level (``dial_channel.channels_to_draw``: the table's vertices
+    resolved for the probe's dial; vertices that coincide are drawn once and record the (level, vertex) pairs they serve). The
+    designed-channel member of each band is the committed ``dial_realised_<tag>`` row, which this does not touch."""
+    from gradvar.analysis import dial_channel as dc
+    table = table or dc.load_table()
+    lists = [(str(p), json.loads(Path(p).read_text(encoding="utf-8"))) for p in joblists]
+    stamps = {jl["placement"].get("stamp") or rd.stamp_of(jl["placement"]["snapshot"]) for _, jl in lists}
+    if len(stamps) != 1:
+        raise SystemExit(f"the lists carry {len(stamps)} placement stamps {sorted(stamps)}: run the script once per placement")
+    pl = lists[0][1]["placement"]
+    jobs, seen = [], set()
+    for path, jl in lists:
+        for it in realised_probes(jl):
+            rung_name, rung = h7.rung_for(jl, it)
+            key = (rung_name, it["probe"]["id"], it["seed"], it["K"])
+            if key in seen:
+                continue
+            seen.add(key)
+            for c in dc.channels_to_draw(table, it["dial"]):
+                jobs.append(dict(rung=rung_name, probe_id=it["probe"]["id"], patch=it["patch"], n=it["n"], edge=it["edge"], L=it["L"], dial=it["dial"],
+                                 p=it["p"], seed=it["seed"], K=it["K"], joblist=Path(path).name, probe=it["probe"], rung_block=rung, jl=jl,
+                                 channel=c["channel"], channel_key=c["key"], serves=c["serves"]))
+    return dict(snapshot=str(CAL_DIR / pl["snapshot"]), props=str(CAL_DIR / pl["properties"]), stamp=next(iter(stamps)), jobs=jobs,
+                table=dict(path=Path(table["_path"]).name, sha256=table["_sha256"], status=table["status"], adopted=table["adopted"],
+                           levels=dc.levels(table)))
+
+
+def draw_vertex(job: dict) -> dict:
+    """One vertex row: ``redraw_gate1b.realised_dial_row`` at the job's channel, with what it serves and the table it came from."""
+    s = dict(rd.REALISED, n_samples=int(job["realised_samples"]))
+    out = rd.realised_dial_row(job["jl"], job["probe"], job["rung_block"], job["csv"], job["props"], s, channel=rd.pp.DialChannel(**job["channel"]))
+    out.update(placement=f"Deviation 46 run-day placement ({Path(job['csv']).name}, pinned list {job['joblist']})", snapshot_stamp=job["stamp"],
+               rung=job["rung"], joblist=job["joblist"], channel_key=job["channel_key"],
+               serves=" ".join(f"{lv!r}:{vid}" for lv, vid in job["serves"]), table_sha256=job["table_sha256"],
+               redraw_reason="Deviation 64 (draft, not adopted): vertex of the dial-channel range")
+    return out
+
+
+def write_vertices(joblists: list, settings: dict, overrides: dict, args) -> int:
+    """``--vertices``: draw the vertex rows and write ``dial_vertices_<tag>.csv`` / ``.json`` beside the designed-channel files
+    (an exploratory draw: ``dial_exploratory_vertices_<tag>.*``, not read by the analysis)."""
+    t0 = time.time()
+    vp = vertex_plan(joblists)
+    tag = args.tag or f"{vp['stamp'][:10]}T{vp['stamp'][11:15]}"
+    tb = vp["table"]
+    print(f"Deviation 64 (draft) vertex rows; table {tb['path']} ({tb['status']}, adopted {tb['adopted']}), levels {tb['levels']}; "
+          f"placement {vp['stamp']}; {len(vp['jobs'])} rows")
+    for j in vp["jobs"]:
+        print(f"  to draw  {j['rung']:5} {j['probe_id']} {j['dial']:7} serves {' '.join(f'{lv!r}:{vid}' for lv, vid in j['serves'])}")
+    if args.plan or not vp["jobs"]:
+        print("plan only; nothing drawn" if args.plan else "no dial probe with a mask lottery; nothing to draw")
+        return 0
+    for j in vp["jobs"]:
+        j.update(csv=vp["snapshot"], props=vp["props"], stamp=vp["stamp"], table_sha256=tb["sha256"], **settings)
+    rows = []
+
+    def done(r):
+        rows.append(r)
+        print(f"  drawn    {r['rung']:5} {r['probe_id']} [{r['serves']}] kL {r['var_kL_realised']:.4e} +/- {r['se_kL_realised']:.1e} "
+              f"C {r['var_cost_realised']:.3e} ({r['runtime_s']:.0f}s)", flush=True)
+
+    if args.workers <= 1:
+        for j in vp["jobs"]:
+            done(draw_vertex(j))
+    else:
+        with ProcessPoolExecutor(max_workers=args.workers) as ex:
+            for fut in as_completed([ex.submit(draw_vertex, j) for j in vp["jobs"]]):
+                done(fut.result())
+    rows.sort(key=lambda r: (r["rung"], r["L"], r["dial"], r["p"], r["probe_id"], r["channel_key"]))
+    rel = [Path(p).resolve().relative_to(ROOT).as_posix() if Path(p).resolve().is_relative_to(ROOT) else str(p) for p in joblists]
+    cmd = ("python scripts/redraw_dial_points.py " + " ".join(f"--joblist {r}" for r in rel) + " --vertices"
+           + ("".join(f" {SETTING_FLAGS[k]} {v}" for k, v in overrides.items()) + " --exploratory" if args.exploratory else ""))
+    res = dict(deviation="64 (draft, not adopted): vertex rows of the dial-channel range", table=tb,
+               generated_utc=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), command=cmd, git_commit=_git_commit(),
+               joblists=[Path(p).name for p in joblists], snapshot=vp["snapshot"], properties=vp["props"], stamp=vp["stamp"],
+               settings=dict(model="unital (the Deviation 46 program of the point) at the vertex's dial channel",
+                             realised=dict(rd.REALISED, n_samples=settings["realised_samples"]), deviation46=not overrides,
+                             exploratory=bool(args.exploratory), overrides=overrides, workers=int(args.workers)),
+               rows=rows, runtime_s=time.time() - t0)
+    stem = ("dial_exploratory_vertices" if args.exploratory else "dial_vertices") + f"_{tag}"
+    out_dir = Path(args.out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / f"{stem}.json").write_text(json.dumps(res, indent=1, default=rd._json_default), encoding="utf-8")
+    pd.DataFrame(rows).to_csv(out_dir / f"{stem}.csv", index=False)
+    print(f"wrote {stem}.json / .csv in {out_dir}; {res['runtime_s']:.0f}s" + (" (EXPLORATORY: not read by the analysis)" if args.exploratory else ""))
+    return 0
+
+
 def attach_mixture(realised: list, rows: pd.DataFrame, stamp: str) -> None:
     """Record beside every realised row the mixture row the analysis pairs it with (``covering_row``), which no test uses."""
     for r in realised:
@@ -315,6 +407,8 @@ def main(argv=None) -> int:
     ap.add_argument("--exploratory", action="store_true",
                     help="allow settings other than Deviation 46; the output is flagged and written as dial_exploratory_<tag>.*, not read by the analysis")
     ap.add_argument("--workers", type=int, default=4)
+    ap.add_argument("--vertices", action="store_true",
+                    help="Deviation 64 (draft): draw only the vertex rows of the dial-channel range (dial_vertices_<tag>.*); the designed-channel files are not touched")
     args = ap.parse_args(argv)
     settings, overrides = settings_from_args(args)
     if overrides and not args.exploratory:
@@ -324,6 +418,8 @@ def main(argv=None) -> int:
         print("WARNING: EXPLORATORY draw, not the Deviation 46 settings" + (f" ({overrides})" if overrides else "")
               + f"; output {output_prefix(True)}_<tag>.*, not read by the analysis", flush=True)
     joblists = args.joblist or [str(DEFAULT_JOBLIST)]
+    if args.vertices:
+        return write_vertices(joblists, settings, overrides, args)
     t0 = time.time()
     pl = plan(joblists, force=args.force)
     tag = args.tag or f"{pl['stamp'][:10]}T{pl['stamp'][11:15]}"
