@@ -227,12 +227,16 @@ def synthetic_rows(rng, rms_true: float, resid: float, kurtosis: float, M: int =
 
     Generating model, stated in full. Per draw d the true mean difference is Delta_d = rms_true x z_d with E z = 0, E z^2 = 1: z Gaussian
     (kurtosis 3) or Student t with nu = 4 + 6 / (kurtosis - 3) degrees of freedom scaled to unit variance (kurtosis 9: nu = 5, the
-    convention of scripts/h6_control_bounds_sim.py). A fixed set of round(p^2 K) masks has both observable qubits reset in the last
-    layer: there both circuits return the same value, 0.97, and the per-mask difference is exactly zero. On the other K' masks the
-    truncated circuit's value is N(0, 0.55^2) clipped to +-0.95 and the per-mask difference is Delta_d K / K' + eta, eta Gaussian with
-    the variance that makes E_d Var_m(difference) = K x resid (``resid`` = the engine's residual_pattern_expected, (MSD_diag - MSD_off) / K),
-    the full circuit's value clipped to +-1. Each value is then measured with ``shots`` +-1 outcomes (binomial). The value levels (0.97,
-    0.55) are chosen so that the shot term of the mean difference is about 6.7e-5, the figure in ``dial_hypotheses._mask_replicates``."""
+    convention of scripts/h6_control_bounds_sim.py; kurtosis 4: nu = 10). A fixed set of round(p^2 K) masks has both observable qubits
+    reset in the last layer: there both circuits return the same value, 0.97, and the per-mask difference is exactly zero. On the other
+    K' masks the truncated circuit's value is N(0, 0.30^2) clipped to +-0.60 and the per-mask difference is Delta_d K / K' + eta, eta
+    Gaussian with the variance that makes E_d Var_m(difference) = K x resid (``resid`` = the engine's residual_pattern_expected,
+    (MSD_diag - MSD_off) / K); the full circuit's value is clipped to +-1 (rare at these levels: a first version with wider levels
+    clipped about one value in ten and biased the generated truth low by 8 percent; it was discarded). Each value is then measured with
+    ``shots`` +-1 outcomes (binomial). At these levels the shot term of the mean difference is about 8.3e-5 (``_mask_replicates`` quotes
+    about 6.7e-5 for the day-3 design, so the synthetic rows are slightly noisier). Returns the two row tables and the sample truth, the
+    mean over draws of mean_m(delta)^2 - Var_m(delta) / K on the generated true values delta (what the statistic estimates on this
+    sample before shot noise)."""
     import pandas as pd
     if kurtosis <= 3.0:
         z = rng.standard_normal(M)
@@ -246,14 +250,14 @@ def synthetic_rows(rng, rms_true: float, resid: float, kurtosis: float, M: int =
     var_eta = max((K * resid - between) * K / kp, 0.0)
     ev_t = np.empty((M, K))
     ev_t[:, :n_rr] = 0.97
-    ev_t[:, n_rr:] = np.clip(rng.normal(0.0, 0.55, (M, kp)), -0.95, 0.95)
+    ev_t[:, n_rr:] = np.clip(rng.normal(0.0, 0.30, (M, kp)), -0.60, 0.60)
     diff = np.zeros((M, K))
     diff[:, n_rr:] = delta[:, None] * K / kp + rng.normal(0.0, np.sqrt(var_eta), (M, kp))
     ev_f = np.clip(ev_t + diff, -1.0, 1.0)
     meas = lambda e: 2.0 * rng.binomial(shots, (1.0 + e) / 2.0) / shots - 1.0      # noqa: E731
     d_idx, m_idx = np.repeat(np.arange(M), K), np.tile(np.arange(K), M)
     base = dict(draw=d_idx, mask_index=m_idx, shots=shots, seed=1, mask_seed=m_idx + 2)
-    return pd.DataFrame(dict(base, ev=meas(ev_f).reshape(-1))), pd.DataFrame(dict(base, ev=meas(ev_t).reshape(-1))), float(np.mean((ev_f - ev_t).mean(axis=1) ** 2))
+    return pd.DataFrame(dict(base, ev=meas(ev_f).reshape(-1))), pd.DataFrame(dict(base, ev=meas(ev_t).reshape(-1))), float(np.mean((ev_f - ev_t).mean(axis=1) ** 2 - (ev_f - ev_t).var(axis=1, ddof=1) / K))
 
 
 def run_bootstrap(rms_true: float, resid: float, kurtosis: float, reps: int, seed: int, out: str | None = None, label: str = "",
@@ -263,13 +267,13 @@ def run_bootstrap(rms_true: float, resid: float, kurtosis: float, reps: int, see
     t0 = time.time()
     rec = dict(label=label, rms_true=float(rms_true), resid=float(resid), kurtosis_generating=float(kurtosis), M=M, K=K, shots=shots, n_boot=n_boot,
                n_mask_replicates=DH.N_MASK_REPLICATES, seed=int(seed), estimator="gradvar.analysis.dial_hypotheses.truncation_rms (unmodified)",
-               commit=os.environ.get("GRADVAR_COMMIT"), rms=[], lo=[], hi=[], kurtosis_y=[], realised_ms=[], complete=False)
+               commit=os.environ.get("GRADVAR_COMMIT"), rms=[], lo=[], hi=[], kurtosis_y=[], sample_truth_ms=[], shot_term=[], complete=False)
     for i in range(int(reps)):
         rng = np.random.default_rng([int(seed), i])
         full, trunc, ms = synthetic_rows(rng, rms_true, resid, kurtosis, M, K, shots)
         s = DH.truncation_rms(full, trunc, K, n_boot)
-        rec["rms"].append(s["rms"]); rec["lo"].append(s["rms_lo"]); rec["hi"].append(s["rms_hi"]); rec["kurtosis_y"].append(s["kurtosis"])
-        rec["realised_ms"].append(ms)
+        rec["shot_term"].append(s["shot_term"]); rec["rms"].append(s["rms"]); rec["lo"].append(s["rms_lo"]); rec["hi"].append(s["rms_hi"]); rec["kurtosis_y"].append(s["kurtosis"])
+        rec["sample_truth_ms"].append(ms)
         if out and (i % 25 == 24 or i == int(reps) - 1):
             rec["runtime_s"] = time.time() - t0
             Path(out).parent.mkdir(parents=True, exist_ok=True)
