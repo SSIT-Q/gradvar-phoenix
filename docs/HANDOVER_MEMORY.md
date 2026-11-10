@@ -144,7 +144,7 @@ not required reading. Dates are absolute; times are IST unless marked UTC (IST =
   GO_WITH_CORRECTIONS for adoption together in v0.18.0. From 5 Oct to 9 Nov `main` received only the daily calibration snapshots.
 - **10 Nov**: fixes N1 and N2, a final review (GO_WITH_CORRECTIONS for both Deviations, patch N3), v0.18.0 written on `dev63-questions`
   (not merged); two same-day cycles (the first void at IBM's 09:07:11 UTC update); **first dispatch since 21 Sep**: `replication_01_16384`
-  (2 jobs, 11:11 UTC) and `section3c_blockC` (3 jobs, 11:13 UTC), armed and dispatched by Owais; **no result retrieved**; `replication_01`
+  (2 jobs, 11:11 UTC) and `section3c_blockC` (3 jobs, 11:13 UTC), armed and dispatched by Owais; `replication_01_16384` **retrieved 12:45 UTC** (`4182865`), its data unread; Block C not yet retrieved; `replication_01`
   NO_GO; day 3 held. The H7 comparator check found that the comparators model a perfect reset (predicted sensitivity about 20 percent
   inside Paper 2's H4 box; a prediction, not a result); Deviation 64 drafted (PR #12).
 - **Science so far** (days 1 and 2, `docs/postrun/03`, `04`): L <= 4 points inside their prediction intervals on every rung (ratios 0.80 to 1.26);
@@ -167,7 +167,7 @@ booked until settled (Deviation 59); the contingent dial items (`dial_arm_contin
 overhead) against about 1.9 in the surplus rule, not booked; 165 usable under the 210 cap.
 
 State on 10 Nov: 44.67 booked; the 10 Nov dispatch (`replication_01_16384` 2.46 min and `section3c_blockC` 16.14 min modelled at 1 us) is
-not booked until IBM's per-job usage is retrieved; instance cap 360 as Owais states (was 210 with 45 used); Flex expiry around February
+not booked yet (it is booked from IBM's per-job usage in the post-run reviews); instance cap 360 as Owais states (was 210 with 45 used); Flex expiry around February
 to March 2027 as Owais states (exact date open). Still waiting: `day3_dial_refs` (30.60 min modelled at 1 us on the 10 Nov placement),
 `replication_01` (2.00), the Deviation 63 pairs (2.37 modelled, per the v0.18.0 text), L2-c5 (3.36 booked).
 
@@ -252,13 +252,14 @@ records: after 10 Nov `replication_01_16384` and `section3c_blockC` must be trea
   GO_WITH_CORRECTIONS. 5 Oct to 9 Nov: daily snapshots only.
 - 10 Nov: fixes N2 (`94f4737`) and N1 (`8378d6a`); final review; first package (snapshot 08:21 UTC) reviewed, corrected and merged 10:14
   UTC but void since IBM's 09:07:11 UTC update; second package (snapshot 10:16 UTC) reviewed GO for two lists and merged 11:02 UTC;
-  pre-arming snapshot 11:03 UTC; Owais armed and dispatched `replication_01_16384` (11:11 UTC) and `section3c_blockC` (11:13 UTC); Owais's
+  pre-arming snapshot 11:03 UTC; Owais armed and dispatched `replication_01_16384` (11:11 UTC) and `section3c_blockC` (11:13 UTC); `replication_01_16384` retrieved 12:45 UTC; Owais's
   statements at about 11:25 UTC (PI's confirmation as relayed, cap 360, Flex expiry, physics co-author); v0.18.0 written on
   `dev63-questions` (17:05 IST; status-line records 17:47 IST); Deviation 64 draft (PR #12); test fix (PR #13); documents updated.
 
 ## 8. Open items (order as of 10 Nov 2026 18:40 IST; details in `docs/HANDOVER.md` Section 10)
 
-1. Retrieval of the two lists dispatched on 10 Nov (Owais, "retrieve hardware jobs", one run per ids file), then post-run reviews 06
+1. Retrieval of `section3c_blockC` (Owais, "retrieve hardware jobs" with its ids file; `replication_01_16384` was retrieved at 12:45 UTC on
+   10 Nov, `4182865`, and its data are unread), then post-run reviews 06
    (replication, the n85 flag) and 07 (Block C) before any analysis; the ledger booked from IBM's per-job usage.
 2. Independent check and merge of v0.18.0: PR #13 first, then PR #6 into `main`, then PR #8 retargeted to `main`. Unreviewed commits to
    check: `8b1674c`, `63c4e76`, `27487f2`, `61231da`.
