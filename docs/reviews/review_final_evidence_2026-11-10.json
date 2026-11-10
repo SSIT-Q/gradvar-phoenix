@@ -1,0 +1,773 @@
+{
+ "generated_utc": "2026-11-10T10:26:14Z",
+ "heads_at_start": {
+  "dev60-h7-analysis": "94f4737c41ff14cfe94e981ba714926b2eb907cb",
+  "dev63-questions": "8378d6abd10ad7e23e8de34492bd807f811e8d93",
+  "main": "cee7d69cbe5f95b54ebe21abc8a59d8f515b2572"
+ },
+ "heads_at_end": {
+  "dev60-h7-analysis": "94f4737c41ff14cfe94e981ba714926b2eb907cb",
+  "dev63-questions": "8378d6abd10ad7e23e8de34492bd807f811e8d93",
+  "main": "dcaed0c99fb452ffc1b035f280cf22c3f3b8fb4a"
+ },
+ "local_env": {
+  "python": "3.12.14 | packaged by conda-forge | (main, Sep  2 2026, 23:18:20) [MSC v.1944 64 bit (AMD64)]",
+  "platform": "Windows-11-10.0.26300-SP0",
+  "versions": "pytest 9.1.1, numpy 2.4.6, pandas 3.0.6, qiskit 2.5.2, qiskit-aer 0.17.2",
+  "command": "python -m pytest -q -p no:cacheprovider -rfEs <file>; PYTHONPATH = tree root; one process at a time"
+ },
+ "first_pass": [
+  {
+   "tree": "94f4",
+   "files": [
+    "tests/test_dial_placement.py"
+   ],
+   "rc": 0,
+   "seconds": 22.5,
+   "last_line": "26 passed, 1 warning in 21.22s",
+   "log": "94f4__test_dial_placement.py.log"
+  },
+  {
+   "tree": "8378",
+   "files": [
+    "tests/test_dial_placement.py"
+   ],
+   "rc": 0,
+   "seconds": 21.9,
+   "last_line": "26 passed, 1 warning in 20.52s",
+   "log": "8378__test_dial_placement.py.log"
+  },
+  {
+   "tree": "8378",
+   "files": [
+    "tests/test_truncation_pairs.py"
+   ],
+   "rc": 0,
+   "seconds": 48.9,
+   "last_line": "32 passed, 1 warning in 47.55s",
+   "log": "8378__test_truncation_pairs.py.log"
+  },
+  {
+   "tree": "94f4",
+   "files": [
+    "tests/test_truncation_arm.py"
+   ],
+   "rc": 0,
+   "seconds": 33.0,
+   "last_line": "13 passed, 1 warning in 31.92s",
+   "log": "94f4__test_truncation_arm.py.log"
+  },
+  {
+   "tree": "8378",
+   "files": [
+    "tests/test_truncation_arm.py"
+   ],
+   "rc": 0,
+   "seconds": 10.9,
+   "last_line": "7 passed, 6 skipped in 9.96s",
+   "log": "8378__test_truncation_arm.py.log"
+  },
+  {
+   "tree": "94f4",
+   "files": [
+    "tests/test_pauliprop_realised.py"
+   ],
+   "rc": 1,
+   "seconds": 13.9,
+   "last_line": "12 failed in 12.33s",
+   "log": "94f4__test_pauliprop_realised.py.log"
+  },
+  {
+   "tree": "8378",
+   "files": [
+    "tests/test_pauliprop_realised.py"
+   ],
+   "rc": 0,
+   "seconds": 21.0,
+   "last_line": "12 passed in 20.05s",
+   "log": "8378__test_pauliprop_realised.py.log"
+  },
+  {
+   "tree": "94f4",
+   "files": [
+    "tests/test_analysis.py"
+   ],
+   "rc": 3221225477,
+   "seconds": 6.5,
+   "last_line": "",
+   "log": "94f4__test_analysis.py.log"
+  },
+  {
+   "tree": "8378",
+   "files": [
+    "tests/test_analysis.py"
+   ],
+   "rc": 1,
+   "seconds": 120.7,
+   "last_line": "1 failed, 23 passed, 2 warnings in 119.32s (0:01:59)",
+   "log": "8378__test_analysis.py.log"
+  }
+ ],
+ "rerun_without_contention": [
+  {
+   "tree": "8378",
+   "files": [
+    "tests/test_truncation_arm.py"
+   ],
+   "rc": 0,
+   "seconds": 33.2,
+   "last_line": "13 passed, 1 warning in 32.05s",
+   "failed": [],
+   "log": "rerun_8378__test_truncation_arm.py.log"
+  },
+  {
+   "tree": "94f4",
+   "files": [
+    "tests/test_pauliprop_realised.py"
+   ],
+   "rc": 0,
+   "seconds": 19.9,
+   "last_line": "12 passed in 19.11s",
+   "failed": [],
+   "log": "rerun_94f4__test_pauliprop_realised.py.log"
+  },
+  {
+   "tree": "94f4",
+   "files": [
+    "tests/test_analysis.py"
+   ],
+   "rc": 1,
+   "seconds": 118.2,
+   "last_line": "1 failed, 23 passed, 2 warnings in 116.84s (0:01:56)",
+   "failed": [
+    "FAILED tests/test_analysis.py::test_loader_on_committed_marrakesh_run - Asser..."
+   ],
+   "log": "rerun_94f4__test_analysis.py.log"
+  }
+ ],
+ "fail_then_pass_and_merge_tree": [
+  {
+   "tree": "ac20full",
+   "label": "merge ac20512, whole file",
+   "rc": 1,
+   "seconds": 27.9,
+   "last_line": "4 failed, 27 passed, 1 warning in 26.62s",
+   "failed": [
+    "FAILED tests/test_truncation_pairs.py::test_h7_reads_only_its_own_point - Ass...",
+    "FAILED tests/test_truncation_pairs.py::test_pair_evaluations_pass_at_the_planted_values",
+    "FAILED tests/test_truncation_pairs.py::test_pair_evaluations_fail_and_guards",
+    "FAILED tests/test_truncation_pairs.py::test_pair_b_beside_a_failing_h7 - Asse..."
+   ],
+   "asserts": [
+    "E       AssertionError: ('no pre-drawn l = 2 comparator for this placement (the truncation rows record no probe mask seed and mask count (real...hatever the l = 4 test shows; 7680 truncation rows of other points (Deviation 63 pairs) are not H7's and are left out\")",
+    "E       assert 'not-evaluable' == 'pass'",
+    "E       AssertionError: no pre-drawn l = 2 comparator for this pair on this placement (the truncation rows record no probe mask seed and mask count (realised-mask comparator, Deviation 60 part (7)))",
+    "E       assert 'not-evaluable' == 'pass'",
+    "E       AssertionError: assert ('not-evaluable' == 'fail'",
+    "E       AssertionError: assert ('not-evaluable' == 'pass'"
+   ]
+  },
+  {
+   "tree": "pre_n1_plus_test",
+   "label": "45281f9 code + N1 test",
+   "rc": 1,
+   "seconds": 4.4,
+   "last_line": "1 failed in 3.45s",
+   "failed": [
+    "FAILED tests/test_truncation_pairs.py::test_reading_counts_an_ambiguous_cmix_member_as_a_gap"
+   ],
+   "asserts": [
+    "E           AssertionError: assert 'R1' == 'UNRESOLVED'"
+   ]
+  },
+  {
+   "tree": "pre_n2_plus_test",
+   "label": "d57e991 code + N2 test",
+   "rc": 1,
+   "seconds": 3.9,
+   "last_line": "1 failed in 3.07s",
+   "failed": [
+    "FAILED tests/test_dial_placement.py::test_h6_control_with_a_non_finite_dephasing_interval_is_not_evaluable"
+   ],
+   "asserts": [
+    "E           AssertionError: assert ('fail' == 'not-evaluable'"
+   ]
+  },
+  {
+   "label": "probe_mask_seed on _pair_rows at ac20512 (merge) and with the 45281f9 fixture",
+   "rc": 0,
+   "out": "{\"merge_fixture\": {\"has_probe_id\": false, \"probe_mask_seed\": [23291001, null], \"rows\": 3840, \"per_draw\": 64}, \"fixed_fixture\": {\"has_probe_id\": true, \"probe_ids\": [\"trunc_full_p0.5_L8\", \"trunc_l2_p0.5_L8\"], \"probe_mask_seed\": [23291001, 32], \"per_probe_draw\": 32}}",
+   "err": ""
+  }
+ ],
+ "proposed_patch_tests": [
+  {
+   "tree": "scratch_b",
+   "test": "tests/test_dial_placement.py",
+   "rc": 0,
+   "last_line": "26 passed, 1 warning in 18.15s",
+   "failed": [],
+   "snippet_rc": 0,
+   "snippet": [
+    {
+     "case": "r_lo nan, d finite",
+     "H6": "not-evaluable",
+     "exceeds": null,
+     "evaluable": false,
+     "factor_note": "not evaluable: the lower end of the reset interval is not finite",
+     "control_misses": null,
+     "gap_in_note": true
+    },
+    {
+     "case": "r_lo nan, d finite, floor passes",
+     "H6": "not-evaluable",
+     "exceeds": null,
+     "evaluable": false,
+     "factor_note": "not evaluable: the lower end of the reset interval is not finite",
+     "control_misses": 0,
+     "gap_in_note": true
+    },
+    {
+     "case": "r_lo nan, reset below floor",
+     "H6": "fail",
+     "exceeds": null,
+     "evaluable": false,
+     "factor_note": "not evaluable: the lower end of the reset interval is not finite",
+     "control_misses": 0,
+     "gap_in_note": true
+    },
+    {
+     "case": "d_hi nan (N2 unchanged)",
+     "H6": "not-evaluable",
+     "exceeds": null,
+     "evaluable": false,
+     "factor_note": "not evaluable: the dephasing interval is not finite",
+     "control_misses": 0,
+     "gap_in_note": true
+    },
+    {
+     "case": "finite, passes",
+     "H6": "pass",
+     "exceeds": true,
+     "evaluable": true,
+     "factor_note": null,
+     "control_misses": 0,
+     "gap_in_note": false
+    },
+    {
+     "case": "finite, r_lo below d_hi",
+     "H6": "fail",
+     "exceeds": false,
+     "evaluable": true,
+     "factor_note": null,
+     "control_misses": 1,
+     "gap_in_note": false
+    }
+   ]
+  },
+  {
+   "tree": "scratch_a",
+   "test": "tests/test_truncation_pairs.py",
+   "rc": 0,
+   "last_line": "32 passed, 1 warning in 41.92s",
+   "failed": [],
+   "snippet_rc": 0,
+   "snippet": [
+    {
+     "case": "gap, H6 not-evaluable",
+     "reading": "UNRESOLVED",
+     "reasons": [
+      "the H6 reset / dephasing control is not evaluable (Deviation 60 part (6): not evaluable: the dephasing interval is not finite; a computation gap, not a failure of the clause), so a sub-test the readings need is not evaluated"
+     ]
+    },
+    {
+     "case": "gap, H6 fail",
+     "reading": "UNRESOLVED",
+     "reasons": [
+      "the H6 reset / dephasing control is not evaluable (Deviation 60 part (6): not evaluable: the dephasing interval is not finite; a computation gap, not a failure of the clause), so a sub-test the readings need is not evaluated",
+      "H6 fails"
+     ]
+    },
+    {
+     "case": "bounds, reset not above (unchanged text)",
+     "reading": "UNRESOLVED",
+     "reasons": [
+      "the H6 reset / dephasing control is read on bounds (Deviation 60 part (6)): the dephasing variance is not resolvably positive and the reset dial's lower end is not above the dephasing dial's upper bound (or the factor cannot be tested), so the clause fails; an unresolved dephasing variance blocks R2 only",
+      "H6 fails"
+     ]
+    }
+   ]
+  },
+  {
+   "patch_c": {
+    "exceeds_false": 0.25,
+    "not_evaluable": 0.25
+   },
+   "old_expression": "TypeError: bad operand type for unary ~: 'NoneType'"
+  }
+ ],
+ "proposed_patch_a_final_text_check": {
+  "reading": "UNRESOLVED",
+  "reasons": [
+   "the H6 reset / dephasing control is not evaluable (Deviation 60 part (6): the dephasing interval is not finite; a computation gap, not a failure of the clause), so a sub-test the readings need is not evaluated"
+  ]
+ },
+ "differential": {
+  "dev60": {
+   "A_control_bounds_test": {
+    "n": 7940,
+    "finite_dhi": 6680,
+    "finite_dhi_diff": 0,
+    "nonfinite_dhi": 1260,
+    "nonfinite_dhi_changes": {
+     "OLD exceeds=False within=None note=no pre-drawn factor -> NEW exceeds=None within=None note=not evaluable: the dephasing interval is not finite evaluable=False": 1260
+    },
+    "nonfinite_rlo_finite_dhi": 720,
+    "nonfinite_rlo_finite_dhi_diff": 0,
+    "nonfinite_rlo_outcomes": {
+     "exceeds=False within=None note=no pre-drawn factor has_factor=True": 144,
+     "exceeds=False within=None note=no pre-drawn factor has_factor=False": 576
+    },
+    "new_evaluable_false_only_when_dhi_nonfinite": true,
+    "example_diffs": []
+   },
+   "B_evaluate_h6": {
+    "finite_cases": 72,
+    "finite_diff": 0,
+    "rules": {
+     "ratio": 26,
+     "bounds": 46
+    },
+    "results": {
+     "fail": 46,
+     "pass": 26
+    },
+    "nonfinite": [
+     {
+      "case": "d_hi nan, d_lo nan, no floor",
+      "old": {
+       "H6": "fail",
+       "control_misses": 1,
+       "rule": "bounds",
+       "exceeds": false,
+       "within": null,
+       "factor_note": "no pre-drawn factor",
+       "evaluable": "absent",
+       "floors": [
+        null
+       ]
+      },
+      "new": {
+       "H6": "not-evaluable",
+       "control_misses": null,
+       "rule": "bounds",
+       "exceeds": null,
+       "within": null,
+       "factor_note": "not evaluable: the dephasing interval is not finite",
+       "evaluable": false,
+       "floors": [
+        null
+       ]
+      }
+     },
+     {
+      "case": "d_hi inf, d_lo -4.5e-5, no floor",
+      "old": {
+       "H6": "fail",
+       "control_misses": 1,
+       "rule": "bounds",
+       "exceeds": false,
+       "within": null,
+       "factor_note": "no pre-drawn factor",
+       "evaluable": "absent",
+       "floors": [
+        null
+       ]
+      },
+      "new": {
+       "H6": "not-evaluable",
+       "control_misses": null,
+       "rule": "bounds",
+       "exceeds": null,
+       "within": null,
+       "factor_note": "not evaluable: the dephasing interval is not finite",
+       "evaluable": false,
+       "floors": [
+        null
+       ]
+      }
+     },
+     {
+      "case": "d_hi nan, floor passes",
+      "old": {
+       "H6": "fail",
+       "control_misses": 1,
+       "rule": "bounds",
+       "exceeds": false,
+       "within": null,
+       "factor_note": "no pre-drawn factor",
+       "evaluable": "absent",
+       "floors": [
+        false
+       ]
+      },
+      "new": {
+       "H6": "not-evaluable",
+       "control_misses": 0,
+       "rule": "bounds",
+       "exceeds": null,
+       "within": null,
+       "factor_note": "not evaluable: the dephasing interval is not finite",
+       "evaluable": false,
+       "floors": [
+        false
+       ]
+      }
+     },
+     {
+      "case": "d_hi nan, reset below floor",
+      "old": {
+       "H6": "fail",
+       "control_misses": 1,
+       "rule": "bounds",
+       "exceeds": false,
+       "within": null,
+       "factor_note": "no pre-drawn factor",
+       "evaluable": "absent",
+       "floors": [
+        true
+       ]
+      },
+      "new": {
+       "H6": "fail",
+       "control_misses": 0,
+       "rule": "bounds",
+       "exceeds": null,
+       "within": null,
+       "factor_note": "not evaluable: the dephasing interval is not finite",
+       "evaluable": false,
+       "floors": [
+        true
+       ]
+      }
+     },
+     {
+      "case": "d_hi nan, d_lo 2e-6 > 0 (ratio path)",
+      "old": {
+       "H6": "pass",
+       "control_misses": 0,
+       "rule": "ratio",
+       "exceeds": true,
+       "within": true,
+       "factor_note": null,
+       "evaluable": "absent",
+       "floors": [
+        null
+       ]
+      },
+      "new": {
+       "H6": "pass",
+       "control_misses": 0,
+       "rule": "ratio",
+       "exceeds": true,
+       "within": true,
+       "factor_note": null,
+       "evaluable": "absent",
+       "floors": [
+        null
+       ]
+      }
+     },
+     {
+      "case": "r_lo nan, d finite, no floor",
+      "old": {
+       "H6": "fail",
+       "control_misses": 1,
+       "rule": "bounds",
+       "exceeds": false,
+       "within": null,
+       "factor_note": "no pre-drawn factor",
+       "evaluable": "absent",
+       "floors": [
+        null
+       ]
+      },
+      "new": {
+       "H6": "fail",
+       "control_misses": 1,
+       "rule": "bounds",
+       "exceeds": false,
+       "within": null,
+       "factor_note": "no pre-drawn factor",
+       "evaluable": true,
+       "floors": [
+        null
+       ]
+      }
+     },
+     {
+      "case": "r_lo nan, d finite, floor patched 1e-6",
+      "old": {
+       "H6": "fail",
+       "control_misses": 1,
+       "rule": "bounds",
+       "exceeds": false,
+       "within": null,
+       "factor_note": "no pre-drawn factor",
+       "evaluable": "absent",
+       "floors": [
+        false
+       ]
+      },
+      "new": {
+       "H6": "fail",
+       "control_misses": 1,
+       "rule": "bounds",
+       "exceeds": false,
+       "within": null,
+       "factor_note": "no pre-drawn factor",
+       "evaluable": true,
+       "floors": [
+        false
+       ]
+      }
+     },
+     {
+      "case": "r_lo nan and d_hi nan",
+      "old": {
+       "H6": "fail",
+       "control_misses": 1,
+       "rule": "bounds",
+       "exceeds": false,
+       "within": null,
+       "factor_note": "no pre-drawn factor",
+       "evaluable": "absent",
+       "floors": [
+        null
+       ]
+      },
+      "new": {
+       "H6": "not-evaluable",
+       "control_misses": null,
+       "rule": "bounds",
+       "exceeds": null,
+       "within": null,
+       "factor_note": "not evaluable: the dephasing interval is not finite",
+       "evaluable": false,
+       "floors": [
+        null
+       ]
+      }
+     }
+    ]
+   }
+  },
+  "dev63": {
+   "C_classify_readings": {
+    "n": 42768,
+    "vs_4528": {
+     "diff": 1440,
+     "by": {
+      "mean_check=AMBIGUOUS member | R1 -> UNRESOLVED": 72,
+      "mean_check=AMBIGUOUS member | UNRESOLVED -> UNRESOLVED": 1356,
+      "mean_check=AMBIGUOUS member | R2 -> UNRESOLVED": 12
+     }
+    },
+    "vs_3207": {
+     "diff": 1440,
+     "by": {
+      "mean_check=AMBIGUOUS member | R1 -> UNRESOLVED": 72,
+      "mean_check=AMBIGUOUS member | UNRESOLVED -> UNRESOLVED": 1356,
+      "mean_check=AMBIGUOUS member | R2 -> UNRESOLVED": 12
+     }
+    },
+    "gap_cases": {
+     "GAP not-evaluable": {
+      "reading": "UNRESOLVED",
+      "reasons": [
+       "the H6 reset / dephasing control is read on bounds (Deviation 60 part (6)): the dephasing variance is not resolvably positive and the reset dial's lower end is not above the dephasing dial's upper bound (or the factor cannot be tested), so the clause fails; an unresolved dephasing variance blocks R2 only"
+      ],
+      "h6_control": "unresolved"
+     },
+     "GAP fail(other sub-test)": {
+      "reading": "UNRESOLVED",
+      "reasons": [
+       "the H6 reset / dephasing control is read on bounds (Deviation 60 part (6)): the dephasing variance is not resolvably positive and the reset dial's lower end is not above the dephasing dial's upper bound (or the factor cannot be tested), so the clause fails; an unresolved dephasing variance blocks R2 only",
+       "H6 fails"
+      ],
+      "h6_control": "unresolved"
+     }
+    },
+    "new_readings": {
+     "UNRESOLVED": 10632,
+     "R3": 31968,
+     "R1": 144,
+     "R2": 24
+    }
+   }
+  }
+ },
+ "note": "first_pass ran while other local processes (differential checks, tree copies) were active: three runs were disturbed (qiskit-aer reported not installed twice; one access violation 0xC0000005) and were rerun alone.",
+ "new_finding_N3": {
+  "reproduction_with_evaluate_h6_at_8378d6a": {
+   "dephasing prediction present": {
+    "H6": "pass",
+    "control": {
+     "rule": "ratio",
+     "within": true,
+     "exceeds": true,
+     "predicted": 243.785
+    },
+    "depth_ratios": [
+     [
+      0.25,
+      true
+     ],
+     [
+      0.5,
+      true
+     ]
+    ],
+    "missing": [],
+    "reading": "R1",
+    "reasons": [
+     "H6 and H7 pass as pre-registered",
+     "scope: on the 60-qubit rung only (the H6 ladder ratio was not evaluated)"
+    ],
+    "h6_control": "as_modelled"
+   },
+   "dephasing prediction MISSING (reset rows present)": {
+    "H6": "pass",
+    "control": {
+     "rule": "ratio",
+     "within": null,
+     "exceeds": true,
+     "predicted": NaN
+    },
+    "depth_ratios": [
+     [
+      0.25,
+      true
+     ],
+     [
+      0.5,
+      true
+     ]
+    ],
+    "missing": [],
+    "reading": "R1",
+    "reasons": [
+     "H6 and H7 pass as pre-registered",
+     "scope: on the 60-qubit rung only (the H6 ladder ratio was not evaluated)"
+    ],
+    "h6_control": "partial"
+   }
+  },
+  "classifier_cases_at_8378d6a": {
+   "ratio control, no prediction (within None, exceeds True), H6 pass": {
+    "reading": "R1",
+    "reasons": [
+     "H6 and H7 pass as pre-registered",
+     "scope: on the 40-, 60- and 100-qubit dial rungs"
+    ],
+    "h6_control": "partial"
+   },
+   "bounds control, no pre-drawn factor, H6 pass": {
+    "reading": "R1",
+    "reasons": [
+     "H6 and H7 pass as pre-registered",
+     "the H6 reset / dephasing control is read on bounds (Deviation 60 part (6))"
+    ],
+    "h6_control": "unresolved"
+   },
+   "depth ratio p=0.5 without prediction (within None), H6 pass": {
+    "reading": "UNRESOLVED",
+    "reasons": [
+     "the H6 depth ratio is not evaluated at both p (the p = 0.5 rows need a placement-matched prediction, Deviation 60 item 5)"
+    ],
+    "h6_control": "as_modelled"
+   }
+  },
+  "patch_test": {
+   "test_file": {
+    "rc": 0,
+    "last_line": "33 passed, 1 warning in 92.80s (0:01:32)",
+    "failed": []
+   },
+   "differential_rc": 0,
+   "differential": {
+    "n": 36720,
+    "reading_changes": {
+     "H6=NO FACTOR ratio, H6 pass | R1 -> UNRESOLVED": 24,
+     "H6=NO FACTOR bounds, H6 pass | R1 -> UNRESOLVED": 24
+    },
+    "reason_only_changes": {
+     "H6=GAP not-evaluable | UNRESOLVED": 360,
+     "H6=GAP fail | UNRESOLVED": 360,
+     "H6=NO FACTOR ratio, H6 pass | UNRESOLVED": 336,
+     "H6=NO FACTOR bounds, H6 pass | UNRESOLVED": 336,
+     "H6=NO FACTOR ratio, H6 fail (other) | UNRESOLVED": 360
+    },
+    "examples": {
+     "H6=GAP not-evaluable | UNRESOLVED": {
+      "old": [
+       "the H6 reset / dephasing control is read on bounds (Deviation 60 part (6)): the dephasing variance is not resolvably positive and the reset dial's lower end is not above the dephasing dial's upper bound (or the factor cannot be tested), so the clause fails; an unresolved dephasing variance blocks R2 only",
+       "the E[C_mix] check was not run (R3 (ii) cannot be read)"
+      ],
+      "new": [
+       "the H6 reset / dephasing control is not evaluable (Deviation 60 part (6): the dephasing interval is not finite; a computation gap, not a failure of the clause), so a sub-test the readings need is not evaluated",
+       "the E[C_mix] check was not run (R3 (ii) cannot be read)"
+      ]
+     },
+     "H6=GAP fail | UNRESOLVED": {
+      "old": [
+       "the H6 reset / dephasing control is read on bounds (Deviation 60 part (6)): the dephasing variance is not resolvably positive and the reset dial's lower end is not above the dephasing dial's upper bound (or the factor cannot be tested), so the clause fails; an unresolved dephasing variance blocks R2 only",
+       "H6 fails"
+      ],
+      "new": [
+       "the H6 reset / dephasing control is not evaluable (Deviation 60 part (6): the dephasing interval is not finite; a computation gap, not a failure of the clause), so a sub-test the readings need is not evaluated",
+       "H6 fails"
+      ]
+     },
+     "H6=NO FACTOR ratio, H6 pass | UNRESOLVED": {
+      "old": [
+       "the reset dial is resolvably above the dephasing dial but off the pre-drawn factor",
+       "the E[C_mix] check was not run (R3 (ii) cannot be read)"
+      ],
+      "new": [
+       "the E[C_mix] check was not run (R3 (ii) cannot be read)",
+       "the H6 reset / dephasing control has no pre-drawn factor (no placement-matched prediction of the reset or the dephasing point, Deviation 60 part (5)): the clause is tested on 'above 1' only, so a sub-test the readings need is not evaluated"
+      ]
+     },
+     "H6=NO FACTOR ratio, H6 pass | R1 -> UNRESOLVED": [
+      "the H6 reset / dephasing control has no pre-drawn factor (no placement-matched prediction of the reset or the dephasing point, Deviation 60 part (5)): the clause is tested on 'above 1' only, so a sub-test the readings need is not evaluated"
+     ],
+     "H6=NO FACTOR bounds, H6 pass | UNRESOLVED": {
+      "old": [
+       "the H6 reset / dephasing control is read on bounds (Deviation 60 part (6)): the dephasing variance is not resolvably positive and the reset dial's lower end is not above the dephasing dial's upper bound (or the factor cannot be tested), so the clause fails; an unresolved dephasing variance blocks R2 only",
+       "the E[C_mix] check was not run (R3 (ii) cannot be read)"
+      ],
+      "new": [
+       "the E[C_mix] check was not run (R3 (ii) cannot be read)",
+       "the H6 reset / dephasing control has no pre-drawn factor (no placement-matched prediction of the reset or the dephasing point, Deviation 60 part (5)): the clause is tested on 'above 1' only, so a sub-test the readings need is not evaluated"
+      ]
+     },
+     "H6=NO FACTOR bounds, H6 pass | R1 -> UNRESOLVED": [
+      "the H6 reset / dephasing control has no pre-drawn factor (no placement-matched prediction of the reset or the dephasing point, Deviation 60 part (5)): the clause is tested on 'above 1' only, so a sub-test the readings need is not evaluated"
+     ],
+     "H6=NO FACTOR ratio, H6 fail (other) | UNRESOLVED": {
+      "old": [
+       "the reset dial is resolvably above the dephasing dial but off the pre-drawn factor",
+       "H6 fails"
+      ],
+      "new": [
+       "H6 fails",
+       "the E[C_mix] check was not run (R3 (ii) cannot be read)"
+      ]
+     }
+    }
+   }
+  },
+  "note": "classifier_cases_at_8378d6a: classify_readings at the unpatched head 8378d6a on three hand-built H6 verdicts (the two no-factor controls read R1; a depth ratio without its prediction reads UNRESOLVED). reproduction_with_evaluate_h6_at_8378d6a: repository evaluate_h6 and classify_readings at 8378d6a with _pred and _realised_floors stubbed as the tests do, the dephasing prediction withheld. patch_test: the N3 + a patch on a scratch copy."
+ }
+}
