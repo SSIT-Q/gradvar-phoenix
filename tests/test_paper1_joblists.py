@@ -29,7 +29,9 @@ MAIN = LISTS[:7]
 DAY1 = "day1_null_grid_n20.json"      # Deviation 50 campaign day 1: null_controls + grid_n20 in one list (armed and run 20 Sep: a record, kept as committed)
 DAY2 = "day2_main_grid.json"          # Deviation 50 campaign day 2: grid_n40 + n60 + n80 + n100 in one list
 DAY3 = "day3_dial_refs.json"          # Deviation 50 campaign day 3: references_gate1b + dial_arm in one list
-ARMED = {DAY1, DAY2, "grid_n100_16384.json"}   # armed and run (20 Sep 23:03 IST; 21 Sep 00:20 IST both day-2 lists): records, kept as committed
+ARMED_NOV = {"replication_01_16384.json", "section3c_blockC.json"}   # armed and run 10 Nov 2026 (16:41 and 16:43 IST) on the 10 Nov 10:16Z placement
+ARMED = {DAY1, DAY2, "grid_n100_16384.json"} | ARMED_NOV   # armed and run (20 Sep 23:03 IST; 21 Sep 00:20 IST both day-2 lists; 10 Nov): records, kept as committed
+PERMALINK = "https://github.com/SSIT-Q/gradvar-phoenix/blob/"   # Deviation 58: the committed pre-flight document's commit-pinned URL is the pre-flight record
 
 
 def _armed(name: str) -> bool:
@@ -301,10 +303,12 @@ def test_armed_records_equal_the_generator_on_their_own_snapshot():
         if snap not in by_snap:
             by_snap[snap] = gen.make_lists(snap)[0]
         fresh = by_snap[snap][name]
-        assert committed["dry_run"] is False and committed["preflight_review"].startswith("https://ssitcrew.slack.com/") and fresh["dry_run"] is True
+        nov = name in ARMED_NOV                                           # the 10 Nov records: a GitHub permalink (Deviation 58) and the Deviation 55 packing
+        assert committed["dry_run"] is False and committed["preflight_review"].startswith(PERMALINK if nov else "https://ssitcrew.slack.com/") and fresh["dry_run"] is True
         assert committed["points"] == fresh["points"] and committed["probes"] == fresh["probes"] and committed["placement"] == fresh["placement"], name
         assert committed["name"] == fresh["name"] and committed["campaign"]["ledger_line"] == fresh["campaign"]["ledger_line"]
-        assert "packing" not in committed["campaign"] and fresh["campaign"]["packing"]["level2_max_pubs"] == 100
+        assert fresh["campaign"]["packing"]["level2_max_pubs"] == 100
+        assert committed["campaign"]["packing"] == fresh["campaign"]["packing"] if nov else "packing" not in committed["campaign"]
 
 
 def test_day3_list_is_the_references_and_the_dial_core_probe_for_probe(generated, tmp_path):
@@ -388,7 +392,10 @@ def test_section3c_blockC_list_follows_deviation_56(generated, tmp_path):
     assert s["section3c"]["main_line_with_section3c_min_at_1us"] == pytest.approx(s["totals"]["main"]["minutes_at_1us"] + c["budget"]["minutes_at_1us"], abs=0.01)
     assert s["section3c"]["main_line_with_section3c_min_at_1us"] <= 190.5
     assert gen.main(["--section3c", "--out", str(tmp_path)]) == 0 and sorted(p.name for p in tmp_path.iterdir()) == ["section3c_blockC.json"]
-    assert json.loads((tmp_path / "section3c_blockC.json").read_text()) == c == json.loads((P1 / "section3c_blockC.json").read_text())
+    assert json.loads((tmp_path / "section3c_blockC.json").read_text()) == c
+    committed = json.loads((P1 / "section3c_blockC.json").read_text())      # armed and run 10 Nov 2026 16:43 IST: the generator keeps it as the record
+    assert committed["dry_run"] is False and committed["preflight_review"].startswith(PERMALINK) and committed["placement"]["stamp"] == "2026-11-10T101610Z"
+    assert len(committed["points"]) == len(c["points"]) == 2 and [p["id"] for p in committed["probes"]] == [p["id"] for p in c["probes"]]
 
 
 def test_level2_cap_splits_the_large_rung_zne_jobs(generated):

@@ -326,6 +326,36 @@ def reset_error_table(bundles: Sequence[Bundle]) -> pd.DataFrame:
     return pd.DataFrame(out, columns=cols)
 
 
+def stamp_of_name(name) -> str | None:
+    """The UTC stamp (YYYY-MM-DDTHHMMSSZ) in a calibration snapshot's file name, or None."""
+    m = re.search(r"(\d{4}-\d{2}-\d{2}T\d{6}Z)", str(name or ""))
+    return m.group(1) if m else None
+
+
+def _placement_snapshots(root: Path, bundles: Dict[str, "Bundle"]) -> Dict[str, str]:
+    """Deviation 60 (S-A): job id -> file name of the calibration CSV the job's list was placed on, from the run's own records:
+    the bundle's ``placement_snapshot`` (written by the runner), else its retrieval record's ``calibration_csv``, else the
+    ``calibration_csv`` of the ids file (``*_job_ids.json`` below the run directory) that lists the job. For a pinned list
+    (Deviation 58) that CSV is the list's placement snapshot. Jobs without one are absent (their dial and H7 lookups are then
+    not evaluable)."""
+    out: Dict[str, str] = {}
+    for p in sorted(Path(root).rglob("*_job_ids.json")):
+        try:
+            ids = json.loads(p.read_text())
+        except (OSError, ValueError):
+            continue
+        csv = ids.get("calibration_csv")
+        for j in ids.get("jobs") or []:
+            if csv and j.get("job_id"):
+                out[str(j["job_id"])] = Path(str(csv)).name
+    for jid, b in bundles.items():
+        job = b.job or {}
+        snap = job.get("placement_snapshot") or (job.get("retrieval") or {}).get("calibration_csv")
+        if snap:
+            out[str(jid)] = Path(str(snap)).name
+    return out
+
+
 def load_run(run_dir: str | Path, csv_paths: Sequence[str | Path] | None = None) -> RunData:
     """Load every CSV log and bundle below ``run_dir`` into a ``RunData``. Rows whose job has no bundle keep the CSV
     fields only (``status`` 'no-bundle')."""
@@ -334,6 +364,7 @@ def load_run(run_dir: str | Path, csv_paths: Sequence[str | Path] | None = None)
     if csv_paths:
         csvs = [Path(p) for p in csv_paths]
     bundles = {b.job_id: b for b in (read_bundle(d) for d in bdirs)}
+    snapshot_of = _placement_snapshots(root, bundles)
     frames = []
     for p in csvs:
         df = pd.read_csv(p)
@@ -352,9 +383,11 @@ def load_run(run_dir: str | Path, csv_paths: Sequence[str | Path] | None = None)
         if b is None:
             g = g.copy()
             g["status"] = "no-bundle"
-            parts.append(g)
         else:
-            parts.append(_enrich_from_bundle(g, b))
+            g = _enrich_from_bundle(g, b)
+        snap = snapshot_of.get(str(job_id))
+        g["placement_snapshot"], g["placement_stamp"] = snap, stamp_of_name(snap)
+        parts.append(g)
     rows = pd.concat(parts, ignore_index=True)
     for col in TIDY_COLUMNS:
         if col not in rows.columns:
@@ -388,6 +421,7 @@ def load_run(run_dir: str | Path, csv_paths: Sequence[str | Path] | None = None)
     rows["point_id"] = [_point_id(r) for r in rows.to_dict("records")]
     rows["draw"] = _draw_index(rows)
     rows["repeat"] = _repeat_index(rows)
-    keep = TIDY_COLUMNS + [c for c in ("ell", "unshifted", "truncate_to", "broken_edges", "source_csv", "bundle_note", "observable_edge", "null_qubit") if c in rows.columns]
+    keep = TIDY_COLUMNS + [c for c in ("ell", "unshifted", "truncate_to", "broken_edges", "source_csv", "bundle_note", "observable_edge", "null_qubit",
+                                       "placement_snapshot", "placement_stamp") if c in rows.columns]
     rows = rows[keep]
     return RunData(rows=rows, bundles=bundles, reset_error=reset_error_table(list(bundles.values())), csv_paths=list(csvs), run_dir=root)
