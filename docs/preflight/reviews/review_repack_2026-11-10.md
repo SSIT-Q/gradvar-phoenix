@@ -2,6 +2,8 @@
 
 Reviewer: independent reviewer sub-agent, 10 Nov 2026, 08:40 to 09:16 UTC. I did not build the package. Read-only on the repository apart from this file and Section 8 of pre-flights 08 and 09, in one commit on `repack-2026-11-10`. Nothing was pushed to `main`, merged, armed or dispatched, and IBM was not polled.
 
+**Status after Part 2 (the confirmation of the corrections, at the end of this file): GO for `replication_01_16384` and `section3c_blockC`; NO_GO for `replication_01`. The text below is Part 1, as written before the corrections.**
+
 Reviewed:
 - branch `repack-2026-11-10` at 637f669f443a5d44f53dfd75ff5f567e7557ac79 (draft PR #10, base `main` at cee7d69cbe5f95b54ebe21abc8a59d8f515b2572, which is also the run commit);
 - lists, generator line and prediction files at c2dfe73692c25fbcfbb21a1082239ad2a7c9dae8; pre-flights 06 / 08 / 09 and the summary at 637f669. The lists are byte-identical at both commits.
@@ -161,7 +163,7 @@ One thing to carry to the post-run review: the plain and the dial n100 rungs are
 | new n20 origin (1, 2), non-interior edge (reviewer's flag) | yes | no | no | `grid_n20`, `null_controls` (not dispatched) |
 | "Q79 is placed" in the pre-flight text (reviewer's flag) | pre-flight 08 | pre-flight 08 | pre-flight 09 | pre-flight 06 |
 
-## Section 8 records
+## Section 8 records (Part 1; superseded by the final records at the end of Part 2, do not paste these)
 
 ### Pre-flight 08
 
@@ -200,3 +202,90 @@ One thing to carry to the post-run review: the plain and the dial n100 rungs are
 > Conditions for arming: C1 to C4 applied on the PR branch and confirmed by an independent reviewer; Owais accepts that a test-only correction and a clean full re-run within the same IBM properties update lift the Deviation 62 (iv) stop (the 4 Oct precedent), otherwise nothing is dispatched today; the Deviation 26 override stays closed (`approved_overrides` empty); arming edits only `dry_run` and `preflight_review`; arm only from a `main` commit at which the corrections and this section are present; Owais runs Actions -> calibration snapshot just before arming; if IBM's properties time is not 2026-11-10T07:32:03Z, the list is not dispatched on this package; otherwise Claude's pre-check on that snapshot must pass.
 >
 > Watch: Q118 readout 2.88e-02, Q115 readout 2.78e-02, Q29 init 4.04e-04, Q52 init 3.54e-04, Q47 without an initialisation figure; coupler 41-51 CZ 4.77e-03. The L = 10 band rests on the L = 12 row, whose status is "not converged (truncation deficit >= 10%)".
+
+## Part 2. Confirmation of the corrections and final verdicts (10 Nov, 09:40 to 09:51 UTC)
+
+Reviewed: `repack-2026-11-10` at c5a7b62e3c0f1e1667292aaef3308e8a1553132e (parent 0070f6fcc8d38c382a9fe00e485893b633e4535a, whose parent is 6319683f47de20a2d3dce3b754e2dbcaf8ac4b4d); draft PR #10, `main` still at cee7d69cbe5f95b54ebe21abc8a59d8f515b2572. I did not make the corrections. Read-only apart from this file and Section 8 of pre-flights 08 and 09, in one commit.
+
+### Final verdicts
+
+| list | verdict | sha256 at c5a7b62 | arm from |
+|---|---|---|---|
+| `replication_01_16384` | **GO** | `48621311c5f43a66af65431b95eaac4e9e6805e5b04afe092e2b4e6c32e13cd6` | the `main` commit that carries Section 8 of pre-flight 08, after Owais merges PR #10 at the branch head that adds this Part |
+| `section3c_blockC` | **GO** | `f456a459c7abb3a21bd22a8490f432affe68e620000b52d4c20f5c33d331155d` | the same, with Section 8 of pre-flight 09 |
+| `replication_01` | **NO_GO** (unchanged, M2) | `f6517d99ca6eccac0250461e306e713bc73613e1df9b8e6337568eb3ddc6a10e` | not armed or dispatched from this package |
+
+Nothing is missing for the two GO lists on the reviewer's side. What remains is Owais's: the merge, the snapshot check just before arming, the two-field arming, the dispatch.
+
+### What was confirmed
+
+1. **Scope of the changes.** The GitHub comparison 637f669...c5a7b62 lists six files: `tests/test_placement_dev62.py`, `tests/test_noise_predict.py`, pre-flights 08 and 09, this review file and `docs/repack/2026-11-10_tests_rerun.txt`. A file-by-file sha256 comparison of the two trees gives the same six. `data/` (942 files), `gradvar/`, `scripts/`, `docs/artifacts/` and `.github/` are byte-identical. The sha256 of `replication_01_16384.json` and `section3c_blockC.json` at c5a7b62 equal the values recorded in Part 1, computed locally and on Linux; both lists keep `dry_run` true, the placeholder record and `layout_check` enforce.
+2. **C1** (`tests/test_placement_dev62.py`, line 112 replaced by three lines) is as specified, without the trailing comment. It still tests that the plain lists record no dial exclusion, and more strictly than before (`placement`, `placement.rules` and the n100 rung are all checked). Mutation check on the three committed lists: a plain list given `dial_exclude`, a `rules.dial_exclude` entry or `dial_excluded_holes` fails the first assertion; a list from which Q79 is missing with no recorded reason fails the second; `day3_dial_refs` fails the first, as it should.
+3. **C2** (`tests/test_noise_predict.py`, lines 436 to 439) is as specified: `properties_for_csv(csv)` in place of `latest_properties_file()`. It returns `ibm_phoenix_properties_20260919T192510Z.json.gz`; the patch is (8, 0), n = 39, hole 107, broken 86-87, 100-101, 95-96, 87-97, 100-110. The test still asserts that 95-96 and 100-101 are broken on the 19 Sep 19:25Z snapshot and carry no CZ.
+4. **Own run of the two corrected files at c5a7b62** (Linux, Python 3.11, the files in full): `tests/test_placement_dev62.py` 7 passed; `tests/test_noise_predict.py` 21 passed. No failure, no skip.
+5. **C4.** Pre-flight 08: the opening paragraph, the n100 bullet of Section 2 (two sentences) and the watch list now say that Q79 is a hole on this snapshot (initialisation error 5.25e-04) and that the plain n100 rung has the same 79 qubits as day 3's dial rung. Pre-flight 09 Section 2: the same two statements. All are true for this snapshot (Part 1: Q79 initialisation error 5.254e-04; the plain and dial n100 rungs are the same qubit set). None of the earlier phrases is left in 08 or 09.
+6. **C5.** Pre-flight 08 Section 7 step 2 arms `replication_01_16384` only and says `replication_01.json` is not edited; step 3 dispatches `replication_01_16384.json` only and says `replication_01.json` is not dispatched from this package, then Block C.
+7. **Nothing else changed in the pre-flights.** Against their text at 6319683, 08 differs only in the opening paragraph, in the n100 bullet and the watch list of Section 2, and in steps 2 and 3 of Section 7; 09 differs only in two sentences of Section 2. Section 8 of both was untouched by the corrections.
+8. **C3, the re-run report.** `docs/repack/2026-11-10_tests_rerun.txt` (identical to the builder's saved report): full suite at 0070f6f, 7 shards, 351 passed, 1 failure, the known `tests/test_analysis.py::test_loader_on_committed_marrakesh_run`, 3 skipped, the armed records `grid_n100_16384`, `day1_null_grid_n20` and `day2_main_grid`. The count is consistent: 351 + 1 + 3 = 355 = the package run's 349 + 1 + 2 + 3, and I collected 355 tests at c5a7b62. c5a7b62 adds only the report to 0070f6f.
+
+**I did not run the full suite. I accept the builder's run and do not require my own.** Reasons: between the package run and 0070f6f only the two test files changed under `tests/`, and the code and data they run on are byte-identical, so every other test runs exactly what it ran in the package run (349 passed there; I re-ran 136 of them at 637f669); I ran both changed files myself; the totals agree with my own collection count. The residual risk is a test that is not deterministic, as the harness race of 4 Oct was; none showed in either run.
+
+### Deviation 62 (iv) and Owais's decision
+
+The cycle was stopped by the two test failures of the package run (M1). Owais's decision, given at about 09:35 UTC on 10 Nov through the session's decision prompt, as relayed to me by the lead ("Dispatch two lists today"): a correction to the tests alone, followed by a clean full-suite re-run inside the same IBM properties update, lifts the stop of Deviation 62 (iv), on the 4 Oct precedent; `replication_01` stays NO_GO and is not armed from this package. The reading is written into Section 8 of pre-flights 08 and 09 with this commit and is to go into the pre-registration's next version. I did not see the prompt itself; the decision is recorded here as relayed.
+
+The condition is met as he read it: the corrections touch tests only, the re-run shows only the known failure, and the package's IBM properties time (2026-11-10T07:32:03Z) is unchanged in the repository. Whether IBM has updated since is checked by the snapshot Owais takes just before arming; I did not poll IBM.
+
+### Conditions for arming (`replication_01_16384`, then `section3c_blockC`)
+
+1. PR #10 is merged by Owais at the branch head that carries this Part (the commit that adds it; its parent is c5a7b62).
+2. Arm only from the `main` commit that carries Section 8 of the list's pre-flight.
+3. Arming edits only `dry_run` and `preflight_review`. The Deviation 26 override stays closed (`approved_overrides` empty).
+4. Owais runs Actions -> calibration snapshot just before arming. If IBM's properties time is not 2026-11-10T07:32:03Z, the list is not dispatched on this package. Otherwise the pre-check on that snapshot must pass.
+5. `replication_01.json` is not edited and not dispatched.
+
+### Notes (Part 2)
+
+1. Wording left in the pre-flights that still speaks of both replication lists: 08's opening lines ("Lists not armed (Owais arms them ...)", "these two lists first") and 09's "after the replication lists' dispatch". Sections 7 and 8 are the operative text and are correct. Not a condition.
+2. Holding `replication_01` has a cost for the n = 85 flag: its 4096-shot diagnostic point will run on a later placement than the 16384-shot point dispatched today.
+3. Part 1's pipeline follow-ups stand for the next cycle: the status does not reflect the test stop, there is no flag for a new origin, and the builder's fixed Q79 text was corrected in the rendered documents, not in `scripts/build_preflights.py`.
+4. Budget of the two lists to be dispatched: 18.60 min at 1 us, 19.34 working minutes, against the 165 left under the cap.
+5. Remote compute for Part 2: one job, 61 s of job wall time on 4 cores; handle closed.
+
+### Section 8 records (final)
+
+#### Pre-flight 08
+
+> **Review (2026-11-10), final: GO for `replication_01_16384`. NO_GO for `replication_01`, which is not armed or dispatched from this package.** Reviewer: independent reviewer sub-agent (built neither the package nor the corrections), 08:40-09:16 and 09:40-09:51 UTC. Reviewed branch `repack-2026-11-10` at c5a7b62e3c0f1e1667292aaef3308e8a1553132e (draft PR #10), after the package at 637f669f443a5d44f53dfd75ff5f567e7557ac79, the first review at 6319683 and the corrections at 0070f6f; summary `docs/repack/2026-11-10_summary.md`; checklist `docs/repack/REVIEW_CHECKLIST.md` used as the floor of a full review (every item checked or noted in the record); record `docs/preflight/reviews/review_repack_2026-11-10.md` (Parts 1 and 2).
+>
+> What changed (placement and placement-dependent values only): plain n100 rung n 84 -> 79 (holes 25, 26, 27, 29, 31 released; 20, 34, 37, 49, 66, 69, 79, 90, 91, 99 new, of which 49 and 99 by the component rule), broken 31-32 new, live 127 -> 112, L = 2 cone 66, 67 -> 96, 97. n20 rung (`replication_01` only): (3, 4) -> (1, 2), n 19 -> 18, holes 24, 34, broken 15-16, edge 46_47 -> 23_33. Design, seeds and budget unchanged.
+>
+> What was checked (reviewer's own re-computation at 637f669; the lists are byte-identical at c5a7b62): the rule re-applied to the snapshot (generator re-run on Windows and Linux, and an independent re-derivation from the raw properties): the rungs match the lists, the summary and the re-draw files; the runner's own build places the same qubits and live couplers; pre-check of every placed qubit and live coupler against the cuts: no failure (`replication_01_16384` 79 qubits / 112 couplers); sha256 of `replication_01_16384.json` `48621311c5f43a66af65431b95eaac4e9e6805e5b04afe092e2b4e6c32e13cd6`, as in the summary; design unchanged but n, `dry_run` true, placeholder record, `layout_check` enforce, no `dial_exclude`; generator `--check` passes; Gate 1b PASS (fall / bar 3.47 / 3.14 / 6.21 against 9.16e-05; separation at L = 8 4.21 / 4.28 / 3.47); the row read (n100 L = 8 k = 1 non-unital 4.029e-04) is in `main_grid_redraw_2026-11-10T0821`, whose placement block equals the list's rung qubit for qubit; the list carries no comparator; budget 2.46 min at 1 us (2.65 working minutes). Then the corrections confirmed at c5a7b62: the diff from 637f669 touches only the two test files, pre-flights 08 and 09, the review file and the re-run report, with `data/`, `gradvar/` and `scripts/` byte-identical; C1 and C2 are as specified, and the reviewer ran both corrected test files (7 and 21 passed); 355 tests are collected, which equals 351 + 1 + 3; the full re-run is the builder's and is accepted (Part 2 of the record).
+>
+> Tolerance flags that forced a full review: component holes Q49 and Q99 on the n100 rung; n 84 -> 79; two test failures outside the known list in the package run (cleared by the corrections and the re-run); new n20 origin (1, 2) (`replication_01` only). Not touching `replication_01_16384`: the dial-rung flags and L2-c5.
+>
+> **Deviation 62 (iv) and Owais's decision.** The package run had two test failures outside `docs/repack/known_test_failures.txt`, which under Deviation 62 (iv) stops the cycle. Both were brittle tests with no bearing on the lists; they were corrected in the tests alone (0070f6f), and the full suite was re-run at that commit inside the same IBM properties update (2026-11-10T07:32:03Z): 351 passed, 3 skipped (the armed records), 1 failure, the known Marrakesh one (`docs/repack/2026-11-10_tests_rerun.txt`). Owais's decision, given at about 09:35 UTC on 10 Nov through the session's decision prompt and relayed to the reviewer by the lead ("Dispatch two lists today"): a correction to the tests alone, followed by a clean full-suite re-run inside the same IBM properties update, lifts the stop of Deviation 62 (iv), as on 4 Oct; `replication_01` stays NO_GO. This reading goes into the pre-registration's next version.
+>
+> Why `replication_01` has no GO: its n20 rung has no interior edge, so the observable sits on the rule's nearest-centre fallback edge 23_33. Section 2 and Deviation 46 of the pre-registration ask for an interior edge, and no Deviation covers the fallback. It waits for a recorded Deviation or a later cycle. Its 4096-shot n100 point, the diagnostic of the n = 85 flag, waits with it.
+>
+> Conditions for arming: PR #10 is merged by Owais at the branch head that carries this record (the commit that adds this text; its parent is c5a7b62); arm only from the `main` commit that carries this section; the Deviation 26 override stays closed (`approved_overrides` empty); arming edits only `dry_run` and `preflight_review`; Owais runs Actions -> calibration snapshot just before arming; if IBM's properties time is not 2026-11-10T07:32:03Z, the list is not dispatched on this package; otherwise Claude's pre-check on that snapshot must pass.
+>
+> Watch (n100 rung): Q118 readout 2.88e-02, Q115 readout 2.78e-02, Q29 init 4.04e-04, Q52 init 3.54e-04, Q47 without an initialisation figure; coupler 41-51 CZ 4.77e-03.
+
+#### Pre-flight 09
+
+> **Review (2026-11-10), final: GO.** Reviewer: independent reviewer sub-agent (built neither the package nor the corrections), 08:40-09:16 and 09:40-09:51 UTC. Reviewed branch `repack-2026-11-10` at c5a7b62e3c0f1e1667292aaef3308e8a1553132e (draft PR #10), after the package at 637f669f443a5d44f53dfd75ff5f567e7557ac79, the first review at 6319683 and the corrections at 0070f6f; summary `docs/repack/2026-11-10_summary.md`; checklist `docs/repack/REVIEW_CHECKLIST.md` used as the floor of a full review (every item checked or noted in the record); record `docs/preflight/reviews/review_repack_2026-11-10.md` (Parts 1 and 2).
+>
+> What changed (placement and placement-dependent values only): plain n100 rung n 84 -> 79 (holes 25, 26, 27, 29, 31 released; 20, 34, 37, 49, 66, 69, 79, 90, 91, 99 new, of which 49 and 99 by the component rule), broken 31-32 new, live 127 -> 112, L = 2 cone 66, 67 -> 96, 97. Design, seeds and budget unchanged.
+>
+> What was checked (reviewer's own re-computation at 637f669; the list is byte-identical at c5a7b62): the rule re-applied to the snapshot (generator re-run on Windows and Linux, and an independent re-derivation from the raw properties): the rung matches the list, the summary and the re-draw files; the runner's own build places the same 79 qubits and 112 live couplers; pre-check of every placed qubit and live coupler against the cuts: no failure; sha256 of `section3c_blockC.json` `f456a459c7abb3a21bd22a8490f432affe68e620000b52d4c20f5c33d331155d`, as in the summary; design unchanged but n, `dry_run` true, placeholder record, `layout_check` enforce, no `dial_exclude`; generator `--check` passes; Gate 1b PASS (fall / bar 3.47 / 3.14 / 6.21 against 9.16e-05; separation at L = 8 4.21 / 4.28 / 3.47); the rows read (n100 L = 8 k = 1 non-unital 4.029e-04, L = 12 k = 1 2.509e-05, L = 10 interpolated 1.01e-04) are in `main_grid_redraw_2026-11-10T0821`, whose placement block equals the list's rung qubit for qubit; the list carries no comparator; budget 16.14 min at 1 us (16.69 working minutes; with `replication_01_16384` 19.34 against 165). Then the corrections confirmed at c5a7b62: the diff from 637f669 touches only the two test files, pre-flights 08 and 09, the review file and the re-run report, with `data/`, `gradvar/` and `scripts/` byte-identical; C1 and C2 are as specified, and the reviewer ran both corrected test files (7 and 21 passed); 355 tests are collected, which equals 351 + 1 + 3; the full re-run is the builder's and is accepted (Part 2 of the record).
+>
+> Tolerance flags that forced a full review: component holes Q49 and Q99 on the n100 rung; n 84 -> 79; two test failures outside the known list in the package run (cleared by the corrections and the re-run). Not touching this list: the dial-rung flags, the new n20 origin and L2-c5.
+>
+> **Deviation 62 (iv) and Owais's decision.** The package run had two test failures outside `docs/repack/known_test_failures.txt`, which under Deviation 62 (iv) stops the cycle. Both were brittle tests with no bearing on the lists; they were corrected in the tests alone (0070f6f), and the full suite was re-run at that commit inside the same IBM properties update (2026-11-10T07:32:03Z): 351 passed, 3 skipped (the armed records), 1 failure, the known Marrakesh one (`docs/repack/2026-11-10_tests_rerun.txt`). Owais's decision, given at about 09:35 UTC on 10 Nov through the session's decision prompt and relayed to the reviewer by the lead ("Dispatch two lists today"): a correction to the tests alone, followed by a clean full-suite re-run inside the same IBM properties update, lifts the stop of Deviation 62 (iv), as on 4 Oct; `replication_01` stays NO_GO. This reading goes into the pre-registration's next version.
+>
+> Order on 10 Nov: `replication_01_16384` (pre-flight 08), then this list. `replication_01` is held (NO_GO on this package).
+>
+> Conditions for arming: PR #10 is merged by Owais at the branch head that carries this record (the commit that adds this text; its parent is c5a7b62); arm only from the `main` commit that carries this section; the Deviation 26 override stays closed (`approved_overrides` empty); arming edits only `dry_run` and `preflight_review`; Owais runs Actions -> calibration snapshot just before arming; if IBM's properties time is not 2026-11-10T07:32:03Z, the list is not dispatched on this package; otherwise Claude's pre-check on that snapshot must pass.
+>
+> Watch: Q118 readout 2.88e-02, Q115 readout 2.78e-02, Q29 init 4.04e-04, Q52 init 3.54e-04, Q47 without an initialisation figure; coupler 41-51 CZ 4.77e-03. The L = 10 band rests on the L = 12 row, whose status is "not converged (truncation deficit >= 10%)"; no gate reads it.
