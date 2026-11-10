@@ -8602,5 +8602,16 @@
     }
    }
   }
+ },
+ "code_check_41cf612": {
+  "old_commit": "f11dc7aa831bc2c55522a182a2f22a919b129bc8",
+  "new_commit": "41cf6129a2c3473c9afcda53876e522d15fbd9c8",
+  "job": "823458bb-b8a5-4399-9fea-15bba0af2268",
+  "n_rows": 62,
+  "numeric_fields_compared": 2901,
+  "rows_differing": 0,
+  "worst_relative_difference": 0.0,
+  "compared_utc": "2026-11-10T17:30:22Z",
+  "note": "62 rows of the today stage drawn at old_commit (job 869cd3ca-b75e-4bbf-9cf1-41f6cb052ca0) and again at new_commit (job in 'job'); fields whose names match wall/time/commit/path/file patterns were not compared; the commit of the second run is taken from the job command line"
  }
 }

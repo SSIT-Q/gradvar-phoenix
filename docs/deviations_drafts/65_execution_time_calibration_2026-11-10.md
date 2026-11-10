@@ -1,8 +1,9 @@
 # Deviation 65 (draft): execution-time calibration, the cut rule at execution, the Gate 2 (e) readout figures and the dispatch window
 
 **Status: draft, not adopted.** Drafted 10 Nov 2026, 17:03 UTC (22:33 IST), on branch `dev65-execution-calibration` (cut from `dev63-questions` at
-78e0675ce356fa178461e069c332e49faeab8cfe, which carries pre-registration v0.18.0; `main` was at 0b4b9d0d15b2151e0c5c0535fea6d946b2f4b14c and still
-carried v0.17.0 when this was written). This branch adds this file and `docs/deviations_drafts/65_support/` only; it does not edit the pre-registration,
+78e0675ce356fa178461e069c332e49faeab8cfe, which carries pre-registration v0.18.0; when the branch was pushed `main` was at
+41cf6129a2c3473c9afcda53876e522d15fbd9c8, into which `dev63-questions` had been merged by pull request #8, so `main` carries v0.18.0 and the draft
+pull request of this branch is opened against `main`). This branch adds this file and `docs/deviations_drafts/65_support/` only; it does not edit the pre-registration,
 a job list, a run bundle or any code. Nothing is armed or dispatched. Adoption is by M. Owais under the PI's delegation after an independent review,
 stamped for the PI's countersignature. The lead treats the campaign as paused for dispatch (draft Deviation 66, branch `dev66-gate2e-pause` at 44e5dbb,
 number provisional); this draft is the rule that record's item 2 asks for and does not itself lift the pause.
@@ -425,6 +426,9 @@ Each with the recommendation and its cost. The row of Section 1 is written with 
 8. The pairs of the history are consecutive among the committed updates only; unseen updates may lie inside a pair.
 9. The firing rate quoted for Gate 2 (e) (5 of 13) counts a placed n100 qubit over the readout cut on the later update of a pair placed on the earlier
    one; it is not a count of days.
+10. The code that will draw day 3's rows is the code on `main` after the merges of 10 Nov, not the code at f11dc7a that drew the 10 Nov package and
+    the figures of this draft. The 62 rows of the report's `today` stage are identical on both (Section 11); the pair rows of the history and the
+    day-2 rows were not drawn again, and the commit of that second run is known from the job's command line, not from a field of its output.
 
 ## 11. For the integration
 
@@ -433,9 +437,17 @@ Each with the recommendation and its cost. The row of Section 1 is written with 
   execution-time calibration)" after "Readout errors on the day"; Deviation 62 (iv)'s row is not edited (the pre-registration records changes in new
   rows).
 - The support files under `docs/deviations_drafts/65_support/` are the evidence: `calibration_drift_2026-11-10.md`,
-  `calibration_drift_numbers_2026-11-10.json`, `drift_driver.py`, `job_launch.py`, `day2_calibration_facts.py`. They were produced on `main` at f11dc7a;
-  the prediction code, the generator, `gradvar/noise.py`, `gradvar/analysis/anomaly_stats.py` and the package files they use are unchanged between
-  f11dc7a and `main` at 0b4b9d0.
+  `calibration_drift_numbers_2026-11-10.json`, `drift_driver.py`, `job_launch.py`, `day2_calibration_facts.py`. `code_check_41cf612.json`,
+  `job_launch_at.py`. They were produced on `main` at f11dc7a.
+- Correction (10 Nov 2026, 17:30 UTC). The first text of this note said that the prediction code was unchanged between f11dc7a and `main`. That was wrong.
+  The merges of `dev60-h7-analysis` and `dev63-questions` into `main` (now 41cf612) changed `gradvar/pauliprop.py` (+542 lines, none removed),
+  `scripts/redraw_gate1b.py` (+59, −1), `scripts/redraw_dial_points.py` (+157, −16), `scripts/predict_h7_truncation.py` (+102, −2),
+  `gradvar/hardware.py` (+14, −1) and `gradvar/analysis/gates.py` (3 lines replaced). The 62 rows of the report's `today` stage were therefore drawn
+  again with the same driver and settings on the tree at 41cf612: every row agrees with its f11dc7a row in each of 2901 numeric fields (relative
+  difference 0; `65_support/code_check_41cf612.json`). The 78 pair rows and the 5 day-2 rows were not drawn again on the merged code (Section 10,
+  item 10). Unchanged between f11dc7a and 41cf612: `gradvar/noise.py`, `gradvar/analysis/anomaly_stats.py`, `scripts/snapshot_calibration.py`
+  and the package files `data/predictions/*_2026-11-10T1016.*`. The line numbers cited in this draft are those of 78e0675; `gradvar/hardware.py`
+  and `gradvar/analysis/gates.py` are the same files at 41cf612.
 - Order: the pause record (draft Deviation 66) is the PI's to sign; this Deviation is adopted under delegation after its independent review; the
   code of Section 8 is committed and reviewed; the trial of Section 8 item 9 is run; then the day-3 package is built, and its pre-flight names the
   commit.

@@ -320,3 +320,10 @@ fetched from `https://codeload.github.com/SSIT-Q/gradvar-phoenix/zip/f11dc7aa831
 The `today` stage and the first half of the `pairs` stage ran on earlier revisions of the driver that lacked the `--part` option, the combined output
 file and the `day2` stage; the code of the stages themselves is the same. Compute: 62 + 78 + 5 rows on Modal (12 CPU, 32 GiB), 692 s + 275 s + 222 s + 169 s of job wall time; one earlier 78-row job finished but was never
 harvested and was run again (declared).
+
+**Check on the merged code (10 Nov 2026, 17:30 UTC).** After this report was written, `dev60-h7-analysis` and `dev63-questions` were merged into `main`
+(41cf6129a2c3473c9afcda53876e522d15fbd9c8), which changed `gradvar/pauliprop.py`, `scripts/redraw_gate1b.py`, `scripts/redraw_dial_points.py` and
+`scripts/predict_h7_truncation.py`. The 62 rows of the `today` stage were drawn again on that tree (`python job_launch_at.py 41cf612… today 12`;
+`job_launch_at.py` is `job_launch.py` with the commit as its first argument; 469 s of job wall time): 62 of 62 rows agree with the rows above in
+each of 2901 numeric fields, relative difference 0 (`code_check_41cf612.json`). The pair rows (Section 3) and the day-2 rows (Section 4) were not
+drawn again. The commit of the second run is known from the job's command line; the output carries no commit field.
