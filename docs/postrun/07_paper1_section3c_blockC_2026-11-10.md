@@ -40,8 +40,8 @@ interpolated value 9.753e-05 lies inside the interval and no rule reads that com
 
 | item | `L0` (`dbpfom8ou4as73ctjes0`) | `L0-c2` (`dbpfon8qtr0c738ebgj0`) | `L0-probes-s65536` (`dbpfontt7fqc7389bsu0`) |
 |---|---|---|---|
-| `job.json` | present, 11,661,232 bytes | present, 4,471,854 | present, 626,288 |
-| `result.json` (bytes; `PubResult` markers) | 338,659; 300 | 113,199; 100 | 227,323; 200 |
+| `job.json` | present, 11,161,665 bytes | present, 4,282,088 | present, 573,235 |
+| `result.json` (bytes; `PubResult` markers) | 327,231; 300 | 109,371; 100 | 219,695; 200 |
 | `metadata.json` (per-pub entries) | 300 | 100 | 200 |
 | `options.json` (IBM `job.inputs` read back) | `default_shots` 65536, `resilience_level` 0 | the same | the same |
 | `properties.json`, `target.json` | present; `last_update_date` 2026-11-10 09:07:11+00:00 | the same | the same |
@@ -95,7 +95,8 @@ interpolated value 9.753e-05 lies inside the interval and no rule reads that com
 | backend, instance, rep_delay | `ibm_phoenix`, `flex`, default | `ibm_phoenix` 1.0.0, alias and plan `flex`; default 1 us, range 0 to 2000 us, dynamic_reprate true | the same | the same |
 
 - The two depths do not share draws; L = 10's 200 draws are split between two jobs (1 to 100 in `L0`, 101 to 200 in `L0-c2`).
-  The three seed blocks overlap no block of the other 19 committed lists.
+  The three seed blocks overlap no seed entry of the other 26 committed list files under `data/joblists/`
+  (18 in `paper1/` with this one, 5 in `paper2/`, 3 in `dryrun/`, `example_smoke_test.json`; every integer under a key containing "seed", with its M).
 - **Credentials.** The 27 files of the two bot commits were scanned (the two committed QPY files, the three `result.json` and the CSV as
   bytes): no token, key, CRN, bearer or account pattern. The only instance value is the alias `flex`.
 - **Limit of the identity check (known).** `inputs_verification` is `match: true` on pub counts only (300 / 100 / 200) with
@@ -143,10 +144,10 @@ IBM properties times in the committed snapshots of 10 Nov (three distinct):
   that interval that the 13:37:31Z one replaced would not be visible; no value in the 13:37:31Z set carries a date between
   11:38:32Z and 13:37:20Z, so nothing points to one. IBM was not polled.
 - **What the two updates changed** on the 82 placed qubits and their couplers: CZ, sx, T1 and T2 values are identical in all
-  three sets. 09:07:11Z -> 11:35:39Z: readout on 80 placed qubits (values dated 9 Nov 04:54Z -> 10 Nov 11:05:20Z, which is 8 min
-  before these jobs were created) and initialisation error on 45 (new values dated 11:19 to 11:20Z). 11:35:39Z -> 13:37:31Z:
-  readout on 80 placed qubits (values dated 13:37:24 to 13:37:31Z, six minutes after the last job finished); no initialisation
-  value changed.
+  three sets. 09:07:11Z -> 11:35:39Z: `readout_error` on 80 placed qubits, `prob_meas0_prep1` on 77 and `prob_meas1_prep0` on 75 (values
+  dated 9 Nov 04:54Z -> 10 Nov 11:05:20Z, which is 8 min before these jobs were created), and initialisation error on 45 (new
+  values dated 11:19 to 11:20Z). 11:35:39Z -> 13:37:31Z: `readout_error` on 80 placed qubits, each confusion probability on 78
+  (values dated 13:37:24 to 13:37:31Z, six minutes after the last job finished); no initialisation value changed.
 - **Placed qubits that fail the cuts on a later set, and where they sit.** No coupler fails on either.
 
 | qubit | readout 09:07:11Z set (date) | readout 11:35:39Z set | readout 13:37:31Z set | init 09:07:11Z set | init 11:35:39Z and 13:37:31Z sets | on 11:35:39Z | on 13:37:31Z | smallest L whose light cone holds it |
@@ -216,8 +217,9 @@ IBM properties times in the committed snapshots of 10 Nov (three distinct):
   planning readout error: Q98 x13.10 (6.396e-02, above the cut), Q31 x8.09 (6.519e-02, above the cut), Q58 x2.79, Q104 x2.23, Q51 x2.18, Q78 x2.00, Q100 x1.83, Q101 x1.75, Q105 x1.67, Q43 x1.61, Q54 x1.55, Q32 x1.52. Against the next set (13:37:31Z; readout dated just after the jobs), 10:
   Q98 x26.75 (1.306e-01, above the cut), Q101 x3.25, Q82 x2.33, Q78 x2.20, Q119 x2.18, Q51 x1.98, Q43 x1.89, Q58 x1.88, Q32 x1.80, Q84 x1.61 (L = 2 cone). The L = 2 cone's largest ratio is 1.48 (Q84) on the first and 1.61 (Q84) on the second.
   Deviation 49: "two or more such qubits, or any qubit above the cut, pause as before"; Deviation 52 (ii) applies the rule "to the
-  cone qubits of the measured patches", and the evaluator takes every gate qubit (82 here, which is also the L = 8 and L = 10
-  cone). On the figures in force during the run the pause condition is met on that set (Q31 and Q98 above the cut). This is
+  cone qubits of the measured patches"; pre-flight 09 fixes the set for this list as "Gate 2 (e) on the 82 placed qubits against
+  this snapshot" (line 57), which is the evaluator's set and also the L = 8 and L = 10 cone. The L = 2 cone is Deviation 26's
+  protected set, not the set of this clause. On the figures in force during the run the pause condition is met on that set (Q31 and Q98 above the cut). This is
   not a post-run excursion in the sense of post-run 04: the figures were published before the jobs ran. It goes to the
   coordinator and the reviewer with the PI's delegation; nothing further can be dispatched on this package in any case.
 
@@ -254,7 +256,7 @@ floors, and a per-draw comparison waits for the surrogate of (ii)"; Section 3c "
 the L = 10 point against the interpolated band and H2, the moments against the propagation rows, any override". There is no
 registered decision test on Block C: no gate, kill rule or hypothesis clause reads it.
 
-**Rows of this placement** (`data/predictions/main_grid_redraw_2026-11-10T1016.csv`, commit 7f32d6e840979ab397a731259090ea09a533b236, sha256 `5ddf28b3...6a00`, drawn on
+**Rows of this placement** (`data/predictions/main_grid_redraw_2026-11-10T1016.csv`, commit 7f32d6e840979ab397a731259090ea09a533b236, blob sha256 `450a2fdb5abf43bf20abd3ab7afd9909584bb3f8c968e93a311771ad5333914e`, drawn on
 `ibm_phoenix_2026-11-10T101610Z.csv`; its `runday_placement.rungs.n100` equals the list's rung in qubits, holes, broken couplers,
 edge, origin and n). k = 1 values are `var_k1_mc` of the propagation rows, read with `predictions._prediction_from_rows`
 (`predictions.py:224-251`; sigma = Deviation 15 error / 2):
@@ -542,3 +544,16 @@ Then, in Python at the same commit: rows from `predictions._prediction_from_rows
 `gradvar.hardware.joblist_points(list, csv)`; the layout re-checks from `gradvar.hardware.layout_check(None, qubits, couplers,
 props=...)` on the two retrieval snapshots. Python 3.12.14, numpy 2.4.6, pandas 3.0.6, qiskit 2.5.2, qiskit-ibm-runtime 0.49.0.
 The machine-readable numbers are kept with the session's artifacts (`postrun_07_numbers.json`), not in the repository.
+
+## 14. Corrections made after the second commit (third commit; no number of the reading changes)
+
+- **File sizes and one hash are now the committed blobs'.** The first two commits quoted the byte sizes of `job.json` and
+  `result.json` (Section 0) and a sha256 of the re-draw CSV (Section 8) from a Windows working tree with `core.autocrlf true`,
+  in which LF-committed text files are checked out with CRLF. The blob values are now given. The CSV of the retrieval and the
+  QPY files are byte-identical in blob and working tree, and every list hash in Section 1 was taken from blobs, so those stand.
+  The byte-level checks of Section 5 were made on the working-tree copies, which differ from the blobs in line endings only.
+  The independent check of review 06 pointed to this in its line-ending note.
+- **Seed-block count** (Section 1): "the other 19 committed lists" is replaced by the count of list files and a wider scan,
+  after the same check could not reproduce the figure 19 in review 06.
+- **Readout counts** (Section 3) are given per property, and **the Gate 2 (e) qubit set** (Section 6) is cited from pre-flight 09
+  line 57, as the same check asked of review 06.
