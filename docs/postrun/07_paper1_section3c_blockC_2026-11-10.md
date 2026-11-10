@@ -1,0 +1,317 @@
+# Post-run review 07: Section 3c Block C, list `section3c_blockC` (Paper 1), 10 November 2026
+
+Written 10 Nov 2026, 14:20 UTC, on branch `postrun-07-2026-11-10`, cut from `main` at f11dc7aa831bc2c55522a182a2f22a919b129bc8. Every repository
+statement below is read at that commit unless another commit is named; nothing here comes from project memory. Reviewed against
+the pre-flight `docs/preflight/09_paper1_section3c_blockC_2026-11-10.md` (record: its copy at the merge commit
+4758cefedb7937f66c8fda9886b86f45c519514f, byte-identical to `main`; Section 8 carries the reviewer's GO), the package review
+`docs/preflight/reviews/review_repack_2026-11-10.md`, pre-registration v0.17.0 (`docs/artifacts/paper1_preregistration.md`:
+Section 3c and Deviation 56 with its erratum; Deviations 15, 19, 37, 43, 55, 61, 62; Section 1 H2; Section 5 Gate 2 (e) with
+Deviations 49 and 52), the checklist of `docs/HANDOVER.md` Section 5 and `docs/ANALYSIS.md`. Structure as post-run review 06
+(branch `postrun-06-2026-11-10`, head ed05d44e8334936297fbf405cbb3ac627a507ee8, draft PR #15, under independent review; not
+edited here and not on `main`).
+
+**Scope.** One list, three jobs at 65,536 shots on the n100 rung (n = 82): `dbpfom8ou4as73ctjes0` (`L0`: the 200 L = 8 pubs and
+draws 1 to 100 of L = 10), `dbpfon8qtr0c738ebgj0` (`L0-c2`: draws 101 to 200 of L = 10), `dbpfontt7fqc7389bsu0`
+(`L0-probes-s65536`: the L = 0 null control). Not in this review: `replication_01_16384` (review 06), `replication_01`
+(not run), day 3 (held).
+
+**Order of work.** Sections 0 to 7 (the audit) and Section 8 (the prediction-side inputs) were written, committed and pushed
+before any measured value was opened for anything but a byte-level check, and no measured row was displayed before that commit.
+What was done to the measured files before it: size and sha256 of each `result.json` and of the CSV, a count of the `PubResult`
+markers in the bytes, a search of the bytes for `NaN` / `Infinity` tokens and for credential patterns. The CSV's 23 identity
+columns were read with its seven measured columns (`ev_plus`, `ev_minus`, `std_plus`, `std_minus`, `ensemble_se_plus`,
+`ensemble_se_minus`, `gradient`) excluded from the read. `job.json`, `metadata.json`, `circuits.json`, `options.json`,
+`properties.json` and `target.json` hold no expectation value and were read in full. Value-level integrity (finiteness after
+decoding, CSV against `result.json`) and every statistic are in the second commit, Sections 9 onward.
+
+**Audit verdict: CLEAN_WITH_NOTES.** Nothing required by the logging rule is missing, the jobs are the armed list's jobs, and the
+Deviation 62 (iv) check passes as written. One note changes how every number of this block is read (N1, Section 7): **all three
+jobs waited 1 h 40 min 49 s or more between creation and running, and ran from 12:54:18Z to 13:31:41Z, after IBM's 11:35:39Z properties update. On the
+properties in force while they ran, this placement fails the runner's cuts on four placed qubits.** Unlike review 06, the side
+of the update is established here.
+
+## 0. Presence and integrity (logging rule)
+
+| item | `L0` (`dbpfom8ou4as73ctjes0`) | `L0-c2` (`dbpfon8qtr0c738ebgj0`) | `L0-probes-s65536` (`dbpfontt7fqc7389bsu0`) |
+|---|---|---|---|
+| `job.json` | present, 11,661,232 bytes | present, 4,471,854 | present, 626,288 |
+| `result.json` (bytes; `PubResult` markers) | 338,659; 300 | 113,199; 100 | 227,323; 200 |
+| `metadata.json` (per-pub entries) | 300 | 100 | 200 |
+| `options.json` (IBM `job.inputs` read back) | `default_shots` 65536, `resilience_level` 0 | the same | the same |
+| `properties.json`, `target.json` | present; `last_update_date` 2026-11-10 09:07:11+00:00 | the same | the same |
+| `circuits.json` (ISA summaries) | 300 | 100 | 200 |
+| `circuits.qpy` | **not committed**: 81,735,920 bytes | committed, 31,384,720 bytes | committed, 769,220 bytes |
+| timing, pre-flight link, runner commit | present | present | present |
+| `status`, `error`, `error_message`, `job_errors` | `completed`, none | `completed`, none | `completed`, none |
+
+- **Which QPY files are committed, and why.** Deviation 55 (iii) and `QPY_COMMIT_LIMIT_MB = 45` (`gradvar/hardware.py:1664`,
+  `:1684-1693`). `L0`: 300 circuits, 81.7 MB, above the limit, so it is an Action artefact with sha256
+  `e520fb9a99ec798bff7263e29191f02eea7f080db624baf5df69be8906add5fe`, `committed: false` and the policy text in `job.json`.
+  Checked here: artefact `circuits-qpy-retrieve-42829042062` of the retrieval run holds
+  `2026-11-10/dbpfom8ou4as73ctjes0/circuits.qpy`, 81,735,920 bytes, with exactly that sha256; it expires 2027-02-08T13:55:47Z.
+  `L0-c2` (100 circuits, 31.4 MB) and the probes (0.77 MB) are below the limit and committed; their sha256
+  (`cd946059...066f`, `a4e9ad80...3a24`) equal the `job.json` records. Not a gap.
+- Retrieval commit f11dc7aa831bc2c55522a182a2f22a919b129bc8 (run 42829042062, `retrieve hardware jobs`, head 4182865d6d01bc40fe32808f92727ba6155d2cc9,
+  13:55:46 to 13:57:12Z, success) added the three bundles, `data/jobs/section3c_blockC_retrieved_20261110T135646Z.csv`
+  (600 rows; 414,979 bytes; sha256 `98aac5084fc7801ebf0fbc66ce0fcdcdd6785b8b1ce80421ef4cdf1909b469fb`) and the retrieval snapshot
+  `data/calibrations/ibm_phoenix_properties_2026-11-10T135646Z.json`. Submission commit 3fb2c540e12dbe458a4be5ea67a57c193d097c13
+  added the ids file and `ibm_phoenix_properties_2026-11-10T111320Z.json`.
+- No error or warning in any `metadata.json`; the Actions logs of both runs carry no runner warning beyond qiskit's "Loading
+  account with the given token".
+- Nothing the logging rule requires is missing.
+
+## 1. Identity: the jobs are the armed list's jobs
+
+- **Arming.** 129b3026d049e61ea3b1432f354d02490085c7d1 (Owais, 11:08:09 UTC) changes one file,
+  `data/joblists/paper1/section3c_blockC.json`, and in it exactly `dry_run` true -> false and `preflight_review` placeholder ->
+  `https://github.com/SSIT-Q/gradvar-phoenix/blob/4758cefedb7937f66c8fda9886b86f45c519514f/docs/preflight/09_paper1_section3c_blockC_2026-11-10.md`
+  (textual diff: lines 5 and 7; semantic diff: those two keys). sha256 un-armed (at ec7e156e, 4758cefe and 129b3026^):
+  `aa966cc8b5683dffb77bc495fa1d1f38134f6060e48d8f4695bd6be6907034c7`, the reviewed value; armed, at 129b3026 and unchanged at
+  9f4d1144, 3fb2c540, 4182865d and f11dc7aa: `41db89544195326427662e4e0521011e135780480d85266d289ae49988477e97`. No other commit
+  touches the list after the merge. The pre-flight at 4758cefe is byte-identical to `main` and carries "final: GO."
+- **Pre-arming snapshot.** e4e3cadd (11:03:13Z): IBM properties 2026-11-10 09:07:11+00:00; its CSV is byte-identical to the
+  placement snapshot `ibm_phoenix_2026-11-10T101610Z.csv`.
+- **Dispatch.** Run 42805558536 (`run hardware job list`, branch `main`, head 9f4d1144f5aa37337d39a5461c30965248c7f3dd, 11:12:27
+  to 11:13:41Z, success), `SUBMIT_ONLY: true`. 9f4d1144 differs from the arming commit by the replication run's ids file and
+  snapshot only; the list is identical at both. Ids file: `runner_git_commit` 9f4d1144, Batch
+  `89d24a5d-a2e0-44fa-a62a-ccc1f524ef45`, `calibration_csv` `ibm_phoenix_2026-11-10T101610Z.csv`, alias `flex`. The three
+  `job.json` files record `runner_git_commit` 4182865d, the retrieval run's checkout (as in review 06).
+- **What ran, against the list.**
+
+| | list (armed) | `L0` | `L0-c2` | `L0-probes-s65536` |
+|---|---|---|---|---|
+| pubs | 300 / 100 / 200 | 300 | 100 | 200 |
+| content | L = 8, k = 1, M = 200, seed 25792001; L = 10, k = 1, M = 200, seed 25912001; probe `null_L0_n100_r0_s65536_3c`, L = 0, M = 200, seed 25761001; all n = 82, 10x10, edge 75_85, level 0, 65536 shots | L = 8 seeds 25792001 to 25792200; L = 10 seeds 25912001 to 25912100 | L = 10 seeds 25912101 to 25912200 | seeds 25761001 to 25761200 |
+| shots (IBM inputs; per-pub metadata) | 65536 | 65536 on 300 of 300, `target_precision` 0.00390625 | 100 of 100 | 200 of 200 |
+| resilience (IBM inputs; result metadata) | 0 | 0; measure, ZNE, PEC off; twirling off; dynamical decoupling off | the same | the same |
+| parameter hashes | | 300 of 300 equal sha256 of `default_rng(seed).uniform(0, 2 pi, 82 L)` recomputed here; each pair differs by pi on parameter 41 only | 100 of 100, the same | none (L = 0) |
+| ISA | | L = 8: depth 64, 952 CZ on 200; L = 10: depth 80, 1,190 CZ (119 x 10) on 100; ops `cz, rz, sx`; 0 mid-circuit measures, resets, delays | L = 10: depth 80, 1,190 CZ on 100 | depth 0, no gate, on 200 |
+| backend, instance, rep_delay | `ibm_phoenix`, `flex`, default | `ibm_phoenix` 1.0.0, alias and plan `flex`; default 1 us, range 0 to 2000 us, dynamic_reprate true | the same | the same |
+
+- The two depths do not share draws; L = 10's 200 draws are split between two jobs (1 to 100 in `L0`, 101 to 200 in `L0-c2`).
+  The three seed blocks overlap no block of the other 19 committed lists.
+- **Credentials.** The 27 files of the two bot commits were scanned (the two committed QPY files, the three `result.json` and the CSV as
+  bytes): no token, key, CRN, bearer or account pattern. The only instance value is the alias `flex`.
+- **Limit of the identity check (known).** `inputs_verification` is `match: true` on pub counts only (300 / 100 / 200) with
+  `decoded: false`. Hashes, circuits and seeds in the bundles are the retrieval run's rebuild of the armed list on the pinned
+  CSV. No per-draw noiseless reference exists at n = 82 for L = 8 or 10 (Deviation 56 erratum).
+
+## 2. Layout check and Deviation 62 (iv)
+
+- **Live, enforced check** (`hardware.py:1898-1903`; Actions log of run 42805558536, not in the repository): `11:13:20Z layout
+  check pass (readout cut 0.03, init error cut 0.0005, CZ cut 0.005; properties 2026-11-10 09:07:11+00:00): all 82 qubits and
+  119 couplers within the cuts`, then the three `submitted job` lines at 11:13:29, 11:13:34 and 11:13:35Z.
+- **Each `job.json`** holds the retrieval path's reconstruction on the properties at job creation (`hardware.py:2464-2465`):
+  `verdict: pass`, `enforced: false`, `action: logged`, `override: null`, `override_denied: null`, no failing qubit, coupler or
+  protected qubit, in all three. The armed list has `layout_check: "enforce"` and no `layout_check_reason`;
+  `approved_overrides: []` is in `docs/repack/2026-11-10_summary.json`. **No override.**
+- **Deviation 62 (iv): `properties_last_update` = 2026-11-10 09:07:11+00:00 in all three `job.json` files, equal to the package's
+  IBM properties time. No mismatch on the registered check.** What that check cannot see is Section 3.
+- **Qubits and couplers used** equal the list's placement in all three jobs: 82 qubits at origin (2, 0), holes 20, 24, 34, 37,
+  49, 55, 59, 61, 62, 63, 66, 69, 72, 73, 77, 91, 99, 107 (49 and 99 by the component rule), 119 live couplers, broken 86-87,
+  100-101, 31-32, 87-97 absent, edge 75-85, L = 2 cone 64, 65, 74, 75, 76, 84, 85, 86, 94, 95, 96, 97. The CSV's `patch_qubits`
+  equal the same 82 on all 600 rows. n = 82.
+- **Light cones of the edge on this patch** (`gradvar.circuits.light_cone` on the list's placed patch): 2, 12, 35, 63, 80 and 82
+  qubits at L = 1 to 6; from L = 6 on the cone is the whole patch, so the L = 8 and L = 10 cones are all 82 placed qubits.
+
+## 3. Timing, and every IBM properties update between 09:07:11Z and the retrieval
+
+| job | created (UTC) | running | finished | created to running | running to finished | IBM usage | circuit time |
+|---|---|---|---|---|---|---|---|
+| `L0` | 11:13:29.583Z | **12:54:18.417Z** | **13:31:41.789Z** | 6,048.8 s | 2,243.4 s | 514 s | 506.002 s |
+| `L0-c2` | 11:13:34.870Z | **12:54:22.817Z** | 13:10:40.143Z | 6,047.9 s | 977.3 s | 180 s | 175.308 s |
+| `L0-probes-s65536` | 11:13:35.793Z | **12:54:47.256Z** | 13:08:16.181Z | 6,071.5 s | 808.9 s | 258 s | 251.631 s |
+
+IBM properties times in the committed snapshots of 10 Nov (three distinct):
+
+| snapshot | taken | `last_update_date` | this placement on it (`gradvar.hardware.layout_check`) |
+|---|---|---|---|
+| package `..._20261110T101610Z.json.gz`; pre-arming `...110307Z` | 10:16:10, 11:03:07 | 2026-11-10 09:07:11+00:00 | pass |
+| `..._2026-11-10T111132Z.json`, `...111320Z.json` (the two submissions); each job's `properties.json` | 11:11:32, 11:13:20 | 2026-11-10 09:07:11+00:00 | pass |
+| `..._2026-11-10T124546Z.json` (retrieval of the replication) | 12:45:46 | **2026-11-10 11:35:39+00:00** | **fail: Q25, Q31, Q98, Q100** |
+| `..._2026-11-10T135646Z.json` (this retrieval) | 13:56:46 | **2026-11-10 13:37:31+00:00** | **fail: Q25, Q98, Q100** |
+
+- **All three jobs were created before the 11:35:39Z update and began running after it**, by 78 min 39 s to 79 min 8 s; the last
+  one finished at 13:31:41.789Z, 5 min 49 s before the 13:37:31Z update. So the published calibration in force while they ran
+  is the 11:35:39Z one, last seen at 12:45:46Z. No committed snapshot lies between 12:45:46Z and 13:56:46Z, so an update inside
+  that interval that the 13:37:31Z one replaced would not be visible; no value in the 13:37:31Z set carries a date between
+  11:38:32Z and 13:37:20Z, so nothing points to one. IBM was not polled.
+- **What the two updates changed** on the 82 placed qubits and their couplers: CZ, sx, T1 and T2 values are identical in all
+  three sets. 09:07:11Z -> 11:35:39Z: readout on 80 placed qubits (values dated 9 Nov 04:54Z -> 10 Nov 11:05:20Z, which is 8 min
+  before these jobs were created) and initialisation error on 45 (new values dated 11:19 to 11:20Z). 11:35:39Z -> 13:37:31Z:
+  readout on 80 placed qubits (values dated 13:37:24 to 13:37:31Z, six minutes after the last job finished); no initialisation
+  value changed.
+- **Placed qubits that fail the cuts on a later set, and where they sit.** No coupler fails on either.
+
+| qubit | readout 09:07:11Z set (date) | readout 11:35:39Z set | readout 13:37:31Z set | init 09:07:11Z set | init 11:35:39Z and 13:37:31Z sets | on 11:35:39Z | on 13:37:31Z | smallest L whose light cone holds it |
+|---|---|---|---|---|---|---|---|---|
+| Q25 | 6.348e-03 (11-09 04:54) | 7.324e-03 (11-10 11:05) | 8.545e-03 (11-10 13:37) | 2.592e-04 (11-10 08:44) | 5.211e-04 (11-10 11:19) | init error 5.21e-04 >= 0.0005 | init error 5.21e-04 >= 0.0005 | 4 |
+| Q31 | 8.057e-03 (11-09 04:54) | 6.519e-02 (11-10 11:05) | 8.789e-03 (11-10 13:37) | 1.660e-05 (11-10 08:44) | 1.000e-05 (11-10 11:19) | readout error 0.0652 > 0.03 | passes | 5 |
+| Q98 | 4.883e-03 (11-09 04:54) | 6.396e-02 (11-10 11:05) | 1.306e-01 (11-10 13:37) | 1.390e-05 (11-09 00:28) | 1.390e-05 (11-09 00:28) | readout error 0.0640 > 0.03 | readout error 0.1306 > 0.03 | 3 |
+| Q100 | 1.050e-02 (11-09 04:54) | 1.917e-02 (11-10 11:05) | 6.348e-03 (11-10 13:37) | 1.373e-04 (11-10 08:44) | 9.012e-04 (11-10 11:20) | init error 9.01e-04 >= 0.0005 | init error 9.01e-04 >= 0.0005 | 5 |
+
+  None of the four is on the observable edge (75, 85) or in its L = 2 cone, the pre-flight's protected set
+  (`failing_protected_qubits` empty on both sets). **All four are inside the L = 8 and the L = 10 light cones**, so they carry
+  gates that act on the measured observable in every L = 8 and L = 10 circuit. Q98's readout error is 6.4e-2 in the figures
+  dated before the jobs and 1.31e-1 in the figures dated just after them. A dispatch of this list at any time after 11:35:39Z
+  would have been refused by the live check.
+- **Observable qubits** (p01 + p10, in the three sets): Q75 1.709e-2, 1.270e-2, 1.660e-2; Q85 7.81e-3, 6.84e-3, 4.88e-3. The level-0
+  readout folding (a_75 a_85)^2 is 0.95108, 0.96149, 0.95765 (`floors.Calibration`):
+  +1.1 and +0.7 percent against the set the prediction was drawn on.
+- **What this implies for the reading.** Every prediction row of Section 8 was drawn on the 09:07:11Z properties. The Block C
+  measurements were taken under a later published calibration on which the gate, T1 and T2 figures are the same, the observable
+  qubits' readout differs by about one percent in the folding factor, and four qubits inside the measured light cones are over
+  a cut, one of them (Q98) with a readout error of 6 to 13 percent. Readout error on a qubit outside the observable does not
+  enter the Z_75 Z_85 estimator; what a qubit in that state does to the gates on it is not in any committed figure. No
+  prediction on the 11:35:39Z properties exists, and the placement rule would not place this rung on them unchanged. Each
+  comparison below is therefore a measurement under one calibration against a prediction under an earlier one, and the
+  repository cannot say how much of any difference that accounts for.
+- **For review 06's note N1** (not edited there): none of these three jobs ran inside the replication `L0` job's window
+  (11:12:05 to 12:35:07Z); they began 19 minutes after it closed. Their bundles do not date that job's execution.
+
+## 4. Usage and the ledger
+
+| job | IBM `usage_qpu_seconds` | model v3 at 1 us | ratio | circuit time | per execution | usage - circuit time |
+|---|---|---|---|---|---|---|
+| `L0` | 514 | 557.17 | 0.923 | 506.002 s | 12.868 us | 8.00 s |
+| `L0-c2` | 180 | 200.13 | 0.899 | 175.308 s | 13.375 us | 4.69 s |
+| `L0-probes-s65536` | 258 | 211.14 | 1.222 | 251.631 s | 9.599 us | 6.37 s |
+| **list** | **952 s = 15.867 min** | 968.45 s = 16.141 min | **0.983** | 932.94 s | | |
+
+- 15.87 min charged against 16.14 modelled, the working figure 17 and the envelope 20 of the booking: stop rule (i) is met.
+  IBM's `usage_estimation.quantum_seconds` is null on all three. The gradient jobs charge 0.92 and 0.90 of the model, the
+  SPAM-only job 1.22 of it (9.60 us per execution against the model's 7.94), as in review 06.
+- **Charge against the main-grid line** (pre-flight Section 3; `campaign.ledger_line` `main:section3c`): `docs/TRACKER.md`
+  (last commit 5f55253a, 25 Sep) gives the line 190.5 planned, 41.8 spent. With this list **41.8 + 15.87 = 57.67 of 190.5**.
+  Deviation 59's 3.36 min for L2-c5 stay booked on the same line.
+- **Ledger by the per-job sum:** 44.67 (tracker, line 178) + 2.567 (`replication_01_16384`: 87 + 67 QPU s in its two `job.json`
+  files on `main`) + 15.867 = **63.10 min**; 18.43 min today. The tracker still shows 44.67 spent and a 210-minute cap; Owais's
+  statement that the cap is now 360 is not in the repository.
+
+## 5. Data integrity (byte level in this commit)
+
+- `result.json`: 300, 100 and 200 `PubResult` markers, one `PrimitiveResult` each, valid UTF-8, no `NaN` or `Infinity` token.
+  `metadata.json`: 300, 100 and 200 per-pub entries, `pub_index` in order, 65536 shots on every pub. No failed or partial pub by
+  count.
+- CSV identity columns: 600 rows (300 / 100 / 200 per job); n, L, k, shots, level, depth, CZ count and `fractional_gates`
+  (false) as in Section 1 on every row; seeds and parameter hashes equal each bundle's `points`; `calibration_snapshot` the
+  11:13:20Z properties file.
+- Decoded values (finiteness, |ev| <= 1, CSV against `result.json`) are checked in Section 9, after this commit.
+
+## 6. Kill rules and Gate 2 (from the calibration files and job records; evaluator output follows in Section 9)
+
+- **Kill rules (a) to (d), Section 3b:** do not apply; the list has no dial, no reset, no mid-circuit measurement
+  (0 on all 600 circuits). **Override:** none.
+- **Gate 2 (b), (d):** rep_delay default 1 us, range 0 to 2000 us, dynamic_reprate true read back on all three jobs; charged /
+  modelled 0.983.
+- **Gate 2 (e).** The evaluator compares each bundle's `properties.json` (the properties at job creation) with the planning
+  snapshot; both are the 09:07:11Z figures, so its ratio is 1.00 on every qubit by construction, as in review 06. Against the
+  properties in force while the jobs ran (11:35:39Z; readout dated 11:05:20Z), 12 of the 82 gate qubits are above 1.5x their
+  planning readout error: Q98 x13.10 (6.396e-02, above the cut), Q31 x8.09 (6.519e-02, above the cut), Q58 x2.79, Q104 x2.23, Q51 x2.18, Q78 x2.00, Q100 x1.83, Q101 x1.75, Q105 x1.67, Q43 x1.61, Q54 x1.55, Q32 x1.52. Against the next set (13:37:31Z; readout dated just after the jobs), 10:
+  Q98 x26.75 (1.306e-01, above the cut), Q101 x3.25, Q82 x2.33, Q78 x2.20, Q119 x2.18, Q51 x1.98, Q43 x1.89, Q58 x1.88, Q32 x1.80, Q84 x1.61 (L = 2 cone). The L = 2 cone's largest ratio is 1.48 (Q84) on the first and 1.61 (Q84) on the second.
+  Deviation 49: "two or more such qubits, or any qubit above the cut, pause as before"; Deviation 52 (ii) applies the rule "to the
+  cone qubits of the measured patches", and the evaluator takes every gate qubit (82 here, which is also the L = 8 and L = 10
+  cone). On the figures in force during the run the pause condition is met on that set (Q31 and Q98 above the cut). This is
+  not a post-run excursion in the sense of post-run 04: the figures were published before the jobs ran. It goes to the
+  coordinator and the reviewer with the PI's delegation; nothing further can be dispatched on this package in any case.
+
+## 7. Audit verdict: CLEAN_WITH_NOTES
+
+No registered rule blocks the reading: the three jobs completed, every required file is present, the jobs are the armed list's
+on the list's placement, there was no override, and Deviation 62 (iv)'s check passes as written. Whether Block C's points are
+used as Section 3c records given N1 is a decision for the coordinator and the reviewer under the PI's delegation; the audit
+does not take it.
+
+- **N1 (material, established).** All three jobs ran between 12:54:18Z and 13:31:41Z, under IBM's 11:35:39Z properties, on
+  which the placement fails the cuts on Q25 and Q100 (initialisation 5.21e-4 and 9.01e-4) and Q31 and Q98 (readout 6.52e-2 and
+  6.40e-2); on the next set (13:37:31Z) Q25, Q100 and Q98 (readout 1.31e-1) still fail. None is on the edge or in its L = 2
+  cone; all are in the L = 8 and L = 10 light cones. The predictions were drawn on the 09:07:11Z properties.
+- **N2 (material).** Gate 2 (e): pass by construction on the evaluator; on the figures in force during the run Deviation 49's
+  pause condition is met on the gate qubits (Section 6). Undecided here.
+- **N3.** Deviation 62 (iv)'s check reads a field rebuilt from the properties at job creation; it passed although the jobs ran
+  1 h 19 min after the next update. The rule's stated aim, "a list is therefore dispatched on the calibration it is placed on",
+  was not met by the queue.
+- **N4.** The live enforced layout check is in the Actions log of run 42805558536 only; `job.json` holds the reconstruction.
+- **N5.** `job.json`'s `runner_git_commit` (4182865d) is the retrieval run's; the submitting commit (9f4d1144) is in the ids file.
+- **N6.** Input verification is on pub counts only.
+- **N7.** `L0`'s `circuits.qpy` (81.7 MB) is an Action artefact, verified by sha256, expiring 2027-02-08.
+- **N8.** The tracker's ledger, main-grid line and cap are those of 21 to 25 Sep.
+
+## 8. Prediction-side inputs, fixed before any measured value is opened
+
+Code at f11dc7aa: `gradvar/analysis/predictions.py`, `anomaly_stats.py`, `floors.py`, `gates.py`, `hypotheses.py`.
+
+**What the registered text asks of Block C.** Section 3c (i): "Block C is compared with the propagation prediction and the L = 0
+floors, and a per-draw comparison waits for the surrogate of (ii)"; Section 3c "adds no claim to Sections 1-5"
+(`docs/artifacts/paper1_preregistration.md:146-148`; Deviation 56 with its erratum, `:295`). Pre-flight 09 Section 7 step 5:
+"charge against the main line, Gate 2 (e), null floor and claimability, the L = 8 sample beside day 2's and the replication's,
+the L = 10 point against the interpolated band and H2, the moments against the propagation rows, any override". There is no
+registered decision test on Block C: no gate, kill rule or hypothesis clause reads it.
+
+**Rows of this placement** (`data/predictions/main_grid_redraw_2026-11-10T1016.csv`, commit 7f32d6e840979ab397a731259090ea09a533b236, sha256 `5ddf28b3...6a00`, drawn on
+`ibm_phoenix_2026-11-10T101610Z.csv`; its `runday_placement.rungs.n100` equals the list's rung in qubits, holes, broken couplers,
+edge, origin and n). k = 1 values are `var_k1_mc` of the propagation rows, read with `predictions._prediction_from_rows`
+(`predictions.py:224-251`; sigma = Deviation 15 error / 2):
+
+| row (CSV line) | k = 1 value | sigma | Deviation 15 error | recorded status |
+|---|---|---|---|---|
+| **L = 8 non-unital (17): P8** | **4.258947e-04** | 9.2321e-06 | 1.8464e-05 | converged |
+| L = 8 unital (16) | 4.070221e-04 | 8.8582e-06 | 1.7716e-05 | converged |
+| L = 8 noiseless (10) | 6.222487e-04 | 1.3052e-05 | 2.6104e-05 | converged |
+| **L = 12 non-unital (19): P12** | **2.233597e-05** | 1.7270e-06 | 3.4539e-06 | **"sampled, trunc. deficit < 10%"** |
+| L = 12 unital (18) | 2.167589e-05 | 1.6590e-06 | 3.3179e-06 | "sampled, trunc. deficit < 10%" |
+| L = 12 noiseless (11) | 4.361747e-05 | 3.1348e-06 | 6.2696e-06 | "sampled, trunc. deficit < 10%" |
+
+- **Correction to the brief for this review.** The brief says the L = 10 band rests on an L = 12 non-unital row whose recorded
+  status is "not converged (truncation deficit >= 10%)". That is the status of the **first, void** package's row
+  (`main_grid_redraw_2026-11-10T0821.csv`, n = 79; package review Parts 1 and 2). On **this** placement the row's recorded status
+  is "sampled, trunc. deficit < 10%", as the package review's Part 3 notes ("status now ..."). By `scripts/gate1_pauliprop.py:133-152`
+  that status means: a sampled value exists, the truncation deficit (V_MC - V_trunc) / V_MC is below 10 percent, and the sampler's
+  2 sigma is above 5 percent, "interval quoted one-sided". The row is close to the line: its deficit on the quantity the status is
+  computed from is 9.4 percent (10 would make it "not converged") and its 2 sigma is 10.0 percent; the truncated engine's
+  own flag is `pp_converged: False` (relative change 0.314). On the k = 1 value itself the deficit is 4.6 percent.
+- **What Deviation 37 says either way** (`paper1_preregistration.md:276`): "The Paper 1 main-grid L = 12 rows ... are therefore
+  exploratory: no confirmatory statistic is formed from them, and Pauli-propagation rows marked not converged at L = 12 ... are
+  labelled and enter no ratio." So the L = 12 row is exploratory whatever its status; had it been marked not converged it would
+  in addition enter no ratio.
+- **L = 10.** "No row exists at L = 10" (pre-flight 09 Section 4). The pre-flight's number is the geometric interpolation
+  sqrt(P8 x P12) = **9.7533e-05** (unital 9.3929e-05, noiseless 1.6474e-04), 12.8 times the 65,536-shot floor
+  1/(2N) = 7.6294e-06; equivalently a fall of 0.737 per layer in ln V between the two rows. The pre-flight gives no
+  width. For orientation only, and not registered: carrying each row's own recorded interval (L = 8: +/- its Deviation 15
+  error; L = 12: one-sided [V_trunc, V_MC + 2 sigma] = [2.132e-05, 2.579e-05]) through the same formula gives
+  [9.320e-05, 1.071e-04]. An interpolation between two depths is not a propagation prediction at L = 10, and one of its two
+  ends is an exploratory row.
+- **What will and will not be concluded from the L = 10 point, fixed now.** (1) Its claimability: signal against the measured
+  65,536-shot null floor + 3 sigma (Deviation 37; `hypotheses.mark_claimable`). (2) Stop rule (ii) of pre-flight 09: whether the
+  measured null floor lies below the interpolated value (and below the orientation interval's lower end). (3) The measured value
+  with its interval beside the interpolated value, as pre-flight 09 asks, with no z, no ratio offered as a test and no verdict:
+  "No gate reads the band: the measured null floor decides whether L = 10 is confirmatory" (package review, Part 1 item 3).
+  (4) H2 by `hypotheses.evaluate_h2`, whose series need at least three claimable depths per (n, k, level); this run has two, so
+  `not-evaluable` is expected, and H2's refutation clause is in any case written for "both depths <= 8"
+  (`paper1_preregistration.md:32`). Not concluded: agreement or disagreement of the device with the noise model at L = 10.
+- **L = 8, the comparison that has a row.** Measured raw variance and signal against P8; ratio; the Deviation 19 single-point
+  statistic in the pipeline form (signal, shot floor in sigma) and pre-flight 08's written z, both from
+  `predictions.compare_points` with this re-draw's propagation rows passed as its table (the report's default table is the
+  19 Sep record, `predictions.py:40`, whose n = 87 row is not this placement's). Deviation 61 (ii): "Dial-arm and Block C tests
+  form their own families"; Block C's family is the tests that have a row, that is this one (m = 1). Block C's L = 8 sample is
+  "reported beside the decision (pre-flight 08), not used as a decision input" (Deviation 61): nothing here changes review 06.
+- **The three samples of the rung, each against its own placement's row.** Day 2 (frozen reference file
+  `data/derived/dev61_reference_2026-09-25.csv`, sha256 verified, row `n85 L8 k1 r0 s16384`): V = 1.5269e-04
+  [1.0202e-04, 2.1684e-04], signal 1.2218e-04, row 3.0693e-04 (n = 85), z = -5.21 as pre-flight 08 writes it,
+  -4.34 in the pipeline form. The replication (n = 82, 16,384 shots) and Block C (n = 82, 65,536 shots) are both read
+  against P8 above; the replication's measured values are recomputed here from `main`'s bundles with the same pipeline and
+  checked against review 06's text.
+- **Readout folding and drift terms** (as review 06 Section 8; `floors.Calibration.from_csv` on the 10:16Z snapshot): a_75 =
+  0.98291015625, a_85 = 0.9921875; F_pred = 0.684444, F_ro = 0.951076, F_gate = 0.719653. `rate_drift` with `run_time`
+  2026-11-10T12:54:18Z (all 65 committed CSV snapshots; the last before the run is `...110307Z.csv`): the same 7 distinct
+  snapshots as in review 06, s_gate = 0.098487 (sx), s_ro = 0.081919; SE_cal = 1.5549e-05 (3.65 percent of P8).
+  Neither later IBM update is in a committed CSV, so neither enters. These terms belong to Deviation 61's replication tests;
+  Block C is not one of them, and a z in that form for Block C goes under "Exploratory".
+- **Moments.** The second moment's reference is the row above. No fourth-moment row exists in the re-draw files; the shape
+  reference named by the 21 Sep pre-flight is "the kurtosis 14.2 of the noiseless draws, Deviation 30". The measured kurtosis is
+  reported beside it; no rule reads it.
+- **Measured side, to be read in Section 9:** `gradvar.analysis.report` on a run directory holding only this list's CSV and
+  three bundles, `--n-boot 10000`, `--snapshot-csv data/calibrations/ibm_phoenix_2026-11-10T101610Z.csv`.
+- **Not available, stated in advance:** a per-draw noiseless or surrogate comparison (Deviation 56: waits for the surrogate and
+  the theorist's sign-off); a prediction row at L = 10; a fourth-moment row; any prediction on the 11:35:39Z properties; a
+  65,536-shot L = 12 point (not in the block); the 4,096-shot diagnostic of `replication_01` (not run).
