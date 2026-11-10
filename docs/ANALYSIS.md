@@ -83,7 +83,8 @@ variance is not resolvably positive, the lower end of its 95 % interval at or be
 no ratio is formed; with r_lo the lower end of the reset point's interval and d_hi the upper end of the dephasing point's, read
 as an upper bound, the clause holds when r_lo > max(d_hi, 0) and r_lo ≤ F·exp(1.96 s)·d_hi, F the pre-drawn factor and s its
 relative σ; when the dephasing interval lies entirely at or below zero, d_hi ≤ 0, the factor is reported 'not tested' and
-r_lo > 0 decides); the k = 1 fall is reported only (k = 1 rows are upper bounds, Deviation 40; exploratory at L = 12, Deviation 37);
+r_lo > 0 decides; when d_hi is not finite the control is not evaluable, is not counted as a miss, and H6 is not-evaluable
+unless another sub-test fails); the k = 1 fall is reported only (k = 1 rows are upper bounds, Deviation 40; exploratory at L = 12, Deviation 37);
 a delay-matched reference that does not fall
 from L = 8 to L = 12 makes the ladder comparison inconclusive rather than refuting. **H7** (Deviation 60): the loader maps
 the truncation probes (`reset_dial` with `unshifted`; `truncate_to` = ℓ, the full circuit ℓ = 0) to kind `truncation` with an

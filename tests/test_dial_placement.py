@@ -393,6 +393,35 @@ def test_h6_control_keeps_the_ratio_test_for_a_resolvably_positive_dephasing_var
     assert c["exceeds"] == (meas["lo"] > 1.0) and "part (6)" not in res["note"]
 
 
+def test_h6_control_with_a_non_finite_dephasing_interval_is_not_evaluable(monkeypatch):
+    """Deviation 63 follow-up review, addendum 2, N2: a dephasing interval that is not finite is a computation gap, not a measurement.
+    Before, the bounds test returned 'exceeds' False under the note 'no pre-drawn factor' although a factor was supplied, and H6
+    failed. Now the control is not evaluable with its own note and is not counted as a miss; H6 is not-evaluable, whether or not its
+    other sub-tests were evaluated, and a sub-test that does fail still refutes."""
+    def gap(hi=np.nan):
+        deph = _ctl("dephase", 1.0e-5, np.nan, hi, SHOT1, seed=9)                                       # finite draws, no finite interval
+        return _control(monkeypatch, deph)
+
+    def floor(value):
+        monkeypatch.setattr(DH, "_realised_floors", lambda r, pr: dict(floor_grad=value, floor_cost=value, grad_tested=True, cost_tested=True,
+                                                                        grad_note=None, cost_note=None))
+
+    for hi in (np.nan, np.inf):
+        res, c = gap(hi)                                                                                 # no other sub-test evaluated
+        assert res["result"] == "not-evaluable" and "the dephasing interval is not finite" in res["note"]
+        assert c["rule"] == "bounds" and c["evaluable"] is False and c["exceeds"] is None and c["within"] is None and c["factor_tested"] is False
+        assert c["factor_note"] == DH.H6_CONTROL_NOT_EVALUABLE and c["predicted"] == pytest.approx(VR27 / VD27)      # the factor was supplied
+    floor(1.0e-6)                                                                                        # the reset floor check passes
+    res, c = gap()
+    assert [x["below_floor_with_interval"] for x in res["floors"]] == [False]
+    assert res["result"] == "not-evaluable" and res["value"]["control_misses"] == 0 and "the dephasing interval is not finite" in res["note"]
+    floor(1.0)                                                                                           # the reset point below its floor
+    res, c = gap()
+    assert res["result"] == "fail" and res["value"]["below_floor"] == 1 and res["value"]["control_misses"] == 0 and c["evaluable"] is False
+    res, c = _control(monkeypatch, _ctl("dephase", -1.0e-5, -4.5e-5, 3.0e-5, SHOT1, seed=2))               # a finite interval is still tested
+    assert c["evaluable"] is True and c["exceeds"] is True and res["value"]["control_misses"] == 0
+
+
 # ------------------------------------------------------------------------------------------------ S-A: lookups by placement snapshot as well
 
 S28 = "2026-09-28T030800Z"
