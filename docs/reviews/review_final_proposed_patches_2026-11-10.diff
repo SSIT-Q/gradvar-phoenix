@@ -1,0 +1,103 @@
+# (N3 + a) dev63-questions @ 8378d6a, gradvar/analysis/dial_hypotheses.py: a control without a pre-drawn factor blocks R1 (N3); reason text for a control that is not evaluable (a)
+--- a/gradvar/analysis/dial_hypotheses.py
++++ b/gradvar/analysis/dial_hypotheses.py
+@@ -1302,4 +1302,8 @@
+     if ctrl is None:
+         blocks.append("the H6 reset / dephasing control is not evaluated" + (f" ({hp['n_controls']} candidates)" if hp["n_controls"] else ""))
++    no_factor = bool(ctrl is not None and ctrl.get("exceeds") and ctrl.get("within") is None and not _factor_not_tested(ctrl))
++    if no_factor:       # the control passed on 'above 1' alone: no placement-matched prediction gave its factor (Deviation 60 part (5))
++        blocks.append("the H6 reset / dephasing control has no pre-drawn factor (no placement-matched prediction of the reset or the dephasing point, "
++                      "Deviation 60 part (5)): the clause is tested on 'above 1' only, so a sub-test the readings need is not evaluated")
+     if (h7 or {}).get("result") not in ("pass", "fail"):
+         blocks.append("H7 is not evaluable" + (f": {(h7 or {}).get('note')}" if (h7 or {}).get("note") else ""))
+@@ -1322,6 +1326,10 @@
+                            "the unital-ceiling check passes"]
+                     + (["A3(b): the dephasing RMS(2) is not resolvably above the reset's"] if b_ is not None else []), wording)
+-    if control == "unresolved":
+-        if detail["h6_control_rule"] == "bounds":
++    if control == "unresolved" and not no_factor:
++        if (ctrl or {}).get("evaluable") is False:
++            why = str(ctrl.get("factor_note") or "an interval is not finite").removeprefix("not evaluable: ")
++            reasons.append("the H6 reset / dephasing control is not evaluable (Deviation 60 part (6): " + why + "; a computation gap, not a failure of the "
++                           "clause), so a sub-test the readings need is not evaluated")
++        elif detail["h6_control_rule"] == "bounds":
+             reasons.append("the H6 reset / dephasing control is read on bounds (Deviation 60 part (6)): the dephasing variance is not resolvably "
+                            "positive and the reset dial's lower end is not above the dephasing dial's upper bound (or the factor cannot be tested), "
+@@ -1329,5 +1337,5 @@
+         else:
+             reasons.append("the H6 control has no finite ratio and was not read on bounds")
+-    if control == "partial":
++    if control == "partial" and not no_factor:
+         reasons.append("the reset dial is resolvably above the dephasing dial but off the pre-drawn factor")
+     if control == "unital_protects":
+
+# (N3 + a) dev63-questions @ 8378d6a, tests/test_truncation_pairs.py: the test
+--- a/tests/test_truncation_pairs.py
++++ b/tests/test_truncation_pairs.py
+@@ -709,4 +709,21 @@
+ 
+ 
++def test_reading_needs_the_control_factor_tested():
++    """Final review (10 Nov 2026), N3: R1 needs H6's reset / dephasing clause evaluated. A control that passed on 'above 1' alone because
++    no pre-drawn factor was found (no placement-matched prediction, Deviation 60 part (5)) blocks R1, on the ratio rule and on bounds;
++    part (6)'s d_hi <= 0 case, where the factor is not tested by rule, does not. A control that is not evaluable (N2) is named as such."""
++    no_factor_ratio = dict(measured=600.0, lo=250.0, hi=1500.0, predicted=float("nan"), within=None, exceeds=True, rule="ratio")
++    no_factor_bounds = dict(_bounds(8e-3, -2e-5, 3e-5), within=None, predicted=None, factor_tested=False, factor_note="no pre-drawn factor")
++    for c in (no_factor_ratio, no_factor_bounds):
++        r = CR(H5_OK, _h6(control=c), H7_OK, PAIRS_OK)
++        assert r["reading"] == "UNRESOLVED" and sum("no pre-drawn factor" in x for x in r["reasons"]) == 1 and not any("clause fails" in x or "off the pre-drawn" in x for x in r["reasons"])
++    by_rule = dict(_bounds(8e-3, -6e-5, -1e-5), within=None, factor_tested=False, factor_note="factor not tested: the dephasing interval lies at or below zero")
++    assert CR(H5_OK, _h6(control=by_rule), H7_OK, PAIRS_OK)["reading"] == "R1"
++    gap = dict(_bounds(8e-3, -2e-5, 3e-5), within=None, exceeds=None, evaluable=False, factor_tested=False, factor_note=DH.H6_CONTROL_NOT_EVALUABLE, dephasing_hi=float("nan"))
++    for result in ("not-evaluable", "fail"):
++        r = CR(H5_OK, _h6(result, gap), H7_OK, PAIRS_OK)
++        assert r["reading"] == "UNRESOLVED" and any("is not evaluable" in x and "not finite" in x for x in r["reasons"]) and not any("clause fails" in x for x in r["reasons"])
++
++
+ def test_reading_needs_the_realised_floors_tested():
+     """Deviation 60 part (7): the floors R3 (i) reads are the realised-mask floors; one not tested (no realised mask counts, or no run-day
+
+# (b) dev60-h7-analysis @ 94f4737: a non-finite reset lower end r_lo read as not evaluable (changes an H6 verdict path: belongs in Deviation 64, with the row sentence)
+--- a/gradvar/analysis/dial_hypotheses.py
++++ b/gradvar/analysis/dial_hypotheses.py
+@@ -100,4 +100,5 @@
+                      "paired-bootstrap ratio test is unchanged.")
+ H6_CONTROL_NOT_EVALUABLE = "not evaluable: the dephasing interval is not finite"
++H6_CONTROL_RESET_NOT_EVALUABLE = "not evaluable: the lower end of the reset interval is not finite"
+ 
+ 
+@@ -110,6 +111,7 @@
+     factor')."""
+     r_lo, d_lo, d_hi = float(ra.signal_ci_lo), float(rb.signal_ci_lo), float(rb.signal_ci_hi)
+-    evaluable = bool(np.isfinite(d_hi))
+-    finite = bool(np.isfinite(r_lo) and evaluable)
++    d_ok, r_ok = bool(np.isfinite(d_hi)), bool(np.isfinite(r_lo))
++    evaluable = d_ok and r_ok                                 # neither end of the comparison may be a computation gap
++    finite = evaluable
+     has_pred = bool(np.isfinite(pred) and pred > 0)
+     s = (pred_sigma / pred) if (has_pred and np.isfinite(pred_sigma)) else 0.0
+@@ -121,5 +123,5 @@
+                 predicted_sigma=float(pred_sigma) if (has_pred and np.isfinite(pred_sigma)) else None,
+                 factor_hi=float(f_hi) if has_pred else None, within=bool(r_lo <= f_hi * d_hi) if tested else None,
+-                factor_tested=tested, factor_note=None if tested else (H6_CONTROL_NOT_EVALUABLE if not evaluable else
++                factor_tested=tested, factor_note=None if tested else (H6_CONTROL_NOT_EVALUABLE if not d_ok else H6_CONTROL_RESET_NOT_EVALUABLE if not r_ok else
+                                                                        "factor not tested: the dephasing interval lies at or below zero"
+                                                                        if finite and has_pred else "no pre-drawn factor"),
+@@ -415,5 +417,5 @@
+     control_gap = [x for x in controls if x.get("evaluable") is False]
+     tested_controls = [x for x in controls if x.get("evaluable") is not False]
+-    gap_note = f"; reset / dephasing control {H6_CONTROL_NOT_EVALUABLE} (a computation gap, not counted as a miss)" if control_gap else ""
++    gap_note = f"; reset / dephasing control {control_gap[0].get('factor_note') or H6_CONTROL_NOT_EVALUABLE} (a computation gap, not counted as a miss)" if control_gap else ""
+     if not fl and not ev and not tested_controls:
+         return verdict("H6", H_TEXT["H6"], "not-evaluable", note="no reset k = L point with a Deviation 33 floor or a pre-drawn ratio" + gap_note + miss_note, floors=floors,
+
+# (c) scripts/h6_control_bounds_sim.py (same file at both heads): exceeds may be None
+--- a/scripts/h6_control_bounds_sim.py
++++ b/scripts/h6_control_bounds_sim.py
+@@ -64,5 +64,5 @@
+            control_ok=float(d.control_ok.mean()), control_ok_bounds=float(d[d.rule == "bounds"].control_ok.mean()),
+            control_ok_ratio=float(d[d.rule == "ratio"].control_ok.mean()) if (d.rule == "ratio").any() else None,
+-           within_false=float((d.within == False).mean()), exceeds_false=float((~d.exceeds).mean()), example_rule_pass=float(d.example_rule.mean()),
++           within_false=float((d.within == False).mean()), exceeds_false=float((d.exceeds == False).mean()), not_evaluable=float(d.exceeds.isna().mean()), example_rule_pass=float(d.example_rule.mean()),
+            r_lo_median=float(d.r_lo.median()), d_hi_median=float(d.d_hi.median()), F_times_d_hi_median=float(F * d.d_hi.median()),
+            nan_in_control=bool(d.nan_fields.any()), h6_pass=float((d.h6 == "pass").mean()), factor_not_tested=float(d.factor_not_tested.mean()))

@@ -1,0 +1,277 @@
+{
+ "deviation": "60 part (7)",
+ "generated_utc": "2026-10-04T16:22:15Z",
+ "script": "scripts/predict_h7_truncation.py",
+ "command": "python scripts/predict_h7_truncation.py --realised-only",
+ "git_commit": "17473f678fb1788f5b611fdf2cff7dbc522d9fc2 (dev60-h7-analysis) + the Deviation 60 part (7) code committed with these files + 0f76200c64d2b28c6b34a2d3587340b56b754a5a (dev62-repackage: data, Deviation 62 placement rule)",
+ "joblist": "data/joblists/paper1/day3_dial_refs.json",
+ "snapshot": {
+  "csv": "ibm_phoenix_2026-09-27T030805Z.csv",
+  "properties": "ibm_phoenix_properties_20260927T030805Z.json.gz",
+  "stamp": "2026-09-27T030805Z",
+  "pinned": true
+ },
+ "settings": {
+  "model": "unital (snapshot) + reset dial with idle dephasing + dial-idle ZZ + Deviation 34 layer ZZ, raw readout, k = L",
+  "deltas": [
+   1e-06,
+   1e-07
+  ],
+  "n_samples": 500000,
+  "seed": 0,
+  "n_cap": 400000,
+  "time_limit_s": 600.0,
+  "zz_angle_scale": 0.5,
+  "zz_convention": "rzz(zeta*tau/2) (Deviation 34)",
+  "layer_timing": "data/predictions/zz_layer_timing.json",
+  "comparator_rule": "rms = sqrt of the realised-mask off-diagonal MSD(l); rms_sigma = its sampling error (Deviation 60 part (7))",
+  "statistic": "evaluate_h7: shot and residual pattern terms subtracted (Deviation 60), compared with sqrt(MSD(l = 2))",
+  "realised": {
+   "n_samples": 2000000,
+   "seed": 0,
+   "chunk": 25000
+  }
+ },
+ "entries": [
+  {
+   "point": {
+    "patch": "6x10",
+    "edge": "84_85",
+    "n": 52,
+    "p": 0.5,
+    "L": 8,
+    "k": 8,
+    "reset_kind": "reset",
+    "qubits": [
+     60,
+     64,
+     65,
+     66,
+     67,
+     68,
+     69,
+     70,
+     71,
+     74,
+     75,
+     76,
+     78,
+     80,
+     81,
+     82,
+     83,
+     84,
+     85,
+     86,
+     87,
+     88,
+     89,
+     90,
+     91,
+     92,
+     93,
+     94,
+     95,
+     96,
+     97,
+     98,
+     99,
+     100,
+     101,
+     102,
+     103,
+     104,
+     105,
+     106,
+     108,
+     109,
+     110,
+     111,
+     112,
+     113,
+     114,
+     115,
+     116,
+     117,
+     118,
+     119
+    ],
+    "rung": "n60",
+    "origin": [
+     6,
+     0
+    ],
+    "holes": [
+     61,
+     62,
+     63,
+     72,
+     73,
+     77,
+     79,
+     107
+    ],
+    "broken_edges": [
+     [
+      86,
+      87
+     ],
+     [
+      100,
+      101
+     ],
+     [
+      95,
+      96
+     ],
+     [
+      87,
+      97
+     ],
+     [
+      100,
+      110
+     ]
+    ]
+   },
+   "probes": [
+    "trunc_full_p0.5_L8",
+    "trunc_l2_p0.5_L8"
+   ],
+   "ells_in_list": [
+    2
+   ],
+   "mask_seed": 23291001,
+   "theta_seed": 23291001,
+   "K": 256,
+   "mask_p": 0.5,
+   "rms_l2": 0.06207630756063253,
+   "rms_l2_sigma": 8.607925921342334e-05,
+   "rms_l2_source": "realised masks (pauliprop.propagate_realised, off-diagonal moment)",
+   "by_ell": {
+    "1": {
+     "msd": 0.02826626179806101,
+     "se_msd": 3.317855114969618e-05,
+     "rms": 0.1681257321115986,
+     "rms_sigma": 9.86718414040062e-05,
+     "msd_mix_paths": 0.025656914735976574,
+     "se_msd_mix_paths": 2.899208439690081e-05,
+     "ratio_to_mixture": 1.1017015135660706,
+     "se_ratio_to_mixture": 0.0006343390785389132,
+     "residual_pattern_expected": 0.000776180944608229
+    },
+    "2": {
+     "msd": 0.003853467960362244,
+     "se_msd": 1.0686965139047757e-05,
+     "rms": 0.06207630756063253,
+     "rms_sigma": 8.607925921342334e-05,
+     "msd_mix_paths": 0.0030692559625374,
+     "se_msd_mix_paths": 7.284776619769395e-06,
+     "ratio_to_mixture": 1.2555055711862246,
+     "se_ratio_to_mixture": 0.001786073363192191,
+     "residual_pattern_expected": 0.00022692414104717046
+    },
+    "3": {
+     "msd": 0.000632413221282099,
+     "se_msd": 3.8068168758684976e-06,
+     "rms": 0.025147827367033103,
+     "rms_sigma": 7.568878257966226e-05,
+     "msd_mix_paths": 0.0003651352058397219,
+     "se_msd_mix_paths": 1.8234080023422684e-06,
+     "ratio_to_mixture": 1.7319973838942837,
+     "se_ratio_to_mixture": 0.007475883973207487,
+     "residual_pattern_expected": 6.823637741665121e-05
+    },
+    "4": {
+     "msd": 7.926521698610451e-05,
+     "se_msd": 1.1377348228877765e-06,
+     "rms": 0.008903101537447751,
+     "rms_sigma": 6.389541993328375e-05,
+     "msd_mix_paths": 4.4452864158245755e-05,
+     "se_msd_mix_paths": 4.4982222554764795e-07,
+     "ratio_to_mixture": 1.7831295797708742,
+     "se_ratio_to_mixture": 0.01740159627115091,
+     "residual_pattern_expected": 1.9915353907272965e-05
+    },
+    "5": {
+     "msd": 5.521193468743863e-06,
+     "se_msd": 2.7430075325403153e-07,
+     "rms": 0.0023497219981827347,
+     "rms_sigma": 5.8368767340599143e-05,
+     "msd_mix_paths": 5.401720066095135e-06,
+     "se_msd_mix_paths": 1.0983351037011655e-07,
+     "ratio_to_mixture": 1.0221176590395018,
+     "se_ratio_to_mixture": 0.04121084542541603,
+     "residual_pattern_expected": 5.260475064947969e-06
+    },
+    "6": {
+     "msd": 6.093421844221036e-07,
+     "se_msd": 3.403703810289199e-08,
+     "rms": 0.000780603730725202,
+     "rms_sigma": 2.1801739322505326e-05,
+     "msd_mix_paths": 7.124201176188909e-07,
+     "se_msd_mix_paths": 2.7684958267944393e-08,
+     "ratio_to_mixture": 0.8553129948922513,
+     "se_ratio_to_mixture": 0.04182989149988786,
+     "residual_pattern_expected": 1.3850775808338909e-06
+    },
+    "7": {
+     "msd": 2.8527297908480713e-07,
+     "se_msd": 3.3825244977404346e-08,
+     "rms": 0.0005341095197474083,
+     "rms_sigma": 3.166508340218409e-05,
+     "msd_mix_paths": 1.0769180515868946e-07,
+     "se_msd_mix_paths": 7.1820217498077696e-09,
+     "ratio_to_mixture": 2.648975738353003,
+     "se_ratio_to_mixture": 0.27232358319426025,
+     "residual_pattern_expected": 2.7699749225395637e-07
+    }
+   },
+   "var_cost_T": 0.020778977518554096,
+   "se_cost_T": 3.0188129543891947e-05,
+   "var_kL_realised": 0.007248421305102272,
+   "se_kL_realised": 1.38650804103932e-05,
+   "n_cone": 52,
+   "n_samples": 2000000,
+   "sampler_seed": 0,
+   "chunk": 25000,
+   "runtime_s": 270.3265550136566,
+   "mixture": {
+    "rms_l2": 0.05535999941001015,
+    "rms_l2_sigma": 0.00013145411388874984,
+    "file": "h7_truncation_2026-09-27T0308.json",
+    "by_ell": {
+     "1": {
+      "rms": 0.15969413994378956,
+      "rms_sigma": 0.00018115802729905424
+     },
+     "2": {
+      "rms": 0.05535999941001015,
+      "rms_sigma": 0.00013145411388874984
+     },
+     "3": {
+      "rms": 0.018887512491096867,
+      "rms_sigma": 9.531001127237342e-05
+     },
+     "4": {
+      "rms": 0.006632142338970463,
+      "rms_sigma": 6.745897494222601e-05
+     },
+     "5": {
+      "rms": 0.002342392764122312,
+      "rms_sigma": 4.7209739707570426e-05
+     },
+     "6": {
+      "rms": 0.0008196919602563026,
+      "rms_sigma": 6.134921538737735e-05
+     },
+     "7": {
+      "rms": 0.0003204219558048113,
+      "rms_sigma": 0.00016021097790240566
+     }
+    }
+   }
+  }
+ ],
+ "runtime_s": 270.3496708869934
+}
