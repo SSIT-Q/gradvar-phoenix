@@ -1,0 +1,45 @@
+{
+ "schema": "gradvar.hardware job ids v1",
+ "joblist": "data/joblists/paper1/section3c_blockC.json",
+ "joblist_name": "paper1_section3c_blockC",
+ "backend": "ibm_phoenix",
+ "instance": "flex",
+ "submission_run": 42805558536,
+ "runner_git_commit": "9f4d1144f5aa37337d39a5461c30965248c7f3dd",
+ "batch_id": "89d24a5d-a2e0-44fa-a62a-ccc1f524ef45",
+ "calibration_csv": "/home/runner/work/gradvar-phoenix/gradvar-phoenix/data/calibrations/ibm_phoenix_2026-11-10T101610Z.csv",
+ "calibration_snapshot": "data/calibrations/ibm_phoenix_properties_2026-11-10T111320Z.json",
+ "written_utc": "2026-11-10T11:13:35.864476+00:00",
+ "notes": "written by execute_joblist right after submission (--submit-only: results not awaited)",
+ "discovery": null,
+ "resubmission": null,
+ "jobs": [
+  {
+   "job_id": "dbpfom8ou4as73ctjes0",
+   "tag": "L0",
+   "level": 0,
+   "shots": 65536,
+   "pubs": 300,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-11-10T11:13:20.864255+00:00"
+  },
+  {
+   "job_id": "dbpfon8qtr0c738ebgj0",
+   "tag": "L0-c2",
+   "level": 0,
+   "shots": 65536,
+   "pubs": 100,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-11-10T11:13:29.670574+00:00"
+  },
+  {
+   "job_id": "dbpfontt7fqc7389bsu0",
+   "tag": "L0-probes-s65536",
+   "level": 0,
+   "shots": 65536,
+   "pubs": 200,
+   "rep_delay_us": null,
+   "submitted_utc": "2026-11-10T11:13:34.970627+00:00"
+  }
+ ]
+}
