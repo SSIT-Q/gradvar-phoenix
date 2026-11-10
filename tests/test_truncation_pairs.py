@@ -339,8 +339,11 @@ BROKEN = "[[86, 87], [100, 101]]"
 def _pair_rows(arm, p, delta, seed0, M_=60, K_=32, s=64, resid=0.1, shared=0.3, rng_seed=4, qubits=Q52, stamp=STAMP):
     """Truncation rows of one pair in the loader's schema: C_full = c_d + eta_dm + rho_dm, C_cut = c_d + eta_dm - s_d delta, binomial
     shots; RMS(2) = delta exactly (the statistic subtracts the shot and residual pattern terms). The rows record the placement snapshot
-    and the runner's mask seeds (seed0 + 1 + m), the keys of the realised-mask comparator (Deviation 60 part (7))."""
+    and the runner's mask seeds (seed0 + 1 + m), the keys of the realised-mask comparator (Deviation 60 part (7)), and, as the
+    loader's rows do, the probe id of each circuit kind (trunc_full_... / trunc_l2_...): the mask-count guard of ``probe_mask_seed``
+    (Deviation 60 addendum 3, S1) counts the masks 0 .. K - 1 per probe and draw."""
     rng = np.random.default_rng(rng_seed)
+    tag = ("dephase_" if arm == "dephase" else "") + f"p{p:g}_L8"
     out = []
     for d in range(M_):
         c = 0.1 * np.sin(rng.uniform(0, 2 * np.pi))
@@ -349,7 +352,8 @@ def _pair_rows(arm, p, delta, seed0, M_=60, K_=32, s=64, resid=0.1, shared=0.3, 
         for m in range(K_):
             for ell, val in ((0, c + eta[m] + rho[m]), (2, c + eta[m] - sg * delta)):
                 ev = 2 * rng.binomial(s, (1 + np.clip(val, -1, 1)) / 2) / s - 1
-                out.append(dict(kind="truncation", ell=float(ell), arm=arm, reset_kind=arm, p=p, patch="6x10", edge="84_85", n=52, L=8, k=8,
+                out.append(dict(kind="truncation", probe_id=f"trunc_{'full' if ell == 0 else 'l2'}_{tag}", ell=float(ell), arm=arm, reset_kind=arm,
+                                p=p, patch="6x10", edge="84_85", n=52, L=8, k=8,
                                 patch_qubits=" ".join(map(str, qubits)), broken_edges=BROKEN, draw=d, mask_index=m, seed=seed0 + d,
                                 mask_seed=seed0 + 1 + m, ev_plus=ev, std_plus=np.nan, shots=s, resilience_level=0, placement_stamp=stamp))
     return pd.DataFrame(out)
