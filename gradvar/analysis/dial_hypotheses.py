@@ -1301,6 +1301,10 @@ def classify_readings(h5: Dict, h6: Dict, h7: Dict, pairs: Dict | None = None, m
         blocks.append("the H6 depth ratio is not evaluated at both p (the p = 0.5 rows need a placement-matched prediction, Deviation 60 item 5)")
     if ctrl is None:
         blocks.append("the H6 reset / dephasing control is not evaluated" + (f" ({hp['n_controls']} candidates)" if hp["n_controls"] else ""))
+    no_factor = bool(ctrl is not None and ctrl.get("exceeds") and ctrl.get("within") is None and not _factor_not_tested(ctrl))
+    if no_factor:       # the control passed on 'above 1' alone: no placement-matched prediction gave its factor (Deviation 60 part (5))
+        blocks.append("the H6 reset / dephasing control has no pre-drawn factor (no placement-matched prediction of the reset or the dephasing point, "
+                      "Deviation 60 part (5)): the clause is tested on 'above 1' only, so a sub-test the readings need is not evaluated")
     if (h7 or {}).get("result") not in ("pass", "fail"):
         blocks.append("H7 is not evaluable" + (f": {(h7 or {}).get('note')}" if (h7 or {}).get("note") else ""))
     for k, v in ran.items():
@@ -1321,14 +1325,18 @@ def classify_readings(h5: Dict, h6: Dict, h7: Dict, pairs: Dict | None = None, m
         return done("R2", ["the reset-side sub-tests pass while the reset dial's k = L variance is not resolvably above the dephasing dial's",
                            "the unital-ceiling check passes"]
                     + (["A3(b): the dephasing RMS(2) is not resolvably above the reset's"] if b_ is not None else []), wording)
-    if control == "unresolved":
-        if detail["h6_control_rule"] == "bounds":
+    if control == "unresolved" and not no_factor:
+        if (ctrl or {}).get("evaluable") is False:
+            why = str(ctrl.get("factor_note") or "an interval is not finite").removeprefix("not evaluable: ")
+            reasons.append("the H6 reset / dephasing control is not evaluable (Deviation 60 part (6): " + why + "; a computation gap, not a failure of the "
+                           "clause), so a sub-test the readings need is not evaluated")
+        elif detail["h6_control_rule"] == "bounds":
             reasons.append("the H6 reset / dephasing control is read on bounds (Deviation 60 part (6)): the dephasing variance is not resolvably "
                            "positive and the reset dial's lower end is not above the dephasing dial's upper bound (or the factor cannot be tested), "
                            "so the clause fails; an unresolved dephasing variance blocks R2 only")
         else:
             reasons.append("the H6 control has no finite ratio and was not read on bounds")
-    if control == "partial":
+    if control == "partial" and not no_factor:
         reasons.append("the reset dial is resolvably above the dephasing dial but off the pre-drawn factor")
     if control == "unital_protects":
         if ceil != "pass":

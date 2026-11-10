@@ -708,6 +708,23 @@ def test_reading_counts_an_ambiguous_cmix_member_as_a_gap():
         assert len(gaps) == 1 and "6x10, p = 0.25, L = 8" in gaps[0] and all(i in gaps[0] for i in want) and gaps[0] in r["reasons"]
 
 
+def test_reading_needs_the_control_factor_tested():
+    """Final review (10 Nov 2026), N3: R1 needs H6's reset / dephasing clause evaluated. A control that passed on 'above 1' alone because
+    no pre-drawn factor was found (no placement-matched prediction, Deviation 60 part (5)) blocks R1, on the ratio rule and on bounds;
+    part (6)'s d_hi <= 0 case, where the factor is not tested by rule, does not. A control that is not evaluable (N2) is named as such."""
+    no_factor_ratio = dict(measured=600.0, lo=250.0, hi=1500.0, predicted=float("nan"), within=None, exceeds=True, rule="ratio")
+    no_factor_bounds = dict(_bounds(8e-3, -2e-5, 3e-5), within=None, predicted=None, factor_tested=False, factor_note="no pre-drawn factor")
+    for c in (no_factor_ratio, no_factor_bounds):
+        r = CR(H5_OK, _h6(control=c), H7_OK, PAIRS_OK)
+        assert r["reading"] == "UNRESOLVED" and sum("no pre-drawn factor" in x for x in r["reasons"]) == 1 and not any("clause fails" in x or "off the pre-drawn" in x for x in r["reasons"])
+    by_rule = dict(_bounds(8e-3, -6e-5, -1e-5), within=None, factor_tested=False, factor_note="factor not tested: the dephasing interval lies at or below zero")
+    assert CR(H5_OK, _h6(control=by_rule), H7_OK, PAIRS_OK)["reading"] == "R1"
+    gap = dict(_bounds(8e-3, -2e-5, 3e-5), within=None, exceeds=None, evaluable=False, factor_tested=False, factor_note=DH.H6_CONTROL_NOT_EVALUABLE, dephasing_hi=float("nan"))
+    for result in ("not-evaluable", "fail"):
+        r = CR(H5_OK, _h6(result, gap), H7_OK, PAIRS_OK)
+        assert r["reading"] == "UNRESOLVED" and any("is not evaluable" in x and "not finite" in x for x in r["reasons"]) and not any("clause fails" in x for x in r["reasons"])
+
+
 def test_reading_needs_the_realised_floors_tested():
     """Deviation 60 part (7): the floors R3 (i) reads are the realised-mask floors; one not tested (no realised mask counts, or no run-day
     readout / gain factors) blocks R1 and R2 with the point named, as an E[C_mix] gap does (S10); a tested floor below with its interval
