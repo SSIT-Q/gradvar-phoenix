@@ -433,8 +433,9 @@ def test_deviation_26_cz_cut_breaks_couplers_and_moves_observable_edge(tmp_path)
 
 
 def test_deviation_26_on_the_19_sep_1925_snapshot_breaks_the_4x10_bad_couplers():
-    from gradvar.noise import latest_properties_file, place_patch
+    from gradvar.hardware import properties_for_csv
+    from gradvar.noise import place_patch
     csv = str(ROOT / "data" / "calibrations" / "ibm_phoenix_2026-09-19T192510Z.csv")
-    p = place_patch(4, 10, csv, allow_holes=True, properties=latest_properties_file())
+    p = place_patch(4, 10, csv, allow_holes=True, properties=properties_for_csv(csv))     # the 19:25Z properties, not the newest
     assert {(95, 96), (100, 101)} <= set(p.broken_edges)     # 3.1e-2 and 6.3e-2 on the 19:25Z snapshot
     assert all(e not in p.edges() for e in p.broken_edges)

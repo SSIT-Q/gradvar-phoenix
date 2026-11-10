@@ -8,7 +8,7 @@ of 4 Oct (`08_paper1_replication_2026-10-04.md`, 4 Oct 04:35Z data; never dispat
 Q20 (init 5.09e-04), Q34 (T2 4.1 us, readout 8.89e-02, in the n20 L = 2 cone), Q37 (T1 24.4 us, in the n20 L = 2 cone), Q66 (init 1.04e-03, in the n20 L = 2 cone, in the n100 L = 2 cone), Q69 (readout 5.22e-02), Q79 (init 5.25e-04), Q90 (init 1.42e-03), Q91 (init 3.48e-03) and couplers 33-34 (CZ 1.27e-02), 34-35 (CZ 1.43e-02), 34-44 (CZ 1.34e-02), 39-49 (CZ 6.95e-03), 48-49 (CZ 7.97e-03), 89-99 (CZ 6.49e-03), 98-99 (CZ 5.13e-03) and 99-109 (CZ 5.42e-03)).
 Pre-registration **v0.17.0** as stamped in the lists, with Deviation 62 adopted in v0.17.0 (4 Oct 2026): Deviation 19 (anomaly protocol, the two recorded flags), Deviation 57 (replication
 placement), Deviation 58 (the replication's 4x5 is placed by the rule among rectangles disjoint from day 1's; pinned snapshot), Deviation 62 (the
-connected-component rule; these lists carry no reset dial, so Q79 is placed here), Deviations 18, 22, 26, 37, 43, 46, 53, 55; Section 5 Gate 2 (e). Tracker
+connected-component rule; these lists carry no reset dial and use the plain placement; on this snapshot Q79 is a hole of the plain rung too (initialisation error 5.25e-04)), Deviations 18, 22, 26, 37, 43, 46, 53, 55; Section 5 Gate 2 (e). Tracker
 P1.3.9. **Order on 10 Nov (Owais's decision): day 3 is held (v0.18.0 (Deviations 60 and 63) not yet adopted); these two lists first, then Section 3c Block C (pre-flight 09).** Each list is its own Batch,
 arming, dispatch and ids file.
 
@@ -31,9 +31,8 @@ generator's test). `campaign.replication` in each list records the flags, day 1'
   columns 1-5), so Deviation 19's "different clean patch" holds by construction: **(1, 2), n = 18, holes 24, 34, broken 15-16, edge 23_33,
   23 live couplers, L = 2 cone of 12 qubits / 14 couplers** (4 Oct: moved (3, 4) -> (1, 2); n 19 -> 18; edge 46_47 -> 23_33; live 27 -> 23). No qubit in common with
   day 1's patch; "clean" is read as "cleanest under the cuts among the disjoint rectangles", recorded as such. The connected-component rule adds no hole here.
-- **n100 (flag 2).** The **plain** n100 rung (no reset dial here, so qubit 79 is placed): (2, 0), n = 79 (holes 20, 24, 28, 34, 37, 49, 55, 59, 61, 62, 63, 66, 69, 72, 73, 77, 79, 90, 91, 99, 107;
-  component-rule hole Q49, Q99), 4 broken couplers, edge 75_85, 112 live couplers. It differs from day 3's dial
-  n100 (n = 79) only by Q79. Any two 10x10 rectangles on the 12x10 lattice share at least 80 qubits, so no alternative placement exists; the point
+- **n100 (flag 2).** The **plain** n100 rung (no reset dial here; qubit 79 is a hole on this snapshot, initialisation error 5.25e-04): (2, 0), n = 79 (holes 20, 24, 28, 34, 37, 49, 55, 59, 61, 62, 63, 66, 69, 72, 73, 77, 79, 90, 91, 99, 107;
+  component-rule hole Q49, Q99), 4 broken couplers, edge 75_85, 112 live couplers. On this snapshot it has the same 79 qubits as day 3's dial n100. Any two 10x10 rectangles on the 12x10 lattice share at least 80 qubits, so no alternative placement exists; the point
   replicates on the same rung with fresh seeds (Deviation 57: draw sampling and day-to-day drift, not patch dependence), at the replication-day n
   (79; day 2 ran n = 85), so its prediction is the re-drawn row of Section 4.
 - **"Different calendar day"**: day 1 ran 20 Sep, day 2's n = 85 point 20 Sep 18:57-19:49 UTC; a dispatch on 10 Nov or later is a different UTC and
@@ -41,7 +40,7 @@ generator's test). `campaign.replication` in each list records the flags, day 1'
 - **Live re-check at submission**: `layout_check: enforce` on the placed qubits of both rungs (84 qubits, 119 live couplers in
   `replication_01`); a refusal charges nothing; the list is not dispatched again on this package, and a later dispatch needs a new same-day package (Deviation 62 (iv)); no override (Section 7). Watch list on the n20 rung (T1 or T2 < 31.25 us, readout >= 2.4e-2, init >= 3.0e-4, or a missing
   figure shown as NaN): Q15 (T1 214.5 us, T2 127.5 us, readout 1.22e-02, init 4.25e-04; over a cut on 22 of the 58 committed snapshots since 20 Sep); Q25 (T1 142.2 us, T2 162.9 us, readout 6.35e-03, init 3.29e-04; over a cut on 17 of the 58 committed snapshots since 20 Sep); placed qubits that failed a cut on an earlier snapshot: Q12, Q13, Q14, Q16, Q22, Q23, Q26, Q33, Q42, Q46; live couplers within 20 percent of the CZ cut:
-  22-23 (4.26e-03; up to 7.3e-03 on an earlier snapshot). On the n100 rung: pre-flight 06 Section 2 (plus Q79, placed here).
+  22-23 (4.26e-03; up to 7.3e-03 on an earlier snapshot). On the n100 rung: pre-flight 06 Section 2.
 
 **Pre-check against the newest committed snapshot** (`ibm_phoenix_2026-11-10T082134Z.csv`, IBM properties of 10 Nov 07:32Z; `run_precheck` semantics: the runner's live cuts on every placed qubit and live coupler of `replication_01`, `replication_01_16384`): **every placed qubit and live coupler is inside the cuts (no failures)**; nearest qubits: Q115 (T1 207.5, T2 172.2, ro 0.0278, init 1.00e-05), Q118 (T1 162.0, T2 192.6, ro 0.0288, init 7.11e-05), Q15 (T1 214.5, T2 127.5, ro 0.0122, init 4.25e-04), Q25 (T1 142.2, T2 162.9, ro 0.0063, init 3.29e-04), Q29 (T1 87.7, T2 125.5, ro 0.0142, init 4.04e-04), Q52 (T1 133.6, T2 132.0, ro 0.0073, init 3.54e-04); couplers at 4.4e-3 to 5e-3: 41-51 4.77e-03. This is the placement snapshot itself, so it passes by construction; IBM updates its properties one to three times a day: Owais runs Actions -> calibration snapshot just before arming; if IBM's properties time is not 2026-11-10T07:32:03Z, the list is not dispatched on this package; otherwise Claude's pre-check on that snapshot must pass (Section 7, step 0).
 
@@ -95,11 +94,12 @@ The fake's stale calibration fails the layout check (`enforced: false`), as for 
 
 0. As pre-flight 06 Section 6 step 0 (the same-day pull request merged; `placement.snapshot` `ibm_phoenix_2026-11-10T082134Z.csv` on `main`; arming edits only `dry_run` and `preflight_review`; the stop rule for a submitting run that ends without `job ids written to`). Then: Owais runs Actions -> calibration snapshot just before arming; if IBM's properties time is not 2026-11-10T07:32:03Z, the list is not dispatched on this package; otherwise Claude's pre-check on that snapshot must pass.
 1. (Claude, done) Regenerated on the pinned snapshot (`--replication`, `--check`), re-drawn predictions committed, this document committed.
-2. Arm **both** lists: in `data/joblists/paper1/replication_01.json` and `replication_01_16384.json` set `"dry_run": false` and
+2. Arm **`replication_01_16384` only** (`replication_01` is held: NO_GO on this package, Section 8): in
+   `data/joblists/paper1/replication_01_16384.json` set `"dry_run": false` and
    `"preflight_review": "<the commit-pinned URL of this file>"` (`https://github.com/SSIT-Q/gradvar-phoenix/blob/<40-hex commit>/docs/preflight/08_paper1_replication_2026-11-10.md`, the commit on `main` at which Section 8
-   carries the review), commit to `main`.
-3. Actions, "run hardware job list", branch `main`, `joblist` = `data/joblists/paper1/replication_01.json`, untick "Build and transpile only", tick
-   `submit_only`, Run; when it has written its ids file, dispatch again with `joblist` = `data/joblists/paper1/replication_01_16384.json`. Then Block C.
+   carries the review), commit to `main`. `replication_01.json` is not edited.
+3. Actions, "run hardware job list", branch `main`, `joblist` = `data/joblists/paper1/replication_01_16384.json`, untick "Build and transpile only", tick
+   `submit_only`, Run. `replication_01.json` is not dispatched from this package. Then Block C.
 4. When the jobs are done (about 5 QPU minutes): "retrieve hardware jobs" once per ids file; a failed job is resubmitted with `only_job_tag`.
 5. Post-run review `docs/postrun/06_paper1_replication_<date>.md` (Section 4 table per flag, the Deviation 19 simulations, the null floors, Gate 2 (e), any override);
    Claude evaluates, the coordinator with the reviewer decides each flag under the PI's delegation; the pre-registration's Deviation 19 row, tracker
