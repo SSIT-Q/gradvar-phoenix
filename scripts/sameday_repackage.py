@@ -12,28 +12,45 @@ gates, kill rules, budget and ledger lines and the pre-registered text do not.
 
 ``run`` (the default command), on the snapshot (default: the newest committed ``ibm_phoenix_*.csv`` with raw properties):
 
+(0) run records (``scripts/run_records.py``): a list that was armed or dispatched (``dry_run`` false, or a job-ids file under
+    ``data/runs``) is the record of its run. It is never regenerated, re-placed, dry-run, pre-flighted or counted in the day's budget, and
+    its file must be byte-identical after the run. A dispatched list that is un-armed again, or ``--with-pairs`` when the pairs list or
+    day 3 has already run, stops the cycle: the name of a list that must run again is the operator's decision;
 (a) pre-check of the committed lists (runner semantics); when every un-armed list passes, no re-package is needed and the run stops
-    (``--force`` goes on);
+    (``--force`` goes on, and the summary says that the run was forced and why);
 (b) every list of ``scripts/make_paper1_joblists.py`` regenerated on the snapshot and pinned to it (``DEFAULT_SNAPSHOT`` set to it), then
     ``--day3`` and ``--check``; with ``--with-pairs`` also ``scripts/make_truncation_pairs.py`` (Deviation 63, draft; off by default). The run
     stops with a per-rung report when the rule cannot place a rung, or when the Deviation 62 connected-component rule adds more than 3 holes
     to a rung of a run-day list;
 (c) in parallel: the Gate 1b re-draw (followed by the dial rows, ``scripts/redraw_dial_points.py``, which count its rows as covered), the
     main-grid re-draw, the H7 comparator (``scripts/predict_h7_truncation.py``; the pairs' comparators with ``--with-pairs``), the sampled
-    FakeNighthawk dry runs and the test suite. The run stops if Gate 1b fails. ``scripts/check_comparators.py`` must then exit 0;
-(d) pre-flights 06 / 08 / 09 (and 10 for the pairs) rendered by ``scripts/build_preflights.py``;
+    FakeNighthawk dry runs and the test suite. Both comparator scripts also draw the Deviation 60 part (7) comparators on the probes'
+    realised masks (``dial_realised_<tag>.*``, ``h7_realised[_pairs]_<tag>.*``; the designed channel, the Deviation 60 settings), which
+    are committed with the package. The run stops if Gate 1b fails. ``scripts/check_comparators.py`` must then exit 0 on day 3 (and on
+    the pairs list), with every item found in a file of this package;
+(d) pre-flights 06 / 08 / 09 (and 10 for the pairs) rendered by ``scripts/build_preflights.py``, for the un-armed run-day lists only;
 (e) the pre-check of every placed qubit and live coupler of every list on the snapshot, exactly as the runner's live check (every list
     must pass), and of the day-2 n100 rung that an L2-c5 resubmission is checked on (reported);
-(f) the test results, failures split into the known ones (``docs/repack/known_test_failures.txt``) and any other;
-(g) ``docs/repack/<date>_summary.md`` / ``.json``, and a bundle (``--out``) that ``publish`` commits to ``repack-<date>`` (two commits:
+(f) the test results, failures split into the known ones (``docs/repack/known_test_failures.txt``) and any other. A failure or error
+    outside the known list is a stop of Deviation 62 (iv): the status is ``stopped`` and the exit code 1 (so are ``--no-tests`` and
+    ``--deselect``, which leave the suite incomplete);
+(g) ``docs/repack/<label>_summary.md`` / ``.json``, and a bundle (``--out``) that ``publish`` commits to ``repack-<date>`` (two commits:
     lists and predictions first, then pre-flights and summary, Deviation 54 order) with a draft pull request to ``main``.
+
+``<label>`` is the date for the first package of a date. A date-named file is never overwritten: when a summary, tests report or
+pre-flight of that date already exists, the label takes the snapshot's time (``<date>T<HHMM>``; ``-r2``, ... for a further run on the
+same snapshot), and the pre-flights, summary and tests report of this package carry it. ``--force`` does not change that.
+
+``publish`` refuses a bundle whose status is not ``ok``. A bundle stopped only by the test suite is published with
+``--allow-test-stop "<reason>"``, which is written into both commit messages, the pull request and ``publish.json``; ``--force`` commits
+the files under ``docs/repack/`` only (the summary and tests report of a stopped run), never lists, predictions or pre-flights.
 
 ``--modal`` (default): the run executes in a Modal sandbox at the commit given by ``prepare`` (codeload zip of that commit). From a
 workstation or an authenticated Modal kernel this needs the ``modal`` package (``MODAL_TOKEN_ID`` / ``MODAL_TOKEN_SECRET``); in a
 Claude Science session the same run goes through ``host.compute`` with ``modal/run_sameday.sh <sha> [args]``, which runs this script with
 ``--no-modal`` in the container. ``--no-modal`` runs everything in the current working tree (Linux; 16 or more cores advised).
-Nothing is armed: every list keeps ``dry_run`` true and the placeholder pre-flight record; the Deviation 26 override stays closed
-(``approved_overrides`` empty).
+Nothing is armed: every list the cycle writes keeps ``dry_run`` true and the placeholder pre-flight record; the Deviation 26 override
+stays closed (``approved_overrides`` empty). ``scripts/prearm_check.py`` is the check between the merge and the arming.
 """
 from __future__ import annotations
 
@@ -59,6 +76,9 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts"))
+import run_records as RR                                              # noqa: E402  (what counts as the record of a run; stdlib only)
+
 REPO = "SSIT-Q/gradvar-phoenix"
 API = f"https://api.github.com/repos/{REPO}"
 CAL = ROOT / "data" / "calibrations"
@@ -67,8 +87,13 @@ PRED = ROOT / "data" / "predictions"
 REPACK = ROOT / "docs" / "repack"
 KNOWN_FAILURES = REPACK / "known_test_failures.txt"
 GENERATOR = ROOT / "scripts" / "make_paper1_joblists.py"
-RUN_DAY = ("day3_dial_refs", "replication_01", "replication_01_16384", "section3c_blockC")
+RUN_DAY = ("day3_dial_refs", "replication_01", "replication_01_16384", "section3c_blockC")   # the design; a cycle packages those that are not records
+DIAL_PLACED = ("day3_dial_refs", "references_gate1b", "dial_arm")   # lists on the dial placement (Deviation 62): the first un-armed one stands for it
+PLAIN_N100 = ("replication_01", "replication_01_16384", "section3c_blockC", "grid_n100")   # lists carrying the plain n100 rung
 PAIRS = "dial_truncation_pairs"
+PREFLIGHT = ROOT / "docs" / "preflight"
+INSTANCE = dict(cap_min=210.0, used_min=45.0, as_of="2026-10-04")       # the instance cap and the minutes used, as the pipeline last recorded them
+SIX_STOPS = ("placement", "component_holes", "gate1b", "comparators", "precheck", "tests")   # Deviation 62 (iv), the deviations table, row 62
 STOP_LIMIT = 3                      # Deviation 62: at most 3 connected-component holes per rung of a run-day list
 MODAL_IMAGE = os.environ.get("GRADVAR_MODAL_IMAGE", "im-yxBt8u8Ao1kVKCITcVzwk7")
 RATES = dict(cpu_core_s=3.942e-5, mem_gib_s=6.67e-6)          # Modal sandbox tier (USD per physical core-second / GiB-second), Sep 2026
@@ -131,8 +156,61 @@ def list_names(d: Path = P1) -> list:
 
 
 def is_record(jl: dict) -> bool:
-    """An armed list that ran (dry_run false): a record, never re-packaged."""
-    return jl.get("dry_run") is False
+    """A run record (``scripts/run_records.py``): armed (``dry_run`` false) or dispatched (a job-ids file under ``data/runs``). Never
+    re-packaged; no name is hard-coded."""
+    return RR.status_of(jl, RR.RUN_ROOT)["record"]
+
+
+def record_table(d: Path = P1) -> dict:
+    """{list: what the repository says} for every record of the lists directory, with the placement it ran on and its sha256."""
+    out = {}
+    for n, st in RR.records_in(d, RR.RUN_ROOT).items():
+        jl = load(n, d)
+        pl = jl.get("placement") or {}
+        out[n] = dict(reason=st["reason"], armed=st["armed"], ids_files=st["ids_files"], days=st["days"], preflight_review=jl.get("preflight_review"),
+                      placement_stamp=pl.get("stamp"), placement_snapshot=pl.get("snapshot"), sha256=sha256(d / f"{n}.json"),
+                      min_at_1us=(jl.get("budget") or {}).get("minutes_at_1us"))
+    return out
+
+
+def run_day_lists(records) -> tuple:
+    """The run-day lists a cycle packages: the design's four without the records."""
+    return tuple(n for n in RUN_DAY if n not in records)
+
+
+def first_unarmed(names, records, d: Path = P1) -> str | None:
+    return next((n for n in names if n not in records and (d / f"{n}.json").exists()), None)
+
+
+def package_label(date: str, stamp: str, repack: Path = REPACK, preflight: Path = PREFLIGHT) -> dict:
+    """The label of this package's date-named files (summary, tests report, pre-flights). The first package of a date takes the date;
+    a date-named file is never overwritten, so when one exists the label takes the snapshot's time (``<date>T<HHMM>``), and ``-r2``,
+    ``-r3``, ... for a further run on the same snapshot. Returns ``label`` (summary and tests), ``preflight_label`` (pre-flights: the
+    snapshot's date with the same suffix), ``suffix``, ``taken`` (the files that forced a suffix) and ``reason`` (prose)."""
+    sdate, hhmm = stamp[:10], stamp[11:15]
+
+    def taken(sfx):
+        return sorted({p.name for pat in (f"{date}{sfx}_summary.*", f"{date}{sfx}_tests*.txt") for p in repack.glob(pat)}
+                      | {p.name for p in preflight.glob(f"*_{sdate}{sfx}.md")})
+    forced = []
+    for sfx in [""] + [f"T{hhmm}"] + [f"T{hhmm}-r{k}" for k in range(2, 100)]:
+        t = taken(sfx)
+        if not t:
+            reason = "the first package of the date"
+            if forced:
+                whose = ""
+                prior = repack / f"{date}_summary.json"
+                if prior.exists():
+                    try:
+                        pr = json.loads(prior.read_text(encoding="utf-8")).get("run", {})
+                        whose = f" (the package of snapshot `{pr.get('snapshot')}`, status {json.loads(prior.read_text(encoding='utf-8')).get('status')})"
+                    except ValueError:
+                        whose = ""
+                reason = (f"date-named files of {date} already exist{whose}: {', '.join(f'`{x}`' for x in forced[:8])}"
+                          + (" ..." if len(forced) > 8 else "") + "; they are left as they are and this package's files carry the label")
+            return dict(label=f"{date}{sfx}", preflight_label=f"{sdate}{sfx}", suffix=sfx, taken=forced, reason=reason)
+        forced += t
+    raise SystemExit(f"no free package label for {date} (snapshot {stamp})")
 
 
 def tree_hashes() -> dict:
@@ -152,7 +230,12 @@ def import_builder():
 
 
 class Stop(Exception):
-    """A stop condition of the cycle: the run ends with a report and nothing is committed."""
+    """A stop condition of the cycle: the run ends with a report and nothing is committed. ``kind``: one of ``SIX_STOPS`` (Deviation
+    62 (iv)), ``records`` (a run record would be touched) or ``other``."""
+
+    def __init__(self, msg: str, kind: str = "other"):
+        super().__init__(msg)
+        self.kind = kind
 
 
 # --------------------------------------------------------------------------- (a) / (e): the runner's live check on a placement block
@@ -264,6 +347,8 @@ def validate_lists(csv: Path, with_pairs: bool) -> dict:
             if n in RUN_DAY + (PAIRS,) and len(ch) > STOP_LIMIT:
                 problems.append(f"{n} {r}: the component rule adds {len(ch)} holes {ch} (stop limit {STOP_LIMIT})")
     for n in ("day3_dial_refs", "dial_arm", "dial_arm_contingent", "references_gate1b") + ((PAIRS,) if with_pairs else ()):
+        if n not in names:                                                 # a run record keeps the placement it ran on
+            continue
         pl = load(n)["placement"]
         if pl.get("dial_exclude") != list(DIAL_EXCLUDE):
             problems.append(f"{n}: dial_exclude {pl.get('dial_exclude')} (expected {list(DIAL_EXCLUDE)})")
@@ -424,6 +509,20 @@ def prediction_rows(tag: str, d: Path = PRED) -> dict:
                 pt = e.get("point", {})
                 key = f"{stem.replace('_truncation', '')} {pt.get('rung')} {pt.get('reset_kind', 'reset')} p={pt.get('p')} L={pt.get('L')} rms_l2"
                 out[key] = (fnum(e.get("rms_l2")), fnum(e.get("rms_l2_sigma")), f.name)
+    # Deviation 60 part (7): the comparators on the probes' realised masks (one row per probe; the tests read these)
+    f = d / f"dial_realised_{tag}.csv"
+    if f.exists():
+        for r in pd.read_csv(f).to_dict("records"):
+            base = f"dial-realised {r['rung']} {r['dial']} p={r['p']} L={int(r['L'])} {r['probe_id']}"
+            out[base + " k=L"] = (fnum(r.get("var_kL_realised")), fnum(r.get("se_kL_realised")), f.name)
+    for stem in ("h7_realised", "h7_realised_pairs"):
+        f = d / f"{stem}_{tag}.json"
+        if f.exists():
+            for e in json.loads(f.read_text(encoding="utf-8")).get("entries", []):
+                pt = e.get("point", {})
+                key = (f"{stem.replace('_realised', '-realised')} {pt.get('rung')} {pt.get('reset_kind', 'reset')} p={pt.get('p')} L={pt.get('L')} "
+                       f"seed={e.get('mask_seed')} K={e.get('K')} rms_l2")
+                out[key] = (fnum(e.get("rms_l2")), fnum(e.get("rms_l2_sigma")), f.name)
     return out
 
 
@@ -462,6 +561,86 @@ RUNGS = {"day 3 dial n40": ("day3_dial_refs", "n40"), "day 3 dial n60": ("day3_d
          "grid n100": ("grid_n100", "n100")}
 
 
+def rung_labels(records=()) -> dict:
+    """``RUNGS`` for a cycle: the rungs of a run record are not this package's (the record keeps the placement it ran on), so a label
+    is read from an un-armed list on the same placement, or dropped."""
+    out = {}
+    for label, (n, r) in RUNGS.items():
+        if n not in records:
+            out[label] = (n, r)
+        elif label == "plain n100":
+            alt = first_unarmed(PLAIN_N100, records)
+            if alt:
+                out[label] = (alt, r)
+        elif label.startswith("day 3 dial"):
+            alt = first_unarmed(DIAL_PLACED, records)
+            if alt:
+                out[label.replace("day 3 dial", "dial")] = (alt, r)
+    return out
+
+
+def run_day_rungs(records=(), with_pairs: bool = False) -> list:
+    """The summary's rung labels that a list of this package runs on (the rungs a first placement is looked at for)."""
+    rd = run_day_lists(records)
+    out = [k for k in ("day 3 dial n40", "day 3 dial n60", "day 3 dial n100") if "day3_dial_refs" in rd]
+    if "replication_01" in rd:
+        out.append("replication n20")
+    if any(n in rd for n in PLAIN_N100):
+        out.append("plain n100")
+    return out
+
+
+def committed_origins(tag: str | None, pred_dir: Path = PRED, lists_dirs=()) -> dict:
+    """{patch spec: {(row, col): [where]}}: every rung origin an earlier committed placement used: the ``runday_placement`` blocks of the
+    committed ``gate1b_redraw_*.json`` / ``main_grid_redraw_*.json`` (files of this package's ``tag`` left out) and the placement
+    blocks of the lists in ``lists_dirs`` (the lists before this re-package, records included)."""
+    out = {}
+
+    def add(v, where):
+        try:
+            out.setdefault(str(v["patch"]), {}).setdefault((int(v["origin"][0]), int(v["origin"][1])), []).append(where)
+        except (KeyError, IndexError, TypeError, ValueError):
+            pass
+    for f in sorted(list(pred_dir.glob("gate1b_redraw_*.json")) + list(pred_dir.glob("main_grid_redraw_*.json"))):
+        if tag and tag in f.name:
+            continue
+        try:
+            d = json.loads(f.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        for v in (((d.get("runday_placement") or {}).get("rungs")) or {}).values():
+            add(v, f.name)
+    for ld in lists_dirs:
+        for p in sorted(Path(ld).glob("*.json")):
+            if p.stem == "summary":
+                continue
+            try:
+                jl = json.loads(p.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            for v in (((jl.get("placement") or {}).get("rungs")) or {}).values():
+                add(v, f"{p.name} ({(jl.get('placement') or {}).get('stamp')})")
+    return out
+
+
+def origin_table(names_rungs: dict, d: Path, earlier: dict) -> dict:
+    """Per rung label: its patch and origin, whether an earlier committed placement used that origin (checklist Section 3 item 6),
+    the origins that were used, and whether its observable edge is interior (both end qubits with all four lattice neighbours
+    placed) or the nearest-centre fallback of ``gradvar.lattice.interior_edge``."""
+    bp = import_builder()
+    out = {}
+    for label, (n, r) in names_rungs.items():
+        try:
+            v = load(n, d)["placement"]["rungs"][r]
+        except (OSError, KeyError):
+            continue
+        used = earlier.get(str(v["patch"]), {})
+        o = (int(v["origin"][0]), int(v["origin"][1]))
+        out[label] = dict(list=n, rung=r, patch=v["patch"], origin=list(o), new_origin=o not in used, earlier_origins=[list(k) for k in sorted(used)],
+                          edge=v["edge"], edge_interior=bp.edge_interior(v), edge_rule=v.get("edge_rule"))
+    return out
+
+
 def budget_of(jl: dict) -> dict:
     b = jl["budget"]
     extra = sum(DAY2["job_s"] - e["job_constant_seconds"] for e in b["per_job"]) / 60
@@ -478,7 +657,17 @@ def fmt(x, p=3):
         return str(x)
 
 
+def instance_text(inst: dict | None) -> str:
+    """The instance cap and the minutes used, with where the figures come from (they are inputs, not computed here)."""
+    i = dict(INSTANCE, source="pipeline default") if not inst else inst
+    src = (f"as given to this run" if i.get("source") == "given" else
+           f"the pipeline's figures as of {i.get('as_of')}, not updated for any dispatch since: confirm at the review")
+    return f"instance cap {i['cap_min']:g} min, {i['used_min']:g} used ({src})"
+
+
 def write_summary(S: dict, date: str) -> tuple:
+    """Write ``docs/repack/<label>_summary.json`` / ``.md``; ``date`` is the package label (the date, or the date with the snapshot's
+    time when the date's files exist: ``package_label``). An existing file of another package is never overwritten."""
     REPACK.mkdir(parents=True, exist_ok=True)
     jpath, mpath = REPACK / f"{date}_summary.json", REPACK / f"{date}_summary.md"
     jpath.write_text(json.dumps(S, indent=1, default=str) + "\n", encoding="utf-8", newline="\n")
@@ -487,8 +676,24 @@ def write_summary(S: dict, date: str) -> tuple:
     L += [f"Snapshot `{r['snapshot']}` (IBM properties {r.get('ibm_properties')}); previous package {S.get('previous', {}).get('stamp')}; base "
           f"`{r.get('base_sha')}`, run commit `{r.get('run_sha')}`; lists and predictions in commit `{PLACEHOLDER_COMMIT}`; pipeline "
           f"`scripts/sameday_repackage.py`, pairs {'on' if r.get('with_pairs') else 'off'}.", ""]
+    if r.get("label") and r.get("label") != r.get("date"):
+        L += [f"**Label `{r['label']}`** (pre-flights `*_{r.get('preflight_label')}.md`): {r.get('label_reason')}.", ""]
     if S.get("stop_reason"):
         L += [f"**Stopped:** {S['stop_reason']}", ""]
+    if S.get("stops"):
+        L += ["**Stop conditions met** (Deviation 62 (iv) names six: a rung that cannot be placed, more than three component holes on a run-day "
+              "rung, Gate 1b, `check_comparators`, the pre-check, the test suite; nothing is dispatched from a stopped cycle):", ""]
+        L += [f"- `{x['kind']}`: {x['text']}" for x in S["stops"]] + [""]
+    if r.get("forced"):
+        L += [f"**Forced (`--force`):** {r['forced']}", ""]
+    rec = S.get("records") or {}
+    if rec:
+        L += ["## Run records (not part of this package)", "",
+              "Lists that were armed or dispatched are the records of their runs (`scripts/run_records.py`). This cycle did not regenerate, "
+              "re-place, dry-run or pre-flight them, and does not count them in the day's budget.", "",
+              "| list | why it is a record | placed on | sha256 | unchanged by this run |", "|---|---|---|---|---|"]
+        L += [f"| `{n}` | {v['reason']} | {v.get('placement_stamp')} | `{str(v.get('sha256'))[:16]}` | {v.get('unchanged', 'not checked')} |" for n, v in rec.items()]
+        L.append("")
     if S.get("holds"):
         L += ["**Rendered for the record, not dispatched from this package:** " + "; ".join(f"`{n}` ({r})" for n, r in S["holds"].items()) + ".", ""]
     L += [f"Wall time {r.get('wall_min')} min (stages: " + ", ".join(f"{k} {v}" for k, v in (r.get('stage_min') or {}).items()) + f"); {r.get('cores')} cores; "
@@ -497,7 +702,7 @@ def write_summary(S: dict, date: str) -> tuple:
     if pc:
         L += ["## (a) Committed lists on this snapshot", "",
               f"Re-package needed: **{S.get('needed')}**. " + "; ".join(f"`{n}` {'passes' if v['passes'] else 'fails: ' + ', '.join(v['qfail'] + v['cfail'])}"
-                                                                  for n, v in pc.items() if n in RUN_DAY + ('dial_arm_contingent',)), ""]
+                                                                  for n, v in pc.items() if n in RUN_DAY + ('dial_arm_contingent',) and not v.get("record")), ""]
     pl, pp = S.get("placement") or {}, S.get("placement_prev") or {}
     if pl:
         L += ["## Placement per rung (new vs previous package)", "",
@@ -516,8 +721,23 @@ def write_summary(S: dict, date: str) -> tuple:
             L.append(f"| `{n}` | `{v['sha256'][:16]}` | `{(v.get('sha256_prev') or '-')[:16]}` | {b.get('jobs', '-')}, {b.get('min_at_1us', '-')}, {b.get('working_min', '-')} | "
                      f"{b0.get('jobs', '-')}, {b0.get('min_at_1us', '-')}, {b0.get('working_min', '-')} |")
         t = S.get("budget_total") or {}
-        L += ["", f"Four run-day lists: {t.get('min_at_1us')} min modelled at 1 us, about {t.get('working_min')} min at day 2's constants "
-              f"(previous package {t.get('prev_min_at_1us')} / {t.get('prev_working_min')}); instance cap 210 min, 45 used.", ""]
+        rdl = t.get("lists") or []
+        L += ["", f"Run-day lists of this package ({', '.join(f'`{n}`' for n in rdl) or 'none'}): {t.get('min_at_1us')} min modelled at 1 us, about "
+              f"{t.get('working_min')} min at day 2's constants (the same lists in the previous package {t.get('prev_min_at_1us')} / "
+              f"{t.get('prev_working_min')}); {instance_text(S.get('instance'))}.", ""]
+    og = S.get("origins") or {}
+    if og:
+        rdr = S.get("run_day_rungs") or []
+        L += ["## Origins and observable edges of the run-day rungs", ""]
+        for k in rdr:
+            v = og.get(k)
+            if not v:
+                continue
+            L.append(f"- {k}: {v['patch']} at ({v['origin'][0]}, {v['origin'][1]}), "
+                     + ("**an origin no earlier committed placement used**" if v["new_origin"] else "origin used by an earlier committed placement")
+                     + f" (earlier origins of this shape: {', '.join('(%d, %d)' % tuple(o) for o in v['earlier_origins']) or 'none'}); edge {v['edge']}: "
+                     + ("interior" if v["edge_interior"] else "**not interior** (the nearest-centre fallback)") + ".")
+        L.append("")
     g = S.get("gate1b") or {}
     if g:
         L += ["## Gate 1b", "", f"**{g.get('verdict')}** under Deviations 27 + 45; clause (b) {g.get('clause_b')}, fall / bar " +
@@ -532,8 +752,15 @@ def write_summary(S: dict, date: str) -> tuple:
         L.append("")
     cc = S.get("comparators") or {}
     if cc:
-        L += ["## Comparators (scripts/check_comparators.py)", ""] + [f"- `{n}`: exit {v.get('exit')}, {v.get('missing')} missing"
+        L += ["## Comparators (scripts/check_comparators.py)", ""] + [f"- `{n}`: exit {v.get('exit')}, {v.get('missing')} missing, "
+                                                                   f"{sum(1 for x in (v.get('items') or []) if x.get('found'))} of {len(v.get('items') or [])} items found, "
+                                                                   f"{sum(1 for x in (v.get('items') or []) if 'realised' in str(x.get('need')))} of them on realised masks"
                                                                    + (f"; {v['note']}" if v.get("note") else "") for n, v in cc.items()] + [""]
+    ct = S.get("comparator_timing") or {}
+    if ct:
+        L += [f"Comparators drawn in {ct.get('wall_min')} min from the start of the parallel stage (" + ", ".join(
+            f"{k} {v.get('wall_s'):.0f} s, ended at {v.get('ended_s'):.0f} s" for k, v in (ct.get("tasks") or {}).items())
+            + f"; {ct.get('cores')} cores, Gate 1b workers {ct.get('gate1b_workers')}, dial workers {ct.get('dial_workers')}).", ""]
     pa = S.get("precheck_all") or {}
     if pa:
         fails = [n for n, v in pa.items() if not v["passes"] and not v.get("record")]
@@ -546,7 +773,7 @@ def write_summary(S: dict, date: str) -> tuple:
     if t:
         L += ["## Tests", "", f"{t.get('passed')} passed, {len(t.get('failed_known', []))} known failures, {len(t.get('unexpected', []))} other failures or errors, "
               f"{len(t.get('skipped', []))} skipped ({t.get('shards')} shards, {t.get('wall_min')} min). Known: " + (", ".join(t.get("failed_known", [])) or "none") +
-              ". **Other:** " + (", ".join(t.get("unexpected", [])) or "none") + ". Report: `" + str(t.get("report")) + "`.", ""]
+              ". **Other (each is a stop of Deviation 62 (iv)):** " + (", ".join(t.get("unexpected", [])) or "none") + ". Report: `" + str(t.get("report")) + "`.", ""]
     fl = S.get("flags") or []
     L += ["## Flags for the review", ""] + ([f"- {x}" for x in fl] or ["- none"]) + [""]
     mpath.write_text("\n".join(L) + "\n", encoding="utf-8", newline="\n")
@@ -554,6 +781,60 @@ def write_summary(S: dict, date: str) -> tuple:
 
 
 # --------------------------------------------------------------------------- run
+
+def forced_text(needed: bool, reason: str | None, prev_ibm: str | None, ibm: str) -> str:
+    """What ``--force`` did, in words, for the summary (``--force`` never changes which files are written)."""
+    t = ("every committed un-armed list passes the pre-check on this snapshot, so the pre-check did not ask for a re-package; the run went on "
+         "because `--force` was given" if not needed else "`--force` was given, but the pre-check asked for a re-package anyway")
+    t += f" (reason given: {reason})" if reason else " (no reason given with `--force-reason`)"
+    if prev_ibm:
+        t += (f". IBM properties time of the previous package's snapshot {prev_ibm}, of this snapshot {ibm}"
+              + (": changed, and a list is dispatched only within the IBM properties update its package was built on (Deviation 62 (iv))" if prev_ibm != ibm
+                 else ": unchanged"))
+    return t + "."
+
+
+def suite_stops(tests: dict | None, ran: bool, survey: bool = False) -> list:
+    """The Deviation 62 (iv) test stop: a failure or error outside ``docs/repack/known_test_failures.txt`` stops the cycle. A suite that
+    did not run in full (``--no-tests``, ``--deselect``) cannot clear the stop either. A survey runs no tests and is never dispatched."""
+    if survey:
+        return []
+    if not ran or not tests:
+        return [dict(kind="tests", text="the test suite was not run (--no-tests), so its stop condition (Deviation 62 (iv)) cannot be read as clear")]
+    out = []
+    bad = list(tests.get("unexpected") or [])
+    if bad:
+        rr = tests.get("rerun") or {}
+        out.append(dict(kind="tests", text=f"the test suite fails outside docs/repack/known_test_failures.txt (Deviation 62 (iv)): {len(bad)} failure(s) or "
+                                           f"error(s): {', '.join(bad[:8])}" + (" ..." if len(bad) > 8 else "")
+                                           + (f"; in the serial re-run {len(rr.get('still_failing') or [])} still fail and "
+                                              f"{len(rr.get('passed_serially') or [])} pass (a pass in the re-run does not lift the stop)" if rr else "")))
+    if tests.get("deselected"):
+        out.append(dict(kind="tests", text="tests were left out with --deselect, so the suite is incomplete: " + ", ".join(tests["deselected"])))
+    return out
+
+
+def finalise_status(S: dict, survey: bool = False) -> None:
+    """Status and stop reason from the recorded stops: ``survey``; ``stopped`` when any stop of Deviation 62 (iv) (or an ``--exercise``
+    stop that was passed over) is recorded; else ``ok``."""
+    ex = S.get("exercise_stops") or []
+    if survey:
+        S["status"] = "survey"
+        if ex:
+            S["stop_reason"] = "; ".join(ex) + " (survey: the same-day rule stops this cycle; nothing would be dispatched)"
+        return
+    stops = S.get("stops") or []
+    if ex or stops:
+        S["status"] = "stopped"
+        parts = []
+        if ex:
+            parts.append("; ".join(ex) + " (--exercise: the remaining stages ran to test the pipeline; not a dispatchable package)")
+            S.setdefault("flags", []).insert(0, "EXERCISE: " + "; ".join(ex) + "; the same-day rule stops this cycle and nothing is dispatched")
+        parts += [x["text"] for x in stops]
+        S["stop_reason"] = "; ".join(parts)
+    else:
+        S["status"] = "ok"
+
 
 def run(args) -> int:
     t_start = float(args.t0) if args.t0 else time.time()
@@ -569,30 +850,64 @@ def run(args) -> int:
     if not stamp or not props:
         raise SystemExit(f"{csv.name}: not a stamped snapshot with raw properties")
     tag, date = tag_of(stamp), args.date or stamp[:10]
+    lab = package_label(date, stamp)                                          # a date-named file of another package is never overwritten
+    label, pf_label = lab["label"], lab["preflight_label"]
     cores = os.cpu_count() or 4
     run_sha = os.environ.get("GRADVAR_COMMIT") or args.run_sha or "unknown"
     env = dict(os.environ, PYTHONHASHSEED="0", GRADVAR_COMMIT=run_sha)
     env1 = dict(env, OMP_NUM_THREADS="1", OPENBLAS_NUM_THREADS="1", MKL_NUM_THREADS="1")
-    S = dict(status="running", run=dict(date=date, snapshot=csv.name, stamp=stamp, properties=props.name, ibm_properties=ibm_update(props),
+    given = getattr(args, "instance_cap_min", None) is not None or getattr(args, "instance_used_min", None) is not None
+    inst = dict(cap_min=float(args.instance_cap_min) if getattr(args, "instance_cap_min", None) is not None else INSTANCE["cap_min"],
+                used_min=float(args.instance_used_min) if getattr(args, "instance_used_min", None) is not None else INSTANCE["used_min"],
+                as_of=INSTANCE["as_of"], source="given" if given else "pipeline default")
+    S = dict(status="running", run=dict(date=date, label=label, preflight_label=pf_label, label_reason=lab["reason"], snapshot=csv.name, stamp=stamp,
+                                         properties=props.name, ibm_properties=ibm_update(props),
                                          base_sha=args.base_sha, run_sha=run_sha, with_pairs=bool(args.with_pairs), cores=cores,
                                          started_utc=_dt.datetime.fromtimestamp(t_start, _dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")),
-             approved_overrides=[])
+             approved_overrides=[], stops=[], instance=inst)
     holds = dict(h.split("=", 1) for h in (getattr(args, "hold", None) or []))
     if set(holds) - {"day3_dial_refs"}:
         raise SystemExit(f"--hold: only day3_dial_refs can be held (got {sorted(holds)})")
     if holds:
         S["holds"] = holds                                                     # rendered for the record, not dispatched from this package
-    # previous package: the committed lists before regeneration
+    records = record_table(P1)                                                 # read before anything is written
+    S["records"] = records
+    run_day = run_day_lists(records)
+    S["run_day"] = list(run_day)
+    day3 = "day3_dial_refs" in run_day
+    # previous package: the committed lists before regeneration (its stamp is read from an un-armed list on the dial placement)
     prev_dir = out / "prev_lists"
     if prev_dir.exists():
         shutil.rmtree(prev_dir)
     shutil.copytree(P1, prev_dir)
-    prev_stamp = load("day3_dial_refs", prev_dir)["placement"].get("stamp")
+    ref_dial = first_unarmed(DIAL_PLACED, records, prev_dir)
+    prev_pl = load(ref_dial, prev_dir)["placement"] if ref_dial else {}
+    prev_stamp = prev_pl.get("stamp")
     prev_tag = tag_of(prev_stamp) if prev_stamp else None
-    S["previous"] = dict(stamp=prev_stamp, tag=prev_tag, snapshot=load("day3_dial_refs", prev_dir)["placement"].get("snapshot"))
-    before = tree_hashes()
-    bundle_files = []
+    prev_ibm = None
     try:
+        prev_ibm = ibm_update(CAL / prev_pl["properties"]) if prev_pl.get("properties") else None
+    except (OSError, KeyError, ValueError):
+        prev_ibm = None
+    S["previous"] = dict(stamp=prev_stamp, tag=prev_tag, snapshot=prev_pl.get("snapshot"), ibm_properties=prev_ibm, read_from=ref_dial)
+    before = tree_hashes()
+    try:
+        # (0) run records: nothing below may touch them
+        conflicts = RR.conflicts_in(P1, RR.RUN_ROOT)
+        if conflicts:
+            raise Stop("; ".join(conflicts) + ". " + RR.DECISION, "records")
+        if set(holds) & set(records):
+            raise Stop(f"--hold names a run record ({sorted(set(holds) & set(records))}): a list that ran is not held, it is a record", "records")
+        if args.with_pairs and PAIRS in records:
+            raise Stop(str(RR.refuse_rerun(PAIRS, RR.status_of(load(PAIRS), RR.RUN_ROOT), "--with-pairs would generate and package it again")), "records")
+        if args.with_pairs and not day3:
+            raise Stop("--with-pairs: the truncation pairs follow day 3's placement and are dispatched right after day 3 in the same IBM window, but "
+                       f"day3_dial_refs is a run record ({records['day3_dial_refs']['reason']}); pairs on another placement need their own list. " + RR.DECISION, "records")
+        if not run_day:
+            raise Stop("every run-day list (" + ", ".join(RUN_DAY) + ") is a run record: there is nothing to package. " + RR.DECISION, "records")
+        if ref_dial is None:
+            raise Stop("no un-armed list on the dial placement (" + ", ".join(DIAL_PLACED) + "): the Gate 1b re-draw has no list to be checked against", "records")
+        log(f"(0) run records: {', '.join(records) or 'none'}; run-day lists of this package: {', '.join(run_day)}; label {label}")
         # (a)
         t = time.time()
         pc = precheck_lists(list_names(prev_dir), prev_dir, csv)
@@ -606,35 +921,45 @@ def run(args) -> int:
         if not S["needed"] and not args.force:
             S["status"] = "not needed"
             raise Stop("every committed un-armed list passes the live cuts on this snapshot; no re-package (use --force to re-package anyway)")
+        if args.force:
+            S["run"]["forced"] = forced_text(S["needed"], getattr(args, "force_reason", None), prev_ibm, S["run"]["ibm_properties"])
         # (b)
         t = time.time()
         diag = diagnose_placement(csv)
         S["placement_diagnosis"] = diag
         bad = {k: v["reason"] for k, v in diag.items() if not v["ok"]}
         if bad:
-            raise Stop("the Deviation 62 rule cannot place " + "; ".join(f"{k}: {v}" for k, v in bad.items()))
+            raise Stop("the Deviation 62 rule cannot place " + "; ".join(f"{k}: {v}" for k, v in bad.items()), "placement")
         S["generator"] = regenerate(csv, date, args.with_pairs, logs, env)
+        for n, v in records.items():                                           # the generator keeps records; make sure of it before going on
+            v["unchanged"] = sha256(P1 / f"{n}.json") == v["sha256"]
+        if not all(v["unchanged"] for v in records.values()):
+            raise Stop("a run record was changed by the regeneration: " + ", ".join(n for n, v in records.items() if not v["unchanged"]), "records")
         val = validate_lists(csv, args.with_pairs)
         S["validation"] = val
-        S["placement"] = rung_table(RUNGS, P1)                                 # recorded now, so that a later stop still reports it
+        labels = rung_labels(records)
+        S["placement"] = rung_table(labels, P1)                                # recorded now, so that a later stop still reports it
         if val["problems"]:
-            raise Stop("regenerated lists: " + "; ".join(val["problems"]))
+            raise Stop("regenerated lists: " + "; ".join(val["problems"]),
+                       "component_holes" if any("component rule adds" in p for p in val["problems"]) else "other")
         stage_t["b_regenerate"] = time.time() - t
         log(f"(b) {len(val['lists'])} lists regenerated on {csv.name}; component holes {val['component_holes'] or 'none'}")
         # (c)
         t = time.time()
         py = sys.executable
         w = args.workers or max(4, cores // 3)
+        wd = getattr(args, "dial_workers", None) or max(4, min(12, cores // 3))  # the dial rows start when the Gate 1b re-draw's workers are free
         tasks = [Task("gate1b", [py, "scripts/redraw_gate1b.py", "--snapshot", str(csv), "--tag", tag, "--workers", str(w), "--checkpoint",
                                  str(out / "gate1b_ckpt.jsonl")], logs / "redraw_gate1b.log", env=env1),
                  Task("main_grid", [py, "scripts/redraw_gate1b.py", "--main-grid", "--no-gate1b", "--exact", "--rungs", "20", "100", "--snapshot", str(csv),
-                                    "--tag", tag, "--workers", str(w), "--checkpoint", str(out / "mg_ckpt.jsonl")], logs / "redraw_main_grid.log", env=env1),
-                 Task("h7", [py, "scripts/predict_h7_truncation.py", "--joblist", "data/joblists/paper1/day3_dial_refs.json"], logs / "h7_comparator.log", env=env1),
-                 Task("dial_rows", [py, "scripts/redraw_dial_points.py", "--joblist", "data/joblists/paper1/day3_dial_refs.json", "--workers", "4"],
-                      logs / "dial_rows.log", deps=("gate1b",), env=env1)]
+                                    "--tag", tag, "--workers", str(w), "--checkpoint", str(out / "mg_ckpt.jsonl")], logs / "redraw_main_grid.log", env=env1)]
+        if day3:      # day 3's comparators, mixture and realised masks (Deviation 60 part (7)), at the designed channel and the Deviation 60 settings
+            tasks += [Task("h7", [py, "scripts/predict_h7_truncation.py", "--joblist", "data/joblists/paper1/day3_dial_refs.json"], logs / "h7_comparator.log", env=env1),
+                      Task("dial_rows", [py, "scripts/redraw_dial_points.py", "--joblist", "data/joblists/paper1/day3_dial_refs.json", "--workers", str(wd)],
+                           logs / "dial_rows.log", deps=("gate1b",), env=env1)]
         if args.with_pairs:
             tasks.append(Task("pairs", [py, "scripts/predict_h7_truncation.py", "--joblist", f"data/joblists/paper1/{PAIRS}.json"], logs / "pairs_comparators.log", env=env1))
-        dry_lists = list(RUN_DAY) + ([PAIRS] if args.with_pairs else [])
+        dry_lists = list(run_day) + ([PAIRS] if args.with_pairs else [])        # records are not dry-run: they ran
         dry_sh = " && ".join(f"{py} -m gradvar.hardware --joblist data/joblists/paper1/{n}.json --dry-run-sample 2 --run-root /tmp/sameday_dry/runs "
                              f"--log-dir /tmp/sameday_dry/jobs > {out}/A/dryrun_{n}.log 2>&1" for n in dry_lists)
         (out / "A").mkdir(exist_ok=True)
@@ -660,7 +985,7 @@ def run(args) -> int:
         if args.survey:                                                       # survey: regeneration, Gate 1b and the pre-check only
             tasks, shards = [tk for tk in tasks if tk.name == "gate1b"], []
         pending, running, done = list(tasks), [], []
-        stop_reason = None
+        stop_reason, stop_kind = None, "other"
         while pending or running:
             for tk in list(pending):
                 if all(any(d == x.name and x.rc == 0 for x in done) for d in tk.deps):
@@ -679,7 +1004,7 @@ def run(args) -> int:
                     if tk.name == "gate1b":
                         md = PRED / f"gate1b_redraw_{tag}.md"
                         if tk.rc != 0 or not md.exists():
-                            stop_reason = f"the Gate 1b re-draw failed (exit {tk.rc}); log logs/redraw_gate1b.log"
+                            stop_reason, stop_kind = f"the Gate 1b re-draw failed (exit {tk.rc}); log logs/redraw_gate1b.log", "gate1b"
                         else:
                             S["gate1b"] = gate1b_verdict(md)
                             if S["gate1b"]["verdict"] != "PASS":
@@ -688,26 +1013,36 @@ def run(args) -> int:
                                     S.setdefault("exercise_stops", []).append(why)
                                     log(f"(c) {why}: recorded; --exercise runs the remaining stages for testing only")
                                 else:
-                                    stop_reason = why
+                                    stop_reason, stop_kind = why, "gate1b"
                     elif tk.name in ("main_grid", "h7", "dial_rows", "pairs", "dry_runs") and tk.rc != 0:
                         stop_reason = f"{tk.name} exited {tk.rc}; log {tk.logf.relative_to(out)}"
+                        stop_kind = "comparators" if tk.name in ("h7", "dial_rows", "pairs") else "other"
             if stop_reason:
                 for tk in running:
                     tk.kill()
-                raise Stop(stop_reason)
+                S["tasks"] = {tk.name: dict(exit=tk.rc, wall_s=tk.wall) for tk in tasks}
+                raise Stop(stop_reason, stop_kind)
             time.sleep(2)
-        S["tasks"] = {tk.name: dict(exit=tk.rc, wall_s=tk.wall) for tk in tasks}
+        S["tasks"] = {tk.name: dict(exit=tk.rc, wall_s=tk.wall, started_s=None if tk.t0 is None else round(tk.t0 - t, 1),
+                                    ended_s=None if tk.t1 is None else round(tk.t1 - t, 1)) for tk in tasks}
         stage_t["c_parallel"] = time.time() - t
+        cmp_tasks = [tk for tk in tasks if tk.name in ("h7", "dial_rows", "pairs") and tk.t1 is not None]
+        if cmp_tasks:      # the comparators' share of the cycle: from the start of stage (c) to the last comparator file (the dial rows wait for Gate 1b)
+            S["comparator_timing"] = dict(wall_min=round((max(tk.t1 for tk in cmp_tasks) - t) / 60, 1), cores=cores, gate1b_workers=w, dial_workers=wd,
+                                          tasks={tk.name: dict(wall_s=tk.wall, started_s=round(tk.t0 - t, 1), ended_s=round(tk.t1 - t, 1)) for tk in cmp_tasks},
+                                          note="minutes from the start of the parallel stage to the last comparator file (h7, dial rows, pairs), mixture "
+                                               "and realised masks; the dial rows start when the Gate 1b re-draw ends")
         # Deviation 62 review note 6: the Gate 1b rows must be drawn on the dial placement
         g1j = json.loads((PRED / f"gate1b_redraw_{tag}.json").read_text(encoding="utf-8"))
-        d3 = load("day3_dial_refs")["placement"]["rungs"]
+        ref_now = first_unarmed(DIAL_PLACED, records)
+        d3 = load(ref_now)["placement"]["rungs"]
         rp = (g1j.get("runday_placement") or {}).get("rungs") or {}
-        if any(sorted(rp.get(r, {}).get("qubits", [])) != sorted(d3[r]["qubits"]) for r in ("n40", "n60", "n100")):
-            raise Stop("the Gate 1b re-draw was not drawn on the day-3 dial placement")
+        if any(sorted(rp.get(r, {}).get("qubits", [])) != sorted(d3[r]["qubits"]) for r in ("n40", "n60", "n100") if r in d3):
+            raise Stop(f"the Gate 1b re-draw was not drawn on the dial placement of {ref_now}", "gate1b")
+        cc = {}
         if not args.survey:
-            # check_comparators (must exit 0)
-            cc = {}
-            for n in ["day3_dial_refs"] + ([PAIRS] if args.with_pairs else []):
+            # check_comparators (must exit 0, every item in a file of this package: one of the six stops of Deviation 62 (iv))
+            for n in (["day3_dial_refs"] if day3 else []) + ([PAIRS] if args.with_pairs else []):
                 p = subprocess.run([py, "scripts/check_comparators.py", f"data/joblists/paper1/{n}.json", "--json"], cwd=ROOT, capture_output=True, text=True, env=env)
                 (logs / f"check_comparators_{n}.json").write_text(p.stdout + p.stderr, encoding="utf-8")
                 try:
@@ -715,14 +1050,21 @@ def run(args) -> int:
                 except ValueError:
                     res = dict(missing=None)
                 cc[n] = dict(exit=p.returncode, missing=res.get("missing"), items=res.get("items"),
-                             record=f"`docs/repack/{date}_summary.json`, key `comparators.{n}`")
+                             record=f"`docs/repack/{label}_summary.json`, key `comparators.{n}`")
                 cc[n].update(comparator_pass(cc[n], tag))                      # review M1 (4 Oct): an earlier row never stands for a new placement
             S["comparators"] = cc
             if any(v["exit"] != 0 for v in cc.values()):
                 why = "scripts/check_comparators.py: " + "; ".join(f"{n} exit {v['exit']} ({v['missing']} missing)" for n, v in cc.items() if v["exit"] != 0)
                 S["flags"] = [f"{why}; no pre-flight is rendered (build_preflights refuses without a zero exit)"]
-                raise Stop(why)
-            log("(c) comparators: every H7 comparator and dial row is on the lists' placement")
+                raise Stop(why, "comparators")
+            why = comparators_stop(cc, holds)
+            if why:
+                if getattr(args, "exercise", False):
+                    S.setdefault("exercise_stops", []).append(why)
+                else:
+                    raise Stop(why, "comparators")
+            log("(c) comparators: " + ("every H7 comparator and dial row, mixture and realised masks, is on the lists' placement" if cc
+                                       else "no list of this package carries comparators"))
         # (e) pre-check of every list (every un-armed list must pass)
         t = time.time()
         pa = precheck_lists(list_names(), P1, csv)
@@ -732,10 +1074,10 @@ def run(args) -> int:
         if fails and args.survey:
             S.setdefault("exercise_stops", []).append("pre-check on the placement snapshot fails for " + ", ".join(fails))
         elif fails:
-            raise Stop("pre-check on the placement snapshot fails for " + ", ".join(fails))
+            raise Stop("pre-check on the placement snapshot fails for " + ", ".join(fails), "precheck")
         stage_t["e_precheck"] = time.time() - t
         if not args.survey:
-            # (d) pre-flights
+            # (d) pre-flights, for the un-armed run-day lists only
             t = time.time()
             a = out / "A"
             if (a / "joblists_paper1").exists():
@@ -746,24 +1088,24 @@ def run(args) -> int:
                 (out / sub / "predictions").mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(PRED / f, out / sub / "predictions" / f)
             bp = import_builder()
-            pcs_bp = {n: bp.precheck(load(n)["placement"], str(csv)) for n in RUN_DAY + (("dial_arm_contingent",) + ((PAIRS,) if args.with_pairs else ()))}
+            pcs_bp = {n: bp.precheck(load(n)["placement"], str(csv)) for n in run_day + (("dial_arm_contingent",) + ((PAIRS,) if args.with_pairs else ()))}
             upd = bp.ibm_update(str(props))
-            prev_files = sorted(p.name for p in (ROOT / "docs" / "preflight").glob(f"0[689]_paper1_*_{(prev_stamp or '')[:10]}.md"))
             try:
                 res = bp.build(out, csv.name, tag, f"{int(date[8:10])} {_dt.date(int(date[:4]), int(date[5:7]), 1).strftime('%b')} {date[:4]}", None,
-                               ROOT / "docs" / "preflight", review_txt=bp.review_template(date, bp.ibm_update_iso(str(props))), precheck_res=dict(lists=pcs_bp, csv=csv.name, ibm_properties=upd,
+                               PREFLIGHT, review_txt=bp.review_template(date, bp.ibm_update_iso(str(props)), label=label), precheck_res=dict(lists=pcs_bp, csv=csv.name, ibm_properties=upd,
                                ibm_properties_placement=upd), pr="the same-day pull request", branch=f"repack-{date}", prev_pred_dir=str(PRED), root=str(ROOT),
-                               prev_lists_dir=str(prev_dir), prev_fail_snaps=(), prev=bp.prev_package(prev_dir, PRED, ROOT / "docs" / "preflight"),
-                               pred_commit=PLACEHOLDER_COMMIT, with_pairs=bool(args.with_pairs), comparators=cc, hold=holds)
+                               prev_lists_dir=str(prev_dir), prev_fail_snaps=(), prev=bp.prev_package(prev_dir, PRED, PREFLIGHT, lists=ref_dial, records=records),
+                               pred_commit=PLACEHOLDER_COMMIT, with_pairs=bool(args.with_pairs), comparators=cc, hold=holds,
+                               records=records, label=pf_label, instance=inst)
             except bp.PreflightRefused as ex:
                 S["flags"] = [f"pre-flights refused: {ex}"]
-                raise Stop(f"pre-flights refused: {ex}")
+                raise Stop(f"pre-flights refused: {ex}", "comparators" if "check_comparators" in str(ex) else "other")
             S["preflights"] = list(res["names"])
             if S.get("exercise_stops"):
                 banner = ("> **EXERCISE ONLY, not a dispatch record.** " + "; ".join(S["exercise_stops"]) + ". The same-day rule stops this cycle and nothing is "
                           "dispatched; this document was generated with `--exercise` to test the pipeline and is not reviewed for dispatch or merged.\n\n")
                 for nm in res["names"]:
-                    pth = ROOT / "docs" / "preflight" / nm
+                    pth = PREFLIGHT / nm
                     pth.write_text(banner + pth.read_text(encoding="utf-8"), encoding="utf-8", newline="\n")
             stage_t["d_preflights"] = time.time() - t
         # (f) tests
@@ -783,45 +1125,53 @@ def run(args) -> int:
                     rr = parse_junit([out / "tests" / "rerun.xml"])
                     rerun = dict(still_failing=rr["failed"] + rr["errors"], passed_serially=[x for x in nodes if x not in rr["failed"] + rr["errors"]])
             tw = max((tk.wall or 0) for tk in tasks if tk.name.startswith("tests_")) / 60
-            report = REPACK / f"{date}_tests.txt"
+            report = REPACK / f"{label}_tests.txt"
             REPACK.mkdir(parents=True, exist_ok=True)
             with open(report, "w", encoding="utf-8", newline="\n") as f:
-                f.write(f"# Test run of the same-day re-package {date} (run commit {run_sha}); {tr['passed']} passed\n")
+                f.write(f"# Test run of the same-day re-package {label} (run commit {run_sha}); {tr['passed']} passed\n")
                 f.write("# known failures (docs/repack/known_test_failures.txt):\n" + "".join(f"KNOWN   {x}  # {known[x]}\n" for x in fk))
-                f.write("# other failures and errors (not known; each needs a look):\n" + "".join(f"FAILED  {x}\n" for x in other))
+                f.write("# other failures and errors (not known; each is a stop of Deviation 62 (iv)):\n" + "".join(f"FAILED  {x}\n" for x in other))
                 if rerun:
-                    f.write("# serial re-run of the other failures:\n" + "".join(f"STILL   {x}\n" for x in rerun["still_failing"]) +
+                    f.write("# serial re-run of the other failures (a pass here does not lift the stop):\n" + "".join(f"STILL   {x}\n" for x in rerun["still_failing"]) +
                             "".join(f"PASSED-SERIALLY {x}\n" for x in rerun["passed_serially"]))
                 f.write("# skipped:\n" + "".join(f"SKIPPED {x}\n" for x in tr["skipped"]))
             S["tests"] = dict(passed=tr["passed"], failed_known=fk, unexpected=other, skipped=tr["skipped"], rerun=rerun, shards=len(shards),
                               wall_min=round(tw, 1), report=report.relative_to(ROOT).as_posix(), deselected=list(args.deselect or []))
         # (g) summary
-        S["placement"] = rung_table(RUNGS, P1)
-        S["placement_prev"] = rung_table(RUNGS, prev_dir)
+        labels = rung_labels(records)
+        S["placement"] = rung_table(labels, P1)
+        S["placement_prev"] = rung_table(labels, prev_dir)
+        S["run_day_rungs"] = run_day_rungs(records, bool(args.with_pairs))
+        S["origins"] = origin_table(labels, P1, committed_origins(tag, PRED, [prev_dir]))
         names = [n for n in list_names() if not is_record(load(n))]
         S["lists"] = {n: dict(sha256=sha256(P1 / f"{n}.json"), sha256_prev=sha256(prev_dir / f"{n}.json") if (prev_dir / f"{n}.json").exists() else None,
                               budget=budget_of(load(n)), budget_prev=budget_of(load(n, prev_dir)) if (prev_dir / f"{n}.json").exists() else None)
                       for n in names}
-        S["budget_total"] = dict(min_at_1us=round(sum(S["lists"][n]["budget"]["min_at_1us"] for n in RUN_DAY), 2),
-                                 working_min=round(sum(S["lists"][n]["budget"]["working_min"] for n in RUN_DAY), 1),
-                                 prev_min_at_1us=round(sum((S["lists"][n]["budget_prev"] or {}).get("min_at_1us", 0) for n in RUN_DAY), 2),
-                                 prev_working_min=round(sum((S["lists"][n]["budget_prev"] or {}).get("working_min", 0) for n in RUN_DAY), 1))
+        S["budget_total"] = dict(lists=list(run_day),
+                                 min_at_1us=round(sum(S["lists"][n]["budget"]["min_at_1us"] for n in run_day), 2),
+                                 working_min=round(sum(S["lists"][n]["budget"]["working_min"] for n in run_day), 1),
+                                 prev_min_at_1us=round(sum((S["lists"][n]["budget_prev"] or {}).get("min_at_1us", 0) for n in run_day), 2),
+                                 prev_working_min=round(sum((S["lists"][n]["budget_prev"] or {}).get("working_min", 0) for n in run_day), 1))
         S["predictions"] = compare_predictions(tag, prev_tag)
+        for n, v in records.items():
+            v["unchanged"] = sha256(P1 / f"{n}.json") == v["sha256"]
+        now = tree_hashes()
+        S["earlier_files_changed"] = sorted(k for k, v in now.items() if k in before and before[k] != v and (
+            (k.startswith("data/predictions/") and tag not in k) or k.startswith("docs/preflight/") or
+            (k.startswith("docs/repack/") and k != "docs/repack/known_test_failures.txt")))
         S["flags"] = review_flags(S, prev_dir)
-        if args.survey:
-            S["status"] = "survey"
-            if S.get("exercise_stops"):
-                S["stop_reason"] = "; ".join(S["exercise_stops"]) + " (survey: the same-day rule stops this cycle; nothing would be dispatched)"
-        elif S.get("exercise_stops"):
-            S["status"] = "stopped"
-            S["stop_reason"] = "; ".join(S["exercise_stops"]) + " (--exercise: the remaining stages ran to test the pipeline; not a dispatchable package)"
-            S["flags"].insert(0, "EXERCISE: " + "; ".join(S["exercise_stops"]) + "; the same-day rule stops this cycle and nothing is dispatched")
-        else:
-            S["status"] = "ok"
+        if not all(v["unchanged"] for v in records.values()):
+            raise Stop("a run record was changed by the cycle: " + ", ".join(n for n, v in records.items() if not v["unchanged"]), "records")
+        if any(k.startswith("docs/") for k in S["earlier_files_changed"]):
+            raise Stop("the run changed date-named files of an earlier package: " + ", ".join(k for k in S["earlier_files_changed"] if k.startswith("docs/")), "other")
+        S["stops"] += suite_stops(S.get("tests"), bool(shards), survey=bool(args.survey))
+        finalise_status(S, survey=bool(args.survey))
     except Stop as ex:
         if S.get("status") == "running":
             S["status"] = "stopped"
         S["stop_reason"] = str(ex)
+        if S["status"] == "stopped":
+            S["stops"].append(dict(kind=ex.kind, text=str(ex)))
         log(f"STOP: {ex}")
     except Exception as ex:                                                    # a pipeline error: record it, still write the summary and bundle
         import traceback
@@ -841,23 +1191,22 @@ def run(args) -> int:
         else:
             S["run"]["modal_cost"] = "not on Modal (or not given)"
         try:
-            jpath, mpath = write_summary(S, date)
+            jpath, mpath = write_summary(S, label)
         except Exception as ex:                                                # never lose the re-drawn files to a rendering error
             import traceback
             if S.get("status") in ("ok", "running"):
                 S["status"] = "error"
             S["stop_reason"] = (S.get("stop_reason") + "; " if S.get("stop_reason") else "") + f"summary writer failed: {type(ex).__name__}: {ex}"
             REPACK.mkdir(parents=True, exist_ok=True)
-            jpath, mpath = REPACK / f"{date}_summary.json", REPACK / f"{date}_summary.md"
+            jpath, mpath = REPACK / f"{label}_summary.json", REPACK / f"{label}_summary.md"
             jpath.write_text(json.dumps(S, indent=1, default=str) + "\n", encoding="utf-8", newline="\n")
-            mpath.write_text(f"# Same-day re-package {date}: SUMMARY WRITER FAILED\n\n{S['stop_reason']}\n\n```\n{traceback.format_exc()}```\n",
+            mpath.write_text(f"# Same-day re-package {label}: SUMMARY WRITER FAILED\n\n{S['stop_reason']}\n\n```\n{traceback.format_exc()}```\n",
                              encoding="utf-8", newline="\n")
         after = tree_hashes()
         changed = sorted(k for k, v in after.items() if before.get(k) != v)
         write_bundle(out, S, changed, csv, date, args)
         log(f"{S['status']}: summary {mpath.relative_to(ROOT)}; {len(changed)} changed files; wall {wall / 60:.1f} min")
     return 0 if S["status"] in ("ok", "not needed") else 1
-
 
 HELD3 = " (held list: drawn in the cycle that dispatches day 3)"
 
@@ -871,6 +1220,20 @@ def comparator_pass(v: dict, tag: str) -> dict:
         out["note"] = (f"not a pass: the exit {v.get('exit')} rests on rows of an earlier package ({', '.join(f'`{s}`' for s in early)}), matched on the qubit set "
                        "alone; the rows must be drawn on this placement (Deviations 46 / 58)")
     return out
+
+
+def comparators_stop(cc: dict, holds=()) -> str | None:
+    """The fourth stop of Deviation 62 (iv), for the lists dispatched in the cycle: scripts/check_comparators.py must have run and
+    exited 0 "with every row drawn on exactly that placement". None when every checked list passes; a held list (its comparators are
+    drawn in the cycle that dispatches it) is left to its flag."""
+    bad = [f"{n} exit {v.get('exit')} ({v.get('missing')} missing)" for n, v in cc.items() if v.get("exit") != 0]
+    if bad:
+        return "scripts/check_comparators.py: " + "; ".join(bad)
+    early = [n for n, v in cc.items() if not v.get("pass") and n not in holds]
+    if early:       # exit 0 on rows of an earlier package: not every row is drawn on exactly this placement
+        return ("scripts/check_comparators.py exited 0 on " + ", ".join(early) + " only through rows of an earlier package: its comparators are not "
+                "all drawn on this placement (Deviation 62 (iv))")
+    return None
 
 
 def review_flags(S: dict, prev_dir: Path) -> list:
@@ -899,9 +1262,25 @@ def review_flags(S: dict, prev_dir: Path) -> list:
             fl.append(f"{n}: budget model version differs")
     t = S.get("budget_total") or {}
     if t.get("prev_min_at_1us") and abs(t["min_at_1us"] / t["prev_min_at_1us"] - 1) > 0.05:
-        fl.append(f"budget of the four lists moved by more than 5 % ({t['prev_min_at_1us']} -> {t['min_at_1us']} min)")
-    if t.get("working_min", 0) > 165 - 0:
-        fl.append(f"working figure {t.get('working_min')} min exceeds the 165 min left under the cap")
+        fl.append(f"budget of the run-day lists moved by more than 5 % ({t['prev_min_at_1us']} -> {t['min_at_1us']} min)")
+    inst = S.get("instance") or dict(INSTANCE)
+    left = float(inst["cap_min"]) - float(inst["used_min"])
+    if t.get("working_min", 0) > left:
+        fl.append(f"working figure {t.get('working_min')} min exceeds the {left:g} min left under the cap")
+    og = S.get("origins") or {}
+    for k in S.get("run_day_rungs") or []:                                 # checklist Section 3 item 6: a first placement gets a full look
+        v = og.get(k)
+        if not v:
+            continue
+        if v.get("new_origin"):
+            fl.append(f"{k}: {v['patch']} origin ({v['origin'][0]}, {v['origin'][1]}) was never used by an earlier committed placement (earlier origins of this "
+                      f"shape: {', '.join('(%d, %d)' % tuple(o) for o in v['earlier_origins']) or 'none'}): a first placement gets a full look at its cones and "
+                      f"edge; observable edge {v['edge']} is " + ("interior" if v.get("edge_interior") else "not interior (the nearest-centre fallback)"))
+        if v.get("edge_interior") is False:
+            fl.append(f"{k}: observable edge {v['edge']} is not an interior edge of the placement (an end qubit lacks a placed lattice neighbour): the rule fell "
+                      "back to the intact coupler nearest the centre; Section 2 and Deviation 46 name an interior edge")
+    for k in S.get("earlier_files_changed") or []:
+        fl.append(f"{k}: a file of an earlier package was changed by this run (checklist Section 1: the files of earlier packages are not edited)")
     held3 = "day3_dial_refs" in (S.get("holds") or {})
     tag = str((S.get("run") or {}).get("stamp") or "")[:15]                # '2026-10-04T043542Z' -> '2026-10-04T0435'
     for n, v in (S.get("comparators") or {}).items():
@@ -953,9 +1332,18 @@ def write_bundle(out: Path, S: dict, changed: list, csv: Path, date: str, args) 
         shutil.copyfile(ROOT / rel, dst)
     if (out / "logs").exists():
         shutil.copytree(out / "logs", b / "logs")
-    man = dict(date=date, snapshot=csv.name, stamp=S["run"]["stamp"], status=S["status"], stop_reason=S.get("stop_reason"), base_sha=args.base_sha,
-               run_sha=S["run"].get("run_sha"), files=changed, summary=f"docs/repack/{date}_summary.md", with_pairs=bool(args.with_pairs),
+    label = S["run"].get("label") or date
+    recs = sorted(S.get("records") or {})
+    touched = [f"data/joblists/paper1/{n}.json" for n in recs if f"data/joblists/paper1/{n}.json" in changed]
+    if touched:                                                           # never ship a changed run record, whatever happened above
+        changed = [c for c in changed if c not in touched]
+        S["status"] = "error"
+        S["stop_reason"] = ((S.get("stop_reason") + "; ") if S.get("stop_reason") else "") + f"run records changed in the working tree and left out of the bundle: {touched}"
+    man = dict(date=date, label=label, preflight_label=S["run"].get("preflight_label") or date, snapshot=csv.name, stamp=S["run"]["stamp"],
+               status=S["status"], stop_reason=S.get("stop_reason"), stops=S.get("stops", []), base_sha=args.base_sha,
+               run_sha=S["run"].get("run_sha"), files=changed, summary=f"docs/repack/{label}_summary.md", with_pairs=bool(args.with_pairs),
                exercise=bool(getattr(args, "exercise", False)), exercise_stops=S.get("exercise_stops", []), holds=S.get("holds", {}),
+               records=recs, run_day=S.get("run_day", []), preflights=S.get("preflights", []),
                complete=bool(S.get("flags") is not None and S.get("preflights")))
     (b / "manifest.json").write_text(json.dumps(man, indent=1) + "\n", encoding="utf-8")
     if args.bundle:
@@ -1030,6 +1418,58 @@ def _commit(branch: str, files: dict, message: str) -> str:
     return commit["sha"]
 
 
+def git_blob_sha(content: bytes) -> str:
+    """The git blob id of ``content`` (what the contents API reports as ``sha``)."""
+    return hashlib.sha1(b"blob %d\0" % len(content) + content).hexdigest()
+
+
+def publish_mode(man: dict, exercise: bool = False, allow_test_stop: str | None = None, force: bool = False) -> dict:
+    """What ``publish`` does with a bundle, from its manifest and the options given: ``mode`` 'full' (lists and predictions, then
+    pre-flights and summary), 'summary' (the files under docs/repack/ only) or 'refuse' (with ``why``); ``prefix`` for the commit and
+    pull-request titles; ``test_stop`` when the bundle is stopped by the test suite alone (Deviation 62 (iv)) and is published under
+    ``--allow-test-stop``."""
+    status = man.get("status")
+    if status == "ok":
+        return dict(mode="full", prefix="", test_stop=False, why=None)
+    kinds = {x.get("kind") for x in (man.get("stops") or [])}
+    ex = bool(exercise and man.get("exercise") and man.get("exercise_stops") and status == "stopped" and man.get("complete"))
+    if ex:
+        return dict(mode="full", prefix="EXERCISE, not dispatchable: ", test_stop=False, why=None)
+    only_tests = bool(status == "stopped" and man.get("complete") and kinds == {"tests"} and not man.get("exercise_stops"))
+    reason = str(allow_test_stop or "").strip()
+    if only_tests and reason:
+        return dict(mode="full", prefix="STOPPED by the test suite (Deviation 62 (iv)), not dispatchable as published: ", test_stop=True, why=None)
+    if force:
+        return dict(mode="summary", prefix="", test_stop=False, why=None)
+    why = f"run status {status}: {man.get('stop_reason')}; nothing committed"
+    if only_tests:
+        why += (". The cycle is stopped by the test suite alone (Deviation 62 (iv)): publish with --allow-test-stop \"<reason>\" to open the draft pull "
+                "request for the review of that stop (the reason is written into the commits, the pull request and publish.json); the package stays "
+                "stopped until the stop is lifted on the record")
+    elif man.get("exercise"):
+        why += " (a complete --exercise bundle is published with --exercise)"
+    why += "; --force commits the summary and tests report under docs/repack/ only"
+    return dict(mode="refuse", prefix="", test_stop=False, why=why)
+
+
+def overwrite_conflicts(br: str, files: dict) -> list:
+    """Date-named files of the bundle (pre-flights, summary, tests report) that already exist on the branch with other content.
+    ``publish`` never overwrites them: a second package of a date carries its own label (``package_label``)."""
+    out = []
+    for rel, content in sorted(files.items()):
+        if not (rel.startswith("docs/preflight/") or rel.startswith("docs/repack/")):
+            continue
+        try:
+            cur = gh(f"/contents/{rel}?ref={br}")
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                continue
+            raise
+        if isinstance(cur, dict) and cur.get("sha") and cur["sha"] != git_blob_sha(content):
+            out.append(rel)
+    return out
+
+
 def publish(args) -> int:
     bdir = Path(args.bundle)
     if bdir.suffix in (".tgz", ".gz"):
@@ -1038,40 +1478,65 @@ def publish(args) -> int:
             tf.extractall(tmp)
         bdir = tmp / "bundle"
     man = json.loads((bdir / "manifest.json").read_text(encoding="utf-8"))
-    ex = bool(getattr(args, "exercise", False) and man.get("exercise") and man.get("exercise_stops") and man["status"] == "stopped" and man.get("complete"))
-    if man["status"] != "ok" and not args.force and not ex:
+    reason = str(getattr(args, "allow_test_stop", "") or "").strip()
+    pm = publish_mode(man, exercise=bool(getattr(args, "exercise", False)), allow_test_stop=reason, force=bool(args.force))
+    if pm["mode"] == "refuse":
         print((bdir / "tree" / man["summary"]).read_text(encoding="utf-8") if (bdir / "tree" / man["summary"]).exists() else man)
-        raise SystemExit(f"run status {man['status']}: {man.get('stop_reason')}; nothing committed (--force commits the summary only"
-                         + ("; a complete --exercise bundle is published with --exercise)" if man.get("exercise") else ")"))
-    xt = "EXERCISE, not dispatchable: " if ex else ""
+        raise SystemExit(pm["why"])
+    full, xt = pm["mode"] == "full", pm["prefix"]
+    ex = xt.startswith("EXERCISE")
     date = man["date"]
+    label = man.get("label") or date
     br = f"repack-{date}"
     head = gh(f"/git/refs/heads/{br}")["object"]["sha"]
     if man.get("run_sha") and head != man["run_sha"] and not args.force:
         raise SystemExit(f"{br} is at {head[:7]}, the run used {man['run_sha'][:7]}")
     files = {rel: (bdir / "tree" / rel).read_bytes().replace(b"\r\n", b"\n") for rel in man["files"]}
+    recs = [f"data/joblists/paper1/{n}.json" for n in man.get("records") or []]
+    if any(r in files for r in recs):
+        raise SystemExit(f"the bundle holds run records ({[r for r in recs if r in files]}): a dispatched list is never re-published; nothing committed")
     data = {k: v for k, v in files.items() if k.startswith("data/") or k == "scripts/make_paper1_joblists.py"}
     docs = {k: v for k, v in files.items() if k not in data}
-    out = dict(branch=br)
-    if man["status"] == "ok" or ex:
-        out["commit_lists_predictions"] = c1 = _commit(br, data, xt + f"Same-day re-package {date}: lists pinned to {man['snapshot']} and the placement-dependent "
+    if not full:                                                           # --force on a stopped run: the summary and tests report only
+        docs = {k: v for k, v in docs.items() if k.startswith("docs/repack/")}
+    clash = overwrite_conflicts(br, docs)
+    if clash:
+        raise SystemExit(f"{br} already holds {', '.join(clash)} with other content: a date-named file is never overwritten (a second package of a date "
+                         "carries its own label); nothing committed")
+    out = dict(branch=br, label=label, mode=pm["mode"], status=man["status"])
+    note = ""
+    if pm["test_stop"]:
+        out["allow_test_stop"] = dict(reason=reason, stops=man.get("stops"), published_utc=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
+        note = ("\n\nPublished with --allow-test-stop although the cycle is stopped by the test suite (Deviation 62 (iv)). Reason given: " + reason
+                + "\nStops: " + "; ".join(x.get("text", "") for x in man.get("stops") or []))
+        log(f"publish --allow-test-stop: {reason}")
+    if full:
+        out["commit_lists_predictions"] = c1 = _commit(br, data, xt + f"Same-day re-package {label}: lists pinned to {man['snapshot']} and the placement-dependent "
                                                          "re-draws\n\nscripts/sameday_repackage.py (run commit " + str(man.get('run_sha')) + "). Nothing armed: dry_run true, "
-                                                         "placeholder pre-flight records, the Deviation 26 override closed.")
+                                                         "placeholder pre-flight records, the Deviation 26 override closed."
+                                                         + (" Run records left as they are: " + ", ".join(man["records"]) + "." if man.get("records") else "") + note)
         docs = {k: v.replace(PLACEHOLDER_COMMIT.encode(), c1.encode()) for k, v in docs.items()}
-    out["commit_preflights_summary"] = c2 = _commit(br, docs, xt + f"Same-day re-package {date}: pre-flights 06 / 08 / 09"
-                                                   + (" / 10" if man.get("with_pairs") else "") + " and the summary"
-                                                   + ("" if (man["status"] == "ok" or ex) else f" (run {man['status']}: nothing to review)"))
+    pfs = " / ".join(sorted({Path(p).name[:2] for p in man.get("preflights") or []})) or "06 / 08 / 09" + (" / 10" if man.get("with_pairs") else "")
+    out["commit_preflights_summary"] = c2 = _commit(br, docs, xt + f"Same-day re-package {label}: " + (f"pre-flights {pfs} and the summary" if full
+                                                   else f"the summary (run {man['status']}: nothing to review)") + note)
     summ = docs.get(man["summary"], b"").decode("utf-8")
     warn = (f"**EXERCISE, not dispatchable:** {'; '.join(man['exercise_stops'])}. The same-day rule stops this cycle and nothing is dispatched; the "
             "remaining stages ran with `--exercise` to test the pipeline end to end. Do not merge.\n\n") if ex else ""
+    if pm["test_stop"]:
+        warn += ("**STOPPED by the test suite (Deviation 62 (iv)): nothing is dispatched from this package as published.** "
+                 + "; ".join(x.get("text", "") for x in man.get("stops") or []) + f". Published with `--allow-test-stop`; reason given: {reason}\n\n")
     if man.get("holds"):
         warn += ("**Rendered for the record, not dispatched from this package:** " + "; ".join(f"`{n}` ({r})" for n, r in man["holds"].items())
                  + ". Its pre-flight says so in Section 1.\n\n")
-    body = warn + (f"**Draft: same-day re-package {date}** on `{man['snapshot']}`. Nothing is armed or dispatched: every list has `dry_run` true and the "
-            f"placeholder pre-flight record; `approved_overrides` is empty (the Deviation 26 override is closed). Review with "
-            f"`docs/repack/REVIEW_CHECKLIST.md`; dispatch within the IBM properties update the pre-check passed on.\n\n" + summ[:60000])
+    if man.get("records"):
+        warn += ("**Run records, not part of this package:** " + ", ".join(f"`{n}`" for n in man["records"]) + " (armed or dispatched earlier; not "
+                 "regenerated, re-placed or pre-flighted).\n\n")
+    body = warn + (f"**Draft: same-day re-package {label}** on `{man['snapshot']}`. Nothing is armed or dispatched by this pull request: every list it "
+            f"changes has `dry_run` true and the placeholder pre-flight record; `approved_overrides` is empty (the Deviation 26 override is closed). Review with "
+            f"`docs/repack/REVIEW_CHECKLIST.md`; before arming run `python scripts/prearm_check.py`; dispatch within the IBM properties update the "
+            f"pre-check passed on.\n\n" + summ[:60000])
     prs = gh(f"/pulls?head={REPO.split('/')[0]}:{br}&state=open")
-    title = xt + f"Same-day re-package {date} ({label_of(man['stamp'])} snapshot)"
+    title = xt + f"Same-day re-package {label} ({label_of(man['stamp'])} snapshot)"
     if prs:
         pr = gh(f"/pulls/{prs[0]['number']}", dict(body=body, title=title), method="PATCH")
     else:
@@ -1105,6 +1570,11 @@ def launch_modal(args) -> int:
         run_sha = args.run_sha or subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
         base_sha = args.base_sha or run_sha
     passthru = [x for x in ("--with-pairs" if args.with_pairs else "", "--force" if args.force else "", "--no-tests" if args.no_tests else "") if x]
+    if getattr(args, "force_reason", None):
+        passthru += ["--force-reason", "'" + str(args.force_reason).replace("'", "") + "'"]
+    for opt, val in (("--instance-cap-min", getattr(args, "instance_cap_min", None)), ("--instance-used-min", getattr(args, "instance_used_min", None))):
+        if val is not None:
+            passthru += [opt, str(val)]
     snap = ["--snapshot", f"data/calibrations/{Path(args.snapshot).name}"] if args.snapshot else []
     inner = (f"set -e; python - {run_sha} <<'EOF'\nimport io, sys, urllib.request, zipfile\nsha = sys.argv[1]\n"
              f"d = urllib.request.urlopen(f'https://codeload.github.com/{REPO}/zip/' + sha, timeout=900).read()\n"
@@ -1137,7 +1607,7 @@ def launch_modal(args) -> int:
     tgz.write_bytes(base64.b64decode("".join(lines)))
     log(f"bundle {tgz}")
     if os.environ.get("GITHUB_TOKEN") and not args.no_publish:
-        return publish(argparse.Namespace(bundle=str(tgz), force=False, main=args.main))
+        return publish(argparse.Namespace(bundle=str(tgz), force=False, main=args.main, exercise=False, allow_test_stop=None))
     return 0
 
 
@@ -1167,6 +1637,13 @@ def main(argv=None) -> int:
                         help="survey only (no commits): regeneration, the Gate 1b re-draw and the pre-check of every list on the snapshot; no other "
                              "re-draws, comparators, pre-flights, dry runs or tests; status 'survey' (publish refuses it)")
         ap.add_argument("--workers", type=int, default=None, help="re-draw worker processes (default max(4, cores // 3))")
+        ap.add_argument("--dial-workers", type=int, default=None,
+                        help="worker processes of the dial rows and their realised-mask comparators (default max(4, min(12, cores // 3)))")
+        ap.add_argument("--force-reason", default=None, help="why --force was given (written into the summary)")
+        ap.add_argument("--instance-cap-min", type=float, default=None,
+                        help=f"instance cap in minutes for the budget sentences and the cap flag (default {INSTANCE['cap_min']:g}, the figure of {INSTANCE['as_of']})")
+        ap.add_argument("--instance-used-min", type=float, default=None,
+                        help=f"minutes used under the cap so far (default {INSTANCE['used_min']:g}, the figure of {INSTANCE['as_of']}: later dispatches are not in it)")
         ap.add_argument("--deselect", action="append", default=[], metavar="NODE",
                         help="pytest node id to leave out (surveys only, e.g. the 9-min snapshot-independent frozen-row regression; recorded and flagged)")
         ap.add_argument("--no-publish", action="store_true")
@@ -1194,6 +1671,9 @@ def main(argv=None) -> int:
         return prepare(args)
     ap.add_argument("--bundle", required=True, help="the run's bundle directory (or .tgz)")
     ap.add_argument("--exercise", action="store_true", help="publish an --exercise bundle as a draft pull request titled EXERCISE (never for dispatch)")
+    ap.add_argument("--allow-test-stop", default=None, metavar="REASON",
+                    help="publish a complete bundle that is stopped only by the test suite (Deviation 62 (iv)); REASON is written into both commit "
+                         "messages, the pull request and publish.json. The package stays stopped until the stop is lifted on the record")
     args = ap.parse_args(argv)
     return publish(args)
 
