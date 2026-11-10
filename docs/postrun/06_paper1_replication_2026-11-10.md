@@ -23,6 +23,12 @@ Deviation 62 (iv) check passes as written. Two notes are material to how the res
 job's run window contains an IBM properties update (11:35:39Z) on which this placement fails the cuts on four qubits, and the
 bundles do not say on which side of that update the circuits executed.
 
+**Registered reading (Section 9, second commit): "not replicated: the flag closes (pre-flight 08 row 1)"** for the day-2
+flag at the large rung, on its decisive test. Measured V = 3.9258e-04 [2.5006e-04, 5.5506e-04] (M = 200, 16,384 shots, n = 82) against
+the prediction P = 4.2589e-04 of this placement: ratio 0.922 [0.587, 1.303]; z = -0.425 as pre-flight 08 writes it,
+z_r = -0.339 under Deviation 61 (i); Holm-adjusted p = 1.0 at m = 47. It is an evaluation for the coordinator and the reviewer
+to decide on, and it carries N1: it is not established that the measurement and the prediction share a calibration.
+
 ## 0. Presence and integrity (logging rule)
 
 | item | `dbpfnr0qtr0c738ebeng` (`L0`) | `dbpfnrgqtr0c738ebeog` (`L0-probes-s16384`) |
@@ -338,3 +344,190 @@ in this document, ahead of Section 9. Code: `gradvar/analysis/anomaly_stats.py`,
 - **Not available today, stated in advance:** the 4,096-shot diagnostic (not run); Block C's 65,536-shot sample, which
   pre-flight 08 reports beside the decision (not retrieved; review 07); the scatter of three to four samples of the rung
   (needs both).
+
+## 9. The registered reading (second commit; computed after Sections 0 to 8 were pushed as 17e4ae81dbb0d01f4df1ba25d31d3bebe877ec51)
+
+**Measured side** (`python -m gradvar.analysis.report <run dir> --out postrun_06 --predictions data/predictions --snapshot-csv
+data/calibrations/ibm_phoenix_2026-11-10T101610Z.csv --n-boot 10000` at 4182865d, on a directory holding only this list's CSV and
+two bundles; `points.csv`; the bootstrap is seeded, `estimators.variance_point`):
+
+| point | M | raw variance V [95 percent percentile interval, 10,000 resamples] | Estimator shot variance | signal [interval] | kurtosis |
+|---|---|---|---|---|---|
+| `grid n82 L8 k1 r0 s16384` (`L0`) | 200 | **3.9258e-04 [2.5006e-04, 5.5506e-04]** | 3.0494e-05 (1/(2N) = 3.0518e-05) | 3.6208e-04 [2.1956e-04, 5.2457e-04] | 8.99 |
+| `null n82 L0 k0 r0 s16384` (null control) | 200 | 7.2914e-07 [5.9610e-07, 8.6407e-07] | 6.6409e-07 | 6.51e-08 [-6.80e-08, 2.00e-07] | 2.79 |
+
+**Null floor and claimability (Deviations 37, 43).** Measured null floor at n = 82, 16,384 shots, level 0:
+7.2914e-07 [5.9610e-07, 8.6407e-07], bootstrap sigma 6.836e-08; claimability bar = floor + 3 sigma =
+9.3423e-07 (`gates.null_floors`, `claim_bar_source`: "measured null control (L = 0, level 0)"). The point's signal
+interval starts at 2.1956e-04, 235 times the bar: `claimable: True`. The null control's own
+shot-subtracted variance is 6.5e-08 [-6.8e-08, 2.0e-07], an interval that
+contains zero. The null job finished before IBM's 11:35:39Z update (Section 3). Gate 2 (a) is `not-evaluable` (no n20 point).
+
+**Rules applied, as written** (quotations rendered in plain characters where the source uses HTML or Unicode markup).
+
+- Statistic: "raw variance V_r of the 200 fresh draws with its 95 percent bootstrap interval; signal V_r - 1/(2N); z_r = (V_r - P)
+  / sqrt(SE_boot^2 + SE_pred^2) against the replication-day prediction P" (`docs/preflight/08_paper1_replication_2026-09-21.md:83-84`).
+- Which row: "Each replicated point is read against the row of the placement it runs on"
+  (`docs/preflight/08_paper1_replication_2026-11-10.md:74`); "the row the flag is read against is the non-unital population value"
+  (`...2026-09-21.md:76-77`; `docs/ANALYSIS.md:213-216`).
+- Deviation 61 (i): "z_r = (V_r - P)/(phi sqrt(SE_boot^2 + SE_pred^2 + SE_cal^2))", "SE_boot = the half-width of the 10,000-resample
+  percentile interval / 1.96; SE_pred = the re-draw row's sigma = Deviation 15 error / 2", "phi = 1.2320"
+  (`docs/artifacts/paper1_preregistration.md:299`; `anomaly_stats.py:211-222`).
+- Deviation 61 (ii): "two-sided p = erfc(|z|/sqrt 2) for the 43 Deviation 19 single-point tests ... and the four replication tests
+  ..., with a step-down at family-wise 0.05"; "a named test that does not run enters with p = 1, so m = 47" (same line;
+  `anomaly_stats.py:626-647`, the not-run rows at `:643-646`).
+- Decisive test: "For the n85 flag, replicated on the replication's n100 rung (... the size follows the placement the list is
+  dispatched on), the decision is read on replication_01_16384 (level 0)" (same line; `anomaly_stats.py:98-101`).
+- Reading table, row 1: "z_r >= -3 (the fresh sample agrees with its prediction within 3 sigma, whatever its sign) | **not
+  replicated: the flag closes** | the original point is reported in Paper 1 as an unreplicated, exploratory deviation (both
+  measurements shown); the population prediction stands; no follow-up" (`...2026-09-21.md:96`); in code, `elif z >= -SIGMA:
+  reading = "not_replicated"` (`anomaly_stats.py:751-752`) with the label `READINGS["not_replicated"]` (`:107`).
+
+**Evaluation** (`anomaly_stats.decide([rep])` with the Section 8 inputs and the measured values above; nothing substituted):
+
+| quantity | value |
+|---|---|
+| V (measurement) | 3.9258e-04 [2.5006e-04, 5.5506e-04]; SE_boot = 7.7809e-05 |
+| P (prediction, non-unital row of this placement, n = 82) | 4.2589e-04; SE_pred = 9.232e-06; SE_cal = 1.5549e-05 |
+| ratio V / P | **0.922 [0.587, 1.303]** (interval of V over the fixed P) |
+| signal / P (R of Deviation 61 (iii)) | 0.850 [0.516, 1.232] |
+| z as pre-flight 08 writes it | **-0.425** (sigma 7.8355e-05) |
+| z_r of Deviation 61 (i), phi = 1.2320 | **-0.339** (sigma 9.8415e-05); two-sided p = 0.7349 |
+| Holm-adjusted p of this test, m = 47 (three named tests not run, each at p = 1) | **1.0** (not rejected) |
+| step values the code reports after the reading is settled | row 3 "simulation reproduces" `True` (non-unital `sim`; `True` with the unital row as `sim` too); kappa_e = 1.49 [0.37, 3.01], F_gate 0.7197, z_kappa = -0.20 against kappa_hat 1.27 [0.35, 2.18], no grid excess |
+| **reading, Deviation 61** | **`not_replicated`: "not replicated: the flag closes (pre-flight 08 row 1)"** |
+| reading, pre-flight 08 alone | `not_replicated` (the same) |
+| `decide`: flag `n85 L8`, decisive test present, `confirmed` | `False`; diagnostics: none (the 4,096-shot test did not run) |
+| `decide`: flag `n19 L4` | `not_evaluable`: "not evaluable: the decisive replication test is missing; not confirmed" |
+
+- **Decision the table gives for the day-2 flag at the large rung: not replicated; the flag closes (row 1).** z_r = -0.34 is inside
+  +/- 3 on both forms; the fresh sample reads 0.92 of its prediction where day 2 read 0.50 of its own.
+- **No new flag on the replication.** Row 4 needs pre-flight 08's z > +3; it is -0.43. The Deviation 19 pipeline z
+  (signal, shot floor in sigma) against this placement's row is -0.76 (`predictions.compare_points`, with the re-draw's
+  propagation rows passed as its table): `anomaly_single: False`.
+- **Calibrated simulations beside the measurement** (Deviation 19; Pauli propagation on the 10:16Z snapshot, n = 82): non-unital
+  4.2589e-04, unital 4.0702e-04, each +/- 1.8e-05 (Deviation 15 error); both lie inside the measured interval
+  [2.5006e-04, 5.5506e-04]. The noiseless row 6.2225e-04 +/- 2.6e-05 lies above it.
+- **Firmness of the recorded flags** (reported; "does not remove [a flag] from the replication decision"). In the m = 47 family of
+  this review (`decision_family`): `n85 L8 k1 r0 s16384` z61 = -4.00, adjusted p = 0.0029, firm; `n19 L4 k1 r0 s4096`
+  z61 = -3.19, adjusted p = 0.0651, not firm. `recorded_firmness()` returns the frozen m = 43 column instead
+  (0.0027 and 0.0595); the labels are the same (Section 12, D5).
+
+**Not evaluable or not available.** (1) The `n19 L4` flag: its decisive test (`replication_01`, n20 L4, level 0) did not run.
+(2) The 4,096-shot diagnostic of the n100 point: did not run, so pre-flight 08's shot-count comparison cannot be made. (3) Block
+C's 65,536-shot sample, which pre-flight 08 reports beside this decision: not retrieved (review 07). (4) The scatter of the rung's
+three to four samples (the direct measurement of the draw-sampling SE): needs (2) and (3). (5) A per-draw noiseless reference:
+none exists at n = 82, L = 8. (6) A calibrated simulation on IBM's 11:35:39Z properties: none exists. Nothing was substituted
+for any of these.
+
+**The caveat that travels with this reading (N1).** The reading pairs a measurement whose execution time inside 11:12:05 to
+12:35:07Z is not established with a prediction drawn on the 09:07:11Z properties. It is the registered reading; it is not
+established that measurement and prediction share a calibration.
+
+## 10. What this does and does not decide
+
+- **Which flag.** The second recorded Deviation 19 flag: day 2's n = 85, L = 8, k = 1, level 0, 16,384-shot point (job
+  `dao2pqv8gn2s739nabkg`, run 21 Sep 00:05 to 00:12 UTC; recorded value 1.5269e-04 [1.0202e-04, 2.1684e-04]
+  against its run-day row 3.0693e-04, z = -5.21 as pre-flight 08 writes it, -4.00 under Deviation 61 (i); frozen reference
+  file). Today's evaluation of its decisive replication test is **not replicated: the flag closes**. Under pre-flight 08's table
+  the consequence is that the day-2 point is reported in Paper 1 as an unreplicated, exploratory deviation with both measurements
+  shown, the population prediction stands, and there is no follow-up. This is an evaluation: pre-flight 08 Section 7 step 5 leaves
+  the decision on each flag to the coordinator with the reviewer under the PI's delegation.
+- **On which rung size.** Today n = 82 on the 10x10 rectangle at (2, 0), edge 75_85; day 2 ran n = 85 on the same rectangle and
+  edge. 78 qubits are common to both; day 2 also had 20, 34, 37, 66, 69, 91, 99 and today also has 27, 67, 110, 114. Each
+  measurement is read against the row of its own placement (4.259e-4 today, 3.069e-4 on day 2). Fresh seeds, same rung: by
+  Deviation 57 (b) this "tests draw sampling and day-to-day drift but not patch dependence".
+- **What it does not decide.**
+  - The first recorded flag (n = 19, L = 4): not evaluable today. It waits for `replication_01`, which has no GO on this package
+    (its n20 rung sits on a fallback edge) and, IBM's properties having changed at 11:35:39Z, cannot be dispatched on this
+    package in any case (Deviation 62 (iv)); it needs a new same-day package and either a recorded Deviation for the n20 edge or
+    a cycle in which an interior edge exists.
+  - Whether the day-2 deficit was tied to the shot count or the job shape: that was the role of the 4,096-shot diagnostic in
+    `replication_01`, not run.
+  - Why day 2 read low. A closed flag is not an explanation; nothing here assigns the day-2 reading to draw sampling, drift or
+    any device effect.
+  - Whether today's `L0` measurement was taken under the calibration its prediction was drawn on (N1), and whether Gate 2 (e)
+    pauses the campaign on IBM's later readout figures (N2).
+  - Anything about Block C or day 3.
+- **What remains for the PI's decision under the delegation.** (a) Whether the flag is closed on this reading given N1, or held
+  until Block C's bundles show when the large-rung jobs executed relative to 11:35:39Z, or until the rung is re-measured. (b) The
+  reading of Gate 2 (e) (N2). (c) If closed: the pre-registration's Deviation 19 row, tracker P1.3.9 and the handover are updated
+  (pre-flight Section 7 step 5); none of them is touched by this branch. (d) The countersignatures already requested for
+  Deviations 57 and 61.
+
+## 11. Exploratory, not registered
+
+None of this enters the reading of Section 9.
+
+- **How far the prediction would have to move for the reading to change**, holding V and the uncertainty terms: row 1 holds on
+  the Deviation 61 statistic for any P below 6.878e-04, and on pre-flight 08's statistic for any P between
+  1.575e-04 and 6.276e-04. The upper values are above the noiseless row of the same re-draw
+  (6.222e-04). Scaling P by the readout-folding ratio of Section 3 (x1.0109, the observable qubits' readout on
+  the 11:35:39Z properties) gives 4.3056e-04 and z_r = -0.39. This bounds the observable-readout part of N1 only; it says
+  nothing about an effect of the four failing qubits on the circuit itself.
+- **Against day 2's ratio.** 0.50 x P = 2.129e-04 is below the measured interval's lower end 2.501e-04. On the signal scale day 2
+  read R = 0.398; today R = 0.850 [0.516, 1.232].
+- **Draw-sampling error of this one sample.** SE_boot / V = 0.198; sqrt((kurtosis - 1) / M) = 0.200 at kurtosis
+  8.99; pre-flight 08 expected 0.19 to 0.26.
+- **The report's own comparison line** (not this placement's row): `gradvar.analysis.report` matched the point to the frozen
+  19 Sep row 2.9037e-04 (n = 87, same patch and edge) and printed z = +0.86, `z_preflight08` = +1.31, "Flagged:
+  False". Not used (Section 8).
+- **Day 2's flagged job and IBM's properties, from committed files.** `dao2pqv8gn2s739nabkg` was created 20 Sep 18:58:51Z
+  (layout check on properties of 18:44:14Z) and ran 21 Sep 00:05:35 to 00:12:25Z, five hours later. The first snapshot after
+  it (`ibm_phoenix_properties_2026-09-21T014956Z.json`, IBM properties 01:27:50Z) gives Q105, a placed qubit of that patch
+  outside the L = 2 cone, a readout error of 6.93e-2 with the value dated **20 Sep 21:10Z**, before the job ran; post-run 04
+  recorded that excursion as post-run. Only Q105 was looked at here, because post-run 04 names it. This is the same pattern as
+  N1, on the measurement that raised the flag; it is stated as an observation and nothing is concluded from it.
+
+## 12. Defects and gaps found (reported, not fixed here)
+
+- **D1. Deviation 62 (iv)'s post-run check cannot see an update during a job.** It compares `layout_check.properties_last_update`,
+  which under `submit_only` is rebuilt at retrieval from the properties at job creation (`hardware.py:2464-2465`). It passed
+  today while IBM's properties changed 23 minutes into the `L0` job's 83-minute window. No bundle field records when the
+  circuits executed.
+- **D2. Gate 2 (e)'s evaluator is a pass by construction** for the same reason: its "live" readout is the at-creation properties
+  (Section 6).
+- **D3. The properties time is not the age of the figures.** The 09:07:11Z properties carried readout values dated 9 Nov
+  04:54Z; IBM's readout values dated 10 Nov 11:05:20Z, with Q31 and Q98 over the cut, existed before dispatch and were
+  published at 11:35:39Z. The same-day procedure keys on `last_update_date` alone.
+- **D4. The live enforced layout check is not in the repository** for a `submit_only` dispatch (Actions log only).
+- **D5. `recorded_firmness()` reports the m = 43 Holm column of the frozen file** (`anomaly_stats.py:533-544`), while the
+  family of Deviation 61 (ii) at this review is m = 47 (`decision_family`): 0.0027 against 0.0029 for the n85 flag, 0.0595
+  against 0.0651 for the n19 flag. Labels unchanged.
+- **D6. `gradvar.analysis.report` does not read run-day re-draw files** (`predictions.py:40`): it compared this n = 82 point with
+  the frozen n = 87 row, `edge_matched: True`, and wrote that z into `report.md` with no warning. Known in
+  `docs/ANALYSIS.md:231-232` ("the reviews apply this rule by hand"); here the by-hand step is `_prediction_from_rows` on the
+  re-draw CSV.
+- **D7. `job.json` records the retrieval run's commit as `runner_git_commit`**; the submitting commit survives only in the ids file.
+- **D8. `verify_job_inputs` never decodes** (`hardware.py:2304-2311`: `json.dumps` on already-decoded pubs raises), so every
+  retrieval's "inputs match" is a pub count. Known since the smoke test.
+- **D9. Pre-flight 08 (10 Nov) text.** Day 2's point is dated "20 Sep 18:57-19:49 UTC" / "21 Sep 00:23-01:19 IST" (lines 22, 39);
+  its bundle says 21 Sep 00:05:35 to 00:12:25 UTC. The header says it supersedes "pre-flight 08 of 10 Nov
+  (`08_paper1_replication_2026-11-10.md` ...)", its own file name, whose placement "fails the live cuts on nothing (it passes)"
+  (lines 6-8). Section 3 still counts against a 210-minute cap. The list's `campaign.pre_registration` reads "v0.17.0
+  (26 Sep 2026)"; the pre-registration dates v0.17.0 4 Oct 2026.
+- **D10. The report's figures** draw a "null-control floor" near 9e-5, consistent with the simulated n = 20, 4,096-shot entry
+  (8.99e-5) of the floors table; this run's measured floor is 7.29e-7. No number here uses the figures.
+- **D11.** `L0`'s QPY exists only as an Action artefact that expires 2027-02-08; the tracker's ledger and cap are those of 25 Sep.
+- **For review 07.** Block C's three jobs were created 11:13:20 to 11:13:34Z on the same placement snapshot; each job's
+  running-to-finished window should be read against 11:35:39Z, and its `L0` jobs measure this same rung.
+
+## 13. Reproduction
+
+```
+git checkout 4182865d6d01bc40fe32808f92727ba6155d2cc9
+mkdir -p run06/jobs run06/runs/2026-11-10
+cp data/jobs/replication_01_16384_retrieved_20261110T124546Z.csv run06/jobs/
+cp -r data/runs/2026-11-10/dbpfnr0qtr0c738ebeng data/runs/2026-11-10/dbpfnrgqtr0c738ebeog run06/runs/2026-11-10/
+python -m gradvar.analysis.report run06 --out postrun_06 --predictions data/predictions \
+  --snapshot-csv data/calibrations/ibm_phoenix_2026-11-10T101610Z.csv --n-boot 10000
+```
+Then, in Python at the same commit: P, sigma and P_noiseless from `predictions._prediction_from_rows` on the n = 82, L = 8, 10x10,
+75_85 rows of `data/predictions/main_grid_redraw_2026-11-10T1016.csv` (k = 1); a_i, a_j from `floors.Calibration.from_csv(".../ibm_phoenix_2026-11-10T101610Z.csv").ab(q, 0)[0]`
+for q = 75, 85; s_gate, s_ro from `anomaly_stats.rate_drift(sorted(glob("data/calibrations/ibm_phoenix_*.csv")), qubits,
+anomaly_stats.live_couplers(qubits, broken_edges), (75, 85), run_time="2026-11-10T111140Z")` with the list's placement; V, the
+intervals and the signal from `postrun_06/points.csv`; `anomaly_stats.decide([rep])` with `list="replication_01_16384"`. The
+layout re-check of Section 3 is `gradvar.hardware.layout_check(None, qubits, couplers, props=...)` on
+`data/calibrations/ibm_phoenix_properties_2026-11-10T124546Z.json`. Python 3.12.14, numpy 2.4.6, pandas 3.0.6, qiskit 2.5.2,
+qiskit-ibm-runtime 0.49.0. The machine-readable numbers of this review are kept with the session's artifacts
+(`postrun_06_numbers.json`), not in the repository.
