@@ -127,8 +127,9 @@ def gen_lists(tmp_path_factory):
     return out
 
 
-def _render(tmp, gen_lists, snap, tag, prev_snap, records=(), label=None, hold=None, pdir=None):
-    """bp.build on generated lists (and the committed records for ``records``), the committed re-draw files of ``tag`` and fabricated dry-run logs."""
+def _render(tmp, gen_lists, snap, tag, prev_snap, records=(), label=None, hold=None, pdir=None, execution=None):
+    """bp.build on generated lists (and the committed records for ``records``), the committed re-draw files of ``tag`` and fabricated dry-run logs.
+    ``execution``: the package's Deviation 65 record, passed on as ``scripts/sameday_repackage.py`` passes it (not at all when there is none)."""
     out = tmp / "out"
     a = out / "A" / "joblists_paper1"
     a.mkdir(parents=True)
@@ -153,10 +154,11 @@ def _render(tmp, gen_lists, snap, tag, prev_snap, records=(), label=None, hold=N
     upd = bp.ibm_update(str(props))
     cc = {"day3_dial_refs": {"exit": 0, "missing": 0, "items": [{"found": True, "source": f"dial_redraw_{tag}.csv"}]}}
     pdir = pdir or tmp / "preflight"
-    res = bp.build(out, snap, tag, "10 Nov 2026", None, pdir, review_txt=bp.review_template("2026-11-10", bp.ibm_update_iso(str(props)), label=label),
+    d65 = {"execution": execution} if execution else {}
+    res = bp.build(out, snap, tag, "10 Nov 2026", None, pdir, review_txt=bp.review_template("2026-11-10", bp.ibm_update_iso(str(props)), label=label, **d65),
                    precheck_res=dict(lists=pcs, csv=snap, ibm_properties=upd, ibm_properties_placement=upd), prev_pred_dir=str(PRED), root=str(ROOT),
                    prev_lists_dir=str(gen_lists[prev_snap]), prev_fail_snaps=(), prev=bp.prev_package(gen_lists[prev_snap], PRED, None, records=recs),
-                   pred_commit="@@C@@", comparators=cc, hold=hold, records=recs, label=label)
+                   pred_commit="@@C@@", comparators=cc, hold=hold, records=recs, label=label, **d65)
     return res, {n: (pdir / n).read_text(encoding="utf-8") for n in res["names"]}
 
 
@@ -1033,3 +1035,235 @@ def test_cp9_the_checklist_names_the_builders_refusals_and_the_corrected_rules()
     for needle in ("--stop-lifted", "`suite_ran: false`", "publish --exercise", "\"not held\"", "\"not an exercise\"", "raises this flag naming the option to give",
                    "a copy of the pairs' list under another file"):
         assert needle in flat, needle
+
+
+# ------------------------------------------------------------------------------------------------ Deviations 65 and 67 in the package, behind the switch
+
+D65_TABLE = "data/settings/execution_calibration_settings.json"
+D65_PROPS, D65_STAMP = "ibm_phoenix_properties_20261110T101610Z.json.gz", "2026-11-10T101610Z"     # the 10:16Z package: IBM update 09:07:11Z
+D65_NOW = "2026-11-10T17:00:00Z"                                                                 # an instant of the check on the package's UTC day
+D65_CHECKS = {"package record (Deviation 65)", "dispatch window (Deviation 65)"}
+V018_CHECKS = {"sha256", "pinned", "layout_check", "approved_overrides", "dry_run", "preflight_review", "not dispatched", "pre-arming snapshot",
+               "IBM properties time", "pre-check on the newest snapshot", "package status", "not held", "not an exercise"}
+
+
+def _d65():
+    """``gradvar.execution_record`` when the committed side of Deviation 65 (branch dev65-implementation) is on the tree; else skip."""
+    pytest.importorskip("gradvar.execution_calibration", reason="the committed side of Deviation 65 is not on this tree")
+    from gradvar import execution_record as ER
+    return ER
+
+
+def _d65_table(status):
+    """The committed settings table with another status, every entry ruled on (what the adopting commit does)."""
+    t = json.loads((ROOT / D65_TABLE).read_text(encoding="utf-8"))
+    t["status"] = status
+    for e in t["settings"].values():
+        e["provisional"] = False
+    return json.dumps(t).encode("utf-8")
+
+
+def _d65_root(tmp, status="in_force", code=True):
+    """A tree with the settings table at ``status`` and (``code``) the code files a package names."""
+    ER = _d65()
+    for f in ER.CODE_FILES if code else ():
+        (tmp / f).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(ROOT / f, tmp / f)
+    (tmp / D65_TABLE).parent.mkdir(parents=True, exist_ok=True)
+    (tmp / D65_TABLE).write_bytes(_d65_table(status))
+    return tmp
+
+
+def _d65_props(name=D65_PROPS):
+    with gzip.open(CAL / name, "rt", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _d65_restamp(props, stamp):
+    """The same values under a later IBM stamp (what IBM did three times on 10 Nov 2026)."""
+    d = json.loads(json.dumps(props))
+    d["last_update_date"] = stamp
+    for e in d.get("general") or []:
+        e["date"] = stamp
+    return d
+
+
+def _d65_changed(props, stamp):
+    """A change of values under a later IBM stamp: one readout error moved."""
+    d = _d65_restamp(props, stamp)
+    e = next(e for e in d["qubits"][0] if e["name"] == "readout_error")
+    e["value"] = float(e["value"]) + 1e-3
+    return d
+
+
+def _d65_tree(tmp, record=None, status="in_force", sets=(), table=None):
+    """A pre-arming tree (``_prearm_tree``) whose commit carries the settings table at ``status`` (or the bytes ``table``), whose summary
+    carries ``record``, and with later snapshots ``sets`` = ((file stamp, properties), ...): each a raw properties file and a CSV
+    of that stamp (the 11:03Z CSV, which the pre-check reads)."""
+    t = _prearm_tree(tmp)
+    (t / D65_TABLE).parent.mkdir(parents=True)
+    (t / D65_TABLE).write_bytes(table if table is not None else _d65_table(status))
+    if record is not None:
+        _edit_summary(t, execution=record)
+    for stamp, props in sets:
+        with gzip.open(t / "data" / "calibrations" / f"ibm_phoenix_properties_{stamp.replace('-', '')}.json.gz", "wt", encoding="utf-8") as f:
+            json.dump(props, f)
+        shutil.copyfile(CAL / "ibm_phoenix_2026-11-10T110307Z.csv", t / "data" / "calibrations" / f"ibm_phoenix_{stamp}.csv")
+    return t
+
+
+def _failing(ck):
+    return [k for k, v in ck.items() if not v]
+
+
+def test_without_the_settings_table_the_package_and_the_arming_check_are_those_of_v0_18_0(tmp_path, gen_lists, monkeypatch):
+    """Switch off (no settings table; a record that is not in force): no Deviation 65 record, no paragraph, the strict arming sentence
+    and the strict window by stamp, and ``gradvar.execution_record`` is not imported by the pipeline, the builder or the check."""
+    import gradvar
+    monkeypatch.setitem(sys.modules, "gradvar.execution_record", None)                           # an import of it would now fail
+    monkeypatch.delattr(gradvar, "execution_record", raising=False)
+    assert SR.execution_package(CAL / D65_PROPS, D65_STAMP, "f" * 40, root=tmp_path) is None
+    res, off = _render(tmp_path / "off", gen_lists, SNAP_A, TAG_A, SNAP_B)
+    strict = bp._arm_window(bp.ibm_update_iso(str(CAL / D65_PROPS)))
+    assert "if IBM's properties time is not 2026-11-10T09:07:11" in strict and "prearm_check.py` must pass on the commit" not in strict
+    for n, txt in off.items():
+        assert strict in txt and "Deviation 65" not in txt and "Deviations 65 and 67" not in txt and "two phases" not in txt, n
+    # a record of a table that is not in force is no record: the same bytes
+    not_in_force = dict(adoption=dict(in_force=False, status="not_in_force"), text=dict(window="WINDOW", paragraph="PARAGRAPH"))
+    res2, off2 = _render(tmp_path / "off2", gen_lists, SNAP_A, TAG_A, SNAP_B, execution=not_in_force)
+    assert res2["names"] == res["names"] and off2 == off
+    assert bp.review_template("2026-11-10", "X", label="L", execution=not_in_force) == bp.review_template("2026-11-10", "X", label="L")
+    # the summary
+    S = json.loads((ROOT / "docs/repack/2026-11-10_summary.json").read_text(encoding="utf-8"))
+    monkeypatch.setattr(SR, "REPACK", tmp_path / "repack")
+    SR.write_summary(S, "off")
+    md = (tmp_path / "repack" / "off_summary.md").read_text(encoding="utf-8")
+    assert "execution" not in S and "Deviation 65" not in md and "Deviations 65 and 67" not in md
+    # the pre-arming check of a commit without the table
+    t = _prearm_tree(tmp_path / "tree")
+    assert PC.execution_switch(PC.Tree(t)) is None
+    res = PC.check(PC.Tree(t), [LIST], now="2026-11-12T00:00:00Z")                               # the day plays no part in the window of v0.18.0
+    ck, x = _checks(res)
+    assert res["ok"] and set(ck) == V018_CHECKS and "execution" not in x
+
+
+def test_in_force_the_package_names_the_code_the_update_and_the_readout_age(tmp_path, gen_lists, monkeypatch):
+    """Runner item 2, switch on: the summary carries the Deviation 65 record; every pre-flight carries its paragraph before Section 8
+    and the arming sentences state the window of C65-5; nothing else in a pre-flight or the summary changes."""
+    ER = _d65()
+    props = CAL / D65_PROPS
+    assert SR.execution_package(props, D65_STAMP, "f" * 40, root=_d65_root(tmp_path / "t_off", "not_in_force")) is None
+    with pytest.raises(SystemExit, match="its code is not on this tree"):
+        SR.execution_package(props, D65_STAMP, "f" * 40, root=_d65_root(tmp_path / "t_nocode", code=False))
+    root = _d65_root(tmp_path / "t_on")
+    rec = SR.execution_package(props, D65_STAMP, "f" * 40, root=root)
+    s, a = rec["stops_evaluated_on"], rec["readout_age"]
+    assert rec["adoption"]["in_force"] is True and rec["adoption"]["status"] == "in_force" and rec["dispatch_window"] in ER.WINDOW_RULES
+    assert rec["code"]["commit"] == "f" * 40 and set(rec["code"]["files"]) == set(ER.CODE_FILES) and all(rec["code"]["files"].values())
+    assert rec["code"]["files"][D65_TABLE] == SR.sha256(root / D65_TABLE) == rec["adoption"]["settings_sha256"]
+    ref = ER.set_ref(_d65_props())
+    assert (s["file"], s["last_update_date"], s["snapshot_instant"]) == (f"data/calibrations/{D65_PROPS}", "2026-11-10T09:07:11Z", "2026-11-10T10:16:10Z")
+    assert (s["sha256"], s["value_sha256"]) == (ref["sha256"], ref["value_sha256"]) and a["n"] > 0 and a["at"] == "2026-11-10T10:16:10Z"
+    assert rec["text"] == dict(window=ER.window_sentence(rec), paragraph=ER.preflight_paragraph(rec))
+    para = rec["text"]["paragraph"]
+    for needle in ("f" * 40, s["sha256"][:12], s["value_sha256"][:12], "2026-11-10T09:07:11Z", f"{a['oldest_h']} h old", "gradvar/execution_calibration.py",
+                   "gradvar/retrieval_phases.py", "gradvar/rerun_decision.py", "scripts/redraw_execution.py", "`--submit-only`"):
+        assert needle in para, needle
+    assert json.loads(json.dumps(rec)) == rec                                                    # the summary stores it as it is
+    # the pre-flights: the paragraph before Section 8, the window in the arming sentences, and no other difference
+    res0, off = _render(tmp_path / "off", gen_lists, SNAP_A, TAG_A, SNAP_B)
+    res1, on = _render(tmp_path / "on", gen_lists, SNAP_A, TAG_A, SNAP_B, execution=rec)
+    strict, wide = bp._arm_window(bp.ibm_update_iso(str(props))), bp._arm_window(None, rec)
+    assert res1["names"] == res0["names"] and len(on) == 3 and rec["text"]["window"] in wide and "prearm_check.py` must pass" in wide
+    block = ("\n### Execution-time calibration and the retrieval in two phases (Deviations 65 and 67)\n\n" + para
+             + " Where a step above describes the retrieval as one step, this paragraph governs.\n")
+    for n in res0["names"]:
+        assert off[n].count(strict) >= 2 and strict not in on[n] and on[n].count(para) == 1, n     # Section 6 and the Section 8 record
+        assert on[n].index(para) < on[n].index(bp.EXECUTION_MARK), n
+        assert on[n] == off[n].replace(strict, wide).replace(bp.EXECUTION_MARK, block + bp.EXECUTION_MARK), n
+    with pytest.raises(bp.PreflightRefused, match="no single Section 8"):
+        bp._with_execution("x.md", "a document without that section", rec)
+    assert bp._EXECUTION is None                                                                 # nothing is left behind for the next package
+    # the summary: the paragraph in its head, the record in the JSON, and no other difference
+    S = json.loads((ROOT / "docs/repack/2026-11-10_summary.json").read_text(encoding="utf-8"))
+    md = {}
+    for key, s_ in (("off", S), ("on", dict(S, execution=rec))):
+        monkeypatch.setattr(SR, "REPACK", tmp_path / f"repack_{key}")
+        SR.write_summary(s_, "x")
+        md[key] = (tmp_path / f"repack_{key}" / "x_summary.md").read_text(encoding="utf-8")
+    assert para not in md["off"] and md["on"].count(para) == 1 and md["on"].index(para) < md["on"].index("## ")
+    assert md["on"].replace(para + "\n\n", "") == md["off"]
+    assert json.loads((tmp_path / "repack_on" / "x_summary.json").read_text(encoding="utf-8"))["execution"] == rec
+
+
+def test_in_force_the_arming_check_applies_the_window_in_changes_of_values(tmp_path, capsys):
+    """Runner item 2 / C65-5: when the commit's table is in force, the check needs the package's Deviation 65 record and applies the
+    window the table names, an update being a change of values: a set stamped again is none; the window closes at the second
+    change of values and on the next UTC day."""
+    ER = _d65()
+    rec = SR.execution_package(CAL / D65_PROPS, D65_STAMP, "f" * 40, root=_d65_root(tmp_path / "root"))
+    assert rec["dispatch_window"] == "package_update_or_next_same_utc_day"                       # the committed table's rule
+    pkg = _d65_props()
+    r1, r2 = _d65_restamp(pkg, "2026-11-10T11:20:00+00:00"), _d65_restamp(pkg, "2026-11-10T11:50:00+00:00")
+    c1 = _d65_changed(pkg, "2026-11-10T12:20:00+00:00")
+    c1r, c2 = _d65_restamp(c1, "2026-11-10T12:50:00+00:00"), _d65_changed(c1, "2026-11-10T13:20:00+00:00")
+    S1, S2, S3, S4, S5 = ("2026-11-10T113000Z", "2026-11-10T120000Z", "2026-11-10T123000Z", "2026-11-10T130000Z", "2026-11-10T133000Z")
+
+    def run(sub, now=D65_NOW, **kw):
+        t = _d65_tree(tmp_path / sub, **({"record": rec} | kw))
+        res = PC.check(PC.Tree(t), [LIST], now=now)
+        return (res, t) + _checks(res)
+
+    # the package's own values, seen once more by the pre-arming snapshot of 11:03Z
+    res, t, ck, x = run("same")
+    w = x["execution"]["window"]
+    assert res["ok"] and set(ck) == (V018_CHECKS - {"IBM properties time"}) | D65_CHECKS
+    assert (w["value_updates_since_package"], w["stamps_seen"], w["in_window"], w["rule"]) == (0, 1, True, rec["dispatch_window"])
+    assert w["files"] == ["ibm_phoenix_properties_20261110T110307Z.json.gz"] and (w["package_instant"], w["check_instant"]) == ("2026-11-10T10:16:10Z", D65_NOW)
+    detail = {c["check"]: c["detail"] for c in x["checks"]}
+    assert "stops evaluated on IBM update 2026-11-10T09:07:11Z" in detail["package record (Deviation 65)"] and "f" * 40 in detail["package record (Deviation 65)"]
+    assert "a lower bound" in detail["dispatch window (Deviation 65)"]
+    # the command line checks at the clock's instant, which is not 10 Nov 2026: the day has passed and the window is closed
+    assert PC.main(["--tree", str(t), "--lists", LIST]) == 1
+    out = capsys.readouterr().out
+    assert "FAIL dispatch window (Deviation 65)" in out and "not the same UTC day" in out and "ok   package record (Deviation 65)" in out
+    # two re-stamps: one update, the package's
+    res, _, ck, x = run("restamps", sets=((S1, r1), (S2, r2)))
+    w = x["execution"]["window"]
+    assert res["ok"] and (w["value_updates_since_package"], w["stamps_seen"], w["restamped_only"]) == (0, 3, True)
+    assert w["in_force"]["last_update_date"] == "2026-11-10T11:50:00Z" and w["in_force"]["value_sha256"] == w["package"]["value_sha256"]
+    # the first change of values, stamped twice: still inside
+    res, _, ck, x = run("first", sets=((S1, r1), (S3, c1), (S4, c1r)))
+    assert res["ok"] and x["execution"]["window"]["value_updates_since_package"] == 1 and x["execution"]["window"]["stamps_seen"] == 4
+    # the second change of values closes it; so does the next UTC day, whatever the values
+    res, _, ck, x = run("second", sets=((S1, r1), (S3, c1), (S4, c1r), (S5, c2)))
+    assert not res["ok"] and _failing(ck) == ["dispatch window (Deviation 65)"] and x["execution"]["window"]["value_updates_since_package"] == 2
+    assert "outside the window, the list is not dispatched on this package" in next(c["detail"] for c in x["checks"] if c["check"] == "dispatch window (Deviation 65)")
+    res, _, ck, x = run("next_day", now="2026-11-11T00:00:01Z")
+    assert _failing(ck) == ["dispatch window (Deviation 65)"] and x["execution"]["window"]["same_utc_day"] is False
+    # the sets of 10 Nov 2026 as they are committed: the retrieval-time properties of 12:45Z are the first change of values (v0.18.0 stops there,
+    # by the stamp), those of 13:56Z the second
+    t = _d65_tree(tmp_path / "nov10", record=rec)
+    shutil.copyfile(CAL / "ibm_phoenix_properties_2026-11-10T124546Z.json", t / "data/calibrations/ibm_phoenix_properties_2026-11-10T124546Z.json")
+    ck, x = _checks(PC.check(PC.Tree(t), [LIST], now=D65_NOW))
+    assert ck["dispatch window (Deviation 65)"] is True and x["execution"]["window"]["value_updates_since_package"] == 1
+    shutil.copyfile(CAL / "ibm_phoenix_properties_2026-11-10T135646Z.json", t / "data/calibrations/ibm_phoenix_properties_2026-11-10T135646Z.json")
+    ck, x = _checks(PC.check(PC.Tree(t), [LIST], now=D65_NOW))
+    assert ck["dispatch window (Deviation 65)"] is False and x["execution"]["window"]["value_updates_since_package"] == 2
+    # the record: a package built while the table was not in force has none; a record that names another set is refused
+    res, _, ck, x = run("no_record", record=None)
+    assert _failing(ck) == ["package record (Deviation 65)"] and "carries no Deviation 65 record" in next(c["detail"] for c in x["checks"] if not c["ok"])
+    other = json.loads(json.dumps(rec))
+    other["stops_evaluated_on"]["value_sha256"] = "0" * 64
+    res, _, ck, x = run("other_set", record=other)
+    assert _failing(ck) == ["package record (Deviation 65)"] and "the summary names the set" in next(c["detail"] for c in x["checks"] if not c["ok"])
+    # a table that says not_in_force is v0.18.0: the strict window by stamp, with or without a record in the summary
+    for sub, record in (("nif", None), ("nif_rec", rec)):
+        res, t, ck, x = run(sub, record=record, status="not_in_force", now="2026-11-12T00:00:00Z")
+        assert res["ok"] and set(ck) == V018_CHECKS and "execution" not in x
+    res, t, ck, x = run("nif_update", status="not_in_force", sets=((S1, r1),))                # a re-stamp is an update to v0.18.0
+    assert _failing(ck) == ["IBM properties time"]
+    # a table its loader refuses: which rules apply is not guessed
+    t = _d65_tree(tmp_path / "broken", record=rec, table=b"{broken")
+    res = PC.check(PC.Tree(t), [LIST], now=D65_NOW)
+    assert not res["ok"] and "not readable by its loader" in res["lists"][0]["unreadable"] and PC.main(["--tree", str(t), "--lists", LIST]) == 2
