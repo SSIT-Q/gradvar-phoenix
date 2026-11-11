@@ -42,7 +42,8 @@ PHASE1_USAGE_FIELDS = frozenset({"details", "qpu_charge_time_seconds", "status",
 PHASE1_RETRIEVAL_FIELDS = frozenset({
     "calibration_csv", "calibration_snapshot", "calibration_snapshot_at_retrieval", "ids_file", "inputs_verification", "job_status", "properties_source",
     "retrieval_run", "retrieved_utc", "submitted_utc", "phase", "execution_rows_commit", "execution_pool", "metadata_retrieved_utc", "phase2_verification",
-    "execution_span"})                                   # execution_span: the record branch pipeline-day3-2026-11-10 adds
+    "execution_span",                                    # the record branch pipeline-day3-2026-11-10 adds
+    "rerun_of", "rerun_decision"})                       # a re-run job of Deviation 67 (iii): the job it repeats; path, sha256 and commit of the decision file
 PHASE1_POINT_FIELDS = frozenset({
     # gradient points
     "L", "broken_edges", "edge", "holes", "k_0based", "k_1based", "lattice_edge", "lattice_qubits", "layout", "n", "observables", "origin", "param_hash",
