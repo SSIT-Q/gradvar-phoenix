@@ -2,6 +2,27 @@
 
 Analysis for the Deviation 65 draft (execution-time calibration). Analysis only: no hardware, no measured value opened.
 
+**Correction (11 Nov 2026).** The QPU-free trial of the draft's Section 8 item 9 ran on 11 Nov (workflow run 42958459321; report
+`docs/deviations_drafts/65_support/trial_properties_history_20261111T041956Z.md` on branch
+`trial-properties-history-run-42958459321`; no result was read). It changes four statements of this report. They are corrected in place and
+marked "corrected 11 Nov".
+
+1. IBM stamped six sets on 10 Nov from 09:07:11Z on: 09:07:11Z, 11:20:04Z, 11:35:39Z, 13:14:38Z, 13:37:31Z and 16:34:05Z. The snapshot workflow
+   committed three of them (09:07:11Z, 11:35:39Z, 13:37:31Z). The sets of 11:20:04Z, 11:35:39Z and 13:14:38Z are equal in every value, and so are
+   those of 13:37:31Z and 16:34:05Z: the values changed at 11:20:04Z and at 13:37:31Z, not at 11:35:39Z. Where this report says "the 11:35:39Z
+   set", the values are those first stamped at 11:20:04Z. Every row drawn on that set is unchanged.
+2. The replication's probes job finished 58.7 s after the change of 11:20:04Z. This report said that no update fell inside its window.
+3. The per-value composite equals the 11:35:39Z set, in every value the model reads, for the three Block C jobs only. For the two replication
+   jobs it takes the static-ZZ values of the 09:07:11Z set (210 of 218 differ, median 1.5 %), because the later ZZ entries are dated 11:20:04Z,
+   after those jobs started. Found by the independent review (correction C65-2). Rows on that composite were later drawn as exploratory rows on
+   branch `dev65-implementation`: for n100 L = 8 unital, k = 1, truncated, 1.0004 times the row on the 11:35:39Z set.
+4. "Update" in this report means a `last_update_date` that a committed file carries. The committed history under-counts IBM's stamps (three of
+   six on 10 Nov) and dates a change of values late when the first stamp that carried it was missed (11:20:04Z, committed as 11:35:39Z). Every
+   count below over "pairs of consecutive updates" (13 pairs, 3 of 13, 5 of 13, 6 of 13) is a count over pairs of consecutive committed sets,
+   not a rate per IBM update. No other day was walked back.
+
+No number in the JSON beside this file changed, and nothing was drawn again for this correction.
+
 **Sources.** Repository SSIT-Q/gradvar-phoenix, branch `main` at `f11dc7aa831bc2c55522a182a2f22a919b129bc8` (the head when this was written; the package
 files `data/predictions/*_2026-11-10T1016.*` record code `f5fe8f2a31bc449a814dd78cb8daff9affc3481d`, an ancestor of that head). Runner and
 Gate 2 code were read on `dev63-questions` at `78e0675ce356fa178461e069c332e49faeab8cfe`. Every number below is in
@@ -23,12 +44,15 @@ exactly (maximum relative difference 0 over five quantities per row). A differen
 2. History: 14 pairs of consecutive committed IBM updates lie less than 12 h apart; 13 were drawn. The pair 19 Sep 14:08Z → 18:47Z could
    not be placed (`place_rungs` finds no 6×10 rectangle on the earlier set under today's code).
 3. "Consecutive" means consecutive among the updates committed under `data/calibrations`. An update that no snapshot caught is absent (20 Sep
-   18:44:14Z exists only in run bundles), so a pair with a gap of several hours may span unseen updates.
+   18:44:14Z exists only in run bundles), so a pair with a gap of several hours may span unseen updates. (Corrected 11 Nov: the trial counted
+   them for one day. Three of the six sets IBM stamped on 10 Nov from 09:07:11Z on were never committed.)
 4. The Monte Carlo error of a difference is the independent sum √(se₁² + se₂²). The sampler gives identical rows for identical inputs, and the sampled
    and truncated shifts agree within this error (Section 3), so it is used as an upper bound; no paired estimate was made.
 5. The second treatment of over-cut qubits (Section 2.3) was drawn for eight row types at L = 8, not for every row.
-6. Rows on a per-value composite calibration (the rule the draft proposes) were not drawn: no builder exists. For today's five jobs the 11:35:39Z set
-   equals that composite for every value the model reads (Section 1), so the rows on it stand in for it; this is stated where used.
+6. Rows on a per-value composite calibration (the rule the draft proposes) were not drawn: no builder exists. For today's three Block C jobs the
+   11:35:39Z set equals that composite for every value the model reads (Section 1), so the rows on it stand in for it; this is stated where used.
+   (Corrected 11 Nov: the first text said "five jobs". For the two replication jobs the composite takes the static-ZZ values of the 09:07:11Z set,
+   and the rows on the 11:35:39Z set stand in for it only to about 4 parts in 10 000 on the one row compared.)
 
 ## 1. What IBM published today and when the jobs ran
 
@@ -36,6 +60,8 @@ Committed record: 72 raw properties files under `data/calibrations` carry 64 dis
 the latest update at snapshot time is 1.66 h (the state block's 67 files / 1.53 h is a different count of the same record; neither is used below).
 Today's committed updates: 07:32:03Z, 09:07:11Z, 11:35:39Z, 13:37:31Z (gaps 1.586, 2.474, 2.031 h). The shortest gap in the record is
 18 min (21 Sep).
+(Corrected 11 Nov: these are the stamps the snapshots caught. The service returned six stamps from 09:07:11Z to 16:34:05Z; the values changed at
+11:20:04Z and 13:37:31Z, 2.215 h and 2.291 h apart, and had not changed again at 16:34:05Z, 2.943 h later.)
 
 A properties update is a publication time, not a measurement time. Each value carries its own `date`:
 
@@ -46,7 +72,7 @@ A properties update is a publication time, not a measurement time. Each value ca
 | 11:35:39Z | 10 Nov 11:05:20Z | 10 Nov 11:20:04Z | 7–9 Nov | 10 Nov 11:38Z |
 | 13:37:31Z | 10 Nov 13:37:29–31Z | 10 Nov 11:20:04Z | 7–9 Nov | 10 Nov 13:37Z |
 
-So the readout errors the package was built and dispatched on were 30 hours old, the readout errors published at 11:35:39Z were measured at 11:05:20Z,
+So the readout errors the package was built and dispatched on were 30 hours old, the readout errors published at 11:35:39Z (corrected 11 Nov: first stamped at 11:20:04Z) were measured at 11:05:20Z,
 before either dispatch (11:11Z, 11:13Z), and the initialisation errors over the cut were measured at 11:19–11:20Z and re-published unchanged at 13:37:31Z.
 On the n100 placement, none of the 82 readout, 82 sx and 246 CZ entries of the 11:35:39Z set is dated after 11:12:05Z; 53 of its 81 initialisation
 entries are.
@@ -55,11 +81,14 @@ Jobs (from `job.json`; times UTC; the batch id is the runner's `Batch`):
 
 | job | list / tag | created | running | finished | queue wait (min) | running → finished (min) | QPU s | properties at creation | in force at `running` | update inside the window | first update after `finished` |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| `dbpfnr0qtr0c738ebeng` | replication_01_16384 / L0 | 11:11:40 | 11:12:05 | 12:35:07 | 0.4 | 83.04 | 87 | 09:07:11 | 09:07:11 | 11:35:39 | 13:37:31 |
-| `dbpfnrgqtr0c738ebeog` | replication_01_16384 / L0-probes-s16384 | 11:11:42 | 11:12:33 | 11:21:02 | 0.86 | 8.48 | 67 | 09:07:11 | 09:07:11 | none | 11:35:39 |
-| `dbpfom8ou4as73ctjes0` | section3c_blockC / L0 | 11:13:29 | 12:54:18 | 13:31:41 | 100.81 | 37.39 | 514 | 09:07:11 | 11:35:39 | none | 13:37:31 |
-| `dbpfon8qtr0c738ebgj0` | section3c_blockC / L0-c2 | 11:13:34 | 12:54:22 | 13:10:40 | 100.8 | 16.29 | 180 | 09:07:11 | 11:35:39 | none | 13:37:31 |
-| `dbpfontt7fqc7389bsu0` | section3c_blockC / L0-probes-s65536 | 11:13:35 | 12:54:47 | 13:08:16 | 101.19 | 13.48 | 258 | 09:07:11 | 11:35:39 | none | 13:37:31 |
+| `dbpfnr0qtr0c738ebeng` | replication_01_16384 / L0 | 11:11:40 | 11:12:05 | 12:35:07 | 0.4 | 83.04 | 87 | 09:07:11 | 09:07:11 | 11:20:04 (stamped again 11:35:39) | 13:37:31 (13:14:38 is a re-stamp) |
+| `dbpfnrgqtr0c738ebeog` | replication_01_16384 / L0-probes-s16384 | 11:11:42 | 11:12:33 | 11:21:02 | 0.86 | 8.48 | 67 | 09:07:11 | 09:07:11 | 11:20:04, 58.7 s before `finished` | 13:37:31 (11:35:39 is a re-stamp) |
+| `dbpfom8ou4as73ctjes0` | section3c_blockC / L0 | 11:13:29 | 12:54:18 | 13:31:41 | 100.81 | 37.39 | 514 | 09:07:11 | 11:35:39 (values of 11:20:04) | none (13:14:38 is a re-stamp) | 13:37:31 |
+| `dbpfon8qtr0c738ebgj0` | section3c_blockC / L0-c2 | 11:13:34 | 12:54:22 | 13:10:40 | 100.8 | 16.29 | 180 | 09:07:11 | 11:35:39 (values of 11:20:04) | none | 13:37:31 (13:14:38 is a re-stamp) |
+| `dbpfontt7fqc7389bsu0` | section3c_blockC / L0-probes-s65536 | 11:13:35 | 12:54:47 | 13:08:16 | 101.19 | 13.48 | 258 | 09:07:11 | 11:35:39 (values of 11:20:04) | none | 13:37:31 (13:14:38 is a re-stamp) |
+
+(Corrected 11 Nov: the last three columns of the table are as the trial found them. The first text had 11:35:39 inside the main job's window, no
+update inside the probes job's window, and 11:35:39 as the first update after it.)
 
 `running` is not the start of the QPU execution. The replication's main job was `running` for 83 min and used 87 s of QPU; the three Block C jobs
 became `running` within 29 s of one another and finished 14 to 37 min later. The timestamps bound the execution; nothing committed today locates it
@@ -151,8 +180,10 @@ Reading.
    package's sample counts a re-draw of those rows cannot resolve an update-to-update shift, and the truncated value is the instrument.
 
 For today's jobs these rows have a second meaning. For every value the model reads, the 11:35:39Z set is what a per-value rule ("latest measurement
-dated at or before the job's `running` time") gives for all five jobs (Section 1), so the 11:35:39Z column is the execution-time prediction of each
-tested row under that rule, and the 13:37:31Z column is the next-measurement bracket for the Block C jobs. Predictions only; the reviews are not re-read here.
+dated at or before the job's `running` time") gives for the three Block C jobs (Section 1), so the 11:35:39Z column is the execution-time prediction of
+each tested row of Block C under that rule, and the 13:37:31Z column is the next-measurement bracket for the Block C jobs. Predictions only; the reviews are not re-read here.
+(Corrected 11 Nov: the first text said "all five jobs". For the two replication jobs the rule takes the static-ZZ values of the 09:07:11Z set, so
+the 11:35:39Z column is close to, and not equal to, their execution-time prediction; and their bracket is also the 13:37:31Z column.)
 
 ### 2.3 Over-cut qubits made holes (treatment B)
 
@@ -223,7 +254,9 @@ Distribution of |Δ ln P| (truncated), 13 pairs:
 
 What the sample shows.
 1. Three of the 13 updates re-published the values the row reads unchanged (21 Sep 02:24Z and 03:05Z; 10 Nov 09:07Z): a new `last_update_date` with
-   an identical row. The same-day rule treats such an update as a change of calibration.
+   an identical row. The same-day rule treats such an update as a change of calibration. (Added 11 Nov: "unchanged" is said of the values the row
+   reads. Of the three, only 21 Sep 03:05:59Z repeats its predecessor 02:24:15Z in every value; 21 Sep 02:24Z differs from 02:05Z in four threshold
+   classes and 10 Nov 09:07Z from 07:32Z in 63 initialisation errors.)
 2. Most changed updates move the row by the edge readout folding alone (gate part 0.0 to 0.2 %): the gate-error entries are re-measured far less
    often than they are re-published. Typical size 0.4 to 1 %; up to 2.5 % (n100) and 9.4 % (n20, 20 Sep 03:49Z → 13:44Z, where the edge readout improved).
 3. The gate part exceeds 1 % in three pairs. The largest is 20 Sep 17:22Z → 21 Sep 01:27Z (n100 −3.6 %, n20 −4.7 %): Q105's couplers 104-105,
@@ -310,7 +343,8 @@ What this explains and what it does not.
 4. Initialisation error and off-edge readout error are outside the model, so no re-draw can account for them; any rule on them is a rule by
    position, not by predicted effect.
 5. A `last_update_date` is neither necessary nor sufficient for a change of the values a row reads (three identical re-publications; readout
-   published 30 min after it was measured, and 30 h stale before that).
+   published 30 min after it was measured, and 30 h stale before that). (Corrected 11 Nov: the readout measured at 11:05:20Z was first stamped at
+   11:20:04Z, 14.7 min after it was measured. The trial shows the same for whole sets: three of the six stamps of 10 Nov changed no value.)
 
 ## 6. Reproduction
 
