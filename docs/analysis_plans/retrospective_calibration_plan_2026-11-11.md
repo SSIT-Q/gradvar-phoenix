@@ -66,3 +66,19 @@ Measured values and predictions are taken as the post-run reviews already fixed 
 
 A walk-back that stops at the script's limit of sets is reported in the run's table and is a reason to run again with a job
 list split in two, not a failure.
+
+## 8. Change of 11 Nov 2026, 17:16 UTC, made before any step was run: the calibration side is prepared early, by a blinded worker
+
+At the operator's request the work is split. Nothing below reads a measured value, and the tests of Section 4 still wait for
+v0.19.0.
+
+- **Now:** a worker who is barred from every measured value of every run (result files, the tidy job tables, the post-run reviews,
+  the tracker and handover lines that quote results) builds the calibration table of Section 3 for every job: the properties sets
+  in force (from the four trial branches; the operator ran Runs A and B on 11 Nov 2026 at about 17:00 UTC), the elements over a
+  registered cut by zone, and the model's shift s. Until v0.19.0 is adopted the table is built with that worker's own
+  implementation of the per-value rule of draft Deviation 65 and is marked provisional; after adoption it is rebuilt with the
+  adopted builder and the two are compared.
+- **The worker also fixes, without results, the definition of every covariate and of "a point"**, so that no choice is left when
+  the measured values are joined.
+- **After v0.19.0:** a second person joins the frozen table to the measured values and runs Section 4 exactly as written.
+- The lead, who knows the results of days 1, 2 and 10 Nov, does not build or edit the table.
