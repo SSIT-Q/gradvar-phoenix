@@ -27,6 +27,28 @@ Inputs (`<label>` is the date for the first package of a date; see "Labels" belo
   `--deselect` leave the suite incomplete and stop too. `publish` refuses a stopped bundle; a complete bundle stopped by the tests alone is published only
   with `--allow-test-stop "<reason>"`, which is written into both commits, the pull request and `publish.json`. Lifting a stop is a decision on the record
   (10 Nov 2026 reading, pre-registration v0.18.0), not something the pipeline does.
+  `--allow-test-stop` opens the review of a stop of the whole suite on a dispatch package and nothing else: it is refused when the manifest says
+  `suite_ran: false` (`--no-tests`, `--deselect`) and for an `--exercise` bundle. Every pre-flight published under it carries, as its second line,
+  "STOPPED by the test suite (Deviation 62 (iv)). Not a dispatch record until the stop is lifted on the record"; the reviewer's Section 8 record then
+  states the lift (the correction commit touching tests only, the clean full re-run and its commit, the properties update it ran in, the reviewer's
+  confirmation, the operator's acceptance and its time) or the refusal. The pre-arming check fails on a stopped package; for a package stopped by the
+  tests alone it passes only with `--stop-lifted "<where the lift is recorded>"`.
+- **Other refusals (stops of kind `other`).** Besides the six stops of row 62 (iv), the pre-flight builder (`scripts/build_preflights.py`) refuses to
+  render in five cases. Each ends the cycle with status `stopped`, a stop of kind `other` and no pre-flight; `publish` refuses the bundle and
+  `--allow-test-stop` does not apply. They are not registered stops: they are states in which a pre-flight would state something false or would have no
+  list to be about. None is overridden. What the operator does next:
+  1. "every run-day list is a run record": nothing in this cycle can be dispatched. A list that must run again needs a new name and its own
+     pre-flight; no rule for that name exists, so the operator takes it to the lead.
+  2. "the truncation pairs follow day 3's placement, and day3_dial_refs is a run record" (`--with-pairs` after day 3 ran): the pairs' window (row 63:
+     the cycle and properties window of day 3) has passed. The pairs are reported as not run; the cycle is run again without `--with-pairs` if
+     another list is to be packaged.
+  3. "no un-armed list carries the plain n100 rung on this placement": every list that holds the plain n100 rung is a run record, so pre-flights 08 /
+     09 have no placement to describe. Nothing of that rung is dispatched; if another list of the package should still be rendered, that is a change
+     of the builder, to be asked of the lead.
+  4. "Q79 is placed on a dial rung of day3_dial_refs": the generated list contradicts Section 3b (`dial_exclude` [79]). The list is not dispatched and
+     not edited by hand; the generator's output on this snapshot is reported to the lead as a defect.
+  5. "the replication n20 rung shares qubits ... with day 1's rectangle": the rule placed the replication's n20 rung on day 1's qubits on this
+     snapshot. `replication_01` is not dispatched from this package; the operator waits for the next snapshot and runs the cycle again.
 
 ## 1. What may change (placement and placement-dependent values only)
 
@@ -67,7 +89,10 @@ Any of these holds the dispatch until a full pre-flight review has signed it off
    - a design change;
    - a `placement.rules` change;
    - a budget change of more than 5 %, or a working figure over the minutes left under the instance cap (cap and usage are inputs of the run,
-     `--instance-cap-min` / `--instance-used-min`; without them the summary says that it used the pipeline's figures of 4 Oct 2026);
+     `--instance-cap-min` / `--instance-used-min`);
+   - an instance figure that was not given: the pipeline then uses its default of 4 Oct 2026 (210 min cap, 45 used), says so in the summary and the
+     pre-flight budget sentence, and raises this flag naming the option to give. A day's cycle is run with both options, the minutes used as IBM's
+     instance counter shows them that morning;
    - a prediction that moves by more than 3 sigma on a rung whose placement did not change;
    - a missing prediction;
    - a component-rule hole;
@@ -110,6 +135,11 @@ the list equals the reviewed package's list by sha256 (an armed list with its tw
 `approved_overrides` empty; Section 8 of its pre-flight is a filled record that does not give NO_GO for the list (armed: the commit-pinned URL points at
 it, at an ancestor commit); the list has no job-ids file; a snapshot newer than the package's exists, IBM's properties time in the newest properties file
 equals the package's (read from the package's summary JSON), and the pre-check on the newest snapshot passes. It writes nothing and does not contact IBM.
+It also judges the package itself: the summary's status is `ok` with no stop ("package status"), the package does not hold the list for a later cycle
+("not held"), and the package is not an `--exercise` run ("not an exercise"). A package stopped by the test suite alone passes "package status" only with
+`--stop-lifted "<where the lift is recorded>"`, which is printed and written into the JSON record; a stop of any other kind fails always. When several
+runs of one snapshot left a summary (a stopped run and a later one labelled `-r2`), the package of a list is the summary that records the list's sha256,
+and among several such the only one with status `ok`; the other labels are reported.
 
 ## 5. Who does what
 
@@ -121,6 +151,10 @@ A list refused by the live check waits for the next calibration or the next same
 
 ## Exercise bundles (pipeline tests only)
 
+An `--exercise` run is never a dispatch package, whatever its status: its summary says so in its head and records `run.exercise`, `publish` refuses its
+bundle unless `publish --exercise` is given (every title then says EXERCISE), `--allow-test-stop` does not apply to it, and the pre-arming check fails on
+it.
+
 `scripts/sameday_repackage.py run --exercise` keeps going after a Gate 1b FAIL so that the later stages (comparators, pre-flights, tests, summary, publish) can be tested on a real snapshot. Such a run keeps the status `stopped`, prints the Gate 1b result as the first review flag, puts an EXERCISE banner at the top of every generated pre-flight, and is published only with `publish --exercise`. That opens a draft pull request whose title starts with "EXERCISE, not dispatchable". An exercise bundle is never reviewed for dispatch and never merged. Close its pull request once the pipeline check is done. The same-day rule applies unchanged: a cycle whose Gate 1b fails dispatches nothing that day.
 
 `modal/run_exercise.sh <run_sha> <lists_sha> <tag> [args]` exercises the cycle on a committed snapshot whose lists are already on the tree: it restores
@@ -130,8 +164,8 @@ the committed files of that tag by value (`out/sameday/reproduction.json`): run 
 out, and everything else must agree.
 
 The pairs' list (`scripts/make_truncation_pairs.py`, `--with-pairs`) is written into `data/joblists/paper1/` before the suite runs. Its generator does
-not count its own list there as a seed overlap (any other list on its seed block still is one) and does not write over a pairs list that was armed or
-dispatched. Before this was fixed (exercise of 11 Nov 2026) every cycle with `--with-pairs` ended in a test stop.
+not count its own list there as a seed overlap (any other list on its seed block still is one, and so is a copy of the pairs' list under another file
+name: the list is recognised only at its own path and under its own name) and does not write over a pairs list that was armed or dispatched. Before this was fixed (exercise of 11 Nov 2026) every cycle with `--with-pairs` ended in a test stop.
 
 `run --survey` is the dispatchability survey (`modal/run_survey.sh`, no commits, no pull request). It runs regeneration, the Gate 1b re-draw and
 the pre-check of every list on the snapshot, records the Gate 1b verdict without stopping, and ends with status `survey`. Nothing from a survey is

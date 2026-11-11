@@ -998,3 +998,21 @@ def test_cp8_a_preflight_published_under_allow_test_stop_says_so_in_its_second_l
     # the line is added once
     once = SR.with_stop_line(files[pf].encode("utf-8"), "2026-11-12")
     assert SR.with_stop_line(once, "2026-11-12") == once and once.decode("utf-8").split("\n")[1] == line
+
+
+def test_cp9_the_checklist_names_the_builders_refusals_and_the_corrected_rules():
+    """CP-9: the five refusals of the pre-flight builder are stops of kind ``other`` outside the six of row 62 (iv); the checklist
+    names each with what the operator does next. The message texts are read from the builder, so the two cannot drift apart."""
+    ck = (ROOT / "docs" / "repack" / "REVIEW_CHECKLIST.md").read_text(encoding="utf-8")
+    src = Path(bp.__file__).read_text(encoding="utf-8")
+    refusals = ("every run-day list is a run record", "the truncation pairs follow day 3's placement, and day3_dial_refs is a run record",
+                "no un-armed list carries the plain n100 rung on this placement", "Q79 is placed on a dial rung of day3_dial_refs",
+                "the replication n20 rung shares qubits")
+    flat = " ".join(ck.split())
+    for msg in refusals:
+        assert f'PreflightRefused("{msg}' in src or f'PreflightRefused(f"{msg}' in src, msg     # the builder still raises it
+        assert msg in flat, msg                                                                  # and the checklist names it
+    assert "**Other refusals (stops of kind `other`).**" in ck and "What the operator does next:" in ck
+    for needle in ("--stop-lifted", "`suite_ran: false`", "publish --exercise", "\"not held\"", "\"not an exercise\"", "raises this flag naming the option to give",
+                   "a copy of the pairs' list under another file"):
+        assert needle in flat, needle
