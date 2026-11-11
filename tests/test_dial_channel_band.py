@@ -510,6 +510,30 @@ def test_generator_adds_the_reset_of_zero_probe_only_with_the_switch():
     assert off["dial_arm_contingent.json"] == on["dial_arm_contingent.json"]
 
 
+def test_runner_keeps_the_reset_of_a_qubit_prepared_in_zero():
+    """The new probe is |0> -> native reset -> measure. A transpiler that dropped a reset acting on |0> would turn it into a second
+    readout reference and eps0 would read zero by construction: the reset must survive at the runner's optimization level (the
+    runner needs no change for the probe: ``build_probes`` already takes prep '0' with reset_kind 'reset')."""
+    import inspect
+    from qiskit import QuantumCircuit
+    from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
+    from gradvar import hardware as hw
+    fake = pytest.importorskip("qiskit_ibm_runtime.fake_provider")
+    backend = fake.FakeNighthawk() if hasattr(fake, "FakeNighthawk") else fake.FakeTorino()
+    level = inspect.signature(hw.build_probes).parameters["optimization_level"].default
+    qs = [0, 1, 2]
+    for prep, want in (("0", dict(reset=3)), ("1", dict(x=3, reset=3))):
+        dial, synthetic = hw.dial_operation("reset", backend, qs)
+        qc = QuantumCircuit(len(qs))
+        if prep == "1":                                              # as hardware.build_probes builds a reset_error probe
+            qc.x(range(len(qs)))
+        for q in range(len(qs)):
+            dial(qc, q)
+        isa = generate_preset_pass_manager(optimization_level=level, backend=backend, initial_layout=qs, seed_transpiler=1).run(qc)
+        ops = dict(isa.count_ops())
+        assert not synthetic and ops.get("reset") == want["reset"], (prep, ops)
+
+
 @pytest.mark.slow
 def test_designed_channel_reproduces_a_committed_realised_row():
     """The n40 row of dial_realised_2026-09-27T0308.csv (2e6 paths, drawn 4 Oct 2026 before any of this code) re-drawn with the
