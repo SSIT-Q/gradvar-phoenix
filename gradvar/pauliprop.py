@@ -158,23 +158,34 @@ class DialChannel:
 
     Kept branch (mask bit 0; every qubit of the delay-matched control): Bloch (d (1 - kappa), d (1 - kappa), 1 - gamma; t_z = gamma),
     d = exp(-idle / T2) the modelled idle: kappa an extra transverse contraction (either sign), gamma the T1 loss over the idle.
-    Reset branch (mask bit 1 of the reset dial): (r, r, eps1 - eps0; t_z = 1 - eps0 - eps1): eps1 / eps0 = P(1) after a reset of
-    |1> / |0>, r the transverse residual the reset leaves, |r| <= sqrt(eps1 (1 - eps0)) (complete positivity). The dephasing dial
-    has no reset: its branches are (+-d (1 - kappa), +-d (1 - kappa), 1 - gamma; gamma) and eps1, eps0, r do not enter."""
+    Reset branch (mask bit 1 of the reset dial): (r_x, r_y, eps1 - eps0; t_z = 1 - eps0 - eps1): eps1 / eps0 = P(1) after a reset of
+    |1> / |0>, r_x and r_y the transverse residuals the reset leaves on X and on Y, bounded by complete positivity alone:
+    (r_x + r_y)^2 <= 4 eps1 (1 - eps0) and (r_x - r_y)^2 <= 4 eps0 (1 - eps1) (review correction C64-1; r_x = r_y is the
+    phase-covariant reset, an assumption beyond complete positivity that the range does not make). The dephasing dial has no reset:
+    its branches are (+-d (1 - kappa), +-d (1 - kappa), 1 - gamma; gamma) and eps1, eps0, r_x, r_y do not enter."""
     kappa: float = 0.0
     gamma: float = 0.0
     eps1: float = 0.0
     eps0: float = 0.0
-    r: float = 0.0
+    r_x: float = 0.0
+    r_y: float = 0.0
 
     def designed(self) -> bool:
-        return not (self.kappa or self.gamma or self.eps1 or self.eps0 or self.r)
+        return not (self.kappa or self.gamma or self.eps1 or self.eps0 or self.r_x or self.r_y)
+
+    def as_dict(self) -> Dict[str, float]:
+        return dict(kappa=self.kappa, gamma=self.gamma, eps1=self.eps1, eps0=self.eps0, r_x=self.r_x, r_y=self.r_y)
 
     def check(self) -> None:
         if not (0.0 <= self.gamma <= 1.0 and self.eps1 >= 0.0 and self.eps0 >= 0.0 and self.eps0 + self.eps1 <= 1.0 and self.kappa <= 1.0):
             raise ValueError(f"dial channel outside its domain: {self}")
-        if self.r ** 2 > self.eps1 * (1.0 - self.eps0) + 1e-15:
-            raise ValueError(f"reset branch not completely positive: r^2 = {self.r ** 2} > eps1 (1 - eps0) = {self.eps1 * (1.0 - self.eps0)}")
+        tol = 1e-15
+        if (self.r_x + self.r_y) ** 2 > 4.0 * self.eps1 * (1.0 - self.eps0) + tol:
+            raise ValueError(f"reset branch not completely positive: (r_x + r_y)^2 = {(self.r_x + self.r_y) ** 2} > "
+                             f"4 eps1 (1 - eps0) = {4.0 * self.eps1 * (1.0 - self.eps0)}")
+        if (self.r_x - self.r_y) ** 2 > 4.0 * self.eps0 * (1.0 - self.eps1) + tol:
+            raise ValueError(f"reset branch not completely positive: (r_x - r_y)^2 = {(self.r_x - self.r_y) ** 2} > "
+                             f"4 eps0 (1 - eps1) = {4.0 * self.eps0 * (1.0 - self.eps1)}")
 
 
 @dataclass(frozen=True)
@@ -530,7 +541,7 @@ def dial_bloch_by_qubit(csv_path: str, qubits: Sequence[int], kind: str, p: floa
                 dx = cap
             b0 = Bloch(dx, dx, 1.0 - channel.gamma, channel.gamma)
             if kind == "reset":
-                b1, w = Bloch(channel.r, channel.r, channel.eps1 - channel.eps0, 1.0 - channel.eps0 - channel.eps1), float(p)
+                b1, w = Bloch(channel.r_x, channel.r_y, channel.eps1 - channel.eps0, 1.0 - channel.eps0 - channel.eps1), float(p)
             elif kind == "dephase":
                 b1, w = Bloch(-dx, -dx, b0.dz, b0.tz), float(p) / 2.0
             else:
@@ -1103,9 +1114,12 @@ def _dial_zz_layer_truncated(X, Z, Wt, blochs, edges, delta: float, n_cap: int |
     (1-p) ZZ_x(phi_s + phi_i) B0_x with B_s Z = dz_s Z + tz_s I: a Z hub has four outcome families (idle or reset, left in Z or
     in I), summed where they coincide (``_hub_out_amplitudes``). A neighbour that is reset with certainty (fixed-mask program)
     switches off phi_i on its couplers, so fixed-mask programs are exact for every channel. Not exact: a mixture (0 < p < 1) whose
-    reset branch keeps a transverse residual (b1.dx != 0): an X/Y qubit then survives its own reset with amplitude p b1.dx and its
-    couplers should turn by phi_s alone; the rule keeps phi_s + phi_i when the hub idles (relative error of the affected term
-    O(sin^2(phi_s + phi_i) - sin^2 phi_s) per coupler; ``transverse_residual_note``)."""
+    reset branch keeps a transverse residual (b1.dx or b1.dy != 0): an X/Y qubit then survives its own reset with amplitude
+    p b1.dx (p b1.dy) and its couplers should turn by phi_s alone; the rule keeps phi_s + phi_i when the hub idles (relative error of
+    the affected term O(sin^2(phi_s + phi_i) - sin^2 phi_s) per coupler). Transverse factors that differ (b1.dx != b1.dy) are
+    applied to the string as it enters the layer, before any exchange of X and Y, which is exact for one branch (a fixed-mask
+    program) and not for the mixture of an idle and a reset branch. Such a mixture value is a record only (``transverse_residual_note``: ``mix_exact`` False); the realised-mask sampler and the fixed-mask programs, which
+    the comparators of Deviation 60 part (7) read, drop phi_i when either end of a coupler is reset and are exact."""
     m = len(blochs)
     W = X.shape[1]
     n0 = X.shape[0]
@@ -1138,11 +1152,20 @@ def _dial_zz_layer_truncated(X, Z, Wt, blochs, edges, delta: float, n_cap: int |
         discarded += float(wm[~keep].sum())
         return Xm[keep], Zm[keep], am[keep], om[keep]
 
+    # An entry whose transverse factors differ (a reset branch with r_x != r_y) acts on the string as it enters the layer: in the
+    # circuit the reset follows the static ZZ, so backwards the residual is read before the static rotation exchanges X and Y.
+    # Those factors are applied first; entries with dx == dy commute with the exchange and keep their place in the loop.
+    early = [isinstance(b, DialBloch) and b.dx != b.dy for b in blochs]
+    for x in range(m):
+        if early[x]:
+            c = _codes(X, Z, x)
+            amp = np.where(c == 1, amp * blochs[x].dx, np.where(c == 2, amp * blochs[x].dy, amp))
     for x in range(m):
         b = blochs[x] if blochs[x] is not None else Bloch()
         if isinstance(b, DialBloch):
             c = _codes(X, Z, x)
-            amp = np.where(c == 1, amp * b.dx, np.where(c == 2, amp * b.dy, amp))
+            if not early[x]:
+                amp = np.where(c == 1, amp * b.dx, np.where(c == 2, amp * b.dy, amp))
             hub = (c == 0) | (c == 3)
             idx = np.nonzero(hub)[0]
             nbrs = nb[x]
@@ -1329,11 +1352,17 @@ def _dial_zz_layer_sampled(X, Z, weight, blochs, edges, rng, fixed_masks: bool, 
                 Z[flip, wa] ^= (ONE << ba)
                 Z[flip, wb] ^= (ONE << bb)
         return X, Z, weight
+    early = [isinstance(b, DialBloch) and b.dx != b.dy for b in blochs]       # as in ``_dial_zz_layer_truncated``
+    for x in range(m):
+        if early[x]:
+            c = _codes(X, Z, x)
+            weight = np.where(c == 1, weight * blochs[x].dx ** 2, np.where(c == 2, weight * blochs[x].dy ** 2, weight))
     for x in range(m):
         b = blochs[x] if blochs[x] is not None else Bloch()
         if isinstance(b, DialBloch):
             c = _codes(X, Z, x)
-            weight = np.where(c == 1, weight * b.dx ** 2, np.where(c == 2, weight * b.dy ** 2, weight))
+            if not early[x]:
+                weight = np.where(c == 1, weight * b.dx ** 2, np.where(c == 2, weight * b.dy ** 2, weight))
             wq, bq = x >> 6, U64(x & 63)
             rows = np.nonzero((c == 0) | (c == 3))[0]
             nbrs = nb[x]
@@ -1708,14 +1737,15 @@ def program_dial_channel(prog: Program) -> Optional[DialChannel]:
 
 def transverse_residual_note(prog: Program) -> Dict:
     """{} for the designed channel. Otherwise the channel and ``mix_exact``: False when the reset branch keeps a transverse
-    residual and the program has dial-layer ZZ couplers. The realised (per-mask) moments are exact in that case too; the mixture
-    value then follows the hub rule of ``_dial_zz_layer_truncated`` (an X/Y qubit that survives its own reset does not switch off
-    the idle ZZ of its couplers), a relative error of order p |b1.dx| / dx_mix times sin^2(phi_s + phi_i) - sin^2(phi_s) per coupler."""
+    residual (r_x or r_y) and the program has dial-layer ZZ couplers. The realised (per-mask) moments are exact in that case too; the
+    mixture value then follows the hub rule of ``_dial_zz_layer_truncated`` (an X/Y qubit that survives its own reset does not switch
+    off the idle ZZ of its couplers), a relative error of order p |b1.dx| / dx_mix times sin^2(phi_s + phi_i) - sin^2(phi_s) per
+    coupler. No registered comparator reads a mixture value at such a channel."""
     ch = program_dial_channel(prog)
     if ch is None:
         return {}
     zz = any(op[0] == "dial_zz" and len(op[2]) > 0 for op in prog.ops)
-    return dict(channel=dict(kappa=ch.kappa, gamma=ch.gamma, eps1=ch.eps1, eps0=ch.eps0, r=ch.r), mix_exact=bool(not (zz and ch.r != 0.0)))
+    return dict(channel=ch.as_dict(), mix_exact=bool(not (zz and (ch.r_x != 0.0 or ch.r_y != 0.0))))
 
 
 def fixed_mask_program(prog: Program, mask: np.ndarray, kind: str, p: float, mask_p: float) -> Program:

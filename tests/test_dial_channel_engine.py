@@ -1,5 +1,5 @@
 """Deviation 64 (draft), implementation: the dial engines at a channel other than the designed one (``pauliprop.DialChannel``:
-kept branch (d (1 - kappa), d (1 - kappa), 1 - gamma; gamma), reset branch (r, r, eps1 - eps0; 1 - eps0 - eps1)), on 2x2, L = 3
+kept branch (d (1 - kappa), d (1 - kappa), 1 - gamma; gamma), reset branch (r_x, r_y, eps1 - eps0; 1 - eps0 - eps1)), on 2x2, L = 3
 programs with the dial-idle and the layer ZZ, both dials. Exact references: ``pauliprop_exact`` (doubled Pauli-transfer space,
 the dial layer as an explicit sum over masks with the idle ZZ on a coupler only when both ends idle).
 
@@ -28,11 +28,23 @@ CSV = str(noise.DEFAULT_CALIBRATION)
 PROPS = str(ROOT / "data" / "calibrations" / "ibm_phoenix_properties_20260919T192510Z.json.gz")
 KEYS = ("cost", "kL", "k1", "msd1", "msd2")
 NO_R = pp.DialChannel(kappa=0.08, gamma=0.05, eps1=0.06, eps0=0.03)                  # every entry but the transverse residual
-WITH_R = pp.DialChannel(kappa=-0.004, gamma=0.03, eps1=0.05, eps0=0.02, r=0.15)      # r^2 = 0.0225 <= eps1 (1 - eps0) = 0.049
-BIG_R = pp.DialChannel(kappa=0.1, gamma=0.1, eps1=0.5, eps0=0.1, r=-0.6)             # far outside any range: makes the both-ends rule visible
+WITH_R = pp.DialChannel(kappa=-0.004, gamma=0.03, eps1=0.05, eps0=0.02, r_x=0.15, r_y=0.15)   # phase-covariant: r^2 = 0.0225 <= eps1 (1 - eps0) = 0.049
+BIG_R = pp.DialChannel(kappa=0.1, gamma=0.1, eps1=0.5, eps0=0.1, r_x=-0.6, r_y=-0.6)             # far outside any range: makes the both-ends rule visible
+
+
+def _cp_extreme(eps1, eps0, sign):
+    """(r_x, r_y) with both complete-positivity conditions at equality and |r_x| the largest it can be (C64-1)."""
+    a, b = np.sqrt(eps1 * (1.0 - eps0)), np.sqrt(eps0 * (1.0 - eps1))
+    return sign * (a + b), sign * (a - b)
+
+
+ANISO = pp.DialChannel(kappa=0.105, gamma=0.016, eps1=0.05, eps0=0.04, **dict(zip(("r_x", "r_y"), _cp_extreme(0.05, 0.04, -1.0))))   # r_x = -0.414, r_y = -0.024
+ANISO_PLUS = pp.DialChannel(kappa=-0.005, eps1=0.3, eps0=0.1, **dict(zip(("r_x", "r_y"), _cp_extreme(0.3, 0.1, 1.0))))              # r_x = +0.784, r_y = +0.255
 DEPH = pp.DialChannel(kappa=0.05, gamma=0.04)
 CASES = [("reset", 0.4, None, NO_R), ("reset", 0.4, None, WITH_R), ("dephase", 0.5, 0.25, DEPH)]
 IDS = ["reset-no-r", "reset-r", "dephase"]
+ANISO_CASES = [("reset", 0.4, None, ANISO), ("reset", 0.4, None, ANISO_PLUS)]
+ANISO_IDS = ["reset-aniso", "reset-aniso-plus"]
 
 
 def _program(kind, p, channel, L=3, zz=True, zz_scale=1.0):
@@ -78,7 +90,7 @@ def test_designed_channel_is_the_code_as_it_was():
     assert {k: v for k, v in r0.items() if k != "runtime_s"} == {k: v for k, v in r1.items() if k != "runtime_s"}
 
 
-@pytest.mark.parametrize("kind,p,mask_p,ch", CASES, ids=IDS)
+@pytest.mark.parametrize("kind,p,mask_p,ch", CASES + ANISO_CASES, ids=IDS + ANISO_IDS)
 def test_entries_carry_their_branches(kind, p, mask_p, ch):
     prog = _program(kind, p, ch)
     q = mask_p or p
@@ -91,7 +103,7 @@ def test_entries_carry_their_branches(kind, p, mask_p, ch):
         assert (b0.dz, b0.tz) == (1.0 - ch.gamma, ch.gamma) and b0.dx == b0.dy <= np.sqrt(1.0 - ch.gamma)
         assert (b0.mask_p, b1.mask_p) == (0.0, 1.0)
         if kind == "reset":
-            assert vec(b1).tolist() == [ch.r, ch.r, ch.eps1 - ch.eps0, 1.0 - ch.eps0 - ch.eps1]
+            assert vec(b1).tolist() == [ch.r_x, ch.r_y, ch.eps1 - ch.eps0, 1.0 - ch.eps0 - ch.eps1]
             assert (b.reset_p, b0.reset_p, b1.reset_p) == (q, 0.0, 1.0)
         else:
             assert (b1.dx, b1.dy, b1.dz, b1.tz) == (-b0.dx, -b0.dy, b0.dz, b0.tz) and b.reset_p == b0.reset_p == b1.reset_p == 0.0
@@ -108,7 +120,18 @@ def test_entries_carry_their_branches(kind, p, mask_p, ch):
 
 def test_channel_domain_and_the_cp_cap():
     with pytest.raises(ValueError, match="completely positive"):
-        pp.DialChannel(eps1=0.01, r=0.11).check()
+        pp.DialChannel(eps1=0.01, r_x=0.11, r_y=0.11).check()                       # (r_x + r_y)^2 > 4 eps1 (1 - eps0)
+    with pytest.raises(ValueError, match=r"\(r_x - r_y\)\^2"):
+        pp.DialChannel(eps1=0.01, r_x=0.1, r_y=-0.1).check()                        # eps0 = 0 admits no anisotropy
+    for e1, e0 in ((0.002, 0.01), (0.01, 0.002), (0.01, 0.01), (0.0, 0.02)):
+        for sign in (1.0, -1.0):
+            rx, ry = _cp_extreme(e1, e0, sign)
+            pp.DialChannel(eps1=e1, eps0=e0, r_x=rx, r_y=ry).check()                # both conditions at equality
+            pp.DialChannel(eps1=e1, eps0=e0, r_x=ry, r_y=rx).check()
+            with pytest.raises(ValueError, match="completely positive"):
+                pp.DialChannel(eps1=e1, eps0=e0, r_x=rx * 1.01, r_y=ry).check()
+    assert _cp_extreme(0.002, 0.01, -1.0) == pytest.approx((-0.1444, 0.0554), abs=5e-5)        # the review's V2 at the full bound
+    assert pp.DialChannel(r_y=1e-3).designed() is False and pp.DialChannel(eps1=0.01, eps0=0.01, r_x=0.05, r_y=-0.05).as_dict()["r_y"] == -0.05
     with pytest.raises(ValueError, match="domain"):
         pp.DialChannel(eps1=-0.01).check()
     with pytest.raises(ValueError):
@@ -129,7 +152,7 @@ def test_mixture_against_the_exact_moments(kind, p, mask_p, ch):
     prog = _program(kind, p, ch)
     det, ex = _det(pp.propagate_truncated(prog, delta=0.0, cuts=(1, 2))), _exact(prog)
     note = pp.transverse_residual_note(prog)
-    assert note["mix_exact"] == (ch.r == 0.0)
+    assert note["mix_exact"] == (ch.r_x == 0.0 and ch.r_y == 0.0)
     for key in KEYS:
         if note["mix_exact"]:
             assert det[key] == pytest.approx(ex[key], rel=1e-10, abs=1e-14), key
@@ -153,7 +176,22 @@ def test_sampled_mixture_engine_matches_the_deterministic_one(kind, p, mask_p, c
         pp.propagate_sampled(prog, n_samples=1000, seed=0, fixed_masks=True)
 
 
-@pytest.mark.parametrize("kind,p,mask_p,ch", CASES + [("reset", 0.4, None, BIG_R)], ids=IDS + ["reset-big-r"])
+@pytest.mark.parametrize("kind,p,mask_p,ch", ANISO_CASES, ids=ANISO_IDS)
+def test_anisotropic_mixture_is_exact_without_zz_and_flagged_with_it(kind, p, mask_p, ch):
+    """r_x != r_y: the single-qubit mixture is exact (ZZ off); with the dial ZZ on the mixture value is a record only (flag), and
+    its departure from the exact value stays of the order the note states."""
+    off = _program(kind, p, ch, zz=False)
+    assert pp.transverse_residual_note(off)["mix_exact"] and pp.transverse_residual_note(off)["channel"] == ch.as_dict()
+    det, ex = _det(pp.propagate_truncated(off, delta=0.0, cuts=(1, 2))), _exact(off)
+    for key in KEYS:
+        assert det[key] == pytest.approx(ex[key], rel=1e-10, abs=1e-14), key
+    prog = _program(kind, p, ch)
+    assert pp.transverse_residual_note(prog)["mix_exact"] is False
+    det, ex = _det(pp.propagate_truncated(prog, delta=0.0, cuts=(1, 2))), _exact(prog)
+    assert max(abs(det[key] / ex[key] - 1.0) for key in KEYS) < 2e-2
+
+
+@pytest.mark.parametrize("kind,p,mask_p,ch", CASES + [("reset", 0.4, None, BIG_R)] + ANISO_CASES, ids=IDS + ["reset-big-r"] + ANISO_IDS)
 def test_fixed_masks_are_exact_for_every_channel(kind, p, mask_p, ch):
     """One mask: the deterministic engine against the exact moments of the fixed-mask program, to rounding, whatever the reset
     leaves behind (a qubit reset with certainty switches off the idle ZZ of its couplers), also with ZZ angles five times larger."""
@@ -170,7 +208,8 @@ def test_fixed_masks_are_exact_for_every_channel(kind, p, mask_p, ch):
         assert np.allclose(c0, want, rtol=1e-10, atol=1e-13)
 
 
-@pytest.mark.parametrize("kind,p,mask_p,ch,scale", [c + (1.0,) for c in CASES] + [("reset", 0.4, None, BIG_R, 5.0)], ids=IDS + ["reset-big-r-zz5"])
+@pytest.mark.parametrize("kind,p,mask_p,ch,scale", [c + (1.0,) for c in CASES] + [("reset", 0.4, None, BIG_R, 5.0)] + [c + (5.0,) for c in ANISO_CASES],
+                         ids=IDS + ["reset-big-r-zz5"] + [i + "-zz5" for i in ANISO_IDS])
 def test_realised_masks_against_the_exact_two_copy_moments(kind, p, mask_p, ch, scale):
     """The realised sampler's off-diagonal and diagonal moments against exact values with a different mask on each copy
     (``exact_pair_moments`` on the fixed-mask programs), and its mixture value against the deterministic engine."""
@@ -179,7 +218,7 @@ def test_realised_masks_against_the_exact_two_copy_moments(kind, p, mask_p, ch, 
     masks = _masks(prog, 4, q, 13)
     assert len({m.tobytes() for m in masks}) == 4
     rv = pp.propagate_realised(prog, masks, kind, p=p, mask_p=mask_p, n_samples=400_000, seed=6, chunk=50_000, cuts=(1, 2))
-    assert rv["channel"] == dict(kappa=ch.kappa, gamma=ch.gamma, eps1=ch.eps1, eps0=ch.eps0, r=ch.r) and rv["mix_exact"] == (ch.r == 0.0)
+    assert rv["channel"] == ch.as_dict() and rv["mix_exact"] == (ch.r_x == 0.0 and ch.r_y == 0.0)
     fixed = [pp.fixed_mask_program(prog, m, kind, p, q) for m in masks]
     pair = {(a, b): exact_pair_moments(fixed[a], fixed[b], ells=(1, 2)) for a in range(4) for b in range(a, 4)}
     off = {key: float(np.mean([pair[(a, b)][key] for a in range(4) for b in range(a + 1, 4)])) for key in KEYS}
@@ -187,9 +226,10 @@ def test_realised_masks_against_the_exact_two_copy_moments(kind, p, mask_p, ch, 
     for key in KEYS:
         assert abs(rv[f"{key}_off"] - off[key]) < 4 * rv[f"se_{key}_off"] + 1e-12, (key, rv[f"{key}_off"], off[key], rv[f"se_{key}_off"])
         assert abs(rv[f"{key}_diag"] - diag[key]) < 4 * rv[f"se_{key}_diag"] + 1e-12, (key, rv[f"{key}_diag"], diag[key], rv[f"se_{key}_diag"])
-    det = _det(pp.propagate_truncated(prog, delta=0.0, cuts=(1, 2)))
-    for key in KEYS:                                                           # the sampler's mixture and the engine's follow one rule
-        assert abs(rv[f"{key}_mix"] - det[key]) < 4 * rv[f"se_{key}_mix"] + 1e-12, (key, rv[f"{key}_mix"], det[key])
+    if ch.r_x == ch.r_y:                                                       # the sampler's mixture and the engine's follow one rule
+        det = _det(pp.propagate_truncated(prog, delta=0.0, cuts=(1, 2)))
+        for key in KEYS:
+            assert abs(rv[f"{key}_mix"] - det[key]) < 4 * rv[f"se_{key}_mix"] + 1e-12, (key, rv[f"{key}_mix"], det[key])
 
 
 def test_both_ends_rule_is_what_the_exact_moments_need():
