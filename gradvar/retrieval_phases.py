@@ -35,6 +35,7 @@ PHASE1_JOB_FIELDS = frozenset({
     "joblist_entries", "joblist_name", "layout_check", "max_experiments", "max_job_param_mb", "metrics", "points", "preflight_review", "python",
     "qiskit_ibm_runtime_version", "rep_delay", "rep_delay_probe", "rep_delay_submitted_s", "rep_delay_submitted_us", "resilience_level", "resubmission",
     "retrieval", "retrieved", "runner_git_commit", "session_id", "shots", "status", "submission_run", "timestamps", "usage_estimation", "usage_qpu_seconds",
+    "placement_snapshot",                                # the file name of the calibration CSV the pubs were rebuilt on (the retrieval path writes it)
     "execution_window"})
 PHASE1_METRICS_FIELDS = frozenset({"caller", "circuits_execution_time_ns", "qiskit_version", "timestamps", "usage"})
 PHASE1_USAGE_FIELDS = frozenset({"details", "qpu_charge_time_seconds", "status", "unit", "value"})
