@@ -822,3 +822,93 @@ def test_cp2_the_package_is_found_among_several_summaries_of_one_snapshot(tmp_pa
     # one summary: as before, nothing else reported
     assert _checks(PC.check(PC.Tree(base), [LIST]))[1]["package"]["other_summaries_on_this_snapshot"] == []
     assert PC.find_package(PC.Tree(base), "2026-11-10T101610Z")[0] == "2026-11-10"               # the name is optional
+
+
+def _man(tmp_path, **man):
+    return json.loads((_bundle(tmp_path, **man) / "manifest.json").read_text())
+
+
+def test_cp3_an_exercise_bundle_is_published_only_as_an_exercise(tmp_path, monkeypatch):
+    """CP-3: an ``--exercise`` bundle is refused without ``publish --exercise`` whatever its status and options, and with it every
+    title says EXERCISE. A dispatch bundle is treated as before."""
+    reason = "review of the stop"
+    ok_ex = _man(tmp_path / "a", status="ok", stops=[], exercise=True)
+    for kw in (dict(), dict(force=True), dict(allow_test_stop=reason), dict(force=True, allow_test_stop=reason)):
+        pm = SR.publish_mode(ok_ex, **kw)
+        assert pm["mode"] == "refuse" and "publish --exercise" in pm["why"] and "nothing committed" in pm["why"], kw
+    assert SR.publish_mode(ok_ex, exercise=True) == dict(mode="full", prefix="EXERCISE, not dispatchable: ", test_stop=False, why=None)
+    passed_over = _man(tmp_path / "b", status="stopped", stops=[], exercise=True, exercise_stops=["Gate 1b FAIL"])
+    assert SR.publish_mode(passed_over)["mode"] == "refuse" and SR.publish_mode(passed_over, force=True)["mode"] == "refuse"
+    assert SR.publish_mode(passed_over, exercise=True)["prefix"].startswith("EXERCISE")
+    # a test-stopped exercise bundle (the reviewer's case E): never in full under --allow-test-stop, with or without --exercise
+    stopped_ex = _man(tmp_path / "c", status="stopped", exercise=True)
+    assert SR.publish_mode(stopped_ex, allow_test_stop=reason)["mode"] == "refuse"
+    pm = SR.publish_mode(stopped_ex, exercise=True, allow_test_stop=reason)
+    assert pm["mode"] == "refuse" and pm["test_stop"] is False and "--allow-test-stop is for a dispatch package" in pm["why"]
+    assert SR.publish_mode(stopped_ex, exercise=True, force=True)["mode"] == "summary"
+    # dispatch bundles: as before
+    assert SR.publish_mode(_man(tmp_path / "d", status="ok", stops=[])) == dict(mode="full", prefix="", test_stop=False, why=None)
+    assert SR.publish_mode(_man(tmp_path / "e", status="ok", stops=[]), exercise=True)["prefix"] == ""
+    # publish itself: nothing is sent without --exercise; with it the commits, the pull request and its body say EXERCISE
+    b = _bundle(tmp_path / "f", status="ok", stops=[], exercise=True)
+    fake = FakeGitHub()
+    monkeypatch.setattr(SR, "gh", fake)
+    with pytest.raises(SystemExit, match="publish --exercise"):
+        SR.publish(SimpleNamespace(bundle=str(b), force=False, main="main", exercise=False, allow_test_stop=None))
+    with pytest.raises(SystemExit, match="publish --exercise"):
+        SR.publish(SimpleNamespace(bundle=str(b), force=True, main="main", exercise=False, allow_test_stop=None))
+    assert fake.calls == []
+    assert SR.publish(SimpleNamespace(bundle=str(b), force=False, main="main", exercise=True, allow_test_stop=None)) == 0
+    assert len(fake.commits) == 2 and all(c["message"].startswith("EXERCISE, not dispatchable: ") for c in fake.commits)
+    assert fake.pr["title"].startswith("EXERCISE, not dispatchable: ") and fake.pr["draft"] is True
+    assert fake.pr["body"].startswith("**EXERCISE, not dispatchable.** The cycle ran with `--exercise`") and "Do not merge." in fake.pr["body"]
+
+
+def test_cp3_the_summary_says_that_a_run_was_an_exercise(tmp_path, monkeypatch):
+    """CP-3: the summary's head names an exercise (the manifest alone used to carry it), from ``run.exercise``."""
+    S = json.loads((ROOT / "docs/repack/2026-11-10_summary.json").read_text(encoding="utf-8"))
+    monkeypatch.setattr(SR, "REPACK", tmp_path)
+    line = "**EXERCISE run (`--exercise`): a test of the pipeline, not a dispatch package."
+    for flag, label in ((True, "x1"), (False, "x2"), (None, "x3")):
+        s = json.loads(json.dumps(S))
+        s["run"].pop("exercise", None)
+        if flag is not None:
+            s["run"]["exercise"] = flag
+        SR.write_summary(s, label)
+        md = (tmp_path / f"{label}_summary.md").read_text(encoding="utf-8")
+        assert (line in md) is bool(flag) and (not flag or md.index(line) < md.index("## "))      # in the head, before the first section
+        assert json.loads((tmp_path / f"{label}_summary.json").read_text(encoding="utf-8"))["run"].get("exercise") == flag
+    src = Path(SR.__file__).read_text(encoding="utf-8")
+    assert 'S["run"]["exercise"] = bool(getattr(args, "exercise", False))' in src                # written by every cycle (checked in a real cycle by the exercise)
+
+
+def test_cp5_no_allow_test_stop_when_the_suite_did_not_run_in_full(tmp_path, monkeypatch):
+    """CP-5: the manifest records ``suite_ran`` (false under ``--no-tests`` and ``--deselect``), and ``--allow-test-stop`` is refused
+    when it is false. A manifest written before the field is read as before."""
+    assert SR.suite_ran(dict(tests=_tests())) is True and SR.suite_ran(dict(tests=_tests(unexpected=["tests/test_x.py::test_y"]))) is True
+    assert SR.suite_ran(dict()) is False and SR.suite_ran(dict(tests=None)) is False                       # --no-tests, a survey
+    assert SR.suite_ran(dict(tests=_tests(deselected=["tests/test_x.py::test_y"]))) is False               # --deselect
+    # the manifest line, through write_bundle
+    S = json.loads((ROOT / "docs/repack/2026-11-10_summary.json").read_text(encoding="utf-8"))
+    args = SimpleNamespace(base_sha="b" * 40, with_pairs=False, exercise=False, bundle=None)
+    for n, (tests, want) in enumerate(((_tests(unexpected=["tests/test_x.py::test_y"]), True), (None, False), (_tests(deselected=["tests/test_x.py::test_y"]), False))):
+        s = dict(json.loads(json.dumps(S)), tests=tests, status="stopped")
+        SR.write_bundle(tmp_path / f"w{n}", s, [], Path(S["run"]["snapshot"]), "2026-11-10", args)
+        man = json.loads((tmp_path / f"w{n}" / "bundle" / "manifest.json").read_text(encoding="utf-8"))
+        assert man["suite_ran"] is want and man["exercise"] is False
+    reason = "review of the stop"
+    ran = _man(tmp_path / "a", suite_ran=True)
+    assert SR.publish_mode(ran, allow_test_stop=reason)["test_stop"] is True
+    assert "--allow-test-stop" in SR.publish_mode(ran)["why"] and "run the cycle with the whole suite" not in SR.publish_mode(ran)["why"]
+    not_ran = _man(tmp_path / "b", suite_ran=False, stops=[dict(kind="tests", text="the test suite was not run (--no-tests)")])
+    pm = SR.publish_mode(not_ran, allow_test_stop=reason)
+    assert pm["mode"] == "refuse" and pm["test_stop"] is False and "did not run in full" in pm["why"] and "--allow-test-stop does not apply" in pm["why"]
+    assert SR.publish_mode(not_ran, allow_test_stop=reason, force=True)["mode"] == "summary"
+    old = _man(tmp_path / "c")
+    assert "suite_ran" not in old and SR.publish_mode(old, allow_test_stop=reason)["test_stop"] is True   # a manifest written before the field
+    b = _bundle(tmp_path / "d", suite_ran=False)
+    fake = FakeGitHub()
+    monkeypatch.setattr(SR, "gh", fake)
+    with pytest.raises(SystemExit, match="did not run in full"):
+        SR.publish(SimpleNamespace(bundle=str(b), force=False, main="main", exercise=False, allow_test_stop=reason))
+    assert fake.calls == []

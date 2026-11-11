@@ -678,6 +678,8 @@ def write_summary(S: dict, date: str) -> tuple:
           f"`scripts/sameday_repackage.py`, pairs {'on' if r.get('with_pairs') else 'off'}.", ""]
     if r.get("label") and r.get("label") != r.get("date"):
         L += [f"**Label `{r['label']}`** (pre-flights `*_{r.get('preflight_label')}.md`): {r.get('label_reason')}.", ""]
+    if r.get("exercise"):
+        L += ["**EXERCISE run (`--exercise`): a test of the pipeline, not a dispatch package. It is never reviewed for dispatch, merged or armed.**", ""]
     if S.get("stop_reason"):
         L += [f"**Stopped:** {S['stop_reason']}", ""]
     if S.get("stops"):
@@ -867,6 +869,7 @@ def run(args) -> int:
                                          base_sha=args.base_sha, run_sha=run_sha, with_pairs=bool(args.with_pairs), cores=cores,
                                          started_utc=_dt.datetime.fromtimestamp(t_start, _dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")),
              approved_overrides=[], stops=[], instance=inst)
+    S["run"]["exercise"] = bool(getattr(args, "exercise", False))             # a pipeline test, never a dispatch package (prearm_check.py reads it)
     holds = dict(h.split("=", 1) for h in (getattr(args, "hold", None) or []))
     if set(holds) - {"day3_dial_refs"}:
         raise SystemExit(f"--hold: only day3_dial_refs can be held (got {sorted(holds)})")
@@ -1328,6 +1331,13 @@ def review_flags(S: dict, prev_dir: Path) -> list:
     return fl
 
 
+def suite_ran(S: dict) -> bool:
+    """Whether the cycle ran the whole test suite: false when no test ran (``--no-tests``, a survey) and when tests were left out
+    (``--deselect``). Only a stop of a suite that ran in full can be opened for review with ``publish --allow-test-stop``."""
+    tests = S.get("tests") or {}
+    return bool(tests) and not tests.get("deselected")
+
+
 def write_bundle(out: Path, S: dict, changed: list, csv: Path, date: str, args) -> None:
     b = out / "bundle"
     if b.exists():
@@ -1351,6 +1361,7 @@ def write_bundle(out: Path, S: dict, changed: list, csv: Path, date: str, args) 
                run_sha=S["run"].get("run_sha"), files=changed, summary=f"docs/repack/{label}_summary.md", with_pairs=bool(args.with_pairs),
                exercise=bool(getattr(args, "exercise", False)), exercise_stops=S.get("exercise_stops", []), holds=S.get("holds", {}),
                records=recs, run_day=S.get("run_day", []), preflights=S.get("preflights", []),
+               suite_ran=suite_ran(S),                                    # false under --no-tests and --deselect: then no --allow-test-stop
                complete=bool(S.get("flags") is not None and S.get("preflights")))
     (b / "manifest.json").write_text(json.dumps(man, indent=1) + "\n", encoding="utf-8")
     if args.bundle:
@@ -1434,29 +1445,44 @@ def publish_mode(man: dict, exercise: bool = False, allow_test_stop: str | None 
     """What ``publish`` does with a bundle, from its manifest and the options given: ``mode`` 'full' (lists and predictions, then
     pre-flights and summary), 'summary' (the files under docs/repack/ only) or 'refuse' (with ``why``); ``prefix`` for the commit and
     pull-request titles; ``test_stop`` when the bundle is stopped by the test suite alone (Deviation 62 (iv)) and is published under
-    ``--allow-test-stop``."""
+    ``--allow-test-stop``.
+
+    An ``--exercise`` bundle is a test of the pipeline and never a dispatch package: whatever its status, it is refused unless
+    ``publish --exercise`` is given, and then every title says EXERCISE (review correction CP-3). ``--allow-test-stop`` opens the
+    review of a test stop of a dispatch package whose suite ran in full: it does not apply to an exercise bundle, nor to a bundle
+    whose manifest says ``suite_ran`` false (``--no-tests``, ``--deselect``; CP-5). A manifest written before that field is read
+    as before."""
     status = man.get("status")
+    if man.get("exercise") and not exercise:
+        return dict(mode="refuse", prefix="", test_stop=False, why=f"run status {status}: the bundle is an --exercise run (a test of the pipeline, never a "
+                    "dispatch package); it is published only with `publish --exercise`, as a draft pull request titled EXERCISE; nothing committed")
     if status == "ok":
-        return dict(mode="full", prefix="", test_stop=False, why=None)
+        return dict(mode="full", prefix="EXERCISE, not dispatchable: " if man.get("exercise") else "", test_stop=False, why=None)
     kinds = {x.get("kind") for x in (man.get("stops") or [])}
     ex = bool(exercise and man.get("exercise") and man.get("exercise_stops") and status == "stopped" and man.get("complete"))
     if ex:
         return dict(mode="full", prefix="EXERCISE, not dispatchable: ", test_stop=False, why=None)
-    only_tests = bool(status == "stopped" and man.get("complete") and kinds == {"tests"} and not man.get("exercise_stops"))
+    only_tests = bool(status == "stopped" and man.get("complete") and kinds == {"tests"} and not man.get("exercise_stops") and not man.get("exercise"))
+    ran = bool(man.get("suite_ran", True))
     reason = str(allow_test_stop or "").strip()
-    if only_tests and reason:
+    if only_tests and ran and reason:
         return dict(mode="full", prefix="STOPPED by the test suite (Deviation 62 (iv)), not dispatchable as published: ", test_stop=True, why=None)
     if force:
         return dict(mode="summary", prefix="", test_stop=False, why=None)
     why = f"run status {status}: {man.get('stop_reason')}; nothing committed"
-    if only_tests:
+    if only_tests and ran:
         why += (". The cycle is stopped by the test suite alone (Deviation 62 (iv)): publish with --allow-test-stop \"<reason>\" to open the draft pull "
                 "request for the review of that stop (the reason is written into the commits, the pull request and publish.json); the package stays "
                 "stopped until the stop is lifted on the record")
+    elif only_tests:
+        why += (". The test suite did not run in full (--no-tests or --deselect), so --allow-test-stop does not apply: there is no test stop of a whole "
+                "suite to review; run the cycle with the whole suite")
     elif man.get("exercise"):
-        why += " (a complete --exercise bundle is published with --exercise)"
+        why += (" (an --exercise bundle is published with --exercise when it ended ok or at a stop the exercise passed over; --allow-test-stop is for a "
+                "dispatch package)")
     why += "; --force commits the summary and tests report under docs/repack/ only"
     return dict(mode="refuse", prefix="", test_stop=False, why=why)
+
 
 
 def overwrite_conflicts(br: str, files: dict) -> list:
@@ -1527,8 +1553,8 @@ def publish(args) -> int:
     out["commit_preflights_summary"] = c2 = _commit(br, docs, xt + f"Same-day re-package {label}: " + (f"pre-flights {pfs} and the summary" if full
                                                    else f"the summary (run {man['status']}: nothing to review)") + note)
     summ = docs.get(man["summary"], b"").decode("utf-8")
-    warn = (f"**EXERCISE, not dispatchable:** {'; '.join(man['exercise_stops'])}. The same-day rule stops this cycle and nothing is dispatched; the "
-            "remaining stages ran with `--exercise` to test the pipeline end to end. Do not merge.\n\n") if ex else ""
+    warn = ("**EXERCISE, not dispatchable" + (":** " + "; ".join(man["exercise_stops"]) + ". The same-day rule stops this cycle and nothing is dispatched; the "
+            "remaining stages ran" if man.get("exercise_stops") else ".** The cycle ran") + " with `--exercise` to test the pipeline end to end. Do not merge.\n\n") if ex else ""
     if pm["test_stop"]:
         warn += ("**STOPPED by the test suite (Deviation 62 (iv)): nothing is dispatched from this package as published.** "
                  + "; ".join(x.get("text", "") for x in man.get("stops") or []) + f". Published with `--allow-test-stop`; reason given: {reason}\n\n")
