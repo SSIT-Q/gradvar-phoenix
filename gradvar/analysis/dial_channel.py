@@ -14,22 +14,22 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 TABLE_PATH = Path(__file__).resolve().parents[2] / "data" / "deviation64" / "dial_channel_range.json"
-PARAMS = ("kappa", "gamma", "eps1", "eps0", "r")
+PARAMS = ("kappa", "gamma", "eps1", "eps0", "r_x", "r_y")
 DESIGNED = "designed"
-RESET_DIALS = ("reset",)                    # dials whose mask bit 1 is a reset: eps1, eps0, r enter
+RESET_DIALS = ("reset",)                    # dials whose mask bit 1 is a reset: eps1, eps0, r_x, r_y enter
 KEPT_ONLY_DIALS = ("dephase",)              # dials with no reset: the vertex's gamma and its kappa clipped to the dial's own interval
 _CACHE: Dict[str, dict] = {}
 
 
 def load_table(path: str | Path | None = None) -> dict:
-    """The table, checked: the keys the code reads, ordered positive levels, an interval per dial, eight-or-so named vertices."""
+    """The table, checked: the keys the code reads, ordered positive levels, an interval per dial, the named vertices."""
     p = Path(path) if path is not None else TABLE_PATH
     key = str(p.resolve())
     if key in _CACHE:
         return _CACHE[key]
     raw = p.read_bytes()
     t = json.loads(raw.decode("utf-8"))
-    for k in ("status", "adopted", "range", "levels", "level_rule", "band", "vertices"):
+    for k in ("status", "adopted", "range", "levels", "level_rule", "band", "vertices", "coherence_floor_us", "floors", "vertex_draw"):
         if k not in t:
             raise ValueError(f"{p.name}: missing key {k!r}")
     if not isinstance(t["adopted"], bool):
@@ -82,7 +82,7 @@ def _resolve(spec, lo: float, hi: float, level: float) -> float:
 
 
 def vertex_channel(table: Mapping, vertex: str, level: float, dial: str) -> Dict[str, float]:
-    """The channel {kappa, gamma, eps1, eps0, r} of one vertex ('designed': all zero) at a level, for a dial."""
+    """The channel {kappa, gamma, eps1, eps0, r_x, r_y} of one vertex ('designed': all zero) at a level, for a dial."""
     kind = _kind(dial)
     if vertex == DESIGNED:
         return {k: 0.0 for k in PARAMS}
@@ -94,14 +94,40 @@ def vertex_channel(table: Mapping, vertex: str, level: float, dial: str) -> Dict
     kappa, gamma = _resolve(v["kappa"], r_lo, r_hi, level), _resolve(v["gamma"], glo, ghi, level)
     if kind in KEPT_ONLY_DIALS:
         d_lo, d_hi = (float(x) for x in table["range"]["kappa"][kind])
-        return dict(kappa=min(max(kappa, d_lo), d_hi), gamma=gamma, eps1=0.0, eps0=0.0, r=0.0)
+        return dict(kappa=min(max(kappa, d_lo), d_hi), gamma=gamma, eps1=0.0, eps0=0.0, r_x=0.0, r_y=0.0)
     eps1, eps0 = _resolve(v["eps1"], 0.0, level, level), _resolve(v["eps0"], 0.0, level, level)
-    bound = math.sqrt(max(eps1 * (1.0 - eps0), 0.0))
-    r = v["r"]
-    r = bound if r == "+bound" else (-bound if r == "-bound" else float(r))
-    ch = dict(kappa=kappa, gamma=gamma, eps1=eps1, eps0=eps0, r=r)
+    r_x, r_y = transverse_residuals(v["r_x"], v["r_y"], eps1, eps0)
+    ch = dict(kappa=kappa, gamma=gamma, eps1=eps1, eps0=eps0, r_x=r_x, r_y=r_y)
     check_in_range(table, ch, level, kind)
     return ch
+
+
+def cp_bounds(eps1: float, eps0: float) -> Tuple[float, float]:
+    """(a, b) = (sqrt(eps1 (1 - eps0)), sqrt(eps0 (1 - eps1))): complete positivity of the reset branch is |r_x + r_y| <= 2 a and
+    |r_x - r_y| <= 2 b, so |r_x| <= a + b, and a alone when r_y = r_x (review C64-1)."""
+    return math.sqrt(max(eps1 * (1.0 - eps0), 0.0)), math.sqrt(max(eps0 * (1.0 - eps1), 0.0))
+
+
+def transverse_residuals(spec_x, spec_y, eps1: float, eps0: float) -> Tuple[float, float]:
+    """(r_x, r_y) of a vertex entry: numbers, or the table's symbols '+bound' / '-bound' (the largest phase-covariant residual,
+    +- a), '+full' / '-full' (+- (a + b), the largest complete positivity allows) for r_x, and '=r_x' or 'partner' (the r_y that
+    keeps both conditions at equality for r_x = +-full: r_x -+ 2 b) for r_y."""
+    a, b = cp_bounds(eps1, eps0)
+    sym = {"+bound": a, "-bound": -a, "+full": a + b, "-full": -(a + b)}
+    if isinstance(spec_x, str) and spec_x not in sym:
+        raise ValueError(f"vertex entry r_x = {spec_x!r}: a number, '+bound', '-bound', '+full' or '-full'")
+    r_x = sym[spec_x] if isinstance(spec_x, str) else float(spec_x)
+    if spec_y == "=r_x":
+        r_y = r_x
+    elif spec_y == "partner":
+        if spec_x not in ("+full", "-full"):
+            raise ValueError("vertex entry r_y = 'partner' goes with r_x = '+full' or '-full'")
+        r_y = r_x - math.copysign(2.0 * b, r_x) if r_x else 0.0
+    elif isinstance(spec_y, str):
+        raise ValueError(f"vertex entry r_y = {spec_y!r}: a number, '=r_x' or 'partner'")
+    else:
+        r_y = float(spec_y)
+    return r_x, r_y
 
 
 def check_in_range(table: Mapping, channel: Mapping, level: float, dial: str) -> None:
@@ -109,8 +135,9 @@ def check_in_range(table: Mapping, channel: Mapping, level: float, dial: str) ->
     lo, hi = (float(x) for x in table["range"]["kappa"][kind])
     glo, ghi = (float(x) for x in table["range"]["gamma"]["interval"])
     tol = 1e-12
-    ok = (lo - tol <= channel["kappa"] <= hi + tol and glo - tol <= channel["gamma"] <= ghi + tol and -tol <= channel["eps1"] <= level + tol
-          and -tol <= channel["eps0"] <= level + tol and channel["r"] ** 2 <= channel["eps1"] * (1.0 - channel["eps0"]) + tol)
+    e1, e0, rx, ry = (float(channel[k]) for k in ("eps1", "eps0", "r_x", "r_y"))
+    ok = (lo - tol <= channel["kappa"] <= hi + tol and glo - tol <= channel["gamma"] <= ghi + tol and -tol <= e1 <= level + tol
+          and -tol <= e0 <= level + tol and (rx + ry) ** 2 <= 4.0 * e1 * (1.0 - e0) + tol and (rx - ry) ** 2 <= 4.0 * e0 * (1.0 - e1) + tol)
     if not ok:
         raise ValueError(f"channel {dict(channel)} lies outside the range at level {level} for the {kind} dial")
 
@@ -161,7 +188,7 @@ def take_shard(items: Sequence, spec: str | None) -> tuple:
 
 
 def choose_level(u_max: float, table: Mapping | None = None) -> Optional[float]:
-    """The smallest pre-drawn level at or above ``u_max`` (the largest upper bound over the dial-patch qubits); None above the largest."""
+    """The smallest pre-drawn level at or above ``u_max`` (the largest upper bound over the qubits of the n60 rung); None above the largest."""
     for lv in levels(table):
         if u_max <= lv:
             return lv
@@ -169,8 +196,11 @@ def choose_level(u_max: float, table: Mapping | None = None) -> Optional[float]:
 
 
 def band_of(values: Mapping[str, Tuple[float, float]], z: float | None = None, table: Mapping | None = None) -> Dict:
-    """The band of one comparator from {member: (value, sigma)} (the designed channel and every vertex of the day's level): its
-    smallest and largest value with the member that gives each, and the edges widened by z sigma of that member's engine error."""
+    """The band of one comparator from {member: (value, sigma)} (the designed channel and every vertex of the day's level), as
+    review correction C64-2 words it: ``lo`` = c_min and ``hi`` = c_max, the smallest and the largest value, with ``lo_sigma`` =
+    sigma_min and ``hi_sigma`` = sigma_max, the engine errors of the members that give them. The band itself is not widened: the
+    registered test forms its combined interval with sigma_min at the lower end and sigma_max at the upper end
+    (``dial_hypotheses``)."""
     if z is None:
         z = float((table if table is not None else load_table())["band"]["z"])
     items = [(k, float(v), float(s)) for k, (v, s) in values.items()]
@@ -178,8 +208,7 @@ def band_of(values: Mapping[str, Tuple[float, float]], z: float | None = None, t
         raise ValueError("band: every member needs a finite value and sigma")
     lo = min(items, key=lambda it: it[1])
     hi = max(items, key=lambda it: it[1])
-    return dict(lo=lo[1], lo_sigma=lo[2], lo_member=lo[0], hi=hi[1], hi_sigma=hi[2], hi_member=hi[0], lo_edge=lo[1] - z * lo[2],
-                hi_edge=hi[1] + z * hi[2], z=float(z), members=sorted(values))
+    return dict(lo=lo[1], lo_sigma=lo[2], lo_member=lo[0], hi=hi[1], hi_sigma=hi[2], hi_member=hi[0], z=float(z), members=sorted(values))
 
 
 def members_at(table: Mapping, level: float) -> List[str]:
@@ -187,12 +216,108 @@ def members_at(table: Mapping, level: float) -> List[str]:
     return [DESIGNED] + [v["id"] for v in table["vertices"]]
 
 
-def bracketing_snapshot_check(*_args, **_kwargs):
-    """HOOK, NOT IMPLEMENTED (depends on Deviation 65): the check that T1, T2 >= 25 us on the properties snapshots that bracket a
-    run (``job.json`` timestamps, ``data/calibrations/``), which decides whether kappa and gamma are inside the range at run time.
-    The reading code calls nothing here yet; a sub-test whose range check has not been made is reported with
-    ``range_check='not implemented (Deviation 65 hook)'``."""
-    raise NotImplementedError("the bracketing-snapshot range check waits for Deviation 65")
+# --------------------------------------------------------------------------- records beside the table
+
+def range_digest(table: Mapping | None = None) -> str:
+    """sha256 of the part of the table that defines the channels (range, levels, vertices, the kept-branch cap): what a recorded
+    test must have been run on. The switch and the notes do not enter, so adoption does not void a record."""
+    t = table if table is not None else load_table()
+    part = {k: t[k] for k in ("range", "levels", "vertices", "kept_branch_cp_clip") if k in t}
+    return hashlib.sha256(json.dumps(part, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
 
 
-RANGE_CHECK_PENDING = "not implemented (Deviation 65 hook: T1, T2 on the bracketing snapshots)"
+def _record(table: Mapping, key: str, path: str | Path | None) -> tuple:
+    p = Path(path) if path is not None else Path(table.get("_path", TABLE_PATH)).parent / str(table[key[0]][key[1]])
+    if not p.exists():
+        return None, f"no record {p.name}"
+    try:
+        return json.loads(p.read_text(encoding="utf-8")), p.name
+    except ValueError as ex:
+        return None, f"{p.name} is not readable ({ex})"
+
+
+def floors_exact_test(table: Mapping | None = None, path: str | Path | None = None) -> Dict:
+    """dict(passed, note): whether the exact two-copy test of the floors (review C64-7; ``scripts/floors_exact_test.py`` writes the
+    record) is recorded as passed for this range. Passed needs the record's ``passed`` true, every listed case at or above its floor
+    and the record's ``range_digest`` equal to this table's; anything else is 'not passed' with the reason."""
+    t = table if table is not None else load_table()
+    rec, name = _record(t, ("floors", "exact_test_record"), path)
+    if rec is None:
+        return dict(passed=False, note=name)
+    if rec.get("range_digest") != range_digest(t):
+        return dict(passed=False, note=f"{name} was made for another range (digest {str(rec.get('range_digest'))[:12]}, table {range_digest(t)[:12]})")
+    cases = rec.get("cases") or []
+    if not rec.get("passed") or not cases or not all(c.get("ok") for c in cases):
+        bad = [c.get("case") for c in cases if not c.get("ok")]
+        return dict(passed=False, note=f"{name}: not passed" + (f" ({len(bad)} of {len(cases)} cases below the floor)" if bad else ""))
+    return dict(passed=True, note=f"{name}: {len(cases)} cases at or above the floor", n_cases=len(cases), git_commit=rec.get("git_commit"))
+
+
+VERTEX_CODE = ("gradvar/pauliprop.py", "gradvar/pauliprop_exact.py", "gradvar/analysis/dial_channel.py", "gradvar/analysis/floors.py",
+               "scripts/redraw_gate1b.py", "scripts/predict_h7_truncation.py", "scripts/redraw_dial_points.py")
+VERTEX_TESTS = ("tests/test_dial_channel_engine.py", "tests/test_dial_channel_floors.py", "tests/test_dial_channel_band.py")
+
+
+def vertex_code_digest(root: str | Path | None = None, table: Mapping | None = None) -> Dict[str, str]:
+    """{file: sha256} of the code that draws the vertex values and of its tests (line endings normalised), plus the range digest."""
+    root = Path(root) if root is not None else TABLE_PATH.parents[2]
+    out = {}
+    for rel in VERTEX_CODE + VERTEX_TESTS:
+        out[rel] = hashlib.sha256((root / rel).read_bytes().replace(b"\r\n", b"\n")).hexdigest()
+    out["range_digest"] = range_digest(table)
+    return out
+
+
+def vertex_tests_record(table: Mapping | None = None, path: str | Path | None = None, root: str | Path | None = None) -> Dict:
+    """dict(passed, note): whether a passed run of the vertex code's tests is recorded for the code and the range as they are now
+    (review C64-8: what ``scripts/check_comparators.py`` requires before dispatch in place of the vertex values;
+    ``scripts/check_comparators.py --record-vertex-tests`` runs the tests and writes the record)."""
+    t = table if table is not None else load_table()
+    rec, name = _record(t, ("vertex_draw", "vertex_tests_record"), path)
+    if rec is None:
+        return dict(passed=False, note=name)
+    now = vertex_code_digest(root, t)
+    changed = sorted(k for k in now if (rec.get("digest") or {}).get(k) != now[k])
+    if changed:
+        return dict(passed=False, note=f"{name} was made for other code or another range: {', '.join(changed)} changed since")
+    if not rec.get("passed") or int(rec.get("failed", 1)) != 0 or int(rec.get("n_passed", 0)) <= 0:
+        return dict(passed=False, note=f"{name}: the recorded run did not pass")
+    return dict(passed=True, note=f"{name}: {rec.get('n_passed')} tests passed at {str(rec.get('git_commit'))[:12]}", git_commit=rec.get("git_commit"))
+
+
+# --------------------------------------------------------------------------- the coherence check (review C64-3)
+
+def coherence_floor_us(table: Mapping | None = None) -> float:
+    return float((table if table is not None else load_table())["coherence_floor_us"]["value"])
+
+
+def coherence_check(cone_qubits: Iterable[int], calibrations: Mapping[str, Mapping[int, Tuple[float, float]]], table: Mapping | None = None) -> Dict:
+    """Whether kappa and gamma are inside the range for a comparator: every qubit of its light cone must have T1 and T2 at or above
+    the table's floor on every calibration given ({'E': {qubit: (T1_us, T2_us)}, 'B': {...}} per job that carries the sub-test's
+    points: the execution-time and the bracket calibration of Deviation 65). Returns dict(evaluable, below=[(calibration, qubit,
+    'T1' | 'T2', value)], missing=[(calibration, qubit)], floor_us). A missing value is not evaluable (it cannot be shown inside)."""
+    floor = coherence_floor_us(table)
+    below, missing = [], []
+    for name, cal in calibrations.items():
+        for q in sorted(int(q) for q in cone_qubits):
+            v = cal.get(q)
+            if v is None or any(x is None or not math.isfinite(float(x)) for x in v):
+                missing.append((name, q))
+                continue
+            for what, x in zip(("T1", "T2"), v):
+                if float(x) < floor:
+                    below.append((name, q, what, float(x)))
+    return dict(evaluable=bool(calibrations) and not below and not missing, below=below, missing=missing, floor_us=floor,
+                calibrations=sorted(calibrations))
+
+
+def execution_calibrations(job_id: str, *_args, **_kwargs) -> Mapping[str, Mapping[int, Tuple[float, float]]]:
+    """HOOK, NOT IMPLEMENTED HERE (Deviation 65): {'E': ..., 'B': ...} of one job, T1 and T2 per qubit from its execution-time and
+    bracket calibrations, for ``coherence_check``. Deviation 65's module builds E(J) and B(J) from IBM's record and classifies them
+    before any measured value is retrieved; when it is merged this function returns its two sets (or the caller passes them to the
+    evaluators as ``preds['dial_band']['coherence']``). Until then a sub-test's range check is reported as ``RANGE_CHECK_PENDING``."""
+    raise NotImplementedError("the execution-time and bracket calibrations come from Deviation 65's module, which is not on this branch")
+
+
+RANGE_CHECK_PENDING = "not made (Deviation 65 hook: T1, T2 on each job's execution-time and bracket calibrations)"
+CALIBRATION_ROLES = ("execution", "dispatch")     # 'execution': drawn on E(J) between the retrieval phases, the registered values (C64-8)

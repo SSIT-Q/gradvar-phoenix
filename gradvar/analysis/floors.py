@@ -165,32 +165,49 @@ CHANNEL_FLOOR_RULE = (
     "1/2 [(sum A)^2 - sum A^2] / (K (K - 1)); the cost floor adds the j mode and subtracts S^2(c0) / K with c0_m = "
     "(a_i t(s_i^L) + b_i)(a_j t(s_j^L) + b_j). The value of the kept mode is exact for every channel. That the dropped modes do not "
     "lower the off-diagonal moment needs their per-mask coefficients to share a sign: the readout offsets non-negative as before, "
-    "eps1 >= eps0 (else D(1) < 0) and r >= 0 (else a transverse string changes sign with every reset it survives). Where the "
-    "condition fails the floor is reported and marked not tested.")
+    "eps1 >= eps0 (else D(1) < 0) and r_x >= 0, r_y >= 0 (else a transverse string changes sign with every reset it survives). Where "
+    "the condition fails the realised form is not established by this argument: it then rests on the exact two-copy test recorded "
+    "for the range (review correction C64-7; scripts/floors_exact_test.py), and until that test has passed the floor is reported, "
+    "marked not tested, and a miss is not read as R3. The dephasing dial has no reset: both branches are Z -> (1 - gamma) Z + gamma I, "
+    "the floor is zero at the designed channel, and its mask bit flips the sign of every transverse string, so its realised form "
+    "always rests on the exact test.")
 
 
-def _channel_branches(channel) -> tuple:
-    """((D(0), D(1)), (t(0), t(1)), r) of a dial channel given as a mapping or an object with gamma / eps1 / eps0 / r (missing: 0)."""
+def _is_dephase(dial: str) -> bool:
+    return str(dial) in ("dephase", "dephasing")
+
+
+def _channel_branches(channel, dial: str = "reset") -> tuple:
+    """((D(0), D(1)), (t(0), t(1)), (r_x, r_y)) of a dial channel given as a mapping or an object with gamma / eps1 / eps0 / r_x /
+    r_y (missing: 0). ``dial`` 'dephase': no reset, both branches (1 - gamma; gamma) and no residual."""
     get = (lambda k: float(channel.get(k, 0.0))) if isinstance(channel, dict) else (lambda k: float(getattr(channel, k, 0.0)))
     gamma, e1, e0 = get("gamma"), get("eps1"), get("eps0")
-    return (1.0 - gamma, e1 - e0), (gamma, 1.0 - e0 - e1), get("r")
+    if _is_dephase(dial):
+        return (1.0 - gamma, 1.0 - gamma), (gamma, gamma), (0.0, 0.0)
+    return (1.0 - gamma, e1 - e0), (gamma, 1.0 - e0 - e1), (get("r_x"), get("r_y"))
 
 
-def channel_sign_condition(channel) -> Dict:
+def channel_sign_condition(channel, dial: str = "reset") -> Dict:
     """The part of the realised bound's sign condition that the channel decides (``CHANNEL_FLOOR_RULE``)."""
-    dz, _tz, r = _channel_branches(channel)
-    ok = bool(dz[1] >= 0.0 and r >= 0.0)
+    dz, _tz, (rx, ry) = _channel_branches(channel, dial)
+    if _is_dephase(dial):
+        return dict(channel_sign_ok=False, channel_sign_note="dephasing dial: the mask bit flips the sign of every transverse string: the realised "
+                                                              "bound is not established by the sign argument")
+    ok = bool(dz[1] >= 0.0 and rx >= 0.0 and ry >= 0.0)
     note = "" if ok else ("; ".join(n for n, bad in (("eps1 < eps0: the reset branch's D is negative", dz[1] < 0.0),
-                                                     ("r < 0: a transverse string changes sign with every reset it survives", r < 0.0)) if bad)
+                                                     ("r_x < 0: an X string changes sign with every reset it survives", rx < 0.0),
+                                                     ("r_y < 0: a Y string changes sign with every reset it survives", ry < 0.0)) if bad)
                           + ": the realised bound is not established at this channel")
     return dict(channel_sign_ok=ok, channel_sign_note=note)
 
 
-def dial_floor_at_channel(p: float, cal: Calibration, edge: Sequence[int], patch_qubits: Iterable[int], channel, resilience: int = 0) -> Dict:
+def dial_floor_at_channel(p: float, cal: Calibration, edge: Sequence[int], patch_qubits: Iterable[int], channel, resilience: int = 0,
+                          dial: str = "reset") -> Dict:
     """``dial_floor`` at a dial channel (``CHANNEL_FLOOR_RULE``, mixture): the same factors, with ``D_mix`` and ``t_mix`` in place
-    of 1 - p and p. The designed channel gives ``dial_floor``'s values."""
+    of 1 - p and p. The designed channel of the reset dial gives ``dial_floor``'s values. ``dial`` 'dephase': the dephasing dial's
+    branches (D = 1 - gamma, t = gamma whatever p), a floor of zero at the designed channel."""
     f = dial_floor(p, cal, edge, patch_qubits, resilience)
-    dz, tz, _r = _channel_branches(channel)
+    dz, tz, _r = _channel_branches(channel, dial)
     D, t = (1.0 - p) * dz[0] + p * dz[1], (1.0 - p) * tz[0] + p * tz[1]
     ci = f["a_i"] * D * (f["a_j"] * t + f["b_j"])
     cj = f["a_j"] * D * (f["a_i"] * t + f["b_i"])
@@ -208,15 +225,18 @@ def mask_floor_classes(masks: np.ndarray, L: int, i: int, j: int) -> Dict:
     return dict(K=int(mk.shape[0]), L=int(L), classes=[int(v) for v in np.bincount(ri + 2 * rj + 4 * pi + 8 * pj, minlength=16)])
 
 
-def realised_floor_at_channel(classes: Dict, a_i: float, b_i: float, a_j: float, b_j: float, g_i: float, g_j: float, channel) -> Dict:
+def realised_floor_at_channel(classes: Dict, a_i: float, b_i: float, a_j: float, b_j: float, g_i: float, g_j: float, channel,
+                              dial: str = "reset") -> Dict:
     """``realised_floor`` at a dial channel (``CHANNEL_FLOOR_RULE``) from the 16 class counts of ``mask_floor_classes``. At the
     designed channel it equals ``realised_floor`` on the same masks. ``grad_tested`` / ``cost_tested`` also need the channel's
-    sign condition; the floors are returned in every case."""
+    sign condition; the floors are returned in every case, with ``grad_offset_bad`` / ``cost_offset_bad`` (a negative readout
+    offset) and ``has_prev`` so that a caller that rests on the exact two-copy test instead of the sign condition can tell the
+    channel's part of the condition from the rest. ``dial`` 'dephase': the dephasing dial's branches."""
     K = int(classes["K"])
     n = np.asarray(classes["classes"], dtype=float)
     if n.size != 16 or int(n.sum()) != K:
         raise ValueError("classes: 16 counts that sum to K")
-    dz, tz, _r = (np.asarray(v) if isinstance(v, tuple) else v for v in _channel_branches(channel))
+    dz, tz = (np.asarray(v) for v in _channel_branches(channel, dial)[:2])
     code = np.arange(16)
     si, sj, pi, pj = code & 1, (code >> 1) & 1, (code >> 2) & 1, (code >> 3) & 1
     A_i = a_i * g_i * dz[si] * (a_j * tz[sj] + b_j) * tz[pi]
@@ -227,7 +247,7 @@ def realised_floor_at_channel(classes: Dict, a_i: float, b_i: float, a_j: float,
     mean0 = float((n * c0).sum() / K)
     spread = float((n * (c0 - mean0) ** 2).sum() / (K - 1) / K) if K > 1 else float("nan")
     fg, fc = 0.5 * qi, 0.5 * (qi + qj) - spread
-    sign = channel_sign_condition(channel)
+    sign = channel_sign_condition(channel, dial)
     has_prev = int(classes.get("L", 2)) >= 2
     grad_ok = bool(sign["channel_sign_ok"] and b_j >= 0 and fg > 0 and has_prev)
     cost_ok = bool(sign["channel_sign_ok"] and b_i >= 0 and b_j >= 0 and fc > 0 and has_prev)
@@ -243,6 +263,7 @@ def realised_floor_at_channel(classes: Dict, a_i: float, b_i: float, a_j: float,
 
     return dict(floor_grad=float(fg), floor_cost=float(fc), c0_spread_over_K=spread, c0_mean=mean0, half_Q_i=0.5 * qi, half_Q_j=0.5 * qj,
                 grad_tested=grad_ok, cost_tested=cost_ok, grad_note=note(grad_ok, b_j < 0), cost_note=note(cost_ok, min(b_i, b_j) < 0),
+                grad_offset_bad=bool(b_j < 0), cost_offset_bad=bool(min(b_i, b_j) < 0), has_prev=bool(has_prev), dial="dephase" if _is_dephase(dial) else "reset",
                 rule=CHANNEL_FLOOR_RULE, **sign)
 
 

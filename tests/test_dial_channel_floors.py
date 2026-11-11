@@ -8,7 +8,13 @@ the same lottery), with noiseless gates (gain g = 1) and the readout on. Then, e
     Var[C] = 1/2 t^2 (c_i^2 + c_j^2) + 1/4 (a_i a_j D^2 t^2)^2                              (the cost floor's two modes; the Z_i Z_j mode)
 for the mixture, and per pair of masks 1/2 A_m A_m' + 1/4 D2_m D2_m' with the branch values. The Z_i Z_j mode depends on both edge
 angles and is one of the modes the floors drop (it is not negative for the mixture, and of one sign per mask under the sign condition). On the unmodified program the floors are lower bounds
-where the sign condition holds."""
+where the sign condition holds (eps1 >= eps0, r_x >= 0, r_y >= 0).
+
+Review correction C64-7 asks for the exact two-copy test over the range where the condition fails (``scripts/floors_exact_test.py``:
+2x2, L = 3 and 4, both dials, the designed channel and V1, V2, V6, V7, V9). Its outcome on 11 Nov 2026 is pinned here: with
+eps0 > eps1 the realised form is NOT a bound. At p = 0.5 the exact off-diagonal moment of some mask sets lies below the closed form
+by a fraction of order eps0 (the modes that carry D(1) = eps1 - eps0 < 0 an odd number of times enter with the opposite sign). So
+the record of that test does not say 'passed', and a floor miss at a band with such members is reported and not read as R3."""
 import sys
 from pathlib import Path
 
@@ -27,10 +33,18 @@ from gradvar.pauliprop_exact import exact_moments, exact_pair_moments   # noqa: 
 CSV = str(noise.DEFAULT_CALIBRATION)
 PROPS = str(ROOT / "data" / "calibrations" / "ibm_phoenix_properties_20260919T192510Z.json.gz")
 P = 0.4
+def _cp_extreme(eps1, eps0, sign):
+    a, b = np.sqrt(eps1 * (1.0 - eps0)), np.sqrt(eps0 * (1.0 - eps1))
+    return dict(r_x=sign * (a + b), r_y=sign * (a - b))
+
+
 CHANNELS = dict(designed=None, no_r=pp.DialChannel(kappa=0.08, gamma=0.05, eps1=0.06, eps0=0.03),
-                with_r=pp.DialChannel(kappa=-0.004, gamma=0.03, eps1=0.05, eps0=0.02, r=0.15),
-                eps0_larger=pp.DialChannel(gamma=0.02, eps1=0.01, eps0=0.04), negative_r=pp.DialChannel(gamma=0.02, eps1=0.05, eps0=0.02, r=-0.15))
-SIGN_OK = ("designed", "no_r", "with_r")
+                with_r=pp.DialChannel(kappa=-0.004, gamma=0.03, eps1=0.05, eps0=0.02, r_x=0.15, r_y=0.15),
+                aniso_plus=pp.DialChannel(gamma=0.02, eps1=0.05, eps0=0.02, **_cp_extreme(0.05, 0.02, 1.0)),          # r_x = 0.359, r_y = 0.084: both positive
+                eps0_larger=pp.DialChannel(gamma=0.02, eps1=0.01, eps0=0.04),
+                negative_r=pp.DialChannel(gamma=0.02, eps1=0.05, eps0=0.02, r_x=-0.15, r_y=-0.15),
+                aniso_minus=pp.DialChannel(gamma=0.02, eps1=0.05, eps0=0.02, **_cp_extreme(0.05, 0.02, -1.0)))
+SIGN_OK = ("designed", "no_r", "with_r", "aniso_plus")
 
 
 def _program(ch, L=3, model="noiseless", collapse=False):
@@ -159,9 +173,18 @@ def test_designed_channel_reduces_to_the_registered_realised_floor():
     assert sum(fl.mask_floor_classes(masks, 8, 2, 3)["classes"]) == 256
     neg = fl.realised_floor_at_channel(fl.mask_floor_classes(masks, 8, 2, 3), fac[0], fac[1], fac[2], -0.01, fac[4], fac[5], channel={})
     assert not neg["grad_tested"] and "b < 0" in neg["grad_note"]
-    for ch, word in ((dict(eps1=0.0, eps0=0.01), "eps1 < eps0"), (dict(eps1=0.01, r=-0.05), "r < 0")):
+    for ch, word in ((dict(eps1=0.0, eps0=0.01), "eps1 < eps0"), (dict(eps1=0.01, r_x=-0.05, r_y=-0.05), "r_x < 0"),
+                     (dict(eps1=0.01, eps0=0.01, r_x=0.05, r_y=-0.05), "r_y < 0")):
         bad = fl.realised_floor_at_channel(fl.mask_floor_classes(masks, 8, 2, 3), *fac, channel=ch)
-        assert not bad["grad_tested"] and not bad["cost_tested"] and word in bad["grad_note"] and bad["floor_grad"] > 0
+        assert not bad["grad_tested"] and not bad["cost_tested"] and word in bad["grad_note"] and bad["floor_grad"] >= 0
+        assert bad["channel_sign_ok"] is False and bad["grad_offset_bad"] is False and bad["has_prev"] is True
+    # the dephasing dial has no reset: both branches (1 - gamma; gamma), no floor at the designed channel, never the sign argument
+    cls = fl.mask_floor_classes(masks, 8, 2, 3)
+    d0 = fl.realised_floor_at_channel(cls, *fac, channel={}, dial="dephase")
+    dg = fl.realised_floor_at_channel(cls, *fac, channel=dict(gamma=0.016, eps1=0.3, r_x=0.2, r_y=0.2), dial="dephasing")
+    A = fac[0] * fac[4] * (1 - 0.016) * (fac[2] * 0.016 + fac[3]) * 0.016                                # the same for every mask
+    assert d0["floor_grad"] == 0.0 and not d0["grad_tested"] and dg["floor_grad"] == pytest.approx(0.5 * A * A, rel=1e-9) and dg["dial"] == "dephase"
+    assert not dg["channel_sign_ok"] and "dephasing dial" in dg["channel_sign_note"] and fl.channel_sign_condition({}, "reset")["channel_sign_ok"]
     with pytest.raises(ValueError):
         fl.realised_floor_at_channel(dict(K=5, classes=[1] * 16), *fac, channel={})
     one = fl.realised_floor_at_channel(fl.mask_floor_classes(masks[:, :1], 1, 2, 3), *fac, channel={})
@@ -185,3 +208,68 @@ def test_floors_are_lower_bounds_on_the_unmodified_program(name):
     off = {key: float(np.mean([exact_pair_moments(fixed[a], fixed[b], which=("cost", "kL"))[key] for a, b in pairs])) for key in ("cost", "kL")}
     r = fl.realised_floor_at_channel(fl.mask_floor_classes(masks, prog.L, prog.i, prog.j), **cal.f, channel=ch or {})
     assert r["channel_sign_ok"] and r["floor_grad"] <= off["kL"] and r["half_Q_i"] + r["half_Q_j"] <= off["cost"]
+
+
+# ------------------------------------------------------------------------------------------------ the exact two-copy test of C64-7
+
+def _exact_script():
+    sys.path.insert(0, str(ROOT / "scripts"))
+    import floors_exact_test as fx
+    return fx
+
+
+def test_exact_test_cases_cover_both_dials_and_the_named_vertices():
+    from gradvar.analysis import dial_channel as dc
+    fx = _exact_script()
+    table = dc.load_table()
+    labels = [lab for lab, _ch in fx.channels(table, "reset")]
+    want = ["designed"] + [f"{v}@{lv:g}" for lv in dc.levels(table) for v in table["floors"]["exact_test_vertices"]]
+    assert labels == want and set(table["floors"]["exact_test_vertices"]) == {"V1", "V2", "V6", "V7", "V9"}
+    deph = fx.channels(table, "dephase")                                       # vertices that coincide for the dial are tested once
+    assert deph[0][0] == "designed" and 1 < len(deph) < len(labels) and all(ch["eps1"] == ch["eps0"] == ch["r_x"] == 0.0 for _lab, ch in deph)
+    assert fx.LS == (3, 4) and {d for d, _p, _q in fx.DIALS} == {"reset", "dephase"}
+    m = fx.distinct_masks(32, 8, 3, 4, 0.25)
+    assert m.shape == (8, 3, 4) and len({x.tobytes() for x in m}) == 8
+
+
+def test_exact_moments_are_above_the_floors_where_the_sign_condition_holds():
+    """L = 3, the reset dial at both registered strengths: the designed channel and V6 (eps1 = eps0, no residual) meet the sign
+    condition, and every exact moment is at or above its floor."""
+    from gradvar.analysis import dial_channel as dc
+    fx = _exact_script()
+    table = dc.load_table()
+    chans = dict(fx.channels(table, "reset"))
+    for p in (0.25, 0.5):
+        for label in ("designed", f"V6@{dc.levels(table)[0]:g}"):
+            cases = fx.one_case("reset", p, p, 3, label, chans[label], k_masks=6, seeds=(31, 33))
+            assert len(cases) == 2 + 2 * 2 and all(c["sign_ok"] for c in cases)
+            assert all(c["ok"] for c in cases), [c["case"] for c in cases if not c["ok"]]
+
+
+def test_exact_test_shows_the_realised_floor_is_not_a_bound_where_eps0_exceeds_eps1():
+    """The finding of the C64-7 test, pinned (see the module docstring): V1 (eps1 = 0, eps0 = eps_A) at p = 0.5, L = 3, the mask
+    set of seed 31 with K = 8. The mixture floors hold (a sum of squares); the realised floors do not, by a fraction of order eps_A."""
+    from gradvar.analysis import dial_channel as dc
+    fx = _exact_script()
+    table = dc.load_table()
+    level = dc.levels(table)[0]
+    cases = fx.one_case("reset", 0.5, 0.5, 3, f"V1@{level:g}", dict(fx.channels(table, "reset"))[f"V1@{level:g}"], k_masks=8, seeds=(31,))
+    by = {c["kind"]: c for c in cases}
+    assert not by["realised grad"]["sign_ok"] and by["mixture grad"]["ok"] and by["mixture cost"]["ok"]
+    g = by["realised grad"]
+    assert g["ok"] is False and g["floor"] > 0 and -3 * level < g["excess"] / g["floor"] < 0, g
+    assert by["realised grad"]["min_pair_excess_over_kept_mode"] < 0                          # some pair lies below its kept mode's own value
+
+
+@pytest.mark.slow
+def test_exact_test_record_matches_a_fresh_run(tmp_path):
+    """The whole test (about a quarter of an hour): its verdict and its count of cases below the floor equal the committed record's,
+    and the record is for the table's range."""
+    import json
+    from gradvar.analysis import dial_channel as dc
+    fx = _exact_script()
+    rec = fx.run()
+    committed = json.loads(fx.RECORD.read_text(encoding="utf-8"))
+    assert committed["range_digest"] == rec["range_digest"] == dc.range_digest()
+    assert (committed["passed"], committed["n_cases"], committed["n_below"]) == (rec["passed"], rec["n_cases"], rec["n_below"])
+    assert dc.floors_exact_test()["passed"] == rec["passed"]

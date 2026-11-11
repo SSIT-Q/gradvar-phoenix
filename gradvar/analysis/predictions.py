@@ -326,12 +326,30 @@ MASK_STAT_KEYS = ("n_RR", "n_RK", "n_KR", "n_KK", "n1_i", "n2_i", "n1_j", "n2_j"
 # Nothing below is called unless the caller asks for a band (``dial_channel.band_enabled()`` or an explicit request): the lookups
 # above and ``load_predictions`` are unchanged. The vertex files are read on first use and kept in ``preds``.
 
+REGISTERED_ROLE = "execution"       # = dial_channel.CALIBRATION_ROLES[0]: the vertex values drawn on E(J) between the retrieval phases
+
+
+def _same_calibration(designed: Dict, label) -> bool:
+    """A vertex value belongs beside a designed-channel value only when both were drawn on one calibration. The designed entry
+    states its calibration under ``calibration_label`` once the execution-time rows of Deviation 65 are loaded; until then (no
+    such key) there is nothing to compare and the vertex value is taken on its role alone."""
+    want = (designed or {}).get("calibration_label")
+    return want is None or str(want) == str(label)
+
+
 def load_vertex_rows(directory: str | Path) -> pd.DataFrame:
-    """Every ``dial_vertices_<tag>.csv`` (``scripts/redraw_dial_points.py --vertices``): one row per dial probe and distinct channel
-    of the pre-drawn levels, with ``channel_key`` and the columns ``load_realised_rows`` adds."""
+    """Every ``dial_vertices_<tag>.csv`` (``scripts/redraw_dial_points.registered_vertex_rows``): one row per dial probe and distinct
+    channel of the pre-drawn levels, with ``channel_key`` and the columns ``load_realised_rows`` adds. Only rows drawn on the
+    execution-time calibration are read (``calibration_role`` 'execution', review correction C64-8): a row without that column,
+    or drawn on the placement snapshot before dispatch, is a dispatch-time record and is left out."""
     frames = []
     for f in sorted(Path(directory).glob("dial_vertices_*.csv")):
         df = pd.read_csv(f)
+        if "calibration_role" not in df.columns:
+            continue
+        df = df[df.calibration_role.astype(str) == REGISTERED_ROLE]
+        if df.empty:
+            continue
         df["placement_qubits"] = df["qubits"].map(qubit_key) if "qubits" in df.columns else None
         df["placement_stamp"] = df["snapshot_stamp"] if "snapshot_stamp" in df.columns else None
         df["source"] = f.name
@@ -340,10 +358,13 @@ def load_vertex_rows(directory: str | Path) -> pd.DataFrame:
 
 
 def load_vertex_truncation(directory: str | Path) -> List[Dict]:
-    """Every ``entries`` item of ``h7_vertices_*.json`` (``scripts/predict_h7_truncation.py --vertices``), tagged as the realised entries."""
+    """Every ``entries`` item of ``h7_vertices_*.json`` (``scripts/predict_h7_truncation.registered_vertex_entries``), tagged as the
+    realised entries. Only records drawn on the execution-time calibration are read (``calibration.role`` 'execution', C64-8)."""
     out = []
     for f in sorted(Path(directory).glob("h7_vertices_*.json")):
         rec = json.loads(f.read_text())
+        if (rec.get("calibration") or {}).get("role") != REGISTERED_ROLE:
+            continue
         snap = rec.get("snapshot")
         stamp = (snap.get("stamp") or _stamp_of_name(snap.get("csv"))) if isinstance(snap, dict) else _stamp_of_name(snap)
         for e in rec.get("entries", []):
@@ -381,7 +402,7 @@ def truncation_members(preds: Dict, designed: Dict, level: float, patch=None, ed
             if e.get("channel_key") != key or e.get("rms_l2") is None:
                 continue
             ok, _why = _same_point(e, patch, edge, n, p, L, qubits, stamp, need_stamp=True, reset_kind=reset_kind)
-            if ok and int(e.get("mask_seed", -1)) == int(seed) and int(e.get("K", -1)) == int(K):
+            if ok and int(e.get("mask_seed", -1)) == int(seed) and int(e.get("K", -1)) == int(K) and _same_calibration(designed, e.get("calibration_label")):
                 hits.append(e)
         files = sorted({str(h.get("file")) for h in hits})
         if len(files) == 1 and len(hits) == 1:
@@ -441,6 +462,8 @@ def dial_members(preds: Dict, designed: Dict, level: float, L: int, k: int, dial
             members[vid] = designed
             continue
         hit = d[d.channel_key.astype(str) == dc.channel_key(ch)] if len(d) else d
+        if len(hit) and "calibration_label" in hit.columns:
+            hit = hit[[_same_calibration(designed, v) for v in hit.calibration_label]]
         files = sorted(set(hit.source.astype(str))) if len(hit) else []
         if len(files) != 1 or len(hit) != 1 or tag is None or not np.isfinite(float(hit.iloc[-1].get(f"var_{tag}_realised", np.nan))):
             missing.append(vid)
@@ -453,6 +476,7 @@ def dial_members(preds: Dict, designed: Dict, level: float, L: int, k: int, dial
         members[vid] = dict(var=float(r[f"var_{tag}_realised"]), sigma=float(r[f"se_{tag}_realised"]), var_cost=float(r.var_cost_realised),
                             var_cost_sigma=float(r.se_cost_realised), realised=True, source=str(r.source), probe_id=r.get("probe_id"),
                             mask_seed=int(r.mask_seed), K=int(r.K), channel={k_: float(r[f"channel_{k_}"]) for k_ in dc.PARAMS},
+                            calibration_label=r.get("calibration_label"),
                             mask_classes=[int(v) for v in str(r.mask_classes).split()] if pd.notna(r.get("mask_classes")) else None,
                             mix_exact=bool(r.get("mix_exact", True)), floor_grad_realised=r.get("floor_grad_realised"),
                             floor_cost_realised=r.get("floor_cost_realised"), channel_sign_ok=r.get("channel_sign_ok"))
