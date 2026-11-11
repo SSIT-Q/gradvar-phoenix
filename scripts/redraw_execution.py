@@ -220,11 +220,26 @@ def draw(task: Dict[str, Any]) -> Dict[str, Any]:
 # Dispatch-time rows and the classification
 # --------------------------------------------------------------------------------------------------------------
 
-def _variance(row: Dict, k_is_L: bool) -> Optional[float]:
-    """The row's value for the decision line: the truncated value where it converged, else the sampled one (draft, Section 4.5)."""
+def _variance(row: Dict, k_is_L: bool) -> Tuple[Optional[float], str, Optional[float]]:
+    """The row's value for the decision line, which estimator it is and its standard error: the truncated value where it
+    converged (no standard error), else the sampled one (draft, Section 4.5)."""
     key = "var_kL" if k_is_L else "var_k1"
-    v = row.get(f"{key}_pp") if row.get("pp_converged") else row.get(f"{key}_mc")
-    return float(v) if isinstance(v, (int, float)) and math.isfinite(v) and v > 0 else None
+    estimator = "truncated" if row.get("pp_converged") else "sampled"
+    v = row.get(f"{key}_pp") if estimator == "truncated" else row.get(f"{key}_mc")
+    se = row.get(f"se_{key[4:]}_mc") if estimator == "sampled" else None
+    ok = isinstance(v, (int, float)) and math.isfinite(v) and v > 0
+    return (float(v) if ok else None), estimator, (float(se) if ok and isinstance(se, (int, float)) and math.isfinite(se) else None)
+
+
+def flat_rows(rows: List[Dict]) -> List[Dict]:
+    """One CSV line per drawn row: the draw's own fields, then the scalar fields of the row. The value hash of the calibration
+    the row was drawn on is ``calibration_value_sha256``; ``calibration`` stays the row's own field (its CSV file name)."""
+    out = []
+    for r in rows:
+        d = dict(id=r["id"], kind=r["kind"], calibration_kind=r["calibration_kind"], calibration_value_sha256=r["calibration"], ok=r["ok"], error=r.get("error"))
+        d.update({k: v for k, v in (r.get("row") or {}).items() if not isinstance(v, (dict, list)) and k not in d})
+        out.append(d)
+    return out
 
 
 def dispatch_rows(jl: Dict, pred_dir: Path) -> Dict[tuple, Dict]:
@@ -261,11 +276,13 @@ def dispatch_rows(jl: Dict, pred_dir: Path) -> Dict[tuple, Dict]:
 
 
 def measured_items(jl: Dict) -> List[Dict[str, Any]]:
-    """What the list measures, as (id, rung, L, k = L?, the rows it is read against)."""
+    """What the list measures, as (id, rung, L, k = L?, the rows it is read against). ``key`` identifies the item as the
+    analysis identifies a point (kind, arm, n, L, k, p): the reading is joined to the measured point on it and on the job ids."""
     items = []
     for i, pt in enumerate(jl.get("points") or []):
         name, rung = rung_of(jl, pt)
         items.append(dict(id=f"point {i}: n={pt['n']} L={pt['L']} k={pt['k']}", rung_name=name, rung=rung, L=int(pt["L"]), k_is_L=int(pt["k"]) == int(pt["L"]) and int(pt["L"]) > 1,
+                          key=dict(kind="grid", arm="grid", n=int(pt["n"]), L=int(pt["L"]), k=int(pt["k"]), p=None),
                           rows=[("main_grid", name, int(pt["L"]), m, None) for m in MODELS]))
     for pr in jl.get("probes") or []:
         if pr.get("kind") != "reset_dial":
@@ -274,6 +291,7 @@ def measured_items(jl: Dict) -> List[Dict[str, Any]]:
         from gradvar.analysis import predictions as P
         dial = P.DIAL_KIND.get(str(pr.get("reset_kind", "reset")), str(pr.get("reset_kind", "reset")))       # as redraw_dial_points.dial_points
         items.append(dict(id=f"probe {pr['id']}", rung_name=name, rung=rung, L=int(pr["L"]), k_is_L=int(pr.get("k", pr["L"])) == int(pr["L"]),
+                          key=dict(kind="reset_dial", arm=dial, n=int(pr["n"]) if pr.get("n") is not None else None, L=int(pr["L"]), k=int(pr.get("k", pr["L"])), p=float(pr["p"])),
                           rows=[("dial", name, int(pr["L"]), dial, float(pr["p"]))]))
     return items
 
@@ -281,7 +299,9 @@ def measured_items(jl: Dict) -> List[Dict[str, Any]]:
 def classify_items(jl: Dict, group: Dict[str, Any], rows_E: Dict[tuple, Dict], dispatch: Dict[tuple, Dict], st: ec.Settings) -> List[Dict[str, Any]]:
     """Every measured item of the list on the group's E: the over-cut elements of its rung, their zones, and the reading. The
     decision line is read on the item's row that moved most; an item that is flagged and lacks a row is left unclassified,
-    with the reason, never read."""
+    with the reason, never read. A ratio is formed only between two rows on the same estimator (both truncated or both
+    sampled): a truncated value and a sampled one of the same row differ by more than the shifts the line is meant to read.
+    A ratio of sampled values carries its standard error (``se_ln_ratio``); the line is read on the ratio itself."""
     out, cache = [], {}
     for it in measured_items(jl):
         if it["rung_name"] not in cache:
@@ -289,10 +309,13 @@ def classify_items(jl: Dict, group: Dict[str, Any], rows_E: Dict[tuple, Dict], d
         elements = cache[it["rung_name"]]
         ratios = []
         for key in it["rows"]:
-            pe = _variance(rows_E[key], it["k_is_L"]) if key in rows_E else None
-            pd_ = _variance(dispatch[key], it["k_is_L"]) if key in dispatch else None
-            ratios.append(dict(row="-".join(str(x) for x in key if x is not None), p_execution=pe, p_dispatch=pd_,
-                               ln_ratio=math.log(pe / pd_) if pe and pd_ else None))
+            pe, est_e, se_e = _variance(rows_E[key], it["k_is_L"]) if key in rows_E else (None, None, None)
+            pd_, est_d, se_d = _variance(dispatch[key], it["k_is_L"]) if key in dispatch else (None, None, None)
+            mixed = bool(pe and pd_ and est_e != est_d)
+            ln = math.log(pe / pd_) if pe and pd_ and not mixed else None
+            ratios.append(dict(row="-".join(str(x) for x in key if x is not None), p_execution=pe, p_dispatch=pd_, estimator_execution=est_e,
+                               estimator_dispatch=est_d, mixed_estimators=mixed, ln_ratio=ln,
+                               se_ln_ratio=math.hypot(se_e / pe, se_d / pd_) if ln is not None and se_e is not None and se_d is not None else None))
         usable = [r for r in ratios if r["ln_ratio"] is not None]
         worst = max(usable, key=lambda r: abs(r["ln_ratio"])) if len(usable) == len(ratios) and usable else None
         try:
@@ -300,7 +323,11 @@ def classify_items(jl: Dict, group: Dict[str, Any], rows_E: Dict[tuple, Dict], d
         except ValueError as e:
             c = dict(reading=None, flag=True, reason=f"unclassified: {e}", elements=[dict(el, zone=ec.zone(it["rung"], it["L"], el, st)) for el in elements], **st.record())
         c = dict(c)
-        c.update(item=it["id"], rung=it["rung_name"], L=it["L"], ratios=ratios)
+        if c.get("reading") is None and any(r["mixed_estimators"] for r in ratios):
+            c["reason"] = ("unclassified: the execution-time and the dispatch-time row are not on the same estimator ("
+                           + ", ".join(f"{r['row']}: {r['estimator_execution']} / {r['estimator_dispatch']}" for r in ratios if r["mixed_estimators"])
+                           + "): no ratio is formed and the decision line cannot be read")
+        c.update(item=it["id"], key=it["key"], rung=it["rung_name"], L=it["L"], ratios=ratios)
         out.append(c)
     return out
 
@@ -437,9 +464,7 @@ def main(argv=None) -> int:
         (out_dir / f"{stem}.md").write_text(markdown(res), encoding="utf-8", newline="\n")
         if rows:
             import pandas as pd
-            flat = [dict(id=r["id"], kind=r["kind"], calibration_kind=r["calibration_kind"], calibration=r["calibration"], ok=r["ok"], error=r.get("error"),
-                         **{k: v for k, v in (r.get("row") or {}).items() if not isinstance(v, (dict, list))}) for r in rows]
-            pd.DataFrame(flat).to_csv(out_dir / f"{stem}.csv", index=False, lineterminator="\n")
+            pd.DataFrame(flat_rows(rows)).to_csv(out_dir / f"{stem}.csv", index=False, lineterminator="\n")
         written.append(str(out_dir / f"{stem}.json"))
         print(f"wrote {stem}.json / .md" + (" / .csv" if rows else "") + f" in {out_dir}" + (" (EXPLORATORY)" if exploratory else ""), flush=True)
         for c in classification:

@@ -202,6 +202,7 @@ def test_classification_reads_the_line_on_the_row_that_moved_most(S, tmp_path):
     def rows(f_unital, f_nonunital):
         return {k: dict(dispatch[k], var_k1_pp=dispatch[k]["var_k1_pp"] * f) for k, f in zip(keys, (f_unital, f_nonunital))}
     c = rx.classify_items(jl, group, rows(1.0105, 1.0105), dispatch, st)[0]
+    assert c["key"] == dict(kind="grid", arm="grid", n=82, L=8, k=1, p=None)
     assert c["reading"] == ec.READ_WITH_FLAG and c["ln_ratio"] == pytest.approx(math.log(1.0105)) and [r["row"] for r in c["ratios"]] == ["main_grid-n100-8-unital", "main_grid-n100-8-nonunital"]
     c = rx.classify_items(jl, group, rows(1.02, 1.12), dispatch, st)[0]                  # the non-unital row moved by more than 10 percent
     assert c["reading"] == ec.NOT_EVALUABLE and c["pi_decision_required"] is True and c["ln_ratio"] == pytest.approx(math.log(1.12))
@@ -209,6 +210,35 @@ def test_classification_reads_the_line_on_the_row_that_moved_most(S, tmp_path):
     assert c["reading"] is None and c["reason"].startswith("unclassified")
     c = rx.classify_items(jl, group, rows(1.0105, 1.0105), {}, st)[0]                    # no dispatch-time row: not read
     assert c["reading"] is None
+    assert all(r["estimator_execution"] == "truncated" and r["estimator_dispatch"] == "truncated" and r["se_ln_ratio"] is None
+               for r in rx.classify_items(jl, group, rows(1.0105, 1.0105), dispatch, st)[0]["ratios"])
+
+
+def test_a_ratio_is_formed_only_between_rows_on_the_same_estimator(S, tmp_path):
+    """A truncation that did not converge on E while the dispatch-time row is truncated: no ratio, the flagged point is left
+    unclassified. Both sampled: the ratio is read and carries its standard error."""
+    jl = json.loads((ROOT / json.loads(REPLICATION.read_text(encoding="utf-8"))["joblist"]).read_text(encoding="utf-8"))
+    dispatch = rx.dispatch_rows(jl, ROOT / "data" / "predictions")
+    keys = [("main_grid", "n100", 8, m, None) for m in rx.MODELS]
+    group, st = _group(S, tmp_path)
+    sampled = {k: dict(dispatch[k], pp_converged=False, var_k1_mc=dispatch[k]["var_k1_pp"] * 1.03, se_k1_mc=dispatch[k]["var_k1_pp"] * 0.02) for k in keys}
+    c = rx.classify_items(jl, group, sampled, dispatch, st)[0]
+    assert c["reading"] is None and "not on the same estimator" in c["reason"] and "main_grid-n100-8-unital: sampled / truncated" in c["reason"]
+    assert all(r["mixed_estimators"] and r["ln_ratio"] is None and r["p_execution"] and r["p_dispatch"] for r in c["ratios"])
+    c = rx.classify_items(jl, group, sampled, {k: dict(v, var_k1_mc=dispatch[k]["var_k1_pp"]) for k, v in sampled.items()}, st)[0]
+    assert c["reading"] == ec.READ_WITH_FLAG and c["ln_ratio"] == pytest.approx(math.log(1.03))
+    assert all(r["estimator_execution"] == r["estimator_dispatch"] == "sampled" and r["se_ln_ratio"] == pytest.approx(math.hypot(0.02 / 1.03, 0.02)) for r in c["ratios"])
+
+
+def test_the_csv_keeps_the_rows_own_calibration_column():
+    """A drawn row carries its own ``calibration`` (the CSV it was drawn on); the draw's value hash goes beside it."""
+    rows = [dict(id="main_grid-n100-L8-unital", kind="main_grid", calibration_kind="execution", calibration="12531bfa82d5", ok=True,
+                 row=dict(model="unital", L=8, calibration="ibm_phoenix_2026-11-10T111205Z_execution_12531bfa82d5.csv", var_k1_pp=4.2e-4, nested=dict(a=1), ok="row")),
+            dict(id="main_grid-n100-L8-nonunital", kind="main_grid", calibration_kind="bracket", calibration="6d3a8ccd198f", ok=False, error="boom")]
+    flat = rx.flat_rows(rows)
+    assert flat[0]["calibration"].endswith(".csv") and flat[0]["calibration_value_sha256"] == "12531bfa82d5" and flat[0]["ok"] is True and "nested" not in flat[0]
+    assert list(flat[0])[:6] == ["id", "kind", "calibration_kind", "calibration_value_sha256", "ok", "error"]
+    assert flat[1] == dict(id="main_grid-n100-L8-nonunital", kind="main_grid", calibration_kind="bracket", calibration_value_sha256="6d3a8ccd198f", ok=False, error="boom")
 
 
 # ---------------------------------------------------------------------------------------------------------------------------
@@ -225,5 +255,7 @@ def test_an_exploratory_draw_of_the_replication_list_writes_rows_on_e_and_b(S, t
     assert all(r["ok"] for r in rows), [r.get("error") for r in rows if not r["ok"]]
     assert sorted((r["id"], r["calibration_kind"]) for r in rows) == sorted((f"main_grid-n100-L8-{m}", k) for m in rx.MODELS for k in ("execution", "bracket", "bracket"))
     c = res["groups"][0]["classification"][0]
-    assert c["reading"] in (ec.READ_WITH_FLAG, ec.NOT_EVALUABLE) and all(r["ln_ratio"] is not None for r in c["ratios"])
+    # with these small settings the truncation may not converge: the ratio is then not formed against the truncated package row
+    assert all((r["ln_ratio"] is not None) != r["mixed_estimators"] for r in c["ratios"])
+    assert c["reading"] in (ec.READ_WITH_FLAG, ec.NOT_EVALUABLE) or (c["reading"] is None and "same estimator" in c["reason"])
     assert (root / "out" / (next((root / "out").glob("*.json")).stem + ".csv")).is_file() and res["exploratory"] is True
