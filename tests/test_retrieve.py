@@ -673,7 +673,7 @@ def _bundles(tmp_path):
 
 
 @pytest.mark.parametrize("status", ["absent", "not_in_force"])
-def test_without_the_switch_the_retrieval_is_that_of_v0_18_0(tmp_path, monkeypatch, status):
+def test_without_the_switch_the_retrieval_is_that_of_v0_18_0(tmp_path, monkeypatch, capsys, status):
     """While the settings table is absent or not in force, ``--retrieve`` with no phase flag is the retrieval as it was: results in
     one step, no pool, and no word of a phase in job.json. This test needs nothing of the committed side."""
     import gradvar.hardware as hw
@@ -693,9 +693,15 @@ def test_without_the_switch_the_retrieval_is_that_of_v0_18_0(tmp_path, monkeypat
         job = json.loads((d / "job.json").read_text())
         assert job["status"] == "completed" and (d / "result.json").is_file() and not any((d / f).exists() for f in POOL_FILES)
         assert set(job["retrieval"]) == V018_RETRIEVAL_KEYS
+    capsys.readouterr()
     for flag in (["--metadata-only"], ["--single-phase"], ["--execution-rows-commit", "feedc0de"]):       # the phase flags go with --retrieve
-        with pytest.raises(SystemExit):
+        with pytest.raises(SystemExit) as e:
             hw.main(["--joblist", str(LIST01)] + flag)
+        assert e.value.code == 2 and "go with --retrieve" in capsys.readouterr().err, flag     # the runner's own refusal, by its text
+    with pytest.raises(SystemExit):                                                               # a flag that does not exist exits 2 as well, with other words
+        hw.main(["--joblist", str(LIST01), "--no-such-phase"])
+    err = capsys.readouterr().err
+    assert "unrecognized arguments" in err and "go with --retrieve" not in err
     with pytest.raises(SystemExit, match="takes no --execution-rows-commit"):
         hw.retrieve_jobs(str(ids), single_phase=True, execution_rows_commit="feedc0de", run_root=str(tmp_path / "runs"))
 
@@ -1034,7 +1040,7 @@ def _commit(repo, rel, message):
 
 
 @pytest.mark.parametrize("status", ["absent", "not_in_force", "in_force"])
-def test_without_a_decision_file_nothing_is_submitted(tmp_path, monkeypatch, status):
+def test_without_a_decision_file_nothing_is_submitted(tmp_path, monkeypatch, capsys, status):
     """The re-run path submits nothing while the table is not in force, and nothing without a committed decision file."""
     import gradvar.hardware as hw
     jl, points, shapes, shots, backend, _ = _live_run(hw, monkeypatch, tmp_path, wait=False)
@@ -1051,10 +1057,14 @@ def test_without_a_decision_file_nothing_is_submitted(tmp_path, monkeypatch, sta
         with pytest.raises(SystemExit, match="is a rule of Deviation 67"):
             hw.rerun_decide(str(ids_path), str(tmp_path / "ledger.json"), run_root=str(tmp_path / "runs"))
     assert FakeJob.counter == n and _tree(tmp_path) == before
-    with pytest.raises(SystemExit):
-        hw.main(["--rerun-decide", str(ids_path)])                                                  # needs --ledger
-    with pytest.raises(SystemExit):
-        hw.main(["--rerun", str(ids_path), "--yes-submit", "--submit-only"])
+    capsys.readouterr()
+    for argv, words in ((["--rerun-decide", str(ids_path)], "--rerun-decide and --ledger go together"),
+                        (["--ledger", str(tmp_path / "ledger.json")], "--rerun-decide and --ledger go together"),
+                        (["--rerun", str(ids_path), "--yes-submit", "--submit-only"], "--rerun takes --yes-submit and nothing else of a submission")):
+        with pytest.raises(SystemExit) as e:
+            hw.main(argv)
+        assert e.value.code == 2 and words in capsys.readouterr().err, argv                      # the runner's own refusal, by its text
+    assert FakeJob.counter == n and _tree(tmp_path) == before
 
 
 def test_the_one_rerun_from_the_decision_to_the_bundle(tmp_path, monkeypatch, capsys):
