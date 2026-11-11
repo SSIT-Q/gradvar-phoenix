@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import time
@@ -55,7 +56,7 @@ def _git_commit() -> str | None:
     try:
         return subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True, check=True).stdout.strip()
     except Exception:
-        return None
+        return os.environ.get("GRADVAR_COMMIT")                              # a tree without git metadata: the caller names the commit
 
 
 def channels(table: dict, dial: str) -> list:

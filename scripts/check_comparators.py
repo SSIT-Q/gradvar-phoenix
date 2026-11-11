@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -217,7 +218,7 @@ def record_vertex_tests(path: str | Path | None = None) -> dict:
         commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True, check=True).stdout.strip()
         dirty = bool(subprocess.run(["git", "status", "--porcelain", "--", *dc.VERTEX_CODE, *dc.VERTEX_TESTS], cwd=ROOT, capture_output=True, text=True).stdout.strip())
     except Exception:
-        commit, dirty = None, None
+        commit, dirty = os.environ.get("GRADVAR_COMMIT"), None            # a tree without git metadata (an archive of the commit): the caller names it
     rec = dict(deviation="64 (draft, not adopted), review correction C64-8: a passed run of the vertex code's tests, required before dispatch in place "
                          "of the vertex values (which are drawn on the execution-time calibration after the run)",
                generated_utc=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), git_commit=commit, uncommitted_changes_in_the_listed_files=dirty,
