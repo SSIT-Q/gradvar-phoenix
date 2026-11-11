@@ -95,7 +95,8 @@ Limits:
    asked for). Not tried: this code path against the service, another day, a job older than a day.
 2. The live path (`execute_joblist` with `wait=True`, workflow `run_jobs.yml` without `submit_only`) still collects results
    directly. A list under the Deviation must be dispatched with `--submit-only`. The patch adds no guard for this.
-3. Overlap with branch `pipeline-day3-2026-11-10` (seen at `defd47ab5f7b0b2aaa1c4516c7e2df554eb34ef0`), which also changes `gradvar/hardware.py` and
+3. Overlap with branch `pipeline-day3-2026-11-10` (checked with `git apply --reject` at its head of 11 Nov,
+   `22174500d3722461d48c1aa40bd2a1883bdf2ff8`), which also changes `gradvar/hardware.py` and
    `tests/test_retrieve.py`: on that branch the patch to `tests/test_retrieve.py` applies and 3 hunks of the patch to
    `gradvar/hardware.py` are rejected (the block inserted before `properties_at`, the head of `retrieve_jobs` and its
    `retrieval` record). The patch must be re-made after that branch is merged. `write_execution_pool` and `load_pool` read
@@ -105,6 +106,10 @@ Limits:
    repeated later.
 5. The enumeration of `check_phase1_bundle` was drawn from the committed bundles and then corrected on the first phase's real
    output (`placement_snapshot` was missing). A field the runner starts writing later stops the first phase until it is listed.
+6. A flagged point whose execution-time or dispatch-time row is missing gets no reading from the classifier (on the 10 Nov package: the Block C
+   points at L = 10, which have no dispatch-time row). `verify_phase2` counts only items with a reading and refuses the second phase when an item
+   has none, naming it. Which reading such a point takes is decided by neither draft row (draft 67, Section 8 item 5); until it is, such a list
+   stops between the phases, before any measured value is retrieved.
 
 ## 03_retrieve_workflow.patch
 

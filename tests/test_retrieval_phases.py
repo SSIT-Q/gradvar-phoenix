@@ -199,6 +199,18 @@ def test_phase_2_counts_only_registered_rows_and_accepts_a_job_classified_not_ev
     with pytest.raises(rp.PhaseError, match="job j1: no classification; job j2: no classification"):
         _verify(repo, c)
     p.unlink()
+    # an item the classifier left without a reading (a flagged point with no dispatch-time row) is not a classification:
+    # the second phase stops and names it, also when the job's other items were read
+    p = _prediction(repo, ["j1", "j2"])
+    d = json.loads(p.read_text(encoding="utf-8"))
+    d["groups"][0]["classification"].append(dict(L=10, reading=None, flag=True, reason="unclassified: a flagged point needs its execution-time and dispatch-time rows"))
+    p.write_text(json.dumps(d), encoding="utf-8")
+    c = _commit(repo, "rows with an unclassified item")
+    with pytest.raises(rp.PhaseError) as ex:
+        _verify(repo, c)
+    assert "job j1: item without a reading: L = 10 (unclassified: a flagged point needs" in str(ex.value) and "job j2: item without a reading" in str(ex.value)
+    assert "no classification" not in str(ex.value)
+    p.unlink()
     # another list's rows do not open this one
     p = _prediction(repo, ["j1", "j2"], name="listB_eeeeeeeeeeee.json")
     c = _commit(repo, "another list")

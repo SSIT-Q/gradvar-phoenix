@@ -153,7 +153,9 @@ def verify_phase2(prediction_commit: str, list_name: str, job_ids: Sequence[str]
        finished times and, for an E built from the committed snapshots, the hashes of those snapshot files; each equals what
        is in the tree now.
     3. Every job has a classification: it belongs to a group with at least one classified item, or to the list of jobs
-       without an execution-time calibration, whose items are classified not evaluable.
+       without an execution-time calibration, whose items are classified not evaluable. An item that the classifier left
+       without a reading (a flagged point whose execution-time or dispatch-time row is missing, so that the decision line
+       cannot be read) is not a classification: it stops the second phase and is named.
     A prediction file marked exploratory, or drawn under a settings table that was not in force, does not count."""
     root = Path(root) if root is not None else ec.ROOT
     cal = Path(calibrations_dir) if calibrations_dir is not None else root / "data" / "calibrations"
@@ -169,16 +171,23 @@ def verify_phase2(prediction_commit: str, list_name: str, job_ids: Sequence[str]
                         + (f" ({len(files)} file(s) there are exploratory or were drawn while the settings table was not in force)" if files else ""))
     recorded: Dict[str, Dict] = {}
     classified: Dict[str, int] = {}
+    unread: Dict[str, List[str]] = {}
+
+    def _count(jid: str, items: Sequence[Dict]) -> None:
+        classified[jid] = max(classified.get(jid, 0), sum(1 for c in items if c.get("reading")))
+        for c in items:
+            if not c.get("reading"):
+                name = c.get("item") or c.get("key") or (f"L = {c.get('L')}" if c.get("L") is not None else "an item")
+                unread.setdefault(jid, []).append(f"{name} ({c.get('reason') or 'no reason recorded'})")
+
     for path, f in used.items():
         for j in f.get("jobs") or []:
             recorded.setdefault(str(j.get("job_id")), j)
         for g in f.get("groups") or []:
-            n = len(g.get("classification") or [])
             for j in g.get("jobs") or []:
-                jid = str(j.get("job_id") if isinstance(j, dict) else j)
-                classified[jid] = max(classified.get(jid, 0), n)
+                _count(str(j.get("job_id") if isinstance(j, dict) else j), g.get("classification") or [])
         for j in f.get("not_evaluable") or []:
-            classified[str(j.get("job_id"))] = max(classified.get(str(j.get("job_id")), 0), len(j.get("classification") or []))
+            _count(str(j.get("job_id")), j.get("classification") or [])
     for jid in (str(x) for x in job_ids):
         rec = recorded.get(jid)
         if rec is None or not isinstance(rec.get("phase1"), dict):
@@ -203,6 +212,8 @@ def verify_phase2(prediction_commit: str, list_name: str, job_ids: Sequence[str]
                     problems.append(f"job {jid}: the committed snapshot {name} is not the file its execution-time calibration was built from")
         if not classified.get(jid):
             problems.append(f"job {jid}: no classification")
+        for what in unread.get(jid, []):
+            problems.append(f"job {jid}: item without a reading: {what}")
     if problems:
         raise PhaseError(f"refusing to retrieve the results of {list_name}: " + "; ".join(problems))
     return dict(prediction_commit=str(prediction_commit), retrieval_commit=str(retrieval_commit), prediction_files=sorted(used), jobs=len(list(job_ids)),
