@@ -1,0 +1,4612 @@
+{
+ "schema": "gradvar trial properties history v1",
+ "generated_utc": "2026-11-11T16:45:13.684523Z",
+ "stamp": "20261111T164445Z",
+ "backend": "ibm_phoenix",
+ "git_commit": "a8136f0068711c43312918ffe9e8221f8a8bdc22",
+ "github_run_id": "43061209099",
+ "qiskit_ibm_runtime_version": "0.49.0",
+ "inputs": {
+  "ids_files": [
+   "data/runs/2026-09-20/paper1_grid_n100_16384_job_ids.json"
+  ],
+  "margin_hours": 6.0,
+  "max_walk": 40,
+  "asked_no_later_than": "2026-11-11T16:44:45.957677Z"
+ },
+ "statement": {
+  "result_called": false,
+  "jobs_submitted": 0,
+  "qpu_time": "none: only job metadata and backend properties were read",
+  "measured_values_written": false,
+  "execution_spans": "job metadata only; whether an EstimatorV2 result carries execution spans can be known only from the result object, which is not fetched"
+ },
+ "completed": true,
+ "refusal": null,
+ "verdict_counts": {
+  "AGREE": 12,
+  "DISAGREE": 0,
+  "INFO": 11,
+  "NOT CHECKED": 14,
+  "REFUSED": 0
+ },
+ "checks": [
+  {
+   "job_id": "dao2pqv8gn2s739nabkg",
+   "check": "job.properties() equals backend.properties(datetime=running)",
+   "verdict": "AGREE",
+   "detail": "both: IBM update 2026-09-20T22:52:52Z, sha256 4f604f4901e7"
+  },
+  {
+   "job_id": "dao2pqv8gn2s739nabkg",
+   "check": "set at running against the committed record",
+   "verdict": "INFO",
+   "detail": "the service returns the update of 2026-09-20T22:52:52Z, which the repository never committed (latest committed before running: 2026-09-20T17:22:24Z)"
+  },
+  {
+   "job_id": "dao2pqv8gn2s739nabkg",
+   "check": "walk-back returns every intermediate set",
+   "verdict": "AGREE",
+   "detail": "18 sets from 2026-09-20T18:44:14Z to 2026-09-21T05:42:53Z: 2026-09-20T18:44:14Z, 2026-09-20T19:02:21Z, 2026-09-20T19:53:17Z, 2026-09-20T20:44:25Z, 2026-09-20T21:21:27Z, 2026-09-20T21:41:48Z, 2026-09-20T21:56:07Z, 2026-09-20T22:52:52Z, 2026-09-21T00:01:12Z, 2026-09-21T01:13:26Z, 2026-09-21T01:27:50Z, 2026-09-21T02:05:47Z, 2026-09-21T02:24:15Z, 2026-09-21T03:05:59Z, 2026-09-21T04:10:38Z, 2026-09-21T04:27:29Z, 2026-09-21T05:28:59Z, 2026-09-21T05:42:53Z; every committed update in that span was returned (4)"
+  },
+  {
+   "job_id": "dao2pqv8gn2s739nabkg",
+   "check": "updates the repository never committed",
+   "verdict": "INFO",
+   "detail": "returned by the walk-back and absent from data/calibrations: 2026-09-20T18:44:14Z, 2026-09-20T19:02:21Z, 2026-09-20T19:53:17Z, 2026-09-20T20:44:25Z, 2026-09-20T21:21:27Z, 2026-09-20T21:41:48Z, 2026-09-20T21:56:07Z, 2026-09-20T22:52:52Z, 2026-09-21T00:01:12Z, 2026-09-21T01:13:26Z, 2026-09-21T04:10:38Z, 2026-09-21T04:27:29Z, 2026-09-21T05:28:59Z, 2026-09-21T05:42:53Z"
+  },
+  {
+   "job_id": "dao2pqv8gn2s739nabkg",
+   "check": "first set after finished",
+   "verdict": "INFO",
+   "detail": "IBM update 2026-09-21T01:13:26Z; the repository holds no update between finished and it"
+  },
+  {
+   "job_id": "dao2pqv8gn2s739nabkg",
+   "check": "updates published between running and finished",
+   "verdict": "INFO",
+   "detail": "none"
+  },
+  {
+   "job_id": "dao2pqv8gn2s739nabkg",
+   "check": "backend.properties(datetime=created) equals the bundle's properties.json",
+   "verdict": "AGREE",
+   "detail": "IBM update 2026-09-20T18:44:14Z, sha256 f918f0325540"
+  },
+  {
+   "job_id": "dao2pqv8gn2s739nabkg",
+   "check": "job metadata carries execution spans",
+   "verdict": "INFO",
+   "detail": "no field of job.metrics() names a span (fields: caller, circuits_execution_time_ns, qiskit_version, timestamps, usage). Spans inside the result object were not looked for: job.result() is never called."
+  },
+  {
+   "job_id": "dao2psf8gn2s739nabmg",
+   "check": "job.properties() equals backend.properties(datetime=running)",
+   "verdict": "AGREE",
+   "detail": "both: IBM update 2026-09-20T22:52:52Z, sha256 4f604f4901e7"
+  },
+  {
+   "job_id": "dao2psf8gn2s739nabmg",
+   "check": "set at running against the committed record",
+   "verdict": "INFO",
+   "detail": "the service returns the update of 2026-09-20T22:52:52Z, which the repository never committed (latest committed before running: 2026-09-20T17:22:24Z)"
+  },
+  {
+   "job_id": "dao2psf8gn2s739nabmg",
+   "check": "walk-back returns every intermediate set",
+   "verdict": "AGREE",
+   "detail": "18 sets from 2026-09-20T18:44:14Z to 2026-09-21T05:42:53Z: 2026-09-20T18:44:14Z, 2026-09-20T19:02:21Z, 2026-09-20T19:53:17Z, 2026-09-20T20:44:25Z, 2026-09-20T21:21:27Z, 2026-09-20T21:41:48Z, 2026-09-20T21:56:07Z, 2026-09-20T22:52:52Z, 2026-09-21T00:01:12Z, 2026-09-21T01:13:26Z, 2026-09-21T01:27:50Z, 2026-09-21T02:05:47Z, 2026-09-21T02:24:15Z, 2026-09-21T03:05:59Z, 2026-09-21T04:10:38Z, 2026-09-21T04:27:29Z, 2026-09-21T05:28:59Z, 2026-09-21T05:42:53Z; every committed update in that span was returned (4)"
+  },
+  {
+   "job_id": "dao2psf8gn2s739nabmg",
+   "check": "updates the repository never committed",
+   "verdict": "INFO",
+   "detail": "returned by the walk-back and absent from data/calibrations: 2026-09-20T18:44:14Z, 2026-09-20T19:02:21Z, 2026-09-20T19:53:17Z, 2026-09-20T20:44:25Z, 2026-09-20T21:21:27Z, 2026-09-20T21:41:48Z, 2026-09-20T21:56:07Z, 2026-09-20T22:52:52Z, 2026-09-21T00:01:12Z, 2026-09-21T01:13:26Z, 2026-09-21T04:10:38Z, 2026-09-21T04:27:29Z, 2026-09-21T05:28:59Z, 2026-09-21T05:42:53Z"
+  },
+  {
+   "job_id": "dao2psf8gn2s739nabmg",
+   "check": "first set after finished",
+   "verdict": "INFO",
+   "detail": "IBM update 2026-09-21T01:13:26Z; the repository holds no update between finished and it"
+  },
+  {
+   "job_id": "dao2psf8gn2s739nabmg",
+   "check": "updates published between running and finished",
+   "verdict": "INFO",
+   "detail": "none"
+  },
+  {
+   "job_id": "dao2psf8gn2s739nabmg",
+   "check": "backend.properties(datetime=created) equals the bundle's properties.json",
+   "verdict": "AGREE",
+   "detail": "IBM update 2026-09-20T18:44:14Z, sha256 f918f0325540"
+  },
+  {
+   "job_id": "dao2psf8gn2s739nabmg",
+   "check": "job metadata carries execution spans",
+   "verdict": "INFO",
+   "detail": "no field of job.metrics() names a span (fields: caller, circuits_execution_time_ns, qiskit_version, timestamps, usage). Spans inside the result object were not looked for: job.result() is never called."
+  },
+  {
+   "job_id": null,
+   "check": "published set is immutable (2026-09-20T18:44:14Z)",
+   "verdict": "NOT CHECKED",
+   "detail": "the repository holds no file of this IBM update"
+  },
+  {
+   "job_id": null,
+   "check": "published set is immutable (2026-09-20T19:02:21Z)",
+   "verdict": "NOT CHECKED",
+   "detail": "the repository holds no file of this IBM update"
+  },
+  {
+   "job_id": null,
+   "check": "published set is immutable (2026-09-20T19:53:17Z)",
+   "verdict": "NOT CHECKED",
+   "detail": "the repository holds no file of this IBM update"
+  },
+  {
+   "job_id": null,
+   "check": "published set is immutable (2026-09-20T20:44:25Z)",
+   "verdict": "NOT CHECKED",
+   "detail": "the repository holds no file of this IBM update"
+  },
+  {
+   "job_id": null,
+   "check": "published set is immutable (2026-09-20T21:21:27Z)",
+   "verdict": "NOT CHECKED",
+   "detail": "the repository holds no file of this IBM update"
+  },
+  {
+   "job_id": null,
+   "check": "published set is immutable (2026-09-20T21:41:48Z)",
+   "verdict": "NOT CHECKED",
+   "detail": "the repository holds no file of this IBM update"
+  },
+  {
+   "job_id": null,
+   "check": "published set is immutable (2026-09-20T21:56:07Z)",
+   "verdict": "NOT CHECKED",
+   "detail": "the repository holds no file of this IBM update"
+  },
+  {
+   "job_id": null,
+   "check": "published set is immutable (2026-09-20T22:52:52Z)",
+   "verdict": "NOT CHECKED",
+   "detail": "the repository holds no file of this IBM update"
+  },
+  {
+   "job_id": null,
+   "check": "published set is immutable (2026-09-21T00:01:12Z)",
+   "verdict": "NOT CHECKED",
+   "detail": "the repository holds no file of this IBM update"
+  },
+  {
+   "job_id": null,
+   "check": "published set is immutable (2026-09-21T01:13:26Z)",
+   "verdict": "NOT CHECKED",
+   "detail": "the repository holds no file of this IBM update"
+  },
+  {
+   "job_id": null,
+   "check": "published set is immutable (2026-09-21T01:27:50Z)",
+   "verdict": "AGREE",
+   "detail": "sha256 6d3595b73fd7 equals 1 committed file(s): ibm_phoenix_properties_2026-09-21T014956Z.json"
+  },
+  {
+   "job_id": null,
+   "check": "published set is immutable (2026-09-21T02:05:47Z)",
+   "verdict": "AGREE",
+   "detail": "sha256 b424d0e127c1 equals 1 committed file(s): ibm_phoenix_properties_2026-09-21T022722Z.json"
+  },
+  {
+   "job_id": null,
+   "check": "published set is immutable (2026-09-21T02:24:15Z)",
+   "verdict": "AGREE",
+   "detail": "sha256 34f0bdd96906 equals 1 committed file(s): ibm_phoenix_properties_20260921T030827Z.json.gz"
+  },
+  {
+   "job_id": null,
+   "check": "published set is immutable (2026-09-21T03:05:59Z)",
+   "verdict": "AGREE",
+   "detail": "sha256 a9ab48cb8fe6 equals 2 committed file(s): ibm_phoenix_properties_2026-09-21T033603Z.json, ibm_phoenix_properties_2026-09-21T040817Z.json"
+  },
+  {
+   "job_id": null,
+   "check": "published set is immutable (2026-09-21T04:10:38Z)",
+   "verdict": "NOT CHECKED",
+   "detail": "the repository holds no file of this IBM update"
+  },
+  {
+   "job_id": null,
+   "check": "published set is immutable (2026-09-21T04:27:29Z)",
+   "verdict": "NOT CHECKED",
+   "detail": "the repository holds no file of this IBM update"
+  },
+  {
+   "job_id": null,
+   "check": "published set is immutable (2026-09-21T05:28:59Z)",
+   "verdict": "NOT CHECKED",
+   "detail": "the repository holds no file of this IBM update"
+  },
+  {
+   "job_id": null,
+   "check": "published set is immutable (2026-09-21T05:42:53Z)",
+   "verdict": "NOT CHECKED",
+   "detail": "the repository holds no file of this IBM update"
+  },
+  {
+   "job_id": null,
+   "check": "one content per IBM update within this run",
+   "verdict": "AGREE",
+   "detail": "18 updates, each returned with one content by 26 calls"
+  },
+  {
+   "job_id": null,
+   "check": "backend.properties accepts datetime",
+   "verdict": "AGREE",
+   "detail": "24 calls answered; no NotImplementedError"
+  },
+  {
+   "job_id": null,
+   "check": "is datetime inclusive",
+   "verdict": "INFO",
+   "detail": "asked for exactly 2026-09-21T05:42:53Z: the service returned the set of 2026-09-21T05:28:59Z (exclusive: strictly older than the instant asked)"
+  }
+ ],
+ "jobs": [
+  {
+   "job_id": "dao2pqv8gn2s739nabkg",
+   "tag": "L0",
+   "ids_file": "data/runs/2026-09-20/paper1_grid_n100_16384_job_ids.json",
+   "status": "DONE",
+   "timestamps": {
+    "created": "2026-09-20T18:58:51.738516Z",
+    "running": "2026-09-21T00:05:35.080873Z",
+    "finished": "2026-09-21T00:12:25.243826Z"
+   },
+   "metrics_fields": [
+    "caller",
+    "circuits_execution_time_ns",
+    "qiskit_version",
+    "timestamps",
+    "timestamps.created",
+    "timestamps.finished",
+    "timestamps.running",
+    "usage",
+    "usage.details",
+    "usage.qpu_charge_time_seconds",
+    "usage.status",
+    "usage.unit",
+    "usage.value"
+   ],
+   "fields_naming_spans": [],
+   "primitive_id": "estimator",
+   "session_id": "139e0272-d064-49c9-aa44-32dda87d063c",
+   "job_properties": "4f604f4901e7a22c255fc48d70fd7a14a51f9a6a6ccaef2d094466b6c9e0e56d",
+   "at_running": "4f604f4901e7a22c255fc48d70fd7a14a51f9a6a6ccaef2d094466b6c9e0e56d",
+   "at_created": "f918f0325540d4568b861966e5d36681e0a14eacee8769f6b7f0deb9cd3e660c",
+   "probe_after_finished": {
+    "asked": "2026-09-21T06:12:25.243826Z",
+    "margin_hours": 6.0,
+    "capped_at_now": false
+   },
+   "walk": {
+    "asked_from": "2026-09-21T06:12:25.243826Z",
+    "floor": "2026-09-20T18:44:14Z",
+    "sets": [
+     "69482f7dc92ecb2465a4df0fa460dc2830f7e72001f1089cdb84d8109821ea34",
+     "3ae619261de055e35fb2638f5e9de1ac1291534f19d32ae2ff508a2091617a9e",
+     "14bb6fccee1eb212158c45ba466ef2830ee238a0d6237ee6915081e2ee6b388b",
+     "a48cfd705e67394822966420ce1b9afb4a9eeb05805e78a273041771231e80c1",
+     "a9ab48cb8fe62bb70aacf8d803f42880c9e477ef924b6674785d8356a83f6307",
+     "34f0bdd96906981869b12d42e76c2abd313115bd846ff5863c24707a37afac72",
+     "b424d0e127c1fe6cbc1e4adcb2c6ec6e8d6fdf60d4ca858a396c76c8764c6ac7",
+     "6d3595b73fd72d3fcf149686ae89cdab8efcfa69194033377a2fc78dd1115a13",
+     "b18af03bef6f30472d210e0a4b5f484fd80d42a9249345f8181a27fb7aea0c9b",
+     "9148a5187b56106ad816c79701c3fe61507ec5360d4685a363120d6aacd023e1",
+     "4f604f4901e7a22c255fc48d70fd7a14a51f9a6a6ccaef2d094466b6c9e0e56d",
+     "d6d545cfaac1ec01b6a895ea609d5effb88c5941fdfe807e35ced85081b15ad8",
+     "320e7a23b5b1471ea57548e06f00d250980fe25b5aae5e23fcab87450a956f8b",
+     "9114cd37cd2af3758cc003a711345011a44b80812d0bdfea1a1938fa46a99684",
+     "ea738c0dbe1200ed4d6f4d0e144bbacc7234e6010151f4ea2f2c149f4ebbf539",
+     "29fb8651aab456b2d6db5821454db6d3edbf151a3051c9e93fac74dfffa6930b",
+     "43fadc025983ad415ca3e16a9058518d208450bd6b1843c319ca307557304b45",
+     "f918f0325540d4568b861966e5d36681e0a14eacee8769f6b7f0deb9cd3e660c"
+    ],
+    "complete": true,
+    "note": null
+   },
+   "first_after_finished": "b18af03bef6f30472d210e0a4b5f484fd80d42a9249345f8181a27fb7aea0c9b",
+   "inside_window": []
+  },
+  {
+   "job_id": "dao2psf8gn2s739nabmg",
+   "tag": "L1",
+   "ids_file": "data/runs/2026-09-20/paper1_grid_n100_16384_job_ids.json",
+   "status": "DONE",
+   "timestamps": {
+    "created": "2026-09-20T18:58:57.459677Z",
+    "running": "2026-09-21T00:05:35.440088Z",
+    "finished": "2026-09-21T00:14:24.076121Z"
+   },
+   "metrics_fields": [
+    "caller",
+    "circuits_execution_time_ns",
+    "qiskit_version",
+    "timestamps",
+    "timestamps.created",
+    "timestamps.finished",
+    "timestamps.running",
+    "usage",
+    "usage.details",
+    "usage.qpu_charge_time_seconds",
+    "usage.status",
+    "usage.unit",
+    "usage.value"
+   ],
+   "fields_naming_spans": [],
+   "primitive_id": "estimator",
+   "session_id": "139e0272-d064-49c9-aa44-32dda87d063c",
+   "job_properties": "4f604f4901e7a22c255fc48d70fd7a14a51f9a6a6ccaef2d094466b6c9e0e56d",
+   "at_running": "4f604f4901e7a22c255fc48d70fd7a14a51f9a6a6ccaef2d094466b6c9e0e56d",
+   "at_created": "f918f0325540d4568b861966e5d36681e0a14eacee8769f6b7f0deb9cd3e660c",
+   "probe_after_finished": {
+    "asked": "2026-09-21T06:14:24.076121Z",
+    "margin_hours": 6.0,
+    "capped_at_now": false
+   },
+   "walk": {
+    "asked_from": "2026-09-21T06:14:24.076121Z",
+    "floor": "2026-09-20T18:44:14Z",
+    "sets": [
+     "69482f7dc92ecb2465a4df0fa460dc2830f7e72001f1089cdb84d8109821ea34",
+     "3ae619261de055e35fb2638f5e9de1ac1291534f19d32ae2ff508a2091617a9e",
+     "14bb6fccee1eb212158c45ba466ef2830ee238a0d6237ee6915081e2ee6b388b",
+     "a48cfd705e67394822966420ce1b9afb4a9eeb05805e78a273041771231e80c1",
+     "a9ab48cb8fe62bb70aacf8d803f42880c9e477ef924b6674785d8356a83f6307",
+     "34f0bdd96906981869b12d42e76c2abd313115bd846ff5863c24707a37afac72",
+     "b424d0e127c1fe6cbc1e4adcb2c6ec6e8d6fdf60d4ca858a396c76c8764c6ac7",
+     "6d3595b73fd72d3fcf149686ae89cdab8efcfa69194033377a2fc78dd1115a13",
+     "b18af03bef6f30472d210e0a4b5f484fd80d42a9249345f8181a27fb7aea0c9b",
+     "9148a5187b56106ad816c79701c3fe61507ec5360d4685a363120d6aacd023e1",
+     "4f604f4901e7a22c255fc48d70fd7a14a51f9a6a6ccaef2d094466b6c9e0e56d",
+     "d6d545cfaac1ec01b6a895ea609d5effb88c5941fdfe807e35ced85081b15ad8",
+     "320e7a23b5b1471ea57548e06f00d250980fe25b5aae5e23fcab87450a956f8b",
+     "9114cd37cd2af3758cc003a711345011a44b80812d0bdfea1a1938fa46a99684",
+     "ea738c0dbe1200ed4d6f4d0e144bbacc7234e6010151f4ea2f2c149f4ebbf539",
+     "29fb8651aab456b2d6db5821454db6d3edbf151a3051c9e93fac74dfffa6930b",
+     "43fadc025983ad415ca3e16a9058518d208450bd6b1843c319ca307557304b45",
+     "f918f0325540d4568b861966e5d36681e0a14eacee8769f6b7f0deb9cd3e660c"
+    ],
+    "complete": true,
+    "note": null
+   },
+   "first_after_finished": "b18af03bef6f30472d210e0a4b5f484fd80d42a9249345f8181a27fb7aea0c9b",
+   "inside_window": []
+  }
+ ],
+ "sets": [
+  {
+   "update": "2026-09-20T18:44:14Z",
+   "sha256": "f918f0325540d4568b861966e5d36681e0a14eacee8769f6b7f0deb9cd3e660c",
+   "file": "data/calibrations/trial_2026-11-10/ibm_phoenix_properties_update_20260920T184414Z_f918f0325540.json",
+   "n_qubits": 120,
+   "n_gates": 1756,
+   "backend_version": "1.0.0",
+   "class_dates": {
+    "T1": {
+     "n": 119,
+     "earliest": "2026-09-19T11:56:34Z",
+     "latest": "2026-09-20T12:39:22Z",
+     "distinct_dates": 6
+    },
+    "T2": {
+     "n": 119,
+     "earliest": "2026-09-20T12:39:22Z",
+     "latest": "2026-09-20T12:39:26Z",
+     "distinct_dates": 5
+    },
+    "gate_error:cz": {
+     "n": 436,
+     "earliest": "2026-09-19T17:56:31Z",
+     "latest": "2026-09-20T18:45:23.597138Z",
+     "distinct_dates": 14
+    },
+    "gate_error:id": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T18:45:22Z",
+     "distinct_dates": 6
+    },
+    "gate_error:measure": {
+     "n": 120,
+     "earliest": "2026-09-20T15:33:42Z",
+     "latest": "2026-09-20T15:33:42Z",
+     "distinct_dates": 1
+    },
+    "gate_error:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-20T12:17:21Z",
+     "latest": "2026-09-20T12:17:24Z",
+     "distinct_dates": 4
+    },
+    "gate_error:rx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T18:45:22Z",
+     "distinct_dates": 6
+    },
+    "gate_error:rz": {
+     "n": 120,
+     "earliest": "2026-09-20T18:44:14Z",
+     "latest": "2026-09-20T18:44:14Z",
+     "distinct_dates": 1
+    },
+    "gate_error:sx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T18:45:22Z",
+     "distinct_dates": 6
+    },
+    "gate_error:x": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T18:45:22Z",
+     "distinct_dates": 6
+    },
+    "gate_error:xslow": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T18:45:23Z",
+     "distinct_dates": 6
+    },
+    "gate_length:cz": {
+     "n": 436,
+     "earliest": "2026-09-19T17:56:31Z",
+     "latest": "2026-09-20T18:45:23.597138Z",
+     "distinct_dates": 14
+    },
+    "gate_length:id": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T18:45:22Z",
+     "distinct_dates": 6
+    },
+    "gate_length:measure": {
+     "n": 120,
+     "earliest": "2026-09-20T18:44:14Z",
+     "latest": "2026-09-20T18:44:14Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-20T18:44:14Z",
+     "latest": "2026-09-20T18:44:14Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_reset": {
+     "n": 120,
+     "earliest": "2026-09-20T18:44:14Z",
+     "latest": "2026-09-20T18:44:14Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_reset_2": {
+     "n": 120,
+     "earliest": "2026-09-20T18:44:14Z",
+     "latest": "2026-09-20T18:44:14Z",
+     "distinct_dates": 1
+    },
+    "gate_length:reset": {
+     "n": 120,
+     "earliest": "2026-09-20T18:44:14Z",
+     "latest": "2026-09-20T18:44:14Z",
+     "distinct_dates": 1
+    },
+    "gate_length:rx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T18:45:22Z",
+     "distinct_dates": 6
+    },
+    "gate_length:rz": {
+     "n": 120,
+     "earliest": "2026-09-20T18:44:14Z",
+     "latest": "2026-09-20T18:44:14Z",
+     "distinct_dates": 1
+    },
+    "gate_length:sx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T18:45:22Z",
+     "distinct_dates": 6
+    },
+    "gate_length:x": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T18:45:22Z",
+     "distinct_dates": 6
+    },
+    "gate_length:xslow": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T18:45:23Z",
+     "distinct_dates": 6
+    },
+    "general:jq": {
+     "n": 218,
+     "earliest": "2026-09-20T18:44:14Z",
+     "latest": "2026-09-20T18:44:14Z",
+     "distinct_dates": 1
+    },
+    "general:lf": {
+     "n": 97,
+     "earliest": "2026-09-20T20:18:15Z",
+     "latest": "2026-09-20T20:18:15Z",
+     "distinct_dates": 1
+    },
+    "general:zz": {
+     "n": 218,
+     "earliest": "2026-09-20T18:44:14Z",
+     "latest": "2026-09-20T18:44:14Z",
+     "distinct_dates": 1
+    },
+    "init_error": {
+     "n": 116,
+     "earliest": "2026-08-25T15:23:25Z",
+     "latest": "2026-09-20T15:45:49Z",
+     "distinct_dates": 34
+    },
+    "prob_meas0_prep1": {
+     "n": 120,
+     "earliest": "2026-09-20T12:04:20Z",
+     "latest": "2026-09-20T15:33:42Z",
+     "distinct_dates": 4
+    },
+    "prob_meas1_prep0": {
+     "n": 120,
+     "earliest": "2026-09-20T15:33:42Z",
+     "latest": "2026-09-20T15:33:42Z",
+     "distinct_dates": 1
+    },
+    "readout_error": {
+     "n": 120,
+     "earliest": "2026-09-20T15:33:42Z",
+     "latest": "2026-09-20T15:33:42Z",
+     "distinct_dates": 1
+    },
+    "readout_length": {
+     "n": 120,
+     "earliest": "2026-09-20T15:33:42Z",
+     "latest": "2026-09-20T15:33:42Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure": {
+     "n": 120,
+     "earliest": "2026-09-20T18:44:14Z",
+     "latest": "2026-09-20T18:44:14Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-20T18:44:14Z",
+     "latest": "2026-09-20T18:44:14Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_reset": {
+     "n": 120,
+     "earliest": "2026-09-20T18:44:14Z",
+     "latest": "2026-09-20T18:44:14Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_reset_2": {
+     "n": 120,
+     "earliest": "2026-09-20T18:44:14Z",
+     "latest": "2026-09-20T18:44:14Z",
+     "distinct_dates": 1
+    }
+   },
+   "returned_by": [
+    "backend.properties(datetime=2026-09-20T18:58:51.738516Z)",
+    "backend.properties(datetime=2026-09-20T19:02:20Z)",
+    "backend.properties(datetime=2026-09-20T18:58:57.459677Z)"
+   ]
+  },
+  {
+   "update": "2026-09-20T19:02:21Z",
+   "sha256": "43fadc025983ad415ca3e16a9058518d208450bd6b1843c319ca307557304b45",
+   "file": "data/calibrations/trial_2026-11-10/ibm_phoenix_properties_update_20260920T190221Z_43fadc025983.json",
+   "n_qubits": 120,
+   "n_gates": 1756,
+   "backend_version": "1.0.0",
+   "class_dates": {
+    "T1": {
+     "n": 119,
+     "earliest": "2026-09-19T11:56:34Z",
+     "latest": "2026-09-20T12:39:22Z",
+     "distinct_dates": 6
+    },
+    "T2": {
+     "n": 119,
+     "earliest": "2026-09-20T12:39:22Z",
+     "latest": "2026-09-20T12:39:26Z",
+     "distinct_dates": 5
+    },
+    "gate_error:cz": {
+     "n": 436,
+     "earliest": "2026-09-19T17:56:31Z",
+     "latest": "2026-09-20T19:03:23.305697Z",
+     "distinct_dates": 14
+    },
+    "gate_error:id": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T19:03:22Z",
+     "distinct_dates": 6
+    },
+    "gate_error:measure": {
+     "n": 120,
+     "earliest": "2026-09-20T15:33:42Z",
+     "latest": "2026-09-20T15:33:42Z",
+     "distinct_dates": 1
+    },
+    "gate_error:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-20T12:17:21Z",
+     "latest": "2026-09-20T12:17:24Z",
+     "distinct_dates": 4
+    },
+    "gate_error:rx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T19:03:22Z",
+     "distinct_dates": 6
+    },
+    "gate_error:rz": {
+     "n": 120,
+     "earliest": "2026-09-20T19:02:21Z",
+     "latest": "2026-09-20T19:02:21Z",
+     "distinct_dates": 1
+    },
+    "gate_error:sx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T19:03:22Z",
+     "distinct_dates": 6
+    },
+    "gate_error:x": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T19:03:22Z",
+     "distinct_dates": 6
+    },
+    "gate_error:xslow": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T19:03:22Z",
+     "distinct_dates": 6
+    },
+    "gate_length:cz": {
+     "n": 436,
+     "earliest": "2026-09-19T17:56:31Z",
+     "latest": "2026-09-20T19:03:23.305697Z",
+     "distinct_dates": 14
+    },
+    "gate_length:id": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T19:03:22Z",
+     "distinct_dates": 6
+    },
+    "gate_length:measure": {
+     "n": 120,
+     "earliest": "2026-09-20T19:02:21Z",
+     "latest": "2026-09-20T19:02:21Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-20T19:02:21Z",
+     "latest": "2026-09-20T19:02:21Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_reset": {
+     "n": 120,
+     "earliest": "2026-09-20T19:02:21Z",
+     "latest": "2026-09-20T19:02:21Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_reset_2": {
+     "n": 120,
+     "earliest": "2026-09-20T19:02:21Z",
+     "latest": "2026-09-20T19:02:21Z",
+     "distinct_dates": 1
+    },
+    "gate_length:reset": {
+     "n": 120,
+     "earliest": "2026-09-20T19:02:21Z",
+     "latest": "2026-09-20T19:02:21Z",
+     "distinct_dates": 1
+    },
+    "gate_length:rx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T19:03:22Z",
+     "distinct_dates": 6
+    },
+    "gate_length:rz": {
+     "n": 120,
+     "earliest": "2026-09-20T19:02:21Z",
+     "latest": "2026-09-20T19:02:21Z",
+     "distinct_dates": 1
+    },
+    "gate_length:sx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T19:03:22Z",
+     "distinct_dates": 6
+    },
+    "gate_length:x": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T19:03:22Z",
+     "distinct_dates": 6
+    },
+    "gate_length:xslow": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T19:03:22Z",
+     "distinct_dates": 6
+    },
+    "general:jq": {
+     "n": 218,
+     "earliest": "2026-09-20T19:02:21Z",
+     "latest": "2026-09-20T19:02:21Z",
+     "distinct_dates": 1
+    },
+    "general:lf": {
+     "n": 97,
+     "earliest": "2026-09-20T20:18:15Z",
+     "latest": "2026-09-20T20:18:15Z",
+     "distinct_dates": 1
+    },
+    "general:zz": {
+     "n": 218,
+     "earliest": "2026-09-20T19:02:21Z",
+     "latest": "2026-09-20T19:02:21Z",
+     "distinct_dates": 1
+    },
+    "init_error": {
+     "n": 116,
+     "earliest": "2026-08-25T15:23:25Z",
+     "latest": "2026-09-20T15:45:49Z",
+     "distinct_dates": 34
+    },
+    "prob_meas0_prep1": {
+     "n": 120,
+     "earliest": "2026-09-20T12:04:20Z",
+     "latest": "2026-09-20T15:33:42Z",
+     "distinct_dates": 4
+    },
+    "prob_meas1_prep0": {
+     "n": 120,
+     "earliest": "2026-09-20T15:33:42Z",
+     "latest": "2026-09-20T15:33:42Z",
+     "distinct_dates": 1
+    },
+    "readout_error": {
+     "n": 120,
+     "earliest": "2026-09-20T15:33:42Z",
+     "latest": "2026-09-20T15:33:42Z",
+     "distinct_dates": 1
+    },
+    "readout_length": {
+     "n": 120,
+     "earliest": "2026-09-20T15:33:42Z",
+     "latest": "2026-09-20T15:33:42Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure": {
+     "n": 120,
+     "earliest": "2026-09-20T19:02:21Z",
+     "latest": "2026-09-20T19:02:21Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-20T19:02:21Z",
+     "latest": "2026-09-20T19:02:21Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_reset": {
+     "n": 120,
+     "earliest": "2026-09-20T19:02:21Z",
+     "latest": "2026-09-20T19:02:21Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_reset_2": {
+     "n": 120,
+     "earliest": "2026-09-20T19:02:21Z",
+     "latest": "2026-09-20T19:02:21Z",
+     "distinct_dates": 1
+    }
+   },
+   "returned_by": [
+    "backend.properties(datetime=2026-09-20T19:53:16Z)"
+   ]
+  },
+  {
+   "update": "2026-09-20T19:53:17Z",
+   "sha256": "29fb8651aab456b2d6db5821454db6d3edbf151a3051c9e93fac74dfffa6930b",
+   "file": "data/calibrations/trial_2026-11-10/ibm_phoenix_properties_update_20260920T195317Z_29fb8651aab4.json",
+   "n_qubits": 120,
+   "n_gates": 1756,
+   "backend_version": "1.0.0",
+   "class_dates": {
+    "T1": {
+     "n": 119,
+     "earliest": "2026-09-19T11:56:34Z",
+     "latest": "2026-09-20T12:39:22Z",
+     "distinct_dates": 6
+    },
+    "T2": {
+     "n": 119,
+     "earliest": "2026-09-20T12:39:22Z",
+     "latest": "2026-09-20T12:39:26Z",
+     "distinct_dates": 5
+    },
+    "gate_error:cz": {
+     "n": 436,
+     "earliest": "2026-09-20T19:53:13Z",
+     "latest": "2026-09-20T19:53:36.113094Z",
+     "distinct_dates": 13
+    },
+    "gate_error:id": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T19:53:35Z",
+     "distinct_dates": 6
+    },
+    "gate_error:measure": {
+     "n": 120,
+     "earliest": "2026-09-20T15:33:42Z",
+     "latest": "2026-09-20T15:33:42Z",
+     "distinct_dates": 1
+    },
+    "gate_error:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-20T12:17:21Z",
+     "latest": "2026-09-20T12:17:24Z",
+     "distinct_dates": 4
+    },
+    "gate_error:rx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T19:53:35Z",
+     "distinct_dates": 6
+    },
+    "gate_error:rz": {
+     "n": 120,
+     "earliest": "2026-09-20T19:53:17Z",
+     "latest": "2026-09-20T19:53:17Z",
+     "distinct_dates": 1
+    },
+    "gate_error:sx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T19:53:35Z",
+     "distinct_dates": 6
+    },
+    "gate_error:x": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T19:53:35Z",
+     "distinct_dates": 6
+    },
+    "gate_error:xslow": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T19:53:35Z",
+     "distinct_dates": 6
+    },
+    "gate_length:cz": {
+     "n": 436,
+     "earliest": "2026-09-20T19:53:13Z",
+     "latest": "2026-09-20T19:53:36.113094Z",
+     "distinct_dates": 13
+    },
+    "gate_length:id": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T19:53:35Z",
+     "distinct_dates": 6
+    },
+    "gate_length:measure": {
+     "n": 120,
+     "earliest": "2026-09-20T19:53:17Z",
+     "latest": "2026-09-20T19:53:17Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-20T19:53:17Z",
+     "latest": "2026-09-20T19:53:17Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_reset": {
+     "n": 120,
+     "earliest": "2026-09-20T19:53:17Z",
+     "latest": "2026-09-20T19:53:17Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_reset_2": {
+     "n": 120,
+     "earliest": "2026-09-20T19:53:17Z",
+     "latest": "2026-09-20T19:53:17Z",
+     "distinct_dates": 1
+    },
+    "gate_length:reset": {
+     "n": 120,
+     "earliest": "2026-09-20T19:53:17Z",
+     "latest": "2026-09-20T19:53:17Z",
+     "distinct_dates": 1
+    },
+    "gate_length:rx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T19:53:35Z",
+     "distinct_dates": 6
+    },
+    "gate_length:rz": {
+     "n": 120,
+     "earliest": "2026-09-20T19:53:17Z",
+     "latest": "2026-09-20T19:53:17Z",
+     "distinct_dates": 1
+    },
+    "gate_length:sx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T19:53:35Z",
+     "distinct_dates": 6
+    },
+    "gate_length:x": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T19:53:35Z",
+     "distinct_dates": 6
+    },
+    "gate_length:xslow": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T19:53:35Z",
+     "distinct_dates": 6
+    },
+    "general:jq": {
+     "n": 218,
+     "earliest": "2026-09-20T19:53:17Z",
+     "latest": "2026-09-20T19:53:17Z",
+     "distinct_dates": 1
+    },
+    "general:lf": {
+     "n": 97,
+     "earliest": "2026-09-20T20:18:15Z",
+     "latest": "2026-09-20T20:18:15Z",
+     "distinct_dates": 1
+    },
+    "general:zz": {
+     "n": 218,
+     "earliest": "2026-09-20T19:53:17Z",
+     "latest": "2026-09-20T19:53:17Z",
+     "distinct_dates": 1
+    },
+    "init_error": {
+     "n": 116,
+     "earliest": "2026-08-25T15:23:25Z",
+     "latest": "2026-09-20T15:45:49Z",
+     "distinct_dates": 34
+    },
+    "prob_meas0_prep1": {
+     "n": 120,
+     "earliest": "2026-09-20T12:04:20Z",
+     "latest": "2026-09-20T15:33:42Z",
+     "distinct_dates": 4
+    },
+    "prob_meas1_prep0": {
+     "n": 120,
+     "earliest": "2026-09-20T15:33:42Z",
+     "latest": "2026-09-20T15:33:42Z",
+     "distinct_dates": 1
+    },
+    "readout_error": {
+     "n": 120,
+     "earliest": "2026-09-20T15:33:42Z",
+     "latest": "2026-09-20T15:33:42Z",
+     "distinct_dates": 1
+    },
+    "readout_length": {
+     "n": 120,
+     "earliest": "2026-09-20T15:33:42Z",
+     "latest": "2026-09-20T15:33:42Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure": {
+     "n": 120,
+     "earliest": "2026-09-20T19:53:17Z",
+     "latest": "2026-09-20T19:53:17Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-20T19:53:17Z",
+     "latest": "2026-09-20T19:53:17Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_reset": {
+     "n": 120,
+     "earliest": "2026-09-20T19:53:17Z",
+     "latest": "2026-09-20T19:53:17Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_reset_2": {
+     "n": 120,
+     "earliest": "2026-09-20T19:53:17Z",
+     "latest": "2026-09-20T19:53:17Z",
+     "distinct_dates": 1
+    }
+   },
+   "returned_by": [
+    "backend.properties(datetime=2026-09-20T20:44:24Z)"
+   ]
+  },
+  {
+   "update": "2026-09-20T20:44:25Z",
+   "sha256": "ea738c0dbe1200ed4d6f4d0e144bbacc7234e6010151f4ea2f2c149f4ebbf539",
+   "file": "data/calibrations/trial_2026-11-10/ibm_phoenix_properties_update_20260920T204425Z_ea738c0dbe12.json",
+   "n_qubits": 120,
+   "n_gates": 1756,
+   "backend_version": "1.0.0",
+   "class_dates": {
+    "T1": {
+     "n": 119,
+     "earliest": "2026-09-19T11:56:34Z",
+     "latest": "2026-09-20T12:39:22Z",
+     "distinct_dates": 6
+    },
+    "T2": {
+     "n": 119,
+     "earliest": "2026-09-20T12:39:22Z",
+     "latest": "2026-09-20T12:39:26Z",
+     "distinct_dates": 5
+    },
+    "gate_error:cz": {
+     "n": 436,
+     "earliest": "2026-09-20T19:53:13Z",
+     "latest": "2026-09-20T20:44:44.204414Z",
+     "distinct_dates": 13
+    },
+    "gate_error:id": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T20:44:43Z",
+     "distinct_dates": 6
+    },
+    "gate_error:measure": {
+     "n": 120,
+     "earliest": "2026-09-20T15:33:42Z",
+     "latest": "2026-09-20T15:33:42Z",
+     "distinct_dates": 1
+    },
+    "gate_error:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-20T12:17:21Z",
+     "latest": "2026-09-20T12:17:24Z",
+     "distinct_dates": 4
+    },
+    "gate_error:rx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T20:44:43Z",
+     "distinct_dates": 6
+    },
+    "gate_error:rz": {
+     "n": 120,
+     "earliest": "2026-09-20T20:44:25Z",
+     "latest": "2026-09-20T20:44:25Z",
+     "distinct_dates": 1
+    },
+    "gate_error:sx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T20:44:43Z",
+     "distinct_dates": 6
+    },
+    "gate_error:x": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T20:44:43Z",
+     "distinct_dates": 6
+    },
+    "gate_error:xslow": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T20:44:43Z",
+     "distinct_dates": 6
+    },
+    "gate_length:cz": {
+     "n": 436,
+     "earliest": "2026-09-20T19:53:13Z",
+     "latest": "2026-09-20T20:44:44.204414Z",
+     "distinct_dates": 13
+    },
+    "gate_length:id": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T20:44:43Z",
+     "distinct_dates": 6
+    },
+    "gate_length:measure": {
+     "n": 120,
+     "earliest": "2026-09-20T20:44:25Z",
+     "latest": "2026-09-20T20:44:25Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-20T20:44:25Z",
+     "latest": "2026-09-20T20:44:25Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_reset": {
+     "n": 120,
+     "earliest": "2026-09-20T20:44:25Z",
+     "latest": "2026-09-20T20:44:25Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_reset_2": {
+     "n": 120,
+     "earliest": "2026-09-20T20:44:25Z",
+     "latest": "2026-09-20T20:44:25Z",
+     "distinct_dates": 1
+    },
+    "gate_length:reset": {
+     "n": 120,
+     "earliest": "2026-09-20T20:44:25Z",
+     "latest": "2026-09-20T20:44:25Z",
+     "distinct_dates": 1
+    },
+    "gate_length:rx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T20:44:43Z",
+     "distinct_dates": 6
+    },
+    "gate_length:rz": {
+     "n": 120,
+     "earliest": "2026-09-20T20:44:25Z",
+     "latest": "2026-09-20T20:44:25Z",
+     "distinct_dates": 1
+    },
+    "gate_length:sx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T20:44:43Z",
+     "distinct_dates": 6
+    },
+    "gate_length:x": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T20:44:43Z",
+     "distinct_dates": 6
+    },
+    "gate_length:xslow": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T20:44:43Z",
+     "distinct_dates": 6
+    },
+    "general:jq": {
+     "n": 218,
+     "earliest": "2026-09-20T20:44:25Z",
+     "latest": "2026-09-20T20:44:25Z",
+     "distinct_dates": 1
+    },
+    "general:lf": {
+     "n": 97,
+     "earliest": "2026-09-20T20:18:15Z",
+     "latest": "2026-09-20T20:18:15Z",
+     "distinct_dates": 1
+    },
+    "general:zz": {
+     "n": 218,
+     "earliest": "2026-09-20T20:44:25Z",
+     "latest": "2026-09-20T20:44:25Z",
+     "distinct_dates": 1
+    },
+    "init_error": {
+     "n": 116,
+     "earliest": "2026-08-25T15:23:25Z",
+     "latest": "2026-09-20T15:45:49Z",
+     "distinct_dates": 34
+    },
+    "prob_meas0_prep1": {
+     "n": 120,
+     "earliest": "2026-09-20T12:04:20Z",
+     "latest": "2026-09-20T15:33:42Z",
+     "distinct_dates": 4
+    },
+    "prob_meas1_prep0": {
+     "n": 120,
+     "earliest": "2026-09-20T15:33:42Z",
+     "latest": "2026-09-20T15:33:42Z",
+     "distinct_dates": 1
+    },
+    "readout_error": {
+     "n": 120,
+     "earliest": "2026-09-20T15:33:42Z",
+     "latest": "2026-09-20T15:33:42Z",
+     "distinct_dates": 1
+    },
+    "readout_length": {
+     "n": 120,
+     "earliest": "2026-09-20T15:33:42Z",
+     "latest": "2026-09-20T15:33:42Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure": {
+     "n": 120,
+     "earliest": "2026-09-20T20:44:25Z",
+     "latest": "2026-09-20T20:44:25Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-20T20:44:25Z",
+     "latest": "2026-09-20T20:44:25Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_reset": {
+     "n": 120,
+     "earliest": "2026-09-20T20:44:25Z",
+     "latest": "2026-09-20T20:44:25Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_reset_2": {
+     "n": 120,
+     "earliest": "2026-09-20T20:44:25Z",
+     "latest": "2026-09-20T20:44:25Z",
+     "distinct_dates": 1
+    }
+   },
+   "returned_by": [
+    "backend.properties(datetime=2026-09-20T21:21:26Z)"
+   ]
+  },
+  {
+   "update": "2026-09-20T21:21:27Z",
+   "sha256": "9114cd37cd2af3758cc003a711345011a44b80812d0bdfea1a1938fa46a99684",
+   "file": "data/calibrations/trial_2026-11-10/ibm_phoenix_properties_update_20260920T212127Z_9114cd37cd2a.json",
+   "n_qubits": 120,
+   "n_gates": 1756,
+   "backend_version": "1.0.0",
+   "class_dates": {
+    "T1": {
+     "n": 119,
+     "earliest": "2026-09-19T11:56:34Z",
+     "latest": "2026-09-20T12:39:22Z",
+     "distinct_dates": 6
+    },
+    "T2": {
+     "n": 119,
+     "earliest": "2026-09-20T12:39:22Z",
+     "latest": "2026-09-20T12:39:26Z",
+     "distinct_dates": 5
+    },
+    "gate_error:cz": {
+     "n": 436,
+     "earliest": "2026-09-20T19:53:13Z",
+     "latest": "2026-09-20T21:21:45.190340Z",
+     "distinct_dates": 13
+    },
+    "gate_error:id": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T21:21:44Z",
+     "distinct_dates": 6
+    },
+    "gate_error:measure": {
+     "n": 120,
+     "earliest": "2026-09-20T21:10:09Z",
+     "latest": "2026-09-20T21:10:09Z",
+     "distinct_dates": 1
+    },
+    "gate_error:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-20T12:17:21Z",
+     "latest": "2026-09-20T12:17:24Z",
+     "distinct_dates": 4
+    },
+    "gate_error:rx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T21:21:44Z",
+     "distinct_dates": 6
+    },
+    "gate_error:rz": {
+     "n": 120,
+     "earliest": "2026-09-20T21:21:27Z",
+     "latest": "2026-09-20T21:21:27Z",
+     "distinct_dates": 1
+    },
+    "gate_error:sx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T21:21:44Z",
+     "distinct_dates": 6
+    },
+    "gate_error:x": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T21:21:44Z",
+     "distinct_dates": 6
+    },
+    "gate_error:xslow": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T21:21:44Z",
+     "distinct_dates": 6
+    },
+    "gate_length:cz": {
+     "n": 436,
+     "earliest": "2026-09-20T19:53:13Z",
+     "latest": "2026-09-20T21:21:45.190340Z",
+     "distinct_dates": 13
+    },
+    "gate_length:id": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T21:21:44Z",
+     "distinct_dates": 6
+    },
+    "gate_length:measure": {
+     "n": 120,
+     "earliest": "2026-09-20T21:21:27Z",
+     "latest": "2026-09-20T21:21:27Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-20T21:21:27Z",
+     "latest": "2026-09-20T21:21:27Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_reset": {
+     "n": 120,
+     "earliest": "2026-09-20T21:21:27Z",
+     "latest": "2026-09-20T21:21:27Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_reset_2": {
+     "n": 120,
+     "earliest": "2026-09-20T21:21:27Z",
+     "latest": "2026-09-20T21:21:27Z",
+     "distinct_dates": 1
+    },
+    "gate_length:reset": {
+     "n": 120,
+     "earliest": "2026-09-20T21:21:27Z",
+     "latest": "2026-09-20T21:21:27Z",
+     "distinct_dates": 1
+    },
+    "gate_length:rx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T21:21:44Z",
+     "distinct_dates": 6
+    },
+    "gate_length:rz": {
+     "n": 120,
+     "earliest": "2026-09-20T21:21:27Z",
+     "latest": "2026-09-20T21:21:27Z",
+     "distinct_dates": 1
+    },
+    "gate_length:sx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T21:21:44Z",
+     "distinct_dates": 6
+    },
+    "gate_length:x": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T21:21:44Z",
+     "distinct_dates": 6
+    },
+    "gate_length:xslow": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T21:21:44Z",
+     "distinct_dates": 6
+    },
+    "general:jq": {
+     "n": 218,
+     "earliest": "2026-09-20T21:21:27Z",
+     "latest": "2026-09-20T21:21:27Z",
+     "distinct_dates": 1
+    },
+    "general:lf": {
+     "n": 97,
+     "earliest": "2026-09-20T20:18:15Z",
+     "latest": "2026-09-20T20:18:15Z",
+     "distinct_dates": 1
+    },
+    "general:zz": {
+     "n": 218,
+     "earliest": "2026-09-20T21:21:27Z",
+     "latest": "2026-09-20T21:21:27Z",
+     "distinct_dates": 1
+    },
+    "init_error": {
+     "n": 116,
+     "earliest": "2026-08-25T15:23:25Z",
+     "latest": "2026-09-20T21:21:27Z",
+     "distinct_dates": 36
+    },
+    "prob_meas0_prep1": {
+     "n": 120,
+     "earliest": "2026-09-20T12:04:20Z",
+     "latest": "2026-09-20T21:10:09Z",
+     "distinct_dates": 4
+    },
+    "prob_meas1_prep0": {
+     "n": 120,
+     "earliest": "2026-09-20T21:10:09Z",
+     "latest": "2026-09-20T21:10:09Z",
+     "distinct_dates": 1
+    },
+    "readout_error": {
+     "n": 120,
+     "earliest": "2026-09-20T21:10:09Z",
+     "latest": "2026-09-20T21:10:09Z",
+     "distinct_dates": 1
+    },
+    "readout_length": {
+     "n": 120,
+     "earliest": "2026-09-20T21:10:09Z",
+     "latest": "2026-09-20T21:10:09Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure": {
+     "n": 120,
+     "earliest": "2026-09-20T21:21:27Z",
+     "latest": "2026-09-20T21:21:27Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-20T21:21:27Z",
+     "latest": "2026-09-20T21:21:27Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_reset": {
+     "n": 120,
+     "earliest": "2026-09-20T21:21:27Z",
+     "latest": "2026-09-20T21:21:27Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_reset_2": {
+     "n": 120,
+     "earliest": "2026-09-20T21:21:27Z",
+     "latest": "2026-09-20T21:21:27Z",
+     "distinct_dates": 1
+    }
+   },
+   "returned_by": [
+    "backend.properties(datetime=2026-09-20T21:41:47Z)"
+   ]
+  },
+  {
+   "update": "2026-09-20T21:41:48Z",
+   "sha256": "320e7a23b5b1471ea57548e06f00d250980fe25b5aae5e23fcab87450a956f8b",
+   "file": "data/calibrations/trial_2026-11-10/ibm_phoenix_properties_update_20260920T214148Z_320e7a23b5b1.json",
+   "n_qubits": 120,
+   "n_gates": 1756,
+   "backend_version": "1.0.0",
+   "class_dates": {
+    "T1": {
+     "n": 119,
+     "earliest": "2026-09-19T11:56:34Z",
+     "latest": "2026-09-20T12:39:22Z",
+     "distinct_dates": 6
+    },
+    "T2": {
+     "n": 119,
+     "earliest": "2026-09-20T12:39:22Z",
+     "latest": "2026-09-20T12:39:26Z",
+     "distinct_dates": 5
+    },
+    "gate_error:cz": {
+     "n": 436,
+     "earliest": "2026-09-20T19:53:13Z",
+     "latest": "2026-09-20T21:44:30.005662Z",
+     "distinct_dates": 13
+    },
+    "gate_error:id": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T21:44:28Z",
+     "distinct_dates": 6
+    },
+    "gate_error:measure": {
+     "n": 120,
+     "earliest": "2026-09-20T21:10:09Z",
+     "latest": "2026-09-20T21:10:09Z",
+     "distinct_dates": 1
+    },
+    "gate_error:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-20T12:17:21Z",
+     "latest": "2026-09-20T12:17:24Z",
+     "distinct_dates": 4
+    },
+    "gate_error:rx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T21:44:29Z",
+     "distinct_dates": 6
+    },
+    "gate_error:rz": {
+     "n": 120,
+     "earliest": "2026-09-20T21:41:48Z",
+     "latest": "2026-09-20T21:41:48Z",
+     "distinct_dates": 1
+    },
+    "gate_error:sx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T21:44:29Z",
+     "distinct_dates": 6
+    },
+    "gate_error:x": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T21:44:29Z",
+     "distinct_dates": 6
+    },
+    "gate_error:xslow": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T21:44:29Z",
+     "distinct_dates": 6
+    },
+    "gate_length:cz": {
+     "n": 436,
+     "earliest": "2026-09-20T19:53:13Z",
+     "latest": "2026-09-20T21:44:30.005662Z",
+     "distinct_dates": 13
+    },
+    "gate_length:id": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T21:44:28Z",
+     "distinct_dates": 6
+    },
+    "gate_length:measure": {
+     "n": 120,
+     "earliest": "2026-09-20T21:41:48Z",
+     "latest": "2026-09-20T21:41:48Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-20T21:41:48Z",
+     "latest": "2026-09-20T21:41:48Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_reset": {
+     "n": 120,
+     "earliest": "2026-09-20T21:41:48Z",
+     "latest": "2026-09-20T21:41:48Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_reset_2": {
+     "n": 120,
+     "earliest": "2026-09-20T21:41:48Z",
+     "latest": "2026-09-20T21:41:48Z",
+     "distinct_dates": 1
+    },
+    "gate_length:reset": {
+     "n": 120,
+     "earliest": "2026-09-20T21:41:48Z",
+     "latest": "2026-09-20T21:41:48Z",
+     "distinct_dates": 1
+    },
+    "gate_length:rx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T21:44:29Z",
+     "distinct_dates": 6
+    },
+    "gate_length:rz": {
+     "n": 120,
+     "earliest": "2026-09-20T21:41:48Z",
+     "latest": "2026-09-20T21:41:48Z",
+     "distinct_dates": 1
+    },
+    "gate_length:sx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T21:44:29Z",
+     "distinct_dates": 6
+    },
+    "gate_length:x": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T21:44:29Z",
+     "distinct_dates": 6
+    },
+    "gate_length:xslow": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T21:44:29Z",
+     "distinct_dates": 6
+    },
+    "general:jq": {
+     "n": 218,
+     "earliest": "2026-09-20T21:41:48Z",
+     "latest": "2026-09-20T21:41:48Z",
+     "distinct_dates": 1
+    },
+    "general:lf": {
+     "n": 97,
+     "earliest": "2026-09-20T20:18:15Z",
+     "latest": "2026-09-20T20:18:15Z",
+     "distinct_dates": 1
+    },
+    "general:zz": {
+     "n": 218,
+     "earliest": "2026-09-20T21:41:48Z",
+     "latest": "2026-09-20T21:41:48Z",
+     "distinct_dates": 1
+    },
+    "init_error": {
+     "n": 116,
+     "earliest": "2026-08-25T15:23:25Z",
+     "latest": "2026-09-20T21:21:27Z",
+     "distinct_dates": 36
+    },
+    "prob_meas0_prep1": {
+     "n": 120,
+     "earliest": "2026-09-20T12:04:20Z",
+     "latest": "2026-09-20T21:10:09Z",
+     "distinct_dates": 4
+    },
+    "prob_meas1_prep0": {
+     "n": 120,
+     "earliest": "2026-09-20T21:10:09Z",
+     "latest": "2026-09-20T21:10:09Z",
+     "distinct_dates": 1
+    },
+    "readout_error": {
+     "n": 120,
+     "earliest": "2026-09-20T21:10:09Z",
+     "latest": "2026-09-20T21:10:09Z",
+     "distinct_dates": 1
+    },
+    "readout_length": {
+     "n": 120,
+     "earliest": "2026-09-20T21:10:09Z",
+     "latest": "2026-09-20T21:10:09Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure": {
+     "n": 120,
+     "earliest": "2026-09-20T21:41:48Z",
+     "latest": "2026-09-20T21:41:48Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-20T21:41:48Z",
+     "latest": "2026-09-20T21:41:48Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_reset": {
+     "n": 120,
+     "earliest": "2026-09-20T21:41:48Z",
+     "latest": "2026-09-20T21:41:48Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_reset_2": {
+     "n": 120,
+     "earliest": "2026-09-20T21:41:48Z",
+     "latest": "2026-09-20T21:41:48Z",
+     "distinct_dates": 1
+    }
+   },
+   "returned_by": [
+    "backend.properties(datetime=2026-09-20T21:56:06Z)"
+   ]
+  },
+  {
+   "update": "2026-09-20T21:56:07Z",
+   "sha256": "d6d545cfaac1ec01b6a895ea609d5effb88c5941fdfe807e35ced85081b15ad8",
+   "file": "data/calibrations/trial_2026-11-10/ibm_phoenix_properties_update_20260920T215607Z_d6d545cfaac1.json",
+   "n_qubits": 120,
+   "n_gates": 1756,
+   "backend_version": "1.0.0",
+   "class_dates": {
+    "T1": {
+     "n": 119,
+     "earliest": "2026-09-19T11:56:34Z",
+     "latest": "2026-09-20T12:39:22Z",
+     "distinct_dates": 6
+    },
+    "T2": {
+     "n": 119,
+     "earliest": "2026-09-20T12:39:22Z",
+     "latest": "2026-09-20T12:39:26Z",
+     "distinct_dates": 5
+    },
+    "gate_error:cz": {
+     "n": 436,
+     "earliest": "2026-09-20T19:53:13Z",
+     "latest": "2026-09-20T22:15:17.564874Z",
+     "distinct_dates": 13
+    },
+    "gate_error:id": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T22:15:16Z",
+     "distinct_dates": 6
+    },
+    "gate_error:measure": {
+     "n": 120,
+     "earliest": "2026-09-20T21:10:09Z",
+     "latest": "2026-09-20T21:10:09Z",
+     "distinct_dates": 1
+    },
+    "gate_error:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-20T12:17:21Z",
+     "latest": "2026-09-20T12:17:24Z",
+     "distinct_dates": 4
+    },
+    "gate_error:rx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T22:15:16Z",
+     "distinct_dates": 6
+    },
+    "gate_error:rz": {
+     "n": 120,
+     "earliest": "2026-09-20T21:56:07Z",
+     "latest": "2026-09-20T21:56:07Z",
+     "distinct_dates": 1
+    },
+    "gate_error:sx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T22:15:16Z",
+     "distinct_dates": 6
+    },
+    "gate_error:x": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T22:15:16Z",
+     "distinct_dates": 6
+    },
+    "gate_error:xslow": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T22:15:16Z",
+     "distinct_dates": 6
+    },
+    "gate_length:cz": {
+     "n": 436,
+     "earliest": "2026-09-20T19:53:13Z",
+     "latest": "2026-09-20T22:15:17.564874Z",
+     "distinct_dates": 13
+    },
+    "gate_length:id": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T22:15:16Z",
+     "distinct_dates": 6
+    },
+    "gate_length:measure": {
+     "n": 120,
+     "earliest": "2026-09-20T21:56:07Z",
+     "latest": "2026-09-20T21:56:07Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-20T21:56:07Z",
+     "latest": "2026-09-20T21:56:07Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_reset": {
+     "n": 120,
+     "earliest": "2026-09-20T21:56:07Z",
+     "latest": "2026-09-20T21:56:07Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_reset_2": {
+     "n": 120,
+     "earliest": "2026-09-20T21:56:07Z",
+     "latest": "2026-09-20T21:56:07Z",
+     "distinct_dates": 1
+    },
+    "gate_length:reset": {
+     "n": 120,
+     "earliest": "2026-09-20T21:56:07Z",
+     "latest": "2026-09-20T21:56:07Z",
+     "distinct_dates": 1
+    },
+    "gate_length:rx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T22:15:16Z",
+     "distinct_dates": 6
+    },
+    "gate_length:rz": {
+     "n": 120,
+     "earliest": "2026-09-20T21:56:07Z",
+     "latest": "2026-09-20T21:56:07Z",
+     "distinct_dates": 1
+    },
+    "gate_length:sx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T22:15:16Z",
+     "distinct_dates": 6
+    },
+    "gate_length:x": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T22:15:16Z",
+     "distinct_dates": 6
+    },
+    "gate_length:xslow": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T22:15:16Z",
+     "distinct_dates": 6
+    },
+    "general:jq": {
+     "n": 218,
+     "earliest": "2026-09-20T21:56:07Z",
+     "latest": "2026-09-20T21:56:07Z",
+     "distinct_dates": 1
+    },
+    "general:lf": {
+     "n": 97,
+     "earliest": "2026-09-20T20:18:15Z",
+     "latest": "2026-09-20T20:18:15Z",
+     "distinct_dates": 1
+    },
+    "general:zz": {
+     "n": 218,
+     "earliest": "2026-09-20T21:56:07Z",
+     "latest": "2026-09-20T21:56:07Z",
+     "distinct_dates": 1
+    },
+    "init_error": {
+     "n": 116,
+     "earliest": "2026-08-25T15:23:25Z",
+     "latest": "2026-09-20T21:56:07Z",
+     "distinct_dates": 27
+    },
+    "prob_meas0_prep1": {
+     "n": 120,
+     "earliest": "2026-09-20T12:04:20Z",
+     "latest": "2026-09-20T21:10:09Z",
+     "distinct_dates": 4
+    },
+    "prob_meas1_prep0": {
+     "n": 120,
+     "earliest": "2026-09-20T21:10:09Z",
+     "latest": "2026-09-20T21:10:09Z",
+     "distinct_dates": 1
+    },
+    "readout_error": {
+     "n": 120,
+     "earliest": "2026-09-20T21:10:09Z",
+     "latest": "2026-09-20T21:10:09Z",
+     "distinct_dates": 1
+    },
+    "readout_length": {
+     "n": 120,
+     "earliest": "2026-09-20T21:10:09Z",
+     "latest": "2026-09-20T21:10:09Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure": {
+     "n": 120,
+     "earliest": "2026-09-20T21:56:07Z",
+     "latest": "2026-09-20T21:56:07Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-20T21:56:07Z",
+     "latest": "2026-09-20T21:56:07Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_reset": {
+     "n": 120,
+     "earliest": "2026-09-20T21:56:07Z",
+     "latest": "2026-09-20T21:56:07Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_reset_2": {
+     "n": 120,
+     "earliest": "2026-09-20T21:56:07Z",
+     "latest": "2026-09-20T21:56:07Z",
+     "distinct_dates": 1
+    }
+   },
+   "returned_by": [
+    "backend.properties(datetime=2026-09-20T22:52:51Z)"
+   ]
+  },
+  {
+   "update": "2026-09-20T22:52:52Z",
+   "sha256": "4f604f4901e7a22c255fc48d70fd7a14a51f9a6a6ccaef2d094466b6c9e0e56d",
+   "file": "data/calibrations/trial_2026-11-10/ibm_phoenix_properties_update_20260920T225252Z_4f604f4901e7.json",
+   "n_qubits": 120,
+   "n_gates": 1756,
+   "backend_version": "1.0.0",
+   "class_dates": {
+    "T1": {
+     "n": 119,
+     "earliest": "2026-09-19T11:56:34Z",
+     "latest": "2026-09-20T12:39:22Z",
+     "distinct_dates": 6
+    },
+    "T2": {
+     "n": 119,
+     "earliest": "2026-09-20T12:39:22Z",
+     "latest": "2026-09-20T12:39:26Z",
+     "distinct_dates": 5
+    },
+    "gate_error:cz": {
+     "n": 436,
+     "earliest": "2026-09-20T19:53:13Z",
+     "latest": "2026-09-20T22:55:17.518594Z",
+     "distinct_dates": 13
+    },
+    "gate_error:id": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T22:55:16Z",
+     "distinct_dates": 6
+    },
+    "gate_error:measure": {
+     "n": 120,
+     "earliest": "2026-09-20T21:10:09Z",
+     "latest": "2026-09-20T21:10:09Z",
+     "distinct_dates": 1
+    },
+    "gate_error:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-20T12:17:21Z",
+     "latest": "2026-09-20T12:17:24Z",
+     "distinct_dates": 4
+    },
+    "gate_error:rx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T22:55:16Z",
+     "distinct_dates": 6
+    },
+    "gate_error:rz": {
+     "n": 120,
+     "earliest": "2026-09-20T22:52:52Z",
+     "latest": "2026-09-20T22:52:52Z",
+     "distinct_dates": 1
+    },
+    "gate_error:sx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T22:55:16Z",
+     "distinct_dates": 6
+    },
+    "gate_error:x": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T22:55:16Z",
+     "distinct_dates": 6
+    },
+    "gate_error:xslow": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T22:55:16Z",
+     "distinct_dates": 6
+    },
+    "gate_length:cz": {
+     "n": 436,
+     "earliest": "2026-09-20T19:53:13Z",
+     "latest": "2026-09-20T22:55:17.518594Z",
+     "distinct_dates": 13
+    },
+    "gate_length:id": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T22:55:16Z",
+     "distinct_dates": 6
+    },
+    "gate_length:measure": {
+     "n": 120,
+     "earliest": "2026-09-20T22:52:52Z",
+     "latest": "2026-09-20T22:52:52Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-20T22:52:52Z",
+     "latest": "2026-09-20T22:52:52Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_reset": {
+     "n": 120,
+     "earliest": "2026-09-20T22:52:52Z",
+     "latest": "2026-09-20T22:52:52Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_reset_2": {
+     "n": 120,
+     "earliest": "2026-09-20T22:52:52Z",
+     "latest": "2026-09-20T22:52:52Z",
+     "distinct_dates": 1
+    },
+    "gate_length:reset": {
+     "n": 120,
+     "earliest": "2026-09-20T22:52:52Z",
+     "latest": "2026-09-20T22:52:52Z",
+     "distinct_dates": 1
+    },
+    "gate_length:rx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T22:55:16Z",
+     "distinct_dates": 6
+    },
+    "gate_length:rz": {
+     "n": 120,
+     "earliest": "2026-09-20T22:52:52Z",
+     "latest": "2026-09-20T22:52:52Z",
+     "distinct_dates": 1
+    },
+    "gate_length:sx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T22:55:16Z",
+     "distinct_dates": 6
+    },
+    "gate_length:x": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T22:55:16Z",
+     "distinct_dates": 6
+    },
+    "gate_length:xslow": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-20T22:55:16Z",
+     "distinct_dates": 6
+    },
+    "general:jq": {
+     "n": 218,
+     "earliest": "2026-09-20T22:52:52Z",
+     "latest": "2026-09-20T22:52:52Z",
+     "distinct_dates": 1
+    },
+    "general:lf": {
+     "n": 97,
+     "earliest": "2026-09-20T20:18:15Z",
+     "latest": "2026-09-20T20:18:15Z",
+     "distinct_dates": 1
+    },
+    "general:zz": {
+     "n": 218,
+     "earliest": "2026-09-20T22:52:52Z",
+     "latest": "2026-09-20T22:52:52Z",
+     "distinct_dates": 1
+    },
+    "init_error": {
+     "n": 116,
+     "earliest": "2026-08-25T15:23:25Z",
+     "latest": "2026-09-20T21:56:07Z",
+     "distinct_dates": 27
+    },
+    "prob_meas0_prep1": {
+     "n": 120,
+     "earliest": "2026-09-20T12:04:20Z",
+     "latest": "2026-09-20T21:10:09Z",
+     "distinct_dates": 4
+    },
+    "prob_meas1_prep0": {
+     "n": 120,
+     "earliest": "2026-09-20T21:10:09Z",
+     "latest": "2026-09-20T21:10:09Z",
+     "distinct_dates": 1
+    },
+    "readout_error": {
+     "n": 120,
+     "earliest": "2026-09-20T21:10:09Z",
+     "latest": "2026-09-20T21:10:09Z",
+     "distinct_dates": 1
+    },
+    "readout_length": {
+     "n": 120,
+     "earliest": "2026-09-20T21:10:09Z",
+     "latest": "2026-09-20T21:10:09Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure": {
+     "n": 120,
+     "earliest": "2026-09-20T22:52:52Z",
+     "latest": "2026-09-20T22:52:52Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-20T22:52:52Z",
+     "latest": "2026-09-20T22:52:52Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_reset": {
+     "n": 120,
+     "earliest": "2026-09-20T22:52:52Z",
+     "latest": "2026-09-20T22:52:52Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_reset_2": {
+     "n": 120,
+     "earliest": "2026-09-20T22:52:52Z",
+     "latest": "2026-09-20T22:52:52Z",
+     "distinct_dates": 1
+    }
+   },
+   "returned_by": [
+    "job.properties() [dao2pqv8gn2s739nabkg]",
+    "backend.properties(datetime=2026-09-21T00:05:35.080873Z)",
+    "backend.properties(datetime=2026-09-21T00:01:11Z)",
+    "job.properties() [dao2psf8gn2s739nabmg]",
+    "backend.properties(datetime=2026-09-21T00:05:35.440088Z)"
+   ]
+  },
+  {
+   "update": "2026-09-21T00:01:12Z",
+   "sha256": "9148a5187b56106ad816c79701c3fe61507ec5360d4685a363120d6aacd023e1",
+   "file": "data/calibrations/trial_2026-11-10/ibm_phoenix_properties_update_20260921T000112Z_9148a5187b56.json",
+   "n_qubits": 120,
+   "n_gates": 1756,
+   "backend_version": "1.0.0",
+   "class_dates": {
+    "T1": {
+     "n": 119,
+     "earliest": "2026-09-19T11:56:34Z",
+     "latest": "2026-09-20T12:39:22Z",
+     "distinct_dates": 6
+    },
+    "T2": {
+     "n": 119,
+     "earliest": "2026-09-20T12:39:22Z",
+     "latest": "2026-09-20T12:39:26Z",
+     "distinct_dates": 5
+    },
+    "gate_error:cz": {
+     "n": 436,
+     "earliest": "2026-09-20T19:53:13Z",
+     "latest": "2026-09-21T00:02:17.350775Z",
+     "distinct_dates": 13
+    },
+    "gate_error:id": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T00:02:16Z",
+     "distinct_dates": 6
+    },
+    "gate_error:measure": {
+     "n": 120,
+     "earliest": "2026-09-20T21:10:09Z",
+     "latest": "2026-09-20T21:10:09Z",
+     "distinct_dates": 1
+    },
+    "gate_error:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-20T12:17:21Z",
+     "latest": "2026-09-20T12:17:24Z",
+     "distinct_dates": 4
+    },
+    "gate_error:rx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T00:02:16Z",
+     "distinct_dates": 6
+    },
+    "gate_error:rz": {
+     "n": 120,
+     "earliest": "2026-09-21T00:01:12Z",
+     "latest": "2026-09-21T00:01:12Z",
+     "distinct_dates": 1
+    },
+    "gate_error:sx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T00:02:16Z",
+     "distinct_dates": 6
+    },
+    "gate_error:x": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T00:02:16Z",
+     "distinct_dates": 6
+    },
+    "gate_error:xslow": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T00:02:16Z",
+     "distinct_dates": 6
+    },
+    "gate_length:cz": {
+     "n": 436,
+     "earliest": "2026-09-20T19:53:13Z",
+     "latest": "2026-09-21T00:02:17.350775Z",
+     "distinct_dates": 13
+    },
+    "gate_length:id": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T00:02:16Z",
+     "distinct_dates": 6
+    },
+    "gate_length:measure": {
+     "n": 120,
+     "earliest": "2026-09-21T00:01:12Z",
+     "latest": "2026-09-21T00:01:12Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-21T00:01:12Z",
+     "latest": "2026-09-21T00:01:12Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_reset": {
+     "n": 120,
+     "earliest": "2026-09-21T00:01:12Z",
+     "latest": "2026-09-21T00:01:12Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_reset_2": {
+     "n": 120,
+     "earliest": "2026-09-21T00:01:12Z",
+     "latest": "2026-09-21T00:01:12Z",
+     "distinct_dates": 1
+    },
+    "gate_length:reset": {
+     "n": 120,
+     "earliest": "2026-09-21T00:01:12Z",
+     "latest": "2026-09-21T00:01:12Z",
+     "distinct_dates": 1
+    },
+    "gate_length:rx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T00:02:16Z",
+     "distinct_dates": 6
+    },
+    "gate_length:rz": {
+     "n": 120,
+     "earliest": "2026-09-21T00:01:12Z",
+     "latest": "2026-09-21T00:01:12Z",
+     "distinct_dates": 1
+    },
+    "gate_length:sx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T00:02:16Z",
+     "distinct_dates": 6
+    },
+    "gate_length:x": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T00:02:16Z",
+     "distinct_dates": 6
+    },
+    "gate_length:xslow": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T00:02:16Z",
+     "distinct_dates": 6
+    },
+    "general:jq": {
+     "n": 218,
+     "earliest": "2026-09-21T00:01:12Z",
+     "latest": "2026-09-21T00:01:12Z",
+     "distinct_dates": 1
+    },
+    "general:lf": {
+     "n": 97,
+     "earliest": "2026-09-20T20:18:15Z",
+     "latest": "2026-09-20T20:18:15Z",
+     "distinct_dates": 1
+    },
+    "general:zz": {
+     "n": 218,
+     "earliest": "2026-09-21T00:01:12Z",
+     "latest": "2026-09-21T00:01:12Z",
+     "distinct_dates": 1
+    },
+    "init_error": {
+     "n": 116,
+     "earliest": "2026-08-25T15:23:25Z",
+     "latest": "2026-09-20T21:56:07Z",
+     "distinct_dates": 27
+    },
+    "prob_meas0_prep1": {
+     "n": 120,
+     "earliest": "2026-09-20T12:04:20Z",
+     "latest": "2026-09-20T21:10:09Z",
+     "distinct_dates": 4
+    },
+    "prob_meas1_prep0": {
+     "n": 120,
+     "earliest": "2026-09-20T21:10:09Z",
+     "latest": "2026-09-20T21:10:09Z",
+     "distinct_dates": 1
+    },
+    "readout_error": {
+     "n": 120,
+     "earliest": "2026-09-20T21:10:09Z",
+     "latest": "2026-09-20T21:10:09Z",
+     "distinct_dates": 1
+    },
+    "readout_length": {
+     "n": 120,
+     "earliest": "2026-09-20T21:10:09Z",
+     "latest": "2026-09-20T21:10:09Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure": {
+     "n": 120,
+     "earliest": "2026-09-21T00:01:12Z",
+     "latest": "2026-09-21T00:01:12Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-21T00:01:12Z",
+     "latest": "2026-09-21T00:01:12Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_reset": {
+     "n": 120,
+     "earliest": "2026-09-21T00:01:12Z",
+     "latest": "2026-09-21T00:01:12Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_reset_2": {
+     "n": 120,
+     "earliest": "2026-09-21T00:01:12Z",
+     "latest": "2026-09-21T00:01:12Z",
+     "distinct_dates": 1
+    }
+   },
+   "returned_by": [
+    "backend.properties(datetime=2026-09-21T01:13:25Z)"
+   ]
+  },
+  {
+   "update": "2026-09-21T01:13:26Z",
+   "sha256": "b18af03bef6f30472d210e0a4b5f484fd80d42a9249345f8181a27fb7aea0c9b",
+   "file": "data/calibrations/trial_2026-11-10/ibm_phoenix_properties_update_20260921T011326Z_b18af03bef6f.json",
+   "n_qubits": 120,
+   "n_gates": 1756,
+   "backend_version": "1.0.0",
+   "class_dates": {
+    "T1": {
+     "n": 119,
+     "earliest": "2026-09-19T11:56:34Z",
+     "latest": "2026-09-20T12:39:22Z",
+     "distinct_dates": 6
+    },
+    "T2": {
+     "n": 119,
+     "earliest": "2026-09-20T12:39:22Z",
+     "latest": "2026-09-20T12:39:26Z",
+     "distinct_dates": 5
+    },
+    "gate_error:cz": {
+     "n": 436,
+     "earliest": "2026-09-20T19:53:13Z",
+     "latest": "2026-09-21T01:14:41.403114Z",
+     "distinct_dates": 13
+    },
+    "gate_error:id": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T01:14:40Z",
+     "distinct_dates": 6
+    },
+    "gate_error:measure": {
+     "n": 120,
+     "earliest": "2026-09-20T21:10:09Z",
+     "latest": "2026-09-20T21:10:09Z",
+     "distinct_dates": 1
+    },
+    "gate_error:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-20T12:17:21Z",
+     "latest": "2026-09-20T12:17:24Z",
+     "distinct_dates": 4
+    },
+    "gate_error:rx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T01:14:40Z",
+     "distinct_dates": 6
+    },
+    "gate_error:rz": {
+     "n": 120,
+     "earliest": "2026-09-21T01:13:26Z",
+     "latest": "2026-09-21T01:13:26Z",
+     "distinct_dates": 1
+    },
+    "gate_error:sx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T01:14:40Z",
+     "distinct_dates": 6
+    },
+    "gate_error:x": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T01:14:40Z",
+     "distinct_dates": 6
+    },
+    "gate_error:xslow": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T01:14:40Z",
+     "distinct_dates": 6
+    },
+    "gate_length:cz": {
+     "n": 436,
+     "earliest": "2026-09-20T19:53:13Z",
+     "latest": "2026-09-21T01:14:41.403114Z",
+     "distinct_dates": 13
+    },
+    "gate_length:id": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T01:14:40Z",
+     "distinct_dates": 6
+    },
+    "gate_length:measure": {
+     "n": 120,
+     "earliest": "2026-09-21T01:13:26Z",
+     "latest": "2026-09-21T01:13:26Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-21T01:13:26Z",
+     "latest": "2026-09-21T01:13:26Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_reset": {
+     "n": 120,
+     "earliest": "2026-09-21T01:13:26Z",
+     "latest": "2026-09-21T01:13:26Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_reset_2": {
+     "n": 120,
+     "earliest": "2026-09-21T01:13:26Z",
+     "latest": "2026-09-21T01:13:26Z",
+     "distinct_dates": 1
+    },
+    "gate_length:reset": {
+     "n": 120,
+     "earliest": "2026-09-21T01:13:26Z",
+     "latest": "2026-09-21T01:13:26Z",
+     "distinct_dates": 1
+    },
+    "gate_length:rx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T01:14:40Z",
+     "distinct_dates": 6
+    },
+    "gate_length:rz": {
+     "n": 120,
+     "earliest": "2026-09-21T01:13:26Z",
+     "latest": "2026-09-21T01:13:26Z",
+     "distinct_dates": 1
+    },
+    "gate_length:sx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T01:14:40Z",
+     "distinct_dates": 6
+    },
+    "gate_length:x": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T01:14:40Z",
+     "distinct_dates": 6
+    },
+    "gate_length:xslow": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T01:14:40Z",
+     "distinct_dates": 6
+    },
+    "general:jq": {
+     "n": 218,
+     "earliest": "2026-09-21T01:13:26Z",
+     "latest": "2026-09-21T01:13:26Z",
+     "distinct_dates": 1
+    },
+    "general:lf": {
+     "n": 97,
+     "earliest": "2026-09-20T20:18:15Z",
+     "latest": "2026-09-20T20:18:15Z",
+     "distinct_dates": 1
+    },
+    "general:zz": {
+     "n": 218,
+     "earliest": "2026-09-21T01:13:26Z",
+     "latest": "2026-09-21T01:13:26Z",
+     "distinct_dates": 1
+    },
+    "init_error": {
+     "n": 116,
+     "earliest": "2026-08-25T15:23:25Z",
+     "latest": "2026-09-20T21:56:07Z",
+     "distinct_dates": 27
+    },
+    "prob_meas0_prep1": {
+     "n": 120,
+     "earliest": "2026-09-20T12:04:20Z",
+     "latest": "2026-09-20T21:10:09Z",
+     "distinct_dates": 4
+    },
+    "prob_meas1_prep0": {
+     "n": 120,
+     "earliest": "2026-09-20T21:10:09Z",
+     "latest": "2026-09-20T21:10:09Z",
+     "distinct_dates": 1
+    },
+    "readout_error": {
+     "n": 120,
+     "earliest": "2026-09-20T21:10:09Z",
+     "latest": "2026-09-20T21:10:09Z",
+     "distinct_dates": 1
+    },
+    "readout_length": {
+     "n": 120,
+     "earliest": "2026-09-20T21:10:09Z",
+     "latest": "2026-09-20T21:10:09Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure": {
+     "n": 120,
+     "earliest": "2026-09-21T01:13:26Z",
+     "latest": "2026-09-21T01:13:26Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-21T01:13:26Z",
+     "latest": "2026-09-21T01:13:26Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_reset": {
+     "n": 120,
+     "earliest": "2026-09-21T01:13:26Z",
+     "latest": "2026-09-21T01:13:26Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_reset_2": {
+     "n": 120,
+     "earliest": "2026-09-21T01:13:26Z",
+     "latest": "2026-09-21T01:13:26Z",
+     "distinct_dates": 1
+    }
+   },
+   "returned_by": [
+    "backend.properties(datetime=2026-09-21T01:27:49Z)"
+   ]
+  },
+  {
+   "update": "2026-09-21T01:27:50Z",
+   "sha256": "6d3595b73fd72d3fcf149686ae89cdab8efcfa69194033377a2fc78dd1115a13",
+   "file": "data/calibrations/trial_2026-11-10/ibm_phoenix_properties_update_20260921T012750Z_6d3595b73fd7.json",
+   "n_qubits": 120,
+   "n_gates": 1756,
+   "backend_version": "1.0.0",
+   "class_dates": {
+    "T1": {
+     "n": 119,
+     "earliest": "2026-09-19T11:56:34Z",
+     "latest": "2026-09-20T12:39:22Z",
+     "distinct_dates": 6
+    },
+    "T2": {
+     "n": 119,
+     "earliest": "2026-09-20T12:39:22Z",
+     "latest": "2026-09-20T12:39:26Z",
+     "distinct_dates": 5
+    },
+    "gate_error:cz": {
+     "n": 436,
+     "earliest": "2026-09-20T19:53:13Z",
+     "latest": "2026-09-21T01:28:46.418094Z",
+     "distinct_dates": 13
+    },
+    "gate_error:id": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T01:28:45Z",
+     "distinct_dates": 6
+    },
+    "gate_error:measure": {
+     "n": 120,
+     "earliest": "2026-09-20T21:10:09Z",
+     "latest": "2026-09-20T21:10:09Z",
+     "distinct_dates": 1
+    },
+    "gate_error:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-20T12:17:21Z",
+     "latest": "2026-09-20T12:17:24Z",
+     "distinct_dates": 4
+    },
+    "gate_error:rx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T01:28:45Z",
+     "distinct_dates": 6
+    },
+    "gate_error:rz": {
+     "n": 120,
+     "earliest": "2026-09-21T01:27:50Z",
+     "latest": "2026-09-21T01:27:50Z",
+     "distinct_dates": 1
+    },
+    "gate_error:sx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T01:28:45Z",
+     "distinct_dates": 6
+    },
+    "gate_error:x": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T01:28:45Z",
+     "distinct_dates": 6
+    },
+    "gate_error:xslow": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T01:28:45Z",
+     "distinct_dates": 6
+    },
+    "gate_length:cz": {
+     "n": 436,
+     "earliest": "2026-09-20T19:53:13Z",
+     "latest": "2026-09-21T01:28:46.418094Z",
+     "distinct_dates": 13
+    },
+    "gate_length:id": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T01:28:45Z",
+     "distinct_dates": 6
+    },
+    "gate_length:measure": {
+     "n": 120,
+     "earliest": "2026-09-21T01:27:50Z",
+     "latest": "2026-09-21T01:27:50Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-21T01:27:50Z",
+     "latest": "2026-09-21T01:27:50Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_reset": {
+     "n": 120,
+     "earliest": "2026-09-21T01:27:50Z",
+     "latest": "2026-09-21T01:27:50Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_reset_2": {
+     "n": 120,
+     "earliest": "2026-09-21T01:27:50Z",
+     "latest": "2026-09-21T01:27:50Z",
+     "distinct_dates": 1
+    },
+    "gate_length:reset": {
+     "n": 120,
+     "earliest": "2026-09-21T01:27:50Z",
+     "latest": "2026-09-21T01:27:50Z",
+     "distinct_dates": 1
+    },
+    "gate_length:rx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T01:28:45Z",
+     "distinct_dates": 6
+    },
+    "gate_length:rz": {
+     "n": 120,
+     "earliest": "2026-09-21T01:27:50Z",
+     "latest": "2026-09-21T01:27:50Z",
+     "distinct_dates": 1
+    },
+    "gate_length:sx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T01:28:45Z",
+     "distinct_dates": 6
+    },
+    "gate_length:x": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T01:28:45Z",
+     "distinct_dates": 6
+    },
+    "gate_length:xslow": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T01:28:45Z",
+     "distinct_dates": 6
+    },
+    "general:jq": {
+     "n": 218,
+     "earliest": "2026-09-21T01:27:50Z",
+     "latest": "2026-09-21T01:27:50Z",
+     "distinct_dates": 1
+    },
+    "general:lf": {
+     "n": 97,
+     "earliest": "2026-09-20T20:18:15Z",
+     "latest": "2026-09-20T20:18:15Z",
+     "distinct_dates": 1
+    },
+    "general:zz": {
+     "n": 218,
+     "earliest": "2026-09-21T01:27:50Z",
+     "latest": "2026-09-21T01:27:50Z",
+     "distinct_dates": 1
+    },
+    "init_error": {
+     "n": 116,
+     "earliest": "2026-08-25T15:23:25Z",
+     "latest": "2026-09-20T21:56:07Z",
+     "distinct_dates": 27
+    },
+    "prob_meas0_prep1": {
+     "n": 120,
+     "earliest": "2026-09-20T12:04:20Z",
+     "latest": "2026-09-20T21:10:09Z",
+     "distinct_dates": 4
+    },
+    "prob_meas1_prep0": {
+     "n": 120,
+     "earliest": "2026-09-20T21:10:09Z",
+     "latest": "2026-09-20T21:10:09Z",
+     "distinct_dates": 1
+    },
+    "readout_error": {
+     "n": 120,
+     "earliest": "2026-09-20T21:10:09Z",
+     "latest": "2026-09-20T21:10:09Z",
+     "distinct_dates": 1
+    },
+    "readout_length": {
+     "n": 120,
+     "earliest": "2026-09-20T21:10:09Z",
+     "latest": "2026-09-20T21:10:09Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure": {
+     "n": 120,
+     "earliest": "2026-09-21T01:27:50Z",
+     "latest": "2026-09-21T01:27:50Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-21T01:27:50Z",
+     "latest": "2026-09-21T01:27:50Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_reset": {
+     "n": 120,
+     "earliest": "2026-09-21T01:27:50Z",
+     "latest": "2026-09-21T01:27:50Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_reset_2": {
+     "n": 120,
+     "earliest": "2026-09-21T01:27:50Z",
+     "latest": "2026-09-21T01:27:50Z",
+     "distinct_dates": 1
+    }
+   },
+   "returned_by": [
+    "backend.properties(datetime=2026-09-21T02:05:46Z)"
+   ]
+  },
+  {
+   "update": "2026-09-21T02:05:47Z",
+   "sha256": "b424d0e127c1fe6cbc1e4adcb2c6ec6e8d6fdf60d4ca858a396c76c8764c6ac7",
+   "file": "data/calibrations/trial_2026-11-10/ibm_phoenix_properties_update_20260921T020547Z_b424d0e127c1.json",
+   "n_qubits": 120,
+   "n_gates": 1756,
+   "backend_version": "1.0.0",
+   "class_dates": {
+    "T1": {
+     "n": 119,
+     "earliest": "2026-09-19T11:56:34Z",
+     "latest": "2026-09-20T12:39:22Z",
+     "distinct_dates": 6
+    },
+    "T2": {
+     "n": 119,
+     "earliest": "2026-09-20T12:39:22Z",
+     "latest": "2026-09-20T12:39:26Z",
+     "distinct_dates": 5
+    },
+    "gate_error:cz": {
+     "n": 436,
+     "earliest": "2026-09-20T19:53:13Z",
+     "latest": "2026-09-21T02:06:06.060988Z",
+     "distinct_dates": 13
+    },
+    "gate_error:id": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T02:06:05Z",
+     "distinct_dates": 6
+    },
+    "gate_error:measure": {
+     "n": 120,
+     "earliest": "2026-09-21T01:54:09Z",
+     "latest": "2026-09-21T01:54:09Z",
+     "distinct_dates": 1
+    },
+    "gate_error:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-20T12:17:21Z",
+     "latest": "2026-09-20T12:17:24Z",
+     "distinct_dates": 4
+    },
+    "gate_error:rx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T02:06:05Z",
+     "distinct_dates": 6
+    },
+    "gate_error:rz": {
+     "n": 120,
+     "earliest": "2026-09-21T02:05:47Z",
+     "latest": "2026-09-21T02:05:47Z",
+     "distinct_dates": 1
+    },
+    "gate_error:sx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T02:06:05Z",
+     "distinct_dates": 6
+    },
+    "gate_error:x": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T02:06:05Z",
+     "distinct_dates": 6
+    },
+    "gate_error:xslow": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T02:06:05Z",
+     "distinct_dates": 6
+    },
+    "gate_length:cz": {
+     "n": 436,
+     "earliest": "2026-09-20T19:53:13Z",
+     "latest": "2026-09-21T02:06:06.060988Z",
+     "distinct_dates": 13
+    },
+    "gate_length:id": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T02:06:05Z",
+     "distinct_dates": 6
+    },
+    "gate_length:measure": {
+     "n": 120,
+     "earliest": "2026-09-21T02:05:47Z",
+     "latest": "2026-09-21T02:05:47Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-21T02:05:47Z",
+     "latest": "2026-09-21T02:05:47Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_reset": {
+     "n": 120,
+     "earliest": "2026-09-21T02:05:47Z",
+     "latest": "2026-09-21T02:05:47Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_reset_2": {
+     "n": 120,
+     "earliest": "2026-09-21T02:05:47Z",
+     "latest": "2026-09-21T02:05:47Z",
+     "distinct_dates": 1
+    },
+    "gate_length:reset": {
+     "n": 120,
+     "earliest": "2026-09-21T02:05:47Z",
+     "latest": "2026-09-21T02:05:47Z",
+     "distinct_dates": 1
+    },
+    "gate_length:rx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T02:06:05Z",
+     "distinct_dates": 6
+    },
+    "gate_length:rz": {
+     "n": 120,
+     "earliest": "2026-09-21T02:05:47Z",
+     "latest": "2026-09-21T02:05:47Z",
+     "distinct_dates": 1
+    },
+    "gate_length:sx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T02:06:05Z",
+     "distinct_dates": 6
+    },
+    "gate_length:x": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T02:06:05Z",
+     "distinct_dates": 6
+    },
+    "gate_length:xslow": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T02:06:05Z",
+     "distinct_dates": 6
+    },
+    "general:jq": {
+     "n": 218,
+     "earliest": "2026-09-21T02:05:47Z",
+     "latest": "2026-09-21T02:05:47Z",
+     "distinct_dates": 1
+    },
+    "general:lf": {
+     "n": 97,
+     "earliest": "2026-09-20T20:18:15Z",
+     "latest": "2026-09-20T20:18:15Z",
+     "distinct_dates": 1
+    },
+    "general:zz": {
+     "n": 218,
+     "earliest": "2026-09-21T02:05:47Z",
+     "latest": "2026-09-21T02:05:47Z",
+     "distinct_dates": 1
+    },
+    "init_error": {
+     "n": 116,
+     "earliest": "2026-08-25T15:23:25Z",
+     "latest": "2026-09-21T02:05:47Z",
+     "distinct_dates": 38
+    },
+    "prob_meas0_prep1": {
+     "n": 120,
+     "earliest": "2026-09-20T12:04:20Z",
+     "latest": "2026-09-21T01:54:09Z",
+     "distinct_dates": 4
+    },
+    "prob_meas1_prep0": {
+     "n": 120,
+     "earliest": "2026-09-21T01:54:09Z",
+     "latest": "2026-09-21T01:54:09Z",
+     "distinct_dates": 1
+    },
+    "readout_error": {
+     "n": 120,
+     "earliest": "2026-09-21T01:54:09Z",
+     "latest": "2026-09-21T01:54:09Z",
+     "distinct_dates": 1
+    },
+    "readout_length": {
+     "n": 120,
+     "earliest": "2026-09-21T01:54:09Z",
+     "latest": "2026-09-21T01:54:09Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure": {
+     "n": 120,
+     "earliest": "2026-09-21T02:05:47Z",
+     "latest": "2026-09-21T02:05:47Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-21T02:05:47Z",
+     "latest": "2026-09-21T02:05:47Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_reset": {
+     "n": 120,
+     "earliest": "2026-09-21T02:05:47Z",
+     "latest": "2026-09-21T02:05:47Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_reset_2": {
+     "n": 120,
+     "earliest": "2026-09-21T02:05:47Z",
+     "latest": "2026-09-21T02:05:47Z",
+     "distinct_dates": 1
+    }
+   },
+   "returned_by": [
+    "backend.properties(datetime=2026-09-21T02:24:14Z)"
+   ]
+  },
+  {
+   "update": "2026-09-21T02:24:15Z",
+   "sha256": "34f0bdd96906981869b12d42e76c2abd313115bd846ff5863c24707a37afac72",
+   "file": "data/calibrations/trial_2026-11-10/ibm_phoenix_properties_update_20260921T022415Z_34f0bdd96906.json",
+   "n_qubits": 120,
+   "n_gates": 1756,
+   "backend_version": "1.0.0",
+   "class_dates": {
+    "T1": {
+     "n": 119,
+     "earliest": "2026-09-19T11:56:34Z",
+     "latest": "2026-09-20T12:39:22Z",
+     "distinct_dates": 6
+    },
+    "T2": {
+     "n": 119,
+     "earliest": "2026-09-20T12:39:22Z",
+     "latest": "2026-09-20T12:39:26Z",
+     "distinct_dates": 5
+    },
+    "gate_error:cz": {
+     "n": 436,
+     "earliest": "2026-09-20T19:53:13Z",
+     "latest": "2026-09-21T02:26:43.896593Z",
+     "distinct_dates": 13
+    },
+    "gate_error:id": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T02:26:42Z",
+     "distinct_dates": 6
+    },
+    "gate_error:measure": {
+     "n": 120,
+     "earliest": "2026-09-21T01:54:09Z",
+     "latest": "2026-09-21T01:54:09Z",
+     "distinct_dates": 1
+    },
+    "gate_error:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-20T12:17:21Z",
+     "latest": "2026-09-20T12:17:24Z",
+     "distinct_dates": 4
+    },
+    "gate_error:rx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T02:26:42Z",
+     "distinct_dates": 6
+    },
+    "gate_error:rz": {
+     "n": 120,
+     "earliest": "2026-09-21T02:24:15Z",
+     "latest": "2026-09-21T02:24:15Z",
+     "distinct_dates": 1
+    },
+    "gate_error:sx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T02:26:43Z",
+     "distinct_dates": 6
+    },
+    "gate_error:x": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T02:26:43Z",
+     "distinct_dates": 6
+    },
+    "gate_error:xslow": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T02:26:43Z",
+     "distinct_dates": 6
+    },
+    "gate_length:cz": {
+     "n": 436,
+     "earliest": "2026-09-20T19:53:13Z",
+     "latest": "2026-09-21T02:26:43.896593Z",
+     "distinct_dates": 13
+    },
+    "gate_length:id": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T02:26:42Z",
+     "distinct_dates": 6
+    },
+    "gate_length:measure": {
+     "n": 120,
+     "earliest": "2026-09-21T02:24:15Z",
+     "latest": "2026-09-21T02:24:15Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-21T02:24:15Z",
+     "latest": "2026-09-21T02:24:15Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_reset": {
+     "n": 120,
+     "earliest": "2026-09-21T02:24:15Z",
+     "latest": "2026-09-21T02:24:15Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_reset_2": {
+     "n": 120,
+     "earliest": "2026-09-21T02:24:15Z",
+     "latest": "2026-09-21T02:24:15Z",
+     "distinct_dates": 1
+    },
+    "gate_length:reset": {
+     "n": 120,
+     "earliest": "2026-09-21T02:24:15Z",
+     "latest": "2026-09-21T02:24:15Z",
+     "distinct_dates": 1
+    },
+    "gate_length:rx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T02:26:42Z",
+     "distinct_dates": 6
+    },
+    "gate_length:rz": {
+     "n": 120,
+     "earliest": "2026-09-21T02:24:15Z",
+     "latest": "2026-09-21T02:24:15Z",
+     "distinct_dates": 1
+    },
+    "gate_length:sx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T02:26:43Z",
+     "distinct_dates": 6
+    },
+    "gate_length:x": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T02:26:43Z",
+     "distinct_dates": 6
+    },
+    "gate_length:xslow": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T02:26:43Z",
+     "distinct_dates": 6
+    },
+    "general:jq": {
+     "n": 218,
+     "earliest": "2026-09-21T02:24:15Z",
+     "latest": "2026-09-21T02:24:15Z",
+     "distinct_dates": 1
+    },
+    "general:lf": {
+     "n": 97,
+     "earliest": "2026-09-20T20:18:15Z",
+     "latest": "2026-09-20T20:18:15Z",
+     "distinct_dates": 1
+    },
+    "general:zz": {
+     "n": 218,
+     "earliest": "2026-09-21T02:24:15Z",
+     "latest": "2026-09-21T02:24:15Z",
+     "distinct_dates": 1
+    },
+    "init_error": {
+     "n": 116,
+     "earliest": "2026-08-25T15:23:25Z",
+     "latest": "2026-09-21T02:05:47Z",
+     "distinct_dates": 38
+    },
+    "prob_meas0_prep1": {
+     "n": 120,
+     "earliest": "2026-09-20T12:04:20Z",
+     "latest": "2026-09-21T01:54:09Z",
+     "distinct_dates": 4
+    },
+    "prob_meas1_prep0": {
+     "n": 120,
+     "earliest": "2026-09-21T01:54:09Z",
+     "latest": "2026-09-21T01:54:09Z",
+     "distinct_dates": 1
+    },
+    "readout_error": {
+     "n": 120,
+     "earliest": "2026-09-21T01:54:09Z",
+     "latest": "2026-09-21T01:54:09Z",
+     "distinct_dates": 1
+    },
+    "readout_length": {
+     "n": 120,
+     "earliest": "2026-09-21T01:54:09Z",
+     "latest": "2026-09-21T01:54:09Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure": {
+     "n": 120,
+     "earliest": "2026-09-21T02:24:15Z",
+     "latest": "2026-09-21T02:24:15Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-21T02:24:15Z",
+     "latest": "2026-09-21T02:24:15Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_reset": {
+     "n": 120,
+     "earliest": "2026-09-21T02:24:15Z",
+     "latest": "2026-09-21T02:24:15Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_reset_2": {
+     "n": 120,
+     "earliest": "2026-09-21T02:24:15Z",
+     "latest": "2026-09-21T02:24:15Z",
+     "distinct_dates": 1
+    }
+   },
+   "returned_by": [
+    "backend.properties(datetime=2026-09-21T03:05:58Z)"
+   ]
+  },
+  {
+   "update": "2026-09-21T03:05:59Z",
+   "sha256": "a9ab48cb8fe62bb70aacf8d803f42880c9e477ef924b6674785d8356a83f6307",
+   "file": "data/calibrations/trial_2026-11-10/ibm_phoenix_properties_update_20260921T030559Z_a9ab48cb8fe6.json",
+   "n_qubits": 120,
+   "n_gates": 1756,
+   "backend_version": "1.0.0",
+   "class_dates": {
+    "T1": {
+     "n": 119,
+     "earliest": "2026-09-19T11:56:34Z",
+     "latest": "2026-09-20T12:39:22Z",
+     "distinct_dates": 6
+    },
+    "T2": {
+     "n": 119,
+     "earliest": "2026-09-20T12:39:22Z",
+     "latest": "2026-09-20T12:39:26Z",
+     "distinct_dates": 5
+    },
+    "gate_error:cz": {
+     "n": 436,
+     "earliest": "2026-09-20T19:53:13Z",
+     "latest": "2026-09-21T03:07:59.870290Z",
+     "distinct_dates": 13
+    },
+    "gate_error:id": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T03:07:58Z",
+     "distinct_dates": 6
+    },
+    "gate_error:measure": {
+     "n": 120,
+     "earliest": "2026-09-21T01:54:09Z",
+     "latest": "2026-09-21T01:54:09Z",
+     "distinct_dates": 1
+    },
+    "gate_error:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-20T12:17:21Z",
+     "latest": "2026-09-20T12:17:24Z",
+     "distinct_dates": 4
+    },
+    "gate_error:rx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T03:07:58Z",
+     "distinct_dates": 6
+    },
+    "gate_error:rz": {
+     "n": 120,
+     "earliest": "2026-09-21T03:05:59Z",
+     "latest": "2026-09-21T03:05:59Z",
+     "distinct_dates": 1
+    },
+    "gate_error:sx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T03:07:59Z",
+     "distinct_dates": 6
+    },
+    "gate_error:x": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T03:07:59Z",
+     "distinct_dates": 6
+    },
+    "gate_error:xslow": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T03:07:59Z",
+     "distinct_dates": 6
+    },
+    "gate_length:cz": {
+     "n": 436,
+     "earliest": "2026-09-20T19:53:13Z",
+     "latest": "2026-09-21T03:07:59.870290Z",
+     "distinct_dates": 13
+    },
+    "gate_length:id": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T03:07:58Z",
+     "distinct_dates": 6
+    },
+    "gate_length:measure": {
+     "n": 120,
+     "earliest": "2026-09-21T03:05:59Z",
+     "latest": "2026-09-21T03:05:59Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-21T03:05:59Z",
+     "latest": "2026-09-21T03:05:59Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_reset": {
+     "n": 120,
+     "earliest": "2026-09-21T03:05:59Z",
+     "latest": "2026-09-21T03:05:59Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_reset_2": {
+     "n": 120,
+     "earliest": "2026-09-21T03:05:59Z",
+     "latest": "2026-09-21T03:05:59Z",
+     "distinct_dates": 1
+    },
+    "gate_length:reset": {
+     "n": 120,
+     "earliest": "2026-09-21T03:05:59Z",
+     "latest": "2026-09-21T03:05:59Z",
+     "distinct_dates": 1
+    },
+    "gate_length:rx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T03:07:58Z",
+     "distinct_dates": 6
+    },
+    "gate_length:rz": {
+     "n": 120,
+     "earliest": "2026-09-21T03:05:59Z",
+     "latest": "2026-09-21T03:05:59Z",
+     "distinct_dates": 1
+    },
+    "gate_length:sx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T03:07:59Z",
+     "distinct_dates": 6
+    },
+    "gate_length:x": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T03:07:59Z",
+     "distinct_dates": 6
+    },
+    "gate_length:xslow": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T03:07:59Z",
+     "distinct_dates": 6
+    },
+    "general:jq": {
+     "n": 218,
+     "earliest": "2026-09-21T03:05:59Z",
+     "latest": "2026-09-21T03:05:59Z",
+     "distinct_dates": 1
+    },
+    "general:lf": {
+     "n": 97,
+     "earliest": "2026-09-20T20:18:15Z",
+     "latest": "2026-09-20T20:18:15Z",
+     "distinct_dates": 1
+    },
+    "general:zz": {
+     "n": 218,
+     "earliest": "2026-09-21T03:05:59Z",
+     "latest": "2026-09-21T03:05:59Z",
+     "distinct_dates": 1
+    },
+    "init_error": {
+     "n": 116,
+     "earliest": "2026-08-25T15:23:25Z",
+     "latest": "2026-09-21T02:05:47Z",
+     "distinct_dates": 38
+    },
+    "prob_meas0_prep1": {
+     "n": 120,
+     "earliest": "2026-09-20T12:04:20Z",
+     "latest": "2026-09-21T01:54:09Z",
+     "distinct_dates": 4
+    },
+    "prob_meas1_prep0": {
+     "n": 120,
+     "earliest": "2026-09-21T01:54:09Z",
+     "latest": "2026-09-21T01:54:09Z",
+     "distinct_dates": 1
+    },
+    "readout_error": {
+     "n": 120,
+     "earliest": "2026-09-21T01:54:09Z",
+     "latest": "2026-09-21T01:54:09Z",
+     "distinct_dates": 1
+    },
+    "readout_length": {
+     "n": 120,
+     "earliest": "2026-09-21T01:54:09Z",
+     "latest": "2026-09-21T01:54:09Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure": {
+     "n": 120,
+     "earliest": "2026-09-21T03:05:59Z",
+     "latest": "2026-09-21T03:05:59Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-21T03:05:59Z",
+     "latest": "2026-09-21T03:05:59Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_reset": {
+     "n": 120,
+     "earliest": "2026-09-21T03:05:59Z",
+     "latest": "2026-09-21T03:05:59Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_reset_2": {
+     "n": 120,
+     "earliest": "2026-09-21T03:05:59Z",
+     "latest": "2026-09-21T03:05:59Z",
+     "distinct_dates": 1
+    }
+   },
+   "returned_by": [
+    "backend.properties(datetime=2026-09-21T04:10:37Z)"
+   ]
+  },
+  {
+   "update": "2026-09-21T04:10:38Z",
+   "sha256": "a48cfd705e67394822966420ce1b9afb4a9eeb05805e78a273041771231e80c1",
+   "file": "data/calibrations/trial_2026-11-10/ibm_phoenix_properties_update_20260921T041038Z_a48cfd705e67.json",
+   "n_qubits": 120,
+   "n_gates": 1756,
+   "backend_version": "1.0.0",
+   "class_dates": {
+    "T1": {
+     "n": 119,
+     "earliest": "2026-09-19T11:56:34Z",
+     "latest": "2026-09-20T12:39:22Z",
+     "distinct_dates": 6
+    },
+    "T2": {
+     "n": 119,
+     "earliest": "2026-09-20T12:39:22Z",
+     "latest": "2026-09-20T12:39:26Z",
+     "distinct_dates": 5
+    },
+    "gate_error:cz": {
+     "n": 436,
+     "earliest": "2026-09-20T19:53:13Z",
+     "latest": "2026-09-21T04:11:27.277433Z",
+     "distinct_dates": 13
+    },
+    "gate_error:id": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T04:11:26Z",
+     "distinct_dates": 6
+    },
+    "gate_error:measure": {
+     "n": 120,
+     "earliest": "2026-09-21T01:54:09Z",
+     "latest": "2026-09-21T01:54:09Z",
+     "distinct_dates": 1
+    },
+    "gate_error:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-20T12:17:21Z",
+     "latest": "2026-09-20T12:17:24Z",
+     "distinct_dates": 4
+    },
+    "gate_error:rx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T04:11:26Z",
+     "distinct_dates": 6
+    },
+    "gate_error:rz": {
+     "n": 120,
+     "earliest": "2026-09-21T04:10:38Z",
+     "latest": "2026-09-21T04:10:38Z",
+     "distinct_dates": 1
+    },
+    "gate_error:sx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T04:11:26Z",
+     "distinct_dates": 6
+    },
+    "gate_error:x": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T04:11:26Z",
+     "distinct_dates": 6
+    },
+    "gate_error:xslow": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T04:11:26Z",
+     "distinct_dates": 6
+    },
+    "gate_length:cz": {
+     "n": 436,
+     "earliest": "2026-09-20T19:53:13Z",
+     "latest": "2026-09-21T04:11:27.277433Z",
+     "distinct_dates": 13
+    },
+    "gate_length:id": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T04:11:26Z",
+     "distinct_dates": 6
+    },
+    "gate_length:measure": {
+     "n": 120,
+     "earliest": "2026-09-21T04:10:38Z",
+     "latest": "2026-09-21T04:10:38Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-21T04:10:38Z",
+     "latest": "2026-09-21T04:10:38Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_reset": {
+     "n": 120,
+     "earliest": "2026-09-21T04:10:38Z",
+     "latest": "2026-09-21T04:10:38Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_reset_2": {
+     "n": 120,
+     "earliest": "2026-09-21T04:10:38Z",
+     "latest": "2026-09-21T04:10:38Z",
+     "distinct_dates": 1
+    },
+    "gate_length:reset": {
+     "n": 120,
+     "earliest": "2026-09-21T04:10:38Z",
+     "latest": "2026-09-21T04:10:38Z",
+     "distinct_dates": 1
+    },
+    "gate_length:rx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T04:11:26Z",
+     "distinct_dates": 6
+    },
+    "gate_length:rz": {
+     "n": 120,
+     "earliest": "2026-09-21T04:10:38Z",
+     "latest": "2026-09-21T04:10:38Z",
+     "distinct_dates": 1
+    },
+    "gate_length:sx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T04:11:26Z",
+     "distinct_dates": 6
+    },
+    "gate_length:x": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T04:11:26Z",
+     "distinct_dates": 6
+    },
+    "gate_length:xslow": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T04:11:26Z",
+     "distinct_dates": 6
+    },
+    "general:jq": {
+     "n": 218,
+     "earliest": "2026-09-21T04:10:38Z",
+     "latest": "2026-09-21T04:10:38Z",
+     "distinct_dates": 1
+    },
+    "general:lf": {
+     "n": 97,
+     "earliest": "2026-09-20T20:18:15Z",
+     "latest": "2026-09-20T20:18:15Z",
+     "distinct_dates": 1
+    },
+    "general:zz": {
+     "n": 218,
+     "earliest": "2026-09-21T04:10:38Z",
+     "latest": "2026-09-21T04:10:38Z",
+     "distinct_dates": 1
+    },
+    "init_error": {
+     "n": 116,
+     "earliest": "2026-08-25T15:23:25Z",
+     "latest": "2026-09-21T02:05:47Z",
+     "distinct_dates": 38
+    },
+    "prob_meas0_prep1": {
+     "n": 120,
+     "earliest": "2026-09-20T12:04:20Z",
+     "latest": "2026-09-21T01:54:09Z",
+     "distinct_dates": 4
+    },
+    "prob_meas1_prep0": {
+     "n": 120,
+     "earliest": "2026-09-21T01:54:09Z",
+     "latest": "2026-09-21T01:54:09Z",
+     "distinct_dates": 1
+    },
+    "readout_error": {
+     "n": 120,
+     "earliest": "2026-09-21T01:54:09Z",
+     "latest": "2026-09-21T01:54:09Z",
+     "distinct_dates": 1
+    },
+    "readout_length": {
+     "n": 120,
+     "earliest": "2026-09-21T01:54:09Z",
+     "latest": "2026-09-21T01:54:09Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure": {
+     "n": 120,
+     "earliest": "2026-09-21T04:10:38Z",
+     "latest": "2026-09-21T04:10:38Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-21T04:10:38Z",
+     "latest": "2026-09-21T04:10:38Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_reset": {
+     "n": 120,
+     "earliest": "2026-09-21T04:10:38Z",
+     "latest": "2026-09-21T04:10:38Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_reset_2": {
+     "n": 120,
+     "earliest": "2026-09-21T04:10:38Z",
+     "latest": "2026-09-21T04:10:38Z",
+     "distinct_dates": 1
+    }
+   },
+   "returned_by": [
+    "backend.properties(datetime=2026-09-21T04:27:28Z)"
+   ]
+  },
+  {
+   "update": "2026-09-21T04:27:29Z",
+   "sha256": "14bb6fccee1eb212158c45ba466ef2830ee238a0d6237ee6915081e2ee6b388b",
+   "file": "data/calibrations/trial_2026-11-10/ibm_phoenix_properties_update_20260921T042729Z_14bb6fccee1e.json",
+   "n_qubits": 120,
+   "n_gates": 1756,
+   "backend_version": "1.0.0",
+   "class_dates": {
+    "T1": {
+     "n": 119,
+     "earliest": "2026-09-19T11:56:34Z",
+     "latest": "2026-09-20T12:39:22Z",
+     "distinct_dates": 6
+    },
+    "T2": {
+     "n": 119,
+     "earliest": "2026-09-20T12:39:22Z",
+     "latest": "2026-09-20T12:39:26Z",
+     "distinct_dates": 5
+    },
+    "gate_error:cz": {
+     "n": 436,
+     "earliest": "2026-09-20T19:53:13Z",
+     "latest": "2026-09-21T04:28:14.546356Z",
+     "distinct_dates": 13
+    },
+    "gate_error:id": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T04:28:13Z",
+     "distinct_dates": 6
+    },
+    "gate_error:measure": {
+     "n": 120,
+     "earliest": "2026-09-21T01:54:09Z",
+     "latest": "2026-09-21T01:54:09Z",
+     "distinct_dates": 1
+    },
+    "gate_error:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-20T12:17:21Z",
+     "latest": "2026-09-20T12:17:24Z",
+     "distinct_dates": 4
+    },
+    "gate_error:rx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T04:28:13Z",
+     "distinct_dates": 6
+    },
+    "gate_error:rz": {
+     "n": 120,
+     "earliest": "2026-09-21T04:27:29Z",
+     "latest": "2026-09-21T04:27:29Z",
+     "distinct_dates": 1
+    },
+    "gate_error:sx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T04:28:13Z",
+     "distinct_dates": 6
+    },
+    "gate_error:x": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T04:28:13Z",
+     "distinct_dates": 6
+    },
+    "gate_error:xslow": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T04:28:13Z",
+     "distinct_dates": 6
+    },
+    "gate_length:cz": {
+     "n": 436,
+     "earliest": "2026-09-20T19:53:13Z",
+     "latest": "2026-09-21T04:28:14.546356Z",
+     "distinct_dates": 13
+    },
+    "gate_length:id": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T04:28:13Z",
+     "distinct_dates": 6
+    },
+    "gate_length:measure": {
+     "n": 120,
+     "earliest": "2026-09-21T04:27:29Z",
+     "latest": "2026-09-21T04:27:29Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-21T04:27:29Z",
+     "latest": "2026-09-21T04:27:29Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_reset": {
+     "n": 120,
+     "earliest": "2026-09-21T04:27:29Z",
+     "latest": "2026-09-21T04:27:29Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_reset_2": {
+     "n": 120,
+     "earliest": "2026-09-21T04:27:29Z",
+     "latest": "2026-09-21T04:27:29Z",
+     "distinct_dates": 1
+    },
+    "gate_length:reset": {
+     "n": 120,
+     "earliest": "2026-09-21T04:27:29Z",
+     "latest": "2026-09-21T04:27:29Z",
+     "distinct_dates": 1
+    },
+    "gate_length:rx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T04:28:13Z",
+     "distinct_dates": 6
+    },
+    "gate_length:rz": {
+     "n": 120,
+     "earliest": "2026-09-21T04:27:29Z",
+     "latest": "2026-09-21T04:27:29Z",
+     "distinct_dates": 1
+    },
+    "gate_length:sx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T04:28:13Z",
+     "distinct_dates": 6
+    },
+    "gate_length:x": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T04:28:13Z",
+     "distinct_dates": 6
+    },
+    "gate_length:xslow": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T04:28:13Z",
+     "distinct_dates": 6
+    },
+    "general:jq": {
+     "n": 218,
+     "earliest": "2026-09-21T04:27:29Z",
+     "latest": "2026-09-21T04:27:29Z",
+     "distinct_dates": 1
+    },
+    "general:lf": {
+     "n": 97,
+     "earliest": "2026-09-20T20:18:15Z",
+     "latest": "2026-09-20T20:18:15Z",
+     "distinct_dates": 1
+    },
+    "general:zz": {
+     "n": 218,
+     "earliest": "2026-09-21T04:27:29Z",
+     "latest": "2026-09-21T04:27:29Z",
+     "distinct_dates": 1
+    },
+    "init_error": {
+     "n": 116,
+     "earliest": "2026-08-25T15:23:25Z",
+     "latest": "2026-09-21T02:05:47Z",
+     "distinct_dates": 38
+    },
+    "prob_meas0_prep1": {
+     "n": 120,
+     "earliest": "2026-09-20T12:04:20Z",
+     "latest": "2026-09-21T01:54:09Z",
+     "distinct_dates": 4
+    },
+    "prob_meas1_prep0": {
+     "n": 120,
+     "earliest": "2026-09-21T01:54:09Z",
+     "latest": "2026-09-21T01:54:09Z",
+     "distinct_dates": 1
+    },
+    "readout_error": {
+     "n": 120,
+     "earliest": "2026-09-21T01:54:09Z",
+     "latest": "2026-09-21T01:54:09Z",
+     "distinct_dates": 1
+    },
+    "readout_length": {
+     "n": 120,
+     "earliest": "2026-09-21T01:54:09Z",
+     "latest": "2026-09-21T01:54:09Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure": {
+     "n": 120,
+     "earliest": "2026-09-21T04:27:29Z",
+     "latest": "2026-09-21T04:27:29Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-21T04:27:29Z",
+     "latest": "2026-09-21T04:27:29Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_reset": {
+     "n": 120,
+     "earliest": "2026-09-21T04:27:29Z",
+     "latest": "2026-09-21T04:27:29Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_reset_2": {
+     "n": 120,
+     "earliest": "2026-09-21T04:27:29Z",
+     "latest": "2026-09-21T04:27:29Z",
+     "distinct_dates": 1
+    }
+   },
+   "returned_by": [
+    "backend.properties(datetime=2026-09-21T05:28:58Z)"
+   ]
+  },
+  {
+   "update": "2026-09-21T05:28:59Z",
+   "sha256": "3ae619261de055e35fb2638f5e9de1ac1291534f19d32ae2ff508a2091617a9e",
+   "file": "data/calibrations/trial_2026-11-10/ibm_phoenix_properties_update_20260921T052859Z_3ae619261de0.json",
+   "n_qubits": 120,
+   "n_gates": 1756,
+   "backend_version": "1.0.0",
+   "class_dates": {
+    "T1": {
+     "n": 119,
+     "earliest": "2026-09-19T11:56:34Z",
+     "latest": "2026-09-20T12:39:22Z",
+     "distinct_dates": 6
+    },
+    "T2": {
+     "n": 119,
+     "earliest": "2026-09-20T12:39:22Z",
+     "latest": "2026-09-20T12:39:26Z",
+     "distinct_dates": 5
+    },
+    "gate_error:cz": {
+     "n": 436,
+     "earliest": "2026-09-20T19:53:13Z",
+     "latest": "2026-09-21T05:29:58.830700Z",
+     "distinct_dates": 13
+    },
+    "gate_error:id": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T05:29:57Z",
+     "distinct_dates": 6
+    },
+    "gate_error:measure": {
+     "n": 120,
+     "earliest": "2026-09-21T01:54:09Z",
+     "latest": "2026-09-21T01:54:09Z",
+     "distinct_dates": 1
+    },
+    "gate_error:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-20T12:17:21Z",
+     "latest": "2026-09-20T12:17:24Z",
+     "distinct_dates": 4
+    },
+    "gate_error:rx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T05:29:57Z",
+     "distinct_dates": 6
+    },
+    "gate_error:rz": {
+     "n": 120,
+     "earliest": "2026-09-21T05:28:59Z",
+     "latest": "2026-09-21T05:28:59Z",
+     "distinct_dates": 1
+    },
+    "gate_error:sx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T05:29:58Z",
+     "distinct_dates": 6
+    },
+    "gate_error:x": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T05:29:58Z",
+     "distinct_dates": 6
+    },
+    "gate_error:xslow": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T05:29:58Z",
+     "distinct_dates": 6
+    },
+    "gate_length:cz": {
+     "n": 436,
+     "earliest": "2026-09-20T19:53:13Z",
+     "latest": "2026-09-21T05:29:58.830700Z",
+     "distinct_dates": 13
+    },
+    "gate_length:id": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T05:29:57Z",
+     "distinct_dates": 6
+    },
+    "gate_length:measure": {
+     "n": 120,
+     "earliest": "2026-09-21T05:28:59Z",
+     "latest": "2026-09-21T05:28:59Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-21T05:28:59Z",
+     "latest": "2026-09-21T05:28:59Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_reset": {
+     "n": 120,
+     "earliest": "2026-09-21T05:28:59Z",
+     "latest": "2026-09-21T05:28:59Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_reset_2": {
+     "n": 120,
+     "earliest": "2026-09-21T05:28:59Z",
+     "latest": "2026-09-21T05:28:59Z",
+     "distinct_dates": 1
+    },
+    "gate_length:reset": {
+     "n": 120,
+     "earliest": "2026-09-21T05:28:59Z",
+     "latest": "2026-09-21T05:28:59Z",
+     "distinct_dates": 1
+    },
+    "gate_length:rx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T05:29:57Z",
+     "distinct_dates": 6
+    },
+    "gate_length:rz": {
+     "n": 120,
+     "earliest": "2026-09-21T05:28:59Z",
+     "latest": "2026-09-21T05:28:59Z",
+     "distinct_dates": 1
+    },
+    "gate_length:sx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T05:29:58Z",
+     "distinct_dates": 6
+    },
+    "gate_length:x": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T05:29:58Z",
+     "distinct_dates": 6
+    },
+    "gate_length:xslow": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T05:29:58Z",
+     "distinct_dates": 6
+    },
+    "general:jq": {
+     "n": 218,
+     "earliest": "2026-09-21T05:28:59Z",
+     "latest": "2026-09-21T05:28:59Z",
+     "distinct_dates": 1
+    },
+    "general:lf": {
+     "n": 97,
+     "earliest": "2026-09-20T20:18:15Z",
+     "latest": "2026-09-20T20:18:15Z",
+     "distinct_dates": 1
+    },
+    "general:zz": {
+     "n": 218,
+     "earliest": "2026-09-21T05:28:59Z",
+     "latest": "2026-09-21T05:28:59Z",
+     "distinct_dates": 1
+    },
+    "init_error": {
+     "n": 116,
+     "earliest": "2026-08-25T15:23:25Z",
+     "latest": "2026-09-21T02:05:47Z",
+     "distinct_dates": 38
+    },
+    "prob_meas0_prep1": {
+     "n": 120,
+     "earliest": "2026-09-20T12:04:20Z",
+     "latest": "2026-09-21T01:54:09Z",
+     "distinct_dates": 4
+    },
+    "prob_meas1_prep0": {
+     "n": 120,
+     "earliest": "2026-09-21T01:54:09Z",
+     "latest": "2026-09-21T01:54:09Z",
+     "distinct_dates": 1
+    },
+    "readout_error": {
+     "n": 120,
+     "earliest": "2026-09-21T01:54:09Z",
+     "latest": "2026-09-21T01:54:09Z",
+     "distinct_dates": 1
+    },
+    "readout_length": {
+     "n": 120,
+     "earliest": "2026-09-21T01:54:09Z",
+     "latest": "2026-09-21T01:54:09Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure": {
+     "n": 120,
+     "earliest": "2026-09-21T05:28:59Z",
+     "latest": "2026-09-21T05:28:59Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-21T05:28:59Z",
+     "latest": "2026-09-21T05:28:59Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_reset": {
+     "n": 120,
+     "earliest": "2026-09-21T05:28:59Z",
+     "latest": "2026-09-21T05:28:59Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_reset_2": {
+     "n": 120,
+     "earliest": "2026-09-21T05:28:59Z",
+     "latest": "2026-09-21T05:28:59Z",
+     "distinct_dates": 1
+    }
+   },
+   "returned_by": [
+    "backend.properties(datetime=2026-09-21T05:42:52Z)",
+    "backend.properties(datetime=2026-09-21T05:42:53Z)"
+   ]
+  },
+  {
+   "update": "2026-09-21T05:42:53Z",
+   "sha256": "69482f7dc92ecb2465a4df0fa460dc2830f7e72001f1089cdb84d8109821ea34",
+   "file": "data/calibrations/trial_2026-11-10/ibm_phoenix_properties_update_20260921T054253Z_69482f7dc92e.json",
+   "n_qubits": 120,
+   "n_gates": 1756,
+   "backend_version": "1.0.0",
+   "class_dates": {
+    "T1": {
+     "n": 119,
+     "earliest": "2026-09-19T11:56:34Z",
+     "latest": "2026-09-20T12:39:22Z",
+     "distinct_dates": 6
+    },
+    "T2": {
+     "n": 119,
+     "earliest": "2026-09-20T12:39:22Z",
+     "latest": "2026-09-20T12:39:26Z",
+     "distinct_dates": 5
+    },
+    "gate_error:cz": {
+     "n": 436,
+     "earliest": "2026-09-20T19:53:13Z",
+     "latest": "2026-09-21T05:43:52.598464Z",
+     "distinct_dates": 13
+    },
+    "gate_error:id": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T05:43:51Z",
+     "distinct_dates": 6
+    },
+    "gate_error:measure": {
+     "n": 120,
+     "earliest": "2026-09-21T01:54:09Z",
+     "latest": "2026-09-21T01:54:09Z",
+     "distinct_dates": 1
+    },
+    "gate_error:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-20T12:17:21Z",
+     "latest": "2026-09-20T12:17:24Z",
+     "distinct_dates": 4
+    },
+    "gate_error:rx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T05:43:51Z",
+     "distinct_dates": 6
+    },
+    "gate_error:rz": {
+     "n": 120,
+     "earliest": "2026-09-21T05:42:53Z",
+     "latest": "2026-09-21T05:42:53Z",
+     "distinct_dates": 1
+    },
+    "gate_error:sx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T05:43:51Z",
+     "distinct_dates": 6
+    },
+    "gate_error:x": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T05:43:51Z",
+     "distinct_dates": 6
+    },
+    "gate_error:xslow": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T05:43:52Z",
+     "distinct_dates": 6
+    },
+    "gate_length:cz": {
+     "n": 436,
+     "earliest": "2026-09-20T19:53:13Z",
+     "latest": "2026-09-21T05:43:52.598464Z",
+     "distinct_dates": 13
+    },
+    "gate_length:id": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T05:43:51Z",
+     "distinct_dates": 6
+    },
+    "gate_length:measure": {
+     "n": 120,
+     "earliest": "2026-09-21T05:42:53Z",
+     "latest": "2026-09-21T05:42:53Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-21T05:42:53Z",
+     "latest": "2026-09-21T05:42:53Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_reset": {
+     "n": 120,
+     "earliest": "2026-09-21T05:42:53Z",
+     "latest": "2026-09-21T05:42:53Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_reset_2": {
+     "n": 120,
+     "earliest": "2026-09-21T05:42:53Z",
+     "latest": "2026-09-21T05:42:53Z",
+     "distinct_dates": 1
+    },
+    "gate_length:reset": {
+     "n": 120,
+     "earliest": "2026-09-21T05:42:53Z",
+     "latest": "2026-09-21T05:42:53Z",
+     "distinct_dates": 1
+    },
+    "gate_length:rx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T05:43:51Z",
+     "distinct_dates": 6
+    },
+    "gate_length:rz": {
+     "n": 120,
+     "earliest": "2026-09-21T05:42:53Z",
+     "latest": "2026-09-21T05:42:53Z",
+     "distinct_dates": 1
+    },
+    "gate_length:sx": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T05:43:51Z",
+     "distinct_dates": 6
+    },
+    "gate_length:x": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T05:43:51Z",
+     "distinct_dates": 6
+    },
+    "gate_length:xslow": {
+     "n": 120,
+     "earliest": "2026-09-19T12:45:42Z",
+     "latest": "2026-09-21T05:43:52Z",
+     "distinct_dates": 6
+    },
+    "general:jq": {
+     "n": 218,
+     "earliest": "2026-09-21T05:42:53Z",
+     "latest": "2026-09-21T05:42:53Z",
+     "distinct_dates": 1
+    },
+    "general:lf": {
+     "n": 97,
+     "earliest": "2026-09-20T20:18:15Z",
+     "latest": "2026-09-20T20:18:15Z",
+     "distinct_dates": 1
+    },
+    "general:zz": {
+     "n": 218,
+     "earliest": "2026-09-21T05:42:53Z",
+     "latest": "2026-09-21T05:42:53Z",
+     "distinct_dates": 1
+    },
+    "init_error": {
+     "n": 116,
+     "earliest": "2026-08-25T15:23:25Z",
+     "latest": "2026-09-21T02:05:47Z",
+     "distinct_dates": 38
+    },
+    "prob_meas0_prep1": {
+     "n": 120,
+     "earliest": "2026-09-20T12:04:20Z",
+     "latest": "2026-09-21T01:54:09Z",
+     "distinct_dates": 4
+    },
+    "prob_meas1_prep0": {
+     "n": 120,
+     "earliest": "2026-09-21T01:54:09Z",
+     "latest": "2026-09-21T01:54:09Z",
+     "distinct_dates": 1
+    },
+    "readout_error": {
+     "n": 120,
+     "earliest": "2026-09-21T01:54:09Z",
+     "latest": "2026-09-21T01:54:09Z",
+     "distinct_dates": 1
+    },
+    "readout_length": {
+     "n": 120,
+     "earliest": "2026-09-21T01:54:09Z",
+     "latest": "2026-09-21T01:54:09Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure": {
+     "n": 120,
+     "earliest": "2026-09-21T05:42:53Z",
+     "latest": "2026-09-21T05:42:53Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_2": {
+     "n": 120,
+     "earliest": "2026-09-21T05:42:53Z",
+     "latest": "2026-09-21T05:42:53Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_reset": {
+     "n": 120,
+     "earliest": "2026-09-21T05:42:53Z",
+     "latest": "2026-09-21T05:42:53Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_reset_2": {
+     "n": 120,
+     "earliest": "2026-09-21T05:42:53Z",
+     "latest": "2026-09-21T05:42:53Z",
+     "distinct_dates": 1
+    }
+   },
+   "returned_by": [
+    "backend.properties(datetime=2026-09-21T06:12:25.243826Z)",
+    "backend.properties(datetime=2026-09-21T06:14:24.076121Z)"
+   ]
+  }
+ ],
+ "boundary": {
+  "asked": "2026-09-21T05:42:53Z",
+  "returned_update": "2026-09-21T05:28:59Z",
+  "inclusive": false
+ },
+ "calls": [
+  {
+   "call": "service.job(dao2pqv8gn2s739nabkg)",
+   "started_utc": "2026-11-11T16:44:45.957708Z",
+   "seconds": 0.276,
+   "outcome": "ok"
+  },
+  {
+   "call": "job.status() [dao2pqv8gn2s739nabkg]",
+   "started_utc": "2026-11-11T16:44:46.233602Z",
+   "seconds": 0.114,
+   "outcome": "ok"
+  },
+  {
+   "call": "job.metrics() [dao2pqv8gn2s739nabkg]",
+   "started_utc": "2026-11-11T16:44:46.347680Z",
+   "seconds": 0.125,
+   "outcome": "ok"
+  },
+  {
+   "call": "job.properties() [dao2pqv8gn2s739nabkg]",
+   "started_utc": "2026-11-11T16:44:46.473209Z",
+   "seconds": 1.245,
+   "outcome": "ok: IBM update 2026-09-20T22:52:52Z, sha256 4f604f4901e7"
+  },
+  {
+   "call": "backend.properties(datetime=2026-09-21T00:05:35.080873Z)",
+   "started_utc": "2026-11-11T16:44:47.848866Z",
+   "seconds": 0.605,
+   "outcome": "ok: IBM update 2026-09-20T22:52:52Z, sha256 4f604f4901e7"
+  },
+  {
+   "call": "backend.properties(datetime=2026-09-20T18:58:51.738516Z)",
+   "started_utc": "2026-11-11T16:44:48.643426Z",
+   "seconds": 0.492,
+   "outcome": "ok: IBM update 2026-09-20T18:44:14Z, sha256 f918f0325540"
+  },
+  {
+   "call": "backend.properties(datetime=2026-09-21T06:12:25.243826Z)",
+   "started_utc": "2026-11-11T16:44:49.322028Z",
+   "seconds": 0.493,
+   "outcome": "ok: IBM update 2026-09-21T05:42:53Z, sha256 69482f7dc92e"
+  },
+  {
+   "call": "backend.properties(datetime=2026-09-21T05:42:52Z)",
+   "started_utc": "2026-11-11T16:44:49.945402Z",
+   "seconds": 0.532,
+   "outcome": "ok: IBM update 2026-09-21T05:28:59Z, sha256 3ae619261de0"
+  },
+  {
+   "call": "backend.properties(datetime=2026-09-21T05:28:58Z)",
+   "started_utc": "2026-11-11T16:44:50.607056Z",
+   "seconds": 0.597,
+   "outcome": "ok: IBM update 2026-09-21T04:27:29Z, sha256 14bb6fccee1e"
+  },
+  {
+   "call": "backend.properties(datetime=2026-09-21T04:27:28Z)",
+   "started_utc": "2026-11-11T16:44:51.331325Z",
+   "seconds": 0.444,
+   "outcome": "ok: IBM update 2026-09-21T04:10:38Z, sha256 a48cfd705e67"
+  },
+  {
+   "call": "backend.properties(datetime=2026-09-21T04:10:37Z)",
+   "started_utc": "2026-11-11T16:44:51.975748Z",
+   "seconds": 0.742,
+   "outcome": "ok: IBM update 2026-09-21T03:05:59Z, sha256 a9ab48cb8fe6"
+  },
+  {
+   "call": "backend.properties(datetime=2026-09-21T03:05:58Z)",
+   "started_utc": "2026-11-11T16:44:52.852402Z",
+   "seconds": 0.635,
+   "outcome": "ok: IBM update 2026-09-21T02:24:15Z, sha256 34f0bdd96906"
+  },
+  {
+   "call": "backend.properties(datetime=2026-09-21T02:24:14Z)",
+   "started_utc": "2026-11-11T16:44:53.615489Z",
+   "seconds": 0.531,
+   "outcome": "ok: IBM update 2026-09-21T02:05:47Z, sha256 b424d0e127c1"
+  },
+  {
+   "call": "backend.properties(datetime=2026-09-21T02:05:46Z)",
+   "started_utc": "2026-11-11T16:44:54.276352Z",
+   "seconds": 0.494,
+   "outcome": "ok: IBM update 2026-09-21T01:27:50Z, sha256 6d3595b73fd7"
+  },
+  {
+   "call": "backend.properties(datetime=2026-09-21T01:27:49Z)",
+   "started_utc": "2026-11-11T16:44:54.903272Z",
+   "seconds": 0.57,
+   "outcome": "ok: IBM update 2026-09-21T01:13:26Z, sha256 b18af03bef6f"
+  },
+  {
+   "call": "backend.properties(datetime=2026-09-21T01:13:25Z)",
+   "started_utc": "2026-11-11T16:44:55.601931Z",
+   "seconds": 0.52,
+   "outcome": "ok: IBM update 2026-09-21T00:01:12Z, sha256 9148a5187b56"
+  },
+  {
+   "call": "backend.properties(datetime=2026-09-21T00:01:11Z)",
+   "started_utc": "2026-11-11T16:44:56.251376Z",
+   "seconds": 0.447,
+   "outcome": "ok: IBM update 2026-09-20T22:52:52Z, sha256 4f604f4901e7"
+  },
+  {
+   "call": "backend.properties(datetime=2026-09-20T22:52:51Z)",
+   "started_utc": "2026-11-11T16:44:56.916423Z",
+   "seconds": 0.528,
+   "outcome": "ok: IBM update 2026-09-20T21:56:07Z, sha256 d6d545cfaac1"
+  },
+  {
+   "call": "backend.properties(datetime=2026-09-20T21:56:06Z)",
+   "started_utc": "2026-11-11T16:44:57.572512Z",
+   "seconds": 0.585,
+   "outcome": "ok: IBM update 2026-09-20T21:41:48Z, sha256 320e7a23b5b1"
+  },
+  {
+   "call": "backend.properties(datetime=2026-09-20T21:41:47Z)",
+   "started_utc": "2026-11-11T16:44:58.286214Z",
+   "seconds": 0.472,
+   "outcome": "ok: IBM update 2026-09-20T21:21:27Z, sha256 9114cd37cd2a"
+  },
+  {
+   "call": "backend.properties(datetime=2026-09-20T21:21:26Z)",
+   "started_utc": "2026-11-11T16:44:58.891899Z",
+   "seconds": 0.931,
+   "outcome": "ok: IBM update 2026-09-20T20:44:25Z, sha256 ea738c0dbe12"
+  },
+  {
+   "call": "backend.properties(datetime=2026-09-20T20:44:24Z)",
+   "started_utc": "2026-11-11T16:44:59.952258Z",
+   "seconds": 0.861,
+   "outcome": "ok: IBM update 2026-09-20T19:53:17Z, sha256 29fb8651aab4"
+  },
+  {
+   "call": "backend.properties(datetime=2026-09-20T19:53:16Z)",
+   "started_utc": "2026-11-11T16:45:01.034357Z",
+   "seconds": 0.435,
+   "outcome": "ok: IBM update 2026-09-20T19:02:21Z, sha256 43fadc025983"
+  },
+  {
+   "call": "backend.properties(datetime=2026-09-20T19:02:20Z)",
+   "started_utc": "2026-11-11T16:45:01.601497Z",
+   "seconds": 0.578,
+   "outcome": "ok: IBM update 2026-09-20T18:44:14Z, sha256 f918f0325540"
+  },
+  {
+   "call": "service.job(dao2psf8gn2s739nabmg)",
+   "started_utc": "2026-11-11T16:45:02.308218Z",
+   "seconds": 0.119,
+   "outcome": "ok"
+  },
+  {
+   "call": "job.status() [dao2psf8gn2s739nabmg]",
+   "started_utc": "2026-11-11T16:45:02.427341Z",
+   "seconds": 0.107,
+   "outcome": "ok"
+  },
+  {
+   "call": "job.metrics() [dao2psf8gn2s739nabmg]",
+   "started_utc": "2026-11-11T16:45:02.534083Z",
+   "seconds": 0.16,
+   "outcome": "ok"
+  },
+  {
+   "call": "job.properties() [dao2psf8gn2s739nabmg]",
+   "started_utc": "2026-11-11T16:45:02.694112Z",
+   "seconds": 1.078,
+   "outcome": "ok: IBM update 2026-09-20T22:52:52Z, sha256 4f604f4901e7"
+  },
+  {
+   "call": "backend.properties(datetime=2026-09-21T00:05:35.440088Z)",
+   "started_utc": "2026-11-11T16:45:03.900842Z",
+   "seconds": 0.558,
+   "outcome": "ok: IBM update 2026-09-20T22:52:52Z, sha256 4f604f4901e7"
+  },
+  {
+   "call": "backend.properties(datetime=2026-09-20T18:58:57.459677Z)",
+   "started_utc": "2026-11-11T16:45:04.589367Z",
+   "seconds": 0.49,
+   "outcome": "ok: IBM update 2026-09-20T18:44:14Z, sha256 f918f0325540"
+  },
+  {
+   "call": "backend.properties(datetime=2026-09-21T06:14:24.076121Z)",
+   "started_utc": "2026-11-11T16:45:05.210436Z",
+   "seconds": 0.666,
+   "outcome": "ok: IBM update 2026-09-21T05:42:53Z, sha256 69482f7dc92e"
+  },
+  {
+   "call": "backend.properties(datetime=2026-09-21T05:42:53Z)",
+   "started_utc": "2026-11-11T16:45:06.011665Z",
+   "seconds": 0.451,
+   "outcome": "ok: IBM update 2026-09-21T05:28:59Z, sha256 3ae619261de0"
+  }
+ ]
+}
