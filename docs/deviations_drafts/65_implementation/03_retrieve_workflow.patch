@@ -1,0 +1,108 @@
+diff --git a/.github/workflows/retrieve_jobs.yml b/.github/workflows/retrieve_jobs.yml
+index 6ff16b9..4d9171e 100644
+--- a/.github/workflows/retrieve_jobs.yml
++++ b/.github/workflows/retrieve_jobs.yml
+@@ -2,6 +2,14 @@ name: retrieve hardware jobs
+ 
+ # Second step of a long-queue run: collects the results of jobs already submitted (by run_jobs.yml with submit_only, or by a
+ # run that was killed before it collected them) into the same bundles and CSV rows as the live path. Submits nothing.
++#
++# Deviation 65 (two phases; Paper 1 Estimator lists):
++#   phase metadata  bundles without results and the execution-time pool of every job (job.result() is not called), then the
++#                   execution-time rows are drawn by scripts/redraw_execution.py, which refuses to run when a result of the
++#                   list is in the tree, and everything is committed;
++#   phase results   the results, only with execution_rows_commit = a commit that holds data/predictions/execution/<list>_*.json
++#                   and only when every bundle carries the pool of the first phase;
++#   phase single    the retrieval as it was before the Deviation (recorded as such in every job.json); Sampler lists.
+ on:
+   workflow_dispatch:
+     inputs:
+@@ -9,6 +17,24 @@ on:
+         description: "Ids file under data/runs/ (e.g. data/runs/2026-09-20/smoke_02_job_ids.json): written by --submit-only, or by hand with job_id null and a discovery window"
+         required: true
+         type: string
++      phase:
++        description: "metadata (first phase), results (second phase; needs execution_rows_commit) or single (the retrieval as before Deviation 65)"
++        required: true
++        type: choice
++        options:
++          - metadata
++          - results
++          - single
++      execution_rows_commit:
++        description: "phase results: the commit that holds the list's execution-time rows (data/predictions/execution/<list>_*.json)"
++        required: false
++        type: string
++        default: ""
++      redraw_workers:
++        description: "phase metadata: worker processes of scripts/redraw_execution.py"
++        required: false
++        type: string
++        default: "4"
+ 
+ permissions:
+   contents: write
+@@ -25,6 +51,8 @@ jobs:
+       PYTHONUNBUFFERED: "1"
+     steps:
+       - uses: actions/checkout@v4
++        with:
++          fetch-depth: 0          # phase results looks the execution-rows commit up in this checkout
+       - uses: actions/setup-python@v5
+         with:
+           python-version: "3.11"
+@@ -41,10 +69,33 @@ jobs:
+       - name: Retrieve the jobs (nothing is submitted; waits for jobs still queued)
+         env:
+           IDS_FILE: ${{ inputs.ids_file }}
++          PHASE: ${{ inputs.phase }}
++          ROWS_COMMIT: ${{ inputs.execution_rows_commit }}
+           QISKIT_IBM_TOKEN: ${{ secrets.QISKIT_IBM_TOKEN }}
+           QISKIT_IBM_INSTANCE: ${{ secrets.QISKIT_IBM_INSTANCE }}
+           QISKIT_IBM_INSTANCE_OPEN: ${{ secrets.QISKIT_IBM_INSTANCE_OPEN }}
+-        run: python -m gradvar.hardware --retrieve "$IDS_FILE"
++        run: |
++          case "$PHASE" in
++            metadata) python -m gradvar.hardware --retrieve "$IDS_FILE" --metadata-only ;;
++            results)
++              case "$ROWS_COMMIT" in
++                "") echo "phase results needs execution_rows_commit"; exit 1 ;;
++                *[!0-9a-f]*) echo "execution_rows_commit must be a commit hash"; exit 1 ;;
++              esac
++              python -m gradvar.hardware --retrieve "$IDS_FILE" --execution-rows-commit "$ROWS_COMMIT" ;;
++            single) python -m gradvar.hardware --retrieve "$IDS_FILE" --single-phase ;;
++            *) echo "unknown phase"; exit 1 ;;
++          esac
++      - name: "Phase metadata: draw the execution-time rows (no credentials; refuses when a result of the list is in the tree)"
++        if: ${{ inputs.phase == 'metadata' }}
++        env:
++          IDS_FILE: ${{ inputs.ids_file }}
++          WORKERS: ${{ inputs.redraw_workers }}
++        run: |
++          case "$WORKERS" in
++            ""|*[!0-9]*) echo "redraw_workers must be a number"; exit 1 ;;
++          esac
++          python scripts/redraw_execution.py --ids "$IDS_FILE" --workers "$WORKERS"
+       - name: "Upload the ISA circuits of Sampler jobs (kept as an artefact, not committed)"
+         if: ${{ always() }}
+         uses: actions/upload-artifact@v4
+@@ -57,14 +108,18 @@ jobs:
+         if: ${{ always() }}
+         env:
+           IDS_FILE: ${{ inputs.ids_file }}
++          PHASE: ${{ inputs.phase }}
+         run: |
+           git config user.name "gradvar-hardware-bot"
+           git config user.email "gradvar-hardware-bot@users.noreply.github.com"
+           git add data/jobs/ data/calibrations/ data/runs/
++          for d in data/predictions/execution data/predictions/execution_exploratory; do
++            if [ -d "$d" ]; then git add "$d"; fi
++          done
+           if git diff --cached --quiet; then
+             echo "nothing to commit"
+           else
+-            git commit -m "hardware retrieve: $IDS_FILE $(date -u +%Y-%m-%dT%H:%MZ)"
++            git commit -m "hardware retrieve ($PHASE): $IDS_FILE $(date -u +%Y-%m-%dT%H:%MZ)"
+             git pull --rebase origin main
+             git push
+           fi

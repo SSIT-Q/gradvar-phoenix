@@ -1,0 +1,237 @@
+diff --git a/gradvar/analysis/predictions.py b/gradvar/analysis/predictions.py
+index 96ac4e6..7edd8bf 100644
+--- a/gradvar/analysis/predictions.py
++++ b/gradvar/analysis/predictions.py
+@@ -62,6 +62,101 @@ def load_predictions(directory: str | Path | None = None) -> Dict:
+     out["dial_rows"] = load_dial_rows(d)
+     out["dial_realised"] = load_realised_rows(d)
+     out["truncation_realised"] = load_realised_truncation(d)
++    out["execution"] = load_execution_readings(d)
++    return out
++
++
++# --------------------------------------------------------------------------- execution-time readings (draft Deviation 65)
++
++EXECUTION_DIR = "execution"
++READING_ORDER = {"read": 0, "read_with_flag": 1, None: 2, "not_evaluable": 3}      # the reading of a split point is its most restrictive part
++
++
++def load_execution_readings(directory: str | Path) -> Dict:
++    """What ``scripts/redraw_execution.py`` committed under ``<directory>/execution/`` before the results were retrieved:
++    ``readings``, one per (jobs on one execution-time calibration, measured item) with the item's ``key`` (kind, arm, n, L, k,
++    p), its reading, grounds, flags, ``ln_ratio`` and over-cut elements. The items of a job for which no calibration could be
++    built are readings too (not evaluable, ground ``no_execution_calibration``); those jobs are also listed in
++    ``without_calibration``. Plans, re-run decisions, files marked exploratory and files drawn while the settings table was
++    not in force are not read. No directory: both empty."""
++    d = Path(directory) / EXECUTION_DIR
++    readings, without = [], []
++
++    def add(f, res, jobs, E, c):
++        readings.append(dict(file=f.name, list=res.get("list"), jobs=jobs, E=E, key=c.get("key") or {}, item=c.get("item"), reading=c.get("reading"),
++                             flag=bool(c.get("flag")), flags=list(c.get("flags") or []), grounds=list(c.get("grounds") or []), ln_ratio=c.get("ln_ratio"),
++                             reason=c.get("reason"), elements=c.get("elements") or [], settings_sha256=c.get("settings_sha256")))
++    for f in sorted(d.glob("*.json")) if d.is_dir() else []:
++        if f.stem.endswith(("_plan", "_rerun_decision")):
++            continue
++        res = json.loads(f.read_text(encoding="utf-8"))
++        if res.get("plan_only") or res.get("exploratory") or (res.get("settings") or {}).get("in_force") is not True:
++            continue
++        for g in res.get("groups") or []:
++            jobs = sorted(str(j.get("job_id") if isinstance(j, dict) else j) for j in g.get("jobs") or [])
++            for c in g.get("classification") or []:
++                add(f, res, jobs, g.get("E"), c)
++        for j in res.get("not_evaluable") or []:
++            without.append(dict(file=f.name, list=res.get("list"), job_id=str(j.get("job_id")), why=j.get("why")))
++            for c in j.get("classification") or []:
++                add(f, res, [str(j.get("job_id"))], None, c)
++    return dict(readings=readings, without_calibration=without)
++
++
++def _reading_is_for(key: Dict, r: Dict) -> bool:
++    """Whether a reading's key names the point ``r`` of the point table."""
++    try:
++        if DIAL_KIND.get(str(key.get("arm")), str(key.get("arm"))) != DIAL_KIND.get(str(r.get("arm")), str(r.get("arm"))):
++            return False
++        if int(key["L"]) != int(r["L"]) or int(key["k"]) != int(r["k"]) or (key.get("n") is not None and int(key["n"]) != int(r["n"])):
++            return False
++        kp, rp = _num(key.get("p")), _num(r.get("p"))
++        return bool((not np.isfinite(kp) and not np.isfinite(rp)) or (np.isfinite(kp) and np.isfinite(rp) and abs(kp - rp) < 1e-9))
++    except (KeyError, TypeError, ValueError):
++        return False
++
++
++def execution_readings(points: pd.DataFrame, preds: Dict) -> List[Dict]:
++    """Draft Deviation 65: per measured point, its committed execution-time reading, joined on the point's job ids and its key.
++    ``source`` is ``"none"`` when nothing is committed for any of the point's jobs (a run from before the Deviation: the point
++    is read as it always was and is not counted as flagged). A point whose executions lie in jobs with different readings
++    (``split``) takes the strictest of them (C65-1): not evaluable, then unclassified, then read with a flag, then read. A
++    point is flagged, with no reading, when its jobs have committed readings but none for the point itself, and flagged when
++    one of its jobs is covered by no reading. ``flag`` is what the statistics without flagged points leave out."""
++    readings = (preds.get("execution") or {}).get("readings") or []
++    known = set().union(*[set(x["jobs"]) for x in readings]) if readings else set()
++    out = []
++    for r in points.to_dict("records") if len(points) else []:
++        if r.get("L") is None or r.get("k") is None or r.get("kind") == "null_control":
++            continue
++        jobs = {str(j) for j in (r.get("jobs") if isinstance(r.get("jobs"), (list, tuple, set)) else [])}
++        parts = [x for x in readings if jobs & set(x["jobs"]) and _reading_is_for(x["key"], r)]
++        if not parts and not (jobs & known):
++            out.append(dict(point_id=r["point_id"], source="none", reading=None, flag=False, split=False, parts=0, grounds=[], flags=[],
++                            note="no execution-time reading is committed for this point's jobs"))
++            continue
++        if not parts:
++            out.append(dict(point_id=r["point_id"], source="missing", reading=None, flag=True, split=False, parts=0, grounds=[], flags=[],
++                            reason="unclassified: the point's jobs have committed execution-time readings, but none for this point"))
++            continue
++        uncovered = sorted(jobs - set().union(*[set(x["jobs"]) for x in parts]))
++        worst = max(parts, key=lambda x: READING_ORDER.get(x["reading"], 2))
++        out.append(dict(point_id=r["point_id"], source=", ".join(sorted({x["file"] for x in parts})), reading=worst["reading"],
++                        flag=bool(any(x["flag"] for x in parts) or worst["reading"] != "read" or uncovered), grounds=sorted({g for x in parts for g in x["grounds"]}),
++                        flags=sorted({g for x in parts for g in x["flags"]}), ln_ratio=worst["ln_ratio"], reason=worst["reason"],
++                        split=len({(x["E"], x["reading"]) for x in parts}) > 1, parts=len(parts), elements=worst["elements"], jobs_without_reading=uncovered))
++    return out
++
++
++def anomaly_protocol_without(comparison: pd.DataFrame, point_ids) -> Dict | None:
++    """Draft Deviation 65: the Deviation 19 statistics of the same comparison table without the flagged points; ``None`` when
++    no compared point is flagged. Reported beside ``anomaly_protocol`` on the whole table, which stays the pre-registered one."""
++    left_out = sorted(set(point_ids) & set(comparison.point_id)) if len(comparison) else []
++    if not left_out:
++        return None
++    d = comparison[~comparison.point_id.isin(left_out)]
++    out = anomaly_protocol(d) if len(d) else dict(flagged=False, single_point=[], monotone_runs=[], n_compared=0)
++    out["left_out"] = left_out
+     return out
+ 
+ 
+diff --git a/gradvar/analysis/report.py b/gradvar/analysis/report.py
+index 968ad98..8f8cf3b 100644
+--- a/gradvar/analysis/report.py
++++ b/gradvar/analysis/report.py
+@@ -85,6 +85,18 @@ def deviation25_checks(points: pd.DataFrame, comparison: pd.DataFrame, preds: Di
+     return out
+ 
+ 
++def execution_calibration(points: pd.DataFrame, comparison: pd.DataFrame, preds: Dict) -> Dict:
++    """Draft Deviation 65: the committed execution-time reading of every point and the Deviation 19 statistics without the
++    flagged points. A run with no committed reading gives ``readings`` with ``source: "none"`` only and nothing else changes."""
++    readings = P.execution_readings(points, preds)
++    flagged = [e["point_id"] for e in readings if e["flag"]]
++    return dict(readings=readings, flagged_points=flagged, not_evaluable_points=[e["point_id"] for e in readings if e["reading"] == "not_evaluable"],
++                jobs_without_calibration=(preds.get("execution") or {}).get("without_calibration") or [],
++                anomaly_protocol_without_flagged=P.anomaly_protocol_without(comparison, flagged) if len(comparison) else None,
++                note="draft Deviation 65: readings drawn and committed before the results were retrieved (scripts/redraw_execution.py); every verdict "
++                     "above is on all points; the statistics without the flagged points are reported beside them and replace nothing")
++
++
+ def analyse(run_dir: str, predictions_dir: str | None = None, snapshot_csv: str | None = None, reference_reset_error: Dict | None = None,
+             n_boot: int = 10_000) -> Dict:
+     """The whole pre-registered analysis of one run: load, estimate per point, null-control floors and the Deviation 37
+@@ -107,7 +119,8 @@ def analyse(run_dir: str, predictions_dir: str | None = None, snapshot_csv: str
+     return dict(run=run.summary(), predictions_dir=preds["dir"], points=points, comparison=comparison, anomaly_protocol=anomalies, hypotheses=hyp,
+                 dial_hypotheses=dial, kill_rules=kill, gate2=g2, gate1b_clause_b=g1b, null_floors=floors,
+                 dial_controls=dial_comparisons(points, preds) if len(points) else [],
+-                deviation_25=deviation25_checks(points, comparison, preds) if len(points) else [], reset_error=run.reset_error, _run=run, _preds=preds)
++                deviation_25=deviation25_checks(points, comparison, preds) if len(points) else [], reset_error=run.reset_error,
++                execution_calibration=execution_calibration(points, comparison, preds), _run=run, _preds=preds)
+ 
+ 
+ def _fmt(v) -> str:
+@@ -165,6 +178,22 @@ def write_report(res: Dict, out_dir: str | Path, figure_files: Dict[str, str]) -
+                + (f"; adjusted p of the single-point flags: {adj}" if adj else "") + ". "
+                "It labels no flag firm: Deviation 61 firmness and the replication decision are grid-wide, over the frozen 43-test family "
+                "with prediction-side uncertainty (`gradvar.analysis.anomaly_stats`, `data/derived/dev61_reference_2026-09-25.csv`).", ""]
++    x = res.get("execution_calibration") or {}
++    committed = [e for e in x.get("readings", []) if e.get("source") != "none"]
++    if committed or x.get("jobs_without_calibration"):
++        t = pd.DataFrame([dict(point_id=e["point_id"], reading=e["reading"] or "unclassified", flag=e["flag"], grounds=", ".join(e.get("grounds") or []),
++                               flags="; ".join(e.get("flags") or []), ln_ratio=e.get("ln_ratio"), split=e.get("split"), source=e["source"], reason=e.get("reason"))
++                          for e in committed])
++        md += ["### Execution-time calibration (Deviation 65)", "", x.get("note", ""), ""] + ([_md_table(t), ""] if len(t) else [])
++        if x.get("jobs_without_calibration"):
++            md += ["Jobs without an execution-time calibration (their points are not evaluable): "
++                   + "; ".join(f"{j['job_id']} ({j['why']})" for j in x["jobs_without_calibration"]) + ".", ""]
++        w = x.get("anomaly_protocol_without_flagged")
++        if w:
++            md += [f"Anomaly protocol (Deviation 19) without the {len(w['left_out'])} flagged point(s) ({', '.join(w['left_out'])}): flagged **{w.get('flagged')}** "
++                   f"({w.get('n_compared', 0)} points compared; single-point anomalies: {len(w.get('single_point', []))}; monotone runs: {len(w.get('monotone_runs', []))}).", ""]
++        if x.get("not_evaluable_points"):
++            md += ["Not evaluable on their execution-time calibration: " + ", ".join(x["not_evaluable_points"]) + ".", ""]
+     if len(pts):
+         cols = [c for c in ("point_id", "M", "variance", "ci_lo", "ci_hi", "shot_variance", "shot_floor", "pattern_floor", "pattern_floor_upper_bound", "signal_variance",
+                             "signal_ci_lo", "signal_ci_hi", "eps_N", "claimable", "exploratory", "claim_bar", "floor_grad", "headline_ratio", "mele_floor", "mean", "mean_z",
+diff --git a/tests/test_analysis.py b/tests/test_analysis.py
+index 22973c8..efdb2c0 100644
+--- a/tests/test_analysis.py
++++ b/tests/test_analysis.py
+@@ -537,3 +537,70 @@ def test_preregistered_main_grid_budget():
+     assert c["jobs"] == 77 and c["minutes"] == pytest.approx(51.4, abs=0.2)     # 114 points of 200 pubs packed at 300 pubs per job, model v3 (Deviation 47), 1 us
+     v2 = estimate_budget(jl, rep_delays_us=(1.0,), model_version=2)
+     assert v2["jobs"] == 77 and v2["minutes_at_1us"] == pytest.approx(62.4, abs=0.2)   # the pre-registration's own arithmetic: 228 jobs (2 per point), 73.1 min under v2, 62 under v3
++
++
++# ------------------------------------------------------------------------------------------------ draft Deviation 65: the execution-time readings in the analysis
++
++def _execution_file(d, name, jobs, items, exploratory=False, plan=False, in_force=True, not_evaluable=()):
++    (d / "execution").mkdir(parents=True, exist_ok=True)
++
++    def entry(i, key, reading, flag, ln, grounds):
++        return dict(item=f"point {i}", key=key, reading=reading, flag=flag, flags=["element over a cut elsewhere in the cone"] if flag else [], grounds=grounds, ln_ratio=ln,
++                    reason=f"reason {i}", elements=[dict(kind="qubit", qubit=31, reasons=["readout"], zone="cone")] if flag else [], settings_sha256="0" * 64)
++    (d / "execution" / name).write_text(json.dumps(dict(
++        list="syn", exploratory=exploratory, plan_only=plan, settings=dict(in_force=in_force),
++        groups=[dict(E="e" * 64 if "second" not in name else "f" * 64, jobs=[dict(job_id=j) for j in jobs],
++                     classification=[entry(i, key, reading, flag, ln, ["line"] if reading == "not_evaluable" else []) for i, (key, reading, flag, ln) in enumerate(items)])] if jobs else [],
++        not_evaluable=[dict(job_id=j, why="no update published at or after finished yet",
++                            classification=[entry(i, key, "not_evaluable", False, None, ["no_execution_calibration"]) for i, key in enumerate(keys)]) for j, keys in not_evaluable])),
++        encoding="utf-8")
++
++
++def test_execution_readings_join_the_points_and_the_statistics_are_also_given_without_the_flagged_points(passing, tmp_path):
++    """Draft Deviation 65, analysis side: the committed readings are joined to the measured points on job ids and key; a run
++    without committed readings is read as before; the Deviation 19 statistics are repeated without the flagged points."""
++    from gradvar.analysis.report import execution_calibration, write_report
++    pts, cmp = passing["points"], passing["comparison"]
++    assert passing["execution_calibration"]["flagged_points"] == [] and passing["execution_calibration"]["anomaly_protocol_without_flagged"] is None
++    assert {e["source"] for e in passing["execution_calibration"]["readings"]} == {"none"}                 # nothing committed: nothing changes
++    pts = pts.copy()
++    r0 = pts[(pts.kind == "grid") & (pts.resilience_level == 0)].to_dict("records")       # the synthetic run puts them all in one job
++    r1 = pts[(pts.kind == "grid") & (pts.resilience_level == 1)].to_dict("records")       # and these in another
++    a, b, c, e = r0[0], r0[1], r0[2], r0[3]
++    job0, job1 = a["jobs"][0], r1[0]["jobs"][0]
++    assert all(r["jobs"] == [job0] for r in r0) and all(r["jobs"] == [job1] for r in r1) and job0 != job1
++    pts.at[pts.index[pts.point_id == c["point_id"]][0], "jobs"] = [job0, "second-job"]      # c is split over two jobs
++    key = lambda r: dict(kind="grid", arm="grid", n=int(r["n"]), L=int(r["L"]), k=int(r["k"]), p=None)   # noqa: E731
++    d = tmp_path / "pred"
++    _execution_file(d, "syn_eeeeeeeeeeee.json", [job0], [(key(r), "read_with_flag", True, 0.0105) if r is b else (key(r), "read", False, None) for r in r0 if r is not e])
++    _execution_file(d, "syn_second_ffffffffffff.json", ["second-job"], [(key(c), "not_evaluable", True, 0.21)])
++    _execution_file(d, "syn_exploratory.json", [job0], [(key(e), "not_evaluable", True, 0.5)], exploratory=True)
++    _execution_file(d, "syn_not_in_force.json", [job0], [(key(e), "not_evaluable", True, 0.5)], in_force=False)
++    _execution_file(d, "syn_plan.json", [job0], [(key(e), "not_evaluable", True, 0.5)], plan=True)
++    (d / "execution" / "syn_rerun_decision.json").write_text(json.dumps(dict(rerun=[], settings=dict(in_force=True))), encoding="utf-8")
++    _execution_file(d, "syn_not_evaluable.json", [], [], not_evaluable=[(job1, [key(r) for r in r1])])        # no calibration could be built for job1
++    preds = dict(passing["_preds"], execution=P.load_execution_readings(d))
++    assert len(preds["execution"]["readings"]) == len(r0) + len(r1)                           # the exploratory, not-in-force, plan and decision files are not read
++    assert [j["job_id"] for j in preds["execution"]["without_calibration"]] == [job1]
++    x = execution_calibration(pts, cmp, preds)
++    by = {r["point_id"]: r for r in x["readings"]}
++    assert by[a["point_id"]]["reading"] == "read" and by[a["point_id"]]["flag"] is False and by[a["point_id"]]["source"] == "syn_eeeeeeeeeeee.json"
++    assert by[b["point_id"]]["reading"] == "read_with_flag" and by[b["point_id"]]["flag"] is True and by[b["point_id"]]["ln_ratio"] == 0.0105
++    # the strictest classification among the jobs of a split point (C65-1)
++    assert by[c["point_id"]]["reading"] == "not_evaluable" and by[c["point_id"]]["split"] is True and by[c["point_id"]]["parts"] == 2 and by[c["point_id"]]["grounds"] == ["line"]
++    assert by[e["point_id"]]["source"] == "missing" and by[e["point_id"]]["flag"] is True and by[e["point_id"]]["reading"] is None   # its job has readings, it has none
++    for r in r1:                                                                             # their job has no execution-time calibration: not evaluable (C65-4)
++        g = by[r["point_id"]]
++        assert g["reading"] == "not_evaluable" and g["flag"] is True and g["grounds"] == ["no_execution_calibration"] and g["source"] == "syn_not_evaluable.json"
++    dial = pts[pts.kind == "reset_dial"].point_id.tolist()
++    assert dial and all(by[i]["source"] == "none" and by[i]["flag"] is False for i in dial)   # nothing committed for their jobs: read as before
++    flagged = sorted([b["point_id"], c["point_id"], e["point_id"]] + [r["point_id"] for r in r1])
++    assert sorted(x["flagged_points"]) == flagged and sorted(x["not_evaluable_points"]) == sorted([c["point_id"]] + [r["point_id"] for r in r1])
++    w = x["anomaly_protocol_without_flagged"]
++    assert w["left_out"] == flagged and w["n_compared"] == passing["anomaly_protocol"]["n_compared"] - int(np.isfinite(cmp[cmp.point_id.isin(flagged)].z).sum())
++    assert P.anomaly_protocol_without(cmp, []) is None and P.anomaly_protocol_without(cmp, ["absent"]) is None
++    md = write_report(dict(passing, execution_calibration=x), tmp_path, {}).read_text()
++    assert "### Execution-time calibration (Deviation 65)" in md and f"| {b['point_id']} | read_with_flag |" in md and f"without the {len(flagged)} flagged point(s)" in md
++    assert "Not evaluable on their execution-time calibration: " in md and "Jobs without an execution-time calibration (their points are not evaluable): " + job1 in md
++    assert "PI's decision" not in md                                                         # C65-3: nobody decides after the data
++    assert "Execution-time calibration" not in write_report(passing, tmp_path, {}).read_text()
