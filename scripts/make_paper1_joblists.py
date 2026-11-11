@@ -272,6 +272,20 @@ DIAL_COMMON = (" Design (Section 3b, Deviations 27 and 48): K = 256 Bernoulli(p)
                "references are in references_gate1b.json).")
 
 
+EPS0_PROBE = None       # None: follow the dial-channel table's switch; True / False: set by a test or a budget calculation
+
+
+def eps0_probe_enabled() -> bool:
+    """Deviation 64 (draft), decision 3 (a): whether the dial-arm core (and so the day-3 list) carries ``reset_error_prep0``. It
+    follows the switch of the dial-channel table (``gradvar.analysis.dial_channel.band_enabled``: false until Deviation 64 is
+    adopted), so the lists this generator writes and ``--check`` compares are unchanged until the adoption commit; the first
+    re-package after it carries the probe. No committed list is edited by hand."""
+    if EPS0_PROBE is not None:
+        return bool(EPS0_PROBE)
+    from gradvar.analysis import dial_channel
+    return dial_channel.band_enabled()
+
+
 def dial_lists(pl: dict) -> dict:
     R60, R40, R100 = pl["rungs"]["n60"], pl["rungs"]["n40"], pl["rungs"]["n100"]
     core, contingent = [], []
@@ -317,6 +331,10 @@ def dial_lists(pl: dict) -> dict:
                                    ("1", "none", "readout_ref_prep1", "Section 3b characterisation: P(1 | prepare |1>) readout reference on the same qubits (reset error = "
                                                                       "P(1) after reset minus the readout confusion)")):
         core.append(dict(id=pid, kind="reset_error", reset_kind=rk, prep=prep, n=R60["n"], patch=R60["patch"], shots=SHOTS, resilience=0, seed=char_seed, purpose=purpose))
+    if eps0_probe_enabled():             # Deviation 64 (draft), decision 3 (a); after the three probes above, whose entries do not move
+        core.append(dict(id="reset_error_prep0", kind="reset_error", reset_kind="reset", prep="0", n=R60["n"], patch=R60["patch"], shots=SHOTS, resilience=0,
+                         seed=char_seed, purpose="Deviation 64 characterisation: P(1) after |0> -> native reset -> measure on every dial-patch qubit (eps0 of "
+                                                 "the dial-channel range, bounded by its own probe: unfolded with the two readout references as eps1 is)"))
     notes_core = (f"{PREREG}, Section 3b (non-unital arm: controlled reset dial), booked core on the n = 60 rung (6x10, actual n = {R60['n']}) with the n-ladder "
                   f"points on the n = 40 and n = 100 rungs (actual n = {R40['n']}, {R100['n']}): gradient grid p in {{0.25, 0.5}} at L in {{8, 12}}, k = L, M = 100 "
                   f"(4 points); n-ladder p = 0.25, L = {NLADDER_L}, k = L at n = 40 and 100 (2 points); the unital dephasing dial p = 0.5, k = L (1 point; matched control (b)); "

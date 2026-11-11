@@ -236,14 +236,18 @@ def comparator(patch, spec: str, point: dict, csv: str, props: str, settings: di
                 zz_layer_tau_sources=meta["tau_src"], runtime_s=time.time() - t0)
 
 
-def realised_entry(jl: dict, point: dict, rung_name: str, rung: dict, csv: str, props: str, n_samples: int) -> dict:
+def realised_entry(jl: dict, point: dict, rung_name: str, rung: dict, csv: str, props: str, n_samples: int, channel=None) -> dict:
     """Deviation 60 part (7): the H7 comparator on the truncation probes' realised masks (the full probe's seed and masks; the
-    truncated probes share them for their kept layers), every l = 1 .. L - 1 from one sampled propagation with the cut accumulators."""
+    truncated probes share them for their kept layers), every l = 1 .. L - 1 from one sampled propagation with the cut accumulators.
+    ``channel`` (``pauliprop.DialChannel``, Deviation 64 draft): the same entry at a channel other than the designed one (same masks,
+    same sampler stream), with ``channel`` and ``mix_exact`` added; None: the entry and its keys as before."""
     t0 = time.time()
+    if channel is not None and channel.designed():
+        channel = None
     pr = next(p for p in jl["probes"] if p["id"] == point["full"])
     L, p, kind = point["L"], point["p"], point["reset_kind"]
     patch, edge = rd.rung_patch(rung), rd.rung_edge(rung)
-    prog, _meta = rd.dial_program(patch, rung["patch"], L, edge, csv, props, model="unital", dial_kind=kind, p=p, zz_layer_on=True)
+    prog, _meta = rd.dial_program(patch, rung["patch"], L, edge, csv, props, model="unital", dial_kind=kind, p=p, zz_layer_on=True, channel=channel)
     masks, _full, _runner = rd.probe_masks(jl, pr, prog, patch, csv)
     mask_p = float(pr.get("mask_p", p))
     res = pp.propagate_realised(prog, masks, kind, p=p, mask_p=mask_p, n_samples=int(n_samples), seed=rd.REALISED["seed"], chunk=rd.REALISED["chunk"],
@@ -258,7 +262,7 @@ def realised_entry(jl: dict, point: dict, rung_name: str, rung: dict, csv: str, 
                                 ratio_to_mixture=res.get(f"ratio_msd{ell}_off"), se_ratio_to_mixture=res.get(f"se_ratio_msd{ell}_off"),
                                 residual_pattern_expected=(res[f"msd{ell}_diag"] - msd) / K)
     l2 = by_ell["2"]
-    return dict(point=dict(patch=rung["patch"], edge=rung["edge"], n=int(rung["n"]), p=p, L=L, k=L, reset_kind=kind,
+    entry = dict(point=dict(patch=rung["patch"], edge=rung["edge"], n=int(rung["n"]), p=p, L=L, k=L, reset_kind=kind,
                            qubits=sorted(int(q) for q in rung["qubits"]), rung=rung_name, origin=rung["origin"], holes=rung["holes"],
                            broken_edges=rung["broken_edges"]),
                 probes=[point["full"]] + [point["cuts"][k] for k in sorted(point["cuts"])], ells_in_list=sorted(point["cuts"]),
@@ -266,6 +270,9 @@ def realised_entry(jl: dict, point: dict, rung_name: str, rung: dict, csv: str, 
                 rms_l2=l2["rms"], rms_l2_sigma=l2["rms_sigma"], rms_l2_source="realised masks (pauliprop.propagate_realised, off-diagonal moment)",
                 by_ell=by_ell, var_cost_T=res["cost_off"], se_cost_T=res["se_cost_off"], var_kL_realised=res["kL_off"], se_kL_realised=res["se_kL_off"],
                 n_cone=prog.m, n_samples=res["n_samples"], sampler_seed=res["seed"], chunk=res["chunk"], runtime_s=time.time() - t0)
+    if channel is not None:
+        entry.update(channel=res["channel"], mix_exact=res["mix_exact"])
+    return entry
 
 
 def markdown_realised(rec: dict) -> str:
@@ -345,6 +352,13 @@ def main(argv=None) -> int:
     ap.add_argument("--realised-samples", type=int, default=rd.REALISED["n_samples"], help="Deviation 60 part (7): paths of the realised-mask draw (2e6)")
     ap.add_argument("--realised-only", action="store_true",
                     help="draw only the realised-mask comparators (h7_realised_<tag>), the mixture entry being committed; no bug check")
+    ap.add_argument("--vertices", action="store_true",
+                    help="Deviation 64 (draft): draw only the vertex entries of the dial-channel range on the placement snapshot, as a dispatch-time "
+                         "record (h7_dispatch_vertices_<tag>.json, not read by the analysis; the registered entries: registered_vertex_entries); "
+                         "no bug check, the designed-channel records are not touched")
+    ap.add_argument("--plan", action="store_true", help="with --vertices: print the entries that would be drawn; no simulation")
+    ap.add_argument("--workers", type=int, default=4, help="with --vertices: processes")
+    ap.add_argument("--shard", default=None, help="with --vertices: K/N, draw every N-th entry starting at the K-th and write h7_dispatch_vertices_<tag>_shardKofN.json")
     args = ap.parse_args(argv)
     t_start = time.time()
     jl_path = Path(args.joblist)
@@ -376,6 +390,8 @@ def main(argv=None) -> int:
                entries=[])
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
+    if args.vertices:
+        return write_vertices(jl, points, rec, snapshot, props, stamp, tag, out_dir, args.realised_samples, args.workers, args.plan, t_start, args.shard)
     if args.realised_only:
         return write_realised(jl, points, rec, snapshot, props, stamp, tag, out_dir, args.realised_samples, [], t_start)
     checks = []
@@ -414,6 +430,128 @@ def main(argv=None) -> int:
     if args.check_only:
         return 0
     return write_realised(jl, points, dict(rec, entries=[]), snapshot, props, stamp, tag, out_dir, args.realised_samples, rec["entries"], time.time())
+
+
+def _vertex_entry(job: dict) -> dict:
+    e = realised_entry(job["jl"], job["point"], job["rung_name"], job["rung"], job["csv"], job["props"], job["n_samples"],
+                       channel=pp.DialChannel(**job["channel"]))
+    e.update(channel_key=job["channel_key"], serves=[[lv, vid] for lv, vid in job["serves"]], calibration_role=job["calibration_role"],
+             calibration_label=job["calibration_label"])
+    return e
+
+
+def vertex_entries(jl: dict, points: list, csv: str, props: str, role: str, label: str, n_samples: int, workers: int = 1,
+                   shard_spec: str | None = None, plan_only: bool = False, log=print) -> dict:
+    """Deviation 64 (draft): the realised-mask comparator of every truncation arm of ``jl`` at the distinct channels of every
+    pre-drawn level (``dial_channel.channels_to_draw``), each vertex as one channel, drawn on the calibration ``csv`` / ``props``
+    (``role``: 'execution' or 'dispatch'; ``label``: its name). Returns dict(entries, table, n_all, suffix, drawn)."""
+    from gradvar.analysis import dial_channel as dc
+    from gradvar.analysis import predictions as P
+    if role not in dc.CALIBRATION_ROLES:
+        raise ValueError(f"calibration role {role!r}: one of {dc.CALIBRATION_ROLES}")
+    table = dc.load_table()
+    jobs = []
+    for point in points:
+        rung_name, rung = rung_for(jl, point)
+        full = next(p for p in jl["probes"] if p["id"] == point["full"])
+        kind = P.DIAL_KIND.get(point["reset_kind"], point["reset_kind"])
+        if not P.realised_applies(kind, full.get("masks", 1)):
+            log(f"{rung_name}: {point['full']} carries one mask: no realised-mask comparator, no vertex entries")
+            continue
+        for c in dc.channels_to_draw(table, kind):
+            jobs.append(dict(jl=jl, point=point, rung_name=rung_name, rung=rung, csv=csv, props=props, n_samples=int(n_samples),
+                             channel=c["channel"], channel_key=c["key"], serves=c["serves"], calibration_role=role, calibration_label=label))
+    tb = dict(path=Path(table["_path"]).name, sha256=table["_sha256"], status=table["status"], adopted=table["adopted"], levels=dc.levels(table))
+    n_all = len(jobs)
+    jobs, suffix = dc.take_shard(jobs, shard_spec)
+    log(f"Deviation 64 (draft) vertex entries ({role}-time calibration {Path(csv).name}); table {tb['path']} ({tb['status']}, adopted {tb['adopted']}), "
+        f"levels {tb['levels']}; {len(jobs)} entries" + (f" (shard {shard_spec} of {n_all})" if suffix else ""))
+    for j in jobs:
+        log(f"  to draw  {j['rung_name']} {j['point']['full']} serves {' '.join(f'{lv!r}:{vid}' for lv, vid in j['serves'])}")
+    entries = []
+    if plan_only or not jobs:
+        return dict(entries=entries, table=tb, n_all=n_all, suffix=suffix, drawn=False)
+
+    def done(e):
+        entries.append(e)
+        log(f"  drawn    {e['point']['rung']} {e['probes'][0]} [{' '.join(f'{lv!r}:{vid}' for lv, vid in e['serves'])}] rms_l2 = {e['rms_l2']:.6f} "
+            f"+/- {e['rms_l2_sigma']:.1e}; {e['runtime_s']:.0f}s")
+
+    if workers <= 1:
+        for j in jobs:
+            done(_vertex_entry(j))
+    else:
+        from concurrent.futures import ProcessPoolExecutor, as_completed
+        with ProcessPoolExecutor(max_workers=workers) as ex:
+            for fut in as_completed([ex.submit(_vertex_entry, j) for j in jobs]):
+                done(fut.result())
+    entries.sort(key=lambda e: (e["point"]["rung"], e["probes"][0], e["channel_key"]))
+    return dict(entries=entries, table=tb, n_all=n_all, suffix=suffix, drawn=True)
+
+
+def _vertex_record(rec: dict, ve: dict, csv: str, props: str, role: str, label: str, n_samples: int, workers: int, shard_spec: str | None,
+                   command: str, t_start: float) -> dict:
+    registered = int(n_samples) == rd.REALISED["n_samples"]
+    return dict(rec, deviation="64 (draft, not adopted): vertex entries of the dial-channel range", table=ve["table"], shard=shard_spec, command=command,
+                calibration=dict(role=role, label=label, csv=Path(csv).name, properties=Path(props).name,
+                                 note="'execution': drawn on the execution-time calibration of the jobs that carry the points, between the "
+                                      "two retrieval phases (Deviation 65): the registered values. 'dispatch': drawn on the placement snapshot "
+                                      "before dispatch: a dispatch-time record the analysis does not read (review correction C64-8)."),
+                settings=dict(rec.get("settings", {}), realised=dict(rd.REALISED, n_samples=int(n_samples)), exploratory=not registered, workers=int(workers),
+                              comparator_rule="rms = sqrt of the realised-mask off-diagonal MSD(l) at the vertex's dial channel; rms_sigma = its sampling error"),
+                entries=ve["entries"], runtime_s=time.time() - t_start)
+
+
+def registered_vertex_entries(jl: dict, calibration_csv: str, calibration_props: str, calibration_label: str, out_dir: str | Path | None = None,
+                              tag: str | None = None, workers: int = 1, shard: str | None = None, joblist_name: str | None = None, log=print) -> dict:
+    """ENTRY POINT FOR THE DEVIATION 65 RE-DRAW (review correction C64-8): the registered vertex entries of the truncation arms of
+    the list ``jl`` (the day-3 list: H7; the pairs' list: the Deviation 63 pairs), drawn on the execution-time calibration of the
+    jobs that carry the points (``calibration_csv`` / ``calibration_props`` in the snapshot CSV and properties formats;
+    ``calibration_label``: its name, e.g. the value hash of E(J)), with the Deviation 60 settings (2e6 paths) and every vertex as
+    one channel.
+
+    The caller is the script that runs between the two retrieval phases of Deviation 65: it builds E(J), refuses to run once a
+    measured value of the list has been retrieved, and decides where the entries are committed. With ``out_dir`` the record is
+    written as ``h7_vertices_[pairs_]<tag>[_shardKofN].json``, the name ``predictions.load_vertex_truncation`` reads (only records
+    whose calibration role is 'execution'). Returns the record."""
+    t_start = time.time()
+    points = truncation_points(jl)
+    pl = jl["placement"]
+    stamp = pl.get("stamp") or rd.stamp_of(str(CAL_DIR / pl["snapshot"]))
+    pairs = any(not (pt["reset_kind"] == H7_POINT["reset_kind"] and np.isclose(pt["p"], H7_POINT["p"])) for pt in points)
+    rec = dict(pairs=pairs, generated_utc=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), script="scripts/predict_h7_truncation.py",
+               git_commit=_git_commit(), joblist=joblist_name, snapshot=dict(csv=pl["snapshot"], properties=pl["properties"], stamp=stamp, pinned=bool(pl.get("pin_snapshot"))),
+               settings=dict(model="unital (the calibration given) + the point's dial at the vertex's channel + dial-idle ZZ + Deviation 34 layer ZZ, raw readout, k = L"))
+    n = rd.REALISED["n_samples"]
+    ve = vertex_entries(jl, points, str(calibration_csv), str(calibration_props), "execution", calibration_label, n, workers=workers, shard_spec=shard, log=log)
+    out = _vertex_record(rec, ve, str(calibration_csv), str(calibration_props), "execution", calibration_label, n, workers, shard,
+                         "scripts/predict_h7_truncation.registered_vertex_entries (called by the Deviation 65 re-draw)", t_start)
+    if out_dir is not None and ve["drawn"]:
+        name = f"h7_vertices_{'pairs_' if pairs else ''}{tag or (stamp[:10] + 'T' + stamp[11:15])}{ve['suffix']}"
+        Path(out_dir).mkdir(parents=True, exist_ok=True)
+        (Path(out_dir) / f"{name}.json").write_text(json.dumps(out, indent=1, default=rd._json_default), encoding="utf-8")
+        log(f"wrote {name}.json in {out_dir}; {out['runtime_s']:.0f}s")
+    return out
+
+
+def write_vertices(jl: dict, points: list, rec: dict, snapshot: str, props: str, stamp: str, tag: str, out_dir: Path, n_samples: int,
+                   workers: int, plan_only: bool, t_start: float, shard_spec: str | None = None) -> int:
+    """``--vertices``: the vertex entries drawn on the list's placement snapshot, written as h7_dispatch_vertices_<tag>.json (a pairs
+    list: h7_dispatch_vertices_pairs_<tag>.json): a dispatch-time record, which the analysis does not read (review correction C64-8:
+    the registered entries are drawn on the execution-time calibration, ``registered_vertex_entries``). A path count other than the
+    registered one is written as h7_exploratory_vertices_*. The designed-channel records are not touched."""
+    ve = vertex_entries(jl, points, snapshot, props, "dispatch", stamp, n_samples, workers=workers, shard_spec=shard_spec, plan_only=plan_only,
+                        log=lambda s: print(s, flush=True))
+    if not ve["drawn"]:
+        return 0
+    stem = "pairs_" if rec.get("pairs") else ""
+    out = _vertex_record(rec, ve, snapshot, props, "dispatch", stamp, n_samples, workers, shard_spec,
+                         rec["command"] + " --vertices" + (f" --shard {shard_spec}" if ve["suffix"] else ""), t_start)
+    registered = not out["settings"]["exploratory"]
+    name = (f"h7_dispatch_vertices_{stem}{tag}" if registered else f"h7_exploratory_vertices_{stem}{tag}") + ve["suffix"]
+    (out_dir / f"{name}.json").write_text(json.dumps(out, indent=1, default=rd._json_default), encoding="utf-8")
+    print(f"wrote {name}.json in {out_dir}; {out['runtime_s']:.0f}s (" + ("dispatch-time record" if registered else "EXPLORATORY") + ": not read by the analysis)")
+    return 0
 
 
 def write_realised(jl: dict, points: list, rec: dict, snapshot: str, props: str, stamp: str, tag: str, out_dir: Path, n_samples: int,

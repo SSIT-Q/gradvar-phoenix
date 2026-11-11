@@ -1,0 +1,210 @@
+{
+ "table": "Deviation 64: range of the dial channel, pre-drawn levels and vertex set (the only place these values live; the code reads this file)",
+ "status": "PROVISIONAL",
+ "provisional_note": "Every value below is the draft's (docs/deviations_drafts/64_dial_channel_comparators_2026-11-10.md on branch dev64-dial-channel, pull request 12) as corrected by the independent review returned at 04:09 UTC on 11 Nov 2026 (GO_WITH_CORRECTIONS; corrections C64-1 to C64-9, docs/reviews/review_dev64_dev65_dev66_2026-11-10.md Section 8.1). The PI's approval of the draft's recommendations on its eight decisions was relayed by the operator and reached the lead between 19:41 and 19:54 UTC on 10 Nov 2026; the corrected row still needs his countersignature. A correction changes this file, not code. Deviation 64 is not adopted: 'adopted' is false and the analysis reads the designed-channel comparators as under pre-registration v0.18.0 until the adoption commit sets it to true.",
+ "adopted": false,
+ "decisions_relayed": {
+  "2": "gamma bound 0.016",
+  "3": "(a) the list gains a reset probe prepared in |0>; eps0 is then bounded by its own probe, by the level rule below",
+  "4": "the |+> probe is not added; the anisotropic vertices V9 and V10 are the price (review C64-1, main form)",
+  "6": "the reading under this range is the registered reading and is never replaced; a Q4 reading is a second, labelled reading under a later Deviation (review C64-4)",
+  "7": "levels 1e-2 and 2e-2 are pre-drawn",
+  "8": "no change to the registered interval; its simulated coverage is quoted as a range, 87 to 95 percent (review C64-9 (d))"
+ },
+ "range": {
+  "kappa": {
+   "reset": [
+    -0.005,
+    0.105
+   ],
+   "dephase": [
+    -0.005,
+    0.005
+   ],
+   "note": "extra transverse contraction of the kept branch, d (1 - kappa); the dephasing dial resets no qubit, so only the T2 model error applies"
+  },
+  "gamma": {
+   "interval": [
+    0.0,
+    0.016
+   ],
+   "note": "T1 loss over the 400 ns idle at the placement rule's 25 us coherence floor; both dials"
+  },
+  "eps1": {
+   "interval": [
+    0.0,
+    "level"
+   ],
+   "note": "P(1) after a reset of |1>; the level comes from the day's characterisation probes"
+  },
+  "eps0": {
+   "interval": [
+    0.0,
+    "level"
+   ],
+   "note": "P(1) after a reset of |0>; from its own probe when the list carries one, else stated no worse than eps1's level"
+  },
+  "r_x": {
+   "rule": "(r_x + r_y)^2 <= 4 eps1 (1 - eps0) and (r_x - r_y)^2 <= 4 eps0 (1 - eps1)",
+   "note": "transverse residual of the reset on X; bounded by complete positivity alone (review C64-1). The comparators read r_x only, which ranges over +-(sqrt(eps1 (1 - eps0)) + sqrt(eps0 (1 - eps1)))"
+  },
+  "r_y": {
+   "rule": "the same two conditions",
+   "note": "transverse residual of the reset on Y; r_y = r_x is the phase-covariant reset, which the range does not assume"
+  }
+ },
+ "kept_branch_cp_clip": true,
+ "coherence_floor_us": {
+  "value": 25.0,
+  "note": "kappa and gamma are inside the range only while T1 and T2 of every qubit of a comparator's light cone are at or above this value on the execution-time calibration E and on the bracket calibration B (Deviation 65) of every job that carries the sub-test's points; below it the sub-test is not evaluable (review C64-3). It is the placement rule's coherence floor, from which the gamma bound follows."
+ },
+ "levels": [
+  0.01,
+  0.02
+ ],
+ "levels_note": "pre-drawn values of eps_A; the largest is kill rule (a)'s bound. The draft's third level 5e-3 is not pre-drawn (decision 7).",
+ "level_rule": {
+  "z": 1.96,
+  "statistic": "u_q = max(eps_hat_q, 0) + z * s_q on every qubit of the n60 rung; eps_hat_q = (a - b) / (c - b), a, b, c the fractions of outcome 1 in reset_error_prep1, readout_ref_prep0 and readout_ref_prep1; s_q^2 = [a (1 - a) + (1 - eps_hat_q)^2 b (1 - b) + eps_hat_q^2 c (1 - c)] / [N (c - b)^2], N the shots of each probe (review C64-5). eps0 by the same formula with a from reset_error_prep0 when the list carries it",
+  "qubits": "every qubit of the n60 rung",
+  "choice": "the smallest level with u_q <= level on every qubit of the n60 rung (eps1, and eps0 when its probe is in the list)",
+  "above_largest_level": "not evaluable",
+  "no_level": "a characterisation probe missing for a qubit of the n60 rung, or its job not evaluable under Deviation 65: no level exists and the comparator sub-tests are not evaluable. The pairs' list carries no characterisation probes: it takes the level of the day-3 list when it is dispatched in the same cycle on the same UTC day, otherwise its comparator sub-tests are not evaluable (review C64-6)"
+ },
+ "band": {
+  "z": 1.96,
+  "members": "the designed channel and every vertex at the day's level",
+  "value": "the band is [c_min, c_max], the smallest and the largest value over the members, with sigma_min and sigma_max their engine errors. The registered test of Deviation 60 is unchanged (the linear combined interval for a value, the log-scale combined interval for a ratio); the sub-test is refuted only when the upper end of that combined interval, formed with sigma_min, lies below c_min, or its lower end, formed with sigma_max, lies above c_max (review C64-2). The channel term is a bound, not a variance, and is not added in quadrature",
+  "ratios": "a ratio, a factor or a margin of two comparators is formed vertex by vertex, both members at the same vertex, and its band taken in the same way",
+  "pair_b": "refuted only when the upper end of the registered 95 percent interval of RMS_dephase(2) - RMS_reset(2) lies below m_min - z * sigma_m, m_min the smallest margin over the members and sigma_m its engine error",
+  "dephase": "the dephasing dial takes the vertex's gamma and its kappa clipped to the dephasing dial's interval; eps1, eps0, r_x and r_y do not enter"
+ },
+ "floors": {
+  "sign_condition": "eps1 >= eps0, r_x >= 0 and r_y >= 0 (and the readout offsets non-negative, as under Deviation 60 part (7))",
+  "rule": "the realised form of the Deviation 33 floor is a bound where the sign condition holds; for the rest of the range it rests on the exact two-copy test (2x2 patch, L = 3 and 4, both dials, the designed channel and V1, V2, V6, V7, V9: every exact off-diagonal moment at or above the closed-form floor). Until the record of that test for this range says it passed, a floor miss is reported and is not read as R3 (review C64-7)",
+  "exact_test_vertices": [
+   "V1",
+   "V2",
+   "V6",
+   "V7",
+   "V9"
+  ],
+  "exact_test_record": "floors_exact_test.json"
+ },
+ "vertex_draw": {
+  "registered": "the values drawn on the execution-time calibration of the jobs that carry the comparator's points, by committed code, between the two retrieval phases of Deviation 65 (i), before any measured value of the list is retrieved; each vertex as one channel, none as a sum of one-parameter changes, with the Deviation 60 settings (review C64-8)",
+  "before_dispatch": "scripts/check_comparators.py requires the designed-channel comparators on the placement and a passed run of the vertex code's tests (vertex_tests_record)",
+  "dispatch_time_values": "vertex values drawn on the placement snapshot before dispatch are a dispatch-time record (file names *_dispatch_vertices_*); the analysis does not read them",
+  "vertex_tests_record": "vertex_tests_record.json"
+ },
+ "vertices": [
+  {
+   "id": "V1",
+   "kappa": "hi",
+   "gamma": "hi",
+   "eps1": 0.0,
+   "eps0": "level",
+   "r_x": 0.0,
+   "r_y": 0.0,
+   "extreme_of": ""
+  },
+  {
+   "id": "V2",
+   "kappa": "hi",
+   "gamma": "hi",
+   "eps1": 0.002,
+   "eps0": "level",
+   "r_x": "-bound",
+   "r_y": "=r_x",
+   "extreme_of": "lowest H7 and pair (a) comparator among the phase-covariant vertices"
+  },
+  {
+   "id": "V3",
+   "kappa": "lo",
+   "gamma": 0.0,
+   "eps1": "level",
+   "eps0": 0.0,
+   "r_x": "+bound",
+   "r_y": "=r_x",
+   "extreme_of": "highest H7 and pair (a) comparator among the phase-covariant vertices"
+  },
+  {
+   "id": "V4",
+   "kappa": "hi",
+   "gamma": "hi",
+   "eps1": "level",
+   "eps0": 0.0,
+   "r_x": "+bound",
+   "r_y": "=r_x",
+   "extreme_of": "smallest A3(b) margin"
+  },
+  {
+   "id": "V5",
+   "kappa": 0.0,
+   "gamma": "hi",
+   "eps1": 0.0,
+   "eps0": 0.0,
+   "r_x": 0.0,
+   "r_y": 0.0,
+   "extreme_of": "highest H5 / H6 rows; largest control factor"
+  },
+  {
+   "id": "V6",
+   "kappa": 0.0,
+   "gamma": 0.0,
+   "eps1": "level",
+   "eps0": "level",
+   "r_x": 0.0,
+   "r_y": 0.0,
+   "extreme_of": "lowest H5 / H6 rows; lowest floors"
+  },
+  {
+   "id": "V7",
+   "kappa": 0.0,
+   "gamma": 0.0,
+   "eps1": 0.0,
+   "eps0": "level",
+   "r_x": 0.0,
+   "r_y": 0.0,
+   "extreme_of": ""
+  },
+  {
+   "id": "V8",
+   "kappa": 0.0,
+   "gamma": 0.0,
+   "eps1": "level",
+   "eps0": 0.0,
+   "r_x": "-bound",
+   "r_y": "=r_x",
+   "extreme_of": ""
+  },
+  {
+   "id": "V9",
+   "kappa": "hi",
+   "gamma": "hi",
+   "eps1": 0.002,
+   "eps0": "level",
+   "r_x": "-full",
+   "r_y": "partner",
+   "extreme_of": "lowest H7 and pair (a) comparator (V1 with eps1 = 2e-3 and r_x at the full bound of complete positivity)"
+  },
+  {
+   "id": "V10",
+   "kappa": "lo",
+   "gamma": 0.0,
+   "eps1": "level",
+   "eps0": 0.002,
+   "r_x": "+full",
+   "r_y": "partner",
+   "extreme_of": "highest H7 and pair (a) comparator (r_x at the full bound of complete positivity)"
+  }
+ ],
+ "vertex_symbols": {
+  "lo / hi": "the interval's end for the dial (kappa, gamma)",
+  "level": "eps_A, the day's level",
+  "+bound / -bound": "r_x = +- sqrt(eps1 * (1 - eps0)), the largest phase-covariant residual (r_y '=r_x')",
+  "+full / -full": "r_x = +- (sqrt(eps1 * (1 - eps0)) + sqrt(eps0 * (1 - eps1))), the largest residual complete positivity allows",
+  "partner": "r_y = r_x -+ 2 sqrt(eps0 * (1 - eps1)) for r_x = +-full: both conditions of complete positivity at equality",
+  "=r_x": "r_y = r_x"
+ }
+}
