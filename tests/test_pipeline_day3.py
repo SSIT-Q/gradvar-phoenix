@@ -515,7 +515,8 @@ def test_prearm_check_passes_on_the_armed_10_nov_list_and_reads_the_package_time
     res = PC.check(PC.Tree(t), ["replication_01_16384"])
     ck, x = _checks(res)
     assert res["ok"] and x["armed"] and all(ck.values()) and set(ck) == {"sha256", "pinned", "layout_check", "approved_overrides", "dry_run", "preflight_review",
-                                                                           "not dispatched", "pre-arming snapshot", "IBM properties time", "pre-check on the newest snapshot"}
+                                                                           "not dispatched", "pre-arming snapshot", "IBM properties time", "pre-check on the newest snapshot",
+                                                                           "package status", "not held", "not an exercise"}
     S = json.loads((t / "docs/repack/2026-11-10_summary.json").read_text())
     assert x["package"]["ibm_properties"] == S["run"]["ibm_properties"] == x["live_snapshot"]["ibm_properties"]       # from the summary and the snapshot, no constant
     assert x["sha256_unarmed"] == S["lists"]["replication_01_16384"]["sha256"] != x["sha256"]                          # armed: only the two arming fields differ
@@ -704,3 +705,120 @@ def test_the_flag_of_unexpected_test_failures_says_when_names_are_left_out(tmp_p
     assert len(fl) == 1 and fl[0].startswith("7 test failure(s)") and names[5] in fl[0] and names[6] not in fl[0] and "and 1 more" in fl[0]
     fl = [f for f in SR.review_flags(dict(tests=dict(unexpected=names[:6])), tmp_path) if "not in the known list" in f]
     assert names[5] in fl[0] and "more" not in fl[0]
+
+
+# ================================================================================================ review corrections CP-1 to CP-9
+# Independent code review of 11 Nov 2026 (review_day3_code_2026-11-11.md, Section A.7): what happens after a stop, and what counts as a
+# dispatch package.
+
+def _edit_summary(t, name="2026-11-10", **changes):
+    """Change fields of the package's summary in a pre-arming tree; a key ``run`` updates the run block."""
+    sp = t / f"docs/repack/{name}_summary.json"
+    S = json.loads(sp.read_text())
+    S["run"].update(changes.pop("run", {}))
+    S.update(changes)
+    sp.write_text(json.dumps(S))
+    return S
+
+
+TEST_STOP = [dict(kind="tests", text="the test suite fails outside the known list: tests/test_x.py::test_y")]
+LIST = "replication_01_16384"
+
+
+def test_cp1_the_prearm_check_fails_on_a_stopped_package(tmp_path, capsys):
+    """CP-1: a stopped cycle dispatches nothing (Deviation 62 (iv)). A package stopped by the test suite alone passes only with
+    ``--stop-lifted``, whose text is printed and recorded; a stop of any other kind fails always."""
+    t = _prearm_tree(tmp_path / "tests")
+    _edit_summary(t, status="stopped", stops=TEST_STOP)
+    res = PC.check(PC.Tree(t), [LIST])
+    ck, x = _checks(res)
+    assert not res["ok"] and ck["package status"] is False and [k for k, v in ck.items() if not v] == ["package status"] and "stop_lifted" not in x
+    detail = next(c["detail"] for c in x["checks"] if c["check"] == "package status")
+    assert "nothing is dispatched from it (Deviation 62 (iv))" in detail and "--stop-lifted" in detail
+    assert PC.main(["--tree", str(t), "--lists", LIST]) == 1 and "FAIL package status" in capsys.readouterr().out
+    record = "pre-flight 08 Section 8: correction 1a2b3c4 (tests only), clean re-run 5d6e7f8, accepted by the operator 12 Nov 05:10 UTC"
+    res = PC.check(PC.Tree(t), [LIST], stop_lifted=record)
+    ck, x = _checks(res)
+    assert res["ok"] and ck["package status"] is True and x["stop_lifted"] == record
+    assert PC.check(PC.Tree(t), [LIST], stop_lifted="   ")["ok"] is False                        # a blank text is no record
+    assert PC.main(["--tree", str(t), "--lists", LIST, "--stop-lifted", record]) == 0
+    out = capsys.readouterr().out
+    assert "RESULT: PASS" in out and record in out
+    assert PC.main(["--tree", str(t), "--lists", LIST, "--stop-lifted", record, "--json"]) == 0
+    assert json.loads(capsys.readouterr().out)["lists"][0]["stop_lifted"] == record
+    # any other stop, alone or beside the tests, is never accepted; nor is a test stop of an exercise, a survey or an unfinished run
+    for n, changes in enumerate((dict(status="stopped", stops=[dict(kind="gate1b", text="Gate 1b FAIL")]),
+                                 dict(status="stopped", stops=TEST_STOP + [dict(kind="precheck", text="p")]),
+                                 dict(status="stopped", stops=TEST_STOP, exercise_stops=["Gate 1b FAIL"]),
+                                 dict(status="survey", stops=[]), dict(status="running", stops=[]), dict(status="error", stops=[]),
+                                 dict(status="ok", stops=TEST_STOP))):
+        t = _prearm_tree(tmp_path / f"other{n}")
+        _edit_summary(t, **changes)
+        for lifted in (None, record):
+            ck, x = _checks(PC.check(PC.Tree(t), [LIST], stop_lifted=lifted))
+            assert ck["package status"] is False and "stop_lifted" not in x, (changes, lifted)
+
+
+def test_cp1_the_prearm_check_fails_on_a_held_list_and_on_an_exercise(tmp_path, capsys):
+    """CP-1: a list the package holds for a later cycle, and the package of an ``--exercise`` run, are not for dispatch."""
+    t = _prearm_tree(tmp_path / "held")
+    _edit_summary(t, holds={LIST: "Deviation 60 part (7) pending"})
+    ck, x = _checks(PC.check(PC.Tree(t), [LIST]))
+    assert ck["not held"] is False and [k for k, v in ck.items() if not v] == ["not held"]
+    assert "Deviation 60 part (7) pending" in next(c["detail"] for c in x["checks"] if c["check"] == "not held")
+    t = _prearm_tree(tmp_path / "held_other")                                                    # another list held: this one is not
+    _edit_summary(t, holds={"day3_dial_refs": "x"})
+    assert PC.check(PC.Tree(t), [LIST])["ok"]
+    for n, changes in enumerate((dict(run=dict(exercise=True)), dict(exercise=True))):
+        t = _prearm_tree(tmp_path / f"exercise{n}")
+        _edit_summary(t, **changes)
+        ck, _ = _checks(PC.check(PC.Tree(t), [LIST], stop_lifted="x"))
+        assert ck["not an exercise"] is False and [k for k, v in ck.items() if not v] == ["not an exercise"]
+    assert PC.main(["--tree", str(t), "--lists", LIST]) == 1 and "FAIL not an exercise" in capsys.readouterr().out
+    t = _prearm_tree(tmp_path / "exercise_false")                                                # a summary that says exercise: false is a dispatch package
+    _edit_summary(t, run=dict(exercise=False))
+    assert PC.check(PC.Tree(t), [LIST])["ok"]
+
+
+def test_cp2_the_package_is_found_among_several_summaries_of_one_snapshot(tmp_path, capsys):
+    """CP-2: a stopped run and a later run on one snapshot each leave a summary. The package of a list is the summary that records
+    the list's sha256 (un-armed), and among several such the only one with status ok; the others are reported."""
+    base = _prearm_tree(tmp_path / "base")
+    S = json.loads((base / "docs/repack/2026-11-10_summary.json").read_text())
+
+    def tree(name, **second):
+        t = _prearm_tree(tmp_path / name)
+        other = json.loads(json.dumps(S))
+        lists = second.pop("lists", None)
+        other.update(second)
+        if lists:
+            other["lists"][LIST]["sha256"] = lists
+        (t / "docs/repack/2026-11-10T1016-r2_summary.json").write_text(json.dumps(other))
+        return t
+    # the first run stopped, the second ok, both record the list: the ok one is the package (here: the committed, date-named one)
+    t = tree("stopped_then_ok", status="stopped", stops=TEST_STOP)
+    res = PC.check(PC.Tree(t), [LIST])
+    ck, x = _checks(res)
+    assert res["ok"] and x["package"]["label"] == "2026-11-10" and x["package"]["other_summaries_on_this_snapshot"] == ["2026-11-10T1016-r2"]
+    assert PC.main(["--tree", str(t), "--lists", LIST]) == 0 and "other run summaries on this snapshot" in capsys.readouterr().out
+    # both ok, only one records this list's sha256: that one, whatever its label
+    t = tree("other_sha", lists="0" * 64)
+    ck, x = _checks(PC.check(PC.Tree(t), [LIST]))
+    assert all(ck.values()) and x["package"]["label"] == "2026-11-10"
+    t = tree("other_sha_first")
+    _edit_summary(t, lists=dict(S["lists"], **{LIST: dict(S["lists"][LIST], sha256="0" * 64)}))
+    ck, x = _checks(PC.check(PC.Tree(t), [LIST]))
+    assert all(ck.values()) and x["package"]["label"] == "2026-11-10T1016-r2" and x["package"]["other_summaries_on_this_snapshot"] == ["2026-11-10"]
+    # the summary that records the list is the stopped one, the ok one is of another list state: the list's package is stopped
+    t = tree("list_in_stopped", lists="0" * 64)
+    _edit_summary(t, status="stopped", stops=TEST_STOP)
+    ck, x = _checks(PC.check(PC.Tree(t), [LIST]))
+    assert x["package"]["label"] == "2026-11-10" and ck["package status"] is False and ck["sha256"] is True
+    # two ok summaries that both record the list: not decidable
+    t = tree("both_ok")
+    assert PC.main(["--tree", str(t), "--lists", LIST]) == 2
+    res = PC.check(PC.Tree(t), [LIST])
+    assert "not decidable" in res["lists"][0]["unreadable"] and "2026-11-10T1016-r2" in res["lists"][0]["unreadable"]
+    # one summary: as before, nothing else reported
+    assert _checks(PC.check(PC.Tree(base), [LIST]))[1]["package"]["other_summaries_on_this_snapshot"] == []
+    assert PC.find_package(PC.Tree(base), "2026-11-10T101610Z")[0] == "2026-11-10"               # the name is optional

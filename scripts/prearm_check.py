@@ -28,7 +28,11 @@ docs/repack/REVIEW_CHECKLIST.md and the Section 8 arming conditions of the pre-f
 Exit 0 when every check passes for every list, 1 when any fails, 2 when a file cannot be read. ``--json`` prints the record
 (what was read, from where, each check). Nothing is written, armed or dispatched, and IBM is not contacted. A commit is read
 through the local git repository when it has the commit, else through the GitHub API (``GITHUB_TOKEN`` is used when set; the
-repository is public). The summary's status and flags are reported, not judged: the review decides them.
+repository is public). The summary's flags are reported, not judged: the review decides them. Its status is judged: a package whose
+cycle is stopped (Deviation 62 (iv): nothing is dispatched from a stopped cycle), a list the package holds for a later cycle and an
+``--exercise`` package fail the check. ``--stop-lifted "<where the lift is recorded>"`` accepts a package stopped by the test suite alone
+(the reading recorded on 10 Nov 2026 in the pre-registration's status line); the text is printed and written into the JSON record. A
+stop of any other kind is never accepted.
 """
 from __future__ import annotations
 
@@ -214,23 +218,34 @@ def unarmed_bytes(raw: bytes) -> bytes:
     return (json.dumps(jl, indent=1) + "\n").encode("utf-8")
 
 
-def find_package(src, stamp: str) -> tuple:
-    """(label, summary dict) of the package built on the snapshot ``stamp``: the ``docs/repack/*_summary.json`` whose ``run.stamp`` is it."""
+def find_package(src, stamp: str, name: str | None = None, list_sha: str | None = None) -> tuple:
+    """(label, summary dict, labels of the other summaries on that snapshot) of the package built on the snapshot ``stamp``: the
+    ``docs/repack/*_summary.json`` whose ``run.stamp`` is it. Several runs of one snapshot can each leave a summary (a stopped run
+    and a later one, labelled ``<date>T<HHMM>-r2``): the package of the list ``name`` is then the one that records ``list_sha``
+    (the list's sha256, un-armed) for it, and if that still leaves several, the only one among them with status ``ok``. When that
+    does not single one out, the package is not decidable and the check cannot run."""
     hits = []
-    for name in src.ls("docs/repack"):
-        if not name.endswith("_summary.json"):
+    for fname in src.ls("docs/repack"):
+        if not fname.endswith("_summary.json"):
             continue
         try:
-            S = json.loads(src.read(f"docs/repack/{name}"))
+            S = json.loads(src.read(f"docs/repack/{fname}"))
         except (Unreadable, ValueError):
             continue
         if (S.get("run") or {}).get("stamp") == stamp:
-            hits.append((name[:-len("_summary.json")], S))
+            hits.append((fname[:-len("_summary.json")], S))
     if not hits:
         raise Unreadable(f"no docs/repack/*_summary.json for the snapshot {stamp}: the list is not from a package at this commit")
+    every = [h[0] for h in hits]
+    if len(hits) > 1 and name:
+        same = [h for h in hits if ((h[1].get("lists") or {}).get(name) or {}).get("sha256") == list_sha]
+        hits = same or hits
+    if len(hits) > 1:
+        ok = [h for h in hits if h[1].get("status") == "ok"]
+        hits = ok if len(ok) == 1 else hits
     if len(hits) > 1:
         raise Unreadable(f"{len(hits)} run summaries for the snapshot {stamp} ({', '.join(h[0] for h in hits)}): which package the list belongs to is not decidable")
-    return hits[0]
+    return hits[0][0], hits[0][1], [x for x in every if x != hits[0][0]]
 
 
 def newest_snapshot(src) -> dict:
@@ -281,7 +296,7 @@ def no_go_for(record: str, name: str) -> bool:
 
 # --------------------------------------------------------------------------- the check
 
-def check_list(src, name: str, allow_package_snapshot: bool = False) -> dict:
+def check_list(src, name: str, allow_package_snapshot: bool = False, stop_lifted: str | None = None) -> dict:
     out = dict(list=name, checks=[])
 
     def add(check, ok, detail):
@@ -292,10 +307,29 @@ def check_list(src, name: str, allow_package_snapshot: bool = False) -> dict:
     stamp = pl.get("stamp") or stamp_of(pl.get("snapshot"))
     armed = jl.get("dry_run") is False
     out.update(armed=armed, placement_stamp=stamp, sha256=sha256(raw))
-    label, S = find_package(src, stamp)
+    label, S, others = find_package(src, stamp, name, sha256(unarmed_bytes(raw)) if armed else sha256(raw))
     run = S.get("run") or {}
     out.update(package=dict(label=label, summary=f"docs/repack/{label}_summary.json", snapshot=run.get("snapshot"), ibm_properties=run.get("ibm_properties"),
-                            run_sha=run.get("run_sha"), status=S.get("status"), flags=len(S.get("flags") or []), stops=S.get("stops") or []))
+                            run_sha=run.get("run_sha"), status=S.get("status"), flags=len(S.get("flags") or []), stops=S.get("stops") or [],
+                            other_summaries_on_this_snapshot=others))
+    # 1b. the package itself: a stopped cycle dispatches nothing (Deviation 62 (iv)); a held list and an exercise are not for dispatch
+    stops = S.get("stops") or []
+    kinds = sorted({str(x.get("kind")) for x in stops})
+    clean = S.get("status") == "ok" and not stops
+    lifted = bool(not clean and str(stop_lifted or "").strip() and S.get("status") == "stopped" and kinds == ["tests"] and not S.get("exercise_stops"))
+    if lifted:
+        out["stop_lifted"] = str(stop_lifted).strip()
+    add("package status", clean or lifted,
+        f"summary status {S.get('status')!r}" + (f", stops: {', '.join(kinds)}" if stops else "")
+        + ("" if clean else f"; accepted as lifted on the record (--stop-lifted): {out['stop_lifted']}" if lifted else
+           ": the cycle of this package is stopped and nothing is dispatched from it (Deviation 62 (iv))" if S.get("status") == "stopped" else
+           ": not the package of a completed cycle; nothing is dispatched from it")
+        + ("; a stop of the test suite alone that was lifted on the record is given with --stop-lifted"
+           if not clean and not lifted and S.get("status") == "stopped" and kinds == ["tests"] and not S.get("exercise_stops") else ""))
+    held = (S.get("holds") or {}).get(name)
+    add("not held", not held, "the package does not hold this list" if not held else f"the package holds this list for a later cycle ({held}): it is not dispatched from this package")
+    exercise = bool(run.get("exercise") or S.get("exercise") or S.get("exercise_stops"))
+    add("not an exercise", not exercise, "a dispatch package" if not exercise else "the package is an --exercise run (a pipeline test): never dispatched")
     # 2. sha256 against the reviewed package
     want = ((S.get("lists") or {}).get(name) or {}).get("sha256")
     if not want:
@@ -389,11 +423,11 @@ def check_list(src, name: str, allow_package_snapshot: bool = False) -> dict:
     return out
 
 
-def check(src, names, allow_package_snapshot: bool = False) -> dict:
+def check(src, names, allow_package_snapshot: bool = False, stop_lifted: str | None = None) -> dict:
     res = dict(source=src.name, commit=src.commit, on_main=src.on_main(), checked_utc=_dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), lists=[])
     for n in names:
         try:
-            res["lists"].append(check_list(src, n, allow_package_snapshot))
+            res["lists"].append(check_list(src, n, allow_package_snapshot, stop_lifted))
         except Unreadable as e:
             res["lists"].append(dict(list=n, ok=False, unreadable=str(e), checks=[]))
     res["ok"] = all(x["ok"] for x in res["lists"]) and res["on_main"] is not False
@@ -411,6 +445,8 @@ def render(res: dict) -> str:
         p = x["package"]
         L.append(f"  package {p['label']} ({p['summary']}): snapshot {p['snapshot']}, IBM properties {p['ibm_properties']}, status {p['status']}, "
                  f"{p['flags']} flag(s)" + (f", stops: {'; '.join(s.get('kind', '?') for s in p['stops'])}" if p["stops"] else ""))
+        if p.get("other_summaries_on_this_snapshot"):
+            L.append(f"  other run summaries on this snapshot (not the package of this list): {', '.join(p['other_summaries_on_this_snapshot'])}")
         for c in x["checks"]:
             L.append(f"  {'ok  ' if c['ok'] else 'FAIL'} {c['check']}: {c['detail']}")
     L.append("RESULT: " + ("PASS: every check passes for every list" if res["ok"] else "FAIL: do not arm or dispatch"))
@@ -425,10 +461,13 @@ def main(argv=None) -> int:
     ap.add_argument("--lists", nargs="+", required=True, metavar="NAME", help="list names under data/joblists/paper1 (without .json)")
     ap.add_argument("--allow-package-snapshot", action="store_true",
                     help="accept the package's own snapshot as the newest one (reported as not being a pre-arming snapshot)")
+    ap.add_argument("--stop-lifted", default=None, metavar="RECORD",
+                    help="accept a package stopped by the test suite alone: RECORD says where the lift is recorded (the correction commit, the clean "
+                         "full-suite re-run, the reviewer's confirmation and the operator's acceptance); printed and written into the JSON record")
     ap.add_argument("--json", action="store_true", help="print the record as JSON")
     a = ap.parse_args(argv)
     try:
-        res = check(source_for(a.commit, a.tree), [Path(n).stem for n in a.lists], a.allow_package_snapshot)
+        res = check(source_for(a.commit, a.tree), [Path(n).stem for n in a.lists], a.allow_package_snapshot, a.stop_lifted)
     except (Unreadable, OSError, ValueError, KeyError) as e:
         print(f"cannot run the pre-arming check: {type(e).__name__}: {e}", file=sys.stderr)
         return 2
