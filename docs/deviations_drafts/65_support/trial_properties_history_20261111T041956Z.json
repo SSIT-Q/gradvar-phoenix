@@ -1,0 +1,2289 @@
+{
+ "schema": "gradvar trial properties history v1",
+ "generated_utc": "2026-11-11T04:20:18.541608Z",
+ "stamp": "20261111T041956Z",
+ "backend": "ibm_phoenix",
+ "git_commit": "a0053ae9d28653586e5e77b9aa6e475da06c4fa9",
+ "github_run_id": "42958459321",
+ "qiskit_ibm_runtime_version": "0.49.0",
+ "inputs": {
+  "ids_files": [
+   "data/runs/2026-11-10/paper1_replication_01_16384_job_ids.json",
+   "data/runs/2026-11-10/paper1_section3c_blockC_job_ids.json"
+  ],
+  "margin_hours": 6.0,
+  "max_walk": 40,
+  "asked_no_later_than": "2026-11-11T04:19:56.328837Z"
+ },
+ "statement": {
+  "result_called": false,
+  "jobs_submitted": 0,
+  "qpu_time": "none: only job metadata and backend properties were read",
+  "measured_values_written": false,
+  "execution_spans": "job metadata only; whether an EstimatorV2 result carries execution spans can be known only from the result object, which is not fetched"
+ },
+ "completed": true,
+ "refusal": null,
+ "verdict_counts": {
+  "AGREE": 27,
+  "DISAGREE": 0,
+  "INFO": 19,
+  "NOT CHECKED": 3,
+  "REFUSED": 0
+ },
+ "checks": [
+  {
+   "job_id": "dbpfnr0qtr0c738ebeng",
+   "check": "job.properties() equals backend.properties(datetime=running)",
+   "verdict": "AGREE",
+   "detail": "both: IBM update 2026-11-10T09:07:11Z, sha256 d43975dc9169"
+  },
+  {
+   "job_id": "dbpfnr0qtr0c738ebeng",
+   "check": "set at running against the committed record",
+   "verdict": "AGREE",
+   "detail": "IBM update 2026-11-10T09:07:11Z, the latest committed update at or before running"
+  },
+  {
+   "job_id": "dbpfnr0qtr0c738ebeng",
+   "check": "walk-back returns every intermediate set",
+   "verdict": "AGREE",
+   "detail": "6 sets from 2026-11-10T09:07:11Z to 2026-11-10T16:34:05Z: 2026-11-10T09:07:11Z, 2026-11-10T11:20:04Z, 2026-11-10T11:35:39Z, 2026-11-10T13:14:38Z, 2026-11-10T13:37:31Z, 2026-11-10T16:34:05Z; every committed update in that span was returned (3)"
+  },
+  {
+   "job_id": "dbpfnr0qtr0c738ebeng",
+   "check": "updates the repository never committed",
+   "verdict": "INFO",
+   "detail": "returned by the walk-back and absent from data/calibrations: 2026-11-10T11:20:04Z, 2026-11-10T13:14:38Z, 2026-11-10T16:34:05Z"
+  },
+  {
+   "job_id": "dbpfnr0qtr0c738ebeng",
+   "check": "first set after finished",
+   "verdict": "INFO",
+   "detail": "IBM update 2026-11-10T13:14:38Z; the repository holds no update between finished and it"
+  },
+  {
+   "job_id": "dbpfnr0qtr0c738ebeng",
+   "check": "updates published between running and finished",
+   "verdict": "INFO",
+   "detail": "2026-11-10T11:20:04Z, 2026-11-10T11:35:39Z"
+  },
+  {
+   "job_id": "dbpfnr0qtr0c738ebeng",
+   "check": "backend.properties(datetime=created) equals the bundle's properties.json",
+   "verdict": "AGREE",
+   "detail": "IBM update 2026-11-10T09:07:11Z, sha256 d43975dc9169"
+  },
+  {
+   "job_id": "dbpfnr0qtr0c738ebeng",
+   "check": "job metadata carries execution spans",
+   "verdict": "INFO",
+   "detail": "no field of job.metrics() names a span (fields: caller, circuits_execution_time_ns, qiskit_version, timestamps, usage). Spans inside the result object were not looked for: job.result() is never called."
+  },
+  {
+   "job_id": "dbpfnrgqtr0c738ebeog",
+   "check": "job.properties() equals backend.properties(datetime=running)",
+   "verdict": "AGREE",
+   "detail": "both: IBM update 2026-11-10T09:07:11Z, sha256 d43975dc9169"
+  },
+  {
+   "job_id": "dbpfnrgqtr0c738ebeog",
+   "check": "set at running against the committed record",
+   "verdict": "AGREE",
+   "detail": "IBM update 2026-11-10T09:07:11Z, the latest committed update at or before running"
+  },
+  {
+   "job_id": "dbpfnrgqtr0c738ebeog",
+   "check": "walk-back returns every intermediate set",
+   "verdict": "AGREE",
+   "detail": "6 sets from 2026-11-10T09:07:11Z to 2026-11-10T16:34:05Z: 2026-11-10T09:07:11Z, 2026-11-10T11:20:04Z, 2026-11-10T11:35:39Z, 2026-11-10T13:14:38Z, 2026-11-10T13:37:31Z, 2026-11-10T16:34:05Z; every committed update in that span was returned (3)"
+  },
+  {
+   "job_id": "dbpfnrgqtr0c738ebeog",
+   "check": "updates the repository never committed",
+   "verdict": "INFO",
+   "detail": "returned by the walk-back and absent from data/calibrations: 2026-11-10T11:20:04Z, 2026-11-10T13:14:38Z, 2026-11-10T16:34:05Z"
+  },
+  {
+   "job_id": "dbpfnrgqtr0c738ebeog",
+   "check": "first set after finished",
+   "verdict": "AGREE",
+   "detail": "IBM update 2026-11-10T11:35:39Z, the first committed update after finished (2026-11-10T11:21:02.733793Z)"
+  },
+  {
+   "job_id": "dbpfnrgqtr0c738ebeog",
+   "check": "updates published between running and finished",
+   "verdict": "INFO",
+   "detail": "2026-11-10T11:20:04Z"
+  },
+  {
+   "job_id": "dbpfnrgqtr0c738ebeog",
+   "check": "backend.properties(datetime=created) equals the bundle's properties.json",
+   "verdict": "AGREE",
+   "detail": "IBM update 2026-11-10T09:07:11Z, sha256 d43975dc9169"
+  },
+  {
+   "job_id": "dbpfnrgqtr0c738ebeog",
+   "check": "job metadata carries execution spans",
+   "verdict": "INFO",
+   "detail": "no field of job.metrics() names a span (fields: caller, circuits_execution_time_ns, qiskit_version, timestamps, usage). Spans inside the result object were not looked for: job.result() is never called."
+  },
+  {
+   "job_id": "dbpfom8ou4as73ctjes0",
+   "check": "job.properties() equals backend.properties(datetime=running)",
+   "verdict": "AGREE",
+   "detail": "both: IBM update 2026-11-10T11:35:39Z, sha256 b944518f6451"
+  },
+  {
+   "job_id": "dbpfom8ou4as73ctjes0",
+   "check": "set at running against the committed record",
+   "verdict": "AGREE",
+   "detail": "IBM update 2026-11-10T11:35:39Z, the latest committed update at or before running"
+  },
+  {
+   "job_id": "dbpfom8ou4as73ctjes0",
+   "check": "walk-back returns every intermediate set",
+   "verdict": "AGREE",
+   "detail": "6 sets from 2026-11-10T09:07:11Z to 2026-11-10T16:34:05Z: 2026-11-10T09:07:11Z, 2026-11-10T11:20:04Z, 2026-11-10T11:35:39Z, 2026-11-10T13:14:38Z, 2026-11-10T13:37:31Z, 2026-11-10T16:34:05Z; every committed update in that span was returned (3)"
+  },
+  {
+   "job_id": "dbpfom8ou4as73ctjes0",
+   "check": "updates the repository never committed",
+   "verdict": "INFO",
+   "detail": "returned by the walk-back and absent from data/calibrations: 2026-11-10T11:20:04Z, 2026-11-10T13:14:38Z, 2026-11-10T16:34:05Z"
+  },
+  {
+   "job_id": "dbpfom8ou4as73ctjes0",
+   "check": "first set after finished",
+   "verdict": "AGREE",
+   "detail": "IBM update 2026-11-10T13:37:31Z, the first committed update after finished (2026-11-10T13:31:41.789031Z)"
+  },
+  {
+   "job_id": "dbpfom8ou4as73ctjes0",
+   "check": "updates published between running and finished",
+   "verdict": "INFO",
+   "detail": "2026-11-10T13:14:38Z"
+  },
+  {
+   "job_id": "dbpfom8ou4as73ctjes0",
+   "check": "backend.properties(datetime=created) equals the bundle's properties.json",
+   "verdict": "AGREE",
+   "detail": "IBM update 2026-11-10T09:07:11Z, sha256 d43975dc9169"
+  },
+  {
+   "job_id": "dbpfom8ou4as73ctjes0",
+   "check": "job metadata carries execution spans",
+   "verdict": "INFO",
+   "detail": "no field of job.metrics() names a span (fields: caller, circuits_execution_time_ns, qiskit_version, timestamps, usage). Spans inside the result object were not looked for: job.result() is never called."
+  },
+  {
+   "job_id": "dbpfon8qtr0c738ebgj0",
+   "check": "job.properties() equals backend.properties(datetime=running)",
+   "verdict": "AGREE",
+   "detail": "both: IBM update 2026-11-10T11:35:39Z, sha256 b944518f6451"
+  },
+  {
+   "job_id": "dbpfon8qtr0c738ebgj0",
+   "check": "set at running against the committed record",
+   "verdict": "AGREE",
+   "detail": "IBM update 2026-11-10T11:35:39Z, the latest committed update at or before running"
+  },
+  {
+   "job_id": "dbpfon8qtr0c738ebgj0",
+   "check": "walk-back returns every intermediate set",
+   "verdict": "AGREE",
+   "detail": "6 sets from 2026-11-10T09:07:11Z to 2026-11-10T16:34:05Z: 2026-11-10T09:07:11Z, 2026-11-10T11:20:04Z, 2026-11-10T11:35:39Z, 2026-11-10T13:14:38Z, 2026-11-10T13:37:31Z, 2026-11-10T16:34:05Z; every committed update in that span was returned (3)"
+  },
+  {
+   "job_id": "dbpfon8qtr0c738ebgj0",
+   "check": "updates the repository never committed",
+   "verdict": "INFO",
+   "detail": "returned by the walk-back and absent from data/calibrations: 2026-11-10T11:20:04Z, 2026-11-10T13:14:38Z, 2026-11-10T16:34:05Z"
+  },
+  {
+   "job_id": "dbpfon8qtr0c738ebgj0",
+   "check": "first set after finished",
+   "verdict": "INFO",
+   "detail": "IBM update 2026-11-10T13:14:38Z; the repository holds no update between finished and it"
+  },
+  {
+   "job_id": "dbpfon8qtr0c738ebgj0",
+   "check": "updates published between running and finished",
+   "verdict": "INFO",
+   "detail": "none"
+  },
+  {
+   "job_id": "dbpfon8qtr0c738ebgj0",
+   "check": "backend.properties(datetime=created) equals the bundle's properties.json",
+   "verdict": "AGREE",
+   "detail": "IBM update 2026-11-10T09:07:11Z, sha256 d43975dc9169"
+  },
+  {
+   "job_id": "dbpfon8qtr0c738ebgj0",
+   "check": "job metadata carries execution spans",
+   "verdict": "INFO",
+   "detail": "no field of job.metrics() names a span (fields: caller, circuits_execution_time_ns, qiskit_version, timestamps, usage). Spans inside the result object were not looked for: job.result() is never called."
+  },
+  {
+   "job_id": "dbpfontt7fqc7389bsu0",
+   "check": "job.properties() equals backend.properties(datetime=running)",
+   "verdict": "AGREE",
+   "detail": "both: IBM update 2026-11-10T11:35:39Z, sha256 b944518f6451"
+  },
+  {
+   "job_id": "dbpfontt7fqc7389bsu0",
+   "check": "set at running against the committed record",
+   "verdict": "AGREE",
+   "detail": "IBM update 2026-11-10T11:35:39Z, the latest committed update at or before running"
+  },
+  {
+   "job_id": "dbpfontt7fqc7389bsu0",
+   "check": "walk-back returns every intermediate set",
+   "verdict": "AGREE",
+   "detail": "6 sets from 2026-11-10T09:07:11Z to 2026-11-10T16:34:05Z: 2026-11-10T09:07:11Z, 2026-11-10T11:20:04Z, 2026-11-10T11:35:39Z, 2026-11-10T13:14:38Z, 2026-11-10T13:37:31Z, 2026-11-10T16:34:05Z; every committed update in that span was returned (3)"
+  },
+  {
+   "job_id": "dbpfontt7fqc7389bsu0",
+   "check": "updates the repository never committed",
+   "verdict": "INFO",
+   "detail": "returned by the walk-back and absent from data/calibrations: 2026-11-10T11:20:04Z, 2026-11-10T13:14:38Z, 2026-11-10T16:34:05Z"
+  },
+  {
+   "job_id": "dbpfontt7fqc7389bsu0",
+   "check": "first set after finished",
+   "verdict": "INFO",
+   "detail": "IBM update 2026-11-10T13:14:38Z; the repository holds no update between finished and it"
+  },
+  {
+   "job_id": "dbpfontt7fqc7389bsu0",
+   "check": "updates published between running and finished",
+   "verdict": "INFO",
+   "detail": "none"
+  },
+  {
+   "job_id": "dbpfontt7fqc7389bsu0",
+   "check": "backend.properties(datetime=created) equals the bundle's properties.json",
+   "verdict": "AGREE",
+   "detail": "IBM update 2026-11-10T09:07:11Z, sha256 d43975dc9169"
+  },
+  {
+   "job_id": "dbpfontt7fqc7389bsu0",
+   "check": "job metadata carries execution spans",
+   "verdict": "INFO",
+   "detail": "no field of job.metrics() names a span (fields: caller, circuits_execution_time_ns, qiskit_version, timestamps, usage). Spans inside the result object were not looked for: job.result() is never called."
+  },
+  {
+   "job_id": null,
+   "check": "published set is immutable (2026-11-10T09:07:11Z)",
+   "verdict": "AGREE",
+   "detail": "sha256 d43975dc9169 equals 5 committed file(s): ibm_phoenix_properties_2026-11-10T111132Z.json, ibm_phoenix_properties_2026-11-10T111320Z.json, ibm_phoenix_properties_20261110T101610Z.json.gz"
+  },
+  {
+   "job_id": null,
+   "check": "published set is immutable (2026-11-10T11:20:04Z)",
+   "verdict": "NOT CHECKED",
+   "detail": "the repository holds no file of this IBM update"
+  },
+  {
+   "job_id": null,
+   "check": "published set is immutable (2026-11-10T11:35:39Z)",
+   "verdict": "AGREE",
+   "detail": "sha256 b944518f6451 equals 1 committed file(s): ibm_phoenix_properties_2026-11-10T124546Z.json"
+  },
+  {
+   "job_id": null,
+   "check": "published set is immutable (2026-11-10T13:14:38Z)",
+   "verdict": "NOT CHECKED",
+   "detail": "the repository holds no file of this IBM update"
+  },
+  {
+   "job_id": null,
+   "check": "published set is immutable (2026-11-10T13:37:31Z)",
+   "verdict": "AGREE",
+   "detail": "sha256 ff258e53639b equals 1 committed file(s): ibm_phoenix_properties_2026-11-10T135646Z.json"
+  },
+  {
+   "job_id": null,
+   "check": "published set is immutable (2026-11-10T16:34:05Z)",
+   "verdict": "NOT CHECKED",
+   "detail": "the repository holds no file of this IBM update"
+  },
+  {
+   "job_id": null,
+   "check": "one content per IBM update within this run",
+   "verdict": "AGREE",
+   "detail": "6 updates, each returned with one content by 26 calls"
+  },
+  {
+   "job_id": null,
+   "check": "backend.properties accepts datetime",
+   "verdict": "AGREE",
+   "detail": "21 calls answered; no NotImplementedError"
+  },
+  {
+   "job_id": null,
+   "check": "is datetime inclusive",
+   "verdict": "INFO",
+   "detail": "asked for exactly 2026-11-10T16:34:05Z: the service returned the set of 2026-11-10T13:37:31Z (exclusive: strictly older than the instant asked)"
+  }
+ ],
+ "jobs": [
+  {
+   "job_id": "dbpfnr0qtr0c738ebeng",
+   "tag": "L0",
+   "ids_file": "data/runs/2026-11-10/paper1_replication_01_16384_job_ids.json",
+   "status": "DONE",
+   "timestamps": {
+    "created": "2026-11-10T11:11:40.956832Z",
+    "running": "2026-11-10T11:12:05.243865Z",
+    "finished": "2026-11-10T12:35:07.784468Z"
+   },
+   "metrics_fields": [
+    "caller",
+    "circuits_execution_time_ns",
+    "qiskit_version",
+    "timestamps",
+    "timestamps.created",
+    "timestamps.finished",
+    "timestamps.running",
+    "usage",
+    "usage.details",
+    "usage.qpu_charge_time_seconds",
+    "usage.status",
+    "usage.unit",
+    "usage.value"
+   ],
+   "fields_naming_spans": [],
+   "primitive_id": "estimator",
+   "session_id": "22a57107-9370-425b-9fae-2f5ab13f94dc",
+   "job_properties": "d43975dc91698c38258a1f1535900eef97826ab31c106d9ccdb0eb03100092cc",
+   "at_running": "d43975dc91698c38258a1f1535900eef97826ab31c106d9ccdb0eb03100092cc",
+   "at_created": "d43975dc91698c38258a1f1535900eef97826ab31c106d9ccdb0eb03100092cc",
+   "probe_after_finished": {
+    "asked": "2026-11-10T18:35:07.784468Z",
+    "margin_hours": 6.0,
+    "capped_at_now": false
+   },
+   "walk": {
+    "asked_from": "2026-11-10T18:35:07.784468Z",
+    "floor": "2026-11-10T09:07:11Z",
+    "sets": [
+     "60a212c41b76cf495da0570c911c1a093cd2bbb9f0db66fc75d603da8be1e8b5",
+     "ff258e53639b62290fc8f8b5279fc7379abe5f8d7e1e8f234978470e407923c5",
+     "6331a7c9c5b67ebf2f6e72d51217ae129949132e2388534fe9250c9c040c352b",
+     "b944518f6451e1e2d359ae379ee63e90a0e92ea1b4dd938fdd7a5245dd4fcdc0",
+     "c80d21378e55e82df0fc84efb4a6fb8bcd3b823e8f14b998c85b94889aaed931",
+     "d43975dc91698c38258a1f1535900eef97826ab31c106d9ccdb0eb03100092cc"
+    ],
+    "complete": true,
+    "note": null
+   },
+   "first_after_finished": "6331a7c9c5b67ebf2f6e72d51217ae129949132e2388534fe9250c9c040c352b",
+   "inside_window": [
+    "b944518f6451e1e2d359ae379ee63e90a0e92ea1b4dd938fdd7a5245dd4fcdc0",
+    "c80d21378e55e82df0fc84efb4a6fb8bcd3b823e8f14b998c85b94889aaed931"
+   ]
+  },
+  {
+   "job_id": "dbpfnrgqtr0c738ebeog",
+   "tag": "L0-probes-s16384",
+   "ids_file": "data/runs/2026-11-10/paper1_replication_01_16384_job_ids.json",
+   "status": "DONE",
+   "timestamps": {
+    "created": "2026-11-10T11:11:42.219926Z",
+    "running": "2026-11-10T11:12:33.691043Z",
+    "finished": "2026-11-10T11:21:02.733793Z"
+   },
+   "metrics_fields": [
+    "caller",
+    "circuits_execution_time_ns",
+    "qiskit_version",
+    "timestamps",
+    "timestamps.created",
+    "timestamps.finished",
+    "timestamps.running",
+    "usage",
+    "usage.details",
+    "usage.qpu_charge_time_seconds",
+    "usage.status",
+    "usage.unit",
+    "usage.value"
+   ],
+   "fields_naming_spans": [],
+   "primitive_id": "estimator",
+   "session_id": "22a57107-9370-425b-9fae-2f5ab13f94dc",
+   "job_properties": "d43975dc91698c38258a1f1535900eef97826ab31c106d9ccdb0eb03100092cc",
+   "at_running": "d43975dc91698c38258a1f1535900eef97826ab31c106d9ccdb0eb03100092cc",
+   "at_created": "d43975dc91698c38258a1f1535900eef97826ab31c106d9ccdb0eb03100092cc",
+   "probe_after_finished": {
+    "asked": "2026-11-10T17:21:02.733793Z",
+    "margin_hours": 6.0,
+    "capped_at_now": false
+   },
+   "walk": {
+    "asked_from": "2026-11-10T17:21:02.733793Z",
+    "floor": "2026-11-10T09:07:11Z",
+    "sets": [
+     "60a212c41b76cf495da0570c911c1a093cd2bbb9f0db66fc75d603da8be1e8b5",
+     "ff258e53639b62290fc8f8b5279fc7379abe5f8d7e1e8f234978470e407923c5",
+     "6331a7c9c5b67ebf2f6e72d51217ae129949132e2388534fe9250c9c040c352b",
+     "b944518f6451e1e2d359ae379ee63e90a0e92ea1b4dd938fdd7a5245dd4fcdc0",
+     "c80d21378e55e82df0fc84efb4a6fb8bcd3b823e8f14b998c85b94889aaed931",
+     "d43975dc91698c38258a1f1535900eef97826ab31c106d9ccdb0eb03100092cc"
+    ],
+    "complete": true,
+    "note": null
+   },
+   "first_after_finished": "b944518f6451e1e2d359ae379ee63e90a0e92ea1b4dd938fdd7a5245dd4fcdc0",
+   "inside_window": [
+    "c80d21378e55e82df0fc84efb4a6fb8bcd3b823e8f14b998c85b94889aaed931"
+   ]
+  },
+  {
+   "job_id": "dbpfom8ou4as73ctjes0",
+   "tag": "L0",
+   "ids_file": "data/runs/2026-11-10/paper1_section3c_blockC_job_ids.json",
+   "status": "DONE",
+   "timestamps": {
+    "created": "2026-11-10T11:13:29.583977Z",
+    "running": "2026-11-10T12:54:18.417644Z",
+    "finished": "2026-11-10T13:31:41.789031Z"
+   },
+   "metrics_fields": [
+    "caller",
+    "circuits_execution_time_ns",
+    "qiskit_version",
+    "timestamps",
+    "timestamps.created",
+    "timestamps.finished",
+    "timestamps.running",
+    "usage",
+    "usage.details",
+    "usage.qpu_charge_time_seconds",
+    "usage.status",
+    "usage.unit",
+    "usage.value"
+   ],
+   "fields_naming_spans": [],
+   "primitive_id": "estimator",
+   "session_id": "89d24a5d-a2e0-44fa-a62a-ccc1f524ef45",
+   "job_properties": "b944518f6451e1e2d359ae379ee63e90a0e92ea1b4dd938fdd7a5245dd4fcdc0",
+   "at_running": "b944518f6451e1e2d359ae379ee63e90a0e92ea1b4dd938fdd7a5245dd4fcdc0",
+   "at_created": "d43975dc91698c38258a1f1535900eef97826ab31c106d9ccdb0eb03100092cc",
+   "probe_after_finished": {
+    "asked": "2026-11-10T19:31:41.789031Z",
+    "margin_hours": 6.0,
+    "capped_at_now": false
+   },
+   "walk": {
+    "asked_from": "2026-11-10T19:31:41.789031Z",
+    "floor": "2026-11-10T09:07:11Z",
+    "sets": [
+     "60a212c41b76cf495da0570c911c1a093cd2bbb9f0db66fc75d603da8be1e8b5",
+     "ff258e53639b62290fc8f8b5279fc7379abe5f8d7e1e8f234978470e407923c5",
+     "6331a7c9c5b67ebf2f6e72d51217ae129949132e2388534fe9250c9c040c352b",
+     "b944518f6451e1e2d359ae379ee63e90a0e92ea1b4dd938fdd7a5245dd4fcdc0",
+     "c80d21378e55e82df0fc84efb4a6fb8bcd3b823e8f14b998c85b94889aaed931",
+     "d43975dc91698c38258a1f1535900eef97826ab31c106d9ccdb0eb03100092cc"
+    ],
+    "complete": true,
+    "note": null
+   },
+   "first_after_finished": "ff258e53639b62290fc8f8b5279fc7379abe5f8d7e1e8f234978470e407923c5",
+   "inside_window": [
+    "6331a7c9c5b67ebf2f6e72d51217ae129949132e2388534fe9250c9c040c352b"
+   ]
+  },
+  {
+   "job_id": "dbpfon8qtr0c738ebgj0",
+   "tag": "L0-c2",
+   "ids_file": "data/runs/2026-11-10/paper1_section3c_blockC_job_ids.json",
+   "status": "DONE",
+   "timestamps": {
+    "created": "2026-11-10T11:13:34.870713Z",
+    "running": "2026-11-10T12:54:22.817673Z",
+    "finished": "2026-11-10T13:10:40.143310Z"
+   },
+   "metrics_fields": [
+    "caller",
+    "circuits_execution_time_ns",
+    "qiskit_version",
+    "timestamps",
+    "timestamps.created",
+    "timestamps.finished",
+    "timestamps.running",
+    "usage",
+    "usage.details",
+    "usage.qpu_charge_time_seconds",
+    "usage.status",
+    "usage.unit",
+    "usage.value"
+   ],
+   "fields_naming_spans": [],
+   "primitive_id": "estimator",
+   "session_id": "89d24a5d-a2e0-44fa-a62a-ccc1f524ef45",
+   "job_properties": "b944518f6451e1e2d359ae379ee63e90a0e92ea1b4dd938fdd7a5245dd4fcdc0",
+   "at_running": "b944518f6451e1e2d359ae379ee63e90a0e92ea1b4dd938fdd7a5245dd4fcdc0",
+   "at_created": "d43975dc91698c38258a1f1535900eef97826ab31c106d9ccdb0eb03100092cc",
+   "probe_after_finished": {
+    "asked": "2026-11-10T19:10:40.143310Z",
+    "margin_hours": 6.0,
+    "capped_at_now": false
+   },
+   "walk": {
+    "asked_from": "2026-11-10T19:10:40.143310Z",
+    "floor": "2026-11-10T09:07:11Z",
+    "sets": [
+     "60a212c41b76cf495da0570c911c1a093cd2bbb9f0db66fc75d603da8be1e8b5",
+     "ff258e53639b62290fc8f8b5279fc7379abe5f8d7e1e8f234978470e407923c5",
+     "6331a7c9c5b67ebf2f6e72d51217ae129949132e2388534fe9250c9c040c352b",
+     "b944518f6451e1e2d359ae379ee63e90a0e92ea1b4dd938fdd7a5245dd4fcdc0",
+     "c80d21378e55e82df0fc84efb4a6fb8bcd3b823e8f14b998c85b94889aaed931",
+     "d43975dc91698c38258a1f1535900eef97826ab31c106d9ccdb0eb03100092cc"
+    ],
+    "complete": true,
+    "note": null
+   },
+   "first_after_finished": "6331a7c9c5b67ebf2f6e72d51217ae129949132e2388534fe9250c9c040c352b",
+   "inside_window": []
+  },
+  {
+   "job_id": "dbpfontt7fqc7389bsu0",
+   "tag": "L0-probes-s65536",
+   "ids_file": "data/runs/2026-11-10/paper1_section3c_blockC_job_ids.json",
+   "status": "DONE",
+   "timestamps": {
+    "created": "2026-11-10T11:13:35.793803Z",
+    "running": "2026-11-10T12:54:47.256563Z",
+    "finished": "2026-11-10T13:08:16.181825Z"
+   },
+   "metrics_fields": [
+    "caller",
+    "circuits_execution_time_ns",
+    "qiskit_version",
+    "timestamps",
+    "timestamps.created",
+    "timestamps.finished",
+    "timestamps.running",
+    "usage",
+    "usage.details",
+    "usage.qpu_charge_time_seconds",
+    "usage.status",
+    "usage.unit",
+    "usage.value"
+   ],
+   "fields_naming_spans": [],
+   "primitive_id": "estimator",
+   "session_id": "89d24a5d-a2e0-44fa-a62a-ccc1f524ef45",
+   "job_properties": "b944518f6451e1e2d359ae379ee63e90a0e92ea1b4dd938fdd7a5245dd4fcdc0",
+   "at_running": "b944518f6451e1e2d359ae379ee63e90a0e92ea1b4dd938fdd7a5245dd4fcdc0",
+   "at_created": "d43975dc91698c38258a1f1535900eef97826ab31c106d9ccdb0eb03100092cc",
+   "probe_after_finished": {
+    "asked": "2026-11-10T19:08:16.181825Z",
+    "margin_hours": 6.0,
+    "capped_at_now": false
+   },
+   "walk": {
+    "asked_from": "2026-11-10T19:08:16.181825Z",
+    "floor": "2026-11-10T09:07:11Z",
+    "sets": [
+     "60a212c41b76cf495da0570c911c1a093cd2bbb9f0db66fc75d603da8be1e8b5",
+     "ff258e53639b62290fc8f8b5279fc7379abe5f8d7e1e8f234978470e407923c5",
+     "6331a7c9c5b67ebf2f6e72d51217ae129949132e2388534fe9250c9c040c352b",
+     "b944518f6451e1e2d359ae379ee63e90a0e92ea1b4dd938fdd7a5245dd4fcdc0",
+     "c80d21378e55e82df0fc84efb4a6fb8bcd3b823e8f14b998c85b94889aaed931",
+     "d43975dc91698c38258a1f1535900eef97826ab31c106d9ccdb0eb03100092cc"
+    ],
+    "complete": true,
+    "note": null
+   },
+   "first_after_finished": "6331a7c9c5b67ebf2f6e72d51217ae129949132e2388534fe9250c9c040c352b",
+   "inside_window": []
+  }
+ ],
+ "sets": [
+  {
+   "update": "2026-11-10T09:07:11Z",
+   "sha256": "d43975dc91698c38258a1f1535900eef97826ab31c106d9ccdb0eb03100092cc",
+   "file": "data/calibrations/trial_2026-11-10/ibm_phoenix_properties_update_20261110T090711Z_d43975dc9169.json",
+   "n_qubits": 120,
+   "n_gates": 2192,
+   "backend_version": "1.0.0",
+   "class_dates": {
+    "T1": {
+     "n": 119,
+     "earliest": "2026-11-07T02:19:57Z",
+     "latest": "2026-11-09T20:15:14Z",
+     "distinct_dates": 5
+    },
+    "T2": {
+     "n": 119,
+     "earliest": "2026-11-06T16:30:24Z",
+     "latest": "2026-11-09T20:15:17Z",
+     "distinct_dates": 6
+    },
+    "gate_error:cz": {
+     "n": 436,
+     "earliest": "2026-10-29T10:53:46Z",
+     "latest": "2026-11-10T09:09:27.162123Z",
+     "distinct_dates": 16
+    },
+    "gate_error:id": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T09:09:25Z",
+     "distinct_dates": 8
+    },
+    "gate_error:measure": {
+     "n": 120,
+     "earliest": "2026-11-09T04:54:44Z",
+     "latest": "2026-11-09T04:54:47Z",
+     "distinct_dates": 4
+    },
+    "gate_error:measure_2": {
+     "n": 120,
+     "earliest": "2026-11-09T14:48:41Z",
+     "latest": "2026-11-09T14:48:43Z",
+     "distinct_dates": 3
+    },
+    "gate_error:rx": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T09:09:25Z",
+     "distinct_dates": 8
+    },
+    "gate_error:rz": {
+     "n": 120,
+     "earliest": "2026-11-10T09:07:11Z",
+     "latest": "2026-11-10T09:07:11Z",
+     "distinct_dates": 1
+    },
+    "gate_error:rzz": {
+     "n": 436,
+     "earliest": "2026-10-27T09:39:20Z",
+     "latest": "2026-11-10T09:09:26.881219Z",
+     "distinct_dates": 19
+    },
+    "gate_error:sx": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T09:09:25Z",
+     "distinct_dates": 8
+    },
+    "gate_error:x": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T09:09:25Z",
+     "distinct_dates": 8
+    },
+    "gate_error:xslow": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T09:09:25Z",
+     "distinct_dates": 8
+    },
+    "gate_length:cz": {
+     "n": 436,
+     "earliest": "2026-10-29T10:53:46Z",
+     "latest": "2026-11-10T09:09:27.162123Z",
+     "distinct_dates": 16
+    },
+    "gate_length:id": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T09:09:25Z",
+     "distinct_dates": 8
+    },
+    "gate_length:measure": {
+     "n": 120,
+     "earliest": "2026-11-10T09:07:11Z",
+     "latest": "2026-11-10T09:07:11Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_2": {
+     "n": 120,
+     "earliest": "2026-11-10T09:07:11Z",
+     "latest": "2026-11-10T09:07:11Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_reset": {
+     "n": 120,
+     "earliest": "2026-11-10T09:07:11Z",
+     "latest": "2026-11-10T09:07:11Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_reset_2": {
+     "n": 120,
+     "earliest": "2026-11-10T09:07:11Z",
+     "latest": "2026-11-10T09:07:11Z",
+     "distinct_dates": 1
+    },
+    "gate_length:reset": {
+     "n": 120,
+     "earliest": "2026-11-10T09:07:11Z",
+     "latest": "2026-11-10T09:07:11Z",
+     "distinct_dates": 1
+    },
+    "gate_length:rx": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T09:09:25Z",
+     "distinct_dates": 8
+    },
+    "gate_length:rz": {
+     "n": 120,
+     "earliest": "2026-11-10T09:07:11Z",
+     "latest": "2026-11-10T09:07:11Z",
+     "distinct_dates": 1
+    },
+    "gate_length:rzz": {
+     "n": 436,
+     "earliest": "2026-10-27T09:39:20Z",
+     "latest": "2026-11-10T09:09:26.881219Z",
+     "distinct_dates": 19
+    },
+    "gate_length:sx": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T09:09:25Z",
+     "distinct_dates": 8
+    },
+    "gate_length:x": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T09:09:25Z",
+     "distinct_dates": 8
+    },
+    "gate_length:xslow": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T09:09:25Z",
+     "distinct_dates": 8
+    },
+    "general:jq": {
+     "n": 218,
+     "earliest": "2026-11-10T09:07:11Z",
+     "latest": "2026-11-10T09:07:11Z",
+     "distinct_dates": 1
+    },
+    "general:lf": {
+     "n": 97,
+     "earliest": "2026-11-09T19:53:57Z",
+     "latest": "2026-11-09T19:53:57Z",
+     "distinct_dates": 1
+    },
+    "general:zz": {
+     "n": 218,
+     "earliest": "2026-11-10T09:07:11Z",
+     "latest": "2026-11-10T09:07:11Z",
+     "distinct_dates": 1
+    },
+    "init_error": {
+     "n": 116,
+     "earliest": "2026-08-25T15:23:25Z",
+     "latest": "2026-11-10T08:44:38Z",
+     "distinct_dates": 41
+    },
+    "prob_meas0_prep1": {
+     "n": 120,
+     "earliest": "2026-11-09T04:54:39Z",
+     "latest": "2026-11-09T04:54:42Z",
+     "distinct_dates": 4
+    },
+    "prob_meas1_prep0": {
+     "n": 120,
+     "earliest": "2026-11-09T04:54:42Z",
+     "latest": "2026-11-09T04:54:44Z",
+     "distinct_dates": 3
+    },
+    "readout_error": {
+     "n": 120,
+     "earliest": "2026-11-09T04:54:44Z",
+     "latest": "2026-11-09T04:54:47Z",
+     "distinct_dates": 4
+    },
+    "readout_length": {
+     "n": 120,
+     "earliest": "2026-11-09T04:54:44Z",
+     "latest": "2026-11-09T04:54:47Z",
+     "distinct_dates": 4
+    },
+    "threshold:measure": {
+     "n": 120,
+     "earliest": "2026-11-10T09:07:11Z",
+     "latest": "2026-11-10T09:07:11Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_2": {
+     "n": 120,
+     "earliest": "2026-11-10T09:07:11Z",
+     "latest": "2026-11-10T09:07:11Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_reset": {
+     "n": 120,
+     "earliest": "2026-11-10T09:07:11Z",
+     "latest": "2026-11-10T09:07:11Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_reset_2": {
+     "n": 120,
+     "earliest": "2026-11-10T09:07:11Z",
+     "latest": "2026-11-10T09:07:11Z",
+     "distinct_dates": 1
+    }
+   },
+   "returned_by": [
+    "job.properties() [dbpfnr0qtr0c738ebeng]",
+    "backend.properties(datetime=2026-11-10T11:12:05.243865Z)",
+    "backend.properties(datetime=2026-11-10T11:11:40.956832Z)",
+    "backend.properties(datetime=2026-11-10T11:20:03Z)",
+    "job.properties() [dbpfnrgqtr0c738ebeog]",
+    "backend.properties(datetime=2026-11-10T11:12:33.691043Z)",
+    "backend.properties(datetime=2026-11-10T11:11:42.219926Z)",
+    "backend.properties(datetime=2026-11-10T11:13:29.583977Z)",
+    "backend.properties(datetime=2026-11-10T11:13:34.870713Z)",
+    "backend.properties(datetime=2026-11-10T11:13:35.793803Z)"
+   ]
+  },
+  {
+   "update": "2026-11-10T11:20:04Z",
+   "sha256": "c80d21378e55e82df0fc84efb4a6fb8bcd3b823e8f14b998c85b94889aaed931",
+   "file": "data/calibrations/trial_2026-11-10/ibm_phoenix_properties_update_20261110T112004Z_c80d21378e55.json",
+   "n_qubits": 120,
+   "n_gates": 2192,
+   "backend_version": "1.0.0",
+   "class_dates": {
+    "T1": {
+     "n": 119,
+     "earliest": "2026-11-07T02:19:57Z",
+     "latest": "2026-11-09T20:15:14Z",
+     "distinct_dates": 5
+    },
+    "T2": {
+     "n": 119,
+     "earliest": "2026-11-06T16:30:24Z",
+     "latest": "2026-11-09T20:15:17Z",
+     "distinct_dates": 6
+    },
+    "gate_error:cz": {
+     "n": 436,
+     "earliest": "2026-10-29T10:53:46Z",
+     "latest": "2026-11-10T11:20:24.888342Z",
+     "distinct_dates": 16
+    },
+    "gate_error:id": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T11:20:22Z",
+     "distinct_dates": 8
+    },
+    "gate_error:measure": {
+     "n": 120,
+     "earliest": "2026-11-10T11:05:20Z",
+     "latest": "2026-11-10T11:05:20Z",
+     "distinct_dates": 1
+    },
+    "gate_error:measure_2": {
+     "n": 120,
+     "earliest": "2026-11-09T14:48:41Z",
+     "latest": "2026-11-09T14:48:43Z",
+     "distinct_dates": 3
+    },
+    "gate_error:rx": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T11:20:23Z",
+     "distinct_dates": 8
+    },
+    "gate_error:rz": {
+     "n": 120,
+     "earliest": "2026-11-10T11:20:04Z",
+     "latest": "2026-11-10T11:20:04Z",
+     "distinct_dates": 1
+    },
+    "gate_error:rzz": {
+     "n": 436,
+     "earliest": "2026-10-30T11:15:24Z",
+     "latest": "2026-11-10T11:20:24.601352Z",
+     "distinct_dates": 20
+    },
+    "gate_error:sx": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T11:20:23Z",
+     "distinct_dates": 8
+    },
+    "gate_error:x": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T11:20:23Z",
+     "distinct_dates": 8
+    },
+    "gate_error:xslow": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T11:20:23Z",
+     "distinct_dates": 8
+    },
+    "gate_length:cz": {
+     "n": 436,
+     "earliest": "2026-10-29T10:53:46Z",
+     "latest": "2026-11-10T11:20:24.888342Z",
+     "distinct_dates": 16
+    },
+    "gate_length:id": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T11:20:22Z",
+     "distinct_dates": 8
+    },
+    "gate_length:measure": {
+     "n": 120,
+     "earliest": "2026-11-10T11:20:04Z",
+     "latest": "2026-11-10T11:20:04Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_2": {
+     "n": 120,
+     "earliest": "2026-11-10T11:20:04Z",
+     "latest": "2026-11-10T11:20:04Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_reset": {
+     "n": 120,
+     "earliest": "2026-11-10T11:20:04Z",
+     "latest": "2026-11-10T11:20:04Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_reset_2": {
+     "n": 120,
+     "earliest": "2026-11-10T11:20:04Z",
+     "latest": "2026-11-10T11:20:04Z",
+     "distinct_dates": 1
+    },
+    "gate_length:reset": {
+     "n": 120,
+     "earliest": "2026-11-10T11:20:04Z",
+     "latest": "2026-11-10T11:20:04Z",
+     "distinct_dates": 1
+    },
+    "gate_length:rx": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T11:20:23Z",
+     "distinct_dates": 8
+    },
+    "gate_length:rz": {
+     "n": 120,
+     "earliest": "2026-11-10T11:20:04Z",
+     "latest": "2026-11-10T11:20:04Z",
+     "distinct_dates": 1
+    },
+    "gate_length:rzz": {
+     "n": 436,
+     "earliest": "2026-10-30T11:15:24Z",
+     "latest": "2026-11-10T11:20:24.601352Z",
+     "distinct_dates": 20
+    },
+    "gate_length:sx": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T11:20:23Z",
+     "distinct_dates": 8
+    },
+    "gate_length:x": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T11:20:23Z",
+     "distinct_dates": 8
+    },
+    "gate_length:xslow": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T11:20:23Z",
+     "distinct_dates": 8
+    },
+    "general:jq": {
+     "n": 218,
+     "earliest": "2026-11-10T11:20:04Z",
+     "latest": "2026-11-10T11:20:04Z",
+     "distinct_dates": 1
+    },
+    "general:lf": {
+     "n": 97,
+     "earliest": "2026-11-09T19:53:57Z",
+     "latest": "2026-11-09T19:53:57Z",
+     "distinct_dates": 1
+    },
+    "general:zz": {
+     "n": 218,
+     "earliest": "2026-11-10T11:20:04Z",
+     "latest": "2026-11-10T11:20:04Z",
+     "distinct_dates": 1
+    },
+    "init_error": {
+     "n": 116,
+     "earliest": "2026-08-25T15:23:25Z",
+     "latest": "2026-11-10T11:20:04Z",
+     "distinct_dates": 58
+    },
+    "prob_meas0_prep1": {
+     "n": 120,
+     "earliest": "2026-11-09T04:54:39Z",
+     "latest": "2026-11-10T11:05:20Z",
+     "distinct_dates": 4
+    },
+    "prob_meas1_prep0": {
+     "n": 120,
+     "earliest": "2026-11-10T11:05:20Z",
+     "latest": "2026-11-10T11:05:20Z",
+     "distinct_dates": 1
+    },
+    "readout_error": {
+     "n": 120,
+     "earliest": "2026-11-10T11:05:20Z",
+     "latest": "2026-11-10T11:05:20Z",
+     "distinct_dates": 1
+    },
+    "readout_length": {
+     "n": 120,
+     "earliest": "2026-11-10T11:05:20Z",
+     "latest": "2026-11-10T11:05:20Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure": {
+     "n": 120,
+     "earliest": "2026-11-10T11:20:04Z",
+     "latest": "2026-11-10T11:20:04Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_2": {
+     "n": 120,
+     "earliest": "2026-11-10T11:20:04Z",
+     "latest": "2026-11-10T11:20:04Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_reset": {
+     "n": 120,
+     "earliest": "2026-11-10T11:20:04Z",
+     "latest": "2026-11-10T11:20:04Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_reset_2": {
+     "n": 120,
+     "earliest": "2026-11-10T11:20:04Z",
+     "latest": "2026-11-10T11:20:04Z",
+     "distinct_dates": 1
+    }
+   },
+   "returned_by": [
+    "backend.properties(datetime=2026-11-10T11:35:38Z)"
+   ]
+  },
+  {
+   "update": "2026-11-10T11:35:39Z",
+   "sha256": "b944518f6451e1e2d359ae379ee63e90a0e92ea1b4dd938fdd7a5245dd4fcdc0",
+   "file": "data/calibrations/trial_2026-11-10/ibm_phoenix_properties_update_20261110T113539Z_b944518f6451.json",
+   "n_qubits": 120,
+   "n_gates": 2192,
+   "backend_version": "1.0.0",
+   "class_dates": {
+    "T1": {
+     "n": 119,
+     "earliest": "2026-11-07T02:19:57Z",
+     "latest": "2026-11-09T20:15:14Z",
+     "distinct_dates": 5
+    },
+    "T2": {
+     "n": 119,
+     "earliest": "2026-11-06T16:30:24Z",
+     "latest": "2026-11-09T20:15:17Z",
+     "distinct_dates": 6
+    },
+    "gate_error:cz": {
+     "n": 436,
+     "earliest": "2026-10-29T10:53:46Z",
+     "latest": "2026-11-10T11:38:31.225232Z",
+     "distinct_dates": 16
+    },
+    "gate_error:id": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T11:38:29Z",
+     "distinct_dates": 8
+    },
+    "gate_error:measure": {
+     "n": 120,
+     "earliest": "2026-11-10T11:05:20Z",
+     "latest": "2026-11-10T11:05:20Z",
+     "distinct_dates": 1
+    },
+    "gate_error:measure_2": {
+     "n": 120,
+     "earliest": "2026-11-09T14:48:41Z",
+     "latest": "2026-11-09T14:48:43Z",
+     "distinct_dates": 3
+    },
+    "gate_error:rx": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T11:38:29Z",
+     "distinct_dates": 8
+    },
+    "gate_error:rz": {
+     "n": 120,
+     "earliest": "2026-11-10T11:35:39Z",
+     "latest": "2026-11-10T11:35:39Z",
+     "distinct_dates": 1
+    },
+    "gate_error:rzz": {
+     "n": 436,
+     "earliest": "2026-10-30T11:15:24Z",
+     "latest": "2026-11-10T11:38:30.944860Z",
+     "distinct_dates": 20
+    },
+    "gate_error:sx": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T11:38:29Z",
+     "distinct_dates": 8
+    },
+    "gate_error:x": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T11:38:29Z",
+     "distinct_dates": 8
+    },
+    "gate_error:xslow": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T11:38:29Z",
+     "distinct_dates": 8
+    },
+    "gate_length:cz": {
+     "n": 436,
+     "earliest": "2026-10-29T10:53:46Z",
+     "latest": "2026-11-10T11:38:31.225232Z",
+     "distinct_dates": 16
+    },
+    "gate_length:id": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T11:38:29Z",
+     "distinct_dates": 8
+    },
+    "gate_length:measure": {
+     "n": 120,
+     "earliest": "2026-11-10T11:35:39Z",
+     "latest": "2026-11-10T11:35:39Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_2": {
+     "n": 120,
+     "earliest": "2026-11-10T11:35:39Z",
+     "latest": "2026-11-10T11:35:39Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_reset": {
+     "n": 120,
+     "earliest": "2026-11-10T11:35:39Z",
+     "latest": "2026-11-10T11:35:39Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_reset_2": {
+     "n": 120,
+     "earliest": "2026-11-10T11:35:39Z",
+     "latest": "2026-11-10T11:35:39Z",
+     "distinct_dates": 1
+    },
+    "gate_length:reset": {
+     "n": 120,
+     "earliest": "2026-11-10T11:35:39Z",
+     "latest": "2026-11-10T11:35:39Z",
+     "distinct_dates": 1
+    },
+    "gate_length:rx": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T11:38:29Z",
+     "distinct_dates": 8
+    },
+    "gate_length:rz": {
+     "n": 120,
+     "earliest": "2026-11-10T11:35:39Z",
+     "latest": "2026-11-10T11:35:39Z",
+     "distinct_dates": 1
+    },
+    "gate_length:rzz": {
+     "n": 436,
+     "earliest": "2026-10-30T11:15:24Z",
+     "latest": "2026-11-10T11:38:30.944860Z",
+     "distinct_dates": 20
+    },
+    "gate_length:sx": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T11:38:29Z",
+     "distinct_dates": 8
+    },
+    "gate_length:x": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T11:38:29Z",
+     "distinct_dates": 8
+    },
+    "gate_length:xslow": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T11:38:29Z",
+     "distinct_dates": 8
+    },
+    "general:jq": {
+     "n": 218,
+     "earliest": "2026-11-10T11:35:39Z",
+     "latest": "2026-11-10T11:35:39Z",
+     "distinct_dates": 1
+    },
+    "general:lf": {
+     "n": 97,
+     "earliest": "2026-11-09T19:53:57Z",
+     "latest": "2026-11-09T19:53:57Z",
+     "distinct_dates": 1
+    },
+    "general:zz": {
+     "n": 218,
+     "earliest": "2026-11-10T11:35:39Z",
+     "latest": "2026-11-10T11:35:39Z",
+     "distinct_dates": 1
+    },
+    "init_error": {
+     "n": 116,
+     "earliest": "2026-08-25T15:23:25Z",
+     "latest": "2026-11-10T11:20:04Z",
+     "distinct_dates": 58
+    },
+    "prob_meas0_prep1": {
+     "n": 120,
+     "earliest": "2026-11-09T04:54:39Z",
+     "latest": "2026-11-10T11:05:20Z",
+     "distinct_dates": 4
+    },
+    "prob_meas1_prep0": {
+     "n": 120,
+     "earliest": "2026-11-10T11:05:20Z",
+     "latest": "2026-11-10T11:05:20Z",
+     "distinct_dates": 1
+    },
+    "readout_error": {
+     "n": 120,
+     "earliest": "2026-11-10T11:05:20Z",
+     "latest": "2026-11-10T11:05:20Z",
+     "distinct_dates": 1
+    },
+    "readout_length": {
+     "n": 120,
+     "earliest": "2026-11-10T11:05:20Z",
+     "latest": "2026-11-10T11:05:20Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure": {
+     "n": 120,
+     "earliest": "2026-11-10T11:35:39Z",
+     "latest": "2026-11-10T11:35:39Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_2": {
+     "n": 120,
+     "earliest": "2026-11-10T11:35:39Z",
+     "latest": "2026-11-10T11:35:39Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_reset": {
+     "n": 120,
+     "earliest": "2026-11-10T11:35:39Z",
+     "latest": "2026-11-10T11:35:39Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_reset_2": {
+     "n": 120,
+     "earliest": "2026-11-10T11:35:39Z",
+     "latest": "2026-11-10T11:35:39Z",
+     "distinct_dates": 1
+    }
+   },
+   "returned_by": [
+    "backend.properties(datetime=2026-11-10T13:14:37Z)",
+    "job.properties() [dbpfom8ou4as73ctjes0]",
+    "backend.properties(datetime=2026-11-10T12:54:18.417644Z)",
+    "job.properties() [dbpfon8qtr0c738ebgj0]",
+    "backend.properties(datetime=2026-11-10T12:54:22.817673Z)",
+    "job.properties() [dbpfontt7fqc7389bsu0]",
+    "backend.properties(datetime=2026-11-10T12:54:47.256563Z)"
+   ]
+  },
+  {
+   "update": "2026-11-10T13:14:38Z",
+   "sha256": "6331a7c9c5b67ebf2f6e72d51217ae129949132e2388534fe9250c9c040c352b",
+   "file": "data/calibrations/trial_2026-11-10/ibm_phoenix_properties_update_20261110T131438Z_6331a7c9c5b6.json",
+   "n_qubits": 120,
+   "n_gates": 2192,
+   "backend_version": "1.0.0",
+   "class_dates": {
+    "T1": {
+     "n": 119,
+     "earliest": "2026-11-07T02:19:57Z",
+     "latest": "2026-11-09T20:15:14Z",
+     "distinct_dates": 5
+    },
+    "T2": {
+     "n": 119,
+     "earliest": "2026-11-06T16:30:24Z",
+     "latest": "2026-11-09T20:15:17Z",
+     "distinct_dates": 6
+    },
+    "gate_error:cz": {
+     "n": 436,
+     "earliest": "2026-10-29T10:53:46Z",
+     "latest": "2026-11-10T13:16:59.367698Z",
+     "distinct_dates": 16
+    },
+    "gate_error:id": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T13:16:57Z",
+     "distinct_dates": 8
+    },
+    "gate_error:measure": {
+     "n": 120,
+     "earliest": "2026-11-10T11:05:20Z",
+     "latest": "2026-11-10T11:05:20Z",
+     "distinct_dates": 1
+    },
+    "gate_error:measure_2": {
+     "n": 120,
+     "earliest": "2026-11-09T14:48:41Z",
+     "latest": "2026-11-09T14:48:43Z",
+     "distinct_dates": 3
+    },
+    "gate_error:rx": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T13:16:57Z",
+     "distinct_dates": 8
+    },
+    "gate_error:rz": {
+     "n": 120,
+     "earliest": "2026-11-10T13:14:38Z",
+     "latest": "2026-11-10T13:14:38Z",
+     "distinct_dates": 1
+    },
+    "gate_error:rzz": {
+     "n": 436,
+     "earliest": "2026-10-30T11:15:24Z",
+     "latest": "2026-11-10T13:16:59.085688Z",
+     "distinct_dates": 20
+    },
+    "gate_error:sx": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T13:16:57Z",
+     "distinct_dates": 8
+    },
+    "gate_error:x": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T13:16:57Z",
+     "distinct_dates": 8
+    },
+    "gate_error:xslow": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T13:16:57Z",
+     "distinct_dates": 8
+    },
+    "gate_length:cz": {
+     "n": 436,
+     "earliest": "2026-10-29T10:53:46Z",
+     "latest": "2026-11-10T13:16:59.367698Z",
+     "distinct_dates": 16
+    },
+    "gate_length:id": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T13:16:57Z",
+     "distinct_dates": 8
+    },
+    "gate_length:measure": {
+     "n": 120,
+     "earliest": "2026-11-10T13:14:38Z",
+     "latest": "2026-11-10T13:14:38Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_2": {
+     "n": 120,
+     "earliest": "2026-11-10T13:14:38Z",
+     "latest": "2026-11-10T13:14:38Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_reset": {
+     "n": 120,
+     "earliest": "2026-11-10T13:14:38Z",
+     "latest": "2026-11-10T13:14:38Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_reset_2": {
+     "n": 120,
+     "earliest": "2026-11-10T13:14:38Z",
+     "latest": "2026-11-10T13:14:38Z",
+     "distinct_dates": 1
+    },
+    "gate_length:reset": {
+     "n": 120,
+     "earliest": "2026-11-10T13:14:38Z",
+     "latest": "2026-11-10T13:14:38Z",
+     "distinct_dates": 1
+    },
+    "gate_length:rx": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T13:16:57Z",
+     "distinct_dates": 8
+    },
+    "gate_length:rz": {
+     "n": 120,
+     "earliest": "2026-11-10T13:14:38Z",
+     "latest": "2026-11-10T13:14:38Z",
+     "distinct_dates": 1
+    },
+    "gate_length:rzz": {
+     "n": 436,
+     "earliest": "2026-10-30T11:15:24Z",
+     "latest": "2026-11-10T13:16:59.085688Z",
+     "distinct_dates": 20
+    },
+    "gate_length:sx": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T13:16:57Z",
+     "distinct_dates": 8
+    },
+    "gate_length:x": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T13:16:57Z",
+     "distinct_dates": 8
+    },
+    "gate_length:xslow": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T13:16:57Z",
+     "distinct_dates": 8
+    },
+    "general:jq": {
+     "n": 218,
+     "earliest": "2026-11-10T13:14:38Z",
+     "latest": "2026-11-10T13:14:38Z",
+     "distinct_dates": 1
+    },
+    "general:lf": {
+     "n": 97,
+     "earliest": "2026-11-09T19:53:57Z",
+     "latest": "2026-11-09T19:53:57Z",
+     "distinct_dates": 1
+    },
+    "general:zz": {
+     "n": 218,
+     "earliest": "2026-11-10T13:14:38Z",
+     "latest": "2026-11-10T13:14:38Z",
+     "distinct_dates": 1
+    },
+    "init_error": {
+     "n": 116,
+     "earliest": "2026-08-25T15:23:25Z",
+     "latest": "2026-11-10T11:20:04Z",
+     "distinct_dates": 58
+    },
+    "prob_meas0_prep1": {
+     "n": 120,
+     "earliest": "2026-11-09T04:54:39Z",
+     "latest": "2026-11-10T11:05:20Z",
+     "distinct_dates": 4
+    },
+    "prob_meas1_prep0": {
+     "n": 120,
+     "earliest": "2026-11-10T11:05:20Z",
+     "latest": "2026-11-10T11:05:20Z",
+     "distinct_dates": 1
+    },
+    "readout_error": {
+     "n": 120,
+     "earliest": "2026-11-10T11:05:20Z",
+     "latest": "2026-11-10T11:05:20Z",
+     "distinct_dates": 1
+    },
+    "readout_length": {
+     "n": 120,
+     "earliest": "2026-11-10T11:05:20Z",
+     "latest": "2026-11-10T11:05:20Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure": {
+     "n": 120,
+     "earliest": "2026-11-10T13:14:38Z",
+     "latest": "2026-11-10T13:14:38Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_2": {
+     "n": 120,
+     "earliest": "2026-11-10T13:14:38Z",
+     "latest": "2026-11-10T13:14:38Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_reset": {
+     "n": 120,
+     "earliest": "2026-11-10T13:14:38Z",
+     "latest": "2026-11-10T13:14:38Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_reset_2": {
+     "n": 120,
+     "earliest": "2026-11-10T13:14:38Z",
+     "latest": "2026-11-10T13:14:38Z",
+     "distinct_dates": 1
+    }
+   },
+   "returned_by": [
+    "backend.properties(datetime=2026-11-10T13:37:30Z)"
+   ]
+  },
+  {
+   "update": "2026-11-10T13:37:31Z",
+   "sha256": "ff258e53639b62290fc8f8b5279fc7379abe5f8d7e1e8f234978470e407923c5",
+   "file": "data/calibrations/trial_2026-11-10/ibm_phoenix_properties_update_20261110T133731Z_ff258e53639b.json",
+   "n_qubits": 120,
+   "n_gates": 2192,
+   "backend_version": "1.0.0",
+   "class_dates": {
+    "T1": {
+     "n": 119,
+     "earliest": "2026-11-07T02:19:57Z",
+     "latest": "2026-11-09T20:15:14Z",
+     "distinct_dates": 5
+    },
+    "T2": {
+     "n": 119,
+     "earliest": "2026-11-06T16:30:24Z",
+     "latest": "2026-11-09T20:15:17Z",
+     "distinct_dates": 6
+    },
+    "gate_error:cz": {
+     "n": 436,
+     "earliest": "2026-10-29T10:53:46Z",
+     "latest": "2026-11-10T13:37:52.187328Z",
+     "distinct_dates": 16
+    },
+    "gate_error:id": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T13:37:50Z",
+     "distinct_dates": 8
+    },
+    "gate_error:measure": {
+     "n": 120,
+     "earliest": "2026-11-10T13:37:29Z",
+     "latest": "2026-11-10T13:37:31Z",
+     "distinct_dates": 3
+    },
+    "gate_error:measure_2": {
+     "n": 120,
+     "earliest": "2026-11-09T14:48:41Z",
+     "latest": "2026-11-09T14:48:43Z",
+     "distinct_dates": 3
+    },
+    "gate_error:rx": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T13:37:50Z",
+     "distinct_dates": 8
+    },
+    "gate_error:rz": {
+     "n": 120,
+     "earliest": "2026-11-10T13:37:31Z",
+     "latest": "2026-11-10T13:37:31Z",
+     "distinct_dates": 1
+    },
+    "gate_error:rzz": {
+     "n": 436,
+     "earliest": "2026-10-30T11:15:24Z",
+     "latest": "2026-11-10T13:37:51.892576Z",
+     "distinct_dates": 20
+    },
+    "gate_error:sx": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T13:37:50Z",
+     "distinct_dates": 8
+    },
+    "gate_error:x": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T13:37:50Z",
+     "distinct_dates": 8
+    },
+    "gate_error:xslow": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T13:37:50Z",
+     "distinct_dates": 8
+    },
+    "gate_length:cz": {
+     "n": 436,
+     "earliest": "2026-10-29T10:53:46Z",
+     "latest": "2026-11-10T13:37:52.187328Z",
+     "distinct_dates": 16
+    },
+    "gate_length:id": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T13:37:50Z",
+     "distinct_dates": 8
+    },
+    "gate_length:measure": {
+     "n": 120,
+     "earliest": "2026-11-10T13:37:31Z",
+     "latest": "2026-11-10T13:37:31Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_2": {
+     "n": 120,
+     "earliest": "2026-11-10T13:37:31Z",
+     "latest": "2026-11-10T13:37:31Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_reset": {
+     "n": 120,
+     "earliest": "2026-11-10T13:37:31Z",
+     "latest": "2026-11-10T13:37:31Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_reset_2": {
+     "n": 120,
+     "earliest": "2026-11-10T13:37:31Z",
+     "latest": "2026-11-10T13:37:31Z",
+     "distinct_dates": 1
+    },
+    "gate_length:reset": {
+     "n": 120,
+     "earliest": "2026-11-10T13:37:31Z",
+     "latest": "2026-11-10T13:37:31Z",
+     "distinct_dates": 1
+    },
+    "gate_length:rx": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T13:37:50Z",
+     "distinct_dates": 8
+    },
+    "gate_length:rz": {
+     "n": 120,
+     "earliest": "2026-11-10T13:37:31Z",
+     "latest": "2026-11-10T13:37:31Z",
+     "distinct_dates": 1
+    },
+    "gate_length:rzz": {
+     "n": 436,
+     "earliest": "2026-10-30T11:15:24Z",
+     "latest": "2026-11-10T13:37:51.892576Z",
+     "distinct_dates": 20
+    },
+    "gate_length:sx": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T13:37:50Z",
+     "distinct_dates": 8
+    },
+    "gate_length:x": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T13:37:50Z",
+     "distinct_dates": 8
+    },
+    "gate_length:xslow": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T13:37:50Z",
+     "distinct_dates": 8
+    },
+    "general:jq": {
+     "n": 218,
+     "earliest": "2026-11-10T13:37:31Z",
+     "latest": "2026-11-10T13:37:31Z",
+     "distinct_dates": 1
+    },
+    "general:lf": {
+     "n": 97,
+     "earliest": "2026-11-09T19:53:57Z",
+     "latest": "2026-11-09T19:53:57Z",
+     "distinct_dates": 1
+    },
+    "general:zz": {
+     "n": 218,
+     "earliest": "2026-11-10T13:37:31Z",
+     "latest": "2026-11-10T13:37:31Z",
+     "distinct_dates": 1
+    },
+    "init_error": {
+     "n": 116,
+     "earliest": "2026-08-25T15:23:25Z",
+     "latest": "2026-11-10T11:20:04Z",
+     "distinct_dates": 58
+    },
+    "prob_meas0_prep1": {
+     "n": 120,
+     "earliest": "2026-11-10T13:37:24Z",
+     "latest": "2026-11-10T13:37:26Z",
+     "distinct_dates": 3
+    },
+    "prob_meas1_prep0": {
+     "n": 120,
+     "earliest": "2026-11-10T13:37:26Z",
+     "latest": "2026-11-10T13:37:29Z",
+     "distinct_dates": 4
+    },
+    "readout_error": {
+     "n": 120,
+     "earliest": "2026-11-10T13:37:29Z",
+     "latest": "2026-11-10T13:37:31Z",
+     "distinct_dates": 3
+    },
+    "readout_length": {
+     "n": 120,
+     "earliest": "2026-11-10T13:37:29Z",
+     "latest": "2026-11-10T13:37:31Z",
+     "distinct_dates": 3
+    },
+    "threshold:measure": {
+     "n": 120,
+     "earliest": "2026-11-10T13:37:31Z",
+     "latest": "2026-11-10T13:37:31Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_2": {
+     "n": 120,
+     "earliest": "2026-11-10T13:37:31Z",
+     "latest": "2026-11-10T13:37:31Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_reset": {
+     "n": 120,
+     "earliest": "2026-11-10T13:37:31Z",
+     "latest": "2026-11-10T13:37:31Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_reset_2": {
+     "n": 120,
+     "earliest": "2026-11-10T13:37:31Z",
+     "latest": "2026-11-10T13:37:31Z",
+     "distinct_dates": 1
+    }
+   },
+   "returned_by": [
+    "backend.properties(datetime=2026-11-10T16:34:04Z)",
+    "backend.properties(datetime=2026-11-10T16:34:05Z)"
+   ]
+  },
+  {
+   "update": "2026-11-10T16:34:05Z",
+   "sha256": "60a212c41b76cf495da0570c911c1a093cd2bbb9f0db66fc75d603da8be1e8b5",
+   "file": "data/calibrations/trial_2026-11-10/ibm_phoenix_properties_update_20261110T163405Z_60a212c41b76.json",
+   "n_qubits": 120,
+   "n_gates": 2192,
+   "backend_version": "1.0.0",
+   "class_dates": {
+    "T1": {
+     "n": 119,
+     "earliest": "2026-11-07T02:19:57Z",
+     "latest": "2026-11-09T20:15:14Z",
+     "distinct_dates": 5
+    },
+    "T2": {
+     "n": 119,
+     "earliest": "2026-11-06T16:30:24Z",
+     "latest": "2026-11-09T20:15:17Z",
+     "distinct_dates": 6
+    },
+    "gate_error:cz": {
+     "n": 436,
+     "earliest": "2026-10-29T10:53:46Z",
+     "latest": "2026-11-10T16:37:00.491676Z",
+     "distinct_dates": 16
+    },
+    "gate_error:id": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T16:36:58Z",
+     "distinct_dates": 8
+    },
+    "gate_error:measure": {
+     "n": 120,
+     "earliest": "2026-11-10T13:37:29Z",
+     "latest": "2026-11-10T13:37:31Z",
+     "distinct_dates": 3
+    },
+    "gate_error:measure_2": {
+     "n": 120,
+     "earliest": "2026-11-09T14:48:41Z",
+     "latest": "2026-11-09T14:48:43Z",
+     "distinct_dates": 3
+    },
+    "gate_error:rx": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T16:36:58Z",
+     "distinct_dates": 8
+    },
+    "gate_error:rz": {
+     "n": 120,
+     "earliest": "2026-11-10T16:34:05Z",
+     "latest": "2026-11-10T16:34:05Z",
+     "distinct_dates": 1
+    },
+    "gate_error:rzz": {
+     "n": 436,
+     "earliest": "2026-10-30T11:15:24Z",
+     "latest": "2026-11-10T16:37:00.209207Z",
+     "distinct_dates": 20
+    },
+    "gate_error:sx": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T16:36:58Z",
+     "distinct_dates": 8
+    },
+    "gate_error:x": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T16:36:58Z",
+     "distinct_dates": 8
+    },
+    "gate_error:xslow": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T16:36:58Z",
+     "distinct_dates": 8
+    },
+    "gate_length:cz": {
+     "n": 436,
+     "earliest": "2026-10-29T10:53:46Z",
+     "latest": "2026-11-10T16:37:00.491676Z",
+     "distinct_dates": 16
+    },
+    "gate_length:id": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T16:36:58Z",
+     "distinct_dates": 8
+    },
+    "gate_length:measure": {
+     "n": 120,
+     "earliest": "2026-11-10T16:34:05Z",
+     "latest": "2026-11-10T16:34:05Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_2": {
+     "n": 120,
+     "earliest": "2026-11-10T16:34:05Z",
+     "latest": "2026-11-10T16:34:05Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_reset": {
+     "n": 120,
+     "earliest": "2026-11-10T16:34:05Z",
+     "latest": "2026-11-10T16:34:05Z",
+     "distinct_dates": 1
+    },
+    "gate_length:measure_reset_2": {
+     "n": 120,
+     "earliest": "2026-11-10T16:34:05Z",
+     "latest": "2026-11-10T16:34:05Z",
+     "distinct_dates": 1
+    },
+    "gate_length:reset": {
+     "n": 120,
+     "earliest": "2026-11-10T16:34:05Z",
+     "latest": "2026-11-10T16:34:05Z",
+     "distinct_dates": 1
+    },
+    "gate_length:rx": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T16:36:58Z",
+     "distinct_dates": 8
+    },
+    "gate_length:rz": {
+     "n": 120,
+     "earliest": "2026-11-10T16:34:05Z",
+     "latest": "2026-11-10T16:34:05Z",
+     "distinct_dates": 1
+    },
+    "gate_length:rzz": {
+     "n": 436,
+     "earliest": "2026-10-30T11:15:24Z",
+     "latest": "2026-11-10T16:37:00.209207Z",
+     "distinct_dates": 20
+    },
+    "gate_length:sx": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T16:36:58Z",
+     "distinct_dates": 8
+    },
+    "gate_length:x": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T16:36:58Z",
+     "distinct_dates": 8
+    },
+    "gate_length:xslow": {
+     "n": 120,
+     "earliest": "2026-10-31T05:57:44Z",
+     "latest": "2026-11-10T16:36:58Z",
+     "distinct_dates": 8
+    },
+    "general:jq": {
+     "n": 218,
+     "earliest": "2026-11-10T16:34:05Z",
+     "latest": "2026-11-10T16:34:05Z",
+     "distinct_dates": 1
+    },
+    "general:lf": {
+     "n": 97,
+     "earliest": "2026-11-09T19:53:57Z",
+     "latest": "2026-11-09T19:53:57Z",
+     "distinct_dates": 1
+    },
+    "general:zz": {
+     "n": 218,
+     "earliest": "2026-11-10T16:34:05Z",
+     "latest": "2026-11-10T16:34:05Z",
+     "distinct_dates": 1
+    },
+    "init_error": {
+     "n": 116,
+     "earliest": "2026-08-25T15:23:25Z",
+     "latest": "2026-11-10T11:20:04Z",
+     "distinct_dates": 58
+    },
+    "prob_meas0_prep1": {
+     "n": 120,
+     "earliest": "2026-11-10T13:37:24Z",
+     "latest": "2026-11-10T13:37:26Z",
+     "distinct_dates": 3
+    },
+    "prob_meas1_prep0": {
+     "n": 120,
+     "earliest": "2026-11-10T13:37:26Z",
+     "latest": "2026-11-10T13:37:29Z",
+     "distinct_dates": 4
+    },
+    "readout_error": {
+     "n": 120,
+     "earliest": "2026-11-10T13:37:29Z",
+     "latest": "2026-11-10T13:37:31Z",
+     "distinct_dates": 3
+    },
+    "readout_length": {
+     "n": 120,
+     "earliest": "2026-11-10T13:37:29Z",
+     "latest": "2026-11-10T13:37:31Z",
+     "distinct_dates": 3
+    },
+    "threshold:measure": {
+     "n": 120,
+     "earliest": "2026-11-10T16:34:05Z",
+     "latest": "2026-11-10T16:34:05Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_2": {
+     "n": 120,
+     "earliest": "2026-11-10T16:34:05Z",
+     "latest": "2026-11-10T16:34:05Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_reset": {
+     "n": 120,
+     "earliest": "2026-11-10T16:34:05Z",
+     "latest": "2026-11-10T16:34:05Z",
+     "distinct_dates": 1
+    },
+    "threshold:measure_reset_2": {
+     "n": 120,
+     "earliest": "2026-11-10T16:34:05Z",
+     "latest": "2026-11-10T16:34:05Z",
+     "distinct_dates": 1
+    }
+   },
+   "returned_by": [
+    "backend.properties(datetime=2026-11-10T18:35:07.784468Z)",
+    "backend.properties(datetime=2026-11-10T17:21:02.733793Z)",
+    "backend.properties(datetime=2026-11-10T19:31:41.789031Z)",
+    "backend.properties(datetime=2026-11-10T19:10:40.143310Z)",
+    "backend.properties(datetime=2026-11-10T19:08:16.181825Z)"
+   ]
+  }
+ ],
+ "boundary": {
+  "asked": "2026-11-10T16:34:05Z",
+  "returned_update": "2026-11-10T13:37:31Z",
+  "inclusive": false
+ },
+ "calls": [
+  {
+   "call": "service.job(dbpfnr0qtr0c738ebeng)",
+   "started_utc": "2026-11-11T04:19:56.328864Z",
+   "seconds": 0.074,
+   "outcome": "ok"
+  },
+  {
+   "call": "job.status() [dbpfnr0qtr0c738ebeng]",
+   "started_utc": "2026-11-11T04:19:56.402825Z",
+   "seconds": 0.324,
+   "outcome": "ok"
+  },
+  {
+   "call": "job.metrics() [dbpfnr0qtr0c738ebeng]",
+   "started_utc": "2026-11-11T04:19:56.727062Z",
+   "seconds": 0.322,
+   "outcome": "ok"
+  },
+  {
+   "call": "job.properties() [dbpfnr0qtr0c738ebeng]",
+   "started_utc": "2026-11-11T04:19:57.049513Z",
+   "seconds": 0.858,
+   "outcome": "ok: IBM update 2026-11-10T09:07:11Z, sha256 d43975dc9169"
+  },
+  {
+   "call": "backend.properties(datetime=2026-11-10T11:12:05.243865Z)",
+   "started_utc": "2026-11-11T04:19:57.984739Z",
+   "seconds": 0.489,
+   "outcome": "ok: IBM update 2026-11-10T09:07:11Z, sha256 d43975dc9169"
+  },
+  {
+   "call": "backend.properties(datetime=2026-11-10T11:11:40.956832Z)",
+   "started_utc": "2026-11-11T04:19:58.550805Z",
+   "seconds": 0.728,
+   "outcome": "ok: IBM update 2026-11-10T09:07:11Z, sha256 d43975dc9169"
+  },
+  {
+   "call": "backend.properties(datetime=2026-11-10T18:35:07.784468Z)",
+   "started_utc": "2026-11-11T04:19:59.355510Z",
+   "seconds": 0.353,
+   "outcome": "ok: IBM update 2026-11-10T16:34:05Z, sha256 60a212c41b76"
+  },
+  {
+   "call": "backend.properties(datetime=2026-11-10T16:34:04Z)",
+   "started_utc": "2026-11-11T04:19:59.857769Z",
+   "seconds": 0.719,
+   "outcome": "ok: IBM update 2026-11-10T13:37:31Z, sha256 ff258e53639b"
+  },
+  {
+   "call": "backend.properties(datetime=2026-11-10T13:37:30Z)",
+   "started_utc": "2026-11-11T04:20:00.722665Z",
+   "seconds": 0.36,
+   "outcome": "ok: IBM update 2026-11-10T13:14:38Z, sha256 6331a7c9c5b6"
+  },
+  {
+   "call": "backend.properties(datetime=2026-11-10T13:14:37Z)",
+   "started_utc": "2026-11-11T04:20:01.244732Z",
+   "seconds": 0.392,
+   "outcome": "ok: IBM update 2026-11-10T11:35:39Z, sha256 b944518f6451"
+  },
+  {
+   "call": "backend.properties(datetime=2026-11-10T11:35:38Z)",
+   "started_utc": "2026-11-11T04:20:01.792642Z",
+   "seconds": 0.399,
+   "outcome": "ok: IBM update 2026-11-10T11:20:04Z, sha256 c80d21378e55"
+  },
+  {
+   "call": "backend.properties(datetime=2026-11-10T11:20:03Z)",
+   "started_utc": "2026-11-11T04:20:02.353070Z",
+   "seconds": 0.365,
+   "outcome": "ok: IBM update 2026-11-10T09:07:11Z, sha256 d43975dc9169"
+  },
+  {
+   "call": "service.job(dbpfnrgqtr0c738ebeog)",
+   "started_utc": "2026-11-11T04:20:02.887468Z",
+   "seconds": 0.082,
+   "outcome": "ok"
+  },
+  {
+   "call": "job.status() [dbpfnrgqtr0c738ebeog]",
+   "started_utc": "2026-11-11T04:20:02.969018Z",
+   "seconds": 0.082,
+   "outcome": "ok"
+  },
+  {
+   "call": "job.metrics() [dbpfnrgqtr0c738ebeog]",
+   "started_utc": "2026-11-11T04:20:03.050704Z",
+   "seconds": 0.099,
+   "outcome": "ok"
+  },
+  {
+   "call": "job.properties() [dbpfnrgqtr0c738ebeog]",
+   "started_utc": "2026-11-11T04:20:03.149764Z",
+   "seconds": 0.566,
+   "outcome": "ok: IBM update 2026-11-10T09:07:11Z, sha256 d43975dc9169"
+  },
+  {
+   "call": "backend.properties(datetime=2026-11-10T11:12:33.691043Z)",
+   "started_utc": "2026-11-11T04:20:03.901746Z",
+   "seconds": 0.374,
+   "outcome": "ok: IBM update 2026-11-10T09:07:11Z, sha256 d43975dc9169"
+  },
+  {
+   "call": "backend.properties(datetime=2026-11-10T11:11:42.219926Z)",
+   "started_utc": "2026-11-11T04:20:04.358588Z",
+   "seconds": 0.432,
+   "outcome": "ok: IBM update 2026-11-10T09:07:11Z, sha256 d43975dc9169"
+  },
+  {
+   "call": "backend.properties(datetime=2026-11-10T17:21:02.733793Z)",
+   "started_utc": "2026-11-11T04:20:04.871562Z",
+   "seconds": 0.533,
+   "outcome": "ok: IBM update 2026-11-10T16:34:05Z, sha256 60a212c41b76"
+  },
+  {
+   "call": "service.job(dbpfom8ou4as73ctjes0)",
+   "started_utc": "2026-11-11T04:20:05.492859Z",
+   "seconds": 0.075,
+   "outcome": "ok"
+  },
+  {
+   "call": "job.status() [dbpfom8ou4as73ctjes0]",
+   "started_utc": "2026-11-11T04:20:05.568059Z",
+   "seconds": 0.069,
+   "outcome": "ok"
+  },
+  {
+   "call": "job.metrics() [dbpfom8ou4as73ctjes0]",
+   "started_utc": "2026-11-11T04:20:05.636648Z",
+   "seconds": 0.095,
+   "outcome": "ok"
+  },
+  {
+   "call": "job.properties() [dbpfom8ou4as73ctjes0]",
+   "started_utc": "2026-11-11T04:20:05.732030Z",
+   "seconds": 0.737,
+   "outcome": "ok: IBM update 2026-11-10T11:35:39Z, sha256 b944518f6451"
+  },
+  {
+   "call": "backend.properties(datetime=2026-11-10T12:54:18.417644Z)",
+   "started_utc": "2026-11-11T04:20:06.546903Z",
+   "seconds": 0.497,
+   "outcome": "ok: IBM update 2026-11-10T11:35:39Z, sha256 b944518f6451"
+  },
+  {
+   "call": "backend.properties(datetime=2026-11-10T11:13:29.583977Z)",
+   "started_utc": "2026-11-11T04:20:07.127445Z",
+   "seconds": 0.394,
+   "outcome": "ok: IBM update 2026-11-10T09:07:11Z, sha256 d43975dc9169"
+  },
+  {
+   "call": "backend.properties(datetime=2026-11-10T19:31:41.789031Z)",
+   "started_utc": "2026-11-11T04:20:07.598344Z",
+   "seconds": 0.473,
+   "outcome": "ok: IBM update 2026-11-10T16:34:05Z, sha256 60a212c41b76"
+  },
+  {
+   "call": "service.job(dbpfon8qtr0c738ebgj0)",
+   "started_utc": "2026-11-11T04:20:08.164134Z",
+   "seconds": 0.075,
+   "outcome": "ok"
+  },
+  {
+   "call": "job.status() [dbpfon8qtr0c738ebgj0]",
+   "started_utc": "2026-11-11T04:20:08.238705Z",
+   "seconds": 0.095,
+   "outcome": "ok"
+  },
+  {
+   "call": "job.metrics() [dbpfon8qtr0c738ebgj0]",
+   "started_utc": "2026-11-11T04:20:08.333309Z",
+   "seconds": 0.078,
+   "outcome": "ok"
+  },
+  {
+   "call": "job.properties() [dbpfon8qtr0c738ebgj0]",
+   "started_utc": "2026-11-11T04:20:08.411241Z",
+   "seconds": 0.467,
+   "outcome": "ok: IBM update 2026-11-10T11:35:39Z, sha256 b944518f6451"
+  },
+  {
+   "call": "backend.properties(datetime=2026-11-10T12:54:22.817673Z)",
+   "started_utc": "2026-11-11T04:20:09.073490Z",
+   "seconds": 0.36,
+   "outcome": "ok: IBM update 2026-11-10T11:35:39Z, sha256 b944518f6451"
+  },
+  {
+   "call": "backend.properties(datetime=2026-11-10T11:13:34.870713Z)",
+   "started_utc": "2026-11-11T04:20:09.520279Z",
+   "seconds": 0.58,
+   "outcome": "ok: IBM update 2026-11-10T09:07:11Z, sha256 d43975dc9169"
+  },
+  {
+   "call": "backend.properties(datetime=2026-11-10T19:10:40.143310Z)",
+   "started_utc": "2026-11-11T04:20:10.187152Z",
+   "seconds": 0.584,
+   "outcome": "ok: IBM update 2026-11-10T16:34:05Z, sha256 60a212c41b76"
+  },
+  {
+   "call": "service.job(dbpfontt7fqc7389bsu0)",
+   "started_utc": "2026-11-11T04:20:10.851722Z",
+   "seconds": 0.111,
+   "outcome": "ok"
+  },
+  {
+   "call": "job.status() [dbpfontt7fqc7389bsu0]",
+   "started_utc": "2026-11-11T04:20:10.962763Z",
+   "seconds": 0.073,
+   "outcome": "ok"
+  },
+  {
+   "call": "job.metrics() [dbpfontt7fqc7389bsu0]",
+   "started_utc": "2026-11-11T04:20:11.036063Z",
+   "seconds": 0.094,
+   "outcome": "ok"
+  },
+  {
+   "call": "job.properties() [dbpfontt7fqc7389bsu0]",
+   "started_utc": "2026-11-11T04:20:11.130178Z",
+   "seconds": 0.53,
+   "outcome": "ok: IBM update 2026-11-10T11:35:39Z, sha256 b944518f6451"
+  },
+  {
+   "call": "backend.properties(datetime=2026-11-10T12:54:47.256563Z)",
+   "started_utc": "2026-11-11T04:20:11.748653Z",
+   "seconds": 0.478,
+   "outcome": "ok: IBM update 2026-11-10T11:35:39Z, sha256 b944518f6451"
+  },
+  {
+   "call": "backend.properties(datetime=2026-11-10T11:13:35.793803Z)",
+   "started_utc": "2026-11-11T04:20:12.308987Z",
+   "seconds": 0.549,
+   "outcome": "ok: IBM update 2026-11-10T09:07:11Z, sha256 d43975dc9169"
+  },
+  {
+   "call": "backend.properties(datetime=2026-11-10T19:08:16.181825Z)",
+   "started_utc": "2026-11-11T04:20:12.936052Z",
+   "seconds": 0.584,
+   "outcome": "ok: IBM update 2026-11-10T16:34:05Z, sha256 60a212c41b76"
+  },
+  {
+   "call": "backend.properties(datetime=2026-11-10T16:34:05Z)",
+   "started_utc": "2026-11-11T04:20:13.703013Z",
+   "seconds": 0.359,
+   "outcome": "ok: IBM update 2026-11-10T13:37:31Z, sha256 ff258e53639b"
+  }
+ ]
+}
