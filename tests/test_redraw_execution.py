@@ -4,6 +4,7 @@ against, pending and stopped pools, and the classification written beside the ro
 tree from the committed 10 Nov properties files and the jobs' committed timestamps; no result file and no measured value
 is read (the one result file here is an empty stand-in the script must refuse on, by name)."""
 import ast
+import hashlib
 import json
 import math
 import shutil
@@ -20,15 +21,20 @@ import redraw_execution as rx  # noqa: E402
 
 CAL = ROOT / "data" / "calibrations"
 SETS = {"0732": "ibm_phoenix_properties_20261110T082134Z.json.gz", "0907": "ibm_phoenix_properties_20261110T101610Z.json.gz",
-        "1135": "ibm_phoenix_properties_2026-11-10T124546Z.json", "1337": "ibm_phoenix_properties_2026-11-10T135646Z.json"}
+        "1135": "ibm_phoenix_properties_2026-11-10T124546Z.json", "1337": "ibm_phoenix_properties_2026-11-10T135646Z.json",
+        # the stamps of 10 Nov the snapshots never committed, as the properties-history trial returned them (run 42958459321)
+        "t1120": "trial_2026-11-10/ibm_phoenix_properties_update_20261110T112004Z_c80d21378e55.json",
+        "t1314": "trial_2026-11-10/ibm_phoenix_properties_update_20261110T131438Z_6331a7c9c5b6.json",
+        "t1634": "trial_2026-11-10/ibm_phoenix_properties_update_20261110T163405Z_60a212c41b76.json"}
 REPLICATION = ROOT / "data" / "runs" / "2026-11-10" / "paper1_replication_01_16384_job_ids.json"
 BLOCKC = ROOT / "data" / "runs" / "2026-11-10" / "paper1_section3c_blockC_job_ids.json"
-# job id: (created, running, finished) as committed in the bundles' job.json; set in force at running; sets between; first set after finished
-JOBS = {"dbpfnr0qtr0c738ebeng": (("2026-11-10T11:11:40.956832Z", "2026-11-10T11:12:05.243865Z", "2026-11-10T12:35:07.784468Z"), "0907", ["1135"], "1337"),
-        "dbpfnrgqtr0c738ebeog": (("2026-11-10T11:11:42.219926Z", "2026-11-10T11:12:33.691043Z", "2026-11-10T11:21:02.733793Z"), "0907", [], "1135"),
-        "dbpfom8ou4as73ctjes0": (("2026-11-10T11:13:29.583977Z", "2026-11-10T12:54:18.417644Z", "2026-11-10T13:31:41.789031Z"), "1135", [], "1337"),
-        "dbpfon8qtr0c738ebgj0": (("2026-11-10T11:13:34.870713Z", "2026-11-10T12:54:22.817673Z", "2026-11-10T13:10:40.14331Z"), "1135", [], "1337"),
-        "dbpfontt7fqc7389bsu0": (("2026-11-10T11:13:35.793803Z", "2026-11-10T12:54:47.256563Z", "2026-11-10T13:08:16.181825Z"), "1135", [], "1337")}
+# job id: (created, running, finished) as committed in the bundles' job.json; the set in force at running; the sets the walk-back of
+# the trial returned with a stamp between running and finished; those with a stamp at or after finished
+JOBS = {"dbpfnr0qtr0c738ebeng": (("2026-11-10T11:11:40.956832Z", "2026-11-10T11:12:05.243865Z", "2026-11-10T12:35:07.784468Z"), "0907", ["t1120", "1135"], ["t1314", "1337", "t1634"]),
+        "dbpfnrgqtr0c738ebeog": (("2026-11-10T11:11:42.219926Z", "2026-11-10T11:12:33.691043Z", "2026-11-10T11:21:02.733793Z"), "0907", ["t1120"], ["1135", "t1314", "1337", "t1634"]),
+        "dbpfom8ou4as73ctjes0": (("2026-11-10T11:13:29.583977Z", "2026-11-10T12:54:18.417644Z", "2026-11-10T13:31:41.789031Z"), "1135", ["t1314"], ["1337", "t1634"]),
+        "dbpfon8qtr0c738ebgj0": (("2026-11-10T11:13:34.870713Z", "2026-11-10T12:54:22.817673Z", "2026-11-10T13:10:40.14331Z"), "1135", [], ["t1314", "1337", "t1634"]),
+        "dbpfontt7fqc7389bsu0": (("2026-11-10T11:13:35.793803Z", "2026-11-10T12:54:47.256563Z", "2026-11-10T13:08:16.181825Z"), "1135", [], ["t1314", "1337", "t1634"])}
 
 
 @pytest.fixture(scope="module")
@@ -36,15 +42,19 @@ def S():
     return {k: ec.load_properties_file(CAL / f) for k, f in SETS.items()}
 
 
-def write_bundles(root: Path, S, pending=(), disagree=()):
-    """The bundles of the five 10 Nov jobs as the metadata-only retrieval phase would leave them: no result file."""
+def write_bundles(root: Path, S, pending=(), disagree=(), restamp_only=()):
+    """The bundles of the five 10 Nov jobs as the metadata-only retrieval phase would leave them: no result file. ``pending``: no
+    set after finished yet; ``restamp_only``: only the 13:14:38Z re-stamp after finished; ``disagree``: job.properties() is another set."""
+    def ref(keys):
+        return [dict(file="data/calibrations/" + SETS[k]) for k in keys]
     for job_id, ((c, r, f), s0, mid, after) in JOBS.items():
         d = root / "runs" / "2026-11-10" / job_id
         d.mkdir(parents=True, exist_ok=True)
-        (d / "job.json").write_text(json.dumps(dict(job_id=job_id, metrics=dict(timestamps=dict(created=c, running=r, finished=f)))), encoding="utf-8")
+        (d / "job.json").write_text(json.dumps(dict(job_id=job_id, backend_name="ibm_phoenix", metrics=dict(timestamps=dict(created=c, running=r, finished=f)))), encoding="utf-8")
         (d / "properties_at_running.json").write_text(json.dumps(dict(job_properties=S["0732" if job_id in disagree else s0], backend_properties=S[s0])), encoding="utf-8")
-        (d / "properties_between.json").write_text(json.dumps(dict(complete=True, note=None, sets=[dict(file="data/calibrations/" + SETS[m]) for m in mid])), encoding="utf-8")
-        (d / "properties_after_finished.json").write_text(json.dumps(dict(status="pending") if job_id in pending else S[after]), encoding="utf-8")
+        (d / "properties_between.json").write_text(json.dumps(dict(complete=True, note=None, sets=ref(mid))), encoding="utf-8")
+        later = dict(status="pending") if job_id in pending else dict(sets=ref(["t1314"] if job_id in restamp_only else after))
+        (d / "properties_after_finished.json").write_text(json.dumps(later), encoding="utf-8")
         (d / "properties.json").write_text(json.dumps(S["0907"]), encoding="utf-8")
     (root / "jobs").mkdir(exist_ok=True)
     return root
@@ -104,15 +114,24 @@ def test_plan_of_the_replication_list(S, tmp_path):
     files = outputs(root)
     assert len(files) == 2 and all(f.startswith("paper1_replication_01_16384_") and "_plan." in f for f in files)
     res = json.loads(next((root / "out").glob("*.json")).read_text(encoding="utf-8"))
-    assert res["exploratory"] is True and "provisional" in res["exploratory_reasons"][0] and res["plan_only"] is True
-    assert res["settings"]["provisional"] is True and res["sampler_settings"]["deviation46"] is True
+    assert res["exploratory"] is True and "not in force" in res["exploratory_reasons"][0] and res["plan_only"] is True
+    assert res["settings"]["in_force"] is False and res["settings"]["provisional"] is True and res["sampler_settings"]["deviation46"] is True
     assert [j["status"] for j in res["jobs"]] == ["built", "built"] and len({j["E"] for j in res["jobs"]}) == 1     # two jobs, one E, one set of rows
-    assert {j["B"] for j in res["jobs"]} == {ec.value_sha256(S["1337"]), ec.value_sha256(S["1135"])}               # their brackets differ: the probes job finished before 11:35:39Z
+    assert all(j["pool_case"]["case"] == "service" and j["pool"]["source"] == "service" for j in res["jobs"])
+    assert all(j["cases"] == dict(entries_of_s0_dated_after_running={}, ties=[], values_not_in_s0=[]) for j in res["jobs"])
+    # the probes job finished 58 s after the 11:20:04Z update: both jobs have that update inside their window and the 13:37:31Z one as bracket
+    assert {j["B"] for j in res["jobs"]} == {ec.value_sha256(S["1337"])}
+    # C65-8: the rows are tied to the phase-1 files they were drawn on
+    for j in res["jobs"]:
+        d = root / "runs" / "2026-11-10" / j["job_id"]
+        assert j["phase1"]["files"] == {n: hashlib.sha256((d / n).read_bytes()).hexdigest() for n in ec.POOL_FILES}
+        assert j["phase1"]["t_running"] == ec.iso(ec.parse_utc(JOBS[j["job_id"]][0][1])) and j["phase1"]["t_finished"] == ec.iso(ec.parse_utc(JOBS[j["job_id"]][0][2]))
     g = res["groups"][0]
-    assert g["rule"] == "per_value_at_or_before_running" and len(g["jobs"]) == 2 and g["rows"] == []
-    assert g["pool_updates"] == ["2026-11-10T09:07:11Z", "2026-11-10T11:35:39Z", "2026-11-10T13:37:31Z"]
+    assert g["rule"] == "per_value_at_or_before_running" and len(g["jobs"]) == 2 and g["rows"] == [] and g["from_committed_snapshots"] is False
+    assert g["pool_updates"] == ["2026-11-10T09:07:11Z", "2026-11-10T11:20:04Z", "2026-11-10T13:37:31Z"]
+    assert g["pool_restamps"] == [[], ["2026-11-10T11:35:39Z", "2026-11-10T13:14:38Z"], ["2026-11-10T16:34:05Z"]]
     assert Path(g["files"]["csv"]).name == f"ibm_phoenix_2026-11-10T111205Z_execution_{g['E'][:12]}.csv" and Path(g["files"]["csv"]).is_file()
-    assert sorted(g["bracket_files"]) == sorted({ec.value_sha256(S["1337"]), ec.value_sha256(S["1135"])})
+    assert sorted(g["bracket_files"]) == [ec.value_sha256(S["1337"])]
     c = g["classification"]
     assert len(c) == 1 and c[0]["item"] == "point 0: n=82 L=8 k=1" and c[0]["reading"] is None and c[0]["flag"] is True      # flagged, and no row yet: not read
     assert "decision line" in c[0]["reason"] and sorted((e["qubit"], e["zone"]) for e in c[0]["elements"]) == [(31, "cone"), (98, "cone")]
@@ -157,17 +176,41 @@ def test_block_c_shares_one_calibration_equal_to_the_1135_set(S, tmp_path):
     assert sorted(e["qubit"] for e in g["classification"][0]["elements"]) == [25, 31, 98, 100]
 
 
-def test_a_pending_and_a_stopped_job_get_no_row_and_are_listed(S, tmp_path, capsys):
-    root = write_bundles(tmp_path, S, pending=("dbpfom8ou4as73ctjes0",), disagree=("dbpfon8qtr0c738ebgj0",))
-    assert rx.main(args_for(root, BLOCKC, "--plan")) == rx.INCOMPLETE
+def test_a_job_whose_service_pool_cannot_be_used_is_built_from_the_committed_snapshots_or_not_evaluable(S, tmp_path, capsys):
+    """C65-4. One job with no set after finished, one whose two records of the set at running disagree, one with only a re-stamp
+    after finished: with the committed snapshots each gets a flagged E; without them its points are not evaluable. Never the
+    dispatch-time row."""
+    root = write_bundles(tmp_path, S, pending=("dbpfom8ou4as73ctjes0",), disagree=("dbpfon8qtr0c738ebgj0",), restamp_only=("dbpfontt7fqc7389bsu0",))
+    assert rx.main(args_for(root, BLOCKC, "--plan")) == 0
+    files = sorted(p.name for p in (root / "out").glob("*.json"))
+    assert len(files) == 1 and files[0].endswith("_snapshots_plan.json")
+    res = json.loads((root / "out" / files[0]).read_text(encoding="utf-8"))
+    by = {j["job_id"]: j for j in res["jobs"]}
+    assert all(j["status"] == "built_from_committed_snapshots" and j["pool_case"]["case"] == "committed_snapshots" and j["pool"]["source"] == "committed_snapshots"
+               for j in res["jobs"])
+    assert by["dbpfom8ou4as73ctjes0"]["why"].startswith("pending") and "disagree" in by["dbpfon8qtr0c738ebgj0"]["why"]
+    assert "repeat the values in force before" in by["dbpfontt7fqc7389bsu0"]["why"]                       # a re-stamp does not close the pool
+    snap = by["dbpfom8ou4as73ctjes0"]["pool_case"]["snapshot_files"]
+    assert set(snap) == {SETS["1135"], SETS["1337"]} and snap[SETS["1337"]] == hashlib.sha256((CAL / SETS["1337"]).read_bytes()).hexdigest()
+    g = res["groups"][0]
+    assert g["from_committed_snapshots"] is True and g["E"] == ec.value_sha256(S["1135"]) and len(g["jobs"]) == 3
+    assert all(ec.FLAG_SNAPSHOTS in c["flags"] and c["flag"] is True for c in g["classification"])
+    # without a committed file that closes the pool: not evaluable, and the exit status says the list is incomplete
+    capsys.readouterr()
+    empty = tmp_path / "no_snapshots"
+    empty.mkdir()
+    out2 = tmp_path / "out2"
+    args = [a if a != str(root / "out") else str(out2) for a in args_for(root, BLOCKC, "--plan", "--calibrations-dir", str(empty))]
+    assert rx.main(args) == rx.INCOMPLETE
     err = capsys.readouterr().err
-    assert "dbpfom8ou4as73ctjes0: pending" in err and "dbpfon8qtr0c738ebgj0: stopped" in err
-    nb = json.loads((root / "out" / "paper1_section3c_blockC_not_built.json").read_text(encoding="utf-8"))
-    by = {j["job_id"]: j for j in nb["jobs"]}
-    assert by["dbpfom8ou4as73ctjes0"]["status"] == "pending" and by["dbpfon8qtr0c738ebgj0"]["status"] == "stopped" and "disagree" in by["dbpfon8qtr0c738ebgj0"]["why"]
-    assert all(j["fallback"]["reading"] == ec.READ_WITH_FLAG and j["fallback"]["row"] == "dispatch" for j in nb["jobs"])     # the table's provisional fallback
-    res = json.loads(next(p for p in (root / "out").glob("*_plan.json")).read_text(encoding="utf-8"))
-    assert [j["job_id"] for j in res["groups"][0]["jobs"]] == ["dbpfontt7fqc7389bsu0"]                                       # the one job that could be built
+    assert "3 job(s) without an execution-time calibration" in err and "not evaluable" in err
+    ne = json.loads((out2 / "paper1_section3c_blockC_not_evaluable_plan.json").read_text(encoding="utf-8"))
+    assert ne["groups"] == [] and [j["job_id"] for j in ne["not_evaluable"]] == sorted(by)
+    for j in ne["not_evaluable"]:
+        assert j["pool_case"]["case"] == "not_evaluable" and j["pool_case"]["snapshot_problem"]
+        assert [c["item"] for c in j["classification"]] == ["point 0: n=82 L=8 k=1", "point 1: n=82 L=10 k=1"]
+        assert all(c["reading"] == ec.NOT_EVALUABLE and c["grounds"] == [ec.GROUND_NO_E] and c["key"]["n"] == 82 for c in j["classification"])
+    assert "not evaluable" in (out2 / "paper1_section3c_blockC_not_evaluable_plan.md").read_text(encoding="utf-8")
 
 
 def test_another_sampler_setting_needs_exploratory(S, tmp_path):
@@ -187,8 +230,10 @@ def test_another_sampler_setting_needs_exploratory(S, tmp_path):
 def _group(S, tmp_path, job="dbpfnr0qtr0c738ebeng"):
     (c, r, f), s0, mid, after = JOBS[job]
     st = ec.load_settings()
-    E = ec.execution_calibration(ec.build_pool(job, r, f, S[s0], S[s0], [S[m] for m in mid], S[after], True), st)
-    return dict(E=E, files=ec.write_calibration(E, tmp_path / "cal")), st
+    pool = ec.build_pool(job, r, f, S[s0], S[s0], [S[m] for m in mid], [S[a] for a in after], True)
+    E, B = ec.execution_calibration(pool, st), ec.bracket_calibration(pool, st)
+    return dict(E=E, files=ec.write_calibration(E, tmp_path / "cal"), bracket_files={B["value_sha256"]: ec.write_calibration(B, tmp_path / "cal")},
+                from_committed_snapshots=False), st
 
 
 def test_classification_reads_the_line_on_the_row_that_moved_most(S, tmp_path):
@@ -205,7 +250,8 @@ def test_classification_reads_the_line_on_the_row_that_moved_most(S, tmp_path):
     assert c["key"] == dict(kind="grid", arm="grid", n=82, L=8, k=1, p=None)
     assert c["reading"] == ec.READ_WITH_FLAG and c["ln_ratio"] == pytest.approx(math.log(1.0105)) and [r["row"] for r in c["ratios"]] == ["main_grid-n100-8-unital", "main_grid-n100-8-nonunital"]
     c = rx.classify_items(jl, group, rows(1.02, 1.12), dispatch, st)[0]                  # the non-unital row moved by more than 10 percent
-    assert c["reading"] == ec.NOT_EVALUABLE and c["pi_decision_required"] is True and c["ln_ratio"] == pytest.approx(math.log(1.12))
+    assert c["reading"] == ec.NOT_EVALUABLE and c["grounds"] == [ec.GROUND_LINE] and c["ln_ratio"] == pytest.approx(math.log(1.12))      # C65-3: automatic
+    assert c["flags"] == [ec.FLAG_CONE] and c["bracket_zone_elements"] == []                 # the 13:37:31Z bracket has no zone element over a cut
     c = rx.classify_items(jl, group, {keys[0]: rows(1.0, 1.0)[keys[0]]}, dispatch, st)[0]  # one of the two rows is missing: not read
     assert c["reading"] is None and c["reason"].startswith("unclassified")
     c = rx.classify_items(jl, group, rows(1.0105, 1.0105), {}, st)[0]                    # no dispatch-time row: not read
