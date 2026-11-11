@@ -57,16 +57,8 @@ python scripts/sameday_repackage.py run --no-modal --exercise --run-sha $SHA --t
     --out $OUTW --bundle $WORK/out/sameday/bundle.tgz "$@" > $WORK/out/sameday/run.log 2>&1
 RC=$?
 echo "exit $RC" > $WORK/out/sameday/EXIT
-# what the exercise re-drew against the committed files of the same tag (byte comparison of the CSV files; the JSON / md files carry run times)
-python - "$TAG" > $WORK/out/sameday/reproduction.json 2>&1 <<'EOF'
-import hashlib, json, sys
-from pathlib import Path
-tag, out = sys.argv[1], {}
-for p in sorted(Path("/tmp").glob(f"committed_*_{tag}.*")):
-    new = Path("data/predictions") / p.name[len("committed_"):]
-    out[new.name] = dict(redrawn=new.exists(), identical=new.exists() and hashlib.sha256(new.read_bytes()).hexdigest() == hashlib.sha256(p.read_bytes()).hexdigest())
-print(json.dumps(out, indent=1))
-EOF
+# what the exercise re-drew against the committed files of the same tag: values, not bytes (scripts/exercise_reproduction.py says what is left out)
+python scripts/exercise_reproduction.py "$TAG" > $WORK/out/sameday/reproduction.json 2>&1
 tar -czf $WORK/out/sameday/extras.tgz -C $OUTW A/status.log $(cd $OUTW && ls A/dryrun_*.log tests/*.log tests/*.xml 2>/dev/null) 2>/dev/null
 if [ -n "$BACKUP_DIR" ]; then
     kill $COPIER 2>/dev/null

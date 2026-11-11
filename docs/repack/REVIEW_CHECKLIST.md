@@ -125,7 +125,13 @@ A list refused by the live check waits for the next calibration or the next same
 
 `modal/run_exercise.sh <run_sha> <lists_sha> <tag> [args]` exercises the cycle on a committed snapshot whose lists are already on the tree: it restores
 the un-armed lists of an earlier commit (run records are left alone), removes the prediction files of that snapshot's tag from the sandbox tree so that every
-draw runs, and then runs `run --exercise`. Nothing is written to any branch.
+draw runs, and then runs `run --exercise`. Nothing is written to any branch. `scripts/exercise_reproduction.py` then compares what was re-drawn with
+the committed files of that tag by value (`out/sameday/reproduction.json`): run times, the time and the commit of the draw and the row order are left
+out, and everything else must agree.
+
+The pairs' list (`scripts/make_truncation_pairs.py`, `--with-pairs`) is written into `data/joblists/paper1/` before the suite runs. Its generator does
+not count its own list there as a seed overlap (any other list on its seed block still is one) and does not write over a pairs list that was armed or
+dispatched. Before this was fixed (exercise of 11 Nov 2026) every cycle with `--with-pairs` ended in a test stop.
 
 `run --survey` is the dispatchability survey (`modal/run_survey.sh`, no commits, no pull request). It runs regeneration, the Gate 1b re-draw and
 the pre-check of every list on the snapshot, records the Gate 1b verdict without stopping, and ends with status `survey`. Nothing from a survey is

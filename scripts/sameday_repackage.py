@@ -696,7 +696,7 @@ def write_summary(S: dict, date: str) -> tuple:
         L.append("")
     if S.get("holds"):
         L += ["**Rendered for the record, not dispatched from this package:** " + "; ".join(f"`{n}` ({r})" for n, r in S["holds"].items()) + ".", ""]
-    L += [f"Wall time {r.get('wall_min')} min (stages: " + ", ".join(f"{k} {v}" for k, v in (r.get('stage_min') or {}).items()) + f"); {r.get('cores')} cores; "
+    L += [f"Wall time {r.get('wall_min')} min (stages: " + ", ".join(f"{k} {v}" for k, v in (r.get('stage_min') or {}).items()) + f"); {r.get('cores')} cores reported by the machine; "
           f"Modal cost {r.get('modal_cost')}.", ""]
     pc = S.get("precheck_committed") or {}
     if pc:
@@ -760,7 +760,9 @@ def write_summary(S: dict, date: str) -> tuple:
     if ct:
         L += [f"Comparators drawn in {ct.get('wall_min')} min from the start of the parallel stage (" + ", ".join(
             f"{k} {v.get('wall_s'):.0f} s, ended at {v.get('ended_s'):.0f} s" for k, v in (ct.get("tasks") or {}).items())
-            + f"; {ct.get('cores')} cores, Gate 1b workers {ct.get('gate1b_workers')}, dial workers {ct.get('dial_workers')}).", ""]
+            + f"; {ct.get('cores')} cores reported by the machine"
+            + (f", {ct.get('cores_reserved'):g} reserved" if ct.get("cores_reserved") else "")
+            + f", Gate 1b workers {ct.get('gate1b_workers')}, dial workers {ct.get('dial_workers')}).", ""]
     pa = S.get("precheck_all") or {}
     if pa:
         fails = [n for n, v in pa.items() if not v["passes"] and not v.get("record")]
@@ -1028,10 +1030,13 @@ def run(args) -> int:
         stage_t["c_parallel"] = time.time() - t
         cmp_tasks = [tk for tk in tasks if tk.name in ("h7", "dial_rows", "pairs") and tk.t1 is not None]
         if cmp_tasks:      # the comparators' share of the cycle: from the start of stage (c) to the last comparator file (the dial rows wait for Gate 1b)
-            S["comparator_timing"] = dict(wall_min=round((max(tk.t1 for tk in cmp_tasks) - t) / 60, 1), cores=cores, gate1b_workers=w, dial_workers=wd,
+            S["comparator_timing"] = dict(wall_min=round((max(tk.t1 for tk in cmp_tasks) - t) / 60, 1), cores=cores,
+                                          cores_reserved=float(args.cost_cores) if args.cost_cores else None, gate1b_workers=w, dial_workers=wd,
                                           tasks={tk.name: dict(wall_s=tk.wall, started_s=round(tk.t0 - t, 1), ended_s=round(tk.t1 - t, 1)) for tk in cmp_tasks},
                                           note="minutes from the start of the parallel stage to the last comparator file (h7, dial rows, pairs), mixture "
-                                               "and realised masks; the dial rows start when the Gate 1b re-draw ends")
+                                               "and realised masks; the dial rows start when the Gate 1b re-draw ends. `cores` is the count the machine "
+                                               "reports (os.cpu_count(); the worker counts follow it), which on a Modal sandbox is its burst limit; "
+                                               "`cores_reserved` is the count the sandbox was asked for (--cost-cores), when it was given")
         # Deviation 62 review note 6: the Gate 1b rows must be drawn on the dial placement
         g1j = json.loads((PRED / f"gate1b_redraw_{tag}.json").read_text(encoding="utf-8"))
         ref_now = first_unarmed(DIAL_PLACED, records)
@@ -1313,7 +1318,9 @@ def review_flags(S: dict, prev_dir: Path) -> list:
             pass
     tt = S.get("tests") or {}
     if tt.get("unexpected"):
-        fl.append(f"{len(tt['unexpected'])} test failure(s) not in the known list: {', '.join(tt['unexpected'][:6])}")
+        more = len(tt["unexpected"]) - 6
+        fl.append(f"{len(tt['unexpected'])} test failure(s) not in the known list: {', '.join(tt['unexpected'][:6])}"
+                  + (f" and {more} more (all are named under the stop conditions and in the tests report)" if more > 0 else ""))
     if tt.get("deselected"):
         fl.append(f"tests left out with --deselect (survey use only, never for a dispatch package): {', '.join(tt['deselected'])}")
     if S.get("l2c5") and not S["l2c5"].get("passes"):

@@ -1,5 +1,6 @@
 """Same-day pipeline changes before day 3 (10 Nov 2026): run records, the test stop, package labels, origins and computed pre-flight
-sentences, the realised-mask comparators, the execution span of a retrieved job and the pre-arming check.
+sentences, the realised-mask comparators, the execution span of a retrieved job and the pre-arming check; and what the
+exercise of 11 Nov found (the pairs' generator meeting its own list, the reproduction check of the exercise).
 
 The tests use only immutable committed files (the run records of 10 Nov, the summary and pre-flights of the 10 Nov packages, calibration
 snapshots, prediction files of earlier packages) or lists generated into a temporary directory, so a later re-package does not move them.
@@ -572,3 +573,128 @@ def test_prearm_check_before_arming_needs_the_review_record_and_refuses_no_go(tm
     assert PC.no_go_for("> **Review (2026-11-12): GO_WITH_NOTES.** Reviewer: x", "day3_dial_refs") is False
     with pytest.raises(SystemExit):
         PC.source_for("main", None)                                                                # a branch name is not a commit
+
+
+# ------------------------------------------------------------------------------------------------ found by the exercise of 11 Nov 2026
+
+def _pairs_tree(tmp_path, gen_lists):
+    """A <tmp>/data/joblists/paper1 with the lists generated on the 10 Nov 10:16Z snapshot (all un-armed), and its day-3 list."""
+    d = tmp_path / "data" / "joblists" / "paper1"
+    shutil.copytree(gen_lists[SNAP_A], d)
+    return d, json.loads((d / "day3_dial_refs.json").read_text(encoding="utf-8"))
+
+
+def test_the_pairs_generator_meets_its_own_list_in_the_tree_and_still_refuses_a_second_use_of_its_seeds(tmp_path, gen_lists):
+    """The cycle writes the pairs' list into data/joblists/paper1 and then runs the suite and --check in that tree. The seed check
+    counted the list's own file as an overlap, so seven tests of tests/test_truncation_pairs.py failed in the exercise and the cycle
+    stopped. The list's own probes are not an overlap; anything else on its seed block is."""
+    import make_truncation_pairs as MTP
+    d, day3 = _pairs_tree(tmp_path, gen_lists)
+    jl = MTP.build(day3, "day3_dial_refs.json", lists_dir=d.parent)
+    own = d / "dial_truncation_pairs.json"
+    own.write_text(json.dumps(jl, indent=1) + "\n", encoding="utf-8")
+    assert MTP.build(day3, "day3_dial_refs.json", lists_dir=d.parent) == jl                    # the state the suite meets in the cycle
+    hits = MTP.seed_clashes(jl["probes"], d.parent)                                           # without the list's name: as before
+    assert len(hits) == 4 and {h["file"] for h in hits} == {"dial_truncation_pairs.json"}
+    assert MTP.seed_clashes(jl["probes"], d.parent, own=MTP.LIST_NAME) == []
+    # the same seeds under another name: a second list, refused
+    other = dict(jl, name=MTP.LIST_NAME + "_r2")
+    (d / "dial_truncation_pairs_r2.json").write_text(json.dumps(other), encoding="utf-8")
+    with pytest.raises(SystemExit, match="overlaps committed entries"):
+        MTP.build(day3, "day3_dial_refs.json", lists_dir=d.parent)
+    (d / "dial_truncation_pairs_r2.json").unlink()
+    # another probe on the block inside the list's own file: refused
+    extra = json.loads(json.dumps(jl))
+    extra["probes"].append(dict(extra["probes"][0], id="some_other_probe"))
+    own.write_text(json.dumps(extra), encoding="utf-8")
+    with pytest.raises(SystemExit, match="some_other_probe"):
+        MTP.build(day3, "day3_dial_refs.json", lists_dir=d.parent)
+    # the day-3 list's own entries count whatever the name
+    clash = json.loads(json.dumps(day3))
+    clash["probes"][0]["seed"] = MTP.PAIRS_SEED
+    own.unlink()
+    with pytest.raises(SystemExit, match="given day-3 list"):
+        MTP.build(clash, "day3_dial_refs.json", lists_dir=d.parent)
+
+
+def test_the_pairs_generator_checks_its_own_output_and_never_writes_over_a_record(tmp_path, gen_lists, capsys):
+    import make_truncation_pairs as MTP
+    d, _ = _pairs_tree(tmp_path, gen_lists)
+    day3, out = str(d / "day3_dial_refs.json"), d / "dial_truncation_pairs.json"
+    assert MTP.record_of(out) is None and MTP.main([day3, "--out", str(out)]) == 0
+    assert MTP.main([day3, "--out", str(out), "--check"]) == 0                                 # failed before: the list met itself
+    assert MTP.main([day3, "--out", str(out)]) == 0 and MTP.record_of(out) is None             # an un-armed list is written again
+    before = out.read_bytes()
+    # dispatched: a job-ids file of the list's name in the runs directory that belongs to the lists
+    ids = tmp_path / "data" / "runs" / "2026-11-12" / f"{MTP.LIST_NAME}_job_ids.json"
+    ids.parent.mkdir(parents=True)
+    ids.write_text("{}", encoding="utf-8")
+    assert MTP.record_of(out)["ids_files"]
+    with pytest.raises(SystemExit, match="run record"):
+        MTP.main([day3, "--out", str(out)])
+    assert out.read_bytes() == before
+    out.unlink()                                                                               # the file gone, the ids file still there
+    with pytest.raises(SystemExit, match="run record"):
+        MTP.main([day3, "--out", str(out)])
+    assert not out.exists()
+    ids.unlink()
+    # armed, not yet dispatched
+    out.write_text(json.dumps(dict(json.loads(before), dry_run=False, preflight_review="https://example.org/review")), encoding="utf-8")
+    armed = out.read_bytes()
+    assert MTP.record_of(out)["armed"]
+    with pytest.raises(SystemExit, match="never regenerated"):
+        MTP.main([day3, "--out", str(out)])
+    assert out.read_bytes() == armed
+    capsys.readouterr()
+
+
+def test_exercise_reproduction_compares_values_not_bytes(tmp_path, capsys):
+    """modal/run_exercise.sh: a re-draw differs from the committed file in its run times, its time and commit and its row order; those
+    are left out and nothing else is."""
+    import exercise_reproduction as ER
+    old, new, tag = tmp_path / "old", tmp_path / "new", "2026-11-10T1016"
+    old.mkdir(), new.mkdir()
+    head = "rung,model,L,var_pp,pp_runtime_s,runtime_s\n"
+    (old / f"committed_gate1b_redraw_{tag}.csv").write_text(head + "n40,unital,8,1.25e-05,3.1,9.0\nn60,unital,8,2.5e-06,4.0,8.0\n", encoding="utf-8")
+    (new / f"gate1b_redraw_{tag}.csv").write_text(head + "n60,unital,8,2.5e-06,1.0,2.0\nn40,unital,8,1.25e-05,0.5,3.0\n", encoding="utf-8")
+    (old / f"committed_dial_redraw_{tag}.csv").write_text(head + "n60,reset,8,1.0e-03,1,1\n", encoding="utf-8")
+    (new / f"dial_redraw_{tag}.csv").write_text(head + "n60,reset,8,1.1e-03,1,1\n", encoding="utf-8")
+    doc = dict(generated_utc="2026-11-10T10:24:02Z", git_commit="a" * 40, runtime_s=261.2, core_minutes=26.3,
+               settings=dict(seed=0, snapshot="/tmp/src/gradvar-phoenix-" + "a" * 40 + "/data/calibrations/x.csv"),
+               rows=[dict(rung="n40", var=1.0, mc_runtime_s=5.0), dict(rung="n60", var=2.0, mc_runtime_s=6.0)])
+    (old / f"committed_gate1b_redraw_{tag}.json").write_text(json.dumps(doc), encoding="utf-8")
+    redo = dict(doc, generated_utc="2026-11-11T03:13:20Z", git_commit="b" * 40, runtime_s=160.3, core_minutes=17.3,
+                settings=dict(seed=0, snapshot="/tmp/src/gradvar-phoenix-" + "b" * 40 + "/data/calibrations/x.csv"),
+                rows=[dict(rung="n60", var=2.0, mc_runtime_s=1.0), dict(rung="n40", var=1.0, mc_runtime_s=2.0)])
+    (new / f"gate1b_redraw_{tag}.json").write_text(json.dumps(redo, indent=1), encoding="utf-8")
+    (old / f"committed_h7_truncation_{tag}.json").write_text(json.dumps(doc), encoding="utf-8")
+    (new / f"h7_truncation_{tag}.json").write_text(json.dumps(dict(redo, settings=dict(redo["settings"], realised_samples=4),
+                                                                   rows=[dict(rung="n60", var=2.5), dict(rung="n40", var=1.0)])), encoding="utf-8")
+    (old / f"committed_h7_truncation_{tag}.md").write_text("wall 4.4 min\n", encoding="utf-8")
+    (new / f"h7_truncation_{tag}.md").write_text("wall 2.7 min\n", encoding="utf-8")
+    (old / f"committed_main_grid_redraw_{tag}.csv").write_text(head, encoding="utf-8")                 # not re-drawn
+    (old / "committed_gate1b_redraw_2026-11-10T0821.csv").write_text(head, encoding="utf-8")           # another tag: not compared
+    out = ER.main(tag, str(old), str(new))
+    assert json.loads(capsys.readouterr().out) == out and set(out) == {
+        f"gate1b_redraw_{tag}.csv", f"dial_redraw_{tag}.csv", f"gate1b_redraw_{tag}.json", f"h7_truncation_{tag}.json", f"h7_truncation_{tag}.md",
+        f"main_grid_redraw_{tag}.csv", "_not_compared"}
+    g = out[f"gate1b_redraw_{tag}.csv"]
+    assert g["redrawn"] and not g["bytes_identical"] and g["values_identical"] is True and g["differences"] == []
+    assert out[f"gate1b_redraw_{tag}.json"]["values_identical"] is True and not out[f"gate1b_redraw_{tag}.json"]["bytes_identical"]
+    dd = out[f"dial_redraw_{tag}.csv"]
+    assert dd["values_identical"] is False and dd["n_differences"] == 1 and "var_pp" in dd["differences"][0] and "1.1e-03" in dd["differences"][0]
+    hh = out[f"h7_truncation_{tag}.json"]
+    assert hh["values_identical"] is False and hh["n_differences"] == 2
+    assert any("realised_samples: only in the re-draw" in x for x in hh["differences"]) and any("/var" in x and "2.5" in x for x in hh["differences"])
+    assert out[f"h7_truncation_{tag}.md"]["values_identical"] is None and out[f"h7_truncation_{tag}.md"]["redrawn"]
+    assert out[f"main_grid_redraw_{tag}.csv"] == dict(redrawn=False, bytes_identical=False, values_identical=False, differences=["not re-drawn"])
+    sh = (ROOT / "modal" / "run_exercise.sh").read_text(encoding="utf-8")
+    assert "scripts/exercise_reproduction.py" in sh and sh.count("BACKUP_DIR=") == 1 and "\r" not in sh
+
+
+def test_the_flag_of_unexpected_test_failures_says_when_names_are_left_out(tmp_path):
+    names = [f"tests/test_x.py::test_{i}" for i in range(7)]
+    fl = [f for f in SR.review_flags(dict(tests=dict(unexpected=names)), tmp_path) if "not in the known list" in f]
+    assert len(fl) == 1 and fl[0].startswith("7 test failure(s)") and names[5] in fl[0] and names[6] not in fl[0] and "and 1 more" in fl[0]
+    fl = [f for f in SR.review_flags(dict(tests=dict(unexpected=names[:6])), tmp_path) if "not in the known list" in f]
+    assert names[5] in fl[0] and "more" not in fl[0]
