@@ -146,6 +146,20 @@ def channels_to_draw(table: Mapping, dial: str, table_levels: Sequence[float] | 
     return list(seen.values())
 
 
+def take_shard(items: Sequence, spec: str | None) -> tuple:
+    """(items of shard K of N, suffix) for ``spec`` 'K/N' (K = 1 .. N): every N-th item starting at the K-th, so the shards of a
+    job list are disjoint, cover it and each hold every probe's channels in turn. None: (all items, '')."""
+    if not spec:
+        return list(items), ""
+    try:
+        k, n = (int(x) for x in str(spec).split("/"))
+    except ValueError:
+        raise ValueError(f"shard {spec!r}: write K/N, e.g. 2/3") from None
+    if not 1 <= k <= n:
+        raise ValueError(f"shard {spec!r}: K must be in 1 .. N")
+    return [x for i, x in enumerate(items) if i % n == k - 1], f"_shard{k}of{n}"
+
+
 def choose_level(u_max: float, table: Mapping | None = None) -> Optional[float]:
     """The smallest pre-drawn level at or above ``u_max`` (the largest upper bound over the dial-patch qubits); None above the largest."""
     for lv in levels(table):

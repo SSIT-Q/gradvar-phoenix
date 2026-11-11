@@ -297,12 +297,15 @@ def draw_vertex(job: dict) -> dict:
 def write_vertices(joblists: list, settings: dict, overrides: dict, args) -> int:
     """``--vertices``: draw the vertex rows and write ``dial_vertices_<tag>.csv`` / ``.json`` beside the designed-channel files
     (an exploratory draw: ``dial_exploratory_vertices_<tag>.*``, not read by the analysis)."""
+    from gradvar.analysis import dial_channel as dc
     t0 = time.time()
     vp = vertex_plan(joblists)
+    n_all = len(vp["jobs"])
+    vp["jobs"], shard = dc.take_shard(vp["jobs"], getattr(args, "shard", None))
     tag = args.tag or f"{vp['stamp'][:10]}T{vp['stamp'][11:15]}"
     tb = vp["table"]
     print(f"Deviation 64 (draft) vertex rows; table {tb['path']} ({tb['status']}, adopted {tb['adopted']}), levels {tb['levels']}; "
-          f"placement {vp['stamp']}; {len(vp['jobs'])} rows")
+          f"placement {vp['stamp']}; {len(vp['jobs'])} rows" + (f" (shard {args.shard} of {n_all})" if shard else ""))
     for j in vp["jobs"]:
         print(f"  to draw  {j['rung']:5} {j['probe_id']} {j['dial']:7} serves {' '.join(f'{lv!r}:{vid}' for lv, vid in j['serves'])}")
     if args.plan or not vp["jobs"]:
@@ -326,7 +329,7 @@ def write_vertices(joblists: list, settings: dict, overrides: dict, args) -> int
                 done(fut.result())
     rows.sort(key=lambda r: (r["rung"], r["L"], r["dial"], r["p"], r["probe_id"], r["channel_key"]))
     rel = [Path(p).resolve().relative_to(ROOT).as_posix() if Path(p).resolve().is_relative_to(ROOT) else str(p) for p in joblists]
-    cmd = ("python scripts/redraw_dial_points.py " + " ".join(f"--joblist {r}" for r in rel) + " --vertices"
+    cmd = ("python scripts/redraw_dial_points.py " + " ".join(f"--joblist {r}" for r in rel) + " --vertices" + (f" --shard {args.shard}" if shard else "")
            + ("".join(f" {SETTING_FLAGS[k]} {v}" for k, v in overrides.items()) + " --exploratory" if args.exploratory else ""))
     res = dict(deviation="64 (draft, not adopted): vertex rows of the dial-channel range", table=tb,
                generated_utc=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), command=cmd, git_commit=_git_commit(),
@@ -335,7 +338,8 @@ def write_vertices(joblists: list, settings: dict, overrides: dict, args) -> int
                              realised=dict(rd.REALISED, n_samples=settings["realised_samples"]), deviation46=not overrides,
                              exploratory=bool(args.exploratory), overrides=overrides, workers=int(args.workers)),
                rows=rows, runtime_s=time.time() - t0)
-    stem = ("dial_exploratory_vertices" if args.exploratory else "dial_vertices") + f"_{tag}"
+    stem = ("dial_exploratory_vertices" if args.exploratory else "dial_vertices") + f"_{tag}{shard}"
+    res["shard"] = getattr(args, "shard", None)
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / f"{stem}.json").write_text(json.dumps(res, indent=1, default=rd._json_default), encoding="utf-8")
@@ -409,6 +413,8 @@ def main(argv=None) -> int:
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--vertices", action="store_true",
                     help="Deviation 64 (draft): draw only the vertex rows of the dial-channel range (dial_vertices_<tag>.*); the designed-channel files are not touched")
+    ap.add_argument("--shard", default=None, help="with --vertices: K/N, draw every N-th row starting at the K-th and write dial_vertices_<tag>_shardKofN.*, "
+                                                  "so that the set can be drawn on N machines side by side")
     args = ap.parse_args(argv)
     settings, overrides = settings_from_args(args)
     if overrides and not args.exploratory:
@@ -418,6 +424,8 @@ def main(argv=None) -> int:
         print("WARNING: EXPLORATORY draw, not the Deviation 46 settings" + (f" ({overrides})" if overrides else "")
               + f"; output {output_prefix(True)}_<tag>.*, not read by the analysis", flush=True)
     joblists = args.joblist or [str(DEFAULT_JOBLIST)]
+    if args.shard and not args.vertices:
+        ap.error("--shard applies to --vertices only")
     if args.vertices:
         return write_vertices(joblists, settings, overrides, args)
     t0 = time.time()

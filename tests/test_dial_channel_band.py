@@ -464,6 +464,15 @@ def test_vertex_plan_and_row_of_the_redraw_scripts():
     want = sum(len(DC.channels_to_draw(TABLE, it["dial"])) for it in rdp.realised_probes(jl))
     assert len(vp["jobs"]) == want and vp["table"]["sha256"] == TABLE["_sha256"] and vp["table"]["adopted"] is False and vp["stamp"] == ST
     assert h7.main(["--joblist", str(LIST27), "--vertices", "--plan"]) == 0 and rdp.main(["--joblist", str(LIST27), "--vertices", "--plan"]) == 0
+    assert h7.main(["--joblist", str(LIST27), "--vertices", "--plan", "--shard", "2/3"]) == 0
+    assert rdp.main(["--joblist", str(LIST27), "--vertices", "--plan", "--shard", "3/3"]) == 0
+    parts = [DC.take_shard(vp["jobs"], f"{k}/3") for k in (1, 2, 3)]
+    assert [s for _, s in parts] == ["_shard1of3", "_shard2of3", "_shard3of3"] and sum(len(p) for p, _ in parts) == len(vp["jobs"])
+    assert sorted((j["probe_id"], j["channel_key"]) for p, _ in parts for j in p) == sorted((j["probe_id"], j["channel_key"]) for j in vp["jobs"])
+    assert DC.take_shard(vp["jobs"], None) == (vp["jobs"], "")
+    for bad in ("0/3", "4/3", "x"):
+        with pytest.raises(ValueError):
+            DC.take_shard(vp["jobs"], bad)
     job = next(j for j in vp["jobs"] if j["rung"] == "n40" and j["channel"]["r"] < 0)
     s = dict(rd.REALISED, n_samples=4000, chunk=2000)
     plain = rd.realised_dial_row(job["jl"], job["probe"], job["rung_block"], vp["snapshot"], vp["props"], s)

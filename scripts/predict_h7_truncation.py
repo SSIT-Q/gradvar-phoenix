@@ -357,6 +357,7 @@ def main(argv=None) -> int:
                          "the designed-channel records are not touched")
     ap.add_argument("--plan", action="store_true", help="with --vertices: print the entries that would be drawn; no simulation")
     ap.add_argument("--workers", type=int, default=4, help="with --vertices: processes")
+    ap.add_argument("--shard", default=None, help="with --vertices: K/N, draw every N-th entry starting at the K-th and write h7_vertices_<tag>_shardKofN.json")
     args = ap.parse_args(argv)
     t_start = time.time()
     jl_path = Path(args.joblist)
@@ -389,7 +390,7 @@ def main(argv=None) -> int:
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     if args.vertices:
-        return write_vertices(jl, points, rec, snapshot, props, stamp, tag, out_dir, args.realised_samples, args.workers, args.plan, t_start)
+        return write_vertices(jl, points, rec, snapshot, props, stamp, tag, out_dir, args.realised_samples, args.workers, args.plan, t_start, args.shard)
     if args.realised_only:
         return write_realised(jl, points, rec, snapshot, props, stamp, tag, out_dir, args.realised_samples, [], t_start)
     checks = []
@@ -438,7 +439,7 @@ def _vertex_entry(job: dict) -> dict:
 
 
 def write_vertices(jl: dict, points: list, rec: dict, snapshot: str, props: str, stamp: str, tag: str, out_dir: Path, n_samples: int,
-                   workers: int, plan_only: bool, t_start: float) -> int:
+                   workers: int, plan_only: bool, t_start: float, shard_spec: str | None = None) -> int:
     """Deviation 64 (draft): the realised-mask H7 comparator of every truncation arm at the distinct channels of every pre-drawn
     level (``dial_channel.channels_to_draw``), written as h7_vertices_<tag>.json (a pairs list: h7_vertices_pairs_<tag>.json) beside
     the designed-channel records, which it does not touch. A path count other than the registered one is written as
@@ -458,7 +459,10 @@ def write_vertices(jl: dict, points: list, rec: dict, snapshot: str, props: str,
             jobs.append(dict(jl=jl, point=point, rung_name=rung_name, rung=rung, csv=snapshot, props=props, n_samples=int(n_samples),
                              channel=c["channel"], channel_key=c["key"], serves=c["serves"]))
     tb = dict(path=Path(table["_path"]).name, sha256=table["_sha256"], status=table["status"], adopted=table["adopted"], levels=dc.levels(table))
-    print(f"Deviation 64 (draft) vertex entries; table {tb['path']} ({tb['status']}, adopted {tb['adopted']}), levels {tb['levels']}; {len(jobs)} entries")
+    n_all = len(jobs)
+    jobs, shard = dc.take_shard(jobs, shard_spec)
+    print(f"Deviation 64 (draft) vertex entries; table {tb['path']} ({tb['status']}, adopted {tb['adopted']}), levels {tb['levels']}; {len(jobs)} entries"
+          + (f" (shard {shard_spec} of {n_all})" if shard else ""))
     for j in jobs:
         print(f"  to draw  {j['rung_name']} {j['point']['full']} serves {' '.join(f'{lv!r}:{vid}' for lv, vid in j['serves'])}")
     if plan_only or not jobs:
@@ -481,11 +485,12 @@ def write_vertices(jl: dict, points: list, rec: dict, snapshot: str, props: str,
     entries.sort(key=lambda e: (e["point"]["rung"], e["probes"][0], e["channel_key"]))
     stem = "pairs_" if rec.get("pairs") else ""
     registered = int(n_samples) == rd.REALISED["n_samples"]
-    out = dict(rec, deviation="64 (draft, not adopted): vertex entries of the dial-channel range", table=tb, command=rec["command"] + " --vertices",
+    out = dict(rec, deviation="64 (draft, not adopted): vertex entries of the dial-channel range", table=tb, shard=shard_spec,
+               command=rec["command"] + " --vertices" + (f" --shard {shard_spec}" if shard else ""),
                settings=dict(rec.get("settings", {}), realised=dict(rd.REALISED, n_samples=int(n_samples)), exploratory=not registered, workers=int(workers),
                              comparator_rule="rms = sqrt of the realised-mask off-diagonal MSD(l) at the vertex's dial channel; rms_sigma = its sampling error"),
                entries=entries, runtime_s=time.time() - t_start)
-    name = f"h7_vertices_{stem}{tag}" if registered else f"h7_exploratory_vertices_{stem}{tag}"
+    name = (f"h7_vertices_{stem}{tag}" if registered else f"h7_exploratory_vertices_{stem}{tag}") + shard
     (out_dir / f"{name}.json").write_text(json.dumps(out, indent=1, default=rd._json_default), encoding="utf-8")
     print(f"wrote {name}.json in {out_dir}; {out['runtime_s']:.0f}s" + ("" if registered else " (EXPLORATORY: not read by the analysis)"))
     return 0
