@@ -2565,12 +2565,19 @@ def retrieve_jobs(ids_path: str, joblist_path: str | None = None, run_root: str 
             failures.append(f"{job_id} ({tag}): {error}")
             d = write_job_bundle(root, job_id, group, backend, options, level, gshots, jl, job=job, error=error, timestamps=ts, extra=extra,
                                  day=day, properties=props_dict)
-            record_execution_span(d, created_iso, props_label)      # record only: created / running / finished as the service gives them
+            try:                                                    # record only: created / running / finished as the service gives them
+                record_execution_span(d, created_iso, props_label)
+            except Exception as e:                                  # a record never fails a retrieval
+                print(f"job {job_id} ({tag}): execution span not recorded ({type(e).__name__}: {e})", file=sys.stderr, flush=True)
             print(f"job {job_id} ({tag}) has no result ({error}); wrote {d}", file=sys.stderr, flush=True)
             continue
         d = write_job_bundle(root, job_id, group, backend, options, level, gshots, jl, result=result, job=job, timestamps=ts, extra=extra,
                              day=day, properties=props_dict)
-        span = record_execution_span(d, created_iso, props_label)   # record only: created / running / finished as the service gives them
+        try:                                                        # record only: created / running / finished as the service gives them
+            span = record_execution_span(d, created_iso, props_label)
+        except Exception as e:                                      # a record never fails a retrieval
+            span = dict(created=None, running=None, finished=None)
+            print(f"job {job_id} ({tag}): execution span not recorded ({type(e).__name__}: {e})", file=sys.stderr, flush=True)
         rows += _point_rows(backend, job_id, snapshot, group, level, gshots, result, options=options, submit_time=submitted)
         print(f"retrieved {job_id} ({tag}: resilience {level}, {len(group)} pubs, shots {gshots}, status {status}, inputs "
               f"{'match' if verif.get('match') else 'MISMATCH'}): wrote {d}; created {span['created']}, running {span['running']}, finished {span['finished']}", flush=True)
