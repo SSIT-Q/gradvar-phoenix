@@ -9,7 +9,8 @@ stamped for the PI's countersignature. The lead treats the campaign as paused fo
 number provisional); this draft is the rule that record's item 2 asks for and does not itself lift the pause.
 
 **Revised 11 Nov 2026, 07:16 UTC, still a draft.** Two things happened after the first text. The independent review
-(`docs/reviews/review_dev64_dev65_dev66_2026-11-10.md`, verdict GO_WITH_CORRECTIONS) returned eight corrections, C65-1 to C65-8, and the
+(`docs/reviews/review_dev64_dev65_dev66_2026-11-10.md`, verdict GO_WITH_CORRECTIONS; the file was not yet on `main` at a8136f0 and has to be
+committed under that path before a row cites it) returned eight corrections, C65-1 to C65-8, and the
 QPU-free trial of Section 8 item 9 ran (workflow run 42958459321, 11 Nov 04:19 UTC; report
 `docs/deviations_drafts/65_support/trial_properties_history_20261111T041956Z.md` on branch `trial-properties-history-run-42958459321`; no result was read). The corrections are applied in this text
 as worded by the review, with one exception stated where it occurs (the reason given in C65-2 names the wrong stamp). The trial showed that IBM
@@ -17,7 +18,7 @@ stamped six sets on 10 Nov from 09:07:11Z on, that three of them were never comm
 and that the values did not change at 11:35:39Z, as the first text said, but at 11:20:04Z. Every sentence that depended on that is corrected below,
 and the word "update" is given one meaning (Section 4.2). Section 12 lists each change, where it was made, and which wording is this track's
 proposal and has not been reviewed. What pauses the campaign is no longer in this Deviation: it is draft Deviation 67
-(`docs/deviations_drafts/67_gate2e_scope_2026-11-11.md`, branch `dev67-gate2e-scope`).
+(`docs/deviations_drafts/67_gate2e_scope_2026-11-11.md`, branch `dev67-gate2e-scope`, draft pull request #24).
 
 **Scope.** The order in which predictions are drawn and read, one record the runner must keep, which readout figures Gate 2 (e) reads, and the
 dispatch window of Deviation 62 (iv). No cut (Deviations 22, 26, 53), hypothesis, test threshold, list, point, seed, prediction model or setting
