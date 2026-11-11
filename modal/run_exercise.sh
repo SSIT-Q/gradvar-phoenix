@@ -10,12 +10,21 @@
 #              sandbox tree, so that every re-draw and every comparator is drawn as on a real day (the bundle then holds them for a comparison with
 #              the committed files).
 # The run uses --exercise: a Gate 1b FAIL or a comparator stop is recorded and the remaining stages still run. The bundle is never published for dispatch.
+# BACKUP_DIR (optional; default /vol/exercise_<run_sha> when a Modal Volume is mounted at /vol): run.log is copied to it every minute and every harvested
+# file at the end, so that the results survive a harvest that never happens (a host that slept past the container's lifetime lost the first run).
 set -u
 SHA=$1; LISTS_SHA=$2; TAG=$3; shift 3
 WORK=$PWD
 OUTW=/tmp/sameday_work            # the run's working files stay out of ./out: only the bundle, the logs and the records below are harvested
 T0=$(date +%s)
 mkdir -p $WORK/out/sameday $OUTW
+BACKUP_DIR=${BACKUP_DIR:-$([ -d /vol ] && echo /vol/exercise_$SHA || echo "")}
+COPIER=""
+if [ -n "$BACKUP_DIR" ]; then
+    mkdir -p $BACKUP_DIR
+    ( while sleep 60; do cp $WORK/out/sameday/run.log $BACKUP_DIR/run.log 2>/dev/null; done ) &
+    COPIER=$!
+fi
 python - "$SHA" "$LISTS_SHA" <<'EOF'
 import io, sys, urllib.request, zipfile
 for sha, dst in ((sys.argv[1], "/tmp/src"), (sys.argv[2], "/tmp/prev")):
@@ -59,5 +68,10 @@ for p in sorted(Path("/tmp").glob(f"committed_*_{tag}.*")):
 print(json.dumps(out, indent=1))
 EOF
 tar -czf $WORK/out/sameday/extras.tgz -C $OUTW A/status.log $(cd $OUTW && ls A/dryrun_*.log tests/*.log tests/*.xml 2>/dev/null) 2>/dev/null
+if [ -n "$BACKUP_DIR" ]; then
+    kill $COPIER 2>/dev/null
+    cp $WORK/out/sameday/* $BACKUP_DIR/ 2>/dev/null
+    sync
+fi
 tail -n 30 $WORK/out/sameday/run.log
 exit 0
