@@ -283,11 +283,29 @@ Each entry: what the plan says, what the script does, and a sentence that could 
 - **Realised-mask predictions.** The mask-lottery probes are compared with the realised-mask rows of their own placement. Those
   rows come with the same-day package; without them the residuals of those probes are not evaluable.
 
-## 10. Limits
+## 10. Limits, and what the synthetic runs showed
 
 - The family has 1247 tests and Benjamini-Yekutieli assumes nothing about their dependence, so only a very small p value can
-  pass (see Section 7). The screen is a guard against naming noise; it is not a sensitive detector. What it finds and misses on
-  synthetic runs with an injected effect is in `data/exploratory/day3_screen_synthetic_runs.json`.
+  pass (see Section 7). The screen is a guard against naming noise; it is not a sensitive detector.
+- **Item 8 (d) and (e)**, `data/exploratory/day3_screen_synthetic_runs.json`, made with the script at d55d29a5 (200 synthetic
+  runs of the committed list's design each; synthetic data only). Without an effect the screen named a candidate in 1 run of
+  200 (0.5 percent; the limit of item 8 is 10 percent). With a factor 1.5 on the k = L variance of the reset dial at p = 0.5,
+  n60, L = 8 it found the effect in 101 runs of 200 (50.5 percent), in 100 of them through T3 at L = 8. With a change of 10
+  percent of the k = L variance across the jobs of one probe it found the effect in 1 run of 200: a drift of that size is below
+  what the screen can see, and "no candidate" says nothing about it.
+- **Calibration of the single tests** (600 further synthetic runs without an effect, one pass of every test; not committed).
+  The fraction of p values below 0.05 was between 3.7 and 5.8 percent for every check. The most liberal single test was T8's
+  skewness on the reset dial at p = 0.5, L = 12 (8.3 percent). In the far tail the variance-type tests are heavier than their
+  reference distribution: p < 0.001 occurred at 0.2 percent for item 1, 0.4 percent for the joint tests, 0.2 percent for T4
+  and for T8, against a nominal 0.1 percent; the draws planted in the synthetic runs are heavy-tailed (kurtosis 4.5 to 14), and
+  Student's t on a jackknife error does not follow them that far out. Since only p values near 1e-5 can pass, a candidate from
+  one of these tests should be read as about two to four times less rare under no effect than its p value says. The rate at
+  which the whole screen names a candidate without an effect stays near 0.5 percent all the same (1 of 200 in two independent
+  sets).
+- **T8 is the test that named candidates where none was planted**: in the run of 200 without an effect, and in 2 of the 200
+  runs with the drift. Its p value compares the measured skewness or kurtosis with 100 synthetic copies through Student's t,
+  which is not exact far in the tail. *Proposed:* "A candidate from T8 is confirmed against 10,000 synthetic copies before it
+  is listed."
 - Item 3's axes between probes have few units: p, L and ln n within groups A and B leave two residual degrees of freedom.
 - A mask-level effect shows in `v` (the mask's own second moment) far more readily than in `w`.
 - Masks of runs made before the runner drew them on their own stream (the smoke test of 20 Sep 2026) cannot be rebuilt from the
