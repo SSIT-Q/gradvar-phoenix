@@ -299,7 +299,10 @@ def test_an_exploratory_draw_of_the_replication_list_writes_rows_on_e_and_b(S, t
     res = json.loads(next(p for p in (root / "out").glob("*.json")).read_text(encoding="utf-8"))
     rows = res["groups"][0]["rows"]
     assert all(r["ok"] for r in rows), [r.get("error") for r in rows if not r["ok"]]
-    assert sorted((r["id"], r["calibration_kind"]) for r in rows) == sorted((f"main_grid-n100-L8-{m}", k) for m in rx.MODELS for k in ("execution", "bracket", "bracket"))
+    # one bracket for the two jobs: with the six sets of the trial the first change of values after either job is the 13:37:31Z update
+    # (the 11:35:39Z set, the first stamp after the probes job, repeats the values of 11:20:04Z and closes nothing)
+    assert sorted((r["id"], r["calibration_kind"]) for r in rows) == sorted((f"main_grid-n100-L8-{m}", k) for m in rx.MODELS for k in ("execution", "bracket"))
+    assert {j["B"] for j in res["jobs"]} == {res["jobs"][0]["B"]}
     c = res["groups"][0]["classification"][0]
     # with these small settings the truncation may not converge: the ratio is then not formed against the truncated package row
     assert all((r["ln_ratio"] is not None) != r["mixed_estimators"] for r in c["ratios"])

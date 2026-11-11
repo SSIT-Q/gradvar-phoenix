@@ -107,7 +107,7 @@ Limits:
 5. The enumeration of `check_phase1_bundle` was drawn from the committed bundles and then corrected on the first phase's real
    output (`placement_snapshot` was missing). A field the runner starts writing later stops the first phase until it is listed.
 6. A flagged point whose execution-time or dispatch-time row is missing gets no reading from the classifier (on the 10 Nov package: the Block C
-   points at L = 10, which have no dispatch-time row). `verify_phase2` counts only items with a reading and refuses the second phase when an item
+   points at L = 10, which have no dispatch-time row), and so does a point whose two rows are not on one estimator. `verify_phase2` counts only items with a reading and refuses the second phase when an item
    has none, naming it. Which reading such a point takes is decided by neither draft row (draft 67, Section 8 item 5); until it is, such a list
    stops between the phases, before any measured value is retrieved.
 
