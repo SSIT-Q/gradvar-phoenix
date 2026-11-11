@@ -480,7 +480,8 @@ The errors of these ends are not paired: 0.1 to 1.0 percentage points on the res
 dephasing row, whose variance is small (1.86e-05 ± 1.2e-06). The lower edge of every reset-dial row is V6 and scales with the level
 (about −7.7 and −15 percent). The upper edge is V5 (γ alone) and does not depend on the level. The first draw's provisional lower
 edges (−7.3 to −7.9 percent at 10<sup>−2</sup>, summed) are confirmed by V6 drawn as one channel. The anisotropic vertices V9 and V10 are
-not the extreme of any of these rows.
+not the extreme of any reset-dial row. On the dephasing row only γ and κ enter, so V1, V2, V4 and V9 are one channel and V3 and V10
+are one channel: V9 and V10 tie the ends of that row, and the vertex named in the table is only the first of each tie.
 
 Ratios and the control factor, first draw (percent change of the ratio; both members at the same channel):
 
@@ -550,8 +551,16 @@ closed-form floors, mixture and realised, gradient and cost.
 - 384 cases; **62 lie below the floor.**
 - All 62 are realised floors of the reset dial at p = 0.5, at V1, V2, V7 and V9: the vertices with ε<sub>0</sub> > ε<sub>1</sub>. They occur at both
   levels and both depths.
-- 24 of them have a floor above 10<sup>−3</sup>; there the moment lies 0.4 to 3.5 percent below the floor (median 1.1). Example: L = 3,
-  V1 at 10<sup>−2</sup>, mask seed 31, gradient: floor 5.1417×10<sup>−2</sup>, moment 5.1105×10<sup>−2</sup>.
+- The shortfall, floor minus moment, is between 2.6e-06 and 8.7e-04 in absolute terms. 31 cases are gradient floors and 31 cost
+  floors; 26 are at L = 3 and 36 at L = 4.
+- 24 cases have a floor above 10<sup>−3</sup>; there the moment lies 0.4 to 3.5 percent below the floor (median 1.1). Largest: L = 3, V7 at
+  2×10<sup>−2</sup>, mask seed 31, cost: floor 2.4706×10<sup>−2</sup>, moment 2.3839×10<sup>−2</sup>. Example at 10<sup>−2</sup>: L = 3, V1, mask seed 31, gradient: floor
+  5.1417×10<sup>−2</sup>, moment 5.1105×10<sup>−2</sup>.
+- 23 cases have a floor below −10<sup>−3</sup> (realised cost floors, where the subtracted term exceeds the mode); there the moment lies
+  below the floor by 0.01 to 8.6 percent of its size (median 2.2). Largest: L = 4, V9 at 2×10<sup>−2</sup>, mask seed 33, cost:
+  floor −8.417×10<sup>−3</sup>, moment −9.140×10<sup>−3</sup>.
+- 15 cases, all gradient floors, have a floor within 10<sup>−3</sup> of zero (-2.1e-07 to 2.7e-04). A percentage of the floor
+  means little there; the shortfall is 2.6e-06 to 1.6e-04 in absolute terms, and in 9 of them the moment is negative.
 - No case fails at the designed channel or at V6, none at p = 0.25, none on the dephasing dial, and no mixture floor fails.
 
 So the realised form of the floor is **not** a bound in the part of A with ε<sub>0</sub> > ε<sub>1</sub>. By the row's sentence a floor miss is then
