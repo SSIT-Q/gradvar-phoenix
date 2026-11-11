@@ -1344,25 +1344,50 @@ def probe_tests(inp: Inputs) -> Tuple[List[dict], Dict[str, Dict[str, dict]], Li
     return tests, by_probe, units
 
 
+def _relative(r: dict) -> Optional[Tuple[float, float, float]]:
+    """(Q / P - 1, the factor on the jackknife deviations of Q, the relative standard error) of an item-1 record on the linear
+    scale: the error of Q is taken at the null where the record carries that factor (``residual_test``)."""
+    if r.get("_q") is None or r.get("P") is None or not r["P"] > 0 or not r.get("evaluable"):
+        return None
+    f = float(r.get("null_error_factor") or 1.0) if r.get("scale") != "log" else 1.0
+    P = float(r["P"])
+    return r["_q"].value / P - 1.0, f / P, math.sqrt((f * r["_q"].se() / P) ** 2 + ((r.get("sigma_P") or 0.0) / P) ** 2)
+
+
 def combination_test(tid: str, item: str, label: str, parts: Sequence[Tuple[float, Optional[dict]]], **kw) -> dict:
-    """A linear combination sum_i c_i r_i of log residuals r_i = ln(Q_i / P_i) of item 1 (T3, T4, T5), against zero: formed only
-    when every part is on the log scale; parts that share draws enter with their jackknife covariance, the predictions' relative
-    errors are added in quadrature."""
+    """A linear combination sum_i c_i r_i of the residuals of item-1 records (T3, T4, T5), against zero. Where every part is on
+    the log scale r_i = ln(Q_i / P_i). Where a part is not resolvably positive (the p = 0 reference at L = 12 is predicted at a
+    few 1e-6), every part enters as the relative residual r_i = Q_i / P_i - 1, which is the same quantity to first order and
+    needs only a positive prediction. Parts that share draws enter with their jackknife covariance; the predictions' relative
+    errors are added in quadrature. ``scale`` says which form was used."""
     t = _blank(tid, item, label, **kw)
     t["probes"] = sorted({p for _c, r in parts if r is not None for p in r.get("probes") or []})
     if any(r is None or not r.get("evaluable") for _c, r in parts):
         t["note"] = "a part is missing or not evaluable"
         return t
-    if any(r.get("scale") != "log" for _c, r in parts):
-        t["note"] = "a part is not resolvably positive: no ratio is formed"
-        return t
-    val = sum(c * r["estimate"] for c, r in parts)
-    est = Est.combine(val, [(c, r["_r"]) for c, r in parts])
-    vp = sum(c * c * (r.get("sigma_P") or 0.0) ** 2 / r["P"] ** 2 for c, r in parts)
     t.update(parts=[r["id"] for _c, r in parts], coefficients_of_parts=[float(c) for c, _r in parts])
-    _finish(t, est, vp, "log")
+    if not any(c != 0.0 for c, _r in parts):
+        t["note"] = "the combination cannot be formed from these parts (no weights)"
+        return t
+    if all(r.get("scale") == "log" for _c, r in parts):
+        val = sum(c * r["estimate"] for c, r in parts)
+        est = Est.combine(val, [(c, r["_r"]) for c, r in parts])
+        vp = sum(c * c * (r.get("sigma_P") or 0.0) ** 2 / r["P"] ** 2 for c, r in parts)
+        _finish(t, est, vp, "log")
+        if t.get("evaluable"):
+            t["statistic"] = "combination of ln(Q/P)"
+        return t
+    rel = [_relative(r) for _c, r in parts]
+    if any(x is None for x in rel):
+        t["note"] = "a part has no positive prediction: no relative residual is formed"
+        return t
+    val = sum(c * x[0] for (c, _r), x in zip(parts, rel))
+    est = Est.combine(val, [(c * x[1], r["_q"]) for (c, r), x in zip(parts, rel)])
+    vp = sum(c * c * (r.get("sigma_P") or 0.0) ** 2 / r["P"] ** 2 for c, r in parts)
+    _finish(t, est, vp, "linear")
     if t.get("evaluable"):
-        t["statistic"] = "combination of ln(Q/P)"
+        t["statistic"] = "combination of Q/P - 1"
+        t["note"] = "a part is not resolved on the log scale: formed from the relative residuals Q / P - 1"
     return t
 
 
@@ -1372,7 +1397,8 @@ def targeted_from_item_1(inp: Inputs, by_probe: Dict[str, Dict[str, dict]]) -> L
     p = 0 reference on n60, and the difference of each dial's log depth-ratio residual from the reference's (the two dial depth
     ratios themselves are H6's and are not repeated here). T5: the slope of ln(measured / predicted) against ln n over the three
     rungs at L = 8, for reset p = 0.25 and for p = 0, weighted by the residuals' standard errors (the three points themselves
-    are registered; the slope is not)."""
+    are registered; the slope is not). Where a part is not resolved on the log scale, each of these is formed from the relative
+    residuals Q / P - 1 instead (``combination_test``)."""
     def one(arm, p, L, patch):
         hits = [q for q in inp.probes if q.kind == "gradient" and q.arm == arm and np.isclose(q.p, p) and q.L == L and str(q.patch) == patch]
         return by_probe.get(hits[0].probe_id, {}).get("var_kL") if len(hits) == 1 else None
@@ -1382,26 +1408,32 @@ def targeted_from_item_1(inp: Inputs, by_probe: Dict[str, Dict[str, dict]]) -> L
     for L in (8, 12):
         out.append(_meta(combination_test(f"T3:L{L}", "T3", f"dial strength: var_kL(p = 0.5) / var_kL(p = 0.25), {cp}, L = {L}, against the predicted ratio",
                                           [(1.0, one("reset", 0.5, L, cp)), (-1.0, one("reset", 0.25, L, cp))], group="A"),
-                         "T3", "ln of the measured over the predicted ratio of the k = L variance at p = 0.5 to p = 0.25", depends="Deviation 64 (band for the size rule)"))
+                         "T3", "ln of the measured over the predicted ratio of the k = L variance at p = 0.5 to p = 0.25 (from the relative residuals Q / P - 1 where a part is not resolved)", depends="Deviation 64 (band for the size rule)"))
     ref8, ref12 = one("delay", 0.0, 8, cp), one("delay", 0.0, 12, cp)
     out.append(_meta(combination_test("T4:ref_ratio", "T4", f"depth ratio of the p = 0 reference: var_kL(L = 12) / var_kL(L = 8), {cp}, against the predicted ratio",
-                                      [(1.0, ref12), (-1.0, ref8)], group="C"), "T4", "ln of the measured over the predicted depth ratio of the p = 0 reference"))
+                                      [(1.0, ref12), (-1.0, ref8)], group="C"), "T4", "ln of the measured over the predicted depth ratio of the p = 0 reference (from the relative residuals Q / P - 1 where a part is not resolved)"))
     for p in (0.25, 0.5):
         out.append(_meta(combination_test(f"T4:diff:p{p:g}", "T4", f"depth ratio of reset p = {p:g} against that of the p = 0 reference, {cp} (difference of their log residuals)",
                                           [(1.0, one("reset", p, 12, cp)), (-1.0, one("reset", p, 8, cp)), (-1.0, ref12), (1.0, ref8)], group="A"),
-                         "T4", "difference of the dial's and the reference's ln(measured / predicted) depth ratio", depends="Deviation 64 (band for the size rule)"))
+                         "T4", "difference of the dial's and the reference's ln(measured / predicted) depth ratio (from the relative residuals Q / P - 1 where a part is not resolved)", depends="Deviation 64 (band for the size rule)"))
     for arm, p, tag in (("reset", 0.25, "p0.25"), ("delay", 0.0, "p0")):
         recs = [one(arm, p, 8, patch) for patch in (DH.LADDER_LOW_PATCH, cp, DH.LADDER_HIGH_PATCH)]
         prs = [next((q for q in inp.probes if r is not None and q.probe_id == r["probes"][0]), None) for r in recs]
         parts: List[Tuple[float, Optional[dict]]] = [(0.0, r) for r in recs]
-        if all(r is not None and r.get("evaluable") and r.get("scale") == "log" for r in recs) and len({q.n for q in prs}) == 3:
-            x = np.log(np.array([q.n for q in prs], dtype=float))
-            w = 1.0 / np.array([r["se"] ** 2 for r in recs])
-            xc = x - np.average(x, weights=w)
-            parts = [(float(a), r) for a, r in zip(w * xc / float(np.sum(w * xc * xc)), recs)]
+        if all(r is not None and r.get("evaluable") for r in recs) and len({q.n for q in prs}) == 3:
+            if all(r.get("scale") == "log" for r in recs):
+                ses = [r["se"] for r in recs]
+            else:                                                # the relative residuals' own errors (``combination_test``)
+                rel = [_relative(r) for r in recs]
+                ses = [x[2] for x in rel] if all(x is not None for x in rel) else None
+            if ses is not None and all(s > 0 for s in ses):
+                x = np.log(np.array([q.n for q in prs], dtype=float))
+                w = 1.0 / np.array(ses) ** 2
+                xc = x - np.average(x, weights=w)
+                parts = [(float(a), r) for a, r in zip(w * xc / float(np.sum(w * xc * xc)), recs)]
         out.append(_meta(combination_test(f"T5:slope:{tag}", "T5", f"size trend: slope of ln(measured / predicted) of var_kL against ln n over the three rungs, {tag}, L = 8", parts,
                                           group="A" if arm == "reset" else "C"),
-                         "T5", "weighted least-squares slope of ln(measured / predicted) against ln n over three rungs", depends="Deviation 64 (band for the size rule)" if arm == "reset" else ""))
+                         "T5", "weighted least-squares slope of ln(measured / predicted) against ln n over three rungs (of the relative residuals Q / P - 1 where a point is not resolved)", depends="Deviation 64 (band for the size rule)" if arm == "reset" else ""))
     return out
 
 

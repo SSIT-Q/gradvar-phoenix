@@ -103,9 +103,9 @@ stored hashes gets no mask design, and every test that needs one is not evaluabl
 |---|---|---|
 | T1 | Tables: share of the top 5 percent of masks (of `w` and of `v`), spread over masks within last-layer classes against the draw noise. No per-mask prediction exists, so no test | 18 tests, not evaluable (p = 1) |
 | T2 | Table: least squares of each per-mask statistic on regressors (a) to (d). No engine value for the same regression exists, so no test | 36 tests, not evaluable |
-| T3 | ln of the measured over the predicted ratio of the k = L variance at p = 0.5 to p = 0.25 on n60, at L = 8 and at L = 12 | 2 tests |
-| T4 | The depth ratio of the p = 0 reference on n60 against its prediction, and the difference of each dial's log depth-ratio residual from the reference's. The two dial depth ratios are registered (H6) and are quoted | 3 tests |
-| T5 | Weighted least-squares slope of ln(measured / predicted) against ln n over the three rungs at L = 8, for reset p = 0.25 and for p = 0. The points are registered; the slope is not | 2 tests |
+| T3 | ln of the measured over the predicted ratio of the k = L variance at p = 0.5 to p = 0.25 on n60, at L = 8 and at L = 12 (from the relative residuals Q / P - 1 where a part is not resolved on the log scale) | 2 tests |
+| T4 | The depth ratio of the p = 0 reference on n60 against its prediction, and the difference of each dial's depth-ratio residual from the reference's. The reference at L = 12 is predicted at a few 1e-6 and is not resolved on the log scale at 350 draws, so these are formed from the relative residuals Q / P - 1: (Q12 / P12) - (Q8 / P8). The two dial depth ratios are registered (H6) and are quoted | 3 tests |
+| T5 | Weighted least-squares slope of ln(measured / predicted) against ln n over the three rungs at L = 8, for reset p = 0.25 and for p = 0 (of the relative residuals where a point is not resolved). The points are registered; the slope is not | 2 tests |
 | T6 | (i) Dephasing against reset p = 0.25 on identical masks: per draw (item 6) and per mask (correlation over masks of the per-mask second moments). (ii) Dephasing against reset p = 0.5: per draw only (item 6). No predicted correlation exists | 1 test (per mask), not evaluable; the per-draw pairs are item 6 |
 | T7 | Tables only: distribution over draws of the full-minus-truncated statistic (skewness, kurtosis, bimodality coefficient) and its mean square within each last-layer class | 2 tests, not evaluable |
 | T8 | Skewness and excess kurtosis of the per-draw gradient estimate, with a bootstrap interval, against the same statistics on 100 synthetic copies of the probe at its shots and on its realised masks. A test only where a predicted fourth moment of the draws is supplied | 26 tests, not evaluable without `--draw-kurtosis` |
@@ -252,9 +252,14 @@ Each entry: what the plan says, what the script does, and a sentence that could 
     4x5 point. Without it the synthetic copies have normal draws and the row is a description. 100 copies; kurtosis compared on
     the scale ln(3 + excess kurtosis). "On two or more probes" is not a separate test: each probe's two tests are members.
     *Proposed:* "T8 is a test only for probes whose predicted fourth moment is committed before dispatch."
-19. **T4 and T5.** Registered: the two dial depth ratios, the three p = 0.25 points. New here: the reference's depth ratio, the
-    two differences, the two slopes. "Opposite directions" (T4) and "same sign or opposite sign" (T5) are read from the signs of
-    the member tests and are not tests of their own.
+19. **T3, T4 and T5.** Registered: the two dial depth ratios, the three p = 0.25 points. New here: the strength ratios, the
+    reference's depth ratio, the two differences, the two slopes. Each is a combination of the item-1 residuals: of ln(Q / P)
+    where every part is resolved on the log scale, and otherwise of the relative residuals Q / P - 1 with the error of Q taken
+    at the prediction. The second form is needed for T4: the committed prediction of the p = 0 reference at L = 12 on n60 is
+    about 8e-6, which 350 draws at 16,384 shots do not resolve, so a ratio V(L = 12) / V(L = 8) of the reference has no
+    logarithm with a usable error. "Opposite directions" (T4) and "same sign or opposite sign" (T5) are read from the signs of
+    the member tests and are not tests of their own. *Proposed:* "T3 to T5 are formed from ln(measured / predicted) of their
+    parts, or from measured / predicted - 1 where a part is not resolved at three standard errors."
 20. **Item 8 (e).** "The rate at which the screen finds it" is counted as: a candidate among the tests that read the changed
     quantity (listed in the calibration script). The 10 percent drift is the relative change of the k = L variance from the first
     to the last job of one probe.

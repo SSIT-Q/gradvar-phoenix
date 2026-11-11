@@ -192,6 +192,35 @@ def test_slope_test_is_least_squares_with_a_constant_per_group():
     assert not ES.slope_test("s", "S5", "s", y, a, groups=g, adjust=a)["evaluable"]                       # no variation beyond the adjustment
 
 
+
+def test_combination_uses_relative_residuals_where_a_part_is_not_resolved():
+    rng = np.random.default_rng(11)
+
+    def rec(tid, q, block, P, sigma, scale, factor=None):
+        loo = q + 0.02 * q * rng.standard_normal(40)
+        e = ES.Est.from_loo(q, loo, block)
+        r = dict(id=tid, probes=[tid], evaluable=True, scale=scale, Q=q, P=P, sigma_P=sigma, _q=e)
+        if scale == "log":
+            r.update(estimate=np.log(q / P), _r=ES.Est.combine(np.log(q / P), [(1.0 / q, e)]), se=e.se() / q)
+        else:
+            r.update(estimate=q - P, null_error_factor=factor)
+        return r
+
+    a, b = rec("a", 2.2e-3, ("s", 1), 2.0e-3, 2e-5, "log"), rec("b", 1.9e-3, ("s", 2), 2.0e-3, 2e-5, "log")
+    t = ES.combination_test("X", "T4", "x", [(1.0, a), (-1.0, b)])
+    assert t["evaluable"] and t["scale"] == "log" and t["estimate"] == pytest.approx(np.log(2.2 / 2.0) - np.log(1.9 / 2.0))
+    c = rec("c", 3.0e-6, ("s", 3), 8.0e-6, 1e-6, "linear", factor=1.5)                # not resolved: enters as Q / P - 1 with its error at the null
+    t = ES.combination_test("X", "T4", "x", [(1.0, c), (-1.0, a)])
+    assert t["evaluable"] and t["scale"] == "linear" and t["statistic"] == "combination of Q/P - 1" and "relative residuals" in t["note"]
+    assert t["estimate"] == pytest.approx((3.0e-6 / 8.0e-6 - 1) - (2.2 / 2.0 - 1))
+    var = (1.5 * c["_q"].se() / 8.0e-6) ** 2 + (a["_q"].se() / 2.0e-3) ** 2 + (1e-6 / 8.0e-6) ** 2 + (2e-5 / 2.0e-3) ** 2
+    assert t["se"] == pytest.approx(np.sqrt(var)) and t["z"] == pytest.approx(t["estimate"] / t["se"])
+    d = dict(c, P=0.0)                                                               # no positive prediction: nothing is formed
+    assert not ES.combination_test("X", "T4", "x", [(1.0, d), (-1.0, a)])["evaluable"]
+    assert not ES.combination_test("X", "T4", "x", [(0.0, a), (0.0, b)])["evaluable"]
+    assert not ES.combination_test("X", "T4", "x", [(1.0, a), (-1.0, None)])["evaluable"]
+
+
 def test_rule_5_needs_sign_and_one_sided_p_in_both_halves():
     def rec(z, p=None, second="masks"):
         p = float(2 * sps.norm.sf(abs(z))) if p is None else p
@@ -392,6 +421,15 @@ def test_section_3_tests_formed_by_the_screen(null_run):
     x, w = np.log([40.0, 60.0, 100.0]), 1 / np.array([r["se"] ** 2 for r in recs])
     xc = x - np.average(x, weights=w)
     assert by["T5:slope:p0.25"]["estimate"] == pytest.approx(float(np.sum(w * xc * [r["estimate"] for r in recs]) / np.sum(w * xc * xc)))
+    # T4: the p = 0 reference at L = 12 is predicted at a few 1e-6 and is not resolved on the log scale at 350 draws, so the
+    # depth-ratio tests are formed from the relative residuals Q / P - 1
+    r8, r12, t4 = by["S4.1:ref_p0_delay_L8_kL_n60:var_kL"], by["S4.1:ref_p0_delay_L12_kL_n60:var_kL"], by["T4:ref_ratio"]
+    assert r8["scale"] == "log" and r12["scale"] == "linear" and t4["evaluable"] and t4["in_family"] and t4["scale"] == "linear"
+    assert t4["statistic"] == "combination of Q/P - 1" and t4["estimate"] == pytest.approx(r12["Q"] / r12["P"] - r8["Q"] / r8["P"]) and abs(t4["z"]) < 5
+    for p in ("p0.25", "p0.5"):
+        d8, d12, t = by[f"S4.1:dial_{p}_L8_kL:var_kL"], by[f"S4.1:dial_{p}_L12_kL:var_kL"], by[f"T4:diff:{p}"]
+        assert t["evaluable"] and t["in_family"] and t["estimate"] == pytest.approx((d12["Q"] / d12["P"] - d8["Q"] / d8["P"]) - t4["estimate"]) and abs(t["z"]) < 5
+        assert t["se"] > t4["se"] * 0.99                                                             # the reference's error is in it
     for p in syn.inputs.probes:
         if p.kind == "gradient":
             t = by[f"T13:{p.probe_id}"]
