@@ -76,14 +76,15 @@ For every probe and every registered or reported quantity Q with a prediction P 
    order of execution.
 4. Outlier screens with robust z-scores (median and MAD): per draw across masks, per mask across draws, per job; every |z| > 5 is
    listed with its job, draw, mask and the qubits its mask resets.
-5. Shot-noise consistency: for each circuit the variance between its two halves of shots against the binomial value; the
-   distribution of that ratio over circuits.
+5. Shot-noise consistency: for each circuit the standard error the estimator reports against the binomial value implied by its
+   expectation value and shot count; the distribution of that ratio over circuits. (The runner stores expectation values and
+   their standard errors, not single shots.)
 6. Duplicated information: wherever two probes share draws and mask seeds, the correlation of their per-draw values against the
    predicted correlation.
 7. Time: every per-job summary against the job's running time, and against the time since the last change of a calibration value
    (not of a stamp: IBM re-stamps unchanged sets, as the trial of 11 Nov 2026 showed).
 8. Placebos, run through the same screen to show its false-positive rate: (a) mask labels permuted within each draw;
-   (b) draws permuted between the two shifts; (c) the p = 0 references given a dummy "dial" label. A screen that flags a placebo
+   (b) draw labels permuted between two probes that share draws, which must remove every correlation between them; (c) the p = 0 references given a dummy "dial" label. A screen that flags a placebo
    more often than its nominal rate is itself reported as unreliable.
 
 ## 5. Calibration covariates (tested before any candidate is called physics)
