@@ -8,6 +8,7 @@ No measured result is read.
 """
 import gzip
 import json
+import re
 import shutil
 import sys
 import urllib.error
@@ -474,13 +475,18 @@ def test_execution_span_and_properties_label(tmp_path):
 
 
 def test_no_reader_of_the_bundles_uses_the_new_fields():
-    """Record only: the analysis, the gates and the pipeline do not read execution_span, properties_label or _label."""
+    """Record only: the analysis, the gates and the pipeline do not read execution_span, properties_label or _label. The names are
+    matched as whole words: ``execution_spans`` (the service's result metadata, named in scripts/trial_properties_history.py) is
+    another thing."""
+    field = re.compile(r"\bexecution_span\b|\bproperties_label\b|[\"']_label[\"']")
+    assert field.search('r["execution_span"]') and field.search("props['_label']") and field.search("x.properties_label")
+    assert not field.search('execution_spans="job metadata only"') and not field.search("axis_label")
     for p in list((ROOT / "gradvar").rglob("*.py")) + list((ROOT / "scripts").glob("*.py")):
         t = p.read_text(encoding="utf-8")
         if p.name == "hardware.py":
-            assert t.count("execution_span") >= 5
+            assert len(field.findall(t)) >= 5
             continue
-        assert "execution_span" not in t and "properties_label" not in t and '"_label"' not in t and "['_label']" not in t, p.name
+        assert not field.search(t), (p.name, field.findall(t)[:3])
 
 
 # ------------------------------------------------------------------------------------------------ item 7: the pre-arming check
