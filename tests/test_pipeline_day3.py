@@ -474,19 +474,36 @@ def test_execution_span_and_properties_label(tmp_path):
     assert "`execution_span`" in readme and "properties at job creation" in readme and "`properties_label`" in readme
 
 
+# Deviation 65 (execution-time calibration): a job is read against rows drawn on the calibration it ran under, and that calibration is
+# built from the job's ``running`` and ``finished`` times. Its code therefore reads ``retrieval.execution_span``, which was a record
+# only when this test was written (10 Nov 2026). The files below, and no others, may name it: the committed builder, which reads it
+# (``load_pool``), and the enumeration of what the first retrieval phase may write, which lists it. Both arrive with Deviation 65's
+# code (branch dev65-implementation); until then no file but the runner names the field. Changed deliberately on 11 Nov 2026; a
+# further reader needs its own Deviation here.
+DEVIATION_65_READERS = ("execution_calibration.py", "retrieval_phases.py")
+
+
 def test_no_reader_of_the_bundles_uses_the_new_fields():
-    """Record only: the analysis, the gates and the pipeline do not read execution_span, properties_label or _label. The names are
-    matched as whole words: ``execution_spans`` (the service's result metadata, named in scripts/trial_properties_history.py) is
-    another thing."""
-    field = re.compile(r"\bexecution_span\b|\bproperties_label\b|[\"']_label[\"']")
-    assert field.search('r["execution_span"]') and field.search("props['_label']") and field.search("x.properties_label")
-    assert not field.search('execution_spans="job metadata only"') and not field.search("axis_label")
+    """The execution span is read by Deviation 65's code and by nothing else: no analysis, gate, report or pipeline script. The two
+    labels (``properties_label``, ``_label``) are still records only and nothing reads them. The names are matched as whole words:
+    ``execution_spans`` (the service's result metadata, named in scripts/trial_properties_history.py) is another thing."""
+    span = re.compile(r"\bexecution_span\b")
+    labels = re.compile(r"\bproperties_label\b|[\"']_label[\"']")
+    assert span.search('r["execution_span"]') and labels.search("props['_label']") and labels.search("x.properties_label")
+    assert not span.search('execution_spans="job metadata only"') and not labels.search("axis_label")
+    readers = []
     for p in list((ROOT / "gradvar").rglob("*.py")) + list((ROOT / "scripts").glob("*.py")):
         t = p.read_text(encoding="utf-8")
-        if p.name == "hardware.py":
-            assert len(field.findall(t)) >= 5
+        if p.name == "hardware.py":                                            # the writer of the three fields
+            assert len(span.findall(t)) + len(labels.findall(t)) >= 5
             continue
-        assert not field.search(t), (p.name, field.findall(t)[:3])
+        assert not labels.search(t), (p.name, labels.findall(t)[:3])
+        if span.search(t):
+            assert p.name in DEVIATION_65_READERS and p.parent.name == "gradvar", (p.name, "names execution_span and is not Deviation 65's code")
+            readers.append(p.name)
+    if (ROOT / "gradvar" / "execution_calibration.py").exists():               # with Deviation 65's code on the tree, its builder does read it
+        assert "execution_calibration.py" in readers
+    assert not [p.name for p in (ROOT / "gradvar" / "analysis").glob("*.py") if span.search(p.read_text(encoding="utf-8"))]
 
 
 # ------------------------------------------------------------------------------------------------ item 7: the pre-arming check
