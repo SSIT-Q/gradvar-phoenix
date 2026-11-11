@@ -912,3 +912,32 @@ def test_cp5_no_allow_test_stop_when_the_suite_did_not_run_in_full(tmp_path, mon
     with pytest.raises(SystemExit, match="did not run in full"):
         SR.publish(SimpleNamespace(bundle=str(b), force=False, main="main", exercise=False, allow_test_stop=reason))
     assert fake.calls == []
+
+
+def test_cp6_the_pairs_list_under_another_file_name_is_a_second_use_of_its_seeds(tmp_path, gen_lists):
+    """CP-6: the generator recognises its own earlier copy only at the list's own path (or ``--out``) AND under the list's name. The
+    same list under another file name is a second use of the seed block: 4 clashes."""
+    import make_truncation_pairs as MTP
+    d, day3 = _pairs_tree(tmp_path, gen_lists)
+    jl = MTP.build(day3, "day3_dial_refs.json", lists_dir=d.parent)
+    own = d / MTP.DEFAULT_OUT.name
+    own.write_text(json.dumps(jl, indent=1) + "\n", encoding="utf-8")
+    assert MTP.build(day3, "day3_dial_refs.json", lists_dir=d.parent) == jl                    # its own file at its own path: no clash
+    copy = d / "dial_truncation_pairs_copy.json"                                               # the same list, the same name field, another file
+    copy.write_text(json.dumps(jl, indent=1) + "\n", encoding="utf-8")
+    hits = MTP.seed_clashes(jl["probes"], d.parent, own=MTP.LIST_NAME)
+    assert len(hits) == 4 and {h["file"] for h in hits} == {"dial_truncation_pairs_copy.json"}
+    with pytest.raises(SystemExit, match="overlaps committed entries"):
+        MTP.build(day3, "day3_dial_refs.json", lists_dir=d.parent)
+    own.unlink()                                                                               # the copy alone, under the list's name: still 4
+    assert len(MTP.seed_clashes(jl["probes"], d.parent, own=MTP.LIST_NAME)) == 4
+    with pytest.raises(SystemExit, match="overlaps committed entries"):
+        MTP.build(day3, "day3_dial_refs.json", lists_dir=d.parent)
+    # ... unless that file is where this run writes the list (--out): then it is the list's own earlier copy
+    assert MTP.build(day3, "day3_dial_refs.json", lists_dir=d.parent, out=copy) == jl
+    assert MTP.seed_clashes(jl["probes"], d.parent, own=MTP.LIST_NAME, own_files=[copy]) == []
+    copy.unlink()
+    elsewhere = d.parent / "paper2" / MTP.DEFAULT_OUT.name                                     # the list's file name in another directory
+    elsewhere.parent.mkdir()
+    elsewhere.write_text(json.dumps(jl), encoding="utf-8")
+    assert len(MTP.seed_clashes(jl["probes"], d.parent, own=MTP.LIST_NAME)) == 4
