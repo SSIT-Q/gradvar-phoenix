@@ -1503,6 +1503,20 @@ def publish_mode(man: dict, exercise: bool = False, allow_test_stop: str | None 
     return dict(mode="refuse", prefix="", test_stop=False, why=why)
 
 
+TEST_STOP_LINE = ("> **STOPPED by the test suite (Deviation 62 (iv)). Not a dispatch record until the stop is lifted on the record; see "
+                  "`docs/repack/{label}_summary.md`.**")
+
+
+def with_stop_line(content: bytes, label: str) -> bytes:
+    """A pre-flight published under ``--allow-test-stop`` says so in its second line (review correction CP-8): the documents of a
+    test-stopped cycle were rendered before the tests' result was known and would otherwise read as a dispatch record."""
+    line = TEST_STOP_LINE.format(label=label).encode("utf-8")
+    lines = content.split(b"\n")
+    if len(lines) > 1 and lines[1] == line:
+        return content
+    return b"\n".join(lines[:1] + [line] + lines[1:])
+
+
 
 def overwrite_conflicts(br: str, files: dict) -> list:
     """Date-named files of the bundle (pre-flights, summary, tests report) that already exist on the branch with other content.
@@ -1551,6 +1565,8 @@ def publish(args) -> int:
     docs = {k: v for k, v in files.items() if k not in data}
     if not full:                                                           # --force on a stopped run: the summary and tests report only
         docs = {k: v for k, v in docs.items() if k.startswith("docs/repack/")}
+    if pm["test_stop"]:                                                    # CP-8: every pre-flight of a test-stopped package says so in its second line
+        docs = {k: (with_stop_line(v, label) if k.startswith("docs/preflight/") else v) for k, v in docs.items()}
     clash = overwrite_conflicts(br, docs)
     if clash:
         raise SystemExit(f"{br} already holds {', '.join(clash)} with other content: a date-named file is never overwritten (a second package of a date "

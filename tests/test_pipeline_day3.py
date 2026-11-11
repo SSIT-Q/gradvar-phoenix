@@ -967,3 +967,34 @@ def test_cp7_instance_defaults_are_flagged(tmp_path):
     assert "the minutes used is the pipeline's figure as of 2026-10-04" in SR.instance_text(inst(["used_min"], "partly given"))
     src = Path(SR.__file__).read_text(encoding="utf-8")                                         # the cycle records which options were not given
     assert 'defaults=not_given)' in src and '"given" if not not_given else "pipeline default" if len(not_given) == 2 else "partly given"' in src
+
+
+def test_cp8_a_preflight_published_under_allow_test_stop_says_so_in_its_second_line(tmp_path, monkeypatch):
+    """CP-8: the pre-flights of a test-stopped cycle were rendered before the tests' result was known; published under
+    ``--allow-test-stop`` each carries the stop as its second line. Nothing else is changed and no other publish adds it."""
+    import base64
+    line = "> **STOPPED by the test suite (Deviation 62 (iv)). Not a dispatch record until the stop is lifted on the record; see `docs/repack/2026-11-12_summary.md`.**"
+    pf = "docs/preflight/06_paper1_day3_dial_2026-11-12.md"
+    files = {"data/joblists/paper1/replication_01.json": "{}\n", pf: "# Pre-flight 06\n\nbody @@PREDICTIONS_COMMIT@@\n## 8. Review\n",
+             "docs/repack/2026-11-12_summary.md": "# summary\n\ntext\n", "docs/repack/2026-11-12_tests.txt": "FAILED x\n"}
+
+    def published(fake):
+        blobs = [base64.b64decode(c[2]["content"]).decode("utf-8") for c in fake.calls if c[1] == "/git/blobs"]
+        return [b for b in blobs if b.startswith("# Pre-flight 06")], [b for b in blobs if b.startswith("# summary")]
+    b = _bundle(tmp_path / "a", files=files, suite_ran=True)
+    fake = FakeGitHub()
+    monkeypatch.setattr(SR, "gh", fake)
+    assert SR.publish(SimpleNamespace(bundle=str(b), force=False, main="main", exercise=False, allow_test_stop="review of the stop")) == 0
+    pfs, summaries = published(fake)
+    assert len(pfs) == 1 and pfs[0].split("\n")[:3] == ["# Pre-flight 06", line, ""] and pfs[0].count(line) == 1
+    assert pfs[0].replace(line + "\n", "") == files[pf].replace("@@PREDICTIONS_COMMIT@@", f"{1:040d}")      # nothing else changed
+    assert summaries == ["# summary\n\ntext\n"]                                                    # the summary is not a pre-flight
+    # a clean package: no such line
+    b = _bundle(tmp_path / "b", files=files, status="ok", stops=[])
+    fake = FakeGitHub()
+    monkeypatch.setattr(SR, "gh", fake)
+    assert SR.publish(SimpleNamespace(bundle=str(b), force=False, main="main", exercise=False, allow_test_stop=None)) == 0
+    assert published(fake)[0][0].split("\n")[1] == "" and "STOPPED" not in published(fake)[0][0]
+    # the line is added once
+    once = SR.with_stop_line(files[pf].encode("utf-8"), "2026-11-12")
+    assert SR.with_stop_line(once, "2026-11-12") == once and once.decode("utf-8").split("\n")[1] == line
