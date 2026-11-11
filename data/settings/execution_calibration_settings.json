@@ -1,0 +1,85 @@
+{
+ "schema": "gradvar execution calibration settings v1",
+ "status": "provisional",
+ "status_note": "PROVISIONAL. Draft Deviation 65 is not adopted. Every value below is the draft's recommendation (its Section 9) or, where marked 'found in implementation', a reading the draft left open. The review or the PI changes this table, not code. Anything computed under a provisional table is exploratory and says so.",
+ "source": "docs/deviations_drafts/65_execution_time_calibration_2026-11-10.md on branch dev65-execution-calibration at 5df662195020f4056a35c96cf39bfbdb980cce7f",
+ "settings": {
+  "primary_calibration": {
+   "value": "per_value_at_or_before_running",
+   "allowed": ["per_value_at_or_before_running", "set_in_force_at_running", "first_set_after_finished"],
+   "draft": "Section 9, choice 1 (recommended: a)",
+   "provisional": true,
+   "meaning": "Which calibration the registered row is drawn on. per_value_at_or_before_running: for every published value, the entry with the latest date at or before the job's running time among the sets of the pool. set_in_force_at_running: the set in force at running as published. first_set_after_finished: the first set published at or after finished."
+  },
+  "general_entries_rule": {
+   "value": "by_date",
+   "allowed": ["by_date", "from_set_in_force_at_running"],
+   "draft": "Section 4.2 names 'each general entry' under the per-value rule; found in implementation: the general entries (ZZ and J couplings) carry the publication time of their set as their date, not a measurement time",
+   "provisional": true,
+   "meaning": "How the general entries are taken under the per-value rule. by_date: by their date like every other value, which today means from the set in force at running. from_set_in_force_at_running: the same result stated as a rule, so that it stays if IBM starts dating them by measurement. The two differ only if a general entry of a later set is dated at or before running."
+  },
+  "coupler_zone_rule": {
+   "value": "both_qubits",
+   "allowed": ["both_qubits", "either_qubit"],
+   "draft": "Section 9, choice 2 (recommended: a)",
+   "provisional": true,
+   "meaning": "When a coupler over the CZ cut counts as lying in the L = 2 cone of the observable: both of its qubits in the cone, or either."
+  },
+  "coupler_cone_rule": {
+   "value": "either_qubit",
+   "allowed": ["both_qubits", "either_qubit"],
+   "draft": "not stated; found in implementation (Section 4.5 gives the coupler rule for the L = 2 zone only)",
+   "provisional": true,
+   "meaning": "When a coupler over the CZ cut counts as lying in the point's own light cone (the 'elsewhere in the cone' row). either_qubit is the reading that never drops a flag: a two-qubit error on a coupler acts on its cone qubit whether or not the partner is in the cone."
+  },
+  "zone_for_points_shallower_than_zone": {
+   "value": "zone_applies",
+   "allowed": ["zone_applies", "own_cone_only"],
+   "draft": "not stated; found in implementation (for a point with L = 1 the L = 2 cone is larger than the point's own cone, and the table of Section 4.5 gives both 'not evaluable' and 'read' for an element between the two)",
+   "provisional": true,
+   "meaning": "zone_applies: an over-cut element in the L = 2 cone makes a point not evaluable whatever its L (the table read from the top). own_cone_only: for a point with L below 2 only its own cone counts."
+  },
+  "decision_line_abs_ln_ratio": {
+   "value": 0.10,
+   "allowed": "a positive number, or null for no line (flags only)",
+   "draft": "Section 9, choice 3 (recommended: 10 percent)",
+   "provisional": true,
+   "meaning": "A flagged point whose |ln(P_E / P_dispatch)| exceeds this is not evaluable without the PI's decision."
+  },
+  "fallback_when_execution_calibration_cannot_be_built": {
+   "value": "dispatch_row_with_flag",
+   "allowed": ["dispatch_row_with_flag", "not_evaluable"],
+   "draft": "Section 9, choice 8 (recommended: a)",
+   "provisional": true,
+   "meaning": "What a point is read against when the pool is pending or stopped."
+  },
+  "split_point_rule": {
+   "value": "execution_weighted_mean",
+   "allowed": ["execution_weighted_mean", "separate_shares"],
+   "draft": "Section 9, choice 9 (recommended: a)",
+   "provisional": true,
+   "meaning": "How a point whose executions are split over jobs with different execution-time calibrations is read."
+  },
+  "value_age_bound_hours": {
+   "value": null,
+   "allowed": "null (ages recorded, no bound) or a positive number of hours",
+   "draft": "Section 9, choice 10 (recommended: record, no bound)",
+   "provisional": true,
+   "meaning": "A bound on the age at running of the readout values of the execution-time calibration. null: the age of every value class is recorded and nothing is refused."
+  },
+  "bracket_decides_gate2e": {
+   "value": false,
+   "allowed": [true, false],
+   "draft": "Section 9, choice 5 (recommended: the execution-time figures decide, the bracket figures are reported)",
+   "provisional": true,
+   "meaning": "Whether the readout figures of the bracket calibration also pause under Gate 2 (e). Not read by any code on this branch; read by the gate2_e patch of docs/deviations_drafts/65_implementation/."
+  },
+  "dispatch_window": {
+   "value": "package_update_or_next_same_utc_day",
+   "allowed": ["package_update_or_next_same_utc_day", "package_update_only", "same_utc_day"],
+   "draft": "Section 9, choice 4 (recommended: a)",
+   "provisional": true,
+   "meaning": "The window in which a package may be dispatched. Not read by any code on this branch; it belongs to the same-day pipeline scripts."
+  }
+ }
+}
