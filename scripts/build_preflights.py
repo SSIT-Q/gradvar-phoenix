@@ -901,8 +901,12 @@ def build(OUT, snap_csv, tag, date_label, dial_pp, pdir, review_txt="(to be fill
     total_mod = sum(BUD[n]["minutes_at_1us"] for n in run_day); work_all = sum(WORK.values())
     _count = {1: "the one list", 2: "the two lists", 3: "the three lists", 4: "the four lists"}[N]
     _avail = float(inst["cap_min"]) - float(inst["used_min"])
-    _inst_src = ("cap and usage as given to this run" if inst.get("source") == "given"
-                 else f"cap and usage are the pipeline's figures of {inst.get('as_of')}; no dispatch since then is in the used figure: confirm at the review")
+    _dflt = list(inst["defaults"]) if "defaults" in inst else ([] if inst.get("source") == "given" else ["cap_min", "used_min"])
+    _inst_src = ("cap and usage as given to this run" if not _dflt
+                 else f"cap and usage are the pipeline's figures of {inst.get('as_of')}; no dispatch since then is in the used figure: confirm at the review"
+                 if len(_dflt) == 2 else
+                 f"{'the cap' if _dflt == ['cap_min'] else 'the usage'} is the pipeline's figure of {inst.get('as_of')}, the other figure as given to this run: "
+                 "confirm at the review")
     budget_line = (f"Budget of {_count} of this package: **{total_mod:.1f} min modelled at 1 us** (model v3: 3.0 s per job) and **about {work_all:.0f} min at day 2's per-job constant** "
                    "(7.5 s per job, charge ratio 1.02 on the rest): " + ", ".join(f"`{n}` {BUD[n]['minutes_at_1us']:.2f} / {WORK[n]:.1f}" for n in run_day)
                    + f" min, against the {inst['cap_min']:g}-minute instance cap with {inst['used_min']:g} used ({_avail:g} available, {_avail - work_all:.0f} left after "

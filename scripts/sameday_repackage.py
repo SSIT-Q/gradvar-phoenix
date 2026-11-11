@@ -660,9 +660,20 @@ def fmt(x, p=3):
 def instance_text(inst: dict | None) -> str:
     """The instance cap and the minutes used, with where the figures come from (they are inputs, not computed here)."""
     i = dict(INSTANCE, source="pipeline default") if not inst else inst
-    src = (f"as given to this run" if i.get("source") == "given" else
-           f"the pipeline's figures as of {i.get('as_of')}, not updated for any dispatch since: confirm at the review")
+    d = instance_defaults(i)
+    src = (f"as given to this run" if not d else
+           f"the pipeline's figures as of {i.get('as_of')}, not updated for any dispatch since: confirm at the review" if len(d) == 2 else
+           f"{'the cap' if d == ['cap_min'] else 'the minutes used'} is the pipeline's figure as of {i.get('as_of')}, not updated since; the other figure as "
+           "given to this run: confirm at the review")
     return f"instance cap {i['cap_min']:g} min, {i['used_min']:g} used ({src})"
+
+
+def instance_defaults(inst: dict | None) -> list:
+    """Which of the two instance figures (``cap_min``, ``used_min``) are the pipeline's defaults and not inputs of this run."""
+    i = inst or {}
+    if "defaults" in i:
+        return list(i["defaults"])
+    return [] if i.get("source") == "given" else ["cap_min", "used_min"]
 
 
 def write_summary(S: dict, date: str) -> tuple:
@@ -860,10 +871,11 @@ def run(args) -> int:
     run_sha = os.environ.get("GRADVAR_COMMIT") or args.run_sha or "unknown"
     env = dict(os.environ, PYTHONHASHSEED="0", GRADVAR_COMMIT=run_sha)
     env1 = dict(env, OMP_NUM_THREADS="1", OPENBLAS_NUM_THREADS="1", MKL_NUM_THREADS="1")
-    given = getattr(args, "instance_cap_min", None) is not None or getattr(args, "instance_used_min", None) is not None
+    not_given = [k for k, o in (("cap_min", "instance_cap_min"), ("used_min", "instance_used_min")) if getattr(args, o, None) is None]
     inst = dict(cap_min=float(args.instance_cap_min) if getattr(args, "instance_cap_min", None) is not None else INSTANCE["cap_min"],
                 used_min=float(args.instance_used_min) if getattr(args, "instance_used_min", None) is not None else INSTANCE["used_min"],
-                as_of=INSTANCE["as_of"], source="given" if given else "pipeline default")
+                as_of=INSTANCE["as_of"], source="given" if not not_given else "pipeline default" if len(not_given) == 2 else "partly given",
+                defaults=not_given)                                           # a default is flagged (review_flags): it never passes silently
     S = dict(status="running", run=dict(date=date, label=label, preflight_label=pf_label, label_reason=lab["reason"], snapshot=csv.name, stamp=stamp,
                                          properties=props.name, ibm_properties=ibm_update(props),
                                          base_sha=args.base_sha, run_sha=run_sha, with_pairs=bool(args.with_pairs), cores=cores,
@@ -1275,6 +1287,13 @@ def review_flags(S: dict, prev_dir: Path) -> list:
     left = float(inst["cap_min"]) - float(inst["used_min"])
     if t.get("working_min", 0) > left:
         fl.append(f"working figure {t.get('working_min')} min exceeds the {left:g} min left under the cap")
+    dflt = instance_defaults(S["instance"]) if S.get("instance") else []       # a cycle always records its instance figures
+    if dflt:
+        opt = dict(cap_min="`--instance-cap-min`", used_min="`--instance-used-min`")
+        fl.append(("instance cap and minutes used are the defaults" if len(dflt) == 2 else
+                   "the instance cap is the default" if dflt == ["cap_min"] else "the minutes used on the instance are the default")
+                  + f" of {inst.get('as_of', INSTANCE['as_of'])} ({float(inst['cap_min']):g} min cap, {float(inst['used_min']):g} min used): give "
+                  + " and ".join(opt[k] for k in dflt))
     og = S.get("origins") or {}
     for k in S.get("run_day_rungs") or []:                                 # checklist Section 3 item 6: a first placement gets a full look
         v = og.get(k)

@@ -941,3 +941,29 @@ def test_cp6_the_pairs_list_under_another_file_name_is_a_second_use_of_its_seeds
     elsewhere.parent.mkdir()
     elsewhere.write_text(json.dumps(jl), encoding="utf-8")
     assert len(MTP.seed_clashes(jl["probes"], d.parent, own=MTP.LIST_NAME)) == 4
+
+
+def test_cp7_instance_defaults_are_flagged(tmp_path):
+    """CP-7: the instance cap and the minutes used are inputs. A figure that was not given is the pipeline's default of 4 Oct 2026;
+    it is flagged with the option to give, so it never passes silently."""
+    def inst(defaults, source):
+        return dict(cap_min=360.0 if "cap_min" not in defaults else SR.INSTANCE["cap_min"], used_min=61.9 if "used_min" not in defaults else SR.INSTANCE["used_min"],
+                    as_of=SR.INSTANCE["as_of"], source=source, defaults=defaults)
+    both = [f for f in SR.review_flags(dict(instance=inst(["cap_min", "used_min"], "pipeline default")), tmp_path) if "instance" in f]
+    assert both == ["instance cap and minutes used are the defaults of 2026-10-04 (210 min cap, 45 min used): give `--instance-cap-min` and `--instance-used-min`"]
+    cap = [f for f in SR.review_flags(dict(instance=inst(["cap_min"], "partly given")), tmp_path) if "instance" in f]
+    assert cap == ["the instance cap is the default of 2026-10-04 (210 min cap, 61.9 min used): give `--instance-cap-min`"]
+    used = [f for f in SR.review_flags(dict(instance=inst(["used_min"], "partly given")), tmp_path) if "instance" in f]
+    assert used == ["the minutes used on the instance are the default of 2026-10-04 (360 min cap, 45 min used): give `--instance-used-min`"]
+    assert not [f for f in SR.review_flags(dict(instance=inst([], "given")), tmp_path) if "instance" in f]
+    # a summary of before this correction: 'pipeline default' without the list of defaults is flagged, 'given' is not
+    assert [f for f in SR.review_flags(dict(instance=dict(SR.INSTANCE, source="pipeline default")), tmp_path) if "instance cap and minutes used are the defaults" in f]
+    assert not [f for f in SR.review_flags(dict(instance=dict(cap_min=360.0, used_min=61.9, as_of="2026-10-04", source="given")), tmp_path) if "instance" in f]
+    assert SR.instance_defaults(None) == ["cap_min", "used_min"] and SR.instance_defaults(dict(source="given")) == []
+    # the sentences of the summary say which figure is a default
+    assert "as given to this run" in SR.instance_text(inst([], "given"))
+    assert "the pipeline's figures as of 2026-10-04" in SR.instance_text(inst(["cap_min", "used_min"], "pipeline default"))
+    assert "the cap is the pipeline's figure as of 2026-10-04" in SR.instance_text(inst(["cap_min"], "partly given"))
+    assert "the minutes used is the pipeline's figure as of 2026-10-04" in SR.instance_text(inst(["used_min"], "partly given"))
+    src = Path(SR.__file__).read_text(encoding="utf-8")                                         # the cycle records which options were not given
+    assert 'defaults=not_given)' in src and '"given" if not not_given else "pipeline default" if len(not_given) == 2 else "partly given"' in src
