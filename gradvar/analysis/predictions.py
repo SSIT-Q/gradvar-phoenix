@@ -384,12 +384,14 @@ def truncation_members(preds: Dict, designed: Dict, level: float, patch=None, ed
             if ok and int(e.get("mask_seed", -1)) == int(seed) and int(e.get("K", -1)) == int(K):
                 hits.append(e)
         files = sorted({str(h.get("file")) for h in hits})
-        if len(files) == 1:
-            members[vid] = hits[-1]
+        if len(files) == 1 and len(hits) == 1:
+            members[vid] = hits[0]
         else:
             missing.append(vid)
             if len(files) > 1:
                 notes.append(f"{vid}: ambiguous, entries in {', '.join(files)}")
+            elif len(hits) > 1:
+                notes.append(f"{vid}: ambiguous, {len(hits)} entries for one channel in {files[0]}")
     note = "" if not missing else (f"no vertex entry (h7_vertices_*.json) at level {level!r} for {', '.join(missing)}" + ("; " + "; ".join(notes) if notes else ""))
     return members, missing, note
 
@@ -440,10 +442,12 @@ def dial_members(preds: Dict, designed: Dict, level: float, L: int, k: int, dial
             continue
         hit = d[d.channel_key.astype(str) == dc.channel_key(ch)] if len(d) else d
         files = sorted(set(hit.source.astype(str))) if len(hit) else []
-        if len(files) != 1 or tag is None or not np.isfinite(float(hit.iloc[-1].get(f"var_{tag}_realised", np.nan))):
+        if len(files) != 1 or len(hit) != 1 or tag is None or not np.isfinite(float(hit.iloc[-1].get(f"var_{tag}_realised", np.nan))):
             missing.append(vid)
             if len(files) > 1:
                 notes.append(f"{vid}: ambiguous, rows in {', '.join(files)}")
+            elif len(hit) > 1:
+                notes.append(f"{vid}: ambiguous, {len(hit)} rows for one channel in {files[0]}")
             continue
         r = hit.iloc[-1]
         members[vid] = dict(var=float(r[f"var_{tag}_realised"]), sigma=float(r[f"se_{tag}_realised"]), var_cost=float(r.var_cost_realised),
