@@ -657,3 +657,23 @@ before any further dispatch, and the tracker's main-grid line and ledger (Sectio
 were written. The header's description of review 06 (head ed05d44e, under independent review) is as of 14:20 UTC: that branch now
 ends at 49e7243442e1088c8c5e6ffee4d33b04d4ed189d, where its own Section 14 records its check and the decisions of 14:27 UTC (draft
 PR #15).
+
+## 16. Dated note, 11 Nov 2026, 05:16 UTC: the sets in force during the run
+
+Source: the QPU-free trial of the properties history (workflow run 42958459321, 11 Nov 2026 04:19 UTC; branch
+`trial-properties-history-run-42958459321`; report `docs/deviations_drafts/65_support/trial_properties_history_20261111T041956Z.md`;
+no job submitted, no result fetched) and a value-by-value comparison of the six sets it returned. IBM's service holds six sets
+between the creation of the jobs and six hours after their end, stamped 09:07:11Z, 11:20:04Z, 11:35:39Z, 13:14:38Z, 13:37:31Z and
+16:34:05Z; the repository's snapshots had caught three (09:07:11Z, 11:35:39Z, 13:37:31Z). Every value that differs between the
+09:07:11Z and 11:35:39Z sets already differs in the 11:20:04Z set; the 11:20:04Z, 11:35:39Z and 13:14:38Z sets are equal in every
+value, and so are 13:37:31Z and 16:34:05Z. The sections above were written from the repository's snapshots and are not edited.
+
+What this changes in this review, and what it does not:
+
+- The values this review attributes to the 11:35:39Z update were in force from **11:20:04Z**. All three Block C jobs began running
+  after both stamps (12:54:18Z to 12:54:47Z), so the statement that they ran under those values stands.
+- A set stamped 13:14:38Z was published inside the `L0` job's window (12:54:18Z to 13:31:41Z) and after the other two jobs had
+  finished (13:08:16Z, 13:10:40Z). It carries the same values as the 11:35:39Z set, so no value changed during any Block C job.
+  The statement that the jobs ran wholly between two updates is true of values and not of stamps.
+- The first set with different readout values after the jobs is the one stamped 13:37:31Z, as stated.
+- No number of the audit or of the reading changes.

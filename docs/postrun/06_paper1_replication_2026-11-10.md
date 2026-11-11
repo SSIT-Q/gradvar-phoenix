@@ -608,3 +608,23 @@ unchanged. Block C is reported in post-run review 07 (`docs/postrun/07_paper1_se
 `postrun-07-2026-11-10`, draft PR #16). Its three jobs (bundles on `main` at f11dc7aa831bc2c55522a182a2f22a919b129bc8) began running
 at 12:54:18Z, after this list's `L0` job had finished (12:35:07Z), so their bundles do not narrow when the `L0` circuits executed;
 N1 stays as stated.
+
+## 15. Dated note, 11 Nov 2026, 05:16 UTC: the calibration change was published at 11:20:04Z
+
+Source: the QPU-free trial of the properties history (workflow run 42958459321, 11 Nov 2026 04:19 UTC; branch
+`trial-properties-history-run-42958459321`; report `docs/deviations_drafts/65_support/trial_properties_history_20261111T041956Z.md`;
+no job submitted, no result fetched) and a value-by-value comparison of the six sets it returned. IBM's service holds six sets
+between the creation of the jobs and six hours after their end, stamped 09:07:11Z, 11:20:04Z, 11:35:39Z, 13:14:38Z, 13:37:31Z and
+16:34:05Z; the repository's snapshots had caught three (09:07:11Z, 11:35:39Z, 13:37:31Z). Every value that differs between the
+09:07:11Z and 11:35:39Z sets already differs in the 11:20:04Z set; the 11:20:04Z, 11:35:39Z and 13:14:38Z sets are equal in every
+value, and so are 13:37:31Z and 16:34:05Z. The sections above were written from the repository's snapshots and are not edited.
+
+What this changes in this review, and what it does not:
+
+- Wherever this review says that IBM's update of 11:35:39Z fell inside the `L0` job's window, read: the values of that set were
+  published at **11:20:04Z**, 8 minutes after the job began running (11:12:05Z), not 23.
+- The statement that the probes job `dbpfnrgqtr0c738ebeog` finished (11:21:02Z) before the update is **withdrawn**: the new values
+  were published 58 seconds before it finished. Whether any of its circuits executed after 11:20:04Z is not recorded.
+- Notes N1 and N2 stand with these times. The qubits over a cut, their values and their cone positions are unchanged, because
+  the 11:20:04Z and 11:35:39Z sets are equal in every value.
+- No number of the audit or of the registered reading changes, and the registered decision is unchanged.
