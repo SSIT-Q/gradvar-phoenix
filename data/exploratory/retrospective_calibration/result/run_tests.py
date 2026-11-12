@@ -7,13 +7,15 @@ Inputs (two fixed commits of SSIT-Q/gradvar-phoenix, as plain file trees; e.g. `
   --main   tree of main at a8136f0068711c43312918ffe9e8221f8a8bdc22 (data/jobs, data/predictions, docs/postrun are read)
   --table  tree of retro-calibration-table at ae858077b4f06efe987281bd4e368e78c24a6e91
            (data/exploratory/retrospective_calibration/retro_calibration_points.csv and .json are read)
-  --result this directory: tests_enumerated.json (committed before any measured value was opened) and review_figures.csv
-           (the figures the post-run reviews print, with file and line) are read; every output is written here.
+  --result this directory: tests_enumerated.json (first pass, raw variance; committed before any measured value was opened),
+           tests_enumerated_signal.json (second pass, signal variance; committed before anything was computed for it),
+           review_figures.csv and review_figures_signal.csv (figures the post-run reviews print, with file and line) are read;
+           every output is written here.
 
     python run_tests.py --main <main tree> --table <table tree> --result .
 
 Deterministic: no clock, no unseeded random number. Needs numpy and scipy. The tests run are exactly those of
-tests_enumerated.json; none is added, dropped or altered here.
+the two enumeration files; none is added, dropped or altered here.
 """
 import argparse, csv, hashlib, io, json, math, os, re, sys
 from collections import Counter, OrderedDict
@@ -258,8 +260,8 @@ def rank_avg(x):
 
 
 # ----------------------------------------------------------------------------------------------------------- the tests
-def select_points(P, sel):
-    out = [p for p in P if p["joined"] and p["day"] in sel["days"]]
+def select_points(P, sel, okkey="joined"):
+    out = [p for p in P if p[okkey] and p["day"] in sel["days"]]
     if sel["origin_point"] == "out":
         out = [p for p in out if not p["origin_point"]]
     if sel["s_subset"] in ("all", "drawn"):
@@ -269,11 +271,10 @@ def select_points(P, sel):
     return out
 
 
-def run_test(t, P, exact_limit):
+def run_test(t, P, exact_limit, rkey="r", okkey="joined"):
     res = OrderedDict(id=t["id"], plan_item=t["plan_item"], status=t["status"], kind=t["kind"], reference_code=t["reference_code"])
-    pts = select_points(P, t["points_selector"])
+    pts = select_points(P, t["points_selector"], okkey)
     res["n_points"] = len(pts)
-    res["points_in_table_under_rule"] = t["points_in_table_under_rule"]
 
     def cannot(reason):
         res.update(formed=False, reason=reason, p=1.0)
@@ -282,7 +283,7 @@ def run_test(t, P, exact_limit):
     if not t["can_be_formed_from_table"]:
         return cannot(t["reason_if_not"])
     days = [p["day"] for p in pts]
-    r = np.array([p["r"] for p in pts], dtype=float)
+    r = np.array([p[rkey] for p in pts], dtype=float)
     ref, par = t["reference_code"], t["params"]
     blocks = blocks_for(days, "all" if (par.get("blocks") == "all" or "unrestricted" in ref) else "day")
     n = len(pts)
@@ -458,6 +459,10 @@ def sha(path):
 
 
 # ----------------------------------------------------------------------------------------------------------- main
+def lnratio(a, b):
+    return math.log(a / b) if (math.isfinite(a) and math.isfinite(b) and a > 0 and b > 0) else float("nan")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--main", required=True)
@@ -466,7 +471,10 @@ def main():
     a = ap.parse_args()
     R = a.result
     enum = json.loads(read_bytes(os.path.join(R, "tests_enumerated.json")).decode("utf-8"))
-    tests = enum["tests"]
+    enum_s = json.loads(read_bytes(os.path.join(R, "tests_enumerated_signal.json")).decode("utf-8"))
+    assert enum_s["first_pass_file_sha256"] == sha(os.path.join(R, "tests_enumerated.json"))
+    tests, tests_s = enum["tests"], enum_s["tests"]
+    assert [t["id"] + ".signal" for t in tests] == [t["id"] for t in tests_s]
     exact_limit = 1000000
     tab_csv = os.path.join(a.table, TABLE_REL, "retro_calibration_points.csv")
     assert sha(tab_csv) == enum["inputs"]["table_sha256"], "the table is not the one the tests were enumerated from"
@@ -474,9 +482,13 @@ def main():
     TJ = json.loads(read_bytes(os.path.join(a.table, TABLE_REL, "retro_calibration_points.json")).decode("utf-8"))
     tj = {(p["row"]["list"], p["row"]["point_id"]): p for p in TJ["points"]}
     figs = read_csv_rows(os.path.join(R, "review_figures.csv"))
+    figs_s = read_csv_rows(os.path.join(R, "review_figures_signal.csv"))
     review_lines = {f: read_bytes(os.path.join(a.main, f)).decode("utf-8").split("\n") for f in sorted(set(REVIEW.values()))}
-    for fg in figs:                                              # every keyed figure stands on the cited line of the review
+    for fg in figs + figs_s:                                     # every keyed figure stands on the cited line of the review
         assert fg["printed"] in review_lines[fg["review_file"]][int(fg["line"]) - 1], ("figure not on the cited line", fg)
+    for mk in enum_s["shot_floor_marks"]:                        # and so does every marking of the shot floor
+        assert mk["phrase"] in review_lines[mk["review_file"]][int(mk["line"]) - 1], ("marking not on the cited line", mk)
+    floor_rule = enum_s["shot_floor_rule_as_applied"]
     tidy = {l: read_csv_rows(os.path.join(a.main, f)) for l, f in TIDY.items()}
 
     # ---------------- join
@@ -509,6 +521,7 @@ def main():
         p["measured_M_listed_in_table"] = sum(int(e.split(":M")[1]) for e in t["entries"].split(";"))
         p["measured_jobs"] = ";".join(m["jobs"])
         p["measured_jobs_as_table"] = sorted(m["jobs"]) == sorted(t["job_ids"].split(";"))
+        p["jobs_listed_in_table"] = t["job_ids"]
         p["review_file"] = REVIEW[t["list"]]
         checks, used = [], m["variance"]
         for x in printed:
@@ -533,6 +546,7 @@ def main():
                 used = float(best["printed"])
                 p["measured_field"] = "figure printed in the review (line %s); the registered estimator on the tidy table does not reproduce it at the printed precision" % best["line"]
         p["measured"] = used
+        p["measured_is_printed_figure"] = p["measured_field"].startswith("figure printed")
         p["measured_ci_lo"], p["measured_ci_hi"], p["measured_se_boot"] = m["ci_lo"], m["ci_hi"], m["se_boot"]
         iv = None
         for x in printed:
@@ -541,7 +555,6 @@ def main():
                 iv = (mm.group(1), mm.group(2), x["line"])
         p["review_interval_printed"] = "[%s, %s] (line %s)" % iv if iv else ""
         p["review_interval_check"] = "; ".join([printed_check(m["ci_lo"], iv[0]), printed_check(m["ci_hi"], iv[1])]) if iv else ""
-        p["shot_variance"], p["signal_variance"] = m["shot_variance"], m["signal_variance"]
         # prediction: the table's row
         pr = prediction_row(a.main, t)
         committed = tj[key]["pred_rows"][t["pred_model"]]["committed"]
@@ -567,32 +580,89 @@ def main():
         ok = p["joined"] and math.isfinite(p["measured"]) and p["measured"] > 0 and math.isfinite(p["prediction"]) and p["prediction"] > 0
         if p["joined"] and not ok:
             p["joined"], p["reason_left_out"] = False, "r is not defined: the measured value or the prediction is not a positive finite number"
-        p["r"] = math.log(p["measured"] / p["prediction"]) if ok else float("nan")
-        sv = p["signal_variance"]
-        p["r_on_signal_variance_no_test"] = math.log(sv / p["prediction"]) if (ok and math.isfinite(sv) and sv > 0) else float("nan")
+        p["r"] = lnratio(p["measured"], p["prediction"]) if ok else float("nan")
+        # second pass: the signal variance
+        p["shot_variance"] = m["shot_variance"]
+        p["shot_variance_field"] = ("4 x 1/(2N) (estimators.level2_shot_variance)" if p["resilience"] == 2 else
+                                    "mean over the draws of (std_plus^2 + std_minus^2) / 4, else the analytic two-term form (loader._shot_var)")
+        sig = (p["measured"] - m["shot_variance"]) if (p["joined"] and math.isfinite(m["shot_variance"])) else float("nan")
+        p["signal_variance"] = sig
+        fs = [x for x in figs_s if (x["list"], x["point_id"]) == key]
+        p["review_signal_printed"] = "; ".join("%s (line %s)" % (x["printed"], x["line"]) for x in fs)
+        p["review_signal_check"] = "; ".join(printed_check(sig, x["printed"]) for x in fs) if (fs and p["joined"]) else ""
+        p["marked_shot_floor_by_review"] = (t["list"] in floor_rule["lists"] and p["L"] == int(floor_rule["L"]))
+        if not p["joined"]:
+            p["has_r_signal"], p["reason_no_r_signal"] = False, "left out of the first pass (%s)" % p["reason_left_out"]
+        elif p["marked_shot_floor_by_review"]:
+            p["has_r_signal"], p["reason_no_r_signal"] = False, "the post-run review of the list marks the point as at the shot floor (L = 12)"
+        elif not (math.isfinite(sig) and sig > 0):
+            p["has_r_signal"], p["reason_no_r_signal"] = False, "the signal variance is not a positive finite number"
+        else:
+            p["has_r_signal"], p["reason_no_r_signal"] = True, ""
+        p["r_signal"] = lnratio(sig, p["prediction"]) if p["has_r_signal"] else float("nan")
+        # the registered estimate (divisor M - 1) in place of a printed figure: for the repetition that enters no family
+        p["r_registered_estimate"] = lnratio(m["variance"], p["prediction"]) if p["joined"] else float("nan")
+        p["signal_variance_registered_estimate"] = m["signal_variance"]
+        p["has_r_signal_registered_estimate"] = bool(p["joined"] and not p["marked_shot_floor_by_review"] and math.isfinite(m["signal_variance"]) and m["signal_variance"] > 0)
+        p["r_signal_registered_estimate"] = lnratio(m["signal_variance"], p["prediction"]) if p["has_r_signal_registered_estimate"] else float("nan")
         P.append(p)
 
     joined = [p for p in P if p["joined"]]
     left = [p for p in P if not p["joined"]]
+    with_sig = [p for p in P if p["has_r_signal"]]
+    no_sig = [p for p in P if not p["has_r_signal"]]
 
-    # ---------------- tests
+    # ---------------- tests: first pass (raw variance), second pass (signal variance)
     results = [run_test(t, P, exact_limit) for t in tests]
-    assert [r["id"] for r in results] == [t["id"] for t in tests]
-    ps = [r["p"] for r in results]
-    adj, rej, kmax, N, cN = benjamini_yekutieli(ps, 0.10)
-    for r, aj, rj in zip(results, adj, rej):
-        r["by_adjusted_p"], r["by_rejected_at_10_percent"] = aj, rj
-    byid = OrderedDict((r["id"], r) for r in results)
+    results_s = [run_test(t, P, exact_limit, "r_signal", "has_r_signal") for t in tests_s]
+    assert [r["id"] for r in results] == [t["id"] for t in tests] and [r["id"] for r in results_s] == [t["id"] for t in tests_s]
+    for r in results:
+        r["pass"] = "first pass (raw variance)"
+    for r in results_s:
+        r["pass"] = "second pass (signal variance), not fixed in advance"
+    adj1, rej1, k1, N1, c1 = benjamini_yekutieli([r["p"] for r in results], 0.10)
+    allr = results + results_s
+    adjU, rejU, kU, NU, cU = benjamini_yekutieli([r["p"] for r in allr], 0.10)
+    for r, aj, rj in zip(results, adj1, rej1):
+        r["by_first_pass_family_adjusted_p"], r["by_first_pass_family_rejected_at_10_percent"] = aj, rj
+    for r, aj, rj in zip(allr, adjU, rejU):
+        r["by_union_family_adjusted_p"], r["by_union_family_rejected_at_10_percent"] = aj, rj
+    byid = OrderedDict((r["id"], r) for r in allr)
+
+    # ---------------- repetition with the registered estimate in place of the printed figures (enters no family)
+    rep1 = [run_test(t, P, exact_limit, "r_registered_estimate", "joined") for t in tests]
+    rep2 = [run_test(t, P, exact_limit, "r_signal_registered_estimate", "has_r_signal_registered_estimate") for t in tests_s]
+    _, rrej1, rk1, _, _ = benjamini_yekutieli([r["p"] for r in rep1], 0.10)
+    _, rrejU, rkU, _, _ = benjamini_yekutieli([r["p"] for r in rep1 + rep2], 0.10)
+    for r, q in zip(allr, rep1 + rep2):
+        r["p_with_registered_estimate_no_family"] = q["p"]
+        r["formed_with_registered_estimate"] = q["formed"]
+    prim_ids = [t["id"] for t in tests if t["plan_item"] == "primary"]
+    prim_ids_s = [i + ".signal" for i in prim_ids]
+    sig05 = lambda r_: bool(r_["formed"] and r_["p"] <= 0.05)
+    repid = OrderedDict((q["id"], q) for q in rep1 + rep2)
+    sens = OrderedDict()
+    sens["what"] = ("Both passes repeated with the registered estimate (divisor M - 1) in place of the figure printed in the review, for the points whose measured value is the printed figure. Enters no family.")
+    sens["points_concerned"] = sum(p["measured_is_printed_figure"] for p in joined)
+    sens["points_with_r_signal_under_the_repetition"] = sum(p["has_r_signal_registered_estimate"] for p in P)
+    sens["primary_and_its_readings_at_0.05_differ"] = [i for i in prim_ids + prim_ids_s if sig05(byid[i]) != sig05(repid[i])]
+    sens["tests_whose_p_crosses_0.05"] = [r["id"] for r in allr if sig05(r) != sig05(repid[r["id"]])]
+    sens["tests_formed_in_one_and_not_the_other"] = [r["id"] for r in allr if bool(r["formed"]) != bool(repid[r["id"]]["formed"])]
+    sens["first_pass_family_rejections_differ"] = [r["id"] for r, x, y in zip(results, rej1, rrej1) if x != y]
+    sens["union_family_rejections_differ"] = [r["id"] for r, x, y in zip(allr, rejU, rrejU) if x != y]
+    sens["largest_change_of_a_p"] = max(abs(r["p"] - repid[r["id"]]["p"]) for r in allr)
+    sens["any_outcome_differs"] = bool(sens["primary_and_its_readings_at_0.05_differ"] or sens["first_pass_family_rejections_differ"] or sens["union_family_rejections_differ"])
 
     # ---------------- outcome in the words of plan Section 5
-    def outcome(tid):
+    def outcome(tid, suffix=""):
         r = byid[tid]
-        o = OrderedDict(test=tid, p=r["p"], level=0.05, significant=bool(r["formed"] and r["p"] <= 0.05))
-        d2 = byid["D.cone.day2.out.exact"] if tid != "A" else None
+        o = OrderedDict(test=tid, p=r["p"], level=0.05, significant=sig05(r))
         o["sign_day1"] = "cannot be formed: day 1 holds no flagged point"
-        sd2 = byid["D.cone.day2.out.exact"].get("statistic_observed")
+        sd2 = byid["D.cone.day2.out.exact" + suffix].get("statistic_observed")
         o["sign_day2"] = ("positive" if sd2 > 0 else "negative" if sd2 < 0 else "zero") if sd2 is not None else "cannot be formed"
-        if not o["significant"]:
+        if not r["formed"]:
+            o["words"] = "The test could not be formed (%s); it enters the family with p = 1 and is read as not significant: the day-2 value stands as an unexplained single departure that did not replicate, which is what the registered reading already says." % r["reason"]
+        elif not o["significant"]:
             o["words"] = ("Primary test not significant: the day-2 value stands as an unexplained single departure that did not replicate, which is what the registered reading already says. "
                           "(Plan Section 9: the test has little power, and a result that is not significant is not evidence that calibration faults have no effect.)")
         else:
@@ -602,15 +672,32 @@ def main():
                           "this would be a candidate, to be tested prospectively on day 3 as Section 5 says, and nothing more." % o["sign_day2"])
         o["words"] += " In neither case is any registered reading, flag or decision of days 1, 2 or 10 Nov changed."
         return o
-    primary_ids = [t["id"] for t in tests if t["plan_item"] == "primary"]
-    outcomes = [outcome(i) for i in primary_ids]
+    outcomes = [outcome(i) for i in prim_ids]
+    outcomes_s = [outcome(i, ".signal") for i in prim_ids_s]
 
+    printed_pts = [p for p in joined if p["measured_is_printed_figure"]]
+    dj = [OrderedDict(list=p["list"], point_id=p["point_id"], draws_in_tidy_table=p["measured_M"], draws_listed=p["measured_M_listed_in_table"],
+                      jobs_in_tidy_table=len(p["measured_jobs"].split(";")), jobs_listed=len(p["jobs_listed_in_table"].split(";")))
+          for p in P if not p["measured_jobs_as_table"] or p["measured_M"] != p["measured_M_listed_in_table"]]
+    sens_words = ("no outcome differs: the primary test and each of its readings, in both passes, fall on the same side of 0.05, and the rejections of the first-pass family and of the union are the same"
+                  if not sens["any_outcome_differs"] else
+                  "outcomes differ: primary test or readings on the other side of 0.05: %s; rejections of the first-pass family that differ: %s; of the union: %s" %
+                  (", ".join(sens["primary_and_its_readings_at_0.05_differ"]) or "none", ", ".join(sens["first_pass_family_rejections_differ"]) or "none", ", ".join(sens["union_family_rejections_differ"]) or "none"))
     not_done = [
-        "No test outside tests_enumerated.json was run, and none of its tests was altered. The family is the one fixed there (%d tests)." % N,
-        "The tests use one measured value per point: the raw variance of the point's gradients, which every post-run review names 'measured' and against which the reviews' written ratios (0.50, 0.92, 0.71 in the plan) are formed. "
-        "The reviews also give a 'signal' variance (raw minus the shot variance), and the pipeline's compare_points sets that one against the prediction. The list of tests was closed before this was seen, "
-        "so no test was run on the signal variance; ln(signal / prediction) is given per point in the table, without any test.",
-        "%d of 67 points were left out because the post-run review prints no measured value for them; no value was estimated in their place." % len(left),
+        "No test outside tests_enumerated.json (first pass, %d tests, raw variance) and tests_enumerated_signal.json (second pass, %d tests, signal variance) was run, and none of their tests was altered." % (N1, len(tests_s)),
+        "The second pass is not fixed in advance. It was added on 12 Nov 2026 after the join of the raw variance, by decision of the lead, who had seen no result; the worker who listed and ran it had seen the first pass. Every test of it is a reading not fixed in advance. "
+        "The primary test of the analysis is PRIMARY of the first pass (raw variance, the quantity every post-run review names 'measured' and on which the ratios the plan quotes are formed).",
+        "Provisional: for %d points of day 2 the measured value is the figure printed in the review, a variance with divisor M and rounded as printed, because the registered estimate (divisor M - 1) does not reproduce it at the printed precision "
+        "(rule fixed in tests_enumerated.json). The registered estimate is beside it (`measured_registered_estimator`, `r_registered_estimate`, `r_signal_registered_estimate` in `joined_points.csv`). Both passes were repeated with the registered estimate: %s. "
+        "Tests of either pass whose p crosses 0.05 between the two: %d. Largest change of any p: %s. The repetition enters no family." %
+        (len(printed_pts), sens_words, len(sens["tests_whose_p_crosses_0.05"]), g(sens["largest_change_of_a_p"], 3)),
+        "Provisional: %s. The point was joined on the draws the review reports; its calibration columns in the frozen table still reflect every job the table lists." %
+        ("; ".join("the frozen table lists %d jobs and %d draws for (`%s`, %s) while the tidy table holds %d draws from %d job(s)" %
+                   (x["jobs_listed"], x["draws_listed"], x["list"], x["point_id"], x["draws_in_tidy_table"], x["jobs_in_tidy_table"]) for x in dj) or "no point's draws differ from the table's listing"),
+        "%d of 67 points were left out of both passes because the post-run review prints no measured value for them (%s); no value was estimated in their place." %
+        (len(left), "; ".join("`%s`, %s" % (p["list"], p["point_id"]) for p in left)),
+        "%d further points have no r_signal and are out of the second pass only: %d marked by their review as at the shot floor (every L = 12 point of day 1 and of the day-2 main grid), %d whose signal variance is not positive." %
+        (len(no_sig) - len(left), sum(p["joined"] and p["marked_shot_floor_by_review"] for p in P), sum(p["joined"] and not p["marked_shot_floor_by_review"] and not p["has_r_signal"] for p in P)),
         "The check of each point's prediction row against the review is a comparison of printed figures; for points where the review states no prediction value (level-2 and k = L points) it could not be made.",
         "The table is the provisional one (own implementation of the per-value rule of draft Deviation 65); the repetition on the table rebuilt with the adopted builder (plan Section 9) is not done.",
         "No independent check of these results has been made (plan Section 6 asks for one before the result is quoted anywhere).",
@@ -619,14 +706,16 @@ def main():
 
     # ---------------- joined table
     cols = ["list", "point_id", "day", "n", "L", "k", "resilience", "shots", "origin_point", "flag_cone", "flag_readout", "flag_coupler", "max_overcut_couplers_on_cone_qubit",
-            "joined", "reason_left_out", "r", "s", "s_estimator", "s_drawn", "s_usable", "s_se_upper", "measured", "measured_se_boot", "measured_ci_lo", "measured_ci_hi", "measured_M",
-            "measured_M_listed_in_table", "measured_jobs", "measured_jobs_as_table", "measured_source_file", "measured_field", "measured_registered_estimator", "review_file", "review_measured_printed", "review_measured_check", "review_measured_check_divisor_M",
-            "review_interval_printed", "review_interval_check", "prediction", "prediction_source_file", "prediction_csv_row", "prediction_field", "prediction_stage", "prediction_model",
-            "prediction_estimator", "prediction_status", "review_prediction_first", "review_prediction_first_check", "review_prediction_addendum", "review_prediction_check",
-            "shot_variance", "signal_variance", "r_on_signal_variance_no_test"]
+            "joined", "reason_left_out", "r", "has_r_signal", "reason_no_r_signal", "r_signal", "s", "s_estimator", "s_drawn", "s_usable", "s_se_upper", "measured", "measured_se_boot", "measured_ci_lo", "measured_ci_hi", "measured_M",
+            "measured_M_listed_in_table", "measured_jobs", "jobs_listed_in_table", "measured_jobs_as_table", "measured_source_file", "measured_field", "measured_is_printed_figure", "measured_registered_estimator", "review_file", "review_measured_printed",
+            "review_measured_check", "review_measured_check_divisor_M", "review_interval_printed", "review_interval_check", "prediction", "prediction_source_file", "prediction_csv_row", "prediction_field", "prediction_stage",
+            "prediction_model", "prediction_estimator", "prediction_status", "review_prediction_first", "review_prediction_first_check", "review_prediction_addendum", "review_prediction_check",
+            "shot_variance", "shot_variance_field", "signal_variance", "marked_shot_floor_by_review", "review_signal_printed", "review_signal_check",
+            "r_registered_estimate", "signal_variance_registered_estimate", "has_r_signal_registered_estimate", "r_signal_registered_estimate"]
     buf = io.StringIO()
     buf.write('# "exploratory": true\n# %s\n' % STATEMENT)
-    buf.write("# Plain table of the points, without any test. r = ln(measured / prediction); measured = raw variance (registered estimator, tidy table of main %s); prediction = the committed row the frozen table names. Lines beginning with # are comments.\n" % MAIN_COMMIT[:8])
+    buf.write("# Plain table of the points, without any test. r = ln(measured / prediction), measured = raw variance; r_signal = ln((measured - shot variance) / prediction) (second pass, not fixed in advance); "
+              "prediction = the committed row the frozen table names (main %s). Lines beginning with # are comments.\n" % MAIN_COMMIT[:8])
     w = csv.writer(buf, lineterminator="\n")
     w.writerow(cols)
     for p in P:
@@ -647,24 +736,31 @@ def main():
     doc["exploratory"] = True
     doc["statement"] = STATEMENT
     doc["inputs"] = OrderedDict([("main", MAIN_COMMIT), ("table", TABLE_COMMIT), ("plan", PLAN_COMMIT), ("tests_enumerated_sha256", sha(os.path.join(R, "tests_enumerated.json"))),
-                                 ("review_figures_sha256", sha(os.path.join(R, "review_figures.csv"))), ("table_sha256", sha(tab_csv)),
+                                 ("tests_enumerated_signal_sha256", sha(os.path.join(R, "tests_enumerated_signal.json"))),
+                                 ("review_figures_sha256", sha(os.path.join(R, "review_figures.csv"))), ("review_figures_signal_sha256", sha(os.path.join(R, "review_figures_signal.csv"))), ("table_sha256", sha(tab_csv)),
                                  ("tidy_tables_sha256", OrderedDict((f, sha(os.path.join(a.main, f))) for f in TIDY.values())),
                                  ("reviews_sha256", OrderedDict((f, sha(os.path.join(a.main, f))) for f in sorted(set(REVIEW.values()))))])
-    doc["not_done"] = not_done
+    doc["not_done_or_provisional"] = not_done
     doc["points"] = OrderedDict([("in_table", len(P)), ("joined", len(joined)), ("left_out", [OrderedDict(list=p["list"], point_id=p["point_id"], reason=p["reason_left_out"]) for p in left]),
                                  ("joined_by_day", OrderedDict((d, sum(p["day"] == d for p in joined)) for d in DAYS)),
+                                 ("with_r_signal", len(with_sig)), ("with_r_signal_by_day", OrderedDict((d, sum(p["day"] == d for p in with_sig)) for d in DAYS)),
+                                 ("without_r_signal", [OrderedDict(list=p["list"], point_id=p["point_id"], reason=p["reason_no_r_signal"]) for p in no_sig]),
                                  ("measured_reproduces_review", OrderedDict(sorted(Counter(p["review_measured_check"] for p in joined).items()))),
+                                 ("signal_against_review", OrderedDict(sorted(Counter(p["review_signal_check"] or "the review prints no signal figure for this point" for p in joined).items()))),
                                  ("prediction_row_against_review", OrderedDict(sorted(Counter(re.sub(r" \(.*\)$", "", p["review_prediction_check"]) for p in joined).items()))),
                                  ("printed_figure_used_instead_of_registered_estimator", [OrderedDict(list=p["list"], point_id=p["point_id"], printed_agrees_with_divisor_M=("differs" not in p["review_measured_check_divisor_M"]))
-                                                                                          for p in joined if p["measured_field"].startswith("figure printed")]),
+                                                                                          for p in printed_pts]),
                                  ("points_whose_review_used_another_row", [OrderedDict(list=p["list"], point_id=p["point_id"]) for p in joined if not p["s_usable"]]),
-                                 ("points_whose_jobs_differ_from_table", [OrderedDict(list=p["list"], point_id=p["point_id"], draws_in_tidy_table=p["measured_M"], draws_listed=p["measured_M_listed_in_table"])
-                                                                           for p in P if not p["measured_jobs_as_table"] or p["measured_M"] != p["measured_M_listed_in_table"]])])
-    doc["primary"] = OrderedDict([("test", byid["PRIMARY"]), ("outcome_in_the_words_of_plan_section_5", outcomes[0]), ("readings_of_the_primary_not_fixed_in_advance", outcomes[1:])])
-    doc["family"] = OrderedDict([("procedure", "Benjamini-Yekutieli at 10 percent"), ("N", N), ("c_N", cN), ("formed", sum(bool(r["formed"]) for r in results)),
-                                 ("not_formed_p_1", sum(not r["formed"] for r in results)), ("rejected", kmax), ("rejected_ids", [r["id"] for r in results if r["by_rejected_at_10_percent"]]),
-                                 ("smallest_threshold", 0.10 / (N * cN))])
-    doc["tests"] = results
+                                 ("points_whose_jobs_differ_from_table", dj)])
+    doc["primary"] = OrderedDict([("test", byid["PRIMARY"]), ("outcome_in_the_words_of_plan_section_5", outcomes[0]), ("readings_of_the_primary_not_fixed_in_advance", outcomes[1:]),
+                                  ("signal_variance_pass_not_fixed_in_advance", outcomes_s)])
+    fam = lambda label, rs, k, N, cN, key: OrderedDict([("label", label), ("procedure", "Benjamini-Yekutieli at 10 percent"), ("N", N), ("c_N", cN), ("formed", sum(bool(r["formed"]) for r in rs)),
+                                                        ("not_formed_p_1", sum(not r["formed"] for r in rs)), ("rejected", k), ("rejected_ids", [r["id"] for r in rs if r[key]]), ("smallest_threshold", 0.10 / (N * cN))])
+    doc["family_union_of_both_passes"] = fam("union of the first pass and the second pass", allr, kU, NU, cU, "by_union_family_rejected_at_10_percent")
+    doc["family_first_pass_only"] = fam("first pass only (the family fixed in tests_enumerated.json)", results, k1, N1, c1, "by_first_pass_family_rejected_at_10_percent")
+    doc["repetition_with_registered_estimate"] = sens
+    doc["tests_first_pass"] = results
+    doc["tests_second_pass_signal_variance"] = results_s
     write_json(os.path.join(R, "test_results.json"), doc)
     write_json(os.path.join(R, "run_environment.json"), OrderedDict([("exploratory", True), ("statement", STATEMENT),
                ("note", "Versions under which the committed outputs were produced. This file alone is expected to differ when the script is re-run elsewhere."),
@@ -678,7 +774,7 @@ def main():
     L.append("")
     L.append("Sealed: this branch is not opened by the lead or by anyone who drafts or corrects Deviations 64, 65 or 67 before Paper 1 pre-registration v0.19.0 is on `main` (plan Section 9).")
     L.append("")
-    L.append("## 1. What was not done")
+    L.append("## 1. What was not done, or is provisional")
     L.append("")
     for i, x in enumerate(not_done, 1):
         L.append("%d. %s" % (i, x))
@@ -687,7 +783,7 @@ def main():
     L.append("")
     o = outcomes[0]
     r0 = byid["PRIMARY"]
-    L.append("**Primary test as written** (`PRIMARY`: flagged against unflagged on `flag_cone`, difference of the mean of r over all points, 10,000 permutations within day, seed 2026111201, "
+    L.append("**Primary test as written** (`PRIMARY`, raw variance: flagged against unflagged on `flag_cone`, difference of the mean of r over all points, 10,000 permutations within day, seed 2026111201, "
              "the point of job `dao2pqv8gn2s739nabkg` left out): %d flagged, %d unflagged; mean r %s against %s; difference %s; p = %s (b = %s of m = %s); level 0.05." %
              (r0.get("n_flagged", 0), r0.get("n_unflagged", 0), g(r0.get("mean_r_flagged")), g(r0.get("mean_r_unflagged")), g(r0.get("statistic_observed")), g(r0["p"]), r0.get("b", ""), r0.get("m", "")))
     L.append("")
@@ -696,44 +792,52 @@ def main():
     L.append("Days in which one of the two groups is empty contribute nothing to the within-day permutation: %s. Day with both groups: %s." %
              (", ".join(r0.get("days_with_one_group_empty", [])) or "none", ", ".join(r0.get("days_with_both_groups", [])) or "none"))
     L.append("")
-    L.append("**Readings of the primary test that the text allows and that were not fixed in advance**, side by side:")
+
+    def outcome_table(title, outs, tlist):
+        L.append(title)
+        L.append("")
+        L.append("| test | statistic | reference | flagged / unflagged | difference | p | significant at 0.05 | outcome in the words of Section 5 |")
+        L.append("|---|---|---|---|---|---|---|---|")
+        for o_ in outs:
+            r_ = byid[o_["test"]]
+            t_ = [x for x in tlist if x["id"] == o_["test"]][0]
+            L.append("| `%s` | %s | %s | %s / %s | %s | %s | %s | %s |" % (o_["test"], t_["params"]["statistic_form"], t_["reference_code"], r_.get("n_flagged", ""), r_.get("n_unflagged", ""),
+                                                                        g(r_.get("statistic_observed")), g(r_["p"]), g(o_["significant"]), o_["words"]))
+        L.append("")
+    outcome_table("**Readings of the primary test that the text allows and that were not fixed in advance** (raw variance), side by side:", outcomes, tests)
+    outcome_table("**The same on the signal variance** (second pass, added after the join of the raw variance; not fixed in advance):", outcomes_s, tests_s)
+    L.append("## 3. The families (Benjamini-Yekutieli at 10 percent)")
     L.append("")
-    L.append("| test | statistic | reference | difference | p | significant at 0.05 | outcome in the words of Section 5 |")
-    L.append("|---|---|---|---|---|---|---|")
-    for o in outcomes:
-        r = byid[o["test"]]
-        t = [x for x in tests if x["id"] == o["test"]][0]
-        L.append("| `%s` | %s | %s | %s | %s | %s | %s |" % (o["test"], t["params"]["statistic_form"], t["reference_code"], g(r.get("statistic_observed")), g(r["p"]), g(o["significant"]), o["words"]))
+    for f_ in (doc["family_union_of_both_passes"], doc["family_first_pass_only"]):
+        L.append("- **%s**: N = %d, c(N) = %.6f; %d tests formed, %d not formed and entered with p = 1. Rejected at 10 percent: **%d**%s. Smallest threshold %.3e (a Monte Carlo p cannot be below 1/10001)." %
+                 (f_["label"].capitalize(), f_["N"], f_["c_N"], f_["formed"], f_["not_formed_p_1"], f_["rejected"], (" (" + ", ".join("`%s`" % i for i in f_["rejected_ids"]) + ")") if f_["rejected"] else "", f_["smallest_threshold"]))
     L.append("")
-    L.append("## 3. The family (Benjamini-Yekutieli at 10 percent)")
-    L.append("")
-    L.append("N = %d listed tests (the primary and every listed reading), c(N) = %.6f; %d could be formed, %d could not and enter with p = 1. Rejected at 10 percent: **%d**%s. Smallest threshold %.3e; a Monte Carlo p cannot be below 1/10001." %
-             (N, cN, doc["family"]["formed"], doc["family"]["not_formed_p_1"], kmax, (" (" + ", ".join("`%s`" % i for i in doc["family"]["rejected_ids"]) + ")") if kmax else "", 0.10 / (N * cN)))
-    L.append("")
-    L.append("| test | plan item | status | points | statistic | p | BY-adjusted p | rejected | note |")
-    L.append("|---|---|---|---|---|---|---|---|---|")
-    for r in results:
+    L.append("| test | plan item | status | points | statistic | p | adjusted p, first-pass family | rejected | adjusted p, union | rejected | note |")
+    L.append("|---|---|---|---|---|---|---|---|---|---|---|")
+    for r in allr:
         note = "" if r["formed"] else "not formed: %s" % r["reason"]
         if r["kind"] == "slope" and r["formed"]:
-            note = "slope of r on s %s, SE %s, df %s" % (g(r.get("slope_of_r_on_s")), g(r.get("slope_standard_error")), r.get("residual_df"))
+            note = "slope on s %s, SE %s, df %s" % (g(r.get("slope_of_r_on_s")), g(r.get("slope_standard_error")), r.get("residual_df"))
         if r["kind"] == "group_diff" and r["formed"]:
             note = "%d flagged, %d unflagged" % (r["n_flagged"], r["n_unflagged"])
-        L.append("| `%s` | %s | %s | %d | %s | %s | %s | %s | %s |" % (r["id"], r["plan_item"], "as written" if r["status"] == "as written" else "not fixed in advance", r["n_points"],
-                                                                 g(r.get("statistic_observed")), g(r["p"]), g(r["by_adjusted_p"]), g(r["by_rejected_at_10_percent"]), note))
+        first = "by_first_pass_family_adjusted_p" in r
+        L.append("| `%s` | %s | %s | %d | %s | %s | %s | %s | %s | %s | %s |" % (r["id"], r["plan_item"], "as written" if r["status"] == "as written" else "not fixed in advance", r["n_points"],
+                 g(r.get("statistic_observed")), g(r["p"]), g(r["by_first_pass_family_adjusted_p"]) if first else "not in it", g(r["by_first_pass_family_rejected_at_10_percent"]) if first else "",
+                 g(r["by_union_family_adjusted_p"]), g(r["by_union_family_rejected_at_10_percent"]), note))
     L.append("")
-    L.append("Statistic: group tests, mean r of the flagged minus mean r of the unflagged; rank correlations, the coefficient; slope tests, slope minus the null value. Each test's points (by rule), statistic, reference distribution and seed are in `tests_enumerated.json`.")
+    L.append("Statistic: group tests, mean of the flagged minus mean of the unflagged; rank correlations, the coefficient; slope tests, slope minus the null value. Each test's points (by rule), statistic, reference distribution and seed are in `tests_enumerated.json` and `tests_enumerated_signal.json`.")
     L.append("")
     L.append("## 4. The points, without any test")
     L.append("")
-    L.append("%d of 67 points joined (%s). Left out: %d." % (len(joined), ", ".join("%s %d" % (d, n) for d, n in doc["points"]["joined_by_day"].items()), len(left)))
-    for p in left:
-        L.append("- `%s`, `%s`: %s." % (p["list"], p["point_id"], p["reason_left_out"]))
+    L.append("%d of 67 points joined (%s); %d have r_signal (%s)." % (len(joined), ", ".join("%s %d" % (d, n) for d, n in doc["points"]["joined_by_day"].items()), len(with_sig),
+                                                                    ", ".join("%s %d" % (d, n) for d, n in doc["points"]["with_r_signal_by_day"].items())))
     L.append("")
-    L.append("| list | point | day | n | L | flagged (cone) | r | s | measured (raw variance) | SE (bootstrap) | prediction | review prints an interval |")
-    L.append("|---|---|---|---|---|---|---|---|---|---|---|---|")
+    L.append("| list | point | day | n | L | flagged (cone) | r | r_signal | s | measured (raw variance) | SE (bootstrap) | prediction | review prints an interval |")
+    L.append("|---|---|---|---|---|---|---|---|---|---|---|---|---|")
     for p in P:
-        L.append("| `%s` | %s | %s | %d | %d | %s | %s | %s | %s | %s | %s | %s |" % (p["list"], p["point_id"], p["day"], p["n"], p["L"], g(p["flag_cone"]), g(p["r"]) if p["joined"] else "left out",
-                                                                                   g(p["s"]), g(p["measured"]), g(p["measured_se_boot"]) if p["joined"] else "", g(p["prediction"]), "yes" if p["review_interval_printed"] else "no"))
+        L.append("| `%s` | %s | %s | %d | %d | %s | %s | %s | %s | %s | %s | %s | %s |" % (p["list"], p["point_id"], p["day"], p["n"], p["L"], g(p["flag_cone"]), g(p["r"]) if p["joined"] else "left out",
+                 g(p["r_signal"]) if p["has_r_signal"] else ("left out" if not p["joined"] else ("at the shot floor" if p["marked_shot_floor_by_review"] else "signal not positive")),
+                 g(p["s"]), g(p["measured"]), g(p["measured_se_boot"]) if p["joined"] else "", g(p["prediction"]), "yes" if p["review_interval_printed"] else "no"))
     L.append("")
     L.append("The standard error is the half-width of the registered 10,000-resample percentile interval divided by 1.96 (`gradvar/variance.py::bootstrap_variance_ci`, seed 0), reproduced from the tidy table; "
              "the last column says whether the review prints the interval for the point, and `joined_points.csv` holds the comparison with the printed limits. Every column, with the file and field each number came from, is in `joined_points.csv`.")
@@ -742,36 +846,45 @@ def main():
     L.append("")
     L.append("- Measured value: tidy table of the list under `data/jobs` of main %s, column `gradient`, grid rows with the point's n, L, k, resilience level and shots, sample variance with ddof 1 (the registered estimator, `estimators.variance_point`). "
              "Against the figures the reviews print (`review_figures.csv`, each with file and line): %s." % (MAIN_COMMIT[:8], "; ".join("%s: %d" % kv for kv in doc["points"]["measured_reproduces_review"].items())))
+    L.append("- Signal variance: the measured value above minus the registered shot variance of the point (`shot_variance`, `shot_variance_field`). Against the signal figures the reviews print (`review_figures_signal.csv`), recorded and not used to replace a value: %s. "
+             "The points concerned are in `joined_points.csv` (`review_signal_check`); among them are the two level-2 points of the smoke test, where the review subtracted the Estimator's reported std (the level-2 floor of 4 x 1/(2N) was fixed afterwards), "
+             "and points whose measured value is the printed divisor-M figure." %
+             "; ".join("%s: %d" % kv for kv in doc["points"]["signal_against_review"].items()))
+    L.append("- Shot-floor marking: taken from the wording of reviews 03 and 04 (file, line and phrase in `tests_enumerated_signal.json`; each phrase verified on its line): every L = 12 point of day 1 and of the day-2 main grid.")
     L.append("- Prediction: the row the frozen table names (`pred_file`, stage, model, value column), read from `data/predictions` of main; it equals the value the table's JSON records for all 67 points. Against the prediction the review states: %s." %
              "; ".join("%s: %d" % kv for kv in doc["points"]["prediction_row_against_review"].items()))
     oth = doc["points"]["points_whose_review_used_another_row"]
     L.append("- Points whose review used another row than the table's (%d): %s. For these r stays on the table's row (nothing is re-chosen) and s is not used: they are out of every test of (c)." %
              (len(oth), ", ".join("`%s` / %s" % (x["list"], x["point_id"]) for x in oth) or "none"))
-    dj = doc["points"]["points_whose_jobs_differ_from_table"]
     L.append("- Points whose rows in the tidy table are not the jobs and draws the frozen table lists (%d): %s." % (len(dj), ", ".join("`%s` / %s (%d draws in the tidy table, %d listed)" % (x["list"], x["point_id"], x["draws_in_tidy_table"], x["draws_listed"]) for x in dj) or "none"))
     L.append("")
-    L.append("## 6. Choices met at the join that the list of tests did not foresee")
+    L.append("## 6. Choices met at the join that the first list of tests did not foresee")
     L.append("")
     L.append("1. **Raw or signal variance.** `tests_enumerated.json` fixed the measured value as 'the value the post-run review of its list reports for the point (the value the registered comparison sets against the prediction)'. "
              "The reviews print two: the raw variance, which each of them defines as 'measured' and uses in its written ratio and z, and the signal variance, which `predictions.compare_points` sets against the prediction. "
-             "The raw variance was taken, on the reviews' own definition and because it reproduces the ratios the plan quotes; this was settled before any r was computed. The other reading is in the table (`r_on_signal_variance_no_test`) and was not tested.")
-    L.append("2. **Points at the shot floor.** At L = 12 the reviews mark every point as at the shot floor and give its ratio on the signal variance. On the raw variance r of such a point measures the shot floor against the prediction. No rule fixed in advance removes these points; they are in every test.")
+             "The raw variance was taken for the first pass, on the reviews' own definition and because the ratios the plan quotes are formed on it; this was settled before any r was computed. "
+             "The lead, told of the two readings without any result, decided that both are reported: the second pass (`tests_enumerated_signal.json`) is the signal-variance reading.")
+    L.append("2. **Points at the shot floor.** At L = 12 the reviews mark every point as at the shot floor and give its ratio on the signal variance. On the raw variance r of such a point measures the shot floor against the prediction. "
+             "No rule fixed before the first pass removes these points; they are in every test of the first pass. They have no r_signal and are out of the second pass, by the rule the lead gave.")
     L.append("3. **Level-1 points of day 1.** The review gives them as a ratio to level 0; the check is on that ratio.")
     pf = doc["points"]["printed_figure_used_instead_of_registered_estimator"]
     L.append("4. **Figures the registered estimator does not reproduce.** For %d points the variance the review prints is not the registered estimate (sample variance, divisor M - 1) at the printed precision; for %d of them it is the variance with divisor M. "
-             "By the rule fixed in `tests_enumerated.json` the printed figure is the measured value of these points (rounded as printed); the registered estimate is beside it in `joined_points.csv` (`measured_registered_estimator`). Lists: %s." %
+             "By the rule fixed in `tests_enumerated.json` the printed figure is the measured value of these points (rounded as printed); see item 3 of Section 1. Lists: %s." %
              (len(pf), sum(x["printed_agrees_with_divisor_M"] for x in pf), ", ".join("`%s` %d" % kv for kv in sorted(Counter(x["list"] for x in pf).items())) or "none"))
     L.append("")
     L.append("## 7. Reproduction")
     L.append("")
     L.append("    python enumerate_tests.py --table <table tree>/%s/retro_calibration_points.csv --out tests_enumerated.json" % TABLE_REL)
+    L.append("    python enumerate_tests_signal.py --first tests_enumerated.json --out tests_enumerated_signal.json")
     L.append("    python run_tests.py --main <tree of main %s> --table <tree of retro-calibration-table %s> --result ." % (MAIN_COMMIT[:8], TABLE_COMMIT[:8]))
     L.append("")
-    L.append("`tests_enumerated.json` was committed before any measured value was opened; `run_tests.py` reads it and runs exactly its tests. `review_figures.csv` is keyed by hand from the reviews and every figure is verified to stand on the cited line.")
+    L.append("`tests_enumerated.json` was committed before any measured value was opened, `tests_enumerated_signal.json` before anything was computed for the second pass; `run_tests.py` reads both and runs exactly their tests. "
+             "`review_figures.csv` and `review_figures_signal.csv` are keyed by hand from the reviews and every figure is verified to stand on the cited line.")
     L.append("")
     with open(os.path.join(R, "REPORT.md"), "wb") as f:
         f.write("\n".join(L).encode("utf-8"))
-    print("joined %d, left out %d, tests %d, formed %d" % (len(joined), len(left), N, doc["family"]["formed"]))
+    print("joined %d, left out %d, with r_signal %d; first pass %d tests, formed %d; second pass %d tests, formed %d" %
+          (len(joined), len(left), len(with_sig), N1, sum(bool(r["formed"]) for r in results), len(results_s), sum(bool(r["formed"]) for r in results_s)))
 
 
 if __name__ == "__main__":
