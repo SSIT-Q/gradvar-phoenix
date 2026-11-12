@@ -1,0 +1,151 @@
+# "exploratory": true
+# Exploratory and post hoc: the result is a candidate at most and changes no registered reading, flag or decision.
+# Figures the post-run reviews of main a8136f00 print for the points of the frozen table, keyed by hand; run_tests.py verifies that each stands on the cited line. Lines beginning with # are comments.
+list,point_id,quantity,printed,review_file,line,note
+dryrun_02_phoenix_smoke_test,grid n20 L2 k1 r0 s4096,measured,0.1121,docs/postrun/02_phoenix_smoke_2026-09-20.md,163,
+dryrun_02_phoenix_smoke_test,grid n20 L2 k1 r0 s4096,prediction,0.0725,docs/postrun/02_phoenix_smoke_2026-09-20.md,163,"row of the 19 Sep record, matched on n (review lines 156-158)"
+dryrun_02_phoenix_smoke_test,grid n20 L2 k1 r1 s4096,measured,0.1216,docs/postrun/02_phoenix_smoke_2026-09-20.md,164,
+dryrun_02_phoenix_smoke_test,grid n20 L2 k1 r1 s4096,prediction,0.0725,docs/postrun/02_phoenix_smoke_2026-09-20.md,164,"row of the 19 Sep record, matched on n (review lines 156-158)"
+dryrun_02_phoenix_smoke_test,grid n20 L2 k1 r2 s4096,measured,0.1377,docs/postrun/02_phoenix_smoke_2026-09-20.md,165,
+dryrun_02_phoenix_smoke_test,grid n20 L2 k1 r2 s4096,prediction,0.0725,docs/postrun/02_phoenix_smoke_2026-09-20.md,165,"row of the 19 Sep record, matched on n (review lines 156-158)"
+dryrun_02_phoenix_smoke_test,grid n20 L8 k1 r0 s4096,measured,1.96e-3,docs/postrun/02_phoenix_smoke_2026-09-20.md,166,
+dryrun_02_phoenix_smoke_test,grid n20 L8 k1 r0 s4096,prediction,2.16e-4,docs/postrun/02_phoenix_smoke_2026-09-20.md,166,"row of the 19 Sep record, matched on n (review lines 156-158)"
+dryrun_02_phoenix_smoke_test,grid n20 L8 k1 r1 s4096,measured,2.52e-3,docs/postrun/02_phoenix_smoke_2026-09-20.md,167,
+dryrun_02_phoenix_smoke_test,grid n20 L8 k1 r1 s4096,prediction,2.16e-4,docs/postrun/02_phoenix_smoke_2026-09-20.md,167,"row of the 19 Sep record, matched on n (review lines 156-158)"
+dryrun_02_phoenix_smoke_test,grid n20 L8 k1 r2 s4096,measured,4.22e-3,docs/postrun/02_phoenix_smoke_2026-09-20.md,168,
+dryrun_02_phoenix_smoke_test,grid n20 L8 k1 r2 s4096,prediction,2.16e-4,docs/postrun/02_phoenix_smoke_2026-09-20.md,168,"row of the 19 Sep record, matched on n (review lines 156-158)"
+paper1_day1_null_grid_n20,grid n19 L1 k1 r0 s4096,measured,0.2084,docs/postrun/03_paper1_day1_2026-09-20.md,98,
+paper1_day1_null_grid_n20,grid n19 L1 k1 r0 s4096,prediction,0.2260,docs/postrun/03_paper1_day1_2026-09-20.md,98,
+paper1_day1_null_grid_n20,grid n19 L1 k1 r1 s4096,measured_ratio_to_level0,1.064,docs/postrun/03_paper1_day1_2026-09-20.md,98,the review gives level 1 as its ratio to level 0
+paper1_day1_null_grid_n20,grid n19 L1 k1 r1 s4096,prediction,0.2260,docs/postrun/03_paper1_day1_2026-09-20.md,98,same row as level 0
+paper1_day1_null_grid_n20,grid n19 L2 k1 r0 s4096,measured,0.0816,docs/postrun/03_paper1_day1_2026-09-20.md,99,
+paper1_day1_null_grid_n20,grid n19 L2 k1 r0 s4096,prediction,0.0646,docs/postrun/03_paper1_day1_2026-09-20.md,99,
+paper1_day1_null_grid_n20,grid n19 L2 k1 r1 s4096,measured_ratio_to_level0,1.080,docs/postrun/03_paper1_day1_2026-09-20.md,99,the review gives level 1 as its ratio to level 0
+paper1_day1_null_grid_n20,grid n19 L2 k1 r1 s4096,prediction,0.0646,docs/postrun/03_paper1_day1_2026-09-20.md,99,same row as level 0
+paper1_day1_null_grid_n20,grid n19 L4 k1 r0 s4096,measured,0.00578,docs/postrun/03_paper1_day1_2026-09-20.md,100,
+paper1_day1_null_grid_n20,grid n19 L4 k1 r0 s4096,prediction,0.00942,docs/postrun/03_paper1_day1_2026-09-20.md,100,
+paper1_day1_null_grid_n20,grid n19 L4 k1 r1 s4096,measured_ratio_to_level0,1.088,docs/postrun/03_paper1_day1_2026-09-20.md,100,the review gives level 1 as its ratio to level 0
+paper1_day1_null_grid_n20,grid n19 L4 k1 r1 s4096,prediction,0.00942,docs/postrun/03_paper1_day1_2026-09-20.md,100,same row as level 0
+paper1_day1_null_grid_n20,grid n19 L8 k1 r0 s4096,measured,3.03e-4,docs/postrun/03_paper1_day1_2026-09-20.md,101,
+paper1_day1_null_grid_n20,grid n19 L8 k1 r0 s4096,prediction,2.45e-4,docs/postrun/03_paper1_day1_2026-09-20.md,101,
+paper1_day1_null_grid_n20,grid n19 L8 k1 r1 s4096,measured_ratio_to_level0,1.066,docs/postrun/03_paper1_day1_2026-09-20.md,101,the review gives level 1 as its ratio to level 0
+paper1_day1_null_grid_n20,grid n19 L8 k1 r1 s4096,prediction,2.45e-4,docs/postrun/03_paper1_day1_2026-09-20.md,101,same row as level 0
+paper1_day1_null_grid_n20,grid n19 L12 k1 r0 s4096,measured,1.33e-4,docs/postrun/03_paper1_day1_2026-09-20.md,102,
+paper1_day1_null_grid_n20,grid n19 L12 k1 r0 s4096,prediction,8.4e-6,docs/postrun/03_paper1_day1_2026-09-20.md,102,
+paper1_day1_null_grid_n20,grid n19 L12 k1 r1 s4096,measured_ratio_to_level0,0.938,docs/postrun/03_paper1_day1_2026-09-20.md,102,the review gives level 1 as its ratio to level 0
+paper1_day1_null_grid_n20,grid n19 L12 k1 r1 s4096,prediction,8.4e-6,docs/postrun/03_paper1_day1_2026-09-20.md,102,same row as level 0
+paper1_day1_null_grid_n20,grid n19 L4 k1 r1 s4096,measured,0.00628,docs/postrun/03_paper1_day1_2026-09-20.md,106,
+paper1_day2_main_grid,grid n37 L1 k1 r0 s4096,measured,0.2195,docs/postrun/04_paper1_day2_2026-09-20.md,90,
+paper1_day2_main_grid,grid n37 L1 k1 r0 s4096,prediction,0.2279,docs/postrun/04_paper1_day2_2026-09-20.md,90,Section 4 table
+paper1_day2_main_grid,grid n37 L1 k1 r1 s4096,measured,0.2355,docs/postrun/04_paper1_day2_2026-09-20.md,90,
+paper1_day2_main_grid,grid n37 L1 k1 r1 s4096,prediction,0.2279,docs/postrun/04_paper1_day2_2026-09-20.md,90,"same row as level 0, Section 4 table"
+paper1_day2_main_grid,grid n50 L1 k1 r0 s4096,measured,0.2174,docs/postrun/04_paper1_day2_2026-09-20.md,91,
+paper1_day2_main_grid,grid n50 L1 k1 r0 s4096,prediction,0.2287,docs/postrun/04_paper1_day2_2026-09-20.md,91,Section 4 table
+paper1_day2_main_grid,grid n50 L1 k1 r1 s4096,measured,0.2318,docs/postrun/04_paper1_day2_2026-09-20.md,91,
+paper1_day2_main_grid,grid n50 L1 k1 r1 s4096,prediction,0.2287,docs/postrun/04_paper1_day2_2026-09-20.md,91,"same row as level 0, Section 4 table"
+paper1_day2_main_grid,grid n69 L1 k1 r0 s4096,measured,0.2568,docs/postrun/04_paper1_day2_2026-09-20.md,92,
+paper1_day2_main_grid,grid n69 L1 k1 r0 s4096,prediction,0.2275,docs/postrun/04_paper1_day2_2026-09-20.md,92,"Section 4 table (frozen row, marked f)"
+paper1_day2_main_grid,grid n69 L1 k1 r1 s4096,measured,0.2647,docs/postrun/04_paper1_day2_2026-09-20.md,92,
+paper1_day2_main_grid,grid n69 L1 k1 r1 s4096,prediction,0.2275,docs/postrun/04_paper1_day2_2026-09-20.md,92,"same row as level 0, Section 4 table"
+paper1_day2_main_grid,grid n85 L1 k1 r0 s4096,measured,0.2331,docs/postrun/04_paper1_day2_2026-09-20.md,93,
+paper1_day2_main_grid,grid n85 L1 k1 r0 s4096,prediction,0.2299,docs/postrun/04_paper1_day2_2026-09-20.md,93,"Section 4 table (frozen row, marked f)"
+paper1_day2_main_grid,grid n85 L1 k1 r1 s4096,measured,0.2487,docs/postrun/04_paper1_day2_2026-09-20.md,93,
+paper1_day2_main_grid,grid n85 L1 k1 r1 s4096,prediction,0.2299,docs/postrun/04_paper1_day2_2026-09-20.md,93,"same row as level 0, Section 4 table"
+paper1_day2_main_grid,grid n37 L2 k1 r0 s4096,measured,0.0605,docs/postrun/04_paper1_day2_2026-09-20.md,94,
+paper1_day2_main_grid,grid n37 L2 k1 r0 s4096,prediction,0.0694,docs/postrun/04_paper1_day2_2026-09-20.md,94,Section 4 table
+paper1_day2_main_grid,grid n37 L2 k1 r1 s4096,measured,0.0637,docs/postrun/04_paper1_day2_2026-09-20.md,94,
+paper1_day2_main_grid,grid n37 L2 k1 r1 s4096,prediction,0.0694,docs/postrun/04_paper1_day2_2026-09-20.md,94,"same row as level 0, Section 4 table"
+paper1_day2_main_grid,grid n50 L2 k1 r0 s4096,measured,0.0721,docs/postrun/04_paper1_day2_2026-09-20.md,95,
+paper1_day2_main_grid,grid n50 L2 k1 r0 s4096,prediction,0.0612,docs/postrun/04_paper1_day2_2026-09-20.md,95,Section 4 table
+paper1_day2_main_grid,grid n50 L2 k1 r1 s4096,measured,0.0782,docs/postrun/04_paper1_day2_2026-09-20.md,95,
+paper1_day2_main_grid,grid n50 L2 k1 r1 s4096,prediction,0.0612,docs/postrun/04_paper1_day2_2026-09-20.md,95,"same row as level 0, Section 4 table"
+paper1_day2_main_grid,grid n69 L2 k1 r0 s4096,measured,0.0754,docs/postrun/04_paper1_day2_2026-09-20.md,96,
+paper1_day2_main_grid,grid n69 L2 k1 r0 s4096,prediction,0.0730,docs/postrun/04_paper1_day2_2026-09-20.md,96,"Section 4 table (frozen row, marked f)"
+paper1_day2_main_grid,grid n69 L2 k1 r1 s4096,measured,0.0794,docs/postrun/04_paper1_day2_2026-09-20.md,96,
+paper1_day2_main_grid,grid n69 L2 k1 r1 s4096,prediction,0.0730,docs/postrun/04_paper1_day2_2026-09-20.md,96,"same row as level 0, Section 4 table"
+paper1_day2_main_grid,grid n85 L2 k1 r0 s4096,measured,0.0779,docs/postrun/04_paper1_day2_2026-09-20.md,97,
+paper1_day2_main_grid,grid n85 L2 k1 r0 s4096,prediction,0.0828,docs/postrun/04_paper1_day2_2026-09-20.md,97,"Section 4 table (frozen row, marked f)"
+paper1_day2_main_grid,grid n85 L2 k1 r1 s4096,measured,0.0815,docs/postrun/04_paper1_day2_2026-09-20.md,97,
+paper1_day2_main_grid,grid n85 L2 k1 r1 s4096,prediction,0.0828,docs/postrun/04_paper1_day2_2026-09-20.md,97,"same row as level 0, Section 4 table"
+paper1_day2_main_grid,grid n37 L4 k1 r0 s4096,measured,0.01169,docs/postrun/04_paper1_day2_2026-09-20.md,98,
+paper1_day2_main_grid,grid n37 L4 k1 r0 s4096,prediction,0.00931,docs/postrun/04_paper1_day2_2026-09-20.md,98,Section 4 table
+paper1_day2_main_grid,grid n37 L4 k1 r1 s4096,measured,0.01235,docs/postrun/04_paper1_day2_2026-09-20.md,98,
+paper1_day2_main_grid,grid n37 L4 k1 r1 s4096,prediction,0.00931,docs/postrun/04_paper1_day2_2026-09-20.md,98,"same row as level 0, Section 4 table"
+paper1_day2_main_grid,grid n50 L4 k1 r0 s4096,measured,0.00791,docs/postrun/04_paper1_day2_2026-09-20.md,99,
+paper1_day2_main_grid,grid n50 L4 k1 r0 s4096,prediction,0.00961,docs/postrun/04_paper1_day2_2026-09-20.md,99,Section 4 table
+paper1_day2_main_grid,grid n50 L4 k1 r1 s4096,measured,0.00859,docs/postrun/04_paper1_day2_2026-09-20.md,99,
+paper1_day2_main_grid,grid n50 L4 k1 r1 s4096,prediction,0.00961,docs/postrun/04_paper1_day2_2026-09-20.md,99,"same row as level 0, Section 4 table"
+paper1_day2_main_grid,grid n69 L4 k1 r0 s4096,measured,0.00943,docs/postrun/04_paper1_day2_2026-09-20.md,100,
+paper1_day2_main_grid,grid n69 L4 k1 r0 s4096,prediction,0.00938,docs/postrun/04_paper1_day2_2026-09-20.md,100,"Section 4 table (frozen row, marked f)"
+paper1_day2_main_grid,grid n69 L4 k1 r1 s4096,measured,0.01016,docs/postrun/04_paper1_day2_2026-09-20.md,100,
+paper1_day2_main_grid,grid n69 L4 k1 r1 s4096,prediction,0.00938,docs/postrun/04_paper1_day2_2026-09-20.md,100,"same row as level 0, Section 4 table"
+paper1_day2_main_grid,grid n85 L4 k1 r0 s4096,measured,0.00812,docs/postrun/04_paper1_day2_2026-09-20.md,101,
+paper1_day2_main_grid,grid n85 L4 k1 r0 s4096,prediction,0.0101,docs/postrun/04_paper1_day2_2026-09-20.md,101,"Section 4 table (frozen row, marked f)"
+paper1_day2_main_grid,grid n85 L4 k1 r1 s4096,measured,0.00858,docs/postrun/04_paper1_day2_2026-09-20.md,101,
+paper1_day2_main_grid,grid n85 L4 k1 r1 s4096,prediction,0.0101,docs/postrun/04_paper1_day2_2026-09-20.md,101,"same row as level 0, Section 4 table"
+paper1_day2_main_grid,grid n37 L8 k1 r0 s4096,measured,3.22e-4,docs/postrun/04_paper1_day2_2026-09-20.md,102,
+paper1_day2_main_grid,grid n37 L8 k1 r0 s4096,prediction,2.38e-4,docs/postrun/04_paper1_day2_2026-09-20.md,102,Section 4 table
+paper1_day2_main_grid,grid n37 L8 k1 r1 s4096,measured,3.07e-4,docs/postrun/04_paper1_day2_2026-09-20.md,102,
+paper1_day2_main_grid,grid n37 L8 k1 r1 s4096,prediction,2.38e-4,docs/postrun/04_paper1_day2_2026-09-20.md,102,"same row as level 0, Section 4 table"
+paper1_day2_main_grid,grid n50 L8 k1 r0 s4096,measured,3.01e-4,docs/postrun/04_paper1_day2_2026-09-20.md,103,
+paper1_day2_main_grid,grid n50 L8 k1 r0 s4096,prediction,2.57e-4,docs/postrun/04_paper1_day2_2026-09-20.md,103,Section 4 table
+paper1_day2_main_grid,grid n50 L8 k1 r1 s4096,measured,3.21e-4,docs/postrun/04_paper1_day2_2026-09-20.md,103,
+paper1_day2_main_grid,grid n50 L8 k1 r1 s4096,prediction,2.57e-4,docs/postrun/04_paper1_day2_2026-09-20.md,103,"same row as level 0, Section 4 table"
+paper1_day2_main_grid,grid n69 L8 k1 r0 s4096,measured,4.78e-4,docs/postrun/04_paper1_day2_2026-09-20.md,104,
+paper1_day2_main_grid,grid n69 L8 k1 r0 s4096,prediction,2.09e-4,docs/postrun/04_paper1_day2_2026-09-20.md,104,"Section 4 table (frozen row, marked f)"
+paper1_day2_main_grid,grid n69 L8 k1 r1 s4096,measured,4.77e-4,docs/postrun/04_paper1_day2_2026-09-20.md,104,
+paper1_day2_main_grid,grid n69 L8 k1 r1 s4096,prediction,2.09e-4,docs/postrun/04_paper1_day2_2026-09-20.md,104,"same row as level 0, Section 4 table"
+paper1_grid_n100_16384,grid n85 L8 k1 r0 s16384,measured,1.52e-4,docs/postrun/04_paper1_day2_2026-09-20.md,105,
+paper1_grid_n100_16384,grid n85 L8 k1 r0 s16384,prediction,2.90e-4,docs/postrun/04_paper1_day2_2026-09-20.md,105,"Section 4 table (frozen row, marked f)"
+paper1_grid_n100_16384,grid n85 L8 k1 r1 s16384,measured,1.90e-4,docs/postrun/04_paper1_day2_2026-09-20.md,105,
+paper1_grid_n100_16384,grid n85 L8 k1 r1 s16384,prediction,2.90e-4,docs/postrun/04_paper1_day2_2026-09-20.md,105,"same row as level 0, Section 4 table"
+paper1_day2_main_grid,grid n37 L12 k1 r0 s4096,measured,1.27e-4,docs/postrun/04_paper1_day2_2026-09-20.md,106,
+paper1_day2_main_grid,grid n37 L12 k1 r0 s4096,prediction,6.99e-6,docs/postrun/04_paper1_day2_2026-09-20.md,106,Section 4 table
+paper1_day2_main_grid,grid n37 L12 k1 r1 s4096,measured,1.21e-4,docs/postrun/04_paper1_day2_2026-09-20.md,106,
+paper1_day2_main_grid,grid n37 L12 k1 r1 s4096,prediction,6.99e-6,docs/postrun/04_paper1_day2_2026-09-20.md,106,"same row as level 0, Section 4 table"
+paper1_day2_main_grid,grid n50 L12 k1 r0 s4096,measured,1.27e-4,docs/postrun/04_paper1_day2_2026-09-20.md,107,
+paper1_day2_main_grid,grid n50 L12 k1 r0 s4096,prediction,9.58e-6,docs/postrun/04_paper1_day2_2026-09-20.md,107,Section 4 table
+paper1_day2_main_grid,grid n50 L12 k1 r1 s4096,measured,1.39e-4,docs/postrun/04_paper1_day2_2026-09-20.md,107,
+paper1_day2_main_grid,grid n50 L12 k1 r1 s4096,prediction,9.58e-6,docs/postrun/04_paper1_day2_2026-09-20.md,107,"same row as level 0, Section 4 table"
+paper1_day2_main_grid,grid n69 L12 k1 r0 s4096,measured,1.25e-4,docs/postrun/04_paper1_day2_2026-09-20.md,108,
+paper1_day2_main_grid,grid n69 L12 k1 r0 s4096,prediction,5.44e-6,docs/postrun/04_paper1_day2_2026-09-20.md,108,"Section 4 table (frozen row, marked f)"
+paper1_day2_main_grid,grid n69 L12 k1 r1 s4096,measured,1.60e-4,docs/postrun/04_paper1_day2_2026-09-20.md,108,
+paper1_day2_main_grid,grid n69 L12 k1 r1 s4096,prediction,5.44e-6,docs/postrun/04_paper1_day2_2026-09-20.md,108,"same row as level 0, Section 4 table"
+paper1_day2_main_grid,grid n85 L12 k1 r0 s4096,measured,1.61e-4,docs/postrun/04_paper1_day2_2026-09-20.md,109,
+paper1_day2_main_grid,grid n85 L12 k1 r0 s4096,prediction,1.04e-5,docs/postrun/04_paper1_day2_2026-09-20.md,109,"Section 4 table (frozen row, marked f)"
+paper1_day2_main_grid,grid n85 L12 k1 r1 s4096,measured,1.53e-4,docs/postrun/04_paper1_day2_2026-09-20.md,109,
+paper1_day2_main_grid,grid n85 L12 k1 r1 s4096,prediction,1.04e-5,docs/postrun/04_paper1_day2_2026-09-20.md,109,"same row as level 0, Section 4 table"
+paper1_day2_main_grid,grid n85 L8 k1 r1 s4096,measured,3.98e-4,docs/postrun/04_paper1_day2_2026-09-20.md,105,
+paper1_day2_main_grid,grid n85 L8 k1 r1 s4096,prediction,2.90e-4,docs/postrun/04_paper1_day2_2026-09-20.md,105,"frozen row of the rung, Section 4 table"
+paper1_day2_main_grid,grid n85 L8 k1 r1 s4096,measured,3.998e-4,docs/postrun/04_paper1_day2_2026-09-20.md,212,addendum 4e
+paper1_day2_main_grid,grid n85 L8 k1 r1 s4096,prediction_addendum,3.069e-4,docs/postrun/04_paper1_day2_2026-09-20.md,204,"run-day row, addendum 4e"
+paper1_day2_main_grid,grid n69 L1 k1 r0 s4096,prediction_addendum,0.2334,docs/postrun/04_paper1_day2_2026-09-20.md,197,"run-day row, addendum 4e"
+paper1_day2_main_grid,grid n69 L1 k1 r1 s4096,prediction_addendum,0.2334,docs/postrun/04_paper1_day2_2026-09-20.md,197,"run-day row, addendum 4e"
+paper1_day2_main_grid,grid n69 L2 k1 r0 s4096,prediction_addendum,0.06842,docs/postrun/04_paper1_day2_2026-09-20.md,198,"run-day row, addendum 4e"
+paper1_day2_main_grid,grid n69 L2 k1 r1 s4096,prediction_addendum,0.06842,docs/postrun/04_paper1_day2_2026-09-20.md,198,"run-day row, addendum 4e"
+paper1_day2_main_grid,grid n69 L4 k1 r0 s4096,prediction_addendum,0.01012,docs/postrun/04_paper1_day2_2026-09-20.md,199,"run-day row, addendum 4e"
+paper1_day2_main_grid,grid n69 L4 k1 r1 s4096,prediction_addendum,0.01012,docs/postrun/04_paper1_day2_2026-09-20.md,199,"run-day row, addendum 4e"
+paper1_day2_main_grid,grid n69 L8 k1 r0 s4096,prediction_addendum,3.010e-4,docs/postrun/04_paper1_day2_2026-09-20.md,200,"run-day row, addendum 4e"
+paper1_day2_main_grid,grid n69 L8 k1 r1 s4096,prediction_addendum,3.010e-4,docs/postrun/04_paper1_day2_2026-09-20.md,200,"run-day row, addendum 4e"
+paper1_day2_main_grid,grid n85 L2 k1 r0 s4096,prediction_addendum,0.07106,docs/postrun/04_paper1_day2_2026-09-20.md,202,"run-day row, addendum 4e"
+paper1_day2_main_grid,grid n85 L2 k1 r1 s4096,prediction_addendum,0.07106,docs/postrun/04_paper1_day2_2026-09-20.md,202,"run-day row, addendum 4e"
+paper1_day2_main_grid,grid n85 L4 k1 r0 s4096,prediction_addendum,0.01011,docs/postrun/04_paper1_day2_2026-09-20.md,203,"run-day row, addendum 4e"
+paper1_day2_main_grid,grid n85 L4 k1 r1 s4096,prediction_addendum,0.01011,docs/postrun/04_paper1_day2_2026-09-20.md,203,"run-day row, addendum 4e"
+paper1_grid_n100_16384,grid n85 L8 k1 r0 s16384,prediction_addendum,3.069e-4,docs/postrun/04_paper1_day2_2026-09-20.md,204,"run-day row, addendum 4e"
+paper1_grid_n100_16384,grid n85 L8 k1 r1 s16384,prediction_addendum,3.069e-4,docs/postrun/04_paper1_day2_2026-09-20.md,204,"run-day row, addendum 4e"
+paper1_day2_main_grid,grid n85 L12 k1 r0 s4096,prediction_addendum,9.55e-6,docs/postrun/04_paper1_day2_2026-09-20.md,205,"run-day row, addendum 4e"
+paper1_day2_main_grid,grid n85 L12 k1 r1 s4096,prediction_addendum,9.55e-6,docs/postrun/04_paper1_day2_2026-09-20.md,205,"run-day row, addendum 4e"
+paper1_day2_main_grid,grid n37 L2 k1 r0 s4096,prediction_addendum,0.0781,docs/postrun/04_paper1_day2_2026-09-20.md,177,addendum 4d: the propagation value the Section 4 table uses
+paper1_day2_main_grid,grid n37 L2 k1 r1 s4096,prediction_addendum,0.0781,docs/postrun/04_paper1_day2_2026-09-20.md,177,addendum 4d: the propagation value the Section 4 table uses
+paper1_grid_n100_16384,grid n85 L8 k1 r0 s16384,measured,1.527e-4,docs/postrun/04_paper1_day2_2026-09-20.md,204,addendum 4e
+paper1_grid_n100_16384,grid n85 L8 k1 r1 s16384,measured,1.913e-4,docs/postrun/04_paper1_day2_2026-09-20.md,211,addendum 4e
+paper1_day2_main_grid,grid n37 L2 k1 r2 s4096,measured,0.0613,docs/postrun/04_paper1_day2_2026-09-20.md,133,
+paper1_day2_main_grid,grid n85 L2 k1 r2 s4096,measured,0.0738,docs/postrun/04_paper1_day2_2026-09-20.md,133,
+paper1_day2_main_grid,grid n37 L8 k1 r2 s4096,measured,6.27e-4,docs/postrun/04_paper1_day2_2026-09-20.md,135,
+paper1_day2_main_grid,grid n85 L8 k1 r2 s4096,measured,6.97e-4,docs/postrun/04_paper1_day2_2026-09-20.md,135,100 draws
+paper1_day2_main_grid,grid n37 L8 k8 r1 s4096,measured,5.47e-4,docs/postrun/04_paper1_day2_2026-09-20.md,125,
+paper1_day2_main_grid,grid n85 L8 k8 r1 s4096,measured,7.47e-4,docs/postrun/04_paper1_day2_2026-09-20.md,127,
+paper1_replication_01_16384,grid n82 L8 k1 r0 s16384,measured,3.9258e-04,docs/postrun/06_paper1_replication_2026-11-10.md,364,
+paper1_replication_01_16384,grid n82 L8 k1 r0 s16384,prediction,4.258947e-04,docs/postrun/06_paper1_replication_2026-11-10.md,320,
+paper1_section3c_blockC,grid n82 L8 k1 r0 s65536,measured,3.0433e-04,docs/postrun/07_paper1_section3c_blockC_2026-11-10.md,370,
+paper1_section3c_blockC,grid n82 L8 k1 r0 s65536,prediction,4.258947e-04,docs/postrun/07_paper1_section3c_blockC_2026-11-10.md,273,

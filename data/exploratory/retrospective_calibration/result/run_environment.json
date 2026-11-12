@@ -1,0 +1,8 @@
+{
+ "exploratory": true,
+ "statement": "Exploratory and post hoc: the result is a candidate at most and changes no registered reading, flag or decision.",
+ "note": "Versions under which the committed outputs were produced. This file alone is expected to differ when the script is re-run elsewhere.",
+ "python": "3.11.16",
+ "numpy": "2.4.6",
+ "scipy": "1.17.1"
+}
