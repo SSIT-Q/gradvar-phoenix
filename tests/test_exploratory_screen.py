@@ -1,5 +1,6 @@
 """Tests of ``scripts/exploratory_screen.py``, the untargeted screen of the day-3 exploratory plan
-(``docs/analysis_plans/day3_exploratory_plan_2026-11-11.md`` with the review's corrections CX-1 to CX-12), on synthetic runs
+(``docs/analysis_plans/day3_exploratory_plan_2026-11-11.md`` with the review's corrections CX-1 to CX-12 and the open choices
+fixed on 12 Nov 2026), on synthetic runs
 from ``scripts/exploratory_synthetic.py``: the small tools, the committed family file, the estimates against the planted truths
 and against the registered estimators, the planted effects (a per-mask effect, a size trend, a time drift, dial sites outside
 the cone, a mean gradient), rule 5, the refusal of rule 1, the output-directory rule and that the command line writes nothing
@@ -25,6 +26,7 @@ for _p in (str(ROOT), str(ROOT / "scripts")):
 import exploratory_screen as ES          # noqa: E402
 import exploratory_synthetic as G        # noqa: E402
 import make_exploratory_family as MF     # noqa: E402
+import exploratory_screen_calibration as CAL   # noqa: E402
 
 def _review_shas():
     """The four commits of a rule-1 record. In a git checkout of the repository the screen verifies them against the history,
@@ -82,6 +84,39 @@ def test_constants_are_those_of_the_corrected_plan():
     assert len(ES.PLAN_COMMIT) == 40 and len(ES.REVIEW_KEYS) == 4
     for value in ("0.50x", "(0.50, 0.92, 0.71)"):                     # CX-4: no measured value of an earlier run in the plan
         assert value not in plan
+    # the open choices fixed in the plan on 12 Nov 2026
+    assert ES.LOG_RULE_SE == 3.0 and "r is ln(Q / P) when P exceeds three standard errors of Q and Q is positive in every delete-one-draw sample" in plan
+    assert ES.PLACEBO_REPS == 20 and "Placebos (a) and (b) are repeated 20 times" in plan
+    assert ES.PLACEBO_ALPHA == 0.05 and ES.PLACEBO_FLAG_P == 0.01 and "count of tests with p < 0.05 is above the 99 percent point of a binomial count at 5 percent" in plan
+    assert "T8 is a test only for probes whose predicted fourth moment is committed before dispatch" in plan
+    assert "outside the backward light cone of the observable edge at the layer of the reset" in plan
+    assert "until they are implemented and tested they enter the family as not evaluable" in plan
+    assert "## 9. Limits measured before dispatch (12 Nov 2026)" in plan
+
+
+def test_the_plan_of_this_tree_is_the_plan_the_script_names():
+    """``PLAN_COMMIT`` is the commit whose plan text the script implements: where the history holds that commit, the plan file of
+    this tree must be the file at it, so that a later change of the plan cannot pass without the script being looked at."""
+    if not ES._is_git_checkout():
+        pytest.skip("not a git checkout: the plan file cannot be compared with the commit the script names")
+    have = ES._git("cat-file", "-e", ES.PLAN_COMMIT + "^{commit}")
+    if have is None or have.returncode != 0:
+        pytest.skip("the commit the script names is not in this clone (a shallow clone, or a history that was squashed)")
+    r = ES._git("show", f"{ES.PLAN_COMMIT}:{ES.PLAN_FILE}")
+    assert r is not None and r.returncode == 0
+    assert r.stdout.replace("\r\n", "\n") == (ROOT / ES.PLAN_FILE).read_text(encoding="utf-8")
+
+
+def test_the_family_file_names_the_statistics_the_plan_fixes_for_t10_and_t11():
+    plan = " ".join((ROOT / ES.PLAN_FILE).read_text(encoding="utf-8").split())
+    rows = {r["id"]: r for r in FAMILY}
+    assert "weights 1 / se^2" in rows["T10"]["statistic"] and "weights 1 / se^2 referred to a normal" in plan
+    assert "permutation test of Moran's I of the per-qubit reset error on the patch graph" in rows["T11:position"]["statistic"]
+    assert "slope of the per-qubit reset error on the qubit's live-coupler count" in rows["T11:neighbours"]["statistic"]
+    assert "one-sided binomial test" in rows["T11:level"]["statistic"] and "ten qubits the masks reset most" in rows["T11:level"]["statistic"]
+    for text in ("a permutation test of Moran's I of the per-qubit reset error on the patch graph", "the slope of the reset error on the qubit's live-coupler count",
+                 "a one-sided binomial test of the error on the ten qubits the masks reset most against the Deviation 64 level"):
+        assert text in plan
 
 
 def test_benjamini_hochberg_and_yekutieli_adjustments():
@@ -896,6 +931,55 @@ def test_committed_record_of_the_synthetic_runs_is_of_this_script():
     assert rec["null"]["runs"] == rec["runs_per_kind"] and set(rec["effects"]) == {"variance_factor", "variance_drift"}
     assert all(v["runs"] == rec["runs_per_kind"] and 0.0 <= v["rate_found"] <= 1.0 for v in rec["effects"].values())
     assert len(rec["runs"]) == 3 * rec["runs_per_kind"] and rec["null"]["family_size"] == [len(FAMILY)]
+    assert rec["seed_base"] == {k: CAL.SEED_BASE[k] for k in ("null", "variance_factor", "variance_drift")} and not rec["heavy_tails"]
+    single = rec["null"]["single_tests"]
+    assert single["all"]["tests"] > 100 * rec["runs_per_kind"] and 0.0 <= single["all"]["fraction_below_0.001"] <= single["all"]["fraction_below_0.05"] <= 1.0
+
+
+def test_committed_record_of_the_heavy_tailed_null_runs_is_of_this_script():
+    """Item 8 (d) once more with heavy-tailed draws (kurtosis 4 and 6; seeds fixed in the calibration script before the runs):
+    the committed record must be of the files of this tree, with the kinds, seeds and number of runs the script fixes. What the
+    rates are is the record's to say, not this test's."""
+    f = ROOT / CAL.HEAVY_FILE
+    if not f.is_file():
+        pytest.skip("the record of the heavy-tailed null runs is not in this tree")
+    rec = json.loads(f.read_text(encoding="utf-8"))
+
+    def sha(path):
+        return hashlib.sha256((ROOT / path).read_bytes()).hexdigest()
+
+    assert rec["exploratory"] is True and rec["complete"] is True and rec["runs_per_kind"] >= 200
+    assert rec["screen_sha256"] == sha("scripts/exploratory_screen.py") and rec["generator_sha256"] == sha("scripts/exploratory_synthetic.py")
+    assert rec["family_file"] == dict(path=ES.FAMILY_FILE, sha256=FAMILY_SHA) and rec["plan"]["commit"] == ES.PLAN_COMMIT and rec["screen_version"] == ES.SCREEN_VERSION
+    assert rec["null"] is None and rec["effects"] == {} and set(rec["heavy_tails"]) == set(CAL.HEAVY) == {"null_kurtosis4", "null_kurtosis6"}
+    assert rec["seed_base"] == {k: CAL.SEED_BASE[k] for k in CAL.HEAVY} == dict(null_kurtosis4=740000, null_kurtosis6=750000)
+    assert rec["limit"]["rate_any_candidate_under_null"] == ES.SYNTHETIC_RATE_LIMIT and rec["draws"] == CAL.DRAWS
+    for kind, v in rec["heavy_tails"].items():
+        assert v["kurtosis"] == CAL.HEAVY[kind] and v["runs"] == rec["runs_per_kind"] and v["family_size"] == [len(FAMILY)]
+        assert v["runs_with_a_candidate"] == sum(bool(r["candidates"]) for r in rec["runs"] if r["kind"] == kind)
+        assert v["rate_any_candidate"] == v["runs_with_a_candidate"] / v["runs"]
+        s = v["single_tests"]
+        assert s["all"]["tests"] > 100 * v["runs"] and s["all"]["tests"] == sum(c["tests"] for c in s["by_check"].values())
+        assert s["variance_type"]["checks"] == list(CAL.VARIANCE_TYPE)
+    assert len(rec["runs"]) == 2 * rec["runs_per_kind"] and {r["seed"] - CAL.SEED_BASE[r["kind"]] for r in rec["runs"]} == set(range(rec["runs_per_kind"]))
+
+
+def test_generator_draws_have_the_kurtosis_asked_for():
+    """The draw amplitudes of the generator: by default the design's own (gradient draws of kurtosis 1.8 / pi_u, uniform cost
+    draws); with ``draw_kurtosis`` every per-draw amplitude at that kurtosis, the second moments unchanged."""
+    u = G._heavy(np.random.default_rng(11), 2_000_000, 1.8 / 4.0)
+    assert abs(u.var() - 1.0) < 0.01 and abs((u ** 4).mean() / u.var() ** 2 - 4.0) < 0.05 and np.abs(u).max() <= np.sqrt(3 / 0.45) + 1e-12
+    spec = G.Spec("ref_many_draws", "delay", 0.0, "6x10", 8, 31001, 1, 40000, 16384, 0.02, tau_c=0.02, pi_u=0.4)
+    for k, want_g, want_c in ((None, 4.5, 1.8), (4.0, 4.0, 4.0), (6.0, 6.0, 6.0)):
+        syn = G.generate(seed=1, specs=[spec], draw_kurtosis=k)
+        pr = syn.inputs.probes[0]
+        g, c = (pr.ep[:, 0] - pr.em[:, 0]) / 2.0, (pr.ep[:, 0] + pr.em[:, 0]) / 2.0
+        kurt = lambda x: float(((x - x.mean()) ** 4).mean() / x.var() ** 2)        # noqa: E731
+        assert abs(kurt(g) - want_g) < 0.06 * want_g and abs(kurt(c) - want_c) < 0.06 * want_c, (k, kurt(g), kurt(c))
+        assert abs(g.var() / 0.02 - 1.0) < 0.05 and abs(c.var() / 0.02 - 1.0) < 0.05          # shot noise at 16,384 shots is 0.2 percent of the variance
+        assert syn.inputs.draw_kurtosis == {"ref_many_draws": want_g}
+    with pytest.raises(ValueError, match="at least 1.8"):
+        G.generate(seed=1, specs=[spec], draw_kurtosis=1.5)
 
 
 # ------------------------------------------------------------------------------------------------ the runner's own files

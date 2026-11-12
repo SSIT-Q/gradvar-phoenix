@@ -10,8 +10,10 @@ Cell model of a gradient probe with K masks shared by all M draws: the expectati
 and mask m are c0_m + H_dm +/- G_dm, with c0_m the readout-folded constant of the mask's last-layer class (the registered
 E[C_mix] folding), H_dm = eta_m (sqrt(tau_c) x_d + sqrt(delta_c) y_dm) and G_dm = gamma_m (sqrt(tau) u_d + sqrt(delta) v_dm);
 gamma_m is 0 when the dial acts on the differentiated qubit in the last layer of a reset-dial mask and 1 otherwise, u_d is
-heavy-tailed and bounded (unit variance, kurtosis 1.8 / pi_u; probes of one seed share u_d and x_d, as they share theta), x_d uniform, v and y Rademacher, so no expectation value leaves
-[-1, 1] and none is clipped. The planted truths follow exactly: the off-diagonal moment the shared-mask estimator estimates is
+heavy-tailed and bounded (zero with probability 1 - pi_u and uniform otherwise, scaled to unit variance: kurtosis 1.8 / pi_u;
+probes of one seed share u_d and x_d, as they share theta), x_d uniform (kurtosis 1.8), v and y Rademacher, so no expectation
+value leaves [-1, 1] and none is clipped. With ``draw_kurtosis`` every per-draw amplitude (u_d, x_d and the draw amplitude of
+the truncation difference) takes the heavy-tailed form at that kurtosis instead. The planted truths follow exactly: the off-diagonal moment the shared-mask estimator estimates is
 T_g = tau (S1^2 - S2) / (K (K - 1)) with S1 = sum gamma, S2 = sum gamma^2; the pattern floor (D_g - T_g) / K with D_g = (tau +
 delta) S2 / K; Var[C_mix] = T_c + T_g - S^2(c0) / K; E[C_mix] = mean c0. Stored values are binomial at the booked shots, with
 the reported standard error sqrt((1 - ev^2) / shots).
@@ -218,8 +220,13 @@ def _binom(rng, e: np.ndarray, shots: int):
 
 
 def generate(seed: int = 0, specs: Optional[List[Spec]] = None, planted: Optional[Planted] = None, pubs_per_job: int = 19, dev: Optional[dict] = None,
-             with_calibration: bool = True, refs_per_job: int = 4, with_kurtosis: bool = True, deviation65: bool = False) -> Synthetic:
-    """One synthetic day-3 run as the screen's ``Inputs`` (and everything ``write`` needs to store it)."""
+             with_calibration: bool = True, refs_per_job: int = 4, with_kurtosis: bool = True, deviation65: bool = False,
+             draw_kurtosis: Optional[float] = None) -> Synthetic:
+    """One synthetic day-3 run as the screen's ``Inputs`` (and everything ``write`` needs to store it). ``draw_kurtosis``: the
+    kurtosis of every per-draw amplitude (gradient, cost and truncation difference; at least 1.8), in place of the design's own
+    (1.8 / pi_u for the gradient draws, uniform cost draws)."""
+    if draw_kurtosis is not None and not draw_kurtosis >= 1.8:
+        raise ValueError("draw_kurtosis must be at least 1.8 (the uniform draw)")
     specs = specs if specs is not None else day3_specs()
     planted = planted or Planted()
     dev, cal_dicts = (dev, calibration_timeline(dev)) if dev is not None else default_device()
@@ -287,8 +294,12 @@ def generate(seed: int = 0, specs: Optional[List[Spec]] = None, planted: Optiona
         K, M = s.K, s.M
         if s.seed not in shared:                              # probes of one seed share their theta draws: the same u_d and x_d
             r2 = np.random.default_rng([20261198, int(seed), s.seed])
-            shared[s.seed] = (r2, r2.uniform(-np.sqrt(3), np.sqrt(3), M), _heavy(r2, M, s.pi_u))
-        r2, x, u = shared[s.seed]
+            if draw_kurtosis is None:
+                shared[s.seed] = (r2, r2.uniform(-np.sqrt(3), np.sqrt(3), M), _heavy(r2, M, s.pi_u), 1.0, s.pi_u)
+            else:
+                pi_k = 1.8 / float(draw_kurtosis)
+                shared[s.seed] = (r2, _heavy(r2, M, pi_k), _heavy(r2, M, pi_k), pi_k, pi_k)
+        r2, x, u, pi_x, pi_g = shared[s.seed]
         if s.arm == "reset":
             bits = lottery_masks(s.seed, K, s.L, n, s.mask_p)
             ri, rj = bits[:, s.L - 1, ci], bits[:, s.L - 1, cj]
@@ -328,7 +339,7 @@ def generate(seed: int = 0, specs: Optional[List[Spec]] = None, planted: Optiona
             tau = tau * float(planted.variance_factor.get(pid, 1.0))          # item 8 (e): the k = L variance alone (the per-mask part is not scaled)
             v = r2.choice([-1.0, 1.0], size=(M, K))
             y = r2.choice([-1.0, 1.0], size=(M, K))
-            bound = (np.abs(c0) + eta * (np.sqrt(3 * s.tau_c) + np.sqrt(s.delta_c)) + scale * np.abs(g_eff) * (np.sqrt(3 * tau / s.pi_u) + np.sqrt(delta))).max()
+            bound = (np.abs(c0) + eta * (np.sqrt(3 * s.tau_c / pi_x) + np.sqrt(s.delta_c)) + scale * np.abs(g_eff) * (np.sqrt(3 * tau / pi_g) + np.sqrt(delta))).max()
             if bound > 1.0:
                 raise ValueError(f"{pid}: the design allows an expectation value of {bound:.3f} > 1; lower its amplitudes")
             G = scale * g_eff[None, :] * (np.sqrt(tau) * u[:, None] + np.sqrt(delta) * v)
@@ -355,7 +366,8 @@ def generate(seed: int = 0, specs: Optional[List[Spec]] = None, planted: Optiona
                 cells = c0[None, :] + eta[None, :] * (np.sqrt(s.tau_c) * x[:, None] + np.sqrt(s.delta_c) * y)
                 full_cells[s.seed] = cells
             else:
-                zed = np.random.default_rng([20261195, int(seed), s.seed]).uniform(-np.sqrt(3), np.sqrt(3), M)
+                rz = np.random.default_rng([20261195, int(seed), s.seed])
+                zed = rz.uniform(-np.sqrt(3), np.sqrt(3), M) if draw_kurtosis is None else _heavy(rz, M, 1.8 / float(draw_kurtosis))
                 w = r2.choice([-1.0, 1.0], size=(M, K))
                 cells = full_cells[s.seed] - eta[None, :] * (np.sqrt(s.msd * K * (K - 1) / (eta.sum() ** 2 - (eta ** 2).sum())) * zed[:, None] + np.sqrt(s.nu) * w)
                 pr = np.random.default_rng([20261196, int(seed), _stable(pid)])
@@ -371,7 +383,7 @@ def generate(seed: int = 0, specs: Optional[List[Spec]] = None, planted: Optiona
                                stamp=STAMP, mask_p=s.mask_p, ell=s.ell, K_planned=K, point_id=pid, mask_pos=mask_pos[pid]))
     inp = ES.Inputs(probes=probes, preds=preds, jobs={k: {kk: vv for kk, vv in v.items() if not kk.startswith("_")} for k, v in jobs.items()}, calsets=calsets,
                     eps=eps_hat, eps_se=eps_se, readout_ab=ab_all, deviation65=bool(deviation65),
-                    draw_kurtosis={s.probe_id: 1.8 / s.pi_u for s in specs if s.kind == "gradient"} if with_kurtosis else {})
+                    draw_kurtosis={s.probe_id: (1.8 / s.pi_u if draw_kurtosis is None else float(draw_kurtosis)) for s in specs if s.kind == "gradient"} if with_kurtosis else {})
     out = Synthetic(specs=specs, inputs=inp, truth=truth, dev=dev, cal_dicts=cal_dicts, char=char, char_qubits=cq, job_order=order, pred_sigma=sigmas)
     out._jobs_full = jobs
     out.deviation65 = bool(deviation65)

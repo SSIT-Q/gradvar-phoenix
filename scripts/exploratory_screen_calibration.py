@@ -12,6 +12,15 @@ and a rate under (d) above 10 percent marks the screen unreliable.
 
     python scripts/exploratory_screen_calibration.py --out data/exploratory/day3_screen_synthetic_runs.json [--runs 200] [--workers 8]
 
+Item 8 (d) under other draws (lead's request of 12 Nov 2026, because the Benjamini-Yekutieli threshold of a family of 1247
+tests lies far in the tail): the same null with every per-draw amplitude of the generator heavy-tailed at kurtosis 4 and at
+kurtosis 6 (``draw_kurtosis`` of the generator), 200 runs each on seeds fixed below; its record is a second file:
+
+    python scripts/exploratory_screen_calibration.py --kinds null_kurtosis4 null_kurtosis6 --out data/exploratory/day3_screen_synthetic_runs_heavy_tails.json
+
+Every record also counts the single tests: of the family members that could be evaluated, over all runs of a kind, the
+fraction with p below 0.05 and below 0.001.
+
 Each run's record is also written to ``--parts`` as soon as it finishes, so that an interrupted job keeps what it has; a
 later call with the same ``--parts`` takes up where it stopped.
 """
@@ -33,7 +42,16 @@ for _p in (str(ROOT), str(ROOT / "scripts")):
         sys.path.insert(0, _p)
 
 LIST = ROOT / "data" / "joblists" / "paper1" / "day3_dial_refs.json"
-SEED_BASE = dict(null=710000, variance_factor=720000, variance_drift=730000)
+SEED_BASE = dict(null=710000, variance_factor=720000, variance_drift=730000, null_kurtosis4=740000, null_kurtosis6=750000)
+HEAVY = dict(null_kurtosis4=4.0, null_kurtosis6=6.0)                # item 8 (d) with heavy-tailed draws: the kurtosis of every per-draw amplitude
+HEAVY_FILE = "data/exploratory/day3_screen_synthetic_runs_heavy_tails.json"
+DRAWS = dict(
+    default="the generator's design: gradient draw amplitude zero with probability 1 - pi_u and uniform otherwise, scaled to unit variance (bounded; kurtosis 1.8 / pi_u: "
+            "13.8 on the references, 4.5 on the dial points); cost draw amplitude uniform (kurtosis 1.8); per-mask parts Rademacher; binomial shots",
+    heavy="every per-draw amplitude (gradient, cost, truncation difference) zero with probability 1 - 1.8 / kurtosis and uniform otherwise, scaled to unit variance "
+          "(bounded); per-mask parts Rademacher; binomial shots")
+VARIANCE_TYPE = ("S4.1", "S4.2", "T4", "T8")                      # the checks the plan's Section 9, point 4, names
+SMALL = (0.05, 0.001)
 EFFECTS = dict(
     variance_factor=dict(what="a factor 1.5 on the k = L variance of dial_p0.5_L8_kL", planted=dict(variance_factor={"dial_p0.5_L8_kL": 1.5}),
                          targets=["S4.1:dial_p0.5_L8_kL:var_kL", "T3:L8", "S4.2:joint:A", "S4.2:joint:all", "S4.3:AB:p"]),
@@ -48,8 +66,8 @@ def one_run(task) -> dict:
     import exploratory_synthetic as G
     t0 = time.time()
     family, _sha = ES.read_family(ROOT / ES.FAMILY_FILE)
-    planted = G.Planted(**EFFECTS[kind]["planted"]) if kind != "null" else None
-    syn = G.generate(seed=SEED_BASE[kind] + k, specs=G.specs_from_list(LIST), planted=planted)
+    planted = G.Planted(**EFFECTS[kind]["planted"]) if kind in EFFECTS else None
+    syn = G.generate(seed=SEED_BASE[kind] + k, specs=G.specs_from_list(LIST), planted=planted, draw_kurtosis=HEAVY.get(kind))
     res = ES.screen(syn.inputs, family=family, tables=False)
     fam = res["family"]
     by = {t["id"]: t for t in res["tests"]}
@@ -57,22 +75,57 @@ def one_run(task) -> dict:
                outside_family=len(fam["outside_family"]), fdr_pass=fam["fdr_pass"], candidates=fam["candidates"],
                placebo={n: dict(flagged=v["flagged"], n=v["n_tests"], unreliable=v["unreliable"]) for n, v in res["placebos"].items()},
                smallest_p=min((t["p"] for t in res["tests"] if t.get("in_family") and t.get("evaluable")), default=None), seconds=round(time.time() - t0, 1))
-    if kind != "null":
+    single: dict = {}                                               # per check: family members evaluated, of them p < 0.05, p < 0.001
+    for t in res["tests"]:
+        if t.get("in_family") and t.get("evaluable") and t.get("p") is not None and t["p"] == t["p"]:
+            n = single.setdefault(t["check"], [0] + [0] * len(SMALL))
+            n[0] += 1
+            for i, a in enumerate(SMALL, start=1):
+                n[i] += bool(t["p"] < a)
+    rec["single"] = single
+    if kind in EFFECTS:
         rec["targets"] = {tid: dict(p=by[tid].get("p"), p_adjusted=by[tid].get("p_adjusted"), fdr_pass=by[tid].get("fdr_pass"), size_pass=by[tid].get("size_pass"),
                                     split_pass=by[tid].get("split_pass"), candidate=by[tid].get("candidate")) for tid in EFFECTS[kind]["targets"] if tid in by}
     return rec
 
 
+def _fractions(counts) -> dict:
+    n = int(counts[0])
+    out = dict(tests=n)
+    for i, a in enumerate(SMALL, start=1):
+        out[f"below_{a}"] = int(counts[i])
+        out[f"fraction_below_{a}"] = counts[i] / n if n else None
+    return out
+
+
+def single_tests(recs: list) -> dict:
+    """The single tests over the runs of one kind: family members that were evaluated, pooled over the runs; all of them, the
+    variance-type checks of the plan's Section 9 (point 4), and check by check. The tests of one run share its data."""
+    by: dict = {}
+    for r in recs:
+        for check, c in (r.get("single") or {}).items():
+            tot = by.setdefault(check, [0] * (1 + len(SMALL)))
+            for i, v in enumerate(c):
+                tot[i] += v
+    add = lambda checks: [sum(by[c][i] for c in checks if c in by) for i in range(1 + len(SMALL))]      # noqa: E731
+    return dict(scope="family members that were evaluated, every run of the kind pooled", all=_fractions(add(list(by))),
+                variance_type=dict(checks=list(VARIANCE_TYPE), **_fractions(add(VARIANCE_TYPE))), by_check={c: _fractions(by[c]) for c in sorted(by)})
+
+
 def summarise(kind: str, recs: list) -> dict:
     n = len(recs)
     any_c = sum(bool(r["candidates"]) for r in recs)
-    out = dict(what="no effect" if kind == "null" else EFFECTS[kind]["what"], runs=n, runs_with_a_candidate=any_c, rate_any_candidate=any_c / n if n else None,
+    what = "no effect" if kind == "null" else (f"no effect; every per-draw amplitude heavy-tailed at kurtosis {HEAVY[kind]:g}" if kind in HEAVY else EFFECTS[kind]["what"])
+    out = dict(what=what, runs=n, runs_with_a_candidate=any_c, rate_any_candidate=any_c / n if n else None,
                runs_with_a_test_passing_benjamini_yekutieli=sum(bool(r["fdr_pass"]) for r in recs),
                candidates_named={c: sum(c in r["candidates"] for r in recs) for c in sorted({c for r in recs for c in r["candidates"]})},
                placebo_unreliable={p: sum(bool(r["placebo"][p]["unreliable"]) for r in recs) for p in ("a", "b", "c")},
                placebo_rate={p: (sum(r["placebo"][p]["flagged"] for r in recs) / max(sum(r["placebo"][p]["n"] for r in recs), 1)) for p in ("a", "b", "c")},
-               family_size=sorted({r["family"] for r in recs}), mean_seconds_per_run=sum(r["seconds"] for r in recs) / n if n else None)
-    if kind != "null":
+               family_size=sorted({r["family"] for r in recs}), mean_seconds_per_run=sum(r["seconds"] for r in recs) / n if n else None,
+               single_tests=single_tests(recs))
+    if kind in HEAVY:
+        out.update(kurtosis=HEAVY[kind], seed_base=SEED_BASE[kind])
+    if kind in EFFECTS:
         found = sum(any(v.get("candidate") for v in r.get("targets", {}).values()) for r in recs)
         out.update(targets=EFFECTS[kind]["targets"], runs_found=found, rate_found=found / n if n else None,
                    runs_with_a_target_passing_benjamini_yekutieli=sum(any(v.get("fdr_pass") for v in r.get("targets", {}).values()) for r in recs),
@@ -86,7 +139,7 @@ def main(argv=None) -> int:
     ap.add_argument("--out", default=None, help="result file below data/exploratory/ (written only when every run is there)")
     ap.add_argument("--parts", default=str(Path(tempfile.gettempdir()) / "day3_screen_synthetic_parts"), help="directory for the per-run records (default: outside the repository)")
     ap.add_argument("--runs", type=int, default=200)
-    ap.add_argument("--kinds", nargs="*", default=["null", "variance_factor", "variance_drift"])
+    ap.add_argument("--kinds", nargs="*", default=["null", "variance_factor", "variance_drift"], choices=sorted(SEED_BASE))
     ap.add_argument("--workers", type=int, default=1)
     a = ap.parse_args(argv)
     import exploratory_screen as ES
@@ -113,15 +166,17 @@ def main(argv=None) -> int:
                   made_utc=datetime.now(timezone.utc).isoformat(timespec="seconds"), plan=dict(file=ES.PLAN_FILE, commit=ES.PLAN_COMMIT), screen_version=ES.SCREEN_VERSION,
                   script_commit=ES._script_commit(), screen_sha256=hashlib.sha256((ROOT / "scripts" / "exploratory_screen.py").read_bytes()).hexdigest(),
                   generator_sha256=hashlib.sha256((ROOT / "scripts" / "exploratory_synthetic.py").read_bytes()).hexdigest(),
-                  family_file=dict(path=ES.FAMILY_FILE, sha256=sha), list=str(LIST.relative_to(ROOT)).replace(os.sep, "/"), runs_per_kind=a.runs, seed_base=SEED_BASE,
+                  family_file=dict(path=ES.FAMILY_FILE, sha256=sha), list=str(LIST.relative_to(ROOT)).replace(os.sep, "/"), runs_per_kind=a.runs,
+                  seed_base={k: SEED_BASE[k] for k in a.kinds}, draws=DRAWS,
                   limit=dict(rate_any_candidate_under_null=ES.SYNTHETIC_RATE_LIMIT), complete=done,
                   null=summarise("null", recs["null"]) if recs.get("null") else None,
-                  effects={k: summarise(k, v) for k, v in recs.items() if k != "null" and v},
+                  effects={k: summarise(k, v) for k, v in recs.items() if k in EFFECTS and v},
+                  heavy_tails={k: summarise(k, v) for k, v in recs.items() if k in HEAVY and v},
                   runs=[dict(kind=r["kind"], run=r["run"], seed=r["seed"], candidates=r["candidates"], fdr_pass=r["fdr_pass"], smallest_p=r["smallest_p"],
                              placebo_unreliable=[p for p, v in r["placebo"].items() if v["unreliable"]]) for v in recs.values() for r in v])
     for kind, v in recs.items():
         s = summarise(kind, v) if v else {}
-        print(f"{kind}: {len(v)} of {a.runs} runs; candidate in {s.get('runs_with_a_candidate')}" + (f"; effect found in {s.get('runs_found')}" if kind != "null" else ""))
+        print(f"{kind}: {len(v)} of {a.runs} runs; candidate in {s.get('runs_with_a_candidate')}" + (f"; effect found in {s.get('runs_found')}" if kind in EFFECTS else ""))
     if a.out and done:
         Path(a.out).parent.mkdir(parents=True, exist_ok=True)
         Path(a.out).write_text(json.dumps(result, indent=1) + "\n", encoding="utf-8", newline="\n")

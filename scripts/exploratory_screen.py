@@ -60,7 +60,7 @@ from gradvar.circuits import light_cone                 # noqa: E402
 from gradvar.lattice import Patch                       # noqa: E402
 
 PLAN_FILE = "docs/analysis_plans/day3_exploratory_plan_2026-11-11.md"
-PLAN_COMMIT = "73f17b453bc04abc1fb76bbac140cfb3f1655a27"     # the plan text this script implements (corrections CX-1 to CX-12 applied)
+PLAN_COMMIT = "2b221355d29611fc46fde79e097bf999a5f52381"     # the plan text this script implements (CX-1 to CX-12, and the open choices fixed on 12 Nov 2026)
 FAMILY_FILE = "docs/analysis_plans/day3_exploratory_family.csv"   # rule 4: the enumerated family, committed before dispatch
 SCREEN_VERSION = 2
 FDR = 0.10                         # rule 4: Benjamini-Yekutieli at a false discovery rate of 10 percent
@@ -1926,13 +1926,15 @@ def placeholder_tests(inp: Inputs) -> List[dict]:
         out.append(_meta(_placeholder(f"T7:{name}", "T7", f"truncation arm: {name.replace('_', ' ')}", "no prediction of the distribution or of its dependence on the mask class at "
                                       "this commit: the tables are printed, the test is not evaluable", group="D", probes=cuts), "T7", what, depends="a prediction of the distribution"))
     ext = "computed with the post-run reviews, outside this script; its p value is supplied through --targeted-tests"
+    ext11 = ("its statistic is fixed in the plan (Section 3) and computed in the exploratory report, outside this script; not evaluable until it is implemented and tested, "
+             "its p value is then supplied through --targeted-tests")
     out.append(_meta(_placeholder("T10", "T10", "weighted mean of ln(measured / predicted) over the day-3 references and the earlier same-rung values", ext, group="C",
-                                  probes=[p.probe_id for p in inp.probes if p.arm == "delay"]), "T10", "weighted mean of ln(measured / predicted) over the references of this and of earlier runs, against zero",
+                                  probes=[p.probe_id for p in inp.probes if p.arm == "delay"]), "T10", "weighted mean of ln(measured / predicted) over the references of this and of earlier runs with weights 1 / se^2, referred to a normal, against zero",
                      computed_by="external"))
-    for name, what, dep in (("position", "clustering of the per-qubit reset errors by position on the patch", "reset_error_prep0 for the reset after 0, if the list that runs carries it"),
-                            ("neighbours", "dependence of the per-qubit reset errors on the neighbour count", "reset_error_prep0 for the reset after 0, if the list that runs carries it"),
-                            ("level", "reset errors above the level of Deviation 64 on the qubits the dial uses most", "Deviation 64 (level)")):
-        t = _placeholder(f"T11:{name}", "T11", f"group E per qubit: {name}", ext, group="E", probes=[])
+    for name, what, dep in (("position", "permutation test of Moran's I of the per-qubit reset error on the patch graph", "reset_error_prep0 for the reset after 0, if the list that runs carries it"),
+                            ("neighbours", "slope of the per-qubit reset error on the qubit's live-coupler count", "reset_error_prep0 for the reset after 0, if the list that runs carries it"),
+                            ("level", "one-sided binomial test of the reset error on the ten qubits the masks reset most against the level of Deviation 64", "Deviation 64 (level)")):
+        t = _placeholder(f"T11:{name}", "T11", f"group E per qubit: {name}", ext11, group="E", probes=[])
         t["split_exempt"] = True
         out.append(_meta(t, "T11", what, computed_by="external", depends=dep))
     return out
