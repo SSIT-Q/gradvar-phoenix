@@ -59,6 +59,7 @@ def _settings_with(tmp_path, in_force=False, **changes):
         table["status"] = "in_force"
         for e in table["settings"].values():
             e["provisional"] = False
+            e.setdefault("registered", e["value"])               # an entry nobody had ruled on is registered with the value adopted
     p = tmp_path / ("settings_in_force.json" if in_force else "settings.json")
     p.write_text(json.dumps(table), encoding="utf-8")
     return ec.load_settings(p)
@@ -93,6 +94,38 @@ def test_the_table_is_not_in_force_and_holds_the_reviews_choices(st, tmp_path):
         ec.load_settings(tmp_path / "t.json")
     on = _settings_with(tmp_path, in_force=True)
     assert on.in_force is True and on.provisional is False and on.provisional_entries == () and on.values == st.values
+    # every entry a review ruled on carries its registered value, and the committed table holds it
+    assert all(e["registered"] == e["value"] for k, e in table["settings"].items() if k not in st.provisional_entries)
+    assert all("registered" not in table["settings"][k] for k in st.provisional_entries)
+
+
+def test_ci1_an_in_force_table_must_hold_the_registered_values(tmp_path):
+    """CI-1: one edited line of the table must not change a registered rule. Each of these tables loaded as in force before."""
+    for name, value in (("coupler_zone_rule", "either_qubit"), ("bracket_decides_gate2e", True), ("primary_calibration", "set_in_force_at_running"),
+                        ("decision_line_abs_ln_ratio", 0.05), ("rerun_rule", "none"), ("bracket_zone_flag", False),
+                        ("split_point_rule", "separate_shares")):
+        with pytest.raises(ec.SettingsError, match=f"value other than the registered one: {name} = "):
+            _settings_with(tmp_path, in_force=True, **{name: value})
+        assert _settings_with(tmp_path, **{name: value})[name] == value          # not in force: an exploratory table may hold it
+    # an entry without a registered value cannot be in force, even when it is no longer marked provisional
+    table = json.loads(ec.SETTINGS_FILE.read_text(encoding="utf-8"))
+    table["status"] = "in_force"
+    for e in table["settings"].values():
+        e["provisional"] = False
+    (tmp_path / "unregistered.json").write_text(json.dumps(table), encoding="utf-8")
+    with pytest.raises(ec.SettingsError, match="no registered value: .*coupler_cone_rule.*zone_for_points_shallower_than_zone"):
+        ec.load_settings(tmp_path / "unregistered.json")
+    # True is not 1 and 0.10 is 0.1: the comparison is by value and by kind
+    table = json.loads(ec.SETTINGS_FILE.read_text(encoding="utf-8"))
+    table["status"] = "in_force"
+    for e in table["settings"].values():
+        e["provisional"] = False
+        e.setdefault("registered", e["value"])
+    table["settings"]["decision_line_abs_ln_ratio"]["value"] = 0.1
+    table["settings"]["bracket_zone_flag"]["registered"] = 1
+    (tmp_path / "kinds.json").write_text(json.dumps(table), encoding="utf-8")
+    with pytest.raises(ec.SettingsError, match="bracket_zone_flag = True"):
+        ec.load_settings(tmp_path / "kinds.json")
 
 
 def test_a_value_outside_the_table_is_refused_and_no_function_takes_a_choice_as_an_argument(tmp_path):

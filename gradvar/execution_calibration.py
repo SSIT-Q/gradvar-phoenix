@@ -101,9 +101,19 @@ _REQUIRED = ("primary_calibration", "coupler_zone_rule", "coupler_cone_rule", "z
              "bracket_zone_flag", "rerun_rule")
 
 
+def _same_value(a: Any, b: Any) -> bool:
+    """Equality without Python's ``True == 1``: a flag is equal only to the same flag, a number to the same number."""
+    if isinstance(a, bool) or isinstance(b, bool) or a is None or b is None:
+        return type(a) is type(b) and a == b
+    if isinstance(a, (int, float)) and isinstance(b, (int, float)):
+        return math.isfinite(a) and math.isfinite(b) and float(a) == float(b)
+    return type(a) is type(b) and a == b
+
+
 def load_settings(path: str | Path | None = None) -> Settings:
     """The committed table. A value outside its ``allowed`` list, a missing setting or an unknown status is refused, and so is a
-    table that is in force while one of its entries is still provisional."""
+    table that is in force while one of its entries is still provisional, has no ``registered`` value, or holds another value
+    than its registered one: one edited line of the table must not be able to change a registered rule (CI-1)."""
     path = Path(path) if path is not None else SETTINGS_FILE
     raw = path.read_bytes()
     table = json.loads(raw)
@@ -111,7 +121,7 @@ def load_settings(path: str | Path | None = None) -> Settings:
         raise SettingsError(f"{path}: schema {SETTINGS_SCHEMA!r} expected")
     if table.get("status") not in ("not_in_force", "in_force"):
         raise SettingsError(f"{path}: status must be 'not_in_force' or 'in_force'")
-    values, provisional = {}, []
+    values, provisional, unregistered, departed = {}, [], [], []
     for name, entry in (table.get("settings") or {}).items():
         v, allowed = entry.get("value"), entry.get("allowed")
         if isinstance(allowed, list):
@@ -122,11 +132,19 @@ def load_settings(path: str | Path | None = None) -> Settings:
         values[name] = v
         if entry.get("provisional") is not False:
             provisional.append(name)
+        if "registered" not in entry:
+            unregistered.append(name)
+        elif not _same_value(v, entry["registered"]):
+            departed.append(f"{name} = {v!r} (registered: {entry['registered']!r})")
     missing = [n for n in _REQUIRED if n not in values]
     if missing:
         raise SettingsError(f"{path}: settings missing: {missing}")
     if table["status"] == "in_force" and provisional:
         raise SettingsError(f"{path}: the table cannot be in force while these entries are provisional: {provisional}")
+    if table["status"] == "in_force" and unregistered:
+        raise SettingsError(f"{path}: the table cannot be in force while these entries have no registered value: {unregistered}")
+    if table["status"] == "in_force" and departed:
+        raise SettingsError(f"{path}: the table cannot be in force with a value other than the registered one: {'; '.join(departed)}")
     try:
         shown = path.resolve().relative_to(ROOT).as_posix()
     except ValueError:

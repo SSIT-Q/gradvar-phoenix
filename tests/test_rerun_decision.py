@@ -20,14 +20,19 @@ NOW = "2026-11-12T14:00:00Z"
 OK_LAYOUT = dict(passed=True, properties_stamp="2026-11-12T13:40:00Z", checked_utc=NOW)
 
 
-def _table(tmp_path_factory, name, status="in_force", **values):
+def _table(tmp_path_factory, name, status="in_force", adopted=(), **values):
+    """``adopted`` names the entries whose changed value is the adopted one (the adopting commit registers it); any other changed
+    value departs from its registered one and an in-force table holding it is refused (CI-1)."""
     table = json.loads(ec.SETTINGS_FILE.read_text(encoding="utf-8"))
     table["status"] = status
     for k, v in values.items():
         table["settings"][k]["value"] = v
+        if k in adopted:
+            table["settings"][k]["registered"] = v
     if status == "in_force":
         for e in table["settings"].values():
             e["provisional"] = False
+            e.setdefault("registered", e["value"])
     p = tmp_path_factory.mktemp("settings") / name
     p.write_text(json.dumps(table), encoding="utf-8")
     return ec.load_settings(p)
@@ -163,7 +168,9 @@ def test_nothing_is_granted_while_the_table_is_not_in_force_or_under_option_ii(t
     d = rd.decide([job()], ledger(), NOW, OK_LAYOUT, committed)                               # the committed table: not in force
     assert committed.in_force is False and d["rerun"] == [] and d["active"] is False and d["why_inactive"] == "the settings table is not in force"
     assert all(d["decisions"][0]["conditions"].values())                                     # the conditions are still computed and shown
-    off = _table(tmp_path_factory, "off.json", rerun_rule="none")
+    with pytest.raises(ec.SettingsError, match="rerun_rule = 'none'"):                       # not by an edit of the value alone
+        _table(tmp_path_factory, "edited.json", rerun_rule="none")
+    off = _table(tmp_path_factory, "off.json", adopted=("rerun_rule",), rerun_rule="none")   # row 67 adopted in its option (ii) form
     d = rd.decide([job()], ledger(), NOW, OK_LAYOUT, off)
     assert d["rerun"] == [] and d["why_inactive"].startswith("rerun_rule is none")
     p = rd.write_decision(d, "paper1_day3_dial_refs", tmp_path)

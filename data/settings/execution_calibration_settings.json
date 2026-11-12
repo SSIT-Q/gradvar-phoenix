@@ -2,10 +2,12 @@
  "schema": "gradvar execution calibration settings v2",
  "status": "not_in_force",
  "status_note": "The one adoption switch. NOT IN FORCE: Deviations 65 and 67 are drafts, not rows of the pre-registration (v0.18.0 is in force). While this says not_in_force, everything computed from this table is exploratory and says so, and gradvar.analysis.gates.gate2_e evaluates the clause as registered. Set it to in_force in the commit that adopts the two rows; the loader refuses in_force while any entry below is provisional.",
+ "registered_note": "'registered' is the value the adopted rows fix (Deviations 65 and 67 as corrected by the reviews). The loader refuses an in-force table in which an entry has no registered value or holds another value than its registered one: while the table is in force, an edit of 'value' cannot change a registered rule. An entry without 'registered' has not been ruled on.",
  "basis": "Draft docs/deviations_drafts/65_execution_time_calibration_2026-11-10.md (branch dev65-execution-calibration) as corrected by the independent review docs/reviews/review_dev64_dev65_dev66_2026-11-10.md (11 Nov 2026, corrections C65-1 to C65-8, Sections 5.3 and 8.5), which the lead adopted with the PI's authorisation as relayed by the operator on 10 Nov 2026. 'provisional: false' means the review confirmed or replaced the entry; 'provisional: true' means the entry was found in implementation and no review has ruled on it.",
  "settings": {
   "primary_calibration": {
    "value": "per_value_at_or_before_running",
+   "registered": "per_value_at_or_before_running",
    "allowed": [
     "per_value_at_or_before_running",
     "set_in_force_at_running",
@@ -17,6 +19,7 @@
   },
   "coupler_zone_rule": {
    "value": "both_qubits",
+   "registered": "both_qubits",
    "allowed": [
     "both_qubits",
     "either_qubit"
@@ -47,6 +50,7 @@
   },
   "decision_line_abs_ln_ratio": {
    "value": 0.1,
+   "registered": 0.1,
    "allowed": "a positive number, or null for no line (flags only)",
    "basis": "value confirmed, consequence replaced by the review (C65-3, Section 8.5 item 3): above the line the point is not evaluable, automatically",
    "provisional": false,
@@ -54,6 +58,7 @@
   },
   "when_execution_calibration_cannot_be_built_from_the_service": {
    "value": "committed_snapshots_else_not_evaluable",
+   "registered": "committed_snapshots_else_not_evaluable",
    "allowed": [
     "committed_snapshots_else_not_evaluable"
    ],
@@ -63,6 +68,7 @@
   },
   "split_point_rule": {
    "value": "execution_weighted_mean",
+   "registered": "execution_weighted_mean",
    "allowed": [
     "execution_weighted_mean",
     "separate_shares"
@@ -73,6 +79,7 @@
   },
   "value_age_bound_hours": {
    "value": null,
+   "registered": null,
    "allowed": "null (ages recorded, no bound) or a positive number of hours",
    "basis": "confirmed by the review (Section 8.5 item 10)",
    "provisional": false,
@@ -80,6 +87,7 @@
   },
   "bracket_decides_gate2e": {
    "value": false,
+   "registered": false,
    "allowed": [
     true,
     false
@@ -90,6 +98,7 @@
   },
   "bracket_zone_flag": {
    "value": true,
+   "registered": true,
    "allowed": [
     true,
     false
@@ -100,6 +109,7 @@
   },
   "rerun_rule": {
    "value": "once_when_not_evaluable_on_calibration_grounds",
+   "registered": "once_when_not_evaluable_on_calibration_grounds",
    "allowed": [
     "once_when_not_evaluable_on_calibration_grounds",
     "none"
@@ -110,6 +120,7 @@
   },
   "dispatch_window": {
    "value": "package_update_or_next_same_utc_day",
+   "registered": "package_update_or_next_same_utc_day",
    "allowed": [
     "package_update_or_next_same_utc_day",
     "package_update_only",

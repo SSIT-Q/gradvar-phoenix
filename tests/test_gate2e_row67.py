@@ -45,6 +45,7 @@ def on(tmp_path_factory):
     table["status"] = "in_force"
     for e in table["settings"].values():
         e["provisional"] = False
+        e.setdefault("registered", e["value"])
     p = tmp_path_factory.mktemp("settings") / "in_force.json"
     p.write_text(json.dumps(table), encoding="utf-8")
     return ec.load_settings(p)
@@ -148,7 +149,7 @@ def test_8e_row_67_pauses_on_an_element_of_the_zone_and_only_there(S, on, tmp_pa
     assert gates.gate2_e(run_of(tmp_path / "late"), SNAPSHOT, None, settings=on)["result"] == "pass"
 
 
-def test_8e_the_bracket_is_reported_and_decides_only_if_the_table_says_so(S, on, tmp_path):
+def test_8e_the_bracket_is_reported_and_an_in_force_table_cannot_make_it_decide(S, on, tmp_path):
     jid = "dbpfnr0qtr0c738ebeng"
 
     def on_b(sets):                                               # Q75 over the readout cut in the first update after finished only
@@ -164,8 +165,11 @@ def test_8e_the_bracket_is_reported_and_decides_only_if_the_table_says_so(S, on,
     table["settings"]["bracket_decides_gate2e"]["value"] = True
     for e in table["settings"].values():
         e["provisional"] = False
+        e.setdefault("registered", e["value"])
     (tmp_path / "t.json").write_text(json.dumps(table), encoding="utf-8")
-    assert gates.gate2_e(run, SNAPSHOT, None, settings=ec.load_settings(tmp_path / "t.json"))["result"] == "fail"
+    # CI-1: the registered value is false (review 8.5 item 5: E decides, B is reported), so this table does not load in force
+    with pytest.raises(ec.SettingsError, match="bracket_decides_gate2e = True"):
+        ec.load_settings(tmp_path / "t.json")
 
 
 def test_8e_the_reset_error_unfolded_at_or_above_the_kill_line_pauses_and_the_ratios_are_only_logged(S, on, tmp_path):
