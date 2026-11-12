@@ -288,3 +288,25 @@ current code, with the committed row as a check only; the day label of the 16384
 The frozen table is `data/exploratory/retrospective_calibration/retro_calibration_points.csv` (and `.json`), key
 (`list`, `point_id`). The measured value and the prediction of a point are those the post-run review of its list fixed
 for the same n, L, k, resilience and shots. r is formed by the second person; this table holds no measured value.
+
+---
+
+## Note added 2026-11-12, after the table was computed (the text above this line is unchanged)
+
+Section 7 records se_s of a sampled row pair "as an upper bound (the rows share their seed)". The drawn rows do not support reading
+it as a bound. For the 3 distinct sampled row pairs (7 points), in the two models, the sampled s and the ratio of the unconverged
+truncated values are:
+
+| list | rung, depth | model | s (sampled) | truncated, unconverged | se_s |
+|---|---|---|---|---|---|
+| `dryrun_02_phoenix_smoke_test` | n20 L8 | nonunital | -0.0328 | +0.0041 | 0.0228 |
+| `dryrun_02_phoenix_smoke_test` | n20 L8 | unital | +0.0084 | +0.0041 | 0.0227 |
+| `paper1_day1_null_grid_n20` | n19 L8 | nonunital | -0.0066 | -0.0098 | 0.0233 |
+| `paper1_day1_null_grid_n20` | n19 L8 | unital | -0.0825 | -0.0098 | 0.0234 |
+| `paper1_day1_null_grid_n20` | n19 L12 | nonunital | +0.0139 | -0.0014 | 0.0864 |
+| `paper1_day1_null_grid_n20` | n19 L12 | unital | -0.1071 | -0.0116 | 0.0846 |
+
+One of the six differs by 3.1 se_s. The shared sampler seed does not appear to make the two rows' sampling errors cancel. The column keeps
+its name (`s_se_upper`); read it as an estimate of the sampling error of s, not as a bound. No rule, estimator or value of the table
+was changed because of this note: s of these 7 points is the sampled value, as Section 7 says, and `s_truncated_unconverged` is
+given beside it.

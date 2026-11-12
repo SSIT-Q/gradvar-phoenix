@@ -4,7 +4,7 @@
   "definitions_commit": "aa410cfb607753dbcb798323d5979eaf2b3cec04",
   "n_points": 67,
   "n_excluded_entries": 40,
-  "n_draws_read": 0,
+  "n_draws_read": 78,
   "columns": [
    "list",
    "day",
@@ -462,34 +462,54 @@
     "pool_sha256": "[6f9f7718b80b,45f19fe2d208,64ef37e04a1f,1582d8730e56]",
     "e_sources": "[2026-09-20T08:15:15Z:4999]",
     "e_n_model_read_differ_from_s0": "0",
-    "s": null,
-    "s_estimator": null,
+    "s": 0.003904295861200012,
+    "s_estimator": "exact",
     "s_se_upper": null,
-    "s_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "s_per_job": "",
-    "d_repro": null,
+    "s_reason_empty": null,
+    "s_per_job": "0.0039043",
+    "d_repro": -0.0004659786427523185,
     "s_truncated_unconverged": null,
-    "s_nonunital": null,
-    "s_nonunital_estimator": null,
-    "s_nonunital_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "d_repro_nonunital": null,
-    "s_unital": null,
-    "s_unital_estimator": null,
-    "s_unital_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "d_repro_unital": null
+    "s_nonunital": 0.003904295861200012,
+    "s_nonunital_estimator": "exact",
+    "s_nonunital_reason_empty": null,
+    "d_repro_nonunital": -0.0004659786427523185,
+    "s_unital": 0.003938454463449489,
+    "s_unital_estimator": "exact",
+    "s_unital_reason_empty": null,
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
      "task_D": "4318e3a3a87f39fe",
-     "per_job": {},
-     "s": null,
-     "reason": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending"
+     "per_job": {
+      "danm9s5r85ps73fe8e5g": {
+       "task": "a84709da50ca5217",
+       "P_E": 0.08670010408178927,
+       "s": 0.003904295861200012,
+       "weight": 1.0
+      }
+     },
+     "s": 0.003904295861200012,
+     "estimator": "exact",
+     "P_D": 0.08636226117275253,
+     "P_E": 0.08670010408178927,
+     "d_repro": -0.0004659786427523185
     },
     "unital": {
      "task_D": "5eaac0953472e078",
-     "per_job": {},
-     "s": null,
-     "reason": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending"
+     "per_job": {
+      "danm9s5r85ps73fe8e5g": {
+       "task": "9122cdd3ea4ccd83",
+       "P_E": 0.08583685108594444,
+       "s": 0.003938454463449489,
+       "weight": 1.0
+      }
+     },
+     "s": 0.003938454463449489,
+     "estimator": "exact",
+     "P_D": 0.08549945140941653,
+     "P_E": 0.08583685108594444,
+     "d_repro": 0.0
     }
    }
   },
@@ -831,34 +851,54 @@
     "pool_sha256": "[6f9f7718b80b,45f19fe2d208,64ef37e04a1f,1582d8730e56]",
     "e_sources": "[2026-09-20T08:15:15Z:4999]",
     "e_n_model_read_differ_from_s0": "0",
-    "s": null,
-    "s_estimator": null,
+    "s": 0.003904295861200012,
+    "s_estimator": "exact",
     "s_se_upper": null,
-    "s_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "s_per_job": "",
-    "d_repro": null,
+    "s_reason_empty": null,
+    "s_per_job": "0.0039043",
+    "d_repro": -0.0004659786427523185,
     "s_truncated_unconverged": null,
-    "s_nonunital": null,
-    "s_nonunital_estimator": null,
-    "s_nonunital_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "d_repro_nonunital": null,
-    "s_unital": null,
-    "s_unital_estimator": null,
-    "s_unital_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "d_repro_unital": null
+    "s_nonunital": 0.003904295861200012,
+    "s_nonunital_estimator": "exact",
+    "s_nonunital_reason_empty": null,
+    "d_repro_nonunital": -0.0004659786427523185,
+    "s_unital": 0.003938454463449489,
+    "s_unital_estimator": "exact",
+    "s_unital_reason_empty": null,
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
      "task_D": "4318e3a3a87f39fe",
-     "per_job": {},
-     "s": null,
-     "reason": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending"
+     "per_job": {
+      "danm9sdr85ps73fe8e6g": {
+       "task": "a84709da50ca5217",
+       "P_E": 0.08670010408178927,
+       "s": 0.003904295861200012,
+       "weight": 1.0
+      }
+     },
+     "s": 0.003904295861200012,
+     "estimator": "exact",
+     "P_D": 0.08636226117275253,
+     "P_E": 0.08670010408178927,
+     "d_repro": -0.0004659786427523185
     },
     "unital": {
      "task_D": "5eaac0953472e078",
-     "per_job": {},
-     "s": null,
-     "reason": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending"
+     "per_job": {
+      "danm9sdr85ps73fe8e6g": {
+       "task": "9122cdd3ea4ccd83",
+       "P_E": 0.08583685108594444,
+       "s": 0.003938454463449489,
+       "weight": 1.0
+      }
+     },
+     "s": 0.003938454463449489,
+     "estimator": "exact",
+     "P_D": 0.08549945140941653,
+     "P_E": 0.08583685108594444,
+     "d_repro": 0.0
     }
    }
   },
@@ -1200,34 +1240,54 @@
     "pool_sha256": "[6f9f7718b80b,45f19fe2d208,64ef37e04a1f,1582d8730e56]",
     "e_sources": "[2026-09-20T08:15:15Z:4999]",
     "e_n_model_read_differ_from_s0": "0",
-    "s": null,
-    "s_estimator": null,
+    "s": 0.003904295861200012,
+    "s_estimator": "exact",
     "s_se_upper": null,
-    "s_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "s_per_job": "",
-    "d_repro": null,
+    "s_reason_empty": null,
+    "s_per_job": "0.0039043",
+    "d_repro": -0.0004659786427523185,
     "s_truncated_unconverged": null,
-    "s_nonunital": null,
-    "s_nonunital_estimator": null,
-    "s_nonunital_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "d_repro_nonunital": null,
-    "s_unital": null,
-    "s_unital_estimator": null,
-    "s_unital_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "d_repro_unital": null
+    "s_nonunital": 0.003904295861200012,
+    "s_nonunital_estimator": "exact",
+    "s_nonunital_reason_empty": null,
+    "d_repro_nonunital": -0.0004659786427523185,
+    "s_unital": 0.003938454463449489,
+    "s_unital_estimator": "exact",
+    "s_unital_reason_empty": null,
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
      "task_D": "4318e3a3a87f39fe",
-     "per_job": {},
-     "s": null,
-     "reason": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending"
+     "per_job": {
+      "danm9sg2fm4c73f4dkd0": {
+       "task": "a84709da50ca5217",
+       "P_E": 0.08670010408178927,
+       "s": 0.003904295861200012,
+       "weight": 1.0
+      }
+     },
+     "s": 0.003904295861200012,
+     "estimator": "exact",
+     "P_D": 0.08636226117275253,
+     "P_E": 0.08670010408178927,
+     "d_repro": -0.0004659786427523185
     },
     "unital": {
      "task_D": "5eaac0953472e078",
-     "per_job": {},
-     "s": null,
-     "reason": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending"
+     "per_job": {
+      "danm9sg2fm4c73f4dkd0": {
+       "task": "9122cdd3ea4ccd83",
+       "P_E": 0.08583685108594444,
+       "s": 0.003938454463449489,
+       "weight": 1.0
+      }
+     },
+     "s": 0.003938454463449489,
+     "estimator": "exact",
+     "P_D": 0.08549945140941653,
+     "P_E": 0.08583685108594444,
+     "d_repro": 0.0
     }
    }
   },
@@ -1591,34 +1651,58 @@
     "pool_sha256": "[6f9f7718b80b,45f19fe2d208,64ef37e04a1f,1582d8730e56]",
     "e_sources": "[2026-09-20T08:15:15Z:4999]",
     "e_n_model_read_differ_from_s0": "0",
-    "s": null,
-    "s_estimator": null,
-    "s_se_upper": null,
-    "s_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "s_per_job": "",
-    "d_repro": null,
-    "s_truncated_unconverged": null,
-    "s_nonunital": null,
-    "s_nonunital_estimator": null,
-    "s_nonunital_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "d_repro_nonunital": null,
-    "s_unital": null,
-    "s_unital_estimator": null,
-    "s_unital_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "d_repro_unital": null
+    "s": -0.03282944491106168,
+    "s_estimator": "sampled",
+    "s_se_upper": 0.022773053827872293,
+    "s_reason_empty": null,
+    "s_per_job": "-0.0328294",
+    "d_repro": 0.0,
+    "s_truncated_unconverged": 0.004088162053128518,
+    "s_nonunital": -0.03282944491106168,
+    "s_nonunital_estimator": "sampled",
+    "s_nonunital_reason_empty": null,
+    "d_repro_nonunital": 0.0,
+    "s_unital": 0.008356841752689375,
+    "s_unital_estimator": "sampled",
+    "s_unital_reason_empty": null,
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
      "task_D": "fb6add68f86c5ac8",
-     "per_job": {},
-     "s": null,
-     "reason": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending"
+     "per_job": {
+      "danm9s5r85ps73fe8e5g": {
+       "task": "02fadc7a6e26be98",
+       "P_E": 0.00022991269775278066,
+       "s": -0.03282944491106168,
+       "weight": 1.0
+      }
+     },
+     "s": -0.03282944491106168,
+     "estimator": "sampled",
+     "P_D": 0.00023758586780622687,
+     "P_E": 0.00022991269775278066,
+     "se_s_upper": 0.022773053827872293,
+     "s_truncated_unconverged": 0.004088162053128518,
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "8cc82acd1b7fd6d2",
-     "per_job": {},
-     "s": null,
-     "reason": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending"
+     "per_job": {
+      "danm9s5r85ps73fe8e5g": {
+       "task": "2bdc29f36567af19",
+       "P_E": 0.00022965497096793952,
+       "s": 0.008356841752689375,
+       "weight": 1.0
+      }
+     },
+     "s": 0.008356841752689375,
+     "estimator": "sampled",
+     "P_D": 0.00022774377761068803,
+     "P_E": 0.00022965497096793952,
+     "se_s_upper": 0.02267498696870393,
+     "s_truncated_unconverged": 0.004084670683905635,
+     "d_repro": 0.0
     }
    }
   },
@@ -1982,34 +2066,58 @@
     "pool_sha256": "[6f9f7718b80b,45f19fe2d208,64ef37e04a1f,1582d8730e56]",
     "e_sources": "[2026-09-20T08:15:15Z:4999]",
     "e_n_model_read_differ_from_s0": "0",
-    "s": null,
-    "s_estimator": null,
-    "s_se_upper": null,
-    "s_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "s_per_job": "",
-    "d_repro": null,
-    "s_truncated_unconverged": null,
-    "s_nonunital": null,
-    "s_nonunital_estimator": null,
-    "s_nonunital_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "d_repro_nonunital": null,
-    "s_unital": null,
-    "s_unital_estimator": null,
-    "s_unital_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "d_repro_unital": null
+    "s": -0.03282944491106168,
+    "s_estimator": "sampled",
+    "s_se_upper": 0.022773053827872293,
+    "s_reason_empty": null,
+    "s_per_job": "-0.0328294",
+    "d_repro": 0.0,
+    "s_truncated_unconverged": 0.004088162053128518,
+    "s_nonunital": -0.03282944491106168,
+    "s_nonunital_estimator": "sampled",
+    "s_nonunital_reason_empty": null,
+    "d_repro_nonunital": 0.0,
+    "s_unital": 0.008356841752689375,
+    "s_unital_estimator": "sampled",
+    "s_unital_reason_empty": null,
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
      "task_D": "fb6add68f86c5ac8",
-     "per_job": {},
-     "s": null,
-     "reason": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending"
+     "per_job": {
+      "danm9sdr85ps73fe8e6g": {
+       "task": "02fadc7a6e26be98",
+       "P_E": 0.00022991269775278066,
+       "s": -0.03282944491106168,
+       "weight": 1.0
+      }
+     },
+     "s": -0.03282944491106168,
+     "estimator": "sampled",
+     "P_D": 0.00023758586780622687,
+     "P_E": 0.00022991269775278066,
+     "se_s_upper": 0.022773053827872293,
+     "s_truncated_unconverged": 0.004088162053128518,
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "8cc82acd1b7fd6d2",
-     "per_job": {},
-     "s": null,
-     "reason": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending"
+     "per_job": {
+      "danm9sdr85ps73fe8e6g": {
+       "task": "2bdc29f36567af19",
+       "P_E": 0.00022965497096793952,
+       "s": 0.008356841752689375,
+       "weight": 1.0
+      }
+     },
+     "s": 0.008356841752689375,
+     "estimator": "sampled",
+     "P_D": 0.00022774377761068803,
+     "P_E": 0.00022965497096793952,
+     "se_s_upper": 0.02267498696870393,
+     "s_truncated_unconverged": 0.004084670683905635,
+     "d_repro": 0.0
     }
    }
   },
@@ -2373,34 +2481,58 @@
     "pool_sha256": "[6f9f7718b80b,45f19fe2d208,64ef37e04a1f,1582d8730e56]",
     "e_sources": "[2026-09-20T08:15:15Z:4999]",
     "e_n_model_read_differ_from_s0": "0",
-    "s": null,
-    "s_estimator": null,
-    "s_se_upper": null,
-    "s_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "s_per_job": "",
-    "d_repro": null,
-    "s_truncated_unconverged": null,
-    "s_nonunital": null,
-    "s_nonunital_estimator": null,
-    "s_nonunital_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "d_repro_nonunital": null,
-    "s_unital": null,
-    "s_unital_estimator": null,
-    "s_unital_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "d_repro_unital": null
+    "s": -0.03282944491106168,
+    "s_estimator": "sampled",
+    "s_se_upper": 0.022773053827872293,
+    "s_reason_empty": null,
+    "s_per_job": "-0.0328294",
+    "d_repro": 0.0,
+    "s_truncated_unconverged": 0.004088162053128518,
+    "s_nonunital": -0.03282944491106168,
+    "s_nonunital_estimator": "sampled",
+    "s_nonunital_reason_empty": null,
+    "d_repro_nonunital": 0.0,
+    "s_unital": 0.008356841752689375,
+    "s_unital_estimator": "sampled",
+    "s_unital_reason_empty": null,
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
      "task_D": "fb6add68f86c5ac8",
-     "per_job": {},
-     "s": null,
-     "reason": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending"
+     "per_job": {
+      "danm9sg2fm4c73f4dkd0": {
+       "task": "02fadc7a6e26be98",
+       "P_E": 0.00022991269775278066,
+       "s": -0.03282944491106168,
+       "weight": 1.0
+      }
+     },
+     "s": -0.03282944491106168,
+     "estimator": "sampled",
+     "P_D": 0.00023758586780622687,
+     "P_E": 0.00022991269775278066,
+     "se_s_upper": 0.022773053827872293,
+     "s_truncated_unconverged": 0.004088162053128518,
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "8cc82acd1b7fd6d2",
-     "per_job": {},
-     "s": null,
-     "reason": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending"
+     "per_job": {
+      "danm9sg2fm4c73f4dkd0": {
+       "task": "2bdc29f36567af19",
+       "P_E": 0.00022965497096793952,
+       "s": 0.008356841752689375,
+       "weight": 1.0
+      }
+     },
+     "s": 0.008356841752689375,
+     "estimator": "sampled",
+     "P_D": 0.00022774377761068803,
+     "P_E": 0.00022965497096793952,
+     "se_s_upper": 0.02267498696870393,
+     "s_truncated_unconverged": 0.004084670683905635,
+     "d_repro": 0.0
     }
    }
   },
@@ -2913,34 +3045,54 @@
     "pool_sha256": "[56dcd0598109,22cd0af10e23,e3148233b553,2c3a58ca0459]",
     "e_sources": "[2026-09-20T17:22:24Z:4999]",
     "e_n_model_read_differ_from_s0": "0",
-    "s": null,
-    "s_estimator": null,
+    "s": 0.008239542900343793,
+    "s_estimator": "exact",
     "s_se_upper": null,
-    "s_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "s_per_job": "",
-    "d_repro": null,
+    "s_reason_empty": null,
+    "s_per_job": "0.00823954",
+    "d_repro": 0.0,
     "s_truncated_unconverged": null,
-    "s_nonunital": null,
-    "s_nonunital_estimator": null,
-    "s_nonunital_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "d_repro_nonunital": null,
-    "s_unital": null,
-    "s_unital_estimator": null,
-    "s_unital_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "d_repro_unital": null
+    "s_nonunital": 0.008239542900343793,
+    "s_nonunital_estimator": "exact",
+    "s_nonunital_reason_empty": null,
+    "d_repro_nonunital": 0.0,
+    "s_unital": 0.006472036897104478,
+    "s_unital_estimator": "exact",
+    "s_unital_reason_empty": null,
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
      "task_D": "c41d9768fabcb904",
-     "per_job": {},
-     "s": null,
-     "reason": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending"
+     "per_job": {
+      "dao1hnv8gn2s739n8v8g": {
+       "task": "ddd71a8c0100c259",
+       "P_E": 0.22791417416876447,
+       "s": 0.008239542900343793,
+       "weight": 1.0
+      }
+     },
+     "s": 0.008239542900343793,
+     "estimator": "exact",
+     "P_D": 0.22604398090254588,
+     "P_E": 0.22791417416876447,
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "66d1407d69d1a2e0",
-     "per_job": {},
-     "s": null,
-     "reason": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending"
+     "per_job": {
+      "dao1hnv8gn2s739n8v8g": {
+       "task": "bfa8cf3c07a59135",
+       "P_E": 0.22670277982096293,
+       "s": 0.006472036897104478,
+       "weight": 1.0
+      }
+     },
+     "s": 0.006472036897104478,
+     "estimator": "exact",
+     "P_D": 0.22524028881812655,
+     "P_E": 0.22670277982096293,
+     "d_repro": 0.0
     }
    }
   },
@@ -3453,34 +3605,54 @@
     "pool_sha256": "[56dcd0598109,22cd0af10e23,e3148233b553,2c3a58ca0459]",
     "e_sources": "[2026-09-20T17:22:24Z:4999]",
     "e_n_model_read_differ_from_s0": "0",
-    "s": null,
-    "s_estimator": null,
+    "s": 0.008239542900343793,
+    "s_estimator": "exact",
     "s_se_upper": null,
-    "s_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "s_per_job": "",
-    "d_repro": null,
+    "s_reason_empty": null,
+    "s_per_job": "0.00823954",
+    "d_repro": 0.0,
     "s_truncated_unconverged": null,
-    "s_nonunital": null,
-    "s_nonunital_estimator": null,
-    "s_nonunital_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "d_repro_nonunital": null,
-    "s_unital": null,
-    "s_unital_estimator": null,
-    "s_unital_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "d_repro_unital": null
+    "s_nonunital": 0.008239542900343793,
+    "s_nonunital_estimator": "exact",
+    "s_nonunital_reason_empty": null,
+    "d_repro_nonunital": 0.0,
+    "s_unital": 0.006472036897104478,
+    "s_unital_estimator": "exact",
+    "s_unital_reason_empty": null,
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
      "task_D": "c41d9768fabcb904",
-     "per_job": {},
-     "s": null,
-     "reason": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending"
+     "per_job": {
+      "dao1hqf8gn2s739n8vbg": {
+       "task": "ddd71a8c0100c259",
+       "P_E": 0.22791417416876447,
+       "s": 0.008239542900343793,
+       "weight": 1.0
+      }
+     },
+     "s": 0.008239542900343793,
+     "estimator": "exact",
+     "P_D": 0.22604398090254588,
+     "P_E": 0.22791417416876447,
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "66d1407d69d1a2e0",
-     "per_job": {},
-     "s": null,
-     "reason": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending"
+     "per_job": {
+      "dao1hqf8gn2s739n8vbg": {
+       "task": "bfa8cf3c07a59135",
+       "P_E": 0.22670277982096293,
+       "s": 0.006472036897104478,
+       "weight": 1.0
+      }
+     },
+     "s": 0.006472036897104478,
+     "estimator": "exact",
+     "P_D": 0.22524028881812655,
+     "P_E": 0.22670277982096293,
+     "d_repro": 0.0
     }
    }
   },
@@ -4099,34 +4271,66 @@
     "pool_sha256": "[56dcd0598109,22cd0af10e23,e3148233b553,2c3a58ca0459];[56dcd0598109,22cd0af10e23,e3148233b553,2c3a58ca0459]",
     "e_sources": "[2026-09-20T17:22:24Z:4999];[2026-09-20T17:22:24Z:4999]",
     "e_n_model_read_differ_from_s0": "0;0",
-    "s": null,
-    "s_estimator": null,
+    "s": -0.010689740622444106,
+    "s_estimator": "exact",
     "s_se_upper": null,
-    "s_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "s_per_job": "",
-    "d_repro": null,
+    "s_reason_empty": null,
+    "s_per_job": "-0.0106897;-0.0106897",
+    "d_repro": -0.00023088799913237182,
     "s_truncated_unconverged": null,
-    "s_nonunital": null,
-    "s_nonunital_estimator": null,
-    "s_nonunital_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "d_repro_nonunital": null,
-    "s_unital": null,
-    "s_unital_estimator": null,
-    "s_unital_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "d_repro_unital": null
+    "s_nonunital": -0.010689740622444106,
+    "s_nonunital_estimator": "exact",
+    "s_nonunital_reason_empty": null,
+    "d_repro_nonunital": -0.00023088799913237182,
+    "s_unital": -0.010585951802380106,
+    "s_unital_estimator": "exact",
+    "s_unital_reason_empty": null,
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
      "task_D": "7a2a38f34ac18e9f",
-     "per_job": {},
-     "s": null,
-     "reason": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending"
+     "per_job": {
+      "dao1hnv8gn2s739n8v8g": {
+       "task": "f4216e81688e1796",
+       "P_E": 0.06391466789047642,
+       "s": -0.010689740622444106,
+       "weight": 0.5
+      },
+      "dao1holr85ps73feltg0": {
+       "task": "f4216e81688e1796",
+       "P_E": 0.06391466789047642,
+       "s": -0.010689740622444106,
+       "weight": 0.5
+      }
+     },
+     "s": -0.010689740622444106,
+     "estimator": "exact",
+     "P_D": 0.06460156394151845,
+     "P_E": 0.06391466789047642,
+     "d_repro": -0.00023088799913237182
     },
     "unital": {
      "task_D": "e8d84c84da5411c4",
-     "per_job": {},
-     "s": null,
-     "reason": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending"
+     "per_job": {
+      "dao1hnv8gn2s739n8v8g": {
+       "task": "1269d199568a764f",
+       "P_E": 0.06276469293913782,
+       "s": -0.010585951802380106,
+       "weight": 0.5
+      },
+      "dao1holr85ps73feltg0": {
+       "task": "1269d199568a764f",
+       "P_E": 0.06276469293913782,
+       "s": -0.010585951802380106,
+       "weight": 0.5
+      }
+     },
+     "s": -0.010585951802380106,
+     "estimator": "exact",
+     "P_D": 0.06343264617617894,
+     "P_E": 0.06276469293913782,
+     "d_repro": 0.0
     }
    }
   },
@@ -4745,34 +4949,66 @@
     "pool_sha256": "[56dcd0598109,22cd0af10e23,e3148233b553,2c3a58ca0459];[56dcd0598109,22cd0af10e23,e3148233b553,2c3a58ca0459]",
     "e_sources": "[2026-09-20T17:22:24Z:4999];[2026-09-20T17:22:24Z:4999]",
     "e_n_model_read_differ_from_s0": "0;0",
-    "s": null,
-    "s_estimator": null,
+    "s": -0.010689740622444106,
+    "s_estimator": "exact",
     "s_se_upper": null,
-    "s_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "s_per_job": "",
-    "d_repro": null,
+    "s_reason_empty": null,
+    "s_per_job": "-0.0106897;-0.0106897",
+    "d_repro": -0.00023088799913237182,
     "s_truncated_unconverged": null,
-    "s_nonunital": null,
-    "s_nonunital_estimator": null,
-    "s_nonunital_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "d_repro_nonunital": null,
-    "s_unital": null,
-    "s_unital_estimator": null,
-    "s_unital_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "d_repro_unital": null
+    "s_nonunital": -0.010689740622444106,
+    "s_nonunital_estimator": "exact",
+    "s_nonunital_reason_empty": null,
+    "d_repro_nonunital": -0.00023088799913237182,
+    "s_unital": -0.010585951802380106,
+    "s_unital_estimator": "exact",
+    "s_unital_reason_empty": null,
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
      "task_D": "7a2a38f34ac18e9f",
-     "per_job": {},
-     "s": null,
-     "reason": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending"
+     "per_job": {
+      "dao1hqf8gn2s739n8vbg": {
+       "task": "f4216e81688e1796",
+       "P_E": 0.06391466789047642,
+       "s": -0.010689740622444106,
+       "weight": 0.5
+      },
+      "dao1hqn8gn2s739n8vd0": {
+       "task": "f4216e81688e1796",
+       "P_E": 0.06391466789047642,
+       "s": -0.010689740622444106,
+       "weight": 0.5
+      }
+     },
+     "s": -0.010689740622444106,
+     "estimator": "exact",
+     "P_D": 0.06460156394151845,
+     "P_E": 0.06391466789047642,
+     "d_repro": -0.00023088799913237182
     },
     "unital": {
      "task_D": "e8d84c84da5411c4",
-     "per_job": {},
-     "s": null,
-     "reason": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending"
+     "per_job": {
+      "dao1hqf8gn2s739n8vbg": {
+       "task": "1269d199568a764f",
+       "P_E": 0.06276469293913782,
+       "s": -0.010585951802380106,
+       "weight": 0.5
+      },
+      "dao1hqn8gn2s739n8vd0": {
+       "task": "1269d199568a764f",
+       "P_E": 0.06276469293913782,
+       "s": -0.010585951802380106,
+       "weight": 0.5
+      }
+     },
+     "s": -0.010585951802380106,
+     "estimator": "exact",
+     "P_D": 0.06343264617617894,
+     "P_E": 0.06276469293913782,
+     "d_repro": 0.0
     }
    }
   },
@@ -5314,34 +5550,54 @@
     "pool_sha256": "[56dcd0598109,22cd0af10e23,e3148233b553,2c3a58ca0459]",
     "e_sources": "[2026-09-20T17:22:24Z:4999]",
     "e_n_model_read_differ_from_s0": "0",
-    "s": null,
-    "s_estimator": null,
+    "s": -0.010099689269592834,
+    "s_estimator": "truncated",
     "s_se_upper": null,
-    "s_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "s_per_job": "",
-    "d_repro": null,
+    "s_reason_empty": null,
+    "s_per_job": "-0.0100997",
+    "d_repro": 0.0,
     "s_truncated_unconverged": null,
-    "s_nonunital": null,
-    "s_nonunital_estimator": null,
-    "s_nonunital_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "d_repro_nonunital": null,
-    "s_unital": null,
-    "s_unital_estimator": null,
-    "s_unital_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "d_repro_unital": null
+    "s_nonunital": -0.010099689269592834,
+    "s_nonunital_estimator": "truncated",
+    "s_nonunital_reason_empty": null,
+    "d_repro_nonunital": 0.0,
+    "s_unital": -0.010142461343293158,
+    "s_unital_estimator": "truncated",
+    "s_unital_reason_empty": null,
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
      "task_D": "8fcc2c98a0616058",
-     "per_job": {},
-     "s": null,
-     "reason": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending"
+     "per_job": {
+      "dao1holr85ps73feltg0": {
+       "task": "8558d27cc4a34c8d",
+       "P_E": 0.00933502766227758,
+       "s": -0.010099689269592834,
+       "weight": 1.0
+      }
+     },
+     "s": -0.010099689269592834,
+     "estimator": "truncated",
+     "P_D": 0.009429786251667828,
+     "P_E": 0.00933502766227758,
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "2ddd5d27a2b0c077",
-     "per_job": {},
-     "s": null,
-     "reason": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending"
+     "per_job": {
+      "dao1holr85ps73feltg0": {
+       "task": "b0d552fe92e1d5b6",
+       "P_E": 0.009140909084003548,
+       "s": -0.010142461343293158,
+       "weight": 1.0
+      }
+     },
+     "s": -0.010142461343293158,
+     "estimator": "truncated",
+     "P_D": 0.009234092155071896,
+     "P_E": 0.009140909084003548,
+     "d_repro": 0.0
     }
    }
   },
@@ -5883,34 +6139,54 @@
     "pool_sha256": "[56dcd0598109,22cd0af10e23,e3148233b553,2c3a58ca0459]",
     "e_sources": "[2026-09-20T17:22:24Z:4999]",
     "e_n_model_read_differ_from_s0": "0",
-    "s": null,
-    "s_estimator": null,
+    "s": -0.010099689269592834,
+    "s_estimator": "truncated",
     "s_se_upper": null,
-    "s_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "s_per_job": "",
-    "d_repro": null,
+    "s_reason_empty": null,
+    "s_per_job": "-0.0100997",
+    "d_repro": 0.0,
     "s_truncated_unconverged": null,
-    "s_nonunital": null,
-    "s_nonunital_estimator": null,
-    "s_nonunital_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "d_repro_nonunital": null,
-    "s_unital": null,
-    "s_unital_estimator": null,
-    "s_unital_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "d_repro_unital": null
+    "s_nonunital": -0.010099689269592834,
+    "s_nonunital_estimator": "truncated",
+    "s_nonunital_reason_empty": null,
+    "d_repro_nonunital": 0.0,
+    "s_unital": -0.010142461343293158,
+    "s_unital_estimator": "truncated",
+    "s_unital_reason_empty": null,
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
      "task_D": "8fcc2c98a0616058",
-     "per_job": {},
-     "s": null,
-     "reason": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending"
+     "per_job": {
+      "dao1hqn8gn2s739n8vd0": {
+       "task": "8558d27cc4a34c8d",
+       "P_E": 0.00933502766227758,
+       "s": -0.010099689269592834,
+       "weight": 1.0
+      }
+     },
+     "s": -0.010099689269592834,
+     "estimator": "truncated",
+     "P_D": 0.009429786251667828,
+     "P_E": 0.00933502766227758,
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "2ddd5d27a2b0c077",
-     "per_job": {},
-     "s": null,
-     "reason": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending"
+     "per_job": {
+      "dao1hqn8gn2s739n8vd0": {
+       "task": "b0d552fe92e1d5b6",
+       "P_E": 0.009140909084003548,
+       "s": -0.010142461343293158,
+       "weight": 1.0
+      }
+     },
+     "s": -0.010142461343293158,
+     "estimator": "truncated",
+     "P_D": 0.009234092155071896,
+     "P_E": 0.009140909084003548,
+     "d_repro": 0.0
     }
    }
   },
@@ -6458,34 +6734,58 @@
     "pool_sha256": "[56dcd0598109,22cd0af10e23,e3148233b553,2c3a58ca0459]",
     "e_sources": "[2026-09-20T17:22:24Z:4999]",
     "e_n_model_read_differ_from_s0": "0",
-    "s": null,
-    "s_estimator": null,
-    "s_se_upper": null,
-    "s_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "s_per_job": "",
-    "d_repro": null,
-    "s_truncated_unconverged": null,
-    "s_nonunital": null,
-    "s_nonunital_estimator": null,
-    "s_nonunital_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "d_repro_nonunital": null,
-    "s_unital": null,
-    "s_unital_estimator": null,
-    "s_unital_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "d_repro_unital": null
+    "s": -0.006610894110332199,
+    "s_estimator": "sampled",
+    "s_se_upper": 0.023335457601419366,
+    "s_reason_empty": null,
+    "s_per_job": "-0.00661089",
+    "d_repro": 0.0,
+    "s_truncated_unconverged": -0.009754608958912357,
+    "s_nonunital": -0.006610894110332199,
+    "s_nonunital_estimator": "sampled",
+    "s_nonunital_reason_empty": null,
+    "d_repro_nonunital": 0.0,
+    "s_unital": -0.0824767889019747,
+    "s_unital_estimator": "sampled",
+    "s_unital_reason_empty": null,
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
      "task_D": "5f28fee4e4fa7731",
-     "per_job": {},
-     "s": null,
-     "reason": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending"
+     "per_job": {
+      "dao1hp82fm4c73f4r33g": {
+       "task": "8a31b27752537731",
+       "P_E": 0.00024337933857723117,
+       "s": -0.006610894110332199,
+       "weight": 1.0
+      }
+     },
+     "s": -0.006610894110332199,
+     "estimator": "sampled",
+     "P_D": 0.0002449936236678957,
+     "P_E": 0.00024337933857723117,
+     "se_s_upper": 0.023335457601419366,
+     "s_truncated_unconverged": -0.009754608958912357,
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "8abc9038437009ae",
-     "per_job": {},
-     "s": null,
-     "reason": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending"
+     "per_job": {
+      "dao1hp82fm4c73f4r33g": {
+       "task": "800b06407c4c9dd3",
+       "P_E": 0.000225426199333348,
+       "s": -0.0824767889019747,
+       "weight": 1.0
+      }
+     },
+     "s": -0.0824767889019747,
+     "estimator": "sampled",
+     "P_D": 0.00024480687113219516,
+     "P_E": 0.000225426199333348,
+     "se_s_upper": 0.023359174787774092,
+     "s_truncated_unconverged": -0.009826327686421003,
+     "d_repro": 0.0
     }
    }
   },
@@ -7033,34 +7333,58 @@
     "pool_sha256": "[56dcd0598109,22cd0af10e23,e3148233b553,2c3a58ca0459]",
     "e_sources": "[2026-09-20T17:22:24Z:4999]",
     "e_n_model_read_differ_from_s0": "0",
-    "s": null,
-    "s_estimator": null,
-    "s_se_upper": null,
-    "s_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "s_per_job": "",
-    "d_repro": null,
-    "s_truncated_unconverged": null,
-    "s_nonunital": null,
-    "s_nonunital_estimator": null,
-    "s_nonunital_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "d_repro_nonunital": null,
-    "s_unital": null,
-    "s_unital_estimator": null,
-    "s_unital_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "d_repro_unital": null
+    "s": -0.006610894110332199,
+    "s_estimator": "sampled",
+    "s_se_upper": 0.023335457601419366,
+    "s_reason_empty": null,
+    "s_per_job": "-0.00661089",
+    "d_repro": 0.0,
+    "s_truncated_unconverged": -0.009754608958912357,
+    "s_nonunital": -0.006610894110332199,
+    "s_nonunital_estimator": "sampled",
+    "s_nonunital_reason_empty": null,
+    "d_repro_nonunital": 0.0,
+    "s_unital": -0.0824767889019747,
+    "s_unital_estimator": "sampled",
+    "s_unital_reason_empty": null,
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
      "task_D": "5f28fee4e4fa7731",
-     "per_job": {},
-     "s": null,
-     "reason": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending"
+     "per_job": {
+      "dao1hrg2fm4c73f4r36g": {
+       "task": "8a31b27752537731",
+       "P_E": 0.00024337933857723117,
+       "s": -0.006610894110332199,
+       "weight": 1.0
+      }
+     },
+     "s": -0.006610894110332199,
+     "estimator": "sampled",
+     "P_D": 0.0002449936236678957,
+     "P_E": 0.00024337933857723117,
+     "se_s_upper": 0.023335457601419366,
+     "s_truncated_unconverged": -0.009754608958912357,
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "8abc9038437009ae",
-     "per_job": {},
-     "s": null,
-     "reason": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending"
+     "per_job": {
+      "dao1hrg2fm4c73f4r36g": {
+       "task": "800b06407c4c9dd3",
+       "P_E": 0.000225426199333348,
+       "s": -0.0824767889019747,
+       "weight": 1.0
+      }
+     },
+     "s": -0.0824767889019747,
+     "estimator": "sampled",
+     "P_D": 0.00024480687113219516,
+     "P_E": 0.000225426199333348,
+     "se_s_upper": 0.023359174787774092,
+     "s_truncated_unconverged": -0.009826327686421003,
+     "d_repro": 0.0
     }
    }
   },
@@ -7705,34 +8029,70 @@
     "pool_sha256": "[56dcd0598109,22cd0af10e23,e3148233b553,2c3a58ca0459];[56dcd0598109,22cd0af10e23,e3148233b553,2c3a58ca0459]",
     "e_sources": "[2026-09-20T17:22:24Z:4999];[2026-09-20T17:22:24Z:4999]",
     "e_n_model_read_differ_from_s0": "0;0",
-    "s": null,
-    "s_estimator": null,
-    "s_se_upper": null,
-    "s_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "s_per_job": "",
-    "d_repro": null,
-    "s_truncated_unconverged": null,
-    "s_nonunital": null,
-    "s_nonunital_estimator": null,
-    "s_nonunital_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "d_repro_nonunital": null,
-    "s_unital": null,
-    "s_unital_estimator": null,
-    "s_unital_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "d_repro_unital": null
+    "s": 0.013929077680470107,
+    "s_estimator": "sampled",
+    "s_se_upper": 0.086359171640881,
+    "s_reason_empty": null,
+    "s_per_job": "0.0139291;0.0139291",
+    "d_repro": 0.0,
+    "s_truncated_unconverged": -0.0013984152298374066,
+    "s_nonunital": 0.013929077680470107,
+    "s_nonunital_estimator": "sampled",
+    "s_nonunital_reason_empty": null,
+    "d_repro_nonunital": 0.0,
+    "s_unital": -0.10712129701909959,
+    "s_unital_estimator": "sampled",
+    "s_unital_reason_empty": null,
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
      "task_D": "3d89d6c1cb11571d",
-     "per_job": {},
-     "s": null,
-     "reason": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending"
+     "per_job": {
+      "dao1hp82fm4c73f4r33g": {
+       "task": "a3f670385ab77929",
+       "P_E": 8.507771551770918e-06,
+       "s": 0.013929077680470107,
+       "weight": 0.5
+      },
+      "dao1hptr85ps73feltig": {
+       "task": "a3f670385ab77929",
+       "P_E": 8.507771551770918e-06,
+       "s": 0.013929077680470107,
+       "weight": 0.5
+      }
+     },
+     "s": 0.013929077680470107,
+     "estimator": "sampled",
+     "P_D": 8.390087657728018e-06,
+     "P_E": 8.507771551770918e-06,
+     "se_s_upper": 0.086359171640881,
+     "s_truncated_unconverged": -0.0013984152298374066,
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "19e22733af6c49e8",
-     "per_job": {},
-     "s": null,
-     "reason": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending"
+     "per_job": {
+      "dao1hp82fm4c73f4r33g": {
+       "task": "839ae852e576dd7a",
+       "P_E": 8.141072264376448e-06,
+       "s": -0.10712129701909959,
+       "weight": 0.5
+      },
+      "dao1hptr85ps73feltig": {
+       "task": "839ae852e576dd7a",
+       "P_E": 8.141072264376448e-06,
+       "s": -0.10712129701909959,
+       "weight": 0.5
+      }
+     },
+     "s": -0.10712129701909959,
+     "estimator": "sampled",
+     "P_D": 9.061577266868281e-06,
+     "P_E": 8.141072264376448e-06,
+     "se_s_upper": 0.0846351495067849,
+     "s_truncated_unconverged": -0.01159480208310283,
+     "d_repro": 0.0
     }
    }
   },
@@ -8377,34 +8737,70 @@
     "pool_sha256": "[56dcd0598109,22cd0af10e23,e3148233b553,2c3a58ca0459];[56dcd0598109,22cd0af10e23,e3148233b553,2c3a58ca0459]",
     "e_sources": "[2026-09-20T17:22:24Z:4999];[2026-09-20T17:22:24Z:4999]",
     "e_n_model_read_differ_from_s0": "0;0",
-    "s": null,
-    "s_estimator": null,
-    "s_se_upper": null,
-    "s_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "s_per_job": "",
-    "d_repro": null,
-    "s_truncated_unconverged": null,
-    "s_nonunital": null,
-    "s_nonunital_estimator": null,
-    "s_nonunital_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "d_repro_nonunital": null,
-    "s_unital": null,
-    "s_unital_estimator": null,
-    "s_unital_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "d_repro_unital": null
+    "s": 0.013929077680470107,
+    "s_estimator": "sampled",
+    "s_se_upper": 0.086359171640881,
+    "s_reason_empty": null,
+    "s_per_job": "0.0139291;0.0139291",
+    "d_repro": 0.0,
+    "s_truncated_unconverged": -0.0013984152298374066,
+    "s_nonunital": 0.013929077680470107,
+    "s_nonunital_estimator": "sampled",
+    "s_nonunital_reason_empty": null,
+    "d_repro_nonunital": 0.0,
+    "s_unital": -0.10712129701909959,
+    "s_unital_estimator": "sampled",
+    "s_unital_reason_empty": null,
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
      "task_D": "3d89d6c1cb11571d",
-     "per_job": {},
-     "s": null,
-     "reason": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending"
+     "per_job": {
+      "dao1hrg2fm4c73f4r36g": {
+       "task": "a3f670385ab77929",
+       "P_E": 8.507771551770918e-06,
+       "s": 0.013929077680470107,
+       "weight": 0.5
+      },
+      "dao1hsdr85ps73feltm0": {
+       "task": "a3f670385ab77929",
+       "P_E": 8.507771551770918e-06,
+       "s": 0.013929077680470107,
+       "weight": 0.5
+      }
+     },
+     "s": 0.013929077680470107,
+     "estimator": "sampled",
+     "P_D": 8.390087657728018e-06,
+     "P_E": 8.507771551770918e-06,
+     "se_s_upper": 0.086359171640881,
+     "s_truncated_unconverged": -0.0013984152298374066,
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "19e22733af6c49e8",
-     "per_job": {},
-     "s": null,
-     "reason": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending"
+     "per_job": {
+      "dao1hrg2fm4c73f4r36g": {
+       "task": "839ae852e576dd7a",
+       "P_E": 8.141072264376448e-06,
+       "s": -0.10712129701909959,
+       "weight": 0.5
+      },
+      "dao1hsdr85ps73feltm0": {
+       "task": "839ae852e576dd7a",
+       "P_E": 8.141072264376448e-06,
+       "s": -0.10712129701909959,
+       "weight": 0.5
+      }
+     },
+     "s": -0.10712129701909959,
+     "estimator": "sampled",
+     "P_D": 9.061577266868281e-06,
+     "P_E": 8.141072264376448e-06,
+     "se_s_upper": 0.0846351495067849,
+     "s_truncated_unconverged": -0.01159480208310283,
+     "d_repro": 0.0
     }
    }
   },
@@ -8958,16 +9354,16 @@
     "s_se_upper": null,
     "s_reason_empty": null,
     "s_per_job": "0",
-    "d_repro": null,
+    "d_repro": 0.0,
     "s_truncated_unconverged": null,
     "s_nonunital": 0.0,
     "s_nonunital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_nonunital_reason_empty": null,
-    "d_repro_nonunital": null,
+    "d_repro_nonunital": 0.0,
     "s_unital": 0.0,
     "s_unital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_unital_reason_empty": null,
-    "d_repro_unital": null
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
@@ -8980,7 +9376,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "683efc7345a4cc92",
@@ -8992,7 +9389,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     }
    }
   },
@@ -9546,16 +9944,16 @@
     "s_se_upper": null,
     "s_reason_empty": null,
     "s_per_job": "0",
-    "d_repro": null,
+    "d_repro": 0.0,
     "s_truncated_unconverged": null,
     "s_nonunital": 0.0,
     "s_nonunital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_nonunital_reason_empty": null,
-    "d_repro_nonunital": null,
+    "d_repro_nonunital": 0.0,
     "s_unital": 0.0,
     "s_unital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_unital_reason_empty": null,
-    "d_repro_unital": null
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
@@ -9568,7 +9966,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "683efc7345a4cc92",
@@ -9580,7 +9979,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     }
    }
   },
@@ -10249,16 +10649,16 @@
     "s_se_upper": null,
     "s_reason_empty": null,
     "s_per_job": "0;0",
-    "d_repro": null,
+    "d_repro": 0.0,
     "s_truncated_unconverged": null,
     "s_nonunital": 0.0,
     "s_nonunital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_nonunital_reason_empty": null,
-    "d_repro_nonunital": null,
+    "d_repro_nonunital": 0.0,
     "s_unital": 0.0,
     "s_unital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_unital_reason_empty": null,
-    "d_repro_unital": null
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
@@ -10276,7 +10676,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "73b1d8b0f3889743",
@@ -10293,7 +10694,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     }
    }
   },
@@ -10962,16 +11364,16 @@
     "s_se_upper": null,
     "s_reason_empty": null,
     "s_per_job": "0;0",
-    "d_repro": null,
+    "d_repro": 0.0,
     "s_truncated_unconverged": null,
     "s_nonunital": 0.0,
     "s_nonunital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_nonunital_reason_empty": null,
-    "d_repro_nonunital": null,
+    "d_repro_nonunital": 0.0,
     "s_unital": 0.0,
     "s_unital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_unital_reason_empty": null,
-    "d_repro_unital": null
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
@@ -10989,7 +11391,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "73b1d8b0f3889743",
@@ -11006,7 +11409,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     }
    }
   },
@@ -11880,16 +12284,16 @@
     "s_se_upper": null,
     "s_reason_empty": null,
     "s_per_job": "0;0",
-    "d_repro": null,
+    "d_repro": 0.0,
     "s_truncated_unconverged": null,
     "s_nonunital": 0.0,
     "s_nonunital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_nonunital_reason_empty": null,
-    "d_repro_nonunital": null,
+    "d_repro_nonunital": 0.0,
     "s_unital": 0.0,
     "s_unital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_unital_reason_empty": null,
-    "d_repro_unital": null
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
@@ -11907,7 +12311,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "73b1d8b0f3889743",
@@ -11924,7 +12329,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     }
    }
   },
@@ -12524,16 +12930,16 @@
     "s_se_upper": null,
     "s_reason_empty": null,
     "s_per_job": "0",
-    "d_repro": null,
+    "d_repro": 0.0,
     "s_truncated_unconverged": null,
     "s_nonunital": 0.0,
     "s_nonunital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_nonunital_reason_empty": null,
-    "d_repro_nonunital": null,
+    "d_repro_nonunital": 0.0,
     "s_unital": 0.0,
     "s_unital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_unital_reason_empty": null,
-    "d_repro_unital": null
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
@@ -12546,7 +12952,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "b46c81b9a7db2c0d",
@@ -12558,7 +12965,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     }
    }
   },
@@ -13158,16 +13566,16 @@
     "s_se_upper": null,
     "s_reason_empty": null,
     "s_per_job": "0",
-    "d_repro": null,
+    "d_repro": 0.0,
     "s_truncated_unconverged": null,
     "s_nonunital": 0.0,
     "s_nonunital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_nonunital_reason_empty": null,
-    "d_repro_nonunital": null,
+    "d_repro_nonunital": 0.0,
     "s_unital": 0.0,
     "s_unital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_unital_reason_empty": null,
-    "d_repro_unital": null
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
@@ -13180,7 +13588,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "b46c81b9a7db2c0d",
@@ -13192,7 +13601,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     }
    }
   },
@@ -13799,16 +14209,16 @@
     "s_se_upper": null,
     "s_reason_empty": null,
     "s_per_job": "0",
-    "d_repro": null,
+    "d_repro": 0.0,
     "s_truncated_unconverged": null,
     "s_nonunital": 0.0,
     "s_nonunital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_nonunital_reason_empty": null,
-    "d_repro_nonunital": null,
+    "d_repro_nonunital": 0.0,
     "s_unital": 0.0,
     "s_unital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_unital_reason_empty": null,
-    "d_repro_unital": null
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
@@ -13821,7 +14231,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "7f07a7235cbd7d7e",
@@ -13833,7 +14244,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     }
    }
   },
@@ -14759,16 +15171,16 @@
     "s_se_upper": null,
     "s_reason_empty": null,
     "s_per_job": "0;0",
-    "d_repro": null,
+    "d_repro": 0.0,
     "s_truncated_unconverged": null,
     "s_nonunital": 0.0,
     "s_nonunital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_nonunital_reason_empty": null,
-    "d_repro_nonunital": null,
+    "d_repro_nonunital": 0.0,
     "s_unital": 0.0,
     "s_unital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_unital_reason_empty": null,
-    "d_repro_unital": null
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
@@ -14786,7 +15198,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "7f07a7235cbd7d7e",
@@ -14803,7 +15216,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     }
    }
   },
@@ -15729,16 +16143,16 @@
     "s_se_upper": null,
     "s_reason_empty": null,
     "s_per_job": "0;0",
-    "d_repro": null,
+    "d_repro": 0.0,
     "s_truncated_unconverged": null,
     "s_nonunital": 0.0,
     "s_nonunital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_nonunital_reason_empty": null,
-    "d_repro_nonunital": null,
+    "d_repro_nonunital": 0.0,
     "s_unital": 0.0,
     "s_unital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_unital_reason_empty": null,
-    "d_repro_unital": null
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
@@ -15756,7 +16170,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "7f07a7235cbd7d7e",
@@ -15773,7 +16188,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     }
    }
   },
@@ -16380,16 +16796,16 @@
     "s_se_upper": null,
     "s_reason_empty": null,
     "s_per_job": "0",
-    "d_repro": null,
+    "d_repro": 0.0,
     "s_truncated_unconverged": null,
     "s_nonunital": 0.0,
     "s_nonunital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_nonunital_reason_empty": null,
-    "d_repro_nonunital": null,
+    "d_repro_nonunital": 0.0,
     "s_unital": 0.0,
     "s_unital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_unital_reason_empty": null,
-    "d_repro_unital": null
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
@@ -16402,7 +16818,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "7f07a7235cbd7d7e",
@@ -16414,7 +16831,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     }
    }
   },
@@ -17135,16 +17553,16 @@
     "s_se_upper": null,
     "s_reason_empty": null,
     "s_per_job": "0;0",
-    "d_repro": null,
+    "d_repro": 0.0,
     "s_truncated_unconverged": null,
     "s_nonunital": 0.0,
     "s_nonunital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_nonunital_reason_empty": null,
-    "d_repro_nonunital": null,
+    "d_repro_nonunital": 0.0,
     "s_unital": 0.0,
     "s_unital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_unital_reason_empty": null,
-    "d_repro_unital": null
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
@@ -17162,7 +17580,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "3a7bde23a4374370",
@@ -17179,7 +17598,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     }
    }
   },
@@ -18219,16 +18639,16 @@
     "s_se_upper": null,
     "s_reason_empty": null,
     "s_per_job": "0;0;0",
-    "d_repro": null,
+    "d_repro": 0.0,
     "s_truncated_unconverged": null,
     "s_nonunital": 0.0,
     "s_nonunital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_nonunital_reason_empty": null,
-    "d_repro_nonunital": null,
+    "d_repro_nonunital": 0.0,
     "s_unital": 0.0,
     "s_unital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_unital_reason_empty": null,
-    "d_repro_unital": null
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
@@ -18251,7 +18671,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "3a7bde23a4374370",
@@ -18273,7 +18694,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     }
    }
   },
@@ -18880,16 +19302,16 @@
     "s_se_upper": null,
     "s_reason_empty": null,
     "s_per_job": "0",
-    "d_repro": null,
+    "d_repro": 0.0,
     "s_truncated_unconverged": null,
     "s_nonunital": 0.0,
     "s_nonunital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_nonunital_reason_empty": null,
-    "d_repro_nonunital": null,
+    "d_repro_nonunital": 0.0,
     "s_unital": 0.0,
     "s_unital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_unital_reason_empty": null,
-    "d_repro_unital": null
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
@@ -18902,7 +19324,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "3a7bde23a4374370",
@@ -18914,7 +19337,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     }
    }
   },
@@ -19479,16 +19903,16 @@
     "s_se_upper": null,
     "s_reason_empty": null,
     "s_per_job": "0",
-    "d_repro": null,
+    "d_repro": 0.0,
     "s_truncated_unconverged": null,
     "s_nonunital": 0.0,
     "s_nonunital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_nonunital_reason_empty": null,
-    "d_repro_nonunital": null,
+    "d_repro_nonunital": 0.0,
     "s_unital": 0.0,
     "s_unital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_unital_reason_empty": null,
-    "d_repro_unital": null
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
@@ -19501,7 +19925,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "6ddaf9b866d359a9",
@@ -19513,7 +19938,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     }
    }
   },
@@ -20156,16 +20582,16 @@
     "s_se_upper": null,
     "s_reason_empty": null,
     "s_per_job": "0;0",
-    "d_repro": null,
+    "d_repro": 0.0,
     "s_truncated_unconverged": null,
     "s_nonunital": 0.0,
     "s_nonunital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_nonunital_reason_empty": null,
-    "d_repro_nonunital": null,
+    "d_repro_nonunital": 0.0,
     "s_unital": 0.0,
     "s_unital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_unital_reason_empty": null,
-    "d_repro_unital": null
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
@@ -20183,7 +20609,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "6ddaf9b866d359a9",
@@ -20200,7 +20627,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     }
    }
   },
@@ -20776,16 +21204,16 @@
     "s_se_upper": null,
     "s_reason_empty": null,
     "s_per_job": "0",
-    "d_repro": null,
+    "d_repro": -6.177350620767424e-05,
     "s_truncated_unconverged": null,
     "s_nonunital": 0.0,
     "s_nonunital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_nonunital_reason_empty": null,
-    "d_repro_nonunital": null,
+    "d_repro_nonunital": -6.177350620767424e-05,
     "s_unital": 0.0,
     "s_unital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_unital_reason_empty": null,
-    "d_repro_unital": null
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
@@ -20798,7 +21226,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": -6.177350620767424e-05
     },
     "unital": {
      "task_D": "2d24ac1e3b683da1",
@@ -20810,7 +21239,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     }
    }
   },
@@ -21386,16 +21816,16 @@
     "s_se_upper": null,
     "s_reason_empty": null,
     "s_per_job": "0",
-    "d_repro": null,
+    "d_repro": -6.177350620767424e-05,
     "s_truncated_unconverged": null,
     "s_nonunital": 0.0,
     "s_nonunital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_nonunital_reason_empty": null,
-    "d_repro_nonunital": null,
+    "d_repro_nonunital": -6.177350620767424e-05,
     "s_unital": 0.0,
     "s_unital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_unital_reason_empty": null,
-    "d_repro_unital": null
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
@@ -21408,7 +21838,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": -6.177350620767424e-05
     },
     "unital": {
      "task_D": "2d24ac1e3b683da1",
@@ -21420,7 +21851,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     }
    }
   },
@@ -22159,16 +22591,16 @@
     "s_se_upper": null,
     "s_reason_empty": null,
     "s_per_job": "0;0",
-    "d_repro": null,
+    "d_repro": 0.0,
     "s_truncated_unconverged": null,
     "s_nonunital": 0.0,
     "s_nonunital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_nonunital_reason_empty": null,
-    "d_repro_nonunital": null,
+    "d_repro_nonunital": 0.0,
     "s_unital": 0.0,
     "s_unital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_unital_reason_empty": null,
-    "d_repro_unital": null
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
@@ -22186,7 +22618,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "bc623abd120b6b4d",
@@ -22203,7 +22636,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     }
    }
   },
@@ -22825,16 +23259,16 @@
     "s_se_upper": null,
     "s_reason_empty": null,
     "s_per_job": "0",
-    "d_repro": null,
+    "d_repro": 0.0,
     "s_truncated_unconverged": null,
     "s_nonunital": 0.0,
     "s_nonunital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_nonunital_reason_empty": null,
-    "d_repro_nonunital": null,
+    "d_repro_nonunital": 0.0,
     "s_unital": 0.0,
     "s_unital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_unital_reason_empty": null,
-    "d_repro_unital": null
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
@@ -22847,7 +23281,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "bc623abd120b6b4d",
@@ -22859,7 +23294,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     }
    }
   },
@@ -23490,16 +23926,16 @@
     "s_se_upper": null,
     "s_reason_empty": null,
     "s_per_job": "0",
-    "d_repro": null,
+    "d_repro": 0.0,
     "s_truncated_unconverged": null,
     "s_nonunital": 0.0,
     "s_nonunital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_nonunital_reason_empty": null,
-    "d_repro_nonunital": null,
+    "d_repro_nonunital": 0.0,
     "s_unital": 0.0,
     "s_unital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_unital_reason_empty": null,
-    "d_repro_unital": null
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
@@ -23512,7 +23948,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "0887e48d9302726b",
@@ -23524,7 +23961,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     }
    }
   },
@@ -24281,16 +24719,16 @@
     "s_se_upper": null,
     "s_reason_empty": null,
     "s_per_job": "0;0",
-    "d_repro": null,
+    "d_repro": 0.0,
     "s_truncated_unconverged": null,
     "s_nonunital": 0.0,
     "s_nonunital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_nonunital_reason_empty": null,
-    "d_repro_nonunital": null,
+    "d_repro_nonunital": 0.0,
     "s_unital": 0.0,
     "s_unital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_unital_reason_empty": null,
-    "d_repro_unital": null
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
@@ -24308,7 +24746,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "0887e48d9302726b",
@@ -24325,7 +24764,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     }
    }
   },
@@ -24956,16 +25396,16 @@
     "s_se_upper": null,
     "s_reason_empty": null,
     "s_per_job": "0",
-    "d_repro": null,
+    "d_repro": 0.0,
     "s_truncated_unconverged": null,
     "s_nonunital": 0.0,
     "s_nonunital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_nonunital_reason_empty": null,
-    "d_repro_nonunital": null,
+    "d_repro_nonunital": 0.0,
     "s_unital": 0.0,
     "s_unital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_unital_reason_empty": null,
-    "d_repro_unital": null
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
@@ -24978,7 +25418,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "749512c05cb1f808",
@@ -24990,7 +25431,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     }
    }
   },
@@ -25621,16 +26063,16 @@
     "s_se_upper": null,
     "s_reason_empty": null,
     "s_per_job": "0",
-    "d_repro": null,
+    "d_repro": 0.0,
     "s_truncated_unconverged": null,
     "s_nonunital": 0.0,
     "s_nonunital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_nonunital_reason_empty": null,
-    "d_repro_nonunital": null,
+    "d_repro_nonunital": 0.0,
     "s_unital": 0.0,
     "s_unital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_unital_reason_empty": null,
-    "d_repro_unital": null
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
@@ -25643,7 +26085,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "749512c05cb1f808",
@@ -25655,7 +26098,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     }
    }
   },
@@ -26332,16 +26776,16 @@
     "s_se_upper": null,
     "s_reason_empty": null,
     "s_per_job": "0;0",
-    "d_repro": null,
+    "d_repro": 0.0,
     "s_truncated_unconverged": null,
     "s_nonunital": 0.0,
     "s_nonunital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_nonunital_reason_empty": null,
-    "d_repro_nonunital": null,
+    "d_repro_nonunital": 0.0,
     "s_unital": 0.0,
     "s_unital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_unital_reason_empty": null,
-    "d_repro_unital": null
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
@@ -26359,7 +26803,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "19e78106167dba45",
@@ -26376,7 +26821,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     }
    }
   },
@@ -26974,16 +27420,16 @@
     "s_se_upper": null,
     "s_reason_empty": null,
     "s_per_job": "0",
-    "d_repro": null,
+    "d_repro": 0.0,
     "s_truncated_unconverged": null,
     "s_nonunital": 0.0,
     "s_nonunital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_nonunital_reason_empty": null,
-    "d_repro_nonunital": null,
+    "d_repro_nonunital": 0.0,
     "s_unital": 0.0,
     "s_unital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_unital_reason_empty": null,
-    "d_repro_unital": null
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
@@ -26996,7 +27442,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "19e78106167dba45",
@@ -27008,7 +27455,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     }
    }
   },
@@ -27618,16 +28066,16 @@
     "s_se_upper": null,
     "s_reason_empty": null,
     "s_per_job": "0",
-    "d_repro": null,
+    "d_repro": 0.000935879072228231,
     "s_truncated_unconverged": null,
     "s_nonunital": 0.0,
     "s_nonunital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_nonunital_reason_empty": null,
-    "d_repro_nonunital": null,
+    "d_repro_nonunital": 0.000935879072228231,
     "s_unital": 0.0,
     "s_unital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_unital_reason_empty": null,
-    "d_repro_unital": null
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
@@ -27640,7 +28088,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.000935879072228231
     },
     "unital": {
      "task_D": "ad652f586bd6d909",
@@ -27652,7 +28101,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     }
    }
   },
@@ -28353,16 +28803,16 @@
     "s_se_upper": null,
     "s_reason_empty": null,
     "s_per_job": "0;0",
-    "d_repro": null,
+    "d_repro": 0.000935879072228231,
     "s_truncated_unconverged": null,
     "s_nonunital": 0.0,
     "s_nonunital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_nonunital_reason_empty": null,
-    "d_repro_nonunital": null,
+    "d_repro_nonunital": 0.000935879072228231,
     "s_unital": 0.0,
     "s_unital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_unital_reason_empty": null,
-    "d_repro_unital": null
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
@@ -28380,7 +28830,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.000935879072228231
     },
     "unital": {
      "task_D": "ad652f586bd6d909",
@@ -28397,7 +28848,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     }
    }
   },
@@ -29065,16 +29517,16 @@
     "s_se_upper": null,
     "s_reason_empty": null,
     "s_per_job": "0",
-    "d_repro": null,
+    "d_repro": 0.0,
     "s_truncated_unconverged": null,
     "s_nonunital": 0.0,
     "s_nonunital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_nonunital_reason_empty": null,
-    "d_repro_nonunital": null,
+    "d_repro_nonunital": 0.0,
     "s_unital": 0.0,
     "s_unital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_unital_reason_empty": null,
-    "d_repro_unital": null
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
@@ -29087,7 +29539,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "9415ba57cd76f5e5",
@@ -29099,7 +29552,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     }
    }
   },
@@ -29767,16 +30221,16 @@
     "s_se_upper": null,
     "s_reason_empty": null,
     "s_per_job": "0",
-    "d_repro": null,
+    "d_repro": 0.0,
     "s_truncated_unconverged": null,
     "s_nonunital": 0.0,
     "s_nonunital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_nonunital_reason_empty": null,
-    "d_repro_nonunital": null,
+    "d_repro_nonunital": 0.0,
     "s_unital": 0.0,
     "s_unital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_unital_reason_empty": null,
-    "d_repro_unital": null
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
@@ -29789,7 +30243,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "9415ba57cd76f5e5",
@@ -29801,7 +30256,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     }
    }
   },
@@ -30630,16 +31086,16 @@
     "s_se_upper": null,
     "s_reason_empty": null,
     "s_per_job": "0;0",
-    "d_repro": null,
+    "d_repro": 0.0,
     "s_truncated_unconverged": null,
     "s_nonunital": 0.0,
     "s_nonunital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_nonunital_reason_empty": null,
-    "d_repro_nonunital": null,
+    "d_repro_nonunital": 0.0,
     "s_unital": 0.0,
     "s_unital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_unital_reason_empty": null,
-    "d_repro_unital": null
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
@@ -30657,7 +31113,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "7202f116d8ca7f8e",
@@ -30674,7 +31131,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     }
    }
   },
@@ -31357,16 +31815,16 @@
     "s_se_upper": null,
     "s_reason_empty": null,
     "s_per_job": "0",
-    "d_repro": null,
+    "d_repro": 0.0,
     "s_truncated_unconverged": null,
     "s_nonunital": 0.0,
     "s_nonunital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_nonunital_reason_empty": null,
-    "d_repro_nonunital": null,
+    "d_repro_nonunital": 0.0,
     "s_unital": 0.0,
     "s_unital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_unital_reason_empty": null,
-    "d_repro_unital": null
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
@@ -31379,7 +31837,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "7202f116d8ca7f8e",
@@ -31391,7 +31850,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     }
    }
   },
@@ -32074,16 +32534,16 @@
     "s_se_upper": null,
     "s_reason_empty": null,
     "s_per_job": "0",
-    "d_repro": null,
+    "d_repro": 0.0,
     "s_truncated_unconverged": null,
     "s_nonunital": 0.0,
     "s_nonunital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_nonunital_reason_empty": null,
-    "d_repro_nonunital": null,
+    "d_repro_nonunital": 0.0,
     "s_unital": 0.0,
     "s_unital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_unital_reason_empty": null,
-    "d_repro_unital": null
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
@@ -32096,7 +32556,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "ad9bbb6f66f69a62",
@@ -32108,7 +32569,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     }
    }
   },
@@ -32937,16 +33399,16 @@
     "s_se_upper": null,
     "s_reason_empty": null,
     "s_per_job": "0;0",
-    "d_repro": null,
+    "d_repro": 0.0,
     "s_truncated_unconverged": null,
     "s_nonunital": 0.0,
     "s_nonunital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_nonunital_reason_empty": null,
-    "d_repro_nonunital": null,
+    "d_repro_nonunital": 0.0,
     "s_unital": 0.0,
     "s_unital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_unital_reason_empty": null,
-    "d_repro_unital": null
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
@@ -32964,7 +33426,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "ad9bbb6f66f69a62",
@@ -32981,7 +33444,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     }
    }
   },
@@ -33591,34 +34055,54 @@
     "pool_sha256": "[22cd0af10e23,e3148233b553,2c3a58ca0459]",
     "e_sources": "[2026-09-20T18:44:14Z:4999]",
     "e_n_model_read_differ_from_s0": "0",
-    "s": null,
-    "s_estimator": null,
+    "s": 0.015081415782598452,
+    "s_estimator": "exact",
     "s_se_upper": null,
-    "s_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "s_per_job": "",
-    "d_repro": null,
+    "s_reason_empty": null,
+    "s_per_job": "0.0150814",
+    "d_repro": 0.0,
     "s_truncated_unconverged": null,
-    "s_nonunital": null,
-    "s_nonunital_estimator": null,
-    "s_nonunital_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "d_repro_nonunital": null,
-    "s_unital": null,
-    "s_unital_estimator": null,
-    "s_unital_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "d_repro_unital": null
+    "s_nonunital": 0.015081415782598452,
+    "s_nonunital_estimator": "exact",
+    "s_nonunital_reason_empty": null,
+    "d_repro_nonunital": 0.0,
+    "s_unital": 0.01489481031450307,
+    "s_unital_estimator": "exact",
+    "s_unital_reason_empty": null,
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
      "task_D": "ae5a35d49bca7797",
-     "per_job": {},
-     "s": null,
-     "reason": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending"
+     "per_job": {
+      "dao2nldr85ps73fen73g": {
+       "task": "948626a0e6c2b21e",
+       "P_E": 0.23340519132071177,
+       "s": 0.015081415782598452,
+       "weight": 1.0
+      }
+     },
+     "s": 0.015081415782598452,
+     "estimator": "exact",
+     "P_D": 0.2299115215469068,
+     "P_E": 0.23340519132071177,
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "9e7957b5baa17e94",
-     "per_job": {},
-     "s": null,
-     "reason": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending"
+     "per_job": {
+      "dao2nldr85ps73fen73g": {
+       "task": "97f9c5e900f1afc0",
+       "P_E": 0.23250477037778627,
+       "s": 0.01489481031450307,
+       "weight": 1.0
+      }
+     },
+     "s": 0.01489481031450307,
+     "estimator": "exact",
+     "P_D": 0.22906731956587287,
+     "P_E": 0.23250477037778627,
+     "d_repro": 0.0
     }
    }
   },
@@ -34228,34 +34712,54 @@
     "pool_sha256": "[22cd0af10e23,e3148233b553,2c3a58ca0459]",
     "e_sources": "[2026-09-20T18:44:14Z:3217,2026-09-20T19:02:21Z:1782]",
     "e_n_model_read_differ_from_s0": "0",
-    "s": null,
-    "s_estimator": null,
+    "s": 0.015081415782598452,
+    "s_estimator": "exact",
     "s_se_upper": null,
-    "s_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "s_per_job": "",
-    "d_repro": null,
+    "s_reason_empty": null,
+    "s_per_job": "0.0150814",
+    "d_repro": 0.0,
     "s_truncated_unconverged": null,
-    "s_nonunital": null,
-    "s_nonunital_estimator": null,
-    "s_nonunital_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "d_repro_nonunital": null,
-    "s_unital": null,
-    "s_unital_estimator": null,
-    "s_unital_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "d_repro_unital": null
+    "s_nonunital": 0.015081415782598452,
+    "s_nonunital_estimator": "exact",
+    "s_nonunital_reason_empty": null,
+    "d_repro_nonunital": 0.0,
+    "s_unital": 0.01489481031450307,
+    "s_unital_estimator": "exact",
+    "s_unital_reason_empty": null,
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
      "task_D": "ae5a35d49bca7797",
-     "per_job": {},
-     "s": null,
-     "reason": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending"
+     "per_job": {
+      "dao2oe8pqrnc7399e1cg": {
+       "task": "948626a0e6c2b21e",
+       "P_E": 0.23340519132071177,
+       "s": 0.015081415782598452,
+       "weight": 1.0
+      }
+     },
+     "s": 0.015081415782598452,
+     "estimator": "exact",
+     "P_D": 0.2299115215469068,
+     "P_E": 0.23340519132071177,
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "9e7957b5baa17e94",
-     "per_job": {},
-     "s": null,
-     "reason": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending"
+     "per_job": {
+      "dao2oe8pqrnc7399e1cg": {
+       "task": "97f9c5e900f1afc0",
+       "P_E": 0.23250477037778627,
+       "s": 0.01489481031450307,
+       "weight": 1.0
+      }
+     },
+     "s": 0.01489481031450307,
+     "estimator": "exact",
+     "P_D": 0.22906731956587287,
+     "P_E": 0.23250477037778627,
+     "d_repro": 0.0
     }
    }
   },
@@ -34964,16 +35468,16 @@
     "s_se_upper": null,
     "s_reason_empty": null,
     "s_per_job": "0;0",
-    "d_repro": null,
+    "d_repro": 0.0008463170387628506,
     "s_truncated_unconverged": null,
     "s_nonunital": 0.0,
     "s_nonunital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_nonunital_reason_empty": null,
-    "d_repro_nonunital": null,
+    "d_repro_nonunital": 0.0008463170387628506,
     "s_unital": 0.0,
     "s_unital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_unital_reason_empty": null,
-    "d_repro_unital": null
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
@@ -34991,7 +35495,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0008463170387628506
     },
     "unital": {
      "task_D": "d967fa2ab9527362",
@@ -35008,7 +35513,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     }
    }
   },
@@ -35632,16 +36138,16 @@
     "s_se_upper": null,
     "s_reason_empty": null,
     "s_per_job": "0",
-    "d_repro": null,
+    "d_repro": 0.0008463170387628506,
     "s_truncated_unconverged": null,
     "s_nonunital": 0.0,
     "s_nonunital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_nonunital_reason_empty": null,
-    "d_repro_nonunital": null,
+    "d_repro_nonunital": 0.0008463170387628506,
     "s_unital": 0.0,
     "s_unital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_unital_reason_empty": null,
-    "d_repro_unital": null
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
@@ -35654,7 +36160,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0008463170387628506
     },
     "unital": {
      "task_D": "d967fa2ab9527362",
@@ -35666,7 +36173,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     }
    }
   },
@@ -36580,16 +37088,16 @@
     "s_se_upper": null,
     "s_reason_empty": null,
     "s_per_job": "0;0",
-    "d_repro": null,
+    "d_repro": 0.0008463170387628506,
     "s_truncated_unconverged": null,
     "s_nonunital": 0.0,
     "s_nonunital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_nonunital_reason_empty": null,
-    "d_repro_nonunital": null,
+    "d_repro_nonunital": 0.0008463170387628506,
     "s_unital": 0.0,
     "s_unital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_unital_reason_empty": null,
-    "d_repro_unital": null
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
@@ -36607,7 +37115,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0008463170387628506
     },
     "unital": {
      "task_D": "d967fa2ab9527362",
@@ -36624,7 +37133,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     }
    }
   },
@@ -37323,16 +37833,16 @@
     "s_se_upper": null,
     "s_reason_empty": null,
     "s_per_job": "0",
-    "d_repro": null,
+    "d_repro": 0.0,
     "s_truncated_unconverged": null,
     "s_nonunital": 0.0,
     "s_nonunital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_nonunital_reason_empty": null,
-    "d_repro_nonunital": null,
+    "d_repro_nonunital": 0.0,
     "s_unital": 0.0,
     "s_unital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_unital_reason_empty": null,
-    "d_repro_unital": null
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
@@ -37345,7 +37855,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "668149ad4b1a83c7",
@@ -37357,7 +37868,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     }
    }
   },
@@ -38198,16 +38710,16 @@
     "s_se_upper": null,
     "s_reason_empty": null,
     "s_per_job": "0;0",
-    "d_repro": null,
+    "d_repro": 0.0,
     "s_truncated_unconverged": null,
     "s_nonunital": 0.0,
     "s_nonunital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_nonunital_reason_empty": null,
-    "d_repro_nonunital": null,
+    "d_repro_nonunital": 0.0,
     "s_unital": 0.0,
     "s_unital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_unital_reason_empty": null,
-    "d_repro_unital": null
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
@@ -38225,7 +38737,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "668149ad4b1a83c7",
@@ -38242,7 +38755,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     }
    }
   },
@@ -38958,16 +39472,16 @@
     "s_se_upper": null,
     "s_reason_empty": null,
     "s_per_job": "0",
-    "d_repro": null,
+    "d_repro": 0.0,
     "s_truncated_unconverged": null,
     "s_nonunital": 0.0,
     "s_nonunital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_nonunital_reason_empty": null,
-    "d_repro_nonunital": null,
+    "d_repro_nonunital": 0.0,
     "s_unital": 0.0,
     "s_unital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_unital_reason_empty": null,
-    "d_repro_unital": null
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
@@ -38980,7 +39494,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "9441058ee9e0e399",
@@ -38992,7 +39507,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     }
    }
   },
@@ -40072,16 +40588,16 @@
     "s_se_upper": null,
     "s_reason_empty": null,
     "s_per_job": "0;0",
-    "d_repro": null,
+    "d_repro": 0.0,
     "s_truncated_unconverged": null,
     "s_nonunital": 0.0,
     "s_nonunital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_nonunital_reason_empty": null,
-    "d_repro_nonunital": null,
+    "d_repro_nonunital": 0.0,
     "s_unital": 0.0,
     "s_unital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_unital_reason_empty": null,
-    "d_repro_unital": null
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
@@ -40099,7 +40615,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "9441058ee9e0e399",
@@ -40116,7 +40633,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     }
    }
   },
@@ -40832,16 +41350,16 @@
     "s_se_upper": null,
     "s_reason_empty": null,
     "s_per_job": "0",
-    "d_repro": null,
+    "d_repro": 0.0,
     "s_truncated_unconverged": null,
     "s_nonunital": 0.0,
     "s_nonunital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_nonunital_reason_empty": null,
-    "d_repro_nonunital": null,
+    "d_repro_nonunital": 0.0,
     "s_unital": 0.0,
     "s_unital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_unital_reason_empty": null,
-    "d_repro_unital": null
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
@@ -40854,7 +41372,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "9441058ee9e0e399",
@@ -40866,7 +41385,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     }
    }
   },
@@ -41582,16 +42102,16 @@
     "s_se_upper": null,
     "s_reason_empty": null,
     "s_per_job": "0",
-    "d_repro": null,
+    "d_repro": 0.0,
     "s_truncated_unconverged": null,
     "s_nonunital": 0.0,
     "s_nonunital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_nonunital_reason_empty": null,
-    "d_repro_nonunital": null,
+    "d_repro_nonunital": 0.0,
     "s_unital": 0.0,
     "s_unital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_unital_reason_empty": null,
-    "d_repro_unital": null
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
@@ -41604,7 +42124,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "525b39a386b8a1b5",
@@ -41616,7 +42137,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     }
    }
   },
@@ -42855,16 +43377,16 @@
     "s_se_upper": null,
     "s_reason_empty": null,
     "s_per_job": "0;0;0",
-    "d_repro": null,
+    "d_repro": 0.0,
     "s_truncated_unconverged": null,
     "s_nonunital": 0.0,
     "s_nonunital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_nonunital_reason_empty": null,
-    "d_repro_nonunital": null,
+    "d_repro_nonunital": 0.0,
     "s_unital": 0.0,
     "s_unital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_unital_reason_empty": null,
-    "d_repro_unital": null
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
@@ -42887,7 +43409,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "525b39a386b8a1b5",
@@ -42909,7 +43432,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     }
    }
   },
@@ -43784,16 +44308,16 @@
     "s_se_upper": null,
     "s_reason_empty": null,
     "s_per_job": "0;0",
-    "d_repro": null,
+    "d_repro": 0.0,
     "s_truncated_unconverged": null,
     "s_nonunital": 0.0,
     "s_nonunital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_nonunital_reason_empty": null,
-    "d_repro_nonunital": null,
+    "d_repro_nonunital": 0.0,
     "s_unital": 0.0,
     "s_unital_estimator": "identical inputs (E equals D in every value the model reads)",
     "s_unital_reason_empty": null,
-    "d_repro_unital": null
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
@@ -43811,7 +44335,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "525b39a386b8a1b5",
@@ -43828,7 +44353,8 @@
       }
      },
      "s": 0.0,
-     "estimator": "identical inputs (E equals D in every value the model reads)"
+     "estimator": "identical inputs (E equals D in every value the model reads)",
+     "d_repro": 0.0
     }
    }
   },
@@ -44600,34 +45126,54 @@
     "pool_sha256": "[ec775f760e2f,ba0c5a2eebe2,707b1eddb960,c196e220b34b,3f9974d0d0a6]",
     "e_sources": "[2026-09-20T22:52:52Z:3217,2026-09-21T00:01:12Z:1782]",
     "e_n_model_read_differ_from_s0": "0",
-    "s": null,
-    "s_estimator": null,
+    "s": -0.04346397262684301,
+    "s_estimator": "truncated",
     "s_se_upper": null,
-    "s_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "s_per_job": "",
-    "d_repro": null,
+    "s_reason_empty": null,
+    "s_per_job": "-0.043464",
+    "d_repro": 0.0,
     "s_truncated_unconverged": null,
-    "s_nonunital": null,
-    "s_nonunital_estimator": null,
-    "s_nonunital_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "d_repro_nonunital": null,
-    "s_unital": null,
-    "s_unital_estimator": null,
-    "s_unital_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "d_repro_unital": null
+    "s_nonunital": -0.04346397262684301,
+    "s_nonunital_estimator": "truncated",
+    "s_nonunital_reason_empty": null,
+    "d_repro_nonunital": 0.0,
+    "s_unital": -0.04024993721275792,
+    "s_unital_estimator": "truncated",
+    "s_unital_reason_empty": null,
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
      "task_D": "8b64feae61f3b293",
-     "per_job": {},
-     "s": null,
-     "reason": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending"
+     "per_job": {
+      "dao2pqv8gn2s739nabkg": {
+       "task": "9bd20c879834710d",
+       "P_E": 0.0002866705315347365,
+       "s": -0.04346397262684301,
+       "weight": 1.0
+      }
+     },
+     "s": -0.04346397262684301,
+     "estimator": "truncated",
+     "P_D": 0.0002994051147620898,
+     "P_E": 0.0002866705315347365,
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "9441058ee9e0e399",
-     "per_job": {},
-     "s": null,
-     "reason": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending"
+     "per_job": {
+      "dao2pqv8gn2s739nabkg": {
+       "task": "b4f737d5a445d679",
+       "P_E": 0.00028297200978603666,
+       "s": -0.04024993721275792,
+       "weight": 1.0
+      }
+     },
+     "s": -0.04024993721275792,
+     "estimator": "truncated",
+     "P_D": 0.0002945939373671114,
+     "P_E": 0.00028297200978603666,
+     "d_repro": 0.0
     }
    }
   },
@@ -45399,34 +45945,54 @@
     "pool_sha256": "[ec775f760e2f,ba0c5a2eebe2,707b1eddb960,c196e220b34b,3f9974d0d0a6]",
     "e_sources": "[2026-09-20T22:52:52Z:3217,2026-09-21T00:01:12Z:1782]",
     "e_n_model_read_differ_from_s0": "0",
-    "s": null,
-    "s_estimator": null,
+    "s": -0.04346397262684301,
+    "s_estimator": "truncated",
     "s_se_upper": null,
-    "s_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "s_per_job": "",
-    "d_repro": null,
+    "s_reason_empty": null,
+    "s_per_job": "-0.043464",
+    "d_repro": 0.0,
     "s_truncated_unconverged": null,
-    "s_nonunital": null,
-    "s_nonunital_estimator": null,
-    "s_nonunital_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "d_repro_nonunital": null,
-    "s_unital": null,
-    "s_unital_estimator": null,
-    "s_unital_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "d_repro_unital": null
+    "s_nonunital": -0.04346397262684301,
+    "s_nonunital_estimator": "truncated",
+    "s_nonunital_reason_empty": null,
+    "d_repro_nonunital": 0.0,
+    "s_unital": -0.04024993721275792,
+    "s_unital_estimator": "truncated",
+    "s_unital_reason_empty": null,
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
      "task_D": "8b64feae61f3b293",
-     "per_job": {},
-     "s": null,
-     "reason": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending"
+     "per_job": {
+      "dao2psf8gn2s739nabmg": {
+       "task": "9bd20c879834710d",
+       "P_E": 0.0002866705315347365,
+       "s": -0.04346397262684301,
+       "weight": 1.0
+      }
+     },
+     "s": -0.04346397262684301,
+     "estimator": "truncated",
+     "P_D": 0.0002994051147620898,
+     "P_E": 0.0002866705315347365,
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "9441058ee9e0e399",
-     "per_job": {},
-     "s": null,
-     "reason": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending"
+     "per_job": {
+      "dao2psf8gn2s739nabmg": {
+       "task": "b4f737d5a445d679",
+       "P_E": 0.00028297200978603666,
+       "s": -0.04024993721275792,
+       "weight": 1.0
+      }
+     },
+     "s": -0.04024993721275792,
+     "estimator": "truncated",
+     "P_D": 0.0002945939373671114,
+     "P_E": 0.00028297200978603666,
+     "d_repro": 0.0
     }
    }
   },
@@ -46148,34 +46714,54 @@
     "pool_sha256": "[b6be318429b2,e17d6db9df2b,f2106a93f7b2,24c7e80d1115,a81b8bba70a8]",
     "e_sources": "[2026-11-10T09:07:11Z:5278,2026-11-10T11:20:04Z:593]",
     "e_n_model_read_differ_from_s0": "459",
-    "s": null,
-    "s_estimator": null,
+    "s": 0.010732081590883822,
+    "s_estimator": "truncated",
     "s_se_upper": null,
-    "s_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "s_per_job": "",
-    "d_repro": null,
+    "s_reason_empty": null,
+    "s_per_job": "0.0107321",
+    "d_repro": 0.0,
     "s_truncated_unconverged": null,
-    "s_nonunital": null,
-    "s_nonunital_estimator": null,
-    "s_nonunital_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "d_repro_nonunital": null,
-    "s_unital": null,
-    "s_unital_estimator": null,
-    "s_unital_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "d_repro_unital": null
+    "s_nonunital": 0.010732081590883822,
+    "s_nonunital_estimator": "truncated",
+    "s_nonunital_reason_empty": null,
+    "d_repro_nonunital": 0.0,
+    "s_unital": 0.010800885260693388,
+    "s_unital_estimator": "truncated",
+    "s_unital_reason_empty": null,
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
      "task_D": "5811e134834dc1f4",
-     "per_job": {},
-     "s": null,
-     "reason": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending"
+     "per_job": {
+      "dbpfnr0qtr0c738ebeng": {
+       "task": "f4f67963cd0d56dc",
+       "P_E": 0.00042344986555849766,
+       "s": 0.010732081590883822,
+       "weight": 1.0
+      }
+     },
+     "s": 0.010732081590883822,
+     "estimator": "truncated",
+     "P_D": 0.0004189296660122292,
+     "P_E": 0.00042344986555849766,
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "93511c647b9530f4",
-     "per_job": {},
-     "s": null,
-     "reason": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending"
+     "per_job": {
+      "dbpfnr0qtr0c738ebeng": {
+       "task": "7a594590236a687d",
+       "P_E": 0.0004211771630780105,
+       "s": 0.010800885260693388,
+       "weight": 1.0
+      }
+     },
+     "s": 0.010800885260693388,
+     "estimator": "truncated",
+     "P_D": 0.0004166525557338754,
+     "P_E": 0.0004211771630780105,
+     "d_repro": 0.0
     }
    }
   },
@@ -46911,34 +47497,54 @@
     "pool_sha256": "[f2106a93f7b2,24c7e80d1115,a81b8bba70a8]",
     "e_sources": "[2026-11-10T11:35:39Z:5871]",
     "e_n_model_read_differ_from_s0": "0",
-    "s": null,
-    "s_estimator": null,
+    "s": 0.010376163671501855,
+    "s_estimator": "truncated",
     "s_se_upper": null,
-    "s_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "s_per_job": "",
-    "d_repro": null,
+    "s_reason_empty": null,
+    "s_per_job": "0.0103762",
+    "d_repro": 0.0,
     "s_truncated_unconverged": null,
-    "s_nonunital": null,
-    "s_nonunital_estimator": null,
-    "s_nonunital_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "d_repro_nonunital": null,
-    "s_unital": null,
-    "s_unital_estimator": null,
-    "s_unital_reason_empty": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending",
-    "d_repro_unital": null
+    "s_nonunital": 0.010376163671501855,
+    "s_nonunital_estimator": "truncated",
+    "s_nonunital_reason_empty": null,
+    "d_repro_nonunital": 0.0,
+    "s_unital": 0.010444611184828607,
+    "s_unital_estimator": "truncated",
+    "s_unital_reason_empty": null,
+    "d_repro_unital": 0.0
    },
    "shift": {
     "nonunital": {
      "task_D": "5811e134834dc1f4",
-     "per_job": {},
-     "s": null,
-     "reason": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending"
+     "per_job": {
+      "dbpfom8ou4as73ctjes0": {
+       "task": "b388c396d075af66",
+       "P_E": 0.0004232991789810028,
+       "s": 0.010376163671501855,
+       "weight": 1.0
+      }
+     },
+     "s": 0.010376163671501855,
+     "estimator": "truncated",
+     "P_D": 0.0004189296660122292,
+     "P_E": 0.0004232991789810028,
+     "d_repro": 0.0
     },
     "unital": {
      "task_D": "93511c647b9530f4",
-     "per_job": {},
-     "s": null,
-     "reason": "rows drawn (draw_rows.py, main a8136f0) but not read into this build: s pending"
+     "per_job": {
+      "dbpfom8ou4as73ctjes0": {
+       "task": "bce9432b2751605c",
+       "P_E": 0.00042102713530055036,
+       "s": 0.010444611184828607,
+       "weight": 1.0
+      }
+     },
+     "s": 0.010444611184828607,
+     "estimator": "truncated",
+     "P_D": 0.0004166525557338754,
+     "P_E": 0.00042102713530055036,
+     "d_repro": 0.0
     }
    }
   }
