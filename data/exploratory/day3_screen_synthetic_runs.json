@@ -1,18 +1,18 @@
 {
  "exploratory": true,
  "what": "day-3 exploratory screen on synthetic runs: plan Section 4, item 8 (d) and (e); synthetic data only, no measured value",
- "made_utc": "2026-11-11T18:20:41+00:00",
+ "made_utc": "2026-11-12T03:18:54+00:00",
  "plan": {
   "file": "docs/analysis_plans/day3_exploratory_plan_2026-11-11.md",
-  "commit": "73f17b453bc04abc1fb76bbac140cfb3f1655a27"
+  "commit": "2b221355d29611fc46fde79e097bf999a5f52381"
  },
  "screen_version": 2,
- "script_commit": "d55d29a578c50eec74ecbc71d39cbb0b81eb6fb6",
- "screen_sha256": "db1f5579e789514334180e235bcb5c730a8f7ef1d9ef9ff5d4a5863e08bff6b5",
- "generator_sha256": "333b464b4d077f45fa8bad34ec74b8b544539b78e69644dd247dba2d279d508b",
+ "script_commit": "328abcfa84722fb186c96f74561988e68d4361e1",
+ "screen_sha256": "2a6f9150ca9bdd481207ea039077712e0bfa88ab27d63f815a25bf8bdc2ac234",
+ "generator_sha256": "8d6fb4eab3c109944fbbf90e8645f488baeb2424f0f8615da4fb8ffa1637ca4d",
  "family_file": {
   "path": "docs/analysis_plans/day3_exploratory_family.csv",
-  "sha256": "a3713700547c7b57775dac9446bd24314910e586752bf00080af085d84bf391e"
+  "sha256": "457994f013b302c17df587cb96ff29bd05ebecb51df7a9e2230680b92238df86"
  },
  "list": "data/joblists/paper1/day3_dial_refs.json",
  "runs_per_kind": 200,
@@ -20,6 +20,10 @@
   "null": 710000,
   "variance_factor": 720000,
   "variance_drift": 730000
+ },
+ "draws": {
+  "default": "the generator's design: gradient draw amplitude zero with probability 1 - pi_u and uniform otherwise, scaled to unit variance (bounded; kurtosis 1.8 / pi_u: 13.8 on the references, 4.5 on the dial points); cost draw amplitude uniform (kurtosis 1.8); per-mask parts Rademacher; binomial shots",
+  "heavy": "every per-draw amplitude (gradient, cost, truncation difference) zero with probability 1 - 1.8 / kurtosis and uniform otherwise, scaled to unit variance (bounded); per-mask parts Rademacher; binomial shots"
  },
  "limit": {
   "rate_any_candidate_under_null": 0.1
@@ -47,7 +51,116 @@
   "family_size": [
    1247
   ],
-  "mean_seconds_per_run": 10.200000000000005
+  "mean_seconds_per_run": 13.34149999999999,
+  "single_tests": {
+   "scope": "family members that were evaluated, every run of the kind pooled",
+   "all": {
+    "tests": 47800,
+    "below_0.05": 2301,
+    "fraction_below_0.05": 0.04813807531380753,
+    "below_0.001": 58,
+    "fraction_below_0.001": 0.001213389121338912
+   },
+   "variance_type": {
+    "checks": [
+     "S4.1",
+     "S4.2",
+     "T4",
+     "T8"
+    ],
+    "tests": 10400,
+    "below_0.05": 516,
+    "fraction_below_0.05": 0.04961538461538462,
+    "below_0.001": 20,
+    "fraction_below_0.001": 0.0019230769230769232
+   },
+   "by_check": {
+    "S4.1": {
+     "tests": 3600,
+     "below_0.05": 187,
+     "fraction_below_0.05": 0.051944444444444446,
+     "below_0.001": 3,
+     "fraction_below_0.001": 0.0008333333333333334
+    },
+    "S4.2": {
+     "tests": 1000,
+     "below_0.05": 49,
+     "fraction_below_0.05": 0.049,
+     "below_0.001": 2,
+     "fraction_below_0.001": 0.002
+    },
+    "S4.3": {
+     "tests": 2800,
+     "below_0.05": 107,
+     "fraction_below_0.05": 0.038214285714285715,
+     "below_0.001": 0,
+     "fraction_below_0.001": 0.0
+    },
+    "S4.7": {
+     "tests": 800,
+     "below_0.05": 44,
+     "fraction_below_0.05": 0.055,
+     "below_0.001": 0,
+     "fraction_below_0.001": 0.0
+    },
+    "S5": {
+     "tests": 24000,
+     "below_0.05": 1195,
+     "fraction_below_0.05": 0.049791666666666665,
+     "below_0.001": 31,
+     "fraction_below_0.001": 0.0012916666666666667
+    },
+    "T12": {
+     "tests": 3200,
+     "below_0.05": 155,
+     "fraction_below_0.05": 0.0484375,
+     "below_0.001": 1,
+     "fraction_below_0.001": 0.0003125
+    },
+    "T13": {
+     "tests": 2600,
+     "below_0.05": 110,
+     "fraction_below_0.05": 0.04230769230769231,
+     "below_0.001": 0,
+     "fraction_below_0.001": 0.0
+    },
+    "T3": {
+     "tests": 400,
+     "below_0.05": 24,
+     "fraction_below_0.05": 0.06,
+     "below_0.001": 1,
+     "fraction_below_0.001": 0.0025
+    },
+    "T4": {
+     "tests": 600,
+     "below_0.05": 23,
+     "fraction_below_0.05": 0.03833333333333333,
+     "below_0.001": 0,
+     "fraction_below_0.001": 0.0
+    },
+    "T5": {
+     "tests": 400,
+     "below_0.05": 16,
+     "fraction_below_0.05": 0.04,
+     "below_0.001": 0,
+     "fraction_below_0.001": 0.0
+    },
+    "T8": {
+     "tests": 5200,
+     "below_0.05": 257,
+     "fraction_below_0.05": 0.049423076923076924,
+     "below_0.001": 15,
+     "fraction_below_0.001": 0.0028846153846153848
+    },
+    "T9": {
+     "tests": 3200,
+     "below_0.05": 134,
+     "fraction_below_0.05": 0.041875,
+     "below_0.001": 5,
+     "fraction_below_0.001": 0.0015625
+    }
+   }
+  }
  },
  "effects": {
   "variance_factor": {
@@ -81,7 +194,116 @@
    "family_size": [
     1247
    ],
-   "mean_seconds_per_run": 8.327999999999996,
+   "mean_seconds_per_run": 8.515000000000013,
+   "single_tests": {
+    "scope": "family members that were evaluated, every run of the kind pooled",
+    "all": {
+     "tests": 47800,
+     "below_0.05": 2826,
+     "fraction_below_0.05": 0.05912133891213389,
+     "below_0.001": 332,
+     "fraction_below_0.001": 0.006945606694560669
+    },
+    "variance_type": {
+     "checks": [
+      "S4.1",
+      "S4.2",
+      "T4",
+      "T8"
+     ],
+     "tests": 10400,
+     "below_0.05": 870,
+     "fraction_below_0.05": 0.08365384615384615,
+     "below_0.001": 104,
+     "fraction_below_0.001": 0.01
+    },
+    "by_check": {
+     "S4.1": {
+      "tests": 3600,
+      "below_0.05": 448,
+      "fraction_below_0.05": 0.12444444444444444,
+      "below_0.001": 73,
+      "fraction_below_0.001": 0.020277777777777777
+     },
+     "S4.2": {
+      "tests": 1000,
+      "below_0.05": 143,
+      "fraction_below_0.05": 0.143,
+      "below_0.001": 23,
+      "fraction_below_0.001": 0.023
+     },
+     "S4.3": {
+      "tests": 2800,
+      "below_0.05": 83,
+      "fraction_below_0.05": 0.029642857142857144,
+      "below_0.001": 2,
+      "fraction_below_0.001": 0.0007142857142857143
+     },
+     "S4.7": {
+      "tests": 800,
+      "below_0.05": 40,
+      "fraction_below_0.05": 0.05,
+      "below_0.001": 2,
+      "fraction_below_0.001": 0.0025
+     },
+     "S5": {
+      "tests": 24000,
+      "below_0.05": 1204,
+      "fraction_below_0.05": 0.050166666666666665,
+      "below_0.001": 48,
+      "fraction_below_0.001": 0.002
+     },
+     "T12": {
+      "tests": 3200,
+      "below_0.05": 154,
+      "fraction_below_0.05": 0.048125,
+      "below_0.001": 2,
+      "fraction_below_0.001": 0.000625
+     },
+     "T13": {
+      "tests": 2600,
+      "below_0.05": 99,
+      "fraction_below_0.05": 0.03807692307692308,
+      "below_0.001": 0,
+      "fraction_below_0.001": 0.0
+     },
+     "T3": {
+      "tests": 400,
+      "below_0.05": 208,
+      "fraction_below_0.05": 0.52,
+      "below_0.001": 170,
+      "fraction_below_0.001": 0.425
+     },
+     "T4": {
+      "tests": 600,
+      "below_0.05": 45,
+      "fraction_below_0.05": 0.075,
+      "below_0.001": 0,
+      "fraction_below_0.001": 0.0
+     },
+     "T5": {
+      "tests": 400,
+      "below_0.05": 16,
+      "fraction_below_0.05": 0.04,
+      "below_0.001": 0,
+      "fraction_below_0.001": 0.0
+     },
+     "T8": {
+      "tests": 5200,
+      "below_0.05": 234,
+      "fraction_below_0.05": 0.045,
+      "below_0.001": 8,
+      "fraction_below_0.001": 0.0015384615384615385
+     },
+     "T9": {
+      "tests": 3200,
+      "below_0.05": 152,
+      "fraction_below_0.05": 0.0475,
+      "below_0.001": 4,
+      "fraction_below_0.001": 0.00125
+     }
+    }
+   },
    "targets": [
     "S4.1:dial_p0.5_L8_kL:var_kL",
     "T3:L8",
@@ -125,7 +347,116 @@
    "family_size": [
     1247
    ],
-   "mean_seconds_per_run": 8.316500000000005,
+   "mean_seconds_per_run": 8.452499999999995,
+   "single_tests": {
+    "scope": "family members that were evaluated, every run of the kind pooled",
+    "all": {
+     "tests": 47800,
+     "below_0.05": 2580,
+     "fraction_below_0.05": 0.05397489539748954,
+     "below_0.001": 102,
+     "fraction_below_0.001": 0.002133891213389121
+    },
+    "variance_type": {
+     "checks": [
+      "S4.1",
+      "S4.2",
+      "T4",
+      "T8"
+     ],
+     "tests": 10400,
+     "below_0.05": 462,
+     "fraction_below_0.05": 0.044423076923076926,
+     "below_0.001": 30,
+     "fraction_below_0.001": 0.0028846153846153848
+    },
+    "by_check": {
+     "S4.1": {
+      "tests": 3600,
+      "below_0.05": 163,
+      "fraction_below_0.05": 0.04527777777777778,
+      "below_0.001": 7,
+      "fraction_below_0.001": 0.0019444444444444444
+     },
+     "S4.2": {
+      "tests": 1000,
+      "below_0.05": 38,
+      "fraction_below_0.05": 0.038,
+      "below_0.001": 8,
+      "fraction_below_0.001": 0.008
+     },
+     "S4.3": {
+      "tests": 2800,
+      "below_0.05": 145,
+      "fraction_below_0.05": 0.05178571428571429,
+      "below_0.001": 2,
+      "fraction_below_0.001": 0.0007142857142857143
+     },
+     "S4.7": {
+      "tests": 800,
+      "below_0.05": 68,
+      "fraction_below_0.05": 0.085,
+      "below_0.001": 2,
+      "fraction_below_0.001": 0.0025
+     },
+     "S5": {
+      "tests": 24000,
+      "below_0.05": 1455,
+      "fraction_below_0.05": 0.060625,
+      "below_0.001": 60,
+      "fraction_below_0.001": 0.0025
+     },
+     "T12": {
+      "tests": 3200,
+      "below_0.05": 147,
+      "fraction_below_0.05": 0.0459375,
+      "below_0.001": 3,
+      "fraction_below_0.001": 0.0009375
+     },
+     "T13": {
+      "tests": 2600,
+      "below_0.05": 119,
+      "fraction_below_0.05": 0.04576923076923077,
+      "below_0.001": 3,
+      "fraction_below_0.001": 0.001153846153846154
+     },
+     "T3": {
+      "tests": 400,
+      "below_0.05": 26,
+      "fraction_below_0.05": 0.065,
+      "below_0.001": 2,
+      "fraction_below_0.001": 0.005
+     },
+     "T4": {
+      "tests": 600,
+      "below_0.05": 33,
+      "fraction_below_0.05": 0.055,
+      "below_0.001": 1,
+      "fraction_below_0.001": 0.0016666666666666668
+     },
+     "T5": {
+      "tests": 400,
+      "below_0.05": 22,
+      "fraction_below_0.05": 0.055,
+      "below_0.001": 0,
+      "fraction_below_0.001": 0.0
+     },
+     "T8": {
+      "tests": 5200,
+      "below_0.05": 228,
+      "fraction_below_0.05": 0.04384615384615385,
+      "below_0.001": 14,
+      "fraction_below_0.001": 0.002692307692307692
+     },
+     "T9": {
+      "tests": 3200,
+      "below_0.05": 136,
+      "fraction_below_0.05": 0.0425,
+      "below_0.001": 0,
+      "fraction_below_0.001": 0.0
+     }
+    }
+   },
    "targets": [
     "S4.3:job_position:w",
     "S4.3:job_position:v",
@@ -147,6 +478,7 @@
    }
   }
  },
+ "heavy_tails": {},
  "runs": [
   {
    "kind": "null",

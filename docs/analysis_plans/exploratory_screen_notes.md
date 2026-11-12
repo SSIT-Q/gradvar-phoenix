@@ -1,15 +1,18 @@
 # Day-3 exploratory screen: what the script computes, and where the plan leaves a choice open
 
 **Status.** These are notes to `scripts/exploratory_screen.py`, the script of Section 4 of
-`docs/analysis_plans/day3_exploratory_plan_2026-11-11.md` (the plan as corrected on branch `day3-exploratory-plan`, commit
-73f17b453bc04abc1fb76bbac140cfb3f1655a27). The script is exploratory. It is not a registered analysis, it changes no registered
+`docs/analysis_plans/day3_exploratory_plan_2026-11-11.md` (the plan on branch `day3-exploratory-plan`, commit
+2b221355d29611fc46fde79e097bf999a5f52381: the corrections of the review, and the open choices fixed on 12 Nov 2026). The script
+is exploratory. It is not a registered analysis, it changes no registered
 reading, and it writes nothing that the registered analysis reads. Nothing here was computed on a day-3 or pairs datum: the
 script was written and tested on synthetic rows, on a dry run of the committed day-3 list by the runner (no circuit submitted,
 made-up values), and once, as a code test only, on the stored smoke test of 20 Sep 2026.
 
 Where the plan fixes a number or a rule, the script uses it and a test pins it to the plan's sentence. Where the plan leaves a
-choice open, the choice made is listed in Section 8 below with a sentence that could be put into the plan. Until the plan says
-otherwise these choices are the author's reading, not the plan's.
+choice open, the choice made is listed in Section 8 below with a sentence that could be put into the plan. On 12 Nov 2026 the
+lead decided on them: the sentences proposed for items 1, 2, 3, 4, 5, 6, 7, 9, 10, 12, 15, 16, 17, 18, 19 and 22 are in the plan
+since commit 2b22135, and a test pins the script to them. Items 8, 11, 13, 14, 20 and 21 are recorded here only and remain the
+author's reading, not the plan's.
 
 ## 1. Files
 
@@ -21,6 +24,7 @@ otherwise these choices are the author's reading, not the plan's.
 | `scripts/exploratory_synthetic.py` | Synthetic day-3 runs with planted second moments (tests, T8's cell model, item 8 (d) and (e)); `fill_dry_run` |
 | `scripts/exploratory_screen_calibration.py` | Item 8 (d) and (e): the whole screen on synthetic null runs and on runs with one injected effect |
 | `data/exploratory/day3_screen_synthetic_runs.json` | The committed result of (d) and (e) (`"exploratory": true`; synthetic data only) |
+| `data/exploratory/day3_screen_synthetic_runs_heavy_tails.json` | (d) once more with heavy-tailed draws, kurtosis 4 and 6 (`"exploratory": true`; synthetic data only) |
 | `tests/test_exploratory_screen.py`, `tests/test_exploratory_screen_null.py` | Tests; the second holds the 200 null runs and is marked slow |
 
 ## 2. Running it, and what it refuses
@@ -172,7 +176,15 @@ no split.
 
 ## 8. Choices the plan leaves open
 
-Each entry: what the plan says, what the script does, and a sentence that could go into the plan.
+Each entry: what the plan said at 73f17b45, what the script does, and a sentence that could go into the plan.
+
+**Decided on 12 Nov 2026 (plan commit 2b22135).** The proposed sentences of items 1, 2, 3, 4, 5, 6, 7, 9, 10, 12, 15, 16, 17, 18,
+19 and 22 are now in the plan, word for word, each at the rule, check or item it belongs to, with two remarks. Item 5: the
+clause is entered as "and the tests of T1 and T2 enter the family as not evaluable", because the sentence it joins also names
+T9, whose tests are evaluated. Item 10: the plan adds "The three T11 statistics are fixed here before dispatch; until they are
+implemented and tested they enter the family as not evaluable"; the family file carries the three statistics in the plan's
+words. Items 8, 11, 13, 14, 20 and 21 stay here only. The two points raised with the lead are settled: the references stay
+packed in two jobs as registered, and the covariates that do not vary are a stated limit (the plan's Section 9).
 
 1. **Scale and error of r (item 1).** The plan: "r = ln(Q / P), or (Q - P) / sigma where Q can be non-positive, with its combined
    standard error". The script uses the log scale when P exceeds three standard errors of Q and every delete-one value is
@@ -287,8 +299,9 @@ Each entry: what the plan says, what the script does, and a sentence that could 
 
 - The family has 1247 tests and Benjamini-Yekutieli assumes nothing about their dependence, so only a very small p value can
   pass (see Section 7). The screen is a guard against naming noise; it is not a sensitive detector.
-- **Item 8 (d) and (e)**, `data/exploratory/day3_screen_synthetic_runs.json`, made with the script at d55d29a5 (200 synthetic
-  runs of the committed list's design each; synthetic data only). Without an effect the screen named a candidate in 1 run of
+- **Item 8 (d) and (e)**, `data/exploratory/day3_screen_synthetic_runs.json`, made with the script at 328abcf (200 synthetic
+  runs of the committed list's design each; synthetic data only; the first record, made at d55d29a5, held the same 600 runs
+  with the same result in every run). Without an effect the screen named a candidate in 1 run of
   200 (0.5 percent; the limit of item 8 is 10 percent). With a factor 1.5 on the k = L variance of the reset dial at p = 0.5,
   n60, L = 8 it found the effect in 101 runs of 200 (50.5 percent), in 100 of them through T3 at L = 8. With a change of 10
   percent of the k = L variance across the jobs of one probe it found the effect in 1 run of 200: a drift of that size is below
@@ -302,6 +315,28 @@ Each entry: what the plan says, what the script does, and a sentence that could 
   one of these tests should be read as about two to four times less rare under no effect than its p value says. The rate at
   which the whole screen names a candidate without an effect stays near 0.5 percent all the same (1 of 200 in two independent
   sets).
+- **The draws of the synthetic runs, and item 8 (d) with other draws**
+  (`data/exploratory/day3_screen_synthetic_runs_heavy_tails.json`, made with the script at 328abcf; seeds fixed in
+  `scripts/exploratory_screen_calibration.py` before the runs). The generator's draws are not normal. The amplitude of a
+  gradient draw is zero with probability 1 - pi and uniform otherwise, scaled to unit variance: bounded, with kurtosis 1.8 / pi,
+  which is 13.8 on the references and 4.5 on the dial points. The amplitude of a cost draw is uniform (kurtosis 1.8), the
+  per-mask parts are signs, and the stored values are binomial at the booked shots. For the lead's check every per-draw
+  amplitude (gradient, cost and truncation difference) was given the same heavy-tailed form at kurtosis 4, and at kurtosis 6,
+  200 null runs each. The screen named a candidate in 1 run of 200 at kurtosis 4
+  (0.5 percent; `T8:dial_p0.5_L12_kL:skewness`) and in 1 run of 200 at kurtosis 6
+  (0.5 percent; `S5:dial_p0.25_L12_kL:w:eps_sites`), against the limit of 10 percent. Of the single tests
+  (family members that were evaluated, 47800 per setting), 4.80 percent had p below 0.05 and
+  0.090 percent (43 tests) p below 0.001 at kurtosis 4; 5.09 percent and 0.086 percent (41) at
+  kurtosis 6; 4.81 percent and 0.121 percent (58) with the generator's own draws. For the variance-type tests alone
+  (item 1, the joint tests, T4 and T8; 10400 per setting) the fraction below 0.001 was 0.16 percent (17 tests) at
+  kurtosis 4, 0.09 percent (9) at kurtosis 6 and 0.19 percent (20) with the generator's own draws, against a nominal
+  0.1 percent. These counts are small and the tests of one run share its data, so they do not distinguish a factor 1 from a
+  factor 2; they give no sign that the far tail is worse at kurtosis 4 or 6 than with the generator's own draws. What was not
+  tried: a draw distribution with unbounded tails (Student's t, say) at the same kurtosis.
+- **The placebo flag is raised more often than its nominal 1 percent.** Placebo (a) was reported unreliable in
+  5, 7 and 6 of 200 null runs (own draws, kurtosis 4, kurtosis 6) and placebo (b) in 2, 4 and 4, where 2 would
+  be expected: the 20 repetitions of one run share its data, so their count is more spread than a binomial count. The pooled
+  rates of p below 0.05 are near the nominal 5 percent (between 4.4 and 5.7 percent in the three sets).
 - **T8 is the test that named candidates where none was planted**: in the run of 200 without an effect, and in 2 of the 200
   runs with the drift. Its p value compares the measured skewness or kurtosis with 100 synthetic copies through Student's t,
   which is not exact far in the tail. *Proposed:* "A candidate from T8 is confirmed against 10,000 synthetic copies before it

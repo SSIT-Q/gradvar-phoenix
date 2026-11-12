@@ -1,0 +1,3958 @@
+{
+ "exploratory": true,
+ "what": "day-3 exploratory screen on synthetic runs: plan Section 4, item 8 (d) and (e); synthetic data only, no measured value",
+ "made_utc": "2026-11-12T03:20:11+00:00",
+ "plan": {
+  "file": "docs/analysis_plans/day3_exploratory_plan_2026-11-11.md",
+  "commit": "2b221355d29611fc46fde79e097bf999a5f52381"
+ },
+ "screen_version": 2,
+ "script_commit": "328abcfa84722fb186c96f74561988e68d4361e1",
+ "screen_sha256": "2a6f9150ca9bdd481207ea039077712e0bfa88ab27d63f815a25bf8bdc2ac234",
+ "generator_sha256": "8d6fb4eab3c109944fbbf90e8645f488baeb2424f0f8615da4fb8ffa1637ca4d",
+ "family_file": {
+  "path": "docs/analysis_plans/day3_exploratory_family.csv",
+  "sha256": "457994f013b302c17df587cb96ff29bd05ebecb51df7a9e2230680b92238df86"
+ },
+ "list": "data/joblists/paper1/day3_dial_refs.json",
+ "runs_per_kind": 200,
+ "seed_base": {
+  "null_kurtosis4": 740000,
+  "null_kurtosis6": 750000
+ },
+ "draws": {
+  "default": "the generator's design: gradient draw amplitude zero with probability 1 - pi_u and uniform otherwise, scaled to unit variance (bounded; kurtosis 1.8 / pi_u: 13.8 on the references, 4.5 on the dial points); cost draw amplitude uniform (kurtosis 1.8); per-mask parts Rademacher; binomial shots",
+  "heavy": "every per-draw amplitude (gradient, cost, truncation difference) zero with probability 1 - 1.8 / kurtosis and uniform otherwise, scaled to unit variance (bounded); per-mask parts Rademacher; binomial shots"
+ },
+ "limit": {
+  "rate_any_candidate_under_null": 0.1
+ },
+ "complete": true,
+ "null": null,
+ "effects": {},
+ "heavy_tails": {
+  "null_kurtosis4": {
+   "what": "no effect; every per-draw amplitude heavy-tailed at kurtosis 4",
+   "runs": 200,
+   "runs_with_a_candidate": 1,
+   "rate_any_candidate": 0.005,
+   "runs_with_a_test_passing_benjamini_yekutieli": 1,
+   "candidates_named": {
+    "T8:dial_p0.5_L12_kL:skewness": 1
+   },
+   "placebo_unreliable": {
+    "a": 7,
+    "b": 4,
+    "c": 0
+   },
+   "placebo_rate": {
+    "a": 0.04846114864864865,
+    "b": 0.05665,
+    "c": 0.04666666666666667
+   },
+   "family_size": [
+    1247
+   ],
+   "mean_seconds_per_run": 12.933499999999988,
+   "single_tests": {
+    "scope": "family members that were evaluated, every run of the kind pooled",
+    "all": {
+     "tests": 47800,
+     "below_0.05": 2296,
+     "fraction_below_0.05": 0.04803347280334728,
+     "below_0.001": 43,
+     "fraction_below_0.001": 0.000899581589958159
+    },
+    "variance_type": {
+     "checks": [
+      "S4.1",
+      "S4.2",
+      "T4",
+      "T8"
+     ],
+     "tests": 10400,
+     "below_0.05": 481,
+     "fraction_below_0.05": 0.04625,
+     "below_0.001": 17,
+     "fraction_below_0.001": 0.0016346153846153845
+    },
+    "by_check": {
+     "S4.1": {
+      "tests": 3600,
+      "below_0.05": 157,
+      "fraction_below_0.05": 0.043611111111111114,
+      "below_0.001": 4,
+      "fraction_below_0.001": 0.0011111111111111111
+     },
+     "S4.2": {
+      "tests": 1000,
+      "below_0.05": 57,
+      "fraction_below_0.05": 0.057,
+      "below_0.001": 1,
+      "fraction_below_0.001": 0.001
+     },
+     "S4.3": {
+      "tests": 2800,
+      "below_0.05": 101,
+      "fraction_below_0.05": 0.036071428571428574,
+      "below_0.001": 0,
+      "fraction_below_0.001": 0.0
+     },
+     "S4.7": {
+      "tests": 800,
+      "below_0.05": 36,
+      "fraction_below_0.05": 0.045,
+      "below_0.001": 0,
+      "fraction_below_0.001": 0.0
+     },
+     "S5": {
+      "tests": 24000,
+      "below_0.05": 1166,
+      "fraction_below_0.05": 0.04858333333333333,
+      "below_0.001": 17,
+      "fraction_below_0.001": 0.0007083333333333334
+     },
+     "T12": {
+      "tests": 3200,
+      "below_0.05": 155,
+      "fraction_below_0.05": 0.0484375,
+      "below_0.001": 5,
+      "fraction_below_0.001": 0.0015625
+     },
+     "T13": {
+      "tests": 2600,
+      "below_0.05": 149,
+      "fraction_below_0.05": 0.05730769230769231,
+      "below_0.001": 2,
+      "fraction_below_0.001": 0.0007692307692307692
+     },
+     "T3": {
+      "tests": 400,
+      "below_0.05": 29,
+      "fraction_below_0.05": 0.0725,
+      "below_0.001": 0,
+      "fraction_below_0.001": 0.0
+     },
+     "T4": {
+      "tests": 600,
+      "below_0.05": 27,
+      "fraction_below_0.05": 0.045,
+      "below_0.001": 2,
+      "fraction_below_0.001": 0.0033333333333333335
+     },
+     "T5": {
+      "tests": 400,
+      "below_0.05": 21,
+      "fraction_below_0.05": 0.0525,
+      "below_0.001": 1,
+      "fraction_below_0.001": 0.0025
+     },
+     "T8": {
+      "tests": 5200,
+      "below_0.05": 240,
+      "fraction_below_0.05": 0.046153846153846156,
+      "below_0.001": 10,
+      "fraction_below_0.001": 0.0019230769230769232
+     },
+     "T9": {
+      "tests": 3200,
+      "below_0.05": 158,
+      "fraction_below_0.05": 0.049375,
+      "below_0.001": 1,
+      "fraction_below_0.001": 0.0003125
+     }
+    }
+   },
+   "kurtosis": 4.0,
+   "seed_base": 740000
+  },
+  "null_kurtosis6": {
+   "what": "no effect; every per-draw amplitude heavy-tailed at kurtosis 6",
+   "runs": 200,
+   "runs_with_a_candidate": 1,
+   "rate_any_candidate": 0.005,
+   "runs_with_a_test_passing_benjamini_yekutieli": 1,
+   "candidates_named": {
+    "S5:dial_p0.25_L12_kL:w:eps_sites": 1
+   },
+   "placebo_unreliable": {
+    "a": 6,
+    "b": 4,
+    "c": 1
+   },
+   "placebo_rate": {
+    "a": 0.048594594594594594,
+    "b": 0.05285,
+    "c": 0.051666666666666666
+   },
+   "family_size": [
+    1247
+   ],
+   "mean_seconds_per_run": 8.421500000000007,
+   "single_tests": {
+    "scope": "family members that were evaluated, every run of the kind pooled",
+    "all": {
+     "tests": 47800,
+     "below_0.05": 2433,
+     "fraction_below_0.05": 0.05089958158995816,
+     "below_0.001": 41,
+     "fraction_below_0.001": 0.0008577405857740586
+    },
+    "variance_type": {
+     "checks": [
+      "S4.1",
+      "S4.2",
+      "T4",
+      "T8"
+     ],
+     "tests": 10400,
+     "below_0.05": 565,
+     "fraction_below_0.05": 0.05432692307692308,
+     "below_0.001": 9,
+     "fraction_below_0.001": 0.0008653846153846154
+    },
+    "by_check": {
+     "S4.1": {
+      "tests": 3600,
+      "below_0.05": 199,
+      "fraction_below_0.05": 0.05527777777777778,
+      "below_0.001": 2,
+      "fraction_below_0.001": 0.0005555555555555556
+     },
+     "S4.2": {
+      "tests": 1000,
+      "below_0.05": 60,
+      "fraction_below_0.05": 0.06,
+      "below_0.001": 1,
+      "fraction_below_0.001": 0.001
+     },
+     "S4.3": {
+      "tests": 2800,
+      "below_0.05": 97,
+      "fraction_below_0.05": 0.03464285714285714,
+      "below_0.001": 1,
+      "fraction_below_0.001": 0.00035714285714285714
+     },
+     "S4.7": {
+      "tests": 800,
+      "below_0.05": 43,
+      "fraction_below_0.05": 0.05375,
+      "below_0.001": 1,
+      "fraction_below_0.001": 0.00125
+     },
+     "S5": {
+      "tests": 24000,
+      "below_0.05": 1269,
+      "fraction_below_0.05": 0.052875,
+      "below_0.001": 26,
+      "fraction_below_0.001": 0.0010833333333333333
+     },
+     "T12": {
+      "tests": 3200,
+      "below_0.05": 150,
+      "fraction_below_0.05": 0.046875,
+      "below_0.001": 0,
+      "fraction_below_0.001": 0.0
+     },
+     "T13": {
+      "tests": 2600,
+      "below_0.05": 130,
+      "fraction_below_0.05": 0.05,
+      "below_0.001": 1,
+      "fraction_below_0.001": 0.0003846153846153846
+     },
+     "T3": {
+      "tests": 400,
+      "below_0.05": 24,
+      "fraction_below_0.05": 0.06,
+      "below_0.001": 2,
+      "fraction_below_0.001": 0.005
+     },
+     "T4": {
+      "tests": 600,
+      "below_0.05": 33,
+      "fraction_below_0.05": 0.055,
+      "below_0.001": 1,
+      "fraction_below_0.001": 0.0016666666666666668
+     },
+     "T5": {
+      "tests": 400,
+      "below_0.05": 22,
+      "fraction_below_0.05": 0.055,
+      "below_0.001": 1,
+      "fraction_below_0.001": 0.0025
+     },
+     "T8": {
+      "tests": 5200,
+      "below_0.05": 273,
+      "fraction_below_0.05": 0.0525,
+      "below_0.001": 5,
+      "fraction_below_0.001": 0.0009615384615384616
+     },
+     "T9": {
+      "tests": 3200,
+      "below_0.05": 133,
+      "fraction_below_0.05": 0.0415625,
+      "below_0.001": 0,
+      "fraction_below_0.001": 0.0
+     }
+    }
+   },
+   "kurtosis": 6.0,
+   "seed_base": 750000
+  }
+ },
+ "runs": [
+  {
+   "kind": "null_kurtosis4",
+   "run": 0,
+   "seed": 740000,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0016021968572429845,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 1,
+   "seed": 740001,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0012448687186162849,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 2,
+   "seed": 740002,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0013729723331771676,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 3,
+   "seed": 740003,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0007717378267403536,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 4,
+   "seed": 740004,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.012439891153759782,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 5,
+   "seed": 740005,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0011529878771096304,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 6,
+   "seed": 740006,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.006793091387374559,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 7,
+   "seed": 740007,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.004041069529840407,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 8,
+   "seed": 740008,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.011417356105227218,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 9,
+   "seed": 740009,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.004248136948917901,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 10,
+   "seed": 740010,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0007223567905865261,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 11,
+   "seed": 740011,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.00013330236134099187,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 12,
+   "seed": 740012,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.00012090937168742413,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 13,
+   "seed": 740013,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.019174469844847525,
+   "placebo_unreliable": [
+    "a"
+   ]
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 14,
+   "seed": 740014,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.00013563702086917624,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 15,
+   "seed": 740015,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0021870410709189905,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 16,
+   "seed": 740016,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.014861083895326668,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 17,
+   "seed": 740017,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.020549387465694742,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 18,
+   "seed": 740018,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.001989250275688834,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 19,
+   "seed": 740019,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.011438215883587318,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 20,
+   "seed": 740020,
+   "candidates": [
+    "T8:dial_p0.5_L12_kL:skewness"
+   ],
+   "fdr_pass": [
+    "T8:dial_p0.5_L12_kL:skewness"
+   ],
+   "smallest_p": 8.360329763646063e-06,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 21,
+   "seed": 740021,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.004951237322891865,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 22,
+   "seed": 740022,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0023997120857417475,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 23,
+   "seed": 740023,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.008991932255053566,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 24,
+   "seed": 740024,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0035934245364671307,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 25,
+   "seed": 740025,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.005301941834591333,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 26,
+   "seed": 740026,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.008926168971573554,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 27,
+   "seed": 740027,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0048199246603322045,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 28,
+   "seed": 740028,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.005628287299767566,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 29,
+   "seed": 740029,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0049764690894309556,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 30,
+   "seed": 740030,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0073824693831513934,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 31,
+   "seed": 740031,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.01929592909492098,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 32,
+   "seed": 740032,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0024589078522784043,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 33,
+   "seed": 740033,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.002313415331409326,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 34,
+   "seed": 740034,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0057916589059803965,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 35,
+   "seed": 740035,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0015248285819038732,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 36,
+   "seed": 740036,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.003192061573988081,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 37,
+   "seed": 740037,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0055355294816152815,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 38,
+   "seed": 740038,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.010470510876026868,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 39,
+   "seed": 740039,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.00025631370117069213,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 40,
+   "seed": 740040,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0021654586746357968,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 41,
+   "seed": 740041,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.001601382055215339,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 42,
+   "seed": 740042,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.01147370978259006,
+   "placebo_unreliable": [
+    "a"
+   ]
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 43,
+   "seed": 740043,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0066959584922528905,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 44,
+   "seed": 740044,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0110598578679899,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 45,
+   "seed": 740045,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0019582184100687527,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 46,
+   "seed": 740046,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.017051554781526427,
+   "placebo_unreliable": [
+    "b"
+   ]
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 47,
+   "seed": 740047,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.004706098669913477,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 48,
+   "seed": 740048,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0024202574507518793,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 49,
+   "seed": 740049,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0005840861103410165,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 50,
+   "seed": 740050,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0005162577029462436,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 51,
+   "seed": 740051,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.00919998600255689,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 52,
+   "seed": 740052,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0010211420447007943,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 53,
+   "seed": 740053,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.004649306321906451,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 54,
+   "seed": 740054,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.003460700309158836,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 55,
+   "seed": 740055,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0058187285440411,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 56,
+   "seed": 740056,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.008764375252526468,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 57,
+   "seed": 740057,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.026426090334906324,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 58,
+   "seed": 740058,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.012981253077585145,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 59,
+   "seed": 740059,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.005378269014772166,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 60,
+   "seed": 740060,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.001768807093312689,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 61,
+   "seed": 740061,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0009753544633592606,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 62,
+   "seed": 740062,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0036758254417953054,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 63,
+   "seed": 740063,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.00503976785628135,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 64,
+   "seed": 740064,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.003376863481800049,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 65,
+   "seed": 740065,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.006271990478308714,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 66,
+   "seed": 740066,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.005544426724979277,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 67,
+   "seed": 740067,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.001794036076279126,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 68,
+   "seed": 740068,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0023038341718578893,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 69,
+   "seed": 740069,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.000606265424676253,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 70,
+   "seed": 740070,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.003081096747579896,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 71,
+   "seed": 740071,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0030000513667459423,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 72,
+   "seed": 740072,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 2.260021941276067e-05,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 73,
+   "seed": 740073,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.009380389658022075,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 74,
+   "seed": 740074,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.016765669540577937,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 75,
+   "seed": 740075,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.004729582727955948,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 76,
+   "seed": 740076,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0006128132499761196,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 77,
+   "seed": 740077,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.008066342766775855,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 78,
+   "seed": 740078,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.009976547829959583,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 79,
+   "seed": 740079,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.004949569206384806,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 80,
+   "seed": 740080,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.004766588841169878,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 81,
+   "seed": 740081,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0024000448783783003,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 82,
+   "seed": 740082,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0024630392334186123,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 83,
+   "seed": 740083,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0015697968988296685,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 84,
+   "seed": 740084,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.00376289785544782,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 85,
+   "seed": 740085,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.006998876019475699,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 86,
+   "seed": 740086,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.003519831102927831,
+   "placebo_unreliable": [
+    "b"
+   ]
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 87,
+   "seed": 740087,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0009567893052293095,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 88,
+   "seed": 740088,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.005010960002076902,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 89,
+   "seed": 740089,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.004756489037049005,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 90,
+   "seed": 740090,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.00601613715000869,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 91,
+   "seed": 740091,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.002778280176575058,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 92,
+   "seed": 740092,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0025799577748479145,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 93,
+   "seed": 740093,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.005544104915419473,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 94,
+   "seed": 740094,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.010062347572491382,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 95,
+   "seed": 740095,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.005508698973246873,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 96,
+   "seed": 740096,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0013642471023766415,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 97,
+   "seed": 740097,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0004704006111855337,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 98,
+   "seed": 740098,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.009463294930824014,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 99,
+   "seed": 740099,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.009604768633394878,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 100,
+   "seed": 740100,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.008425922305474924,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 101,
+   "seed": 740101,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0006133510946261227,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 102,
+   "seed": 740102,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.013398409219051196,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 103,
+   "seed": 740103,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0037411138341121846,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 104,
+   "seed": 740104,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.001467244190367001,
+   "placebo_unreliable": [
+    "b"
+   ]
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 105,
+   "seed": 740105,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0013141319933225328,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 106,
+   "seed": 740106,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.001270057066169427,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 107,
+   "seed": 740107,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0009279674641649139,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 108,
+   "seed": 740108,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0027933675250812187,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 109,
+   "seed": 740109,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.009972566870808308,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 110,
+   "seed": 740110,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.001025909150295666,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 111,
+   "seed": 740111,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0007478840615341203,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 112,
+   "seed": 740112,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0010655113977855513,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 113,
+   "seed": 740113,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0014505787873768793,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 114,
+   "seed": 740114,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0018666821408060699,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 115,
+   "seed": 740115,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.016534207207468166,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 116,
+   "seed": 740116,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0033406734364612133,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 117,
+   "seed": 740117,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.009371433665659856,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 118,
+   "seed": 740118,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.002689295828878833,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 119,
+   "seed": 740119,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.004173832443163077,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 120,
+   "seed": 740120,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0015062229440381747,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 121,
+   "seed": 740121,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.00035768294436210946,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 122,
+   "seed": 740122,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0027580058257055764,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 123,
+   "seed": 740123,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0011202659257476457,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 124,
+   "seed": 740124,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.005468485465284592,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 125,
+   "seed": 740125,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.012818574761503304,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 126,
+   "seed": 740126,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.02375182855621593,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 127,
+   "seed": 740127,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0046380258762921565,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 128,
+   "seed": 740128,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0034968441432652324,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 129,
+   "seed": 740129,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.005431291615805438,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 130,
+   "seed": 740130,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.008078373768330205,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 131,
+   "seed": 740131,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.006460769974439174,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 132,
+   "seed": 740132,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0031924109916022826,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 133,
+   "seed": 740133,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.007312224849952381,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 134,
+   "seed": 740134,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0037466102751005166,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 135,
+   "seed": 740135,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.007824926743407323,
+   "placebo_unreliable": [
+    "a"
+   ]
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 136,
+   "seed": 740136,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0032745273407560793,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 137,
+   "seed": 740137,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.007845562947065116,
+   "placebo_unreliable": [
+    "a"
+   ]
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 138,
+   "seed": 740138,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.010564609353370207,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 139,
+   "seed": 740139,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.010113889760052707,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 140,
+   "seed": 740140,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.00266714475637184,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 141,
+   "seed": 740141,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0024375190577881696,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 142,
+   "seed": 740142,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0070770221057771705,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 143,
+   "seed": 740143,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.01946615164702076,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 144,
+   "seed": 740144,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0006063846144827385,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 145,
+   "seed": 740145,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.007011758570062548,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 146,
+   "seed": 740146,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.009967167328578403,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 147,
+   "seed": 740147,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.007444295961204174,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 148,
+   "seed": 740148,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.008925526597385339,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 149,
+   "seed": 740149,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.00732540214578228,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 150,
+   "seed": 740150,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.005195892003300599,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 151,
+   "seed": 740151,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0010533263071156019,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 152,
+   "seed": 740152,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.019199216785188013,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 153,
+   "seed": 740153,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0003368450764744694,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 154,
+   "seed": 740154,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0016878571486405641,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 155,
+   "seed": 740155,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.042847863381493066,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 156,
+   "seed": 740156,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0032892079160364456,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 157,
+   "seed": 740157,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.007500920785487993,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 158,
+   "seed": 740158,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0004449077135604023,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 159,
+   "seed": 740159,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0015523228478656437,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 160,
+   "seed": 740160,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.00884015530841728,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 161,
+   "seed": 740161,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.011006634721924544,
+   "placebo_unreliable": [
+    "b"
+   ]
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 162,
+   "seed": 740162,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 8.959088938756559e-05,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 163,
+   "seed": 740163,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.000279398901166419,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 164,
+   "seed": 740164,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0033760356303741104,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 165,
+   "seed": 740165,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.006626636997577683,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 166,
+   "seed": 740166,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0020885759765398976,
+   "placebo_unreliable": [
+    "a"
+   ]
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 167,
+   "seed": 740167,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.01920502245785847,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 168,
+   "seed": 740168,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0019269534733048134,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 169,
+   "seed": 740169,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0009527509588770414,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 170,
+   "seed": 740170,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.007937252967965627,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 171,
+   "seed": 740171,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.004406688397537397,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 172,
+   "seed": 740172,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.000377394386834023,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 173,
+   "seed": 740173,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.000613937689997553,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 174,
+   "seed": 740174,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0060910810055409765,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 175,
+   "seed": 740175,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0018412059495321155,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 176,
+   "seed": 740176,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0026061812536828195,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 177,
+   "seed": 740177,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.002002525851786212,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 178,
+   "seed": 740178,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.009006346664489115,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 179,
+   "seed": 740179,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.004823264743361643,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 180,
+   "seed": 740180,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0008049815673200693,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 181,
+   "seed": 740181,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0029985777833620294,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 182,
+   "seed": 740182,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.00012852895969032557,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 183,
+   "seed": 740183,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.00615454463325949,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 184,
+   "seed": 740184,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0050589251318833356,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 185,
+   "seed": 740185,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.006953782275631909,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 186,
+   "seed": 740186,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.010360777449822542,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 187,
+   "seed": 740187,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0003290787623933534,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 188,
+   "seed": 740188,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.00039413306472513033,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 189,
+   "seed": 740189,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.013760912802839961,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 190,
+   "seed": 740190,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.005795418383021283,
+   "placebo_unreliable": [
+    "a"
+   ]
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 191,
+   "seed": 740191,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0019767653685464396,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 192,
+   "seed": 740192,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.004159875039041692,
+   "placebo_unreliable": [
+    "a"
+   ]
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 193,
+   "seed": 740193,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.02727103898520348,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 194,
+   "seed": 740194,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0021695801041499963,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 195,
+   "seed": 740195,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.00461353538538454,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 196,
+   "seed": 740196,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0011595519577010372,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 197,
+   "seed": 740197,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.00010030060388731327,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 198,
+   "seed": 740198,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0073294981240332535,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis4",
+   "run": 199,
+   "seed": 740199,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.00019599517355522913,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 0,
+   "seed": 750000,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0010547809597602192,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 1,
+   "seed": 750001,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.002895200558170198,
+   "placebo_unreliable": [
+    "a"
+   ]
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 2,
+   "seed": 750002,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0006548268033325133,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 3,
+   "seed": 750003,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0003636070556335903,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 4,
+   "seed": 750004,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.008385569769168018,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 5,
+   "seed": 750005,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0023018973999634294,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 6,
+   "seed": 750006,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.004323041345376879,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 7,
+   "seed": 750007,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 7.618579680445392e-05,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 8,
+   "seed": 750008,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.012400408007883054,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 9,
+   "seed": 750009,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.009288419535776029,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 10,
+   "seed": 750010,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0015089040969922998,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 11,
+   "seed": 750011,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0025576930122436143,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 12,
+   "seed": 750012,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0006518075839815317,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 13,
+   "seed": 750013,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.003462882634709265,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 14,
+   "seed": 750014,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.022765875991598506,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 15,
+   "seed": 750015,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0032464098571769505,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 16,
+   "seed": 750016,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0068270545009660386,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 17,
+   "seed": 750017,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.007995300627260166,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 18,
+   "seed": 750018,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.004552223225873857,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 19,
+   "seed": 750019,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0004864451326377449,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 20,
+   "seed": 750020,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.009841626663461597,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 21,
+   "seed": 750021,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.005818112938463139,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 22,
+   "seed": 750022,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.006822132362333994,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 23,
+   "seed": 750023,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.005983092954550345,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 24,
+   "seed": 750024,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.01673116741352317,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 25,
+   "seed": 750025,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0007746034407856877,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 26,
+   "seed": 750026,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.010428555886756426,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 27,
+   "seed": 750027,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.022690305951107943,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 28,
+   "seed": 750028,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 8.415094904055835e-05,
+   "placebo_unreliable": [
+    "a",
+    "c"
+   ]
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 29,
+   "seed": 750029,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.014113566168003225,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 30,
+   "seed": 750030,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.022812179730765974,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 31,
+   "seed": 750031,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0010471062756901965,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 32,
+   "seed": 750032,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.00020110391759433407,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 33,
+   "seed": 750033,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.028170697160798525,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 34,
+   "seed": 750034,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.001780099385648826,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 35,
+   "seed": 750035,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0010500385972024577,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 36,
+   "seed": 750036,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.003311635581531518,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 37,
+   "seed": 750037,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.037442113060124925,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 38,
+   "seed": 750038,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.013368381560884624,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 39,
+   "seed": 750039,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0002750578881208171,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 40,
+   "seed": 750040,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.003886913104119275,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 41,
+   "seed": 750041,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0005448411436153736,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 42,
+   "seed": 750042,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.007848992954777407,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 43,
+   "seed": 750043,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.003139891392263336,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 44,
+   "seed": 750044,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.000521965278075905,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 45,
+   "seed": 750045,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.004526630871896492,
+   "placebo_unreliable": [
+    "b"
+   ]
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 46,
+   "seed": 750046,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0008857083942206308,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 47,
+   "seed": 750047,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.00359958409259634,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 48,
+   "seed": 750048,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.011286553930553663,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 49,
+   "seed": 750049,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.002248973201770765,
+   "placebo_unreliable": [
+    "a"
+   ]
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 50,
+   "seed": 750050,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.001431185972363497,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 51,
+   "seed": 750051,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.012989474211288298,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 52,
+   "seed": 750052,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.011357044719597613,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 53,
+   "seed": 750053,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.016094701862324853,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 54,
+   "seed": 750054,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0038051846455687166,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 55,
+   "seed": 750055,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.005877713753606109,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 56,
+   "seed": 750056,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.004028567329598258,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 57,
+   "seed": 750057,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0011488691751737356,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 58,
+   "seed": 750058,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.009829349320971157,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 59,
+   "seed": 750059,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.014071006277250735,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 60,
+   "seed": 750060,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0022758337227530715,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 61,
+   "seed": 750061,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.001529658826706642,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 62,
+   "seed": 750062,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.007529068551397616,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 63,
+   "seed": 750063,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.004366284716783552,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 64,
+   "seed": 750064,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.007241042659786055,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 65,
+   "seed": 750065,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.002465465784576697,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 66,
+   "seed": 750066,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.00026410098786216926,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 67,
+   "seed": 750067,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.014653045111688332,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 68,
+   "seed": 750068,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.001703403856760612,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 69,
+   "seed": 750069,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0034636584224623282,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 70,
+   "seed": 750070,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.005481886634810174,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 71,
+   "seed": 750071,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0026684052442598177,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 72,
+   "seed": 750072,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.004416026064818576,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 73,
+   "seed": 750073,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.015147793858131421,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 74,
+   "seed": 750074,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0010858472362781002,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 75,
+   "seed": 750075,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.012772144345771693,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 76,
+   "seed": 750076,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.004151666284438306,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 77,
+   "seed": 750077,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.004596081956470442,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 78,
+   "seed": 750078,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.007394618841787483,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 79,
+   "seed": 750079,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.01139844981388322,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 80,
+   "seed": 750080,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.011465145039424605,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 81,
+   "seed": 750081,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0016155038112896927,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 82,
+   "seed": 750082,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.01509984615369558,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 83,
+   "seed": 750083,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.006323334587664476,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 84,
+   "seed": 750084,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.001230927564576897,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 85,
+   "seed": 750085,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.007963117110207992,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 86,
+   "seed": 750086,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.014288759577163383,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 87,
+   "seed": 750087,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.006036852338620915,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 88,
+   "seed": 750088,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0002513803152483534,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 89,
+   "seed": 750089,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0056176733478665985,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 90,
+   "seed": 750090,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.007839429037473825,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 91,
+   "seed": 750091,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0033373354386389896,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 92,
+   "seed": 750092,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.003984555147608989,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 93,
+   "seed": 750093,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.005019408673399798,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 94,
+   "seed": 750094,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0010321454244476302,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 95,
+   "seed": 750095,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.00043208570303883496,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 96,
+   "seed": 750096,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0054240261968631544,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 97,
+   "seed": 750097,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.007717761050777776,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 98,
+   "seed": 750098,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0017281001040329645,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 99,
+   "seed": 750099,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.00708066510408097,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 100,
+   "seed": 750100,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.00863334955585671,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 101,
+   "seed": 750101,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.013806560293262502,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 102,
+   "seed": 750102,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.006256307032989279,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 103,
+   "seed": 750103,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.00480792096544692,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 104,
+   "seed": 750104,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.003201559497816313,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 105,
+   "seed": 750105,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.004307158890267864,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 106,
+   "seed": 750106,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.011913660181513075,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 107,
+   "seed": 750107,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0017631935683054408,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 108,
+   "seed": 750108,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.00544438298763144,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 109,
+   "seed": 750109,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.004086958539345683,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 110,
+   "seed": 750110,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.008880486054390777,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 111,
+   "seed": 750111,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.005143068748771087,
+   "placebo_unreliable": [
+    "a"
+   ]
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 112,
+   "seed": 750112,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.004314101839476274,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 113,
+   "seed": 750113,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.004998385270737347,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 114,
+   "seed": 750114,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0002932190280296622,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 115,
+   "seed": 750115,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.015761806809848178,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 116,
+   "seed": 750116,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0031474997695595365,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 117,
+   "seed": 750117,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0010609057870489304,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 118,
+   "seed": 750118,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.009763097952913927,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 119,
+   "seed": 750119,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.006067573860267491,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 120,
+   "seed": 750120,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.00412566120695651,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 121,
+   "seed": 750121,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.005286165070641608,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 122,
+   "seed": 750122,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.000539926066038905,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 123,
+   "seed": 750123,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0021559149865499933,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 124,
+   "seed": 750124,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.01229456704588123,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 125,
+   "seed": 750125,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.008949116629920649,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 126,
+   "seed": 750126,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.004597425007620445,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 127,
+   "seed": 750127,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0027781958234761,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 128,
+   "seed": 750128,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0012627544921111004,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 129,
+   "seed": 750129,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.025559845317527315,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 130,
+   "seed": 750130,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0014672889618551769,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 131,
+   "seed": 750131,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.002797871342592959,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 132,
+   "seed": 750132,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0067340499605984296,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 133,
+   "seed": 750133,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0007441160810020692,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 134,
+   "seed": 750134,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0015789878185526638,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 135,
+   "seed": 750135,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.004845040585184884,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 136,
+   "seed": 750136,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.01091854438248676,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 137,
+   "seed": 750137,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0002932984480613576,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 138,
+   "seed": 750138,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0006009092419266748,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 139,
+   "seed": 750139,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.00018785784621828272,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 140,
+   "seed": 750140,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.009807482731794622,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 141,
+   "seed": 750141,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0010946216605869361,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 142,
+   "seed": 750142,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 9.929365554403465e-05,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 143,
+   "seed": 750143,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0005565441406505836,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 144,
+   "seed": 750144,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.007388958014772238,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 145,
+   "seed": 750145,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0011693184800835948,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 146,
+   "seed": 750146,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0019370829980962885,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 147,
+   "seed": 750147,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.001280803733130307,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 148,
+   "seed": 750148,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0031578803105724923,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 149,
+   "seed": 750149,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.005619438928528127,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 150,
+   "seed": 750150,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.001734760790699255,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 151,
+   "seed": 750151,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.00945345848544986,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 152,
+   "seed": 750152,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.001892063664660025,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 153,
+   "seed": 750153,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0001887899909589723,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 154,
+   "seed": 750154,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0008880111197023483,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 155,
+   "seed": 750155,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.006490839999991112,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 156,
+   "seed": 750156,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0032811494508160417,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 157,
+   "seed": 750157,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0017422585904312367,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 158,
+   "seed": 750158,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0008052673411334926,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 159,
+   "seed": 750159,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.001638235159019519,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 160,
+   "seed": 750160,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.010121585772057613,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 161,
+   "seed": 750161,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0024509329666846155,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 162,
+   "seed": 750162,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0037775901262817406,
+   "placebo_unreliable": [
+    "b"
+   ]
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 163,
+   "seed": 750163,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.011254464211703298,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 164,
+   "seed": 750164,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.022888256578547882,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 165,
+   "seed": 750165,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0060874698763571005,
+   "placebo_unreliable": [
+    "a"
+   ]
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 166,
+   "seed": 750166,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.012385852409569513,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 167,
+   "seed": 750167,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0023134577420040594,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 168,
+   "seed": 750168,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.006311356368612762,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 169,
+   "seed": 750169,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.00781284023991399,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 170,
+   "seed": 750170,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.005930495592308653,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 171,
+   "seed": 750171,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0020850809780466975,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 172,
+   "seed": 750172,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0023677013656316064,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 173,
+   "seed": 750173,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.008661701653050085,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 174,
+   "seed": 750174,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 5.870131263629489e-05,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 175,
+   "seed": 750175,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.02089288062738539,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 176,
+   "seed": 750176,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0005328169631369401,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 177,
+   "seed": 750177,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.00734973029981782,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 178,
+   "seed": 750178,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.007500099346648356,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 179,
+   "seed": 750179,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0009925428528666748,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 180,
+   "seed": 750180,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0016754051625996428,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 181,
+   "seed": 750181,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0009809093746111716,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 182,
+   "seed": 750182,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.004431586998601533,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 183,
+   "seed": 750183,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.006191009769892229,
+   "placebo_unreliable": [
+    "b"
+   ]
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 184,
+   "seed": 750184,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.009213825612654745,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 185,
+   "seed": 750185,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.003175632258357475,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 186,
+   "seed": 750186,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.009495778525861184,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 187,
+   "seed": 750187,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.015995324657306072,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 188,
+   "seed": 750188,
+   "candidates": [
+    "S5:dial_p0.25_L12_kL:w:eps_sites"
+   ],
+   "fdr_pass": [
+    "S5:dial_p0.25_L12_kL:w:eps_sites"
+   ],
+   "smallest_p": 4.0091217864250675e-07,
+   "placebo_unreliable": [
+    "b"
+   ]
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 189,
+   "seed": 750189,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.008059231393562703,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 190,
+   "seed": 750190,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.001653142451403646,
+   "placebo_unreliable": [
+    "a"
+   ]
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 191,
+   "seed": 750191,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.006734677060902278,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 192,
+   "seed": 750192,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0026200246357341354,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 193,
+   "seed": 750193,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 9.5079144391277e-05,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 194,
+   "seed": 750194,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.010190511901388513,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 195,
+   "seed": 750195,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0015996602559677166,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 196,
+   "seed": 750196,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 4.219067295140725e-05,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 197,
+   "seed": 750197,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.0015750178463297532,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 198,
+   "seed": 750198,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.026631994991952006,
+   "placebo_unreliable": []
+  },
+  {
+   "kind": "null_kurtosis6",
+   "run": 199,
+   "seed": 750199,
+   "candidates": [],
+   "fdr_pass": [],
+   "smallest_p": 0.005799214290488784,
+   "placebo_unreliable": []
+  }
+ ]
+}
