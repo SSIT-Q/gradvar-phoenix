@@ -152,6 +152,117 @@ def dephasing_dial_bloch(p: float, t2_us: float | None, idle_ns: float = T_RESET
     return Bloch((1 - p) * d, (1 - p) * d, 1.0, 0.0)
 
 
+@dataclass(frozen=True)
+class DialChannel:
+    """The dial channel's departure from the designed one (Deviation 64, draft; all zero = the designed channel).
+
+    Kept branch (mask bit 0; every qubit of the delay-matched control): Bloch (d (1 - kappa), d (1 - kappa), 1 - gamma; t_z = gamma),
+    d = exp(-idle / T2) the modelled idle: kappa an extra transverse contraction (either sign), gamma the T1 loss over the idle.
+    Reset branch (mask bit 1 of the reset dial): (r_x, r_y, eps1 - eps0; t_z = 1 - eps0 - eps1): eps1 / eps0 = P(1) after a reset of
+    |1> / |0>, r_x and r_y the transverse residuals the reset leaves on X and on Y, bounded by complete positivity alone:
+    (r_x + r_y)^2 <= 4 eps1 (1 - eps0) and (r_x - r_y)^2 <= 4 eps0 (1 - eps1) (review correction C64-1; r_x = r_y is the
+    phase-covariant reset, an assumption beyond complete positivity that the range does not make). The dephasing dial has no reset:
+    its branches are (+-d (1 - kappa), +-d (1 - kappa), 1 - gamma; gamma) and eps1, eps0, r_x, r_y do not enter."""
+    kappa: float = 0.0
+    gamma: float = 0.0
+    eps1: float = 0.0
+    eps0: float = 0.0
+    r_x: float = 0.0
+    r_y: float = 0.0
+
+    def designed(self) -> bool:
+        return not (self.kappa or self.gamma or self.eps1 or self.eps0 or self.r_x or self.r_y)
+
+    def as_dict(self) -> Dict[str, float]:
+        return dict(kappa=self.kappa, gamma=self.gamma, eps1=self.eps1, eps0=self.eps0, r_x=self.r_x, r_y=self.r_y)
+
+    def check(self) -> None:
+        if not (0.0 <= self.gamma <= 1.0 and self.eps1 >= 0.0 and self.eps0 >= 0.0 and self.eps0 + self.eps1 <= 1.0 and self.kappa <= 1.0):
+            raise ValueError(f"dial channel outside its domain: {self}")
+        tol = 1e-15
+        if (self.r_x + self.r_y) ** 2 > 4.0 * self.eps1 * (1.0 - self.eps0) + tol:
+            raise ValueError(f"reset branch not completely positive: (r_x + r_y)^2 = {(self.r_x + self.r_y) ** 2} > "
+                             f"4 eps1 (1 - eps0) = {4.0 * self.eps1 * (1.0 - self.eps0)}")
+        if (self.r_x - self.r_y) ** 2 > 4.0 * self.eps0 * (1.0 - self.eps1) + tol:
+            raise ValueError(f"reset branch not completely positive: (r_x - r_y)^2 = {(self.r_x - self.r_y) ** 2} > "
+                             f"4 eps0 (1 - eps1) = {4.0 * self.eps0 * (1.0 - self.eps1)}")
+
+
+@dataclass(frozen=True)
+class DialBloch(Bloch):
+    """A dial entry that carries its two branches: the Bloch fields are the exact mixture (1 - mask_p) b0 + mask_p b1 (or, in a
+    fixed-mask program, one branch: mask_p 0.0 or 1.0). The designed channel does not use this class: there the plain ``Bloch`` is the
+    mixture, its t_z is the reset probability and the branches follow from it (``dial_branches``); for any other channel t_z is not
+    the lottery probability, so the entry states it. ``reset_p``: the probability that the qubit is reset in this layer, which is
+    what switches off the dial-idle ZZ of its couplers (the lottery probability on the reset dial, 0 on the dephasing dial and
+    on the delay-matched control)."""
+    kind: str = "reset"
+    mask_p: float = 0.0
+    b0: Optional[Bloch] = None
+    b1: Optional[Bloch] = None
+    channel: Optional[DialChannel] = None
+
+    @property
+    def reset_p(self) -> float:
+        return float(self.mask_p) if self.kind == "reset" else 0.0
+
+    def branch(self, bit: int) -> Bloch:
+        """The single-qubit map of the layer when the reset lottery gives ``bit`` (entries without a reset: the entry itself)."""
+        if self.kind != "reset":
+            return self
+        return self.b1 if bit else self.b0
+
+
+def _bloch_vec(b: Bloch) -> Tuple[float, float, float, float]:
+    return (float(b.dx), float(b.dy), float(b.dz), float(b.tz))
+
+
+def dial_mixture(b0: Bloch, b1: Bloch, mask_p: float) -> Bloch:
+    """(1 - mask_p) b0 + mask_p b1, entry by entry (the exact mixture of two branches)."""
+    q = float(mask_p)
+    return Bloch(*[(1.0 - q) * x0 + q * x1 for x0, x1 in zip(_bloch_vec(b0), _bloch_vec(b1))])
+
+
+def dial_reset_probability(b: Optional[Bloch]) -> float:
+    """The lottery probability the dial-ZZ rule reads for one entry: stated by a ``DialBloch``; for the designed channel's plain
+    ``Bloch`` it is the channel's t_z (N_p = p Reset + (1 - p) Idle), as before."""
+    if b is None:
+        return 0.0
+    return b.reset_p if isinstance(b, DialBloch) else float(b.tz)
+
+
+def dial_lottery(blochs: Sequence[Optional[Bloch]]) -> List[float]:
+    """Per-qubit reset probabilities of one dial layer (the explicit ``lottery`` argument of the dial-ZZ rule)."""
+    return [dial_reset_probability(b) for b in blochs]
+
+
+def _check_lottery(blochs, lottery) -> List[float]:
+    own = dial_lottery(blochs)
+    if lottery is None:
+        return own
+    lottery = [float(v) for v in lottery]
+    if len(lottery) != len(own):
+        raise ValueError("lottery: one probability per qubit of the layer")
+    for b, v, w in zip(blochs, lottery, own):
+        if b is not None and abs(v - w) > 1e-12:
+            raise ValueError(f"lottery probability {v} differs from the dial entry's {w}")
+    return lottery
+
+
+def _hub_out_amplitudes(b: DialBloch, q: float, isz: np.ndarray, fI: np.ndarray, fR: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    """Amplitudes of a hub's two outcomes for one flip set: (hub left in Z, hub left in I), before the parity toggle. A Z hub: the
+    idle branch gives b0.dz Z + b0.tz I with the couplers turned by phi_s + phi_i (fI), the reset branch b1.dz Z + b1.tz I with phi_s
+    (fR); an I hub stays I on both branches. Equal outcome strings of the two branches are summed before squaring."""
+    e0, e1 = b.branch(0), b.branch(1)
+    aZ = np.where(isz, (1.0 - q) * e0.dz * fI + q * e1.dz * fR, 0.0)
+    aI = np.where(isz, (1.0 - q) * e0.tz * fI + q * e1.tz * fR, (1.0 - q) * fI + q * fR)
+    return aZ, aI
+
+
+def _always_reset(b: Optional[Bloch]) -> bool:
+    return isinstance(b, DialBloch) and b.reset_p == 1.0
+
+
 @dataclass
 class ChannelSet:
     """Per local qubit / edge channels of one model, in the transpiled gate set (see module docstring)."""
@@ -406,11 +517,37 @@ def make_program(patch, L: int, k: int, model: str, csv_path: str, dial: Optiona
 
 
 def dial_bloch_by_qubit(csv_path: str, qubits: Sequence[int], kind: str, p: float = 0.0,
-                        idle_ns: float = T_RESET_NS) -> Dict[int, Bloch]:
+                        idle_ns: float = T_RESET_NS, channel: Optional[DialChannel] = None, cp_clip: bool = True) -> Dict[int, Bloch]:
     """kind: 'reset' (N_p with idle dephasing on the non-reset branch), 'reset_pure' (mixture rule only),
-    'delay' (p = 0 delay-matched control), 'dephase' (unital dephasing dial). Keyed by physical qubit."""
+    'delay' (p = 0 delay-matched control), 'dephase' (unital dephasing dial). Keyed by physical qubit.
+
+    ``channel`` (``DialChannel``; None or the all-zero channel: the designed dial, the plain ``Bloch`` values as before): every
+    entry is a ``DialBloch``, the exact mixture of the channel's two branches, which it carries (``dial_branches`` returns them).
+    The same channel on every qubit; d is the qubit's own modelled idle. ``cp_clip``: the kept branch's transverse factor
+    d (1 - kappa) is capped at sqrt(1 - gamma), the largest a completely positive map with that T1 loss allows (a negative kappa
+    means 'less dephasing than modelled', at most none)."""
     df = noise_mod.load_calibration(csv_path)
     out = {}
+    if channel is not None and not channel.designed():
+        channel.check()
+        if kind not in ("reset", "dephase", "delay"):
+            raise ValueError(f"a dial channel other than the designed one is defined for 'reset', 'dephase' and 'delay', not {kind!r}")
+        cap = float(np.sqrt(1.0 - channel.gamma))
+        for q in qubits:
+            t1, t2 = float(df.loc[int(q), "T1 (us)"]), float(df.loc[int(q), "T2 (us)"])
+            t2 = min(t2, 2 * t1)
+            dx = float(np.exp(-idle_ns * 1e-3 / t2)) * (1.0 - channel.kappa)
+            if cp_clip and dx > cap:
+                dx = cap
+            b0 = Bloch(dx, dx, 1.0 - channel.gamma, channel.gamma)
+            if kind == "reset":
+                b1, w = Bloch(channel.r_x, channel.r_y, channel.eps1 - channel.eps0, 1.0 - channel.eps0 - channel.eps1), float(p)
+            elif kind == "dephase":
+                b1, w = Bloch(-dx, -dx, b0.dz, b0.tz), float(p) / 2.0
+            else:
+                b1, w = b0, 0.0
+            out[int(q)] = DialBloch(*_bloch_vec(dial_mixture(b0, b1, w)), kind=kind, mask_p=w, b0=b0, b1=b1, channel=channel)
+        return out
     for q in qubits:
         t1, t2 = float(df.loc[int(q), "T1 (us)"]), float(df.loc[int(q), "T2 (us)"])
         t2 = min(t2, 2 * t1)
@@ -519,7 +656,9 @@ def _prefix_coefficients(prog: Program, obs: Dict[Tuple[int, int], float] | None
         new: Dict[Tuple[int, int], float] = {}
         if kind in ("n1", "dial"):
             q, b = op[1], op[2]
-            if kind == "dial" and mask_bits is not None and q in mask_bits:
+            if kind == "dial" and mask_bits is not None and q in mask_bits and isinstance(b, DialBloch):
+                b = b.branch(int(mask_bits[q]))
+            elif kind == "dial" and mask_bits is not None and q in mask_bits:
                 idle = Bloch(b.dx / (1 - b.tz) if b.tz < 1 else 1.0, b.dy / (1 - b.tz) if b.tz < 1 else 1.0, 1.0, 0.0)
                 b = Bloch(0.0, 0.0, 0.0, 1.0) if mask_bits[q] else idle
             bit = 1 << q
@@ -871,7 +1010,7 @@ def propagate_truncated(prog: Program, delta: float = 1e-7, max_weight: int | No
             nonid = (((X[:, wa] | Z[:, wa]) >> ba) & ONE) | (((X[:, wb] | Z[:, wb]) >> bb) & ONE)
             Wt[nonid.astype(bool)] *= f * f
         elif kind == "dial_zz":
-            X, Z, Wt, disc = _dial_zz_layer_truncated(X, Z, Wt, op[1], op[2], delta, n_cap)
+            X, Z, Wt, disc = _dial_zz_layer_truncated(X, Z, Wt, op[1], op[2], delta, n_cap, lottery=dial_lottery(op[1]))
             discarded += disc
             n_since = X.shape[0]
             n_max = max(n_max, X.shape[0])
@@ -953,7 +1092,7 @@ def _zz_neighbours(blochs, edges, m: int):
     return nb
 
 
-def _dial_zz_layer_truncated(X, Z, Wt, blochs, edges, delta: float, n_cap: int | None):
+def _dial_zz_layer_truncated(X, Z, Wt, blochs, edges, delta: float, n_cap: int | None, lottery: Sequence[float] | None = None):
     """Exact second moment of one dial layer with the ZZ phases (docs/PAULIPROP.md, 'ZZ idle phase' and 'Deviation 34').
 
     Circuit order of the layer: CZ block with the static ZZ rzz(phi_static) on every coupler, then the dial slot: reset (prob.
@@ -967,13 +1106,27 @@ def _dial_zz_layer_truncated(X, Z, Wt, blochs, edges, delta: float, n_cap: int |
     that coincide (every S of an I hub across the two branches; closed alternating ZZ cycles across hubs) carry the same
     theta dependence and are summed before squaring. The layer is therefore propagated at the amplitude level per input
     string (key = (origin, string)), squared at the end and merged. Pruning inside the layer at w_origin amp^2 < delta can
-    break the strict lower bound by at most the pruned cross terms, O(sin^4 phi)."""
+    break the strict lower bound by at most the pruned cross terms, O(sin^4 phi).
+
+    ``lottery``: the reset probability of every qubit in this layer, stated explicitly (default ``dial_lottery(blochs)``; it must
+    agree with the entries). For the designed channel's plain ``Bloch`` it is the channel's t_z and the rule above is unchanged. For
+    a ``DialBloch`` (any other channel, or one branch of it in a fixed-mask program) the hub map is H_x = p ZZ_x(phi_s) B1_x +
+    (1-p) ZZ_x(phi_s + phi_i) B0_x with B_s Z = dz_s Z + tz_s I: a Z hub has four outcome families (idle or reset, left in Z or
+    in I), summed where they coincide (``_hub_out_amplitudes``). A neighbour that is reset with certainty (fixed-mask program)
+    switches off phi_i on its couplers, so fixed-mask programs are exact for every channel. Not exact: a mixture (0 < p < 1) whose
+    reset branch keeps a transverse residual (b1.dx or b1.dy != 0): an X/Y qubit then survives its own reset with amplitude
+    p b1.dx (p b1.dy) and its couplers should turn by phi_s alone; the rule keeps phi_s + phi_i when the hub idles (relative error of
+    the affected term O(sin^2(phi_s + phi_i) - sin^2 phi_s) per coupler). Transverse factors that differ (b1.dx != b1.dy) are
+    applied to the string as it enters the layer, before any exchange of X and Y, which is exact for one branch (a fixed-mask
+    program) and not for the mixture of an idle and a reset branch. Such a mixture value is a record only (``transverse_residual_note``: ``mix_exact`` False); the realised-mask sampler and the fixed-mask programs, which
+    the comparators of Deviation 60 part (7) read, drop phi_i when either end of a coupler is reset and are exact."""
     m = len(blochs)
     W = X.shape[1]
     n0 = X.shape[0]
     if n0 == 0:
         return X, Z, Wt, 0.0
     nb = _zz_neighbours(blochs, edges, m)
+    lot = _check_lottery(blochs, lottery)
     origin = np.arange(n0, dtype=np.int64)
     amp = np.ones(n0)
     w0 = Wt[:, 0].copy()
@@ -999,8 +1152,67 @@ def _dial_zz_layer_truncated(X, Z, Wt, blochs, edges, delta: float, n_cap: int |
         discarded += float(wm[~keep].sum())
         return Xm[keep], Zm[keep], am[keep], om[keep]
 
+    # An entry whose transverse factors differ (a reset branch with r_x != r_y) acts on the string as it enters the layer: in the
+    # circuit the reset follows the static ZZ, so backwards the residual is read before the static rotation exchanges X and Y.
+    # Those factors are applied first; entries with dx == dy commute with the exchange and keep their place in the loop.
+    early = [isinstance(b, DialBloch) and b.dx != b.dy for b in blochs]
+    for x in range(m):
+        if early[x]:
+            c = _codes(X, Z, x)
+            amp = np.where(c == 1, amp * blochs[x].dx, np.where(c == 2, amp * blochs[x].dy, amp))
     for x in range(m):
         b = blochs[x] if blochs[x] is not None else Bloch()
+        if isinstance(b, DialBloch):
+            c = _codes(X, Z, x)
+            if not early[x]:
+                amp = np.where(c == 1, amp * b.dx, np.where(c == 2, amp * b.dy, amp))
+            hub = (c == 0) | (c == 3)
+            idx = np.nonzero(hub)[0]
+            nbrs = nb[x]
+            wq, bq = x >> 6, U64(x & 63)
+            if idx.size == 0 or (not nbrs and not (c == 3).any()):
+                continue
+            Xh, Zh, ah, oh = X[idx], Z[idx], amp[idx], origin[idx]
+            isz = c[idx] == 3
+            k = len(nbrs)
+            sgn, sinT, cosT, sinS, cosS = [], [], [], [], []
+            for a, phi_i, phi_s in nbrs:
+                ca = _codes(Xh, Zh, a)
+                pr = (ca == 1) | (ca == 2)
+                sgn.append(np.where(ca == 1, -1.0, 1.0))
+                tot = phi_s + (0.0 if _always_reset(blochs[a]) else phi_i)
+                sinT.append(np.where(pr, np.sin(tot), 0.0)); cosT.append(np.where(pr, np.cos(tot), 1.0))
+                sinS.append(np.where(pr, np.sin(phi_s), 0.0)); cosS.append(np.where(pr, np.cos(phi_s), 1.0))
+            new_X, new_Z, new_a, new_o = [], [], [], []
+            for S in range(2 ** k):
+                fI, fR, par = np.ones(idx.size), np.ones(idx.size), 0
+                for t in range(k):
+                    if (S >> t) & 1:
+                        fI, fR = fI * sgn[t] * sinT[t], fR * sgn[t] * sinS[t]
+                        par ^= 1
+                    else:
+                        fI, fR = fI * cosT[t], fR * cosS[t]
+                for a_out, zstart in zip(_hub_out_amplitudes(b, lot[x], isz, fI, fR), (1, 0)):
+                    sel = a_out != 0.0
+                    if not sel.any():
+                        continue
+                    Xn, Zn = Xh[sel], Zh[sel].copy()
+                    for t in range(k):
+                        if (S >> t) & 1:
+                            a_t = nbrs[t][0]
+                            wa, ba = a_t >> 6, U64(a_t & 63)
+                            Zn[:, wa] ^= (ONE << ba)                       # X <-> Y on the flipped neighbour
+                    Zn[:, wq] = (Zn[:, wq] & ~(ONE << bq)) | (U64(zstart ^ par) << bq)
+                    new_X.append(Xn); new_Z.append(Zn); new_a.append((ah * a_out)[sel]); new_o.append(oh[sel])
+            keep = ~hub
+            X = np.concatenate([X[keep]] + new_X)
+            Z = np.concatenate([Z[keep]] + new_Z)
+            amp = np.concatenate([amp[keep]] + new_a)
+            origin = np.concatenate([origin[keep]] + new_o)
+            if X.shape[0] > 1.5 * n_since or (n_cap and X.shape[0] > 2 * n_cap):
+                X, Z, amp, origin = merge(X, Z, amp, origin)
+                n_since = X.shape[0]
+            continue
         tz = float(b.tz)
         q_idle = 1.0 - tz
         dz_i = float(b.dz) / q_idle if q_idle > 0 else 0.0
@@ -1086,25 +1298,32 @@ def _prefix_dial_tz(prog: "Program") -> Dict[int, float]:
     out = {}
     for op in prog.ops[:prog.prefix_end]:
         if op[0] == "dial":
-            out[op[1]] = float(op[2].tz)
+            out[op[1]] = dial_reset_probability(op[2])
         elif op[0] == "dial_zz":
             for q, b in enumerate(op[1]):
                 if b is not None:
-                    out[q] = float(b.tz)
+                    out[q] = dial_reset_probability(b)
     return out
 
 
-def _dial_zz_layer_sampled(X, Z, weight, blochs, edges, rng, fixed_masks: bool):
+def _dial_zz_layer_sampled(X, Z, weight, blochs, edges, rng, fixed_masks: bool, lottery: Sequence[float] | None = None):
     """Sampled counterpart of `_dial_zz_layer_truncated` (per path), exact per hub. Mixture (fixed_masks=False): Z hub:
     reset with probability p^2 / (p^2 + (1-p)^2 dz_i^2) (-> I, then independent flips of the X/Y neighbours with sin^2 phi_s)
     else idle (flips with sin^2 (phi_s + phi_i)), Z_x toggled by the flip parity; I hub: the two branches give the same string
     for every flip set S, so amp_S = p prod_S sin phi_s prod cos phi_s + (1-p) prod_S sin(phi_s + phi_i) prod cos(phi_s + phi_i)
     is formed coherently, the weight carries sum_S amp_S^2 and S is drawn with amp_S^2. Closed ZZ cycles across hubs are
     summed incoherently (O(sin^4 phi), far below the sampling error). Fixed masks: a reset mask is drawn per qubit; every
-    coupler with exactly one X/Y end rotates by phi_s + phi_i (both ends idle) or phi_s (a reset end) and flips with sin^2."""
+    coupler with exactly one X/Y end rotates by phi_s + phi_i (both ends idle) or phi_s (a reset end) and flips with sin^2.
+
+    ``lottery`` and ``DialBloch`` entries: as in ``_dial_zz_layer_truncated`` (mixture only: a Z or I hub's outcome, flip set and
+    final Pauli, is drawn with the squared amplitudes of ``_hub_out_amplitudes``). The fixed-mask mode draws its own masks from
+    the designed channel and is not defined for a ``DialBloch``: use ``propagate_realised``."""
     m = len(blochs)
     N = X.shape[0]
     nb = _zz_neighbours(blochs, edges, m)
+    lot = _check_lottery(blochs, lottery)
+    if fixed_masks and any(isinstance(b, DialBloch) for b in blochs):
+        raise NotImplementedError("fixed-mask sampling at a dial channel other than the designed one: use propagate_realised")
     if fixed_masks:
         reset = np.zeros((m, N), dtype=bool)
         for q in range(m):
@@ -1133,8 +1352,55 @@ def _dial_zz_layer_sampled(X, Z, weight, blochs, edges, rng, fixed_masks: bool):
                 Z[flip, wa] ^= (ONE << ba)
                 Z[flip, wb] ^= (ONE << bb)
         return X, Z, weight
+    early = [isinstance(b, DialBloch) and b.dx != b.dy for b in blochs]       # as in ``_dial_zz_layer_truncated``
+    for x in range(m):
+        if early[x]:
+            c = _codes(X, Z, x)
+            weight = np.where(c == 1, weight * blochs[x].dx ** 2, np.where(c == 2, weight * blochs[x].dy ** 2, weight))
     for x in range(m):
         b = blochs[x] if blochs[x] is not None else Bloch()
+        if isinstance(b, DialBloch):
+            c = _codes(X, Z, x)
+            if not early[x]:
+                weight = np.where(c == 1, weight * b.dx ** 2, np.where(c == 2, weight * b.dy ** 2, weight))
+            wq, bq = x >> 6, U64(x & 63)
+            rows = np.nonzero((c == 0) | (c == 3))[0]
+            nbrs = nb[x]
+            if rows.size == 0 or (not nbrs and not (c == 3).any()):
+                continue
+            isz = c[rows] == 3
+            k = len(nbrs)
+            pres, angT, angS = [], [], []
+            for a, phi_i, phi_s in nbrs:
+                ca = _codes(X, Z, a)[rows]
+                pres.append((ca == 1) | (ca == 2))
+                angT.append(phi_s + (0.0 if _always_reset(blochs[a]) else phi_i)); angS.append(phi_s)
+            amps = np.zeros((rows.size, 2 ** k, 2))
+            for S in range(2 ** k):
+                fI, fR = np.ones(rows.size), np.ones(rows.size)
+                for t in range(k):
+                    if (S >> t) & 1:
+                        fI, fR = fI * np.where(pres[t], np.sin(angT[t]), 0.0), fR * np.where(pres[t], np.sin(angS[t]), 0.0)
+                    else:
+                        fI, fR = fI * np.where(pres[t], np.cos(angT[t]), 1.0), fR * np.where(pres[t], np.cos(angS[t]), 1.0)
+                amps[:, S, 0], amps[:, S, 1] = _hub_out_amplitudes(b, lot[x], isz, fI, fR)
+            w2 = (amps ** 2).reshape(rows.size, -1)                      # column 2 S + o: o = 0 hub left in Z, 1 in I
+            tot = w2.sum(axis=1)
+            weight[rows] *= tot
+            cum = np.cumsum(w2 / np.where(tot > 0, tot, 1.0)[:, None], axis=1)
+            pick = np.minimum((rng.random(rows.size)[:, None] > cum).sum(axis=1), w2.shape[1] - 1)
+            S_pick, left_z = pick >> 1, (pick & 1) == 0
+            parity = np.zeros(rows.size, dtype=np.uint64)
+            for t in range(k):
+                f = ((S_pick >> t) & 1).astype(bool)
+                if f.any():
+                    a_t = nbrs[t][0]
+                    wa, ba = a_t >> 6, U64(a_t & 63)
+                    Z[rows[f], wa] ^= (ONE << ba)
+                    parity ^= f.astype(np.uint64)
+            zbit = (left_z.astype(np.uint64) ^ parity) & ONE
+            Z[rows, wq] = (Z[rows, wq] & ~(ONE << bq)) | (zbit << bq)
+            continue
         tz = float(b.tz)
         q_idle = 1.0 - tz
         dz_i = float(b.dz) / q_idle if q_idle > 0 else 0.0
@@ -1308,9 +1574,11 @@ def propagate_sampled(prog: Program, n_samples: int = 200_000, seed: int = 0, fi
             nonid = ((((X[:, wa] | Z[:, wa]) >> ba) & ONE) | (((X[:, wb] | Z[:, wb]) >> bb) & ONE)).astype(bool)
             weight[nonid] *= f * f
         elif kind == "dial_zz":
-            X, Z, weight = _dial_zz_layer_sampled(X, Z, weight, op[1], op[2], rng, fixed_masks)
+            X, Z, weight = _dial_zz_layer_sampled(X, Z, weight, op[1], op[2], rng, fixed_masks, lottery=dial_lottery(op[1]))
         elif kind == "dial" and fixed_masks:
             q, bl = op[1], op[2]
+            if isinstance(bl, DialBloch):
+                raise NotImplementedError("fixed-mask sampling at a dial channel other than the designed one: use propagate_realised")
             w, b = q >> 6, U64(q & 63)
             c = _codes(X, Z, q)
             p = bl.tz
@@ -1412,9 +1680,32 @@ def dial_layer_of_ops(prog: Program) -> Dict[int, int]:
     return out
 
 
-def dial_branches(b: Bloch, kind: str, p: float, mask_p: float) -> Tuple[Bloch, Bloch]:
-    """(B0, B1): the dial channel's branches for mask bit 0 and 1; checks (1 - mask_p) B0 + mask_p B1 against the program's Bloch."""
+def dial_branches(b: Bloch, kind: str, p: float, mask_p: float, channel: Optional[DialChannel] = None) -> Tuple[Bloch, Bloch]:
+    """(B0, B1): the dial channel's branches for mask bit 0 and 1; checks (1 - mask_p) B0 + mask_p B1 against the program's Bloch.
+
+    Designed channel (a plain ``Bloch``): the branches follow from the mixture, as before. Any other channel (a ``DialBloch`` from
+    ``dial_bloch_by_qubit(channel=...)``): the branches the entry carries, returned as ``DialBloch`` entries with mask_p 0.0 / 1.0
+    so that a fixed-mask program states which qubits are reset; ``channel``, if given, must be the entry's. The branches of such a
+    channel cannot be recovered from a plain mixture, so a non-designed ``channel`` with a plain ``Bloch`` is refused."""
     q = float(mask_p)
+    if isinstance(b, DialBloch):
+        if b.kind != kind:
+            raise ValueError(f"dial entry of kind {b.kind!r} read as {kind!r}")
+        if abs(float(b.mask_p) - q) > 1e-12:
+            raise ValueError(f"{kind} dial: mask_p {q} differs from the entry's lottery probability {b.mask_p}")
+        if kind == "dephase" and abs(2.0 * q - float(p)) > 1e-12:
+            raise ValueError(f"dephasing dial: mask_p {q} must be p / 2 (p = {p})")
+        if channel is not None and b.channel is not None and channel != b.channel:
+            raise ValueError(f"the dial entry was built for {b.channel}, not for {channel}")
+        if b.b0 is None or b.b1 is None:
+            raise ValueError("dial entry without branches")
+        if not np.allclose(_bloch_vec(dial_mixture(b.b0, b.b1, q)), _bloch_vec(b), rtol=0, atol=1e-12):
+            raise ValueError(f"the branches do not reproduce the dial channel ({dial_mixture(b.b0, b.b1, q)} vs {b})")
+        return tuple(DialBloch(*_bloch_vec(br), kind=kind, mask_p=float(bit), b0=b.b0, b1=b.b1, channel=b.channel)
+                     for bit, br in enumerate((b.b0, b.b1)))
+    if channel is not None and not channel.designed():
+        raise ValueError("a dial channel other than the designed one must come from dial_bloch_by_qubit(channel=...): its branches "
+                         "are not determined by the mixture")
     if kind == "reset":
         if abs(float(b.tz) - q) > 1e-12:
             raise ValueError(f"reset dial: mask_p {q} differs from the channel's reset probability {b.tz}")
@@ -1432,6 +1723,29 @@ def dial_branches(b: Bloch, kind: str, p: float, mask_p: float) -> Tuple[Bloch, 
     if not np.allclose(mix, [b.dx, b.dy, b.dz, b.tz], rtol=0, atol=1e-12):
         raise ValueError(f"the branches do not reproduce the dial channel ({mix} vs {b})")
     return b0, b1
+
+
+def program_dial_channel(prog: Program) -> Optional[DialChannel]:
+    """The ``DialChannel`` the program's dial entries were built for (None: the designed channel)."""
+    for op in prog.ops:
+        entries = op[1] if op[0] == "dial_zz" else ((op[2],) if op[0] == "dial" else ())
+        for b in entries:
+            if isinstance(b, DialBloch):
+                return b.channel
+    return None
+
+
+def transverse_residual_note(prog: Program) -> Dict:
+    """{} for the designed channel. Otherwise the channel and ``mix_exact``: False when the reset branch keeps a transverse
+    residual (r_x or r_y) and the program has dial-layer ZZ couplers. The realised (per-mask) moments are exact in that case too; the
+    mixture value then follows the hub rule of ``_dial_zz_layer_truncated`` (an X/Y qubit that survives its own reset does not switch
+    off the idle ZZ of its couplers), a relative error of order p |b1.dx| / dx_mix times sin^2(phi_s + phi_i) - sin^2(phi_s) per
+    coupler. No registered comparator reads a mixture value at such a channel."""
+    ch = program_dial_channel(prog)
+    if ch is None:
+        return {}
+    zz = any(op[0] == "dial_zz" and len(op[2]) > 0 for op in prog.ops)
+    return dict(channel=ch.as_dict(), mix_exact=bool(not (zz and (ch.r_x != 0.0 or ch.r_y != 0.0))))
 
 
 def fixed_mask_program(prog: Program, mask: np.ndarray, kind: str, p: float, mask_p: float) -> Program:
@@ -1457,9 +1771,9 @@ def _realised_probabilities(prog: Program, kind: str, p: float | None, mask_p: f
         tz = None
         for op in prog.ops:
             if op[0] == "dial_zz":
-                tz = next((float(b.tz) for b in op[1] if b is not None), None)
+                tz = next((dial_reset_probability(b) for b in op[1] if b is not None), None)
             elif op[0] == "dial":
-                tz = float(op[2].tz)
+                tz = dial_reset_probability(op[2])
             if tz is not None:
                 break
         p = tz if p is None else float(p)
@@ -1639,12 +1953,20 @@ def _realised_chunk(prog: Program, masks: np.ndarray, kind: str, p: float, q: fl
         elif kd == "dial_zz":
             blochs, edges = op[1], op[2]
             A0, A1 = np.ones((N, m)), np.ones((N, m))
+            pairwise = False
             for qq, b in enumerate(blochs):
                 if b is not None:
                     b0, b1 = dial_branches(b, kind, p, q)
                     _realised_site(X, Z, wsc, A0, A1, qq, b0, b1, q, rng)
+                    pairwise = pairwise or (resets and (b1.dx != 0.0 or b1.dy != 0.0))
             no_dial = np.array([b is None for b in blochs])
-            for e in edges:
+            if pairwise:
+                # A reset that keeps a transverse residual lets an X/Y qubit survive its own reset: the coupler factor then depends
+                # on both ends' bits (phi_i only when both idle) and is no longer a product over sites. Per mask it is applied exactly
+                # through the both-idle indicator of every coupler (E0 / E1); the mixture amplitude keeps the hub rule (H0 / H1).
+                H0, H1 = A0.copy(), A1.copy()
+                E0, E1 = np.ones((N, len(edges))), np.ones((N, len(edges)))
+            for ie, e in enumerate(edges):
                 a, b_e = int(e[0]), int(e[1])
                 phi_i = float(e[2])
                 phi_s = float(e[3]) if len(e) > 3 else 0.0
@@ -1667,15 +1989,27 @@ def _realised_chunk(prog: Program, masks: np.ndarray, kind: str, p: float, q: fl
                     # bit 1 of a reset-dial hub is a reset: the coupler turns by phi_s alone; a hub without a dial, or a dephasing
                     # dial (no reset branch), idles on both branches
                     fr = np.where(no_dial[h] | (not resets), f_idle, f_reset)
-                    A0[rows, h] *= f_idle
-                    A1[rows, h] *= fr
+                    if pairwise:
+                        H0[rows, h] *= f_idle
+                        H1[rows, h] *= fr
+                        E0[rows, ie], E1[rows, ie] = f_reset, f_idle
+                    else:
+                        A0[rows, h] *= f_idle
+                        A1[rows, h] *= fr
                     wsc[rows] /= prob
                 if flip.any():
                     Z[flip, wa] ^= (ONE << ba)
                     Z[flip, wb] ^= (ONE << bb)
             S = masks[:, ctx["layer_of"][t_op] - 1, :].astype(float)
             G = _apply_mask_bits(G, A0, A1, S)
-            Gm *= np.prod((1 - q) * A0 + q * A1, axis=1)
+            if pairwise:
+                dialled = (~no_dial).astype(float)
+                both_idle = np.stack([(1.0 - S[:, int(e[0])] * dialled[int(e[0])]) * (1.0 - S[:, int(e[1])] * dialled[int(e[1])])
+                                      for e in edges], axis=1)
+                G = _apply_mask_bits(G, E0, E1, both_idle)
+                Gm *= np.prod((1 - q) * H0 + q * H1, axis=1)
+            else:
+                Gm *= np.prod((1 - q) * A0 + q * A1, axis=1)
         else:
             raise RuntimeError(kd)
     if prog.tail_start in ctx["cut_at"]:
@@ -1752,6 +2086,7 @@ def propagate_realised(prog: Program, masks: np.ndarray, kind: str = "reset", p:
     idx = {k: t for t, k in enumerate(keys)}
     out = dict(K=int(K), kind=kind, p=float(p), mask_p=float(q), n_samples=int(done), seed=int(seed), chunk=int(chunk),
                runtime_s=time.time() - t0)
+    out.update(transverse_residual_note(prog))                   # nothing for the designed channel
     for k in keys:
         out[k] = float(mean[idx[k]])
         out[f"se_{k}"] = float(np.sqrt(max(cov[idx[k], idx[k]], 0.0)))
