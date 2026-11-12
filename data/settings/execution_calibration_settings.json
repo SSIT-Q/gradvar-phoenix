@@ -1,0 +1,134 @@
+{
+ "schema": "gradvar execution calibration settings v2",
+ "status": "not_in_force",
+ "status_note": "The one adoption switch. NOT IN FORCE: Deviations 65 and 67 are drafts, not rows of the pre-registration (v0.18.0 is in force). While this says not_in_force, everything computed from this table is exploratory and says so, and gradvar.analysis.gates.gate2_e evaluates the clause as registered. Set it to in_force in the commit that adopts the two rows; the loader refuses in_force while any entry below is provisional.",
+ "registered_note": "'registered' is the value the adopted rows fix (Deviations 65 and 67 as corrected by the reviews). The loader refuses an in-force table in which an entry has no registered value or holds another value than its registered one: while the table is in force, an edit of 'value' cannot change a registered rule. An entry without 'registered' has not been ruled on.",
+ "basis": "Draft docs/deviations_drafts/65_execution_time_calibration_2026-11-10.md (branch dev65-execution-calibration) as corrected by the independent review docs/reviews/review_dev64_dev65_dev66_2026-11-10.md (11 Nov 2026, corrections C65-1 to C65-8, Sections 5.3 and 8.5), which the lead adopted with the PI's authorisation as relayed by the operator on 10 Nov 2026. 'provisional: false' means the review confirmed or replaced the entry; 'provisional: true' means the entry was found in implementation and no review has ruled on it.",
+ "settings": {
+  "primary_calibration": {
+   "value": "per_value_at_or_before_running",
+   "registered": "per_value_at_or_before_running",
+   "allowed": [
+    "per_value_at_or_before_running",
+    "set_in_force_at_running",
+    "first_set_after_finished"
+   ],
+   "basis": "confirmed by the review (Section 8.5 item 1), with the four cases of C65-1 fixed in code",
+   "provisional": false,
+   "meaning": "Which calibration the registered row is drawn on. per_value_at_or_before_running: for every published value, the entry with the latest date at or before the job's running time among the updates of the pool; a stamp-dated entry is that of the update in force at running; with no entry dated at or before running, the entry of that update; of two entries with one date and two values, the later update's; a value that update does not carry is missing."
+  },
+  "coupler_zone_rule": {
+   "value": "both_qubits",
+   "registered": "both_qubits",
+   "allowed": [
+    "both_qubits",
+    "either_qubit"
+   ],
+   "basis": "confirmed by the review (Section 8.5 item 2); written into row 67 (i)",
+   "provisional": false,
+   "meaning": "When a coupler over the CZ cut counts as lying in the L = 2 cone of the observable: both of its qubits in the cone, or either."
+  },
+  "coupler_cone_rule": {
+   "value": "either_qubit",
+   "allowed": [
+    "both_qubits",
+    "either_qubit"
+   ],
+   "basis": "found in implementation; the review does not rule on it",
+   "provisional": true,
+   "meaning": "When a coupler over the CZ cut counts as lying in the point's own light cone (the 'elsewhere in the cone' flag). either_qubit is the reading that never drops a flag."
+  },
+  "zone_for_points_shallower_than_zone": {
+   "value": "zone_applies",
+   "allowed": [
+    "zone_applies",
+    "own_cone_only"
+   ],
+   "basis": "found in implementation; the review does not rule on it",
+   "provisional": true,
+   "meaning": "zone_applies: an over-cut element in the L = 2 cone makes a point not evaluable whatever its L. own_cone_only: for a point with L below 2 only its own cone counts."
+  },
+  "decision_line_abs_ln_ratio": {
+   "value": 0.1,
+   "registered": 0.1,
+   "allowed": "a positive number, or null for no line (flags only)",
+   "basis": "value confirmed, consequence replaced by the review (C65-3, Section 8.5 item 3): above the line the point is not evaluable, automatically",
+   "provisional": false,
+   "meaning": "A flagged point whose |ln(P_E / P_dispatch)| exceeds this is not evaluable. Nobody decides."
+  },
+  "when_execution_calibration_cannot_be_built_from_the_service": {
+   "value": "committed_snapshots_else_not_evaluable",
+   "registered": "committed_snapshots_else_not_evaluable",
+   "allowed": [
+    "committed_snapshots_else_not_evaluable"
+   ],
+   "basis": "replaced by the review (C65-4, Section 8.5 item 8): neither of the draft's two options",
+   "provisional": false,
+   "meaning": "E is then built by the same rule from the properties files committed by the snapshot workflow and every reading on it is flagged 'E from committed snapshots'; when no committed file closes the pool the job's points are not evaluable. The dispatch-time row is reported beside and is never the registered reading."
+  },
+  "split_point_rule": {
+   "value": "execution_weighted_mean",
+   "registered": "execution_weighted_mean",
+   "allowed": [
+    "execution_weighted_mean",
+    "separate_shares"
+   ],
+   "basis": "confirmed by the review (Section 8.5 item 9), which adds: the strictest classification among the jobs (C65-1; fixed in code)",
+   "provisional": false,
+   "meaning": "How a point whose executions are split over jobs with different execution-time calibrations is read."
+  },
+  "value_age_bound_hours": {
+   "value": null,
+   "registered": null,
+   "allowed": "null (ages recorded, no bound) or a positive number of hours",
+   "basis": "confirmed by the review (Section 8.5 item 10)",
+   "provisional": false,
+   "meaning": "A bound on the age at running of the readout values of the execution-time calibration. null: the age of every value class is recorded and nothing is refused."
+  },
+  "bracket_decides_gate2e": {
+   "value": false,
+   "registered": false,
+   "allowed": [
+    true,
+    false
+   ],
+   "basis": "confirmed by the review (Section 8.5 item 5): E decides, B is reported",
+   "provisional": false,
+   "meaning": "Whether an element over a cut on the bracket calibration also pauses under Gate 2 (e). Read by gradvar.analysis.gates.gate2_e."
+  },
+  "bracket_zone_flag": {
+   "value": true,
+   "registered": true,
+   "allowed": [
+    true,
+    false
+   ],
+   "basis": "added by the review (C65-6) and taken by the lead",
+   "provisional": false,
+   "meaning": "An element on the observable edge or in its L = 2 cone that is over a cut on the bracket calibration and not on E makes the point read with a flag."
+  },
+  "rerun_rule": {
+   "value": "once_when_not_evaluable_on_calibration_grounds",
+   "registered": "once_when_not_evaluable_on_calibration_grounds",
+   "allowed": [
+    "once_when_not_evaluable_on_calibration_grounds",
+    "none"
+   ],
+   "basis": "Deviation 67 (iii), option (iii) of the review's Section 5.3, taken by the lead on the PI's rule as relayed",
+   "provisional": false,
+   "meaning": "Whether a job is re-run once when the classifier marks one of its points not evaluable on calibration grounds alone (gradvar.rerun_decision). none: no job is re-run (option (ii))."
+  },
+  "dispatch_window": {
+   "value": "package_update_or_next_same_utc_day",
+   "registered": "package_update_or_next_same_utc_day",
+   "allowed": [
+    "package_update_or_next_same_utc_day",
+    "package_update_only",
+    "same_utc_day"
+   ],
+   "basis": "confirmed by the review with added sentences (C65-5, Section 8.5 item 4). An update is a change of values: a re-stamp without one is not 'the update that follows'",
+   "provisional": false,
+   "meaning": "The window in which a package may be dispatched. Read by no code on this branch; it belongs to the same-day pipeline scripts."
+  }
+ }
+}
