@@ -1,7 +1,9 @@
 """Retrieval of already submitted jobs (``--retrieve``), the job ids file and ``--submit-only``: the paths added after smoke
 test run 35489912431 (20 Sep 2026) was killed by the 6-hour Action limit before it collected its ten jobs. Fake service, batch
 and job objects only; nothing here touches credentials or the network, and nothing is submitted."""
+import hashlib
 import json
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -544,3 +546,734 @@ def test_cp4_a_record_that_cannot_be_written_never_fails_a_retrieval(tmp_path, m
         assert "execution_span" not in job["retrieval"] and job["status"] == ("failed" if name == "j2" else "completed")
     rows = pd.read_csv(next((tmp_path / "jobs").glob("*_retrieved_*.csv")))
     assert set(rows.job_id) == {"j0", "j1"} and len(rows) == 10                 # the rows of the two jobs with a result are logged
+
+
+# ----------------------------------------------------------------------------- Deviation 65: the retrieval in two phases
+# The tests of docs/deviations_drafts/65_implementation/02_two_phase_retrieval.patch (branch dev65-implementation), re-made for the
+# adoption switch: the phases apply only while the committed settings table is in force (``gradvar.execution_record.adoption``),
+# and without it a retrieval is the retrieval of v0.18.0. The fake backend answers ``properties(datetime=...)`` from the
+# ibm_phoenix sets of 10 Nov 2026: the four the snapshots committed and the three stamps only the properties-history trial
+# returned (run 42958459321). The fake job carries the times of the replication job of that day (dbpfnr0qtr0c738ebeng). No
+# result of that job is read: the results here are the constants of ``_result``. The tests that need the committed side of the
+# Deviation (``gradvar/execution_calibration.py``, ``gradvar/retrieval_phases.py``, ``gradvar/rerun_decision.py``, the trial
+# sets) are skipped while it is not on the tree.
+
+NOV10 = ("ibm_phoenix_properties_20261110T082134Z.json.gz", "ibm_phoenix_properties_20261110T101610Z.json.gz",
+         "trial_2026-11-10/ibm_phoenix_properties_update_20261110T112004Z_c80d21378e55.json", "ibm_phoenix_properties_2026-11-10T124546Z.json",
+         "trial_2026-11-10/ibm_phoenix_properties_update_20261110T131438Z_6331a7c9c5b6.json", "ibm_phoenix_properties_2026-11-10T135646Z.json",
+         "trial_2026-11-10/ibm_phoenix_properties_update_20261110T163405Z_60a212c41b76.json")
+U0732, U0907, U1120, U1135, U1314, U1337, U1634 = ("2026-11-10 07:32:03+00:00", "2026-11-10 09:07:11+00:00", "2026-11-10 11:20:04+00:00", "2026-11-10 11:35:39+00:00",
+                                                    "2026-11-10 13:14:38+00:00", "2026-11-10 13:37:31+00:00", "2026-11-10 16:34:05+00:00")
+RUNNING, FINISHED = "2026-11-10T11:12:05.243865Z", "2026-11-10T12:35:07.784468Z"
+POOL_FILES = ("properties_at_running.json", "properties_between.json", "properties_after_finished.json")
+UPDATES = ["2026-11-10T09:07:11Z", "2026-11-10T11:20:04Z", "2026-11-10T13:37:31Z"]        # the three sets of values behind the six stamps from 09:07:11Z on
+V018_RETRIEVAL_KEYS = {"ids_file", "retrieval_run", "retrieved_utc", "job_status", "submitted_utc", "properties_source", "calibration_csv", "calibration_snapshot",
+                       "calibration_snapshot_at_retrieval", "inputs_verification", "execution_span", "properties_label"}
+SWITCH = {
+    "absent": dict(in_force=False, status="absent", settings_file="data/settings/execution_calibration_settings.json", settings_sha256=None,
+                   dispatch_window=None, rerun_rule=None, reason="no settings table on this tree: Deviations 65 and 67 are not in force; v0.18.0 applies"),
+    "not_in_force": dict(in_force=False, status="not_in_force", settings_file="data/settings/execution_calibration_settings.json", settings_sha256="0" * 64,
+                         dispatch_window="package_update_or_next_same_utc_day", rerun_rule="once_when_not_evaluable_on_calibration_grounds",
+                         reason="the settings table says not_in_force: Deviations 65 and 67 are drafts; v0.18.0 applies"),
+    "in_force": dict(in_force=True, status="in_force", settings_file="data/settings/execution_calibration_settings.json", settings_sha256="0" * 64,
+                     dispatch_window="package_update_or_next_same_utc_day", rerun_rule="once_when_not_evaluable_on_calibration_grounds",
+                     reason="the settings table says in_force: Deviations 65 and 67 apply"),
+}
+
+
+def _switch(monkeypatch, status):
+    """The adoption switch as the runner reads it, set for a test."""
+    import gradvar.execution_record as er
+    monkeypatch.setattr(er, "adoption", lambda *a, **k: dict(SWITCH[status]))
+
+
+def _committed_side():
+    """The committed side of Deviations 65 and 67 and the sets of the trial; a test that needs them is skipped without them."""
+    ec = pytest.importorskip("gradvar.execution_calibration", reason="the committed side of Deviation 65 is not on this tree")
+    rp = pytest.importorskip("gradvar.retrieval_phases", reason="the committed side of Deviation 65 is not on this tree")
+    if not all((ROOT / "data" / "calibrations" / f).is_file() for f in NOV10):
+        pytest.skip("the sets of the properties-history trial are not on this tree")
+    return ec, rp
+
+
+def _utc(x):
+    dt = x if isinstance(x, datetime) else datetime.fromisoformat(str(x).replace("Z", "+00:00"))
+    return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt.astimezone(timezone.utc)
+
+
+class _Props:
+    def __init__(self, d):
+        self._d = d
+
+    def to_dict(self):
+        return dict(self._d, last_update_date=_utc(self._d["last_update_date"]))      # a datetime, as the service returns it
+
+
+class History:
+    """``backend.properties``: the newest set stamped before the time asked for (the service's reading: strictly older than the
+    instant); without a time, the live (newest) set. ``fail`` is a predicate on the time asked for: the call then fails as a
+    refused call would."""
+
+    def __init__(self, fail=None):
+        import gradvar.execution_calibration as ec
+        self.sets = sorted((ec.load_properties_file(ROOT / "data" / "calibrations" / f) for f in NOV10), key=lambda d: _utc(d["last_update_date"]))
+        self.fail, self.asked = fail, []
+
+    def at(self, when):
+        older = [d for d in self.sets if _utc(d["last_update_date"]) < _utc(when)]
+        return _Props(older[-1]) if older else None
+
+    def properties(self, refresh=False, datetime=None):
+        self.asked.append(datetime)
+        if datetime is None:
+            return _Props(self.sets[-1])
+        if self.fail is not None and self.fail(_utc(datetime)):
+            raise RuntimeError("properties history refused")
+        return self.at(datetime)
+
+
+class TimedJob(FakeJob):
+    result_calls = 0
+
+    def __init__(self, *a, history=None, **k):
+        super().__init__(*a, **k)
+        self.history = history
+        self.creation_date = datetime(2026, 11, 10, 11, 11, 40, 956832, tzinfo=timezone.utc)
+
+    def metrics(self):
+        return {"timestamps": {"created": "2026-11-10T11:11:40.956832Z", "running": RUNNING, "finished": FINISHED},
+                "usage": {"qpu_charge_time_seconds": 5, "status": "complete"}, "circuits_execution_time_ns": 2704611328}
+
+    def properties(self, refresh=False):
+        return self.history.at(RUNNING)
+
+    def result(self):
+        TimedJob.result_calls += 1
+        return super().result()
+
+
+def _two_phase(hw, monkeypatch, tmp_path, fail=None):
+    TimedJob.result_calls = 0
+    jl = hw.load_joblist(str(LIST01))
+    points, shapes, shots = hw.joblist_points(jl, CAL)
+    backend = hw.fake_backend("ibm_marrakesh")
+    history = History(fail)
+    monkeypatch.setattr(backend, "properties", history.properties, raising=False)
+    groups, _ = hw.job_groups(jl, points, shapes, shots, backend, CAL)
+    jobs = [TimedJob([b.pub() for b in g], level, gshots, job_id=f"t{i}", history=history) for i, (tag, level, gshots, g) in enumerate(groups)]
+    _wire_service(hw, monkeypatch, FakeService(jobs), backend)
+    ids = hw.write_ids_file(tmp_path / "ids.json", jl, str(LIST01), [dict(job_id=f"t{i}", tag=tag, level=level, shots=gshots, pubs=len(g), rep_delay_us=None)
+                                                                     for i, (tag, level, gshots, g) in enumerate(groups)], calibration_csv=CAL, run_id=1)
+    kw = dict(run_root=str(tmp_path / "runs"), log_dir=str(tmp_path / "jobs"), snapshot_dir=str(tmp_path / "cal"))
+    return str(ids), kw, jobs, history
+
+
+def _bundles(tmp_path):
+    return {d.name: d for d in sorted((tmp_path / "runs").glob("*/t*")) if d.is_dir()}
+
+
+@pytest.mark.parametrize("status", ["absent", "not_in_force"])
+def test_without_the_switch_the_retrieval_is_that_of_v0_18_0(tmp_path, monkeypatch, capsys, status):
+    """While the settings table is absent or not in force, ``--retrieve`` with no phase flag is the retrieval as it was: results in
+    one step, no pool, and no word of a phase in job.json. This test needs nothing of the committed side."""
+    import gradvar.hardware as hw
+    _switch(monkeypatch, status)
+    jl = hw.load_joblist(str(LIST01))
+    points, shapes, shots = hw.joblist_points(jl, CAL)
+    backend = hw.fake_backend("ibm_marrakesh")
+    groups, _ = hw.job_groups(jl, points, shapes, shots, backend, CAL)
+    jobs = [FakeJob([b.pub() for b in g], level, gshots, job_id=f"t{i}") for i, (tag, level, gshots, g) in enumerate(groups)]
+    _wire_service(hw, monkeypatch, FakeService(jobs), backend)
+    ids = hw.write_ids_file(tmp_path / "ids.json", jl, str(LIST01), [dict(job_id=f"t{i}", tag=tag, level=level, shots=gshots, pubs=len(g), rep_delay_us=None)
+                                                                     for i, (tag, level, gshots, g) in enumerate(groups)], calibration_csv=CAL, run_id=1)
+    assert "rerun_decision" not in json.loads(Path(ids).read_text())                    # the ids file of a normal run names no decision
+    rows = hw.retrieve_jobs(str(ids), run_root=str(tmp_path / "runs"), log_dir=str(tmp_path / "jobs"), snapshot_dir=str(tmp_path / "cal"))
+    assert len(rows) > 0
+    for d in _bundles(tmp_path).values():
+        job = json.loads((d / "job.json").read_text())
+        assert job["status"] == "completed" and (d / "result.json").is_file() and not any((d / f).exists() for f in POOL_FILES)
+        assert set(job["retrieval"]) == V018_RETRIEVAL_KEYS
+    capsys.readouterr()
+    for flag in (["--metadata-only"], ["--single-phase"], ["--execution-rows-commit", "feedc0de"]):       # the phase flags go with --retrieve
+        with pytest.raises(SystemExit) as e:
+            hw.main(["--joblist", str(LIST01)] + flag)
+        assert e.value.code == 2 and "go with --retrieve" in capsys.readouterr().err, flag     # the runner's own refusal, by its text
+    with pytest.raises(SystemExit):                                                               # a flag that does not exist exits 2 as well, with other words
+        hw.main(["--joblist", str(LIST01), "--no-such-phase"])
+    err = capsys.readouterr().err
+    assert "unrecognized arguments" in err and "go with --retrieve" not in err
+    with pytest.raises(SystemExit, match="takes no --execution-rows-commit"):
+        hw.retrieve_jobs(str(ids), single_phase=True, execution_rows_commit="feedc0de", run_root=str(tmp_path / "runs"))
+
+
+@pytest.mark.parametrize("status", ["not_in_force", "in_force"])
+def test_metadata_only_retrieval_writes_the_pool_and_never_asks_for_a_result(tmp_path, monkeypatch, capsys, status):
+    """Phase 1: per job the bundle without a result and the three pool files, in the layout ``load_pool`` reads; the pool it
+    gives is the one built directly from the sets; every bundle holds only the files and fields a phase-1 bundle may (C65-8).
+    The first phase retrieves no measured value, so it runs whether or not the table is in force."""
+    ec, rp = _committed_side()
+    import gradvar.hardware as hw
+    _switch(monkeypatch, status)
+    ids, kw, jobs, history = _two_phase(hw, monkeypatch, tmp_path)
+    assert hw.retrieve_jobs(ids, metadata_only=True, **kw) == []
+    assert TimedJob.result_calls == 0
+    bundles = _bundles(tmp_path)
+    assert set(bundles) == {j.job_id() for j in jobs} and all(d.parent.name == "2026-11-10" for d in bundles.values())
+    assert not list((tmp_path / "runs").rglob("result.json")) and not list((tmp_path / "jobs").glob("*.csv"))
+    S = {d["last_update_date"]: d for d in history.sets}
+    st = ec.load_settings()
+    direct = ec.build_pool("x", RUNNING, FINISHED, S[U0907], S[U0907], [S[U1120], S[U1135]], [S[U1314], S[U1337], S[U1634]], True)
+    for name, d in bundles.items():
+        assert all((d / f).is_file() for f in POOL_FILES)
+        checked = rp.check_phase1_bundle(d)                                               # the enumeration holds on what phase 1 really writes
+        assert set(checked["files"]) <= rp.PHASE1_FILES and set(checked["job_fields"]) <= rp.PHASE1_JOB_FIELDS
+        job = json.loads((d / "job.json").read_text())
+        assert job["status"] == "metadata only" and job["retrieved"] is True and job["retrieval"]["phase"].startswith("metadata only")
+        assert set(job["retrieval"]) <= rp.PHASE1_RETRIEVAL_FIELDS and "properties_label" not in job["retrieval"]
+        assert job["retrieval"]["execution_span"]["running"] == RUNNING and job["retrieval"]["execution_span"]["finished"] == FINISHED
+        assert json.loads((d / "metadata.json").read_text()) == {"result_metadata": {"metadata_only": True}, "pubs": []}
+        rec = job["retrieval"]["execution_pool"]
+        assert rec["status"] == "complete" and rec["walk_complete"] is True and not rec["errors"]
+        assert (rec["set_at_running"], rec["job_properties_set"], rec["sets_between"], rec["sets_after_finished"]) == (U0907, U0907, [U1120, U1135], [U1314, U1337, U1634])
+        assert rec["updates"] == UPDATES and rec["restamps"] == [[], ["2026-11-10T11:35:39Z", "2026-11-10T13:14:38Z"], ["2026-11-10T16:34:05Z"]]
+        # C65-5: the update in force at dispatch (the job's creation, 11:11:40Z: the 09:07:11Z values), by content hash and value hash
+        assert rec["dispatch_update"]["last_update_date"] == "2026-11-10T09:07:11Z" and rec["dispatch_update"]["value_sha256"] == ec.value_sha256(S[U0907])
+        assert rec["dispatch_update"]["sha256"] == ec.sha256_canonical(S[U0907])
+        at = json.loads((d / "properties_at_running.json").read_text())
+        assert at["job_properties"] == S[U0907] and at["backend_properties"] == S[U0907]              # serialised as the committed snapshots are
+        after = json.loads((d / "properties_after_finished.json").read_text())
+        assert [x["properties"] for x in after["sets"]] == [S[U1314], S[U1337], S[U1634]]
+        pool = ec.load_pool(d)
+        assert pool.status == "complete" and pool.updates() == UPDATES
+        assert ec.execution_calibration(pool, st)["value_sha256"] == ec.execution_calibration(direct, st)["value_sha256"]
+        assert ec.bracket_calibration(pool, st)["value_sha256"] == ec.value_sha256(S[U1337])
+    assert "execution-time pool complete" in capsys.readouterr().out
+
+
+def test_a_restamp_after_finished_leaves_the_pool_pending(tmp_path, monkeypatch):
+    """Only the 13:14:38Z stamp after finished: it repeats the values published at 11:20:04Z, so no update has followed the job yet."""
+    ec, rp = _committed_side()
+    import gradvar.hardware as hw
+    _switch(monkeypatch, "in_force")
+    ids, kw, jobs, history = _two_phase(hw, monkeypatch, tmp_path)
+    history.sets = [d for d in history.sets if _utc(d["last_update_date"]) <= _utc(U1314)]
+    hw.retrieve_jobs(ids, metadata_only=True, **kw)
+    for d in _bundles(tmp_path).values():
+        after = json.loads((d / "properties_after_finished.json").read_text())
+        assert [x["properties"]["last_update_date"] for x in after["sets"]] == [U1314]
+        rec = json.loads((d / "job.json").read_text())["retrieval"]["execution_pool"]
+        assert rec["status"] == "pending" and "repeat the values in force before" in " ".join(rec["notes"])
+        pool = ec.load_pool(d)
+        assert pool.status == "pending"
+        with pytest.raises(ec.PoolPending):
+            ec.execution_calibration(pool, ec.load_settings())
+    history.sets = [d for d in history.sets if _utc(d["last_update_date"]) <= _utc(U1135)]       # nothing stamped after finished at all
+    hw.retrieve_jobs(ids, metadata_only=True, **kw)
+    for d in _bundles(tmp_path).values():
+        assert json.loads((d / "properties_after_finished.json").read_text())["status"] == "pending"
+
+
+@pytest.mark.parametrize("where", ["walk", "running"])
+def test_a_refused_properties_call_stops_the_pool_and_nothing_falls_back_to_the_live_set(tmp_path, monkeypatch, where, capsys):
+    ec, rp = _committed_side()
+    import gradvar.hardware as hw
+    _switch(monkeypatch, "in_force")
+    t_r = _utc(RUNNING)
+    fail = (lambda when: _utc(U1135) <= when < _utc(U1337)) if where == "walk" else (lambda when: when == t_r)
+    ids, kw, jobs, history = _two_phase(hw, monkeypatch, tmp_path, fail=fail)
+    hw.retrieve_jobs(ids, metadata_only=True, **kw)
+    assert TimedJob.result_calls == 0 and not list((tmp_path / "runs").rglob("result.json"))
+    for d in _bundles(tmp_path).values():
+        rec = json.loads((d / "job.json").read_text())["retrieval"]["execution_pool"]
+        at = json.loads((d / "properties_at_running.json").read_text())
+        bet = json.loads((d / "properties_between.json").read_text())
+        after = json.loads((d / "properties_after_finished.json").read_text())
+        assert rec["status"] == "stopped" and bet["complete"] is False and bet["note"]
+        if where == "walk":
+            assert "properties history refused" in bet["note"] and bet["sets"] == []
+            assert [x["properties"]["last_update_date"] for x in after["sets"]] == [U1337, U1634] and at["backend_properties"]["last_update_date"] == U0907
+        else:
+            assert at["backend_properties"] is None and "properties history refused" in at["errors"]["backend.properties(datetime=running)"]
+            assert at["job_properties"]["last_update_date"] == U0907 and after == {"status": "pending", "asked_up_to": None}
+        with pytest.raises(ec.PoolError):
+            ec.load_pool(d)
+    assert "execution-time pool stopped" in capsys.readouterr().out
+
+
+def test_the_first_phase_fails_on_a_file_or_field_that_is_not_listed(tmp_path, monkeypatch):
+    """C65-8 at the runner: a phase-1 bundle with anything a phase-1 bundle may not hold stops the phase with its name."""
+    ec, rp = _committed_side()
+    import gradvar.hardware as hw
+    _switch(monkeypatch, "in_force")
+    ids, kw, jobs, history = _two_phase(hw, monkeypatch, tmp_path)
+    real = hw.write_execution_pool
+
+    def leaky(bundle_dir, job, backend, **k):
+        (Path(bundle_dir) / "result_preview.json").write_text("{}")
+        return real(bundle_dir, job, backend, **k)
+    monkeypatch.setattr(hw, "write_execution_pool", leaky)
+    with pytest.raises(SystemExit) as ex:
+        hw.retrieve_jobs(ids, metadata_only=True, **kw)
+    assert "file result_preview.json" in str(ex.value) and "may hold only the listed files and fields" in str(ex.value) and TimedJob.result_calls == 0
+    monkeypatch.setattr(hw, "write_execution_pool", real)
+    span = hw.record_execution_span
+
+    def labelled(bundle_dir, created=None, props_label=None):                           # a field the enumeration does not list
+        return span(bundle_dir, created, "retrieved: backend.properties(datetime=...)")
+    monkeypatch.setattr(hw, "record_execution_span", labelled)
+    with pytest.raises(SystemExit, match="job.json field retrieval.properties_label"):
+        hw.retrieve_jobs(ids, metadata_only=True, **kw)
+    assert TimedJob.result_calls == 0
+
+
+def test_the_result_phase_refuses_without_the_pool_or_without_verified_execution_rows(tmp_path, monkeypatch):
+    """Draft 65 Section 8 item 8 g, second half, with C65-8: while the table is in force there is no path to ``job.result()``
+    before the execution-time rows are committed and verified against the phase-1 files."""
+    ec, rp = _committed_side()
+    import gradvar.hardware as hw
+    _switch(monkeypatch, "in_force")
+    ids, kw, jobs, history = _two_phase(hw, monkeypatch, tmp_path)
+    with pytest.raises(SystemExit, match="refusing to retrieve the results.*--metadata-only"):
+        hw.retrieve_jobs(ids, **kw)
+    with pytest.raises(SystemExit, match="has not written the execution-time pool of t0, t1"):
+        hw.retrieve_jobs(ids, execution_rows_commit="feedc0de", **kw)
+    with pytest.raises(SystemExit, match="first phase"):
+        hw.retrieve_jobs(ids, metadata_only=True, execution_rows_commit="feedc0de", **kw)
+    with pytest.raises(SystemExit, match="first phase"):
+        hw.retrieve_jobs(ids, metadata_only=True, single_phase=True, **kw)
+    assert TimedJob.result_calls == 0 and not (tmp_path / "runs").exists() and history.asked == []     # refused before any call to the service
+    hw.retrieve_jobs(ids, metadata_only=True, **kw)
+    first = {n: json.loads((d / "job.json").read_text())["retrieval"] for n, d in _bundles(tmp_path).items()}
+    (next(iter(_bundles(tmp_path).values())) / "properties_between.json").rename(tmp_path / "moved.json")
+    with pytest.raises(SystemExit, match="has not written the execution-time pool of t0$"):
+        hw.retrieve_jobs(ids, execution_rows_commit="feedc0de", **kw)
+    (tmp_path / "moved.json").rename(next(iter(_bundles(tmp_path).values())) / "properties_between.json")
+    asked = len(history.asked)
+    with pytest.raises(SystemExit, match="is not in this checkout"):                             # the real check: no such commit
+        hw.retrieve_jobs(ids, execution_rows_commit="0" * 40, **kw)
+    with pytest.raises(SystemExit, match="refusing to retrieve the results.*--metadata-only"):   # still no way round it without a commit
+        hw.retrieve_jobs(ids, **kw)
+    seen = {}
+
+    def verify(commit, list_name, job_ids, runs_root, **k):
+        seen.update(commit=commit, list_name=list_name, job_ids=list(job_ids), runs_root=str(runs_root))
+        if commit != "feedc0de":
+            raise rp.PhaseError(f"refusing to retrieve the results of {list_name}: job t0: no classification")
+        return dict(prediction_commit=commit, checks=["ancestor", "phase-1 input hashes", "classification for every job"])
+    monkeypatch.setattr(rp, "verify_phase2", verify)
+    with pytest.raises(SystemExit, match="job t0: no classification"):
+        hw.retrieve_jobs(ids, execution_rows_commit="badc0de", **kw)
+    assert TimedJob.result_calls == 0 and len(history.asked) == asked                             # every refusal comes before the service is called
+    pools = {n: {f: (d / f).read_bytes() for f in POOL_FILES} for n, d in _bundles(tmp_path).items()}
+    rows = hw.retrieve_jobs(ids, execution_rows_commit="feedc0de", **kw)
+    assert seen["job_ids"] == sorted(first) and seen["runs_root"] == kw["run_root"] and seen["list_name"] == json.loads(Path(ids).read_text())["joblist_name"]
+    assert TimedJob.result_calls == len(jobs) and len(rows) > 0 and len(list((tmp_path / "jobs").glob("*_retrieved_*.csv"))) == 1
+    for name, d in _bundles(tmp_path).items():
+        job = json.loads((d / "job.json").read_text())
+        assert job["status"] == "completed" and (d / "result.json").is_file()
+        assert {f: (d / f).read_bytes() for f in POOL_FILES} == pools[name]                       # the second phase leaves the pool files as they were hashed
+        r = job["retrieval"]
+        assert r["phase"].startswith("results") and r["execution_rows_commit"] == "feedc0de" and r["phase2_verification"]["prediction_commit"] == "feedc0de"
+        assert r["execution_pool"] == first[name]["execution_pool"] and r["metadata_retrieved_utc"] == first[name]["retrieved_utc"]
+        assert r["properties_label"] == hw.PROPERTIES_AT_CREATION                                 # the second phase records it as the one-step retrieval does
+
+
+def test_a_commit_does_not_open_the_second_phase_while_the_table_is_not_in_force(tmp_path, monkeypatch):
+    """Rows drawn while the table is not in force are exploratory: the real ``verify_phase2`` finds no registered file, so naming a
+    commit retrieves nothing; the retrieval of v0.18.0 (no flag) is the way to the results until adoption."""
+    ec, rp = _committed_side()
+    import gradvar.hardware as hw
+    _switch(monkeypatch, "not_in_force")
+    ids, kw, jobs, history = _two_phase(hw, monkeypatch, tmp_path)
+    hw.retrieve_jobs(ids, metadata_only=True, **kw)
+    head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=str(ROOT), capture_output=True, text=True).stdout.strip()
+    if len(head) != 40:
+        pytest.skip("not a git checkout")
+    with pytest.raises(SystemExit, match="refusing to retrieve the results"):
+        hw.retrieve_jobs(ids, execution_rows_commit=head, **kw)
+    assert TimedJob.result_calls == 0
+
+
+def test_single_phase_is_the_retrieval_as_before_and_says_so(tmp_path, monkeypatch):
+    ec, rp = _committed_side()
+    import gradvar.hardware as hw
+    _switch(monkeypatch, "in_force")
+    ids, kw, jobs, history = _two_phase(hw, monkeypatch, tmp_path)
+    rows = hw.retrieve_jobs(ids, single_phase=True, **kw)
+    assert len(rows) > 0 and TimedJob.result_calls == len(jobs)
+    for d in _bundles(tmp_path).values():
+        job = json.loads((d / "job.json").read_text())
+        assert job["status"] == "completed" and job["retrieval"]["phase"].startswith("single phase") and job["retrieval"]["execution_pool"] is None
+        assert (d / "result.json").is_file() and not any((d / f).exists() for f in POOL_FILES)
+    with pytest.raises(SystemExit, match="first phase"):
+        hw.main(["--retrieve", ids, "--joblist", str(LIST01), "--run-root", kw["run_root"], "--log-dir", kw["log_dir"], "--metadata-only", "--single-phase"])
+
+
+# ----------------------------------------------------------------------------- Deviation 67 (iii): the one re-run, and the normal dispatch
+V018 = "a0053ae9d28653586e5e77b9aa6e475da06c4fa9"                 # main with pre-registration v0.18.0, before the pipeline and runner branches of 10-11 Nov 2026
+V018_CHANGED = {"write_job_bundle", "execute_joblist", "write_ids_file", "retrieve_jobs", "main"}   # the functions of v0.18.0 this file's history changed since
+
+
+def _frozen(now):
+    class Frozen(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return now if tz is not None else now.replace(tzinfo=None)
+    return Frozen
+
+
+def _v018_hardware():
+    """``gradvar/hardware.py`` as it is at ``V018``, loaded from git beside the current module; None without that commit."""
+    import importlib.util
+    r = subprocess.run(["git", "show", f"{V018}:gradvar/hardware.py"], cwd=str(ROOT), capture_output=True)
+    if r.returncode != 0:
+        return None, None
+    src = r.stdout.decode("utf-8")
+    name = "gradvar._hardware_v0_18_0"
+    mod = importlib.util.module_from_spec(importlib.util.spec_from_loader(name, loader=None, origin=str(ROOT / "gradvar" / "hardware.py")))
+    mod.__file__, mod.__package__ = str(ROOT / "gradvar" / "hardware.py"), "gradvar"
+    sys.modules[name] = mod
+    exec(compile(src, mod.__file__, "exec"), mod.__dict__)
+    return mod, src
+
+
+def _tree(root):
+    return {p.relative_to(root).as_posix(): p.read_bytes() for p in sorted(Path(root).rglob("*")) if p.is_file()}
+
+
+def _qpy_instructions(raw):
+    import io
+    from qiskit import qpy
+    return [(c.num_qubits, sorted(p.name for p in c.parameters),
+             [(ci.operation.name, tuple(c.find_bit(q).index for q in ci.qubits), tuple(str(x) for x in ci.operation.params)) for ci in c.data])
+            for c in qpy.load(io.BytesIO(raw))]
+
+
+def test_a_normal_dispatch_is_byte_identical_to_v0_18_0(tmp_path, monkeypatch):
+    """The submission path gained one parameter (``rerun``, Deviation 67 (iii)) and the bundle writer one (``metadata_only``,
+    Deviation 65). With neither given, the runner of this tree and the runner of v0.18.0 (``gradvar/hardware.py`` at ``V018``, read
+    from git) write the same files under one clock for a dry run, a live run that waits, and a ``--submit-only`` run: every file
+    byte for byte, except ``circuits.qpy``, whose bytes carry the fresh UUIDs qiskit gives Parameter objects at every build and
+    which is compared instruction by instruction, and the sha256 of that file recorded in job.json, which is checked against the
+    file beside it. Those two differ between any two builds, also of one and the same runner. The pubs the service receives are
+    the same pubs."""
+    import ast
+    import gradvar.hardware as hw
+    import qiskit_ibm_runtime as rt
+    old, old_src = _v018_hardware()
+    if old is None:
+        pytest.skip(f"commit {V018[:8]} is not in this checkout (no git history): the v0.18.0 runner cannot be loaded")
+    try:
+        # which functions of v0.18.0 differ at all: exactly the listed ones (a change to any other function of the runner must be added here)
+        def defs(src):
+            t = ast.parse(src)
+            return {n.name: ast.get_source_segment(src, n) for n in t.body if isinstance(n, (ast.FunctionDef, ast.ClassDef))}
+        a, b = defs(old_src), defs((ROOT / "gradvar" / "hardware.py").read_text(encoding="utf-8"))
+        assert not set(a) - set(b)                                                           # nothing of v0.18.0 was removed
+        assert {n for n in a if a[n] != b[n]} == V018_CHANGED
+        monkeypatch.setattr(rt, "EstimatorV2", FakeEstimator)
+        monkeypatch.setattr(rt, "Batch", FakeBatch)
+        clock = _frozen(datetime(2026, 11, 12, 6, 0, 0, tzinfo=timezone.utc))
+        trees, sent = {}, {}
+        for label, mod in (("v018", old), ("now", hw)):
+            monkeypatch.setattr(mod, "datetime", clock)
+            (tmp_path / label).mkdir()
+            monkeypatch.chdir(tmp_path / label)                                              # relative roots: no path of the run enters a file
+            jl = mod.load_joblist(str(LIST01))
+            points, shapes, shots = mod.joblist_points(jl, CAL)
+            backend = mod.fake_backend("ibm_marrakesh")
+            received = []
+
+            class Recording(FakeEstimator):
+                def run(self, pubs):
+                    job = super().run(pubs)
+                    received.append(job)
+                    return job
+            monkeypatch.setattr(rt, "EstimatorV2", Recording)
+            for mode, kw in (("dry", dict(submit=False)), ("live", dict(submit=True, wait=True)), ("submit_only", dict(submit=True, wait=False))):
+                FakeJob.counter = 0
+                mod.execute_joblist(jl, points, shapes, shots, backend, run_root=f"{mode}/runs", log_path=f"{mode}/jobs/log.csv", calibration_csv=CAL,
+                                    instance_plan="open", joblist_path=str(LIST01), run_id=7, **kw)
+            trees[label], sent[label] = _tree(tmp_path / label), received
+        assert sorted(trees["v018"]) == sorted(trees["now"]) and len(trees["now"]) > 30
+        assert any(n.startswith("submit_only/") and n.endswith("_job_ids.json") for n in trees["now"])
+        def without_qpy_hash(tree, name):
+            """job.json with the sha256 of the bundle's circuits.qpy, verified against that file, replaced by a fixed word."""
+            raw, qpy_name = tree[name], name[:-len("job.json")] + "circuits.qpy"
+            if not name.endswith("/job.json") or qpy_name not in tree:
+                return raw
+            digest = hashlib.sha256(tree[qpy_name]).hexdigest().encode("ascii")
+            assert raw.count(digest) == 1 and json.loads(raw)["circuits_qpy"]["sha256"] == digest.decode("ascii"), name
+            return raw.replace(digest, b"<sha256 of circuits.qpy>")
+        compared = 0
+        for name in trees["now"]:
+            if name.endswith("circuits.qpy"):
+                assert _qpy_instructions(trees["v018"][name]) == _qpy_instructions(trees["now"][name]), name
+            else:
+                assert without_qpy_hash(trees["v018"], name) == without_qpy_hash(trees["now"], name), name
+                compared += 1
+        assert compared == len(trees["now"]) - sum(n.endswith("circuits.qpy") for n in trees["now"]) > 25
+        assert len(sent["v018"]) == len(sent["now"]) == 6                                    # three jobs of the live run, three of the submit-only run
+        groups, _ = hw.job_groups(hw.load_joblist(str(LIST01)), *hw.joblist_points(hw.load_joblist(str(LIST01)), CAL), hw.fake_backend("ibm_marrakesh"), CAL)
+        for x, y, (tag, level, gshots, group) in zip(sent["v018"], sent["now"], list(groups) * 2):
+            assert (x.level, x.shots, x.inputs["options"]) == (y.level, y.shots, y.inputs["options"]) == (level, gshots, x.inputs["options"])
+            assert hw.verify_job_inputs(x.inputs, group)["match"] is True and hw.verify_job_inputs(y.inputs, group)["match"] is True
+    finally:
+        sys.modules.pop("gradvar._hardware_v0_18_0", None)
+
+
+def _armed_repo(tmp_path):
+    """A git repository standing for the checkout the runner works in: the place of the committed decision file."""
+    repo = tmp_path / "repo"
+    (repo / "data" / "predictions" / "execution").mkdir(parents=True)
+    if subprocess.run(["git", "init", "-q"], cwd=str(repo), capture_output=True).returncode != 0:
+        pytest.skip("git cannot make a repository here")
+    for k, v in (("user.name", "t"), ("user.email", "t@example.org"), ("core.autocrlf", "false"), ("commit.gpgsign", "false"), ("core.longpaths", "true")):
+        subprocess.run(["git", "config", k, v], cwd=str(repo), capture_output=True)
+    return repo
+
+
+def _commit(repo, rel, message):
+    subprocess.run(["git", "add", rel], cwd=str(repo), capture_output=True)
+    assert subprocess.run(["git", "commit", "-q", "-m", message], cwd=str(repo), capture_output=True).returncode == 0
+    return subprocess.run(["git", "rev-parse", "HEAD"], cwd=str(repo), capture_output=True, text=True).stdout.strip()
+
+
+@pytest.mark.parametrize("status", ["absent", "not_in_force", "in_force"])
+def test_without_a_decision_file_nothing_is_submitted(tmp_path, monkeypatch, capsys, status):
+    """The re-run path submits nothing while the table is not in force, and nothing without a committed decision file."""
+    import gradvar.hardware as hw
+    jl, points, shapes, shots, backend, _ = _live_run(hw, monkeypatch, tmp_path, wait=False)
+    ids_path = next((tmp_path / "runs").glob("*/*_job_ids.json"))
+    before, n = _tree(tmp_path), FakeJob.counter
+    _switch(monkeypatch, status)
+    match = "no decision file" if status == "in_force" else "is a rule of Deviation 67. Nothing is submitted"
+    for submit in (True, False):
+        with pytest.raises(SystemExit, match=match):
+            hw.rerun_joblist(str(ids_path), submit=submit, run_root=str(tmp_path / "runs"), root=tmp_path / "norepo")
+    with pytest.raises(SystemExit, match=match):
+        hw.main(["--rerun", str(ids_path), "--yes-submit", "--run-root", str(tmp_path / "runs")])   # the checkout holds no decision of this list
+    if status != "in_force":
+        with pytest.raises(SystemExit, match="is a rule of Deviation 67"):
+            hw.rerun_decide(str(ids_path), str(tmp_path / "ledger.json"), run_root=str(tmp_path / "runs"))
+    assert FakeJob.counter == n and _tree(tmp_path) == before
+    capsys.readouterr()
+    for argv, words in ((["--rerun-decide", str(ids_path)], "--rerun-decide and --ledger go together"),
+                        (["--ledger", str(tmp_path / "ledger.json")], "--rerun-decide and --ledger go together"),
+                        (["--rerun", str(ids_path), "--yes-submit", "--submit-only"], "--rerun takes --yes-submit and nothing else of a submission")):
+        with pytest.raises(SystemExit) as e:
+            hw.main(argv)
+        assert e.value.code == 2 and words in capsys.readouterr().err, argv                      # the runner's own refusal, by its text
+    assert FakeJob.counter == n and _tree(tmp_path) == before
+
+
+def test_the_one_rerun_from_the_decision_to_the_bundle(tmp_path, monkeypatch, capsys):
+    """Deviation 67 (iii) end to end on fake jobs: first run (--submit-only), first retrieval phase, the decision computed by the
+    committed function from files without a measured value, the decision committed, the re-dispatch of exactly the named job,
+    unchanged, and the retrieval of the re-run. A failing layout check, pubs that differ from the first run's, a second
+    re-run and a re-run of a re-run submit nothing."""
+    ec, rp = _committed_side()
+    rd = pytest.importorskip("gradvar.rerun_decision", reason="the committed re-run decision is not on this tree")
+    import dataclasses
+    import gradvar.hardware as hw
+    monkeypatch.chdir(tmp_path)                                  # the re-run logs a fresh properties snapshot under <cwd>/data/calibrations
+    jl, points, shapes, shots, backend, _ = _live_run(hw, monkeypatch, tmp_path, wait=False)
+    run_root = str(tmp_path / "runs")
+    ids_path = next((tmp_path / "runs").glob("*/*_job_ids.json"))
+    name = jl["name"]
+    groups, _ = hw.job_groups(jl, points, shapes, shots, backend, CAL)
+    first_jobs = [FakeJob([b.pub() for b in g], level, gshots, job_id=f"fakejob{i + 1}") for i, (tag, level, gshots, g) in enumerate(groups)]
+    service = FakeService(first_jobs)
+    _wire_service(hw, monkeypatch, service, backend)
+    _switch(monkeypatch, "in_force")
+    monkeypatch.setattr(hw, "check_budget", lambda jl, **k: [])   # this pipeline-check list carries the budget of model v2; its budget block is not the subject here
+    committed_table = ec.load_settings()
+    monkeypatch.setattr(ec, "load_settings", lambda *a, **k: dataclasses.replace(committed_table, status="in_force", provisional_entries=()))   # the table once adopted
+    kw = dict(run_root=run_root, log_dir=str(tmp_path / "jobs"), snapshot_dir=str(tmp_path / "cal"))
+    # phase 1 of the first run: bundles without results (the fake jobs have no properties history: the pool says stopped, the bundle is still a phase-1 bundle)
+    assert hw.retrieve_jobs(str(ids_path), metadata_only=True, **kw) == []
+    bundle = {d.name: json.loads((d / "job.json").read_text()) for d in (tmp_path / "runs").glob("*/fakejob*")}
+    assert set(bundle) == {"fakejob1", "fakejob2", "fakejob3"} and not list((tmp_path / "runs").rglob("result.json"))
+    # the registered rows of the re-draw: the L0 job's point is not evaluable on a calibration ground, the L1 job's point is read
+    repo = _armed_repo(tmp_path)
+    pdir = repo / "data" / "predictions" / "execution"
+    key0, key1 = rd.point_keys_of_job(bundle["fakejob1"])[0], rd.point_keys_of_job(bundle["fakejob2"])[0]
+    rows = dict(exploratory=False, settings=dict(in_force=True), jobs=[dict(job_id=j) for j in bundle],
+                groups=[dict(jobs=[dict(job_id="fakejob1")], classification=[dict(item="p0", key=key0, reading=ec.NOT_EVALUABLE, grounds=[ec.CALIBRATION_GROUNDS[0]], flags=[])]),
+                        dict(jobs=[dict(job_id="fakejob2")], classification=[dict(item="p1", key=key1, reading=ec.READ, grounds=[], flags=[])])])
+    (pdir / f"{name}_abcdef012345.json").write_text(json.dumps(rows), encoding="utf-8")
+    ledger = tmp_path / "ledger.json"
+    ledger.write_text(json.dumps(dict(lines={"pipeline_checks": 3.0}, charged_ids_files=[str(ids_path)], source="test ledger")), encoding="utf-8")
+    now = datetime(2026, 9, 20, 12, 0, 0, tzinfo=timezone.utc)                                 # the UTC day of the first run (CREATED)
+    with pytest.raises(SystemExit, match="does not hold"):
+        other = tmp_path / "other_ledger.json"
+        other.write_text(json.dumps(dict(lines={"pipeline_checks": 3.0}, charged_ids_files=[str(tmp_path / "nowhere.json")], source="x")), encoding="utf-8")
+        hw.rerun_decide(str(ids_path), str(other), run_root=run_root, now=now, predictions_dir=pdir)
+    dpath = hw.rerun_decide(str(ids_path), str(ledger), run_root=run_root, now=now, predictions_dir=pdir)
+    decision = json.loads(dpath.read_text(encoding="utf-8"))
+    assert dpath == pdir / f"{name}_rerun_decision.json" and decision["rerun"] == ["fakejob1"] and decision["active"] is True
+    assert decision["ledger"]["charged_before"] == pytest.approx(3 * 5.0 / 60.0) and decision["layout_check"]["passed"] is True
+    assert decision["ledger"]["lines"] == {"pipeline_checks": 3.0} and "usage_qpu_seconds of 3 bundles" in decision["ledger"]["source"]
+    assert [d["rerun"] for d in decision["decisions"]] == [True, False, False]
+    assert "evs" not in json.dumps(decision) and "ensemble_standard_error" not in json.dumps(decision)    # no measured value among its inputs
+    n = FakeJob.counter
+    # not committed yet: nothing is submitted
+    with pytest.raises(SystemExit, match="is not committed"):
+        hw.rerun_joblist(str(ids_path), submit=True, run_root=run_root, now=now, root=repo)
+    commit = _commit(repo, f"data/predictions/execution/{name}_rerun_decision.json", "decision")
+    committed = dict(path=f"data/predictions/execution/{name}_rerun_decision.json", sha256=hashlib.sha256(dpath.read_bytes()).hexdigest(), commit=commit)
+    # the plan alone: nothing is built, nothing is submitted
+    assert hw.rerun_joblist(str(ids_path), submit=False, run_root=run_root, now=now, root=repo) == 0
+    assert "fakejob1 (L0 -> L0-rerun)" in capsys.readouterr().out and FakeJob.counter == n
+    # another UTC day
+    with pytest.raises(SystemExit, match="not the same UTC day"):
+        hw.rerun_joblist(str(ids_path), submit=True, run_root=run_root, now=datetime(2026, 9, 21, 0, 0, 1, tzinfo=timezone.utc), root=repo)
+    # the live layout check fails for the list
+    real_check = hw.layout_check_for
+
+    def failing(*a, **k):
+        chk = real_check(*a, **k)
+        if k.get("enforce") or (len(a) > 3 and a[3]):
+            chk["action"] = "refuse"
+        return chk
+    monkeypatch.setattr(hw, "layout_check_for", failing)
+    with pytest.raises(SystemExit, match="takes no override. Nothing is submitted"):
+        hw.rerun_joblist(str(ids_path), submit=True, run_root=run_root, now=now, root=repo)
+    monkeypatch.setattr(hw, "layout_check_for", real_check)
+    # the service holds other pubs for the first job than the list rebuilds (the same pubs in another order), or the same pubs under other options
+    service._jobs["fakejob1"] = FakeJob([b.pub() for b in reversed(groups[0][3])], 0, 1024, job_id="fakejob1")
+    with pytest.raises(SystemExit, match="rebuilt pubs differ from the inputs of the first run"):
+        hw.rerun_joblist(str(ids_path), submit=True, run_root=run_root, now=now, root=repo)
+    for stored in (FakeJob([b.pub() for b in groups[0][3]], 1, 1024, job_id="fakejob1"),          # the L1 job of this list carries the L0 job's pubs
+                   FakeJob([b.pub() for b in groups[0][3]], 0, 4096, job_id="fakejob1"),
+                   FakeJob([b.pub() for b in groups[0][3]], 0, 1024, rep_delay_s=2.5e-4, job_id="fakejob1")):
+        service._jobs["fakejob1"] = stored
+        with pytest.raises(SystemExit, match="as the service stored them .* differ from the rebuilt job"):
+            hw.rerun_joblist(str(ids_path), submit=True, run_root=run_root, now=now, root=repo)
+    service._jobs["fakejob1"] = first_jobs[0]
+    assert FakeJob.counter == n + 4 and not list((tmp_path / "runs").glob("*/*_rerun_job_ids.json"))    # four fake job objects made by the test itself; none submitted
+    # the re-dispatch
+    import qiskit_ibm_runtime as rt
+    sent = []
+
+    class Recording(FakeEstimator):
+        def run(self, pubs):
+            job = super().run(pubs)
+            sent.append(job)
+            return job
+    monkeypatch.setattr(rt, "EstimatorV2", Recording)
+    assert hw.rerun_joblist(str(ids_path), submit=True, run_root=run_root, now=now, root=repo) == 0
+    out = capsys.readouterr().out
+    assert "rebuilt pubs equal the inputs of the first run (5 pubs)" in out and "re-run (Deviation 67 (iii)) of 1 job(s): L0-rerun" in out
+    assert len(sent) == 1 and sent[0].level == 0 and sent[0].shots == 1024 and sent[0].inputs["options"] == first_jobs[0].inputs["options"]
+    assert hw.verify_job_inputs(sent[0].inputs, groups[0][3])["match"] is True                     # the very pubs of the first L0 job
+    rerun_ids_path = next((tmp_path / "runs").glob(f"*/{name}_rerun_job_ids.json"))
+    rerun_ids = hw.load_ids_file(rerun_ids_path)
+    assert [(j["job_id"], j["tag"], j["level"], j["shots"], j["pubs"], j["rep_delay_us"], j["rerun_of"], j["rerun_of_tag"]) for j in rerun_ids["jobs"]] == \
+        [(sent[0].job_id(), "L0-rerun", 0, 1024, 5, None, "fakejob1", "L0")]
+    assert rerun_ids["rerun_decision"] == committed and rerun_ids["resubmission"] is None and rerun_ids["calibration_csv"] == CAL
+    assert "re-run under Deviation 67 (iii)" in rerun_ids["notes"] and "results not awaited" in rerun_ids["notes"]
+    assert list((tmp_path / "data" / "calibrations").glob("fake_marrakesh_properties_*.json"))     # the calibration in force at the re-dispatch is logged
+    assert json.loads(ids_path.read_text())["jobs"][0]["job_id"] == "fakejob1"                     # the first run's ids file is untouched
+    # a job is re-run once, and a re-run is never re-run
+    with pytest.raises(SystemExit, match="a job is re-run once"):
+        hw.rerun_joblist(str(ids_path), submit=True, run_root=run_root, now=now, root=repo)
+    with pytest.raises(SystemExit, match="a re-run is never re-run"):
+        hw.rerun_joblist(str(rerun_ids_path), submit=True, run_root=run_root, now=now, root=repo)
+    with pytest.raises(SystemExit, match="a re-run is never re-run"):
+        hw.rerun_decide(str(rerun_ids_path), str(ledger), run_root=run_root, now=now, predictions_dir=pdir)
+    assert len(sent) == 1
+    # the re-run goes through the retrieval like any list: its bundle carries the suffixed tag, the job it repeats and the decision
+    service._jobs[sent[0].job_id()] = sent[0]
+    assert hw.retrieve_jobs(str(rerun_ids_path), metadata_only=True, **kw) == []
+    d = next((tmp_path / "runs").glob(f"*/{sent[0].job_id()}"))
+    job = json.loads((d / "job.json").read_text())
+    assert job["job_tag"] == "L0-rerun" and job["status"] == "metadata only" and not (d / "result.json").exists()
+    assert job["retrieval"]["rerun_of"] == "fakejob1" and job["retrieval"]["rerun_decision"] == committed
+    rp.check_phase1_bundle(d)                                                                      # the enumeration lists the two re-run fields
+    # a result in the tree: the decision is no longer computed
+    (next((tmp_path / "runs").glob("*/fakejob2")) / "result.json").write_text("{}")
+    with pytest.raises(SystemExit, match="a result is in the tree"):
+        hw.rerun_decide(str(ids_path), str(ledger), run_root=run_root, now=now, predictions_dir=pdir)
+
+
+# ------------------------------------------------------------------------------------------------ review correction CI2-1
+
+@pytest.mark.parametrize("status", ["not_in_force", "in_force"])
+def test_ci2_1_the_first_phase_leaves_a_retrieved_tree_as_it_is(tmp_path, monkeypatch, capsys, status):
+    """Review correction CI2-1: ``--metadata-only`` on an ids file whose jobs were retrieved already refuses before it writes
+    anything. Every file is byte-identical afterwards (the first phase used to rewrite every job.json to "metadata only" beside
+    its result.json) and the service is not contacted. The refusal comes before the code of Deviation 65 is asked for, so this
+    test needs nothing of the committed side."""
+    import gradvar.hardware as hw
+    _switch(monkeypatch, "not_in_force")
+    jl = hw.load_joblist(str(LIST01))
+    points, shapes, shots = hw.joblist_points(jl, CAL)
+    backend = hw.fake_backend("ibm_marrakesh")
+    groups, _ = hw.job_groups(jl, points, shapes, shots, backend, CAL)
+    jobs = [FakeJob([b.pub() for b in g], level, gshots, job_id=f"t{i}") for i, (tag, level, gshots, g) in enumerate(groups)]
+    _wire_service(hw, monkeypatch, FakeService(jobs), backend)
+    ids = hw.write_ids_file(tmp_path / "ids.json", jl, str(LIST01), [dict(job_id=f"t{i}", tag=tag, level=level, shots=gshots, pubs=len(g), rep_delay_us=None)
+                                                                     for i, (tag, level, gshots, g) in enumerate(groups)], calibration_csv=CAL, run_id=1)
+    kw = dict(run_root=str(tmp_path / "runs"), log_dir=str(tmp_path / "jobs"), snapshot_dir=str(tmp_path / "cal"))
+    assert len(hw.retrieve_jobs(str(ids), **kw)) > 0                                    # a retrieved tree: every bundle holds its result
+    before = _tree(tmp_path)
+    assert sum(1 for f in before if f.endswith("/result.json")) == len(jobs) >= 2
+    _switch(monkeypatch, status)
+
+    def contacted(*a, **k):
+        raise AssertionError("the service was contacted")
+    monkeypatch.setattr(hw, "get_service", contacted)
+    monkeypatch.setattr(hw, "get_backend", contacted)
+    capsys.readouterr()
+    with pytest.raises(SystemExit, match="refusing the first phase") as e:
+        hw.retrieve_jobs(str(ids), metadata_only=True, **kw)
+    assert _tree(tmp_path) == before                                                    # every file, byte for byte
+    err = capsys.readouterr().err
+    for j in jobs:
+        assert f"first phase refused for {j.job_id()}" in err and f"{j.job_id()}: its bundle" in str(e.value)
+    assert "holds result.json" in str(e.value) and "nothing is written and the service is not contacted" in str(e.value)
+    with pytest.raises(SystemExit, match="refusing the first phase"):                   # the same from the command line
+        hw.main(["--retrieve", str(ids), "--metadata-only", "--run-root", kw["run_root"]])
+    assert _tree(tmp_path) == before
+    # a record that is not of the first phase is refused without a result beside it too (the bundle of a failed or cancelled job)
+    for p in (tmp_path / "runs").glob("*/t0/result.json"):
+        p.unlink()
+    before = _tree(tmp_path)
+    with pytest.raises(SystemExit, match="is not a record of the first phase") as e:
+        hw.retrieve_jobs(str(ids), metadata_only=True, **kw)
+    assert _tree(tmp_path) == before and "status 'completed'" in str(e.value)
+    assert hw.first_phase_refusal(kw["run_root"], "a-job-without-a-bundle") is None
+
+
+@pytest.mark.parametrize("status", ["not_in_force", "in_force"])
+def test_ci2_1_the_other_jobs_of_the_list_go_on(tmp_path, monkeypatch, capsys, status):
+    """Review correction CI2-1: a job that was retrieved already is refused and its bundle stays byte-identical; a job of the same
+    list without a bundle gets its first phase; the phase ends with a non-zero exit that names the refused jobs; a first-phase
+    bundle may be written again."""
+    ec, rp = _committed_side()
+    import shutil
+    import gradvar.hardware as hw
+    _switch(monkeypatch, "not_in_force")
+    ids, kw, jobs, history = _two_phase(hw, monkeypatch, tmp_path)
+    assert len(hw.retrieve_jobs(ids, **kw)) > 0                                         # results in every bundle
+    bundles = _bundles(tmp_path)
+    assert len(bundles) >= 2
+    fresh = sorted(bundles)[0]
+    shutil.rmtree(bundles[fresh])                                                       # this job was never retrieved
+    kept = {n: _tree(d) for n, d in bundles.items() if n != fresh}
+    calls = TimedJob.result_calls
+    _switch(monkeypatch, status)
+    capsys.readouterr()
+    with pytest.raises(SystemExit) as e:
+        hw.retrieve_jobs(ids, metadata_only=True, **kw)
+    assert TimedJob.result_calls == calls
+    for n, files in kept.items():
+        assert _tree(bundles[n]) == files, n                                            # byte for byte
+        assert f"{n} (" in str(e.value) and "first phase refused" in str(e.value)
+    assert f"{fresh} (" not in str(e.value) and f"first phase refused for {fresh}" not in capsys.readouterr().err
+    d = _bundles(tmp_path)[fresh]
+    job = json.loads((d / "job.json").read_text())
+    assert job["status"] == "metadata only" and not (d / "result.json").exists() and all((d / f).is_file() for f in POOL_FILES)
+    rp.check_phase1_bundle(d)
+    assert hw.first_phase_refusal(kw["run_root"], fresh) is None                        # a first-phase record: the phase may be repeated on it

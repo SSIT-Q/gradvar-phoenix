@@ -24,6 +24,14 @@ docs/repack/REVIEW_CHECKLIST.md and the Section 8 arming conditions of the pre-f
    (otherwise the list is not dispatched on this package), and the runner-semantics pre-check of the list's placement on that
    snapshot must pass. ``--allow-package-snapshot`` accepts the package's own snapshot as the newest one (a check right after the
    package was built; it is reported as not being a pre-arming snapshot).
+   Deviation 65 (draft; only when the commit carries the settings table ``data/settings/execution_calibration_settings.json`` and
+   it says ``in_force``): the comparison of the two IBM properties times is replaced by the dispatch window of review correction
+   C65-5, read from the table (``dispatch_window``). An update is a change of values: every properties file committed after the
+   package's snapshot is read, sets stamped again with unchanged values count as one update, and the list is in the window while
+   the values in force are the package's or those of the first change after it, on the package's UTC day. The package's summary
+   must carry its Deviation 65 record, with the hashes of the very set its snapshot holds. A change of values that no committed
+   file carries is not seen: the count is a lower bound and the check says how many files it rests on. While the table is absent
+   or not in force this check is exactly the one of v0.18.0.
 
 Exit 0 when every check passes for every list, 1 when any fails, 2 when a file cannot be read. ``--json`` prints the record
 (what was read, from where, each check). Nothing is written, armed or dispatched, and IBM is not contacted. A commit is read
@@ -262,6 +270,62 @@ def newest_snapshot(src) -> dict:
     return dict(stamp=props[-1][0], properties=props[-1][1], csv_stamp=pairs[-1][0], csv=f"ibm_phoenix_{pairs[-1][0]}.csv", csv_properties=pairs[-1][1])
 
 
+SETTINGS_DIR, SETTINGS_NAME = "data/settings", "execution_calibration_settings.json"
+
+
+def execution_switch(src):
+    """The adoption switch of Deviations 65 and 67 AT THE COMMIT: ``(switch record, gradvar.execution_record)`` when the commit's
+    settings table says ``in_force``, None while the commit has no table or its table says ``not_in_force`` (v0.18.0: the module
+    is then not imported). A table its loader refuses makes the check unreadable: which rules apply is not guessed. A listing that
+    fails reads as no table; the check is then that of v0.18.0, whose window is the narrower one."""
+    if SETTINGS_NAME not in src.ls(SETTINGS_DIR):
+        return None
+    raw = src.read(f"{SETTINGS_DIR}/{SETTINGS_NAME}")
+    if str(ROOT) not in sys.path:
+        sys.path.insert(0, str(ROOT))
+    from gradvar import execution_record as ER                            # noqa: E402  (stdlib only)
+    try:
+        sw = ER.adoption(raw=raw)
+    except ER.ExecutionRecordError as e:
+        raise Unreadable(str(e)) from e
+    return (sw, ER) if sw["in_force"] else None
+
+
+def _properties(src, name: str) -> dict:
+    raw = src.read(f"data/calibrations/{name}")
+    return json.loads(gzip.decompress(raw) if name.endswith(".gz") else raw)
+
+
+def dispatch_window(src, S: dict, stamp: str, now: str, sw: dict, ER) -> dict:
+    """The two Deviation 65 checks of a list's package at the commit: its record, and its dispatch window by values.
+    ``{record_ok, record_detail, window}``."""
+    run = S.get("run") or {}
+    package = _properties(src, run["properties"])
+    ref = ER.set_ref(package, f"data/calibrations/{run['properties']}")
+    rec = S.get("execution") or {}
+    named = rec.get("stops_evaluated_on") or {}
+    if (rec.get("adoption") or {}).get("in_force") is not True:
+        record_ok, detail = False, ("the package's summary carries no Deviation 65 record: it was built while the settings table was not in force, "
+                                    "and its pre-flights do not name the update its stops were evaluated on; a new package is needed")
+    elif (named.get("sha256"), named.get("value_sha256")) != (ref["sha256"], ref["value_sha256"]):
+        record_ok, detail = False, (f"the summary names the set {str(named.get('sha256'))[:12]} (values {str(named.get('value_sha256'))[:12]}), the "
+                                    f"package's properties file `{run['properties']}` holds {ref['sha256'][:12]} (values {ref['value_sha256'][:12]})")
+    else:
+        record_ok, detail = True, (f"stops evaluated on IBM update {ref['last_update_date']} (`{run['properties']}`, content {ref['sha256'][:12]}, values "
+                                   f"{ref['value_sha256'][:12]}); code commit `{(rec.get('code') or {}).get('commit')}`")
+    names = sorted((stamp_of(n), n) for n in src.ls("data/calibrations") if n.startswith("ibm_phoenix_properties_") and stamp_of(n) and stamp_of(n) > stamp)
+    later, skipped = [], []
+    for _, n in names:
+        d = _properties(src, n)
+        (later if ER.parse_utc(d["last_update_date"]) >= ER.parse_utc(package["last_update_date"]) else skipped).append((n, d))
+    try:
+        win = ER.value_window(package, [d for _, d in later], ER.stamp_instant(stamp), now, sw["dispatch_window"])
+    except ER.ExecutionRecordError as e:
+        raise Unreadable(str(e)) from e
+    win.update(files=[n for n, _ in later], skipped_older=[n for n, _ in skipped], package_instant=ER.stamp_instant(stamp), check_instant=now)
+    return dict(record_ok=record_ok, record_detail=detail, window=win)
+
+
 def precheck_on(src, pl: dict, csv_name: str) -> dict:
     """The runner-semantics pre-check (``build_preflights.precheck``) of a placement block on a snapshot CSV read from the source."""
     import tempfile
@@ -296,7 +360,7 @@ def no_go_for(record: str, name: str) -> bool:
 
 # --------------------------------------------------------------------------- the check
 
-def check_list(src, name: str, allow_package_snapshot: bool = False, stop_lifted: str | None = None) -> dict:
+def check_list(src, name: str, allow_package_snapshot: bool = False, stop_lifted: str | None = None, now: str | None = None) -> dict:
     out = dict(list=name, checks=[])
 
     def add(check, ok, detail):
@@ -411,9 +475,24 @@ def check_list(src, name: str, allow_package_snapshot: bool = False, stop_lifted
     add("pre-arming snapshot", newer or (allow_package_snapshot and ns["csv_stamp"] == stamp),
         f"newest committed calibration snapshot {ns['csv_stamp']}; the package's {stamp}" + ("" if newer else ": no snapshot was taken after the package's"
                                                                + (" (accepted: --allow-package-snapshot; not a pre-arming snapshot)" if allow_package_snapshot and ns["csv_stamp"] == stamp else "")))
-    add("IBM properties time", live == run.get("ibm_properties"),
-        f"newest properties file `{pname}` {live}; package {run.get('ibm_properties')} (from docs/repack/{label}_summary.json)"
-        + ("" if live == run.get("ibm_properties") else ": IBM has updated its properties, the list is not dispatched on this package (Deviation 62 (iv))"))
+    d65 = execution_switch(src)
+    if d65 is None:                                                        # v0.18.0: the strict window of Deviation 62 (iv), by stamp
+        add("IBM properties time", live == run.get("ibm_properties"),
+            f"newest properties file `{pname}` {live}; package {run.get('ibm_properties')} (from docs/repack/{label}_summary.json)"
+            + ("" if live == run.get("ibm_properties") else ": IBM has updated its properties, the list is not dispatched on this package (Deviation 62 (iv))"))
+    else:                                                                  # Deviation 65 in force at the commit: the window of C65-5, by values
+        sw, ER = d65
+        now = now or _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        dw = dispatch_window(src, S, stamp, now, sw, ER)
+        win = dw["window"]
+        out["execution"] = dict(switch=sw, window=win)
+        add("package record (Deviation 65)", dw["record_ok"], dw["record_detail"])
+        add("dispatch window (Deviation 65)", win["in_window"],
+            f"{win['text']}; package snapshot {win['package_instant']}, checked {win['check_instant']}; values in force {win['in_force']['value_sha256'][:12]} "
+            f"(IBM stamp {win['in_force']['last_update_date']}), package {win['package']['value_sha256'][:12]} (IBM stamp {win['package']['last_update_date']}); "
+            f"counted over {win['stamps_seen']} properties file(s) committed after the package's snapshot, a lower bound: a change of values that no "
+            "committed file carries is not seen"
+            + ("" if win["in_window"] else ": outside the window, the list is not dispatched on this package"))
     pc = precheck_on(src, pl, cname)
     out["precheck"] = pc
     add("pre-check on the newest snapshot", not (pc["qfail"] or pc["cfail"]) and live_csv == live,
@@ -423,11 +502,13 @@ def check_list(src, name: str, allow_package_snapshot: bool = False, stop_lifted
     return out
 
 
-def check(src, names, allow_package_snapshot: bool = False, stop_lifted: str | None = None) -> dict:
-    res = dict(source=src.name, commit=src.commit, on_main=src.on_main(), checked_utc=_dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), lists=[])
+def check(src, names, allow_package_snapshot: bool = False, stop_lifted: str | None = None, now: str | None = None) -> dict:
+    """``now`` (UTC, ISO): the instant of the check, for the UTC-day condition of the Deviation 65 window (default: the clock)."""
+    res = dict(source=src.name, commit=src.commit, on_main=src.on_main(),
+               checked_utc=now or _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), lists=[])
     for n in names:
         try:
-            res["lists"].append(check_list(src, n, allow_package_snapshot, stop_lifted))
+            res["lists"].append(check_list(src, n, allow_package_snapshot, stop_lifted, now=res["checked_utc"]))
         except Unreadable as e:
             res["lists"].append(dict(list=n, ok=False, unreadable=str(e), checks=[]))
     res["ok"] = all(x["ok"] for x in res["lists"]) and res["on_main"] is not False

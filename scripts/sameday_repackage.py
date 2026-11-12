@@ -147,6 +147,36 @@ def ibm_update(props: Path) -> str:
     return t.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def execution_package(props: Path, stamp: str, run_sha: str, root: Path | None = None) -> dict | None:
+    """Deviation 65 (draft), behind its adoption switch: what the package records before dispatch (``gradvar.execution_record.
+    package_record``): the commit and the file hashes of the builder, classifier, re-run decision and re-draw code, the update on
+    which the stops are evaluated (stamp, content hash, value hash), the age of the readout values at the snapshot and the window
+    rule, with the two texts the pre-flights carry. None while the settings table is absent or not in force: the summary and the
+    pre-flights are then those of v0.18.0 and ``gradvar.execution_record`` is not imported at all. In force with a code file
+    missing from the tree, the cycle does not start: a package cannot name code that is not there."""
+    root = Path(root) if root is not None else ROOT
+    if not (root / "data" / "settings" / "execution_calibration_settings.json").is_file():
+        return None
+    if str(ROOT) not in sys.path:
+        sys.path.insert(0, str(ROOT))
+    from gradvar import execution_record as ER                            # noqa: E402  (stdlib only)
+    try:
+        sw = ER.adoption(root)
+        if not sw["in_force"]:
+            return None
+        op = gzip.open if str(props).endswith(".gz") else open
+        with op(props, "rt", encoding="utf-8") as f:
+            pd = json.load(f)
+        rec = ER.package_record(root, pd, f"data/calibrations/{Path(props).name}", ER.stamp_instant(stamp), run_sha, switch=sw)
+        missing = [f for f, h in rec["code"]["files"].items() if h is None]
+        if missing:
+            raise SystemExit("Deviation 65 is in force but its code is not on this tree: " + ", ".join(missing))
+        rec["text"] = dict(window=ER.window_sentence(rec), paragraph=ER.preflight_paragraph(rec))
+    except ER.ExecutionRecordError as e:
+        raise SystemExit(f"Deviation 65: {e}")
+    return rec
+
+
 def load(name: str, d: Path = P1) -> dict:
     return json.loads((d / f"{name}.json").read_text(encoding="utf-8"))
 
@@ -691,6 +721,8 @@ def write_summary(S: dict, date: str) -> tuple:
         L += [f"**Label `{r['label']}`** (pre-flights `*_{r.get('preflight_label')}.md`): {r.get('label_reason')}.", ""]
     if r.get("exercise"):
         L += ["**EXERCISE run (`--exercise`): a test of the pipeline, not a dispatch package. It is never reviewed for dispatch, merged or armed.**", ""]
+    if S.get("execution"):                                                    # Deviation 65, only when its settings table is in force
+        L += [S["execution"]["text"]["paragraph"], ""]
     if S.get("stop_reason"):
         L += [f"**Stopped:** {S['stop_reason']}", ""]
     if S.get("stops"):
@@ -882,6 +914,9 @@ def run(args) -> int:
                                          started_utc=_dt.datetime.fromtimestamp(t_start, _dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")),
              approved_overrides=[], stops=[], instance=inst)
     S["run"]["exercise"] = bool(getattr(args, "exercise", False))             # a pipeline test, never a dispatch package (prearm_check.py reads it)
+    execution = execution_package(props, stamp, run_sha)                      # Deviation 65, behind its switch: None while the table is absent or not in force
+    if execution is not None:
+        S["execution"] = execution
     holds = dict(h.split("=", 1) for h in (getattr(args, "hold", None) or []))
     if set(holds) - {"day3_dial_refs"}:
         raise SystemExit(f"--hold: only day3_dial_refs can be held (got {sorted(holds)})")
@@ -1112,11 +1147,11 @@ def run(args) -> int:
             upd = bp.ibm_update(str(props))
             try:
                 res = bp.build(out, csv.name, tag, f"{int(date[8:10])} {_dt.date(int(date[:4]), int(date[5:7]), 1).strftime('%b')} {date[:4]}", None,
-                               PREFLIGHT, review_txt=bp.review_template(date, bp.ibm_update_iso(str(props)), label=label), precheck_res=dict(lists=pcs_bp, csv=csv.name, ibm_properties=upd,
+                               PREFLIGHT, review_txt=bp.review_template(date, bp.ibm_update_iso(str(props)), label=label, **({"execution": execution} if execution else {})), precheck_res=dict(lists=pcs_bp, csv=csv.name, ibm_properties=upd,
                                ibm_properties_placement=upd), pr="the same-day pull request", branch=f"repack-{date}", prev_pred_dir=str(PRED), root=str(ROOT),
                                prev_lists_dir=str(prev_dir), prev_fail_snaps=(), prev=bp.prev_package(prev_dir, PRED, PREFLIGHT, lists=ref_dial, records=records),
                                pred_commit=PLACEHOLDER_COMMIT, with_pairs=bool(args.with_pairs), comparators=cc, hold=holds,
-                               records=records, label=pf_label, instance=inst)
+                               records=records, label=pf_label, instance=inst, **({"execution": execution} if execution else {}))
             except bp.PreflightRefused as ex:
                 S["flags"] = [f"pre-flights refused: {ex}"]
                 raise Stop(f"pre-flights refused: {ex}", "comparators" if "check_comparators" in str(ex) else "other")

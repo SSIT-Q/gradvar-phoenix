@@ -36,8 +36,18 @@ REFUSAL = (f"a refusal charges nothing; the list is not dispatched again on this
            "(Deviation 62 (iv))")                                         # review M2 (strict window): no re-dispatch on a package
 
 
-def _arm_window(props_iso):
-    """Review M2 (strict window): arming is bound to the IBM properties time of the package's snapshot."""
+_EXECUTION = None      # the Deviation 65 record of the package being rendered (``build(..., execution=...)``); None: the wording of v0.18.0
+
+
+def _arm_window(props_iso, execution=None):
+    """Review M2 (strict window): arming is bound to the IBM properties time of the package's snapshot. Under Deviation 65
+    (``execution``: the package record of a settings table that is in force; review correction C65-5) the window is the one the
+    table names, counted in changes of values and not in stamps, and ``scripts/prearm_check.py`` applies it."""
+    execution = execution if execution is not None else _EXECUTION
+    if execution is not None:
+        return ("Owais runs Actions -> calibration snapshot just before arming, and `python scripts/prearm_check.py` must pass on the commit that "
+                f"carries it: {execution['text']['window']}; outside that window the list is not dispatched on this package; the pre-check on that "
+                "snapshot must pass")
     return (f"Owais runs Actions -> calibration snapshot just before arming; if IBM's properties time is not {props_iso or '[the IBM properties time of the package snapshot]'}, "
             "the list is not dispatched on this package; otherwise Claude's pre-check on that snapshot must pass")
 
@@ -584,9 +594,11 @@ def _days(v):
     return _and(ds) if ds else "an earlier day"
 
 
-def review_template(date, props_iso=None, label=None):
+def review_template(date, props_iso=None, label=None, execution=None):
     """Section 8 record template for a same-day package (filled by the reviewer; docs/repack/REVIEW_CHECKLIST.md). ``label``: the
-    package label of the summary (the date, or the date with the snapshot's time for a second package of a date)."""
+    package label of the summary (the date, or the date with the snapshot's time for a second package of a date). ``execution``:
+    the package's Deviation 65 record when the settings table is in force (the arming condition then states its dispatch window)."""
+    execution = execution if execution and (execution.get("adoption") or {}).get("in_force") is True else None
     return (f"> **Review ({date}): [GO / GO_WITH_NOTES / NO_GO].** Reviewer: [name or agent], [start-end UTC]. Reviewed branch `repack-{date}` at "
             "[40-hex commit] (draft PR [#]); summary `docs/repack/" + (label or date) + "_summary.md`; checklist `docs/repack/REVIEW_CHECKLIST.md` (every item ticked or "
             "noted below).\n>\n"
@@ -595,7 +607,7 @@ def review_template(date, props_iso=None, label=None):
             "but n; the pre-check of every list on the placement snapshot; Gate 1b; comparators (check_comparators exit 0); tests (known failures only)].\n>\n"
             "> Tolerance flags that forced a full review: [none / list].\n>\n"
             "> Conditions for arming: the Deviation 26 override stays closed (`approved_overrides` empty); arming edits only `dry_run` and `preflight_review`; "
-            "arm only from a `main` commit at which this section carries the record; " + _arm_window(props_iso) + ".")
+            "arm only from a `main` commit at which this section carries the record; " + _arm_window(props_iso, execution) + ".")
 
 
 def render_pf10(OUT, snap_csv, tag, date_label, stamp, props_name, pred_dir, pred_commit, precheck_res, review_txt, pr, day3, root, cc=None):
@@ -693,7 +705,34 @@ def _pc_par(name, pc_snap, pc_props, pcs, lists, placement_snap=None, steps="Sec
     return head
 
 
-def build(OUT, snap_csv, tag, date_label, dial_pp, pdir, review_txt="(to be filled)", precheck_res=None, pr="(this pull request)", branch="dev62-repackage",
+EXECUTION_MARK = "\n## 8. Review\n"
+
+
+def _with_execution(name, txt, execution):
+    """A pre-flight with the Deviation 65 paragraph of its package placed before Section 8."""
+    if txt.count(EXECUTION_MARK) != 1:
+        raise PreflightRefused(f"{name}: no single Section 8 to place the Deviation 65 paragraph before; no pre-flight is written")
+    block = ("\n### Execution-time calibration and the retrieval in two phases (Deviations 65 and 67)\n\n" + execution["text"]["paragraph"]
+             + " Where a step above describes the retrieval as one step, this paragraph governs.\n")
+    return txt.replace(EXECUTION_MARK, block + EXECUTION_MARK)
+
+
+def build(*args, execution=None, **kwargs):
+    """``_build`` (the pre-flights of a same-day package) with the package's Deviation 65 record
+    (``gradvar.execution_record.package_record`` plus its two rendered texts, as ``scripts/sameday_repackage.py`` stores it in the
+    summary). ``execution`` None, or the record of a table that is not in force: the documents are those of v0.18.0, byte for byte.
+    In force: the arming sentences state the dispatch window of review correction C65-5, and every pre-flight carries, before its
+    Section 8, the paragraph that names the commit of the builder, classifier and re-draw code, the update on which the stops
+    were evaluated (by content hash) and the age of the readout values."""
+    global _EXECUTION
+    _EXECUTION = execution if execution and (execution.get("adoption") or {}).get("in_force") is True else None
+    try:
+        return _build(*args, **kwargs)
+    finally:
+        _EXECUTION = None
+
+
+def _build(OUT, snap_csv, tag, date_label, dial_pp, pdir, review_txt="(to be filled)", precheck_res=None, pr="(this pull request)", branch="dev62-repackage",
           prev_pred_dir=None, root=".", prev_lists_dir=None, prev_fail_snaps=("ibm_phoenix_2026-09-26T030720Z.csv",), prev=None, pred_commit=None,
           with_pairs=False, comparators=None, hold=None, records=None, label=None, instance=None):
     # ``records``: {list name: record} of the run-day lists that were armed or dispatched (scripts/run_records.py; ``days``,
@@ -1393,6 +1432,8 @@ L = 8 at 65,536 shots, ISA ops `cz, rz, sx`; `L0-probes-s65536`: SPAM-only, no g
                      render_pf10(OUT, snap_csv, tag, date_label, stamp, props_name, Path(prev_pred_dir or (Path(root) / 'data' / 'predictions')), pred_commit,
                                  precheck_res, review_txt, pr, J["day3_dial_refs"], Path(root), cc=cc["dial_truncation_pairs"])))
     made = [(name, txt) for name, txt in made if txt is not None]              # a pre-flight is rendered only for lists this package holds
+    if _EXECUTION is not None:                                                 # Deviation 65: the paragraph every pre-flight of the package carries
+        made = [(name, _with_execution(name, txt, _EXECUTION)) for name, txt in made]
     clash = [name for name, txt in made if (pdir / name).exists() and (pdir / name).read_text(encoding="utf-8") != txt]
     if clash:                                                                  # a pre-flight of another package (or a corrected one) is never overwritten
         raise PreflightRefused(f"{', '.join(clash)} already exist{'s' if len(clash) == 1 else ''} with other content: a second package of a date carries its own "

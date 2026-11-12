@@ -1,0 +1,115 @@
+name: re-run hardware jobs (Deviation 67 (iii))
+
+# The one re-run of Deviation 67 (iii), between the two retrieval phases of Deviation 65 (retrieve_jobs.yml). The runner does
+# nothing here unless the committed settings table data/settings/execution_calibration_settings.json says in_force.
+#   step plan      prints which jobs the committed decision file names; contacts nobody and submits nothing (the default);
+#   step decide    after phase metadata of the first run and its re-draw are on main: computes the decision from files that
+#                  hold no measured value, the ledger file and the runner's live layout check, writes
+#                  data/predictions/execution/<list>_rerun_decision.json and commits it;
+#   step dispatch  re-dispatches exactly the jobs the committed decision names, unchanged, in one Batch without waiting, and
+#                  commits data/runs/<day>/<list>_rerun_job_ids.json. Nothing is submitted without a committed decision file,
+#                  when the live layout check fails, when the rebuilt pubs differ from the first run's inputs, on another UTC
+#                  day than the first run, or when the list was re-run before.
+# The re-run's ids file then goes through retrieve_jobs.yml like any list: phase metadata, then phase results.
+on:
+  workflow_dispatch:
+    inputs:
+      ids_file:
+        description: "Ids file of the FIRST run under data/runs/ (e.g. data/runs/2026-11-12/day3_dial_refs_job_ids.json)"
+        required: true
+        type: string
+      step:
+        description: "plan (print the committed decision's jobs; nothing is submitted), decide (write and commit the decision) or dispatch (re-dispatch the named jobs)"
+        required: true
+        type: choice
+        default: plan
+        options:
+          - plan
+          - decide
+          - dispatch
+      ledger_file:
+        description: "step decide: the committed ledger file under data/runs/ ({lines, charged_ids_files, source})"
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: hardware-jobs
+  cancel-in-progress: false
+
+jobs:
+  rerun:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # the commit that holds the decision file is read from this checkout
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install package (pinned versions)
+        run: pip install -r requirements.lock && pip install -e . --no-deps
+      - name: Check the paths
+        env:
+          IDS_FILE: ${{ inputs.ids_file }}
+          STEP: ${{ inputs.step }}
+          LEDGER: ${{ inputs.ledger_file }}
+        run: |
+          case "$IDS_FILE" in
+            data/runs/*_rerun_job_ids.json) echo "this is the ids file of a re-run: a re-run is never re-run"; exit 1 ;;
+            data/runs/*.json) test -f "$IDS_FILE" ;;
+            *) echo "ids file must be a committed file under data/runs/"; exit 1 ;;
+          esac
+          if [ "$STEP" = "decide" ]; then
+            case "$LEDGER" in
+              data/runs/*.json) test -f "$LEDGER" ;;
+              *) echo "step decide needs ledger_file, a committed file under data/runs/"; exit 1 ;;
+            esac
+          elif [ -n "$LEDGER" ]; then
+            echo "ledger_file goes with step decide"; exit 1
+          fi
+      - name: "Step plan: the jobs the committed decision names (nothing is built, nobody is contacted)"
+        if: ${{ inputs.step == 'plan' }}
+        env:
+          IDS_FILE: ${{ inputs.ids_file }}
+        run: python -m gradvar.hardware --rerun "$IDS_FILE"
+      - name: "Step decide: compute the re-run decision (live layout check; no result is read; nothing is submitted)"
+        if: ${{ inputs.step == 'decide' }}
+        env:
+          IDS_FILE: ${{ inputs.ids_file }}
+          LEDGER: ${{ inputs.ledger_file }}
+          QISKIT_IBM_TOKEN: ${{ secrets.QISKIT_IBM_TOKEN }}
+          QISKIT_IBM_INSTANCE: ${{ secrets.QISKIT_IBM_INSTANCE }}
+          QISKIT_IBM_INSTANCE_OPEN: ${{ secrets.QISKIT_IBM_INSTANCE_OPEN }}
+        run: python -m gradvar.hardware --rerun-decide "$IDS_FILE" --ledger "$LEDGER"
+      - name: "Step dispatch: re-dispatch the jobs the committed decision names"
+        if: ${{ inputs.step == 'dispatch' }}
+        env:
+          IDS_FILE: ${{ inputs.ids_file }}
+          QISKIT_IBM_TOKEN: ${{ secrets.QISKIT_IBM_TOKEN }}
+          QISKIT_IBM_INSTANCE: ${{ secrets.QISKIT_IBM_INSTANCE }}
+          QISKIT_IBM_INSTANCE_OPEN: ${{ secrets.QISKIT_IBM_INSTANCE_OPEN }}
+        run: python -m gradvar.hardware --rerun "$IDS_FILE" --yes-submit
+      - name: Commit the decision file, or the ids file of the re-run and the calibration snapshot (also after a failure, so the ids of submitted jobs are kept)
+        if: ${{ always() && inputs.step != 'plan' }}
+        env:
+          IDS_FILE: ${{ inputs.ids_file }}
+          STEP: ${{ inputs.step }}
+        run: |
+          git config user.name "gradvar-hardware-bot"
+          git config user.email "gradvar-hardware-bot@users.noreply.github.com"
+          git add data/jobs/ data/calibrations/ data/runs/
+          if [ -d data/predictions/execution ]; then git add data/predictions/execution; fi
+          if git diff --cached --quiet; then
+            echo "nothing to commit"
+          else
+            git commit -m "hardware re-run ($STEP): $IDS_FILE $(date -u +%Y-%m-%dT%H:%MZ)"
+            git pull --rebase origin main
+            git push
+          fi
