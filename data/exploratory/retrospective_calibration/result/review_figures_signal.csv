@@ -1,0 +1,43 @@
+# "exploratory": true
+# Exploratory and post hoc: the result is a candidate at most and changes no registered reading, flag or decision.
+# Signal-variance figures the post-run reviews of main a8136f00 print for points of the frozen table, keyed before anything was computed for the second pass; used as a check only. Lines beginning with # are comments.
+list,point_id,quantity,printed,review_file,line,note
+dryrun_02_phoenix_smoke_test,grid n20 L2 k1 r0 s4096,signal,0.1119,docs/postrun/02_phoenix_smoke_2026-09-20.md,163,
+dryrun_02_phoenix_smoke_test,grid n20 L2 k1 r1 s4096,signal,0.1215,docs/postrun/02_phoenix_smoke_2026-09-20.md,164,
+dryrun_02_phoenix_smoke_test,grid n20 L2 k1 r2 s4096,signal,0.1371,docs/postrun/02_phoenix_smoke_2026-09-20.md,165,
+dryrun_02_phoenix_smoke_test,grid n20 L8 k1 r0 s4096,signal,1.84e-3,docs/postrun/02_phoenix_smoke_2026-09-20.md,166,
+dryrun_02_phoenix_smoke_test,grid n20 L8 k1 r1 s4096,signal,2.40e-3,docs/postrun/02_phoenix_smoke_2026-09-20.md,167,
+dryrun_02_phoenix_smoke_test,grid n20 L8 k1 r2 s4096,signal,3.44e-3,docs/postrun/02_phoenix_smoke_2026-09-20.md,168,
+paper1_day1_null_grid_n20,grid n19 L1 k1 r0 s4096,signal,0.208,docs/postrun/03_paper1_day1_2026-09-20.md,98,
+paper1_day1_null_grid_n20,grid n19 L2 k1 r0 s4096,signal,0.0815,docs/postrun/03_paper1_day1_2026-09-20.md,99,
+paper1_day1_null_grid_n20,grid n19 L4 k1 r0 s4096,signal,0.00566,docs/postrun/03_paper1_day1_2026-09-20.md,100,
+paper1_day1_null_grid_n20,grid n19 L8 k1 r0 s4096,signal,1.81e-4,docs/postrun/03_paper1_day1_2026-09-20.md,101,
+paper1_day1_null_grid_n20,grid n19 L12 k1 r0 s4096,signal,1.1e-5,docs/postrun/03_paper1_day1_2026-09-20.md,102,
+paper1_day2_main_grid,grid n37 L1 k1 r0 s4096,signal,0.219,docs/postrun/04_paper1_day2_2026-09-20.md,90,
+paper1_day2_main_grid,grid n50 L1 k1 r0 s4096,signal,0.217,docs/postrun/04_paper1_day2_2026-09-20.md,91,
+paper1_day2_main_grid,grid n69 L1 k1 r0 s4096,signal,0.257,docs/postrun/04_paper1_day2_2026-09-20.md,92,
+paper1_day2_main_grid,grid n85 L1 k1 r0 s4096,signal,0.233,docs/postrun/04_paper1_day2_2026-09-20.md,93,
+paper1_day2_main_grid,grid n37 L2 k1 r0 s4096,signal,0.0604,docs/postrun/04_paper1_day2_2026-09-20.md,94,
+paper1_day2_main_grid,grid n50 L2 k1 r0 s4096,signal,0.0720,docs/postrun/04_paper1_day2_2026-09-20.md,95,
+paper1_day2_main_grid,grid n69 L2 k1 r0 s4096,signal,0.0753,docs/postrun/04_paper1_day2_2026-09-20.md,96,
+paper1_day2_main_grid,grid n85 L2 k1 r0 s4096,signal,0.0778,docs/postrun/04_paper1_day2_2026-09-20.md,97,
+paper1_day2_main_grid,grid n37 L4 k1 r0 s4096,signal,0.0116,docs/postrun/04_paper1_day2_2026-09-20.md,98,
+paper1_day2_main_grid,grid n50 L4 k1 r0 s4096,signal,0.0078,docs/postrun/04_paper1_day2_2026-09-20.md,99,
+paper1_day2_main_grid,grid n69 L4 k1 r0 s4096,signal,0.0093,docs/postrun/04_paper1_day2_2026-09-20.md,100,
+paper1_day2_main_grid,grid n85 L4 k1 r0 s4096,signal,0.0080,docs/postrun/04_paper1_day2_2026-09-20.md,101,
+paper1_day2_main_grid,grid n37 L8 k1 r0 s4096,signal,2.00e-4,docs/postrun/04_paper1_day2_2026-09-20.md,102,
+paper1_day2_main_grid,grid n50 L8 k1 r0 s4096,signal,1.79e-4,docs/postrun/04_paper1_day2_2026-09-20.md,103,
+paper1_day2_main_grid,grid n69 L8 k1 r0 s4096,signal,3.56e-4,docs/postrun/04_paper1_day2_2026-09-20.md,104,
+paper1_grid_n100_16384,grid n85 L8 k1 r0 s16384,signal,1.21e-4,docs/postrun/04_paper1_day2_2026-09-20.md,105,
+paper1_day2_main_grid,grid n37 L12 k1 r0 s4096,signal,5.4e-6,docs/postrun/04_paper1_day2_2026-09-20.md,106,
+paper1_day2_main_grid,grid n50 L12 k1 r0 s4096,signal,5.3e-6,docs/postrun/04_paper1_day2_2026-09-20.md,107,
+paper1_day2_main_grid,grid n69 L12 k1 r0 s4096,signal,3.4e-6,docs/postrun/04_paper1_day2_2026-09-20.md,108,
+paper1_day2_main_grid,grid n85 L12 k1 r0 s4096,signal,3.9e-5,docs/postrun/04_paper1_day2_2026-09-20.md,109,
+paper1_grid_n100_16384,grid n85 L8 k1 r0 s16384,signal,1.222e-4,docs/postrun/04_paper1_day2_2026-09-20.md,204,addendum 4e
+paper1_day2_main_grid,grid n85 L8 k1 r1 s4096,signal,2.73e-4,docs/postrun/04_paper1_day2_2026-09-20.md,105,
+paper1_day2_main_grid,grid n37 L2 k1 r2 s4096,signal,0.0610,docs/postrun/04_paper1_day2_2026-09-20.md,184,addendum 4d
+paper1_day2_main_grid,grid n37 L8 k1 r2 s4096,signal,1.40e-4,docs/postrun/04_paper1_day2_2026-09-20.md,184,addendum 4d
+paper1_day2_main_grid,grid n85 L2 k1 r2 s4096,signal,0.0735,docs/postrun/04_paper1_day2_2026-09-20.md,184,addendum 4d
+paper1_day2_main_grid,grid n85 L8 k1 r2 s4096,signal,2.16e-4,docs/postrun/04_paper1_day2_2026-09-20.md,185,"addendum 4d, 100 draws"
+paper1_replication_01_16384,grid n82 L8 k1 r0 s16384,signal,3.6208e-04,docs/postrun/06_paper1_replication_2026-11-10.md,364,
+paper1_section3c_blockC,grid n82 L8 k1 r0 s65536,signal,2.9670e-04,docs/postrun/07_paper1_section3c_blockC_2026-11-10.md,370,
