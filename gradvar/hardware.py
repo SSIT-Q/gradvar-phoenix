@@ -2791,6 +2791,30 @@ def properties_at(backend, when) -> Tuple[Any, str]:
     return props, label
 
 
+def first_phase_refusal(run_root, job_id: str) -> str | None:
+    """Review correction CI2-1: why the first retrieval phase must leave the bundle of ``job_id`` alone, or None. The first phase
+    writes a bundle without a result; run on a job that was retrieved already it would turn the record of a completed job into
+    "metadata only" beside its result.json. It therefore refuses a job whose bundle under ``run_root`` holds result.json, or whose
+    job.json is anything but the record of an earlier first phase (which a repeated first phase may write again: a pending pool
+    is completed that way). Read from the tree only; nothing is written and nobody is contacted."""
+    for b in sorted(Path(run_root).glob(f"*/{job_id}")):
+        if not b.is_dir():
+            continue
+        if (b / "result.json").exists():
+            return f"its bundle {b.as_posix()} holds result.json: the results of this job were retrieved already"
+        jp = b / "job.json"
+        if jp.exists():
+            try:
+                rec = json.loads(jp.read_text())
+                status = rec.get("status")
+                first = status == "metadata only" and (rec.get("retrieval") or {}).get("phase") == PHASE_WORDS["metadata"]
+            except (ValueError, AttributeError):
+                status, first = "unreadable", False
+            if not first:
+                return f"job.json in {b.as_posix()} is not a record of the first phase (status {status!r})"
+    return None
+
+
 def retrieve_jobs(ids_path: str, joblist_path: str | None = None, run_root: str = "data/runs", log_dir: str = "data/jobs",
                   run_id: int | str | None = None, timeout: float | None = None, calibration_csv: str | None = None,
                   snapshot_dir: str = "data/calibrations", metadata_only: bool = False, execution_rows_commit: str | None = None,
@@ -2817,6 +2841,10 @@ def retrieve_jobs(ids_path: str, joblist_path: str | None = None, run_root: str 
       (``job.result()`` is not called; no result.json, no CSV row) and with the execution-time pool (``write_execution_pool``),
       and every bundle is checked against the enumerated files and fields of a phase-1 bundle
       (``retrieval_phases.check_phase1_bundle``, review correction C65-8); a file or field that is not listed fails the phase.
+      A job whose bundle holds result.json, or whose job.json is not the record of an earlier first phase, is refused before
+      anything is written for it (``first_phase_refusal``, review correction CI2-1): its files stay as they are, the other
+      jobs of the list go on, and the phase ends with a non-zero exit that names it. When every job of the list is refused,
+      nothing at all is written and the service is not contacted.
     * the second phase is this function without ``metadata_only``. While the table is in force it refuses to run unless
       ``execution_rows_commit`` (``--execution-rows-commit``) is given, every job's bundle carries the pool of the first phase and
       ``retrieval_phases.verify_phase2`` passes: the commit is an ancestor of the commit this runs on, the hashes it records are
@@ -2850,6 +2878,17 @@ def retrieve_jobs(ids_path: str, joblist_path: str | None = None, run_root: str 
         phase = "metadata" if metadata_only else "single" if single_phase else "results" if (execution_rows_commit or switch["in_force"]) else None
         if rerun_ids and any(j["job_id"] is None for j in ids["jobs"]):
             raise SystemExit(f"{ids_path}: an ids file of re-run jobs is written by the runner and holds every job id")
+    refused: Dict[str, str] = {}                                      # CI2-1: jobs the first phase must not touch (read from the tree only)
+    if phase == "metadata":
+        for j in ids["jobs"]:
+            why = first_phase_refusal(run_root, str(j["job_id"])) if j["job_id"] is not None else None
+            if why:
+                refused[str(j["job_id"])] = why
+                print(f"first phase refused for {j['job_id']} ({j['tag']}): {why}; nothing is written for this job", file=sys.stderr, flush=True)
+        if refused and len(refused) == len(ids["jobs"]):
+            raise SystemExit(f"refusing the first phase (--metadata-only) of {jl.get('name')}: every job of {ids_path} was retrieved already or has a "
+                             "record that is not of the first phase; nothing is written and the service is not contacted:\n  "
+                             + "\n  ".join(f"{k}: {v}" for k, v in refused.items()))
     if phase in ("metadata", "results"):
         try:
             from . import retrieval_phases as phases                  # C65-8: the enumeration of phase 1 and the three checks of phase 2
@@ -2936,6 +2975,13 @@ def retrieve_jobs(ids_path: str, joblist_path: str | None = None, run_root: str 
     for j in ids["jobs"]:
         tag, job_id = str(j["tag"]), str(j["job_id"])
         level, gshots, group = by_tag[tag]
+        if phase == "metadata":                          # CI2-1: before anything is written for this job, and before the service is asked for it
+            why = refused.get(job_id) or first_phase_refusal(run_root, job_id)
+            if why:
+                if job_id not in refused:
+                    print(f"first phase refused for {job_id} ({tag}): {why}; nothing is written for this job", file=sys.stderr, flush=True)
+                failures.append(f"{job_id} ({tag}): first phase refused: {why}")
+                continue
         job = service.job(job_id)
         try:
             job.wait_for_final_state(timeout=timeout)

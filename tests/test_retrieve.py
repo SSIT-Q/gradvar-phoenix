@@ -1195,3 +1195,85 @@ def test_the_one_rerun_from_the_decision_to_the_bundle(tmp_path, monkeypatch, ca
     (next((tmp_path / "runs").glob("*/fakejob2")) / "result.json").write_text("{}")
     with pytest.raises(SystemExit, match="a result is in the tree"):
         hw.rerun_decide(str(ids_path), str(ledger), run_root=run_root, now=now, predictions_dir=pdir)
+
+
+# ------------------------------------------------------------------------------------------------ review correction CI2-1
+
+@pytest.mark.parametrize("status", ["not_in_force", "in_force"])
+def test_ci2_1_the_first_phase_leaves_a_retrieved_tree_as_it_is(tmp_path, monkeypatch, capsys, status):
+    """Review correction CI2-1: ``--metadata-only`` on an ids file whose jobs were retrieved already refuses before it writes
+    anything. Every file is byte-identical afterwards (the first phase used to rewrite every job.json to "metadata only" beside
+    its result.json) and the service is not contacted. The refusal comes before the code of Deviation 65 is asked for, so this
+    test needs nothing of the committed side."""
+    import gradvar.hardware as hw
+    _switch(monkeypatch, "not_in_force")
+    jl = hw.load_joblist(str(LIST01))
+    points, shapes, shots = hw.joblist_points(jl, CAL)
+    backend = hw.fake_backend("ibm_marrakesh")
+    groups, _ = hw.job_groups(jl, points, shapes, shots, backend, CAL)
+    jobs = [FakeJob([b.pub() for b in g], level, gshots, job_id=f"t{i}") for i, (tag, level, gshots, g) in enumerate(groups)]
+    _wire_service(hw, monkeypatch, FakeService(jobs), backend)
+    ids = hw.write_ids_file(tmp_path / "ids.json", jl, str(LIST01), [dict(job_id=f"t{i}", tag=tag, level=level, shots=gshots, pubs=len(g), rep_delay_us=None)
+                                                                     for i, (tag, level, gshots, g) in enumerate(groups)], calibration_csv=CAL, run_id=1)
+    kw = dict(run_root=str(tmp_path / "runs"), log_dir=str(tmp_path / "jobs"), snapshot_dir=str(tmp_path / "cal"))
+    assert len(hw.retrieve_jobs(str(ids), **kw)) > 0                                    # a retrieved tree: every bundle holds its result
+    before = _tree(tmp_path)
+    assert sum(1 for f in before if f.endswith("/result.json")) == len(jobs) >= 2
+    _switch(monkeypatch, status)
+
+    def contacted(*a, **k):
+        raise AssertionError("the service was contacted")
+    monkeypatch.setattr(hw, "get_service", contacted)
+    monkeypatch.setattr(hw, "get_backend", contacted)
+    capsys.readouterr()
+    with pytest.raises(SystemExit, match="refusing the first phase") as e:
+        hw.retrieve_jobs(str(ids), metadata_only=True, **kw)
+    assert _tree(tmp_path) == before                                                    # every file, byte for byte
+    err = capsys.readouterr().err
+    for j in jobs:
+        assert f"first phase refused for {j.job_id()}" in err and f"{j.job_id()}: its bundle" in str(e.value)
+    assert "holds result.json" in str(e.value) and "nothing is written and the service is not contacted" in str(e.value)
+    with pytest.raises(SystemExit, match="refusing the first phase"):                   # the same from the command line
+        hw.main(["--retrieve", str(ids), "--metadata-only", "--run-root", kw["run_root"]])
+    assert _tree(tmp_path) == before
+    # a record that is not of the first phase is refused without a result beside it too (the bundle of a failed or cancelled job)
+    for p in (tmp_path / "runs").glob("*/t0/result.json"):
+        p.unlink()
+    before = _tree(tmp_path)
+    with pytest.raises(SystemExit, match="is not a record of the first phase") as e:
+        hw.retrieve_jobs(str(ids), metadata_only=True, **kw)
+    assert _tree(tmp_path) == before and "status 'completed'" in str(e.value)
+    assert hw.first_phase_refusal(kw["run_root"], "a-job-without-a-bundle") is None
+
+
+@pytest.mark.parametrize("status", ["not_in_force", "in_force"])
+def test_ci2_1_the_other_jobs_of_the_list_go_on(tmp_path, monkeypatch, capsys, status):
+    """Review correction CI2-1: a job that was retrieved already is refused and its bundle stays byte-identical; a job of the same
+    list without a bundle gets its first phase; the phase ends with a non-zero exit that names the refused jobs; a first-phase
+    bundle may be written again."""
+    ec, rp = _committed_side()
+    import shutil
+    import gradvar.hardware as hw
+    _switch(monkeypatch, "not_in_force")
+    ids, kw, jobs, history = _two_phase(hw, monkeypatch, tmp_path)
+    assert len(hw.retrieve_jobs(ids, **kw)) > 0                                         # results in every bundle
+    bundles = _bundles(tmp_path)
+    assert len(bundles) >= 2
+    fresh = sorted(bundles)[0]
+    shutil.rmtree(bundles[fresh])                                                       # this job was never retrieved
+    kept = {n: _tree(d) for n, d in bundles.items() if n != fresh}
+    calls = TimedJob.result_calls
+    _switch(monkeypatch, status)
+    capsys.readouterr()
+    with pytest.raises(SystemExit) as e:
+        hw.retrieve_jobs(ids, metadata_only=True, **kw)
+    assert TimedJob.result_calls == calls
+    for n, files in kept.items():
+        assert _tree(bundles[n]) == files, n                                            # byte for byte
+        assert f"{n} (" in str(e.value) and "first phase refused" in str(e.value)
+    assert f"{fresh} (" not in str(e.value) and f"first phase refused for {fresh}" not in capsys.readouterr().err
+    d = _bundles(tmp_path)[fresh]
+    job = json.loads((d / "job.json").read_text())
+    assert job["status"] == "metadata only" and not (d / "result.json").exists() and all((d / f).is_file() for f in POOL_FILES)
+    rp.check_phase1_bundle(d)
+    assert hw.first_phase_refusal(kw["run_root"], fresh) is None                        # a first-phase record: the phase may be repeated on it
