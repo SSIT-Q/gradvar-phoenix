@@ -26,7 +26,7 @@ import re
 import subprocess
 import sys
 from dataclasses import asdict, dataclass, field, is_dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Sequence, Tuple
 
@@ -35,6 +35,7 @@ from qiskit import QuantumCircuit
 from qiskit.quantum_info import SparsePauliOp
 from qiskit.transpiler import generate_preset_pass_manager
 
+from . import execution_record
 from .circuits import hea_observable, hea_square, hea_square_dial, param_index
 from .gradients import shifted_params
 from .lattice import DEFAULT_EXCLUDE, Patch, interior_edge, patch_for_n, rect_patch
@@ -1549,7 +1550,7 @@ def _pub_payload(b) -> dict:
 
 def write_job_bundle(run_root: Path, job_id: str, group: List[BuiltPub], backend, options, level: int, shots: int, jl: dict,
                      result=None, job=None, timestamps: dict | None = None, dry: bool = False, error: str | None = None,
-                     extra: dict | None = None, day: str | None = None, properties: dict | None = None) -> Path:
+                     extra: dict | None = None, day: str | None = None, properties: dict | None = None, metadata_only: bool = False) -> Path:
     """data/runs/<date>/<job_id>/: everything IBM Quantum returns for one job, plus what was sent.
 
     Files: job.json (ids, timestamps, usage, metrics, instance alias and plan, backend, rep_delay, git commit, job-list
@@ -1559,7 +1560,9 @@ def write_job_bundle(run_root: Path, job_id: str, group: List[BuiltPub], backend
     No secret and no CRN is ever written: the instance appears only as its alias ('flex' / 'open') and plan name.
     ``day`` (``YYYY-MM-DD``, default today UTC) is the bundle's date directory: the retrieval path passes the job's
     creation day. ``properties`` (a dict) replaces the live ``backend.properties()`` in properties.json: the retrieval
-    path passes the properties at the job's creation time, labelled ``_source``.
+    path passes the properties at the job's creation time, labelled ``_source``. ``metadata_only`` (Deviation 65, the first
+    retrieval phase): the bundle is written without the job's result, so no result.json exists and metadata.json holds no result
+    metadata; job.json says ``status: "metadata only"``.
     """
     from qiskit import qpy
     try:
@@ -1608,7 +1611,7 @@ def write_job_bundle(run_root: Path, job_id: str, group: List[BuiltPub], backend
     qpy_policy = _qpy_policy(root=run_root, day=day, job_id=job_id, bundle_dir=d, group=group, sampler=custom_kind == "sampler")
     _dump(d / "job.json", dict(
         job_id=job_id, dry_run=dry, job_kind=custom_kind or ("probes" if is_probe_job else "gradient_points"),
-        status="failed" if error else ("dry-run" if dry else "completed"), error=error, error_message=error_message,
+        status="failed" if error else ("metadata only" if metadata_only else ("dry-run" if dry else "completed")), error=error, error_message=error_message,
         job_errors=job_errors or None, timestamps=ts, usage_qpu_seconds=usage, metrics=metrics, **job_attrs,
         backend_name=getattr(backend, "name", str(backend)), backend_version=str(getattr(backend, "backend_version", "")),
         instance=jl.get("instance"), joblist_name=jl.get("name"), preflight_review=jl.get("preflight_review", ""),
@@ -1623,7 +1626,9 @@ def write_job_bundle(run_root: Path, job_id: str, group: List[BuiltPub], backend
         points=[dict(_describe(b), **_pub_payload(b)) for b in group],
         **(extra or {}),
     ))
-    if result is not None and RuntimeEncoder is not None:
+    if metadata_only:
+        pass                                             # Deviation 65, first phase: no result file of any kind
+    elif result is not None and RuntimeEncoder is not None:
         try:
             (d / "result.json").write_text(json.dumps(result, cls=RuntimeEncoder, indent=1))
         except Exception as e:  # never lose the rest of the bundle over a serialisation error
@@ -1639,8 +1644,8 @@ def write_job_bundle(run_root: Path, job_id: str, group: List[BuiltPub], backend
             pub_meta.append(dict(pub_index=i, metadata=_jsonable(getattr(pr, "metadata", {}))))
     else:
         pub_meta = [dict(pub_index=i, metadata=dict(shots=shots, resilience_level=level, note="dry run")) for i in range(len(group))]
-    _dump(d / "metadata.json", dict(result_metadata=_jsonable(getattr(result, "metadata", {})) if result is not None else {"dry_run": True},
-                                     pubs=pub_meta))
+    _dump(d / "metadata.json", dict(result_metadata=_jsonable(getattr(result, "metadata", {})) if result is not None
+                                     else ({"metadata_only": True} if metadata_only else {"dry_run": True}), pubs=[] if metadata_only else pub_meta))
     _dump(d / "options.json", options)
     props = properties
     if props is None:
@@ -1839,11 +1844,32 @@ def job_groups(jl: dict, points: List[GridPoint], shapes: dict, shots: int, back
     return groups, job_rep_delay_s
 
 
+def rerun_groups(groups: list, job_rep_delay_s: dict, rerun: dict):
+    """The job groups of the one re-run of Deviation 67 (iii): the groups of the jobs the decision names (``rerun['jobs']``, each
+    ``{job_id, tag, rerun_tag}``), each exactly as the full build grouped and chunked it (the same pubs in the same order, with
+    the same seeds and parameter values; nothing is re-split, re-placed or redrawn), in the order of the list, tagged
+    ``<tag>-rerun``; a probe job's rep_delay carries over. A tag the build does not carry raises ``JoblistError``."""
+    want = {str(x["tag"]): str(x["rerun_tag"]) for x in rerun["jobs"]}
+    missing = sorted(set(want) - {g[0] for g in groups})
+    if missing:
+        raise JoblistError(f"re-run: no job of this list carries the tag(s) {missing} (jobs: {[g[0] for g in groups]})")
+    new = [(want[tag], level, gshots, group) for tag, level, gshots, group in groups if tag in want]
+    return new, {want[tag]: v for tag, v in job_rep_delay_s.items() if tag in want}
+
+
+def _rerun_job_fields(rerun: dict | None, tag: str) -> dict:
+    """What the ids file of a re-run adds to a job's entry: the job it repeats and that job's tag. Nothing for any other run."""
+    if rerun is None:
+        return {}
+    first = next(x for x in rerun["jobs"] if str(x["rerun_tag"]) == str(tag))
+    return dict(rerun_of=first["job_id"], rerun_of_tag=first["tag"])
+
+
 def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int, backend, submit: bool,
                     run_root: str = "data/runs", log_path: str | None = None, calibration_csv: str | None = None,
                     instance_plan: str | None = None, wait: bool = True, joblist_path: str | None = None,
                     run_id: int | str | None = None, dry_run_sample: int | None = None, only_tag: str | None = None,
-                    resubmit_max_pubs: int | None = None, resubmission: dict | None = None) -> List[dict]:
+                    resubmit_max_pubs: int | None = None, resubmission: dict | None = None, rerun: dict | None = None) -> List[dict]:
     """Build the PUBs, run one EstimatorV2 job per resilience level (inside a Batch when submitting), write one bundle
     per job under ``run_root`` and append one row per point to ``log_path``. With ``submit=False`` the same layout is
     written against the given (fake) backend with job_id 'dryrun-<utc>-L<level>' and no PrimitiveResult.
@@ -1864,6 +1890,13 @@ def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int,
     file is then ``<list name>_resubmit_<tag>_job_ids.json`` and carries ``resubmission`` (the original job and ids file, the
     chunk size, the calibration CSV the pubs were placed on), as does every bundle's job.json.
 
+    ``rerun`` (Deviation 67 (iii), only from ``rerun_joblist``; None for every other run, which is then exactly the run of
+    v0.18.0): ``{jobs: [{job_id, tag, rerun_tag}], decision: {path, sha256, commit}, of_ids_file, before}``. The whole list is built,
+    ``before(groups, rep_delays)`` checks that build and raises to stop (nothing is then submitted),
+    only the named jobs are kept, unchanged (``rerun_groups``), and submitted in one Batch tagged ``<tag>-rerun``; the ids file is
+    ``<list name>_rerun_job_ids.json``, names the decision (``rerun_decision``) and, per job, the job it repeats (``rerun_of``,
+    ``rerun_of_tag``).
+
     THIS FUNCTION IS THE ONLY PLACE THAT SUBMITS JOBS, and only when ``submit`` is True.
     """
     from qiskit_ibm_runtime import EstimatorV2
@@ -1874,6 +1907,12 @@ def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int,
     groups, job_rep_delay_s = job_groups(jl, points, shapes, shots, backend, calibration_csv,
                                          dry_run_sample=None if sampled is None else sampled["pubs_per_group"],
                                          only_tag=only_tag, resubmit_max_pubs=resubmit_max_pubs)
+    if rerun is not None:               # Deviation 67 (iii): only the jobs the decision names, each as it was built for the first run
+        if rerun.get("before") is not None:
+            rerun["before"](groups, job_rep_delay_s)   # rerun_joblist's checks on this very build: the layout check for the list, the first run's inputs
+        groups, job_rep_delay_s = rerun_groups(groups, job_rep_delay_s, rerun)
+        print(f"re-run (Deviation 67 (iii)) of {len(groups)} job(s): {', '.join(t for t, _, _, _ in groups)}; the other jobs of the list are not "
+              "submitted", flush=True)
     if only_tag is not None:
         print(f"resubmission of job {only_tag}: {sum(len(g) for _, _, _, g in groups)} pubs in {len(groups)} job(s) of at most "
               f"{max(len(g) for _, _, _, g in groups)} pubs ({', '.join(t for t, _, _, _ in groups)}); the other jobs of the list are not built again", flush=True)
@@ -1927,7 +1966,7 @@ def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int,
         from qiskit_ibm_runtime import Batch
         # a resubmission is placed on the original submission's CSV (calibration_csv) and a pinned list on its pinned snapshot
         # (Deviation 58); both log a fresh properties snapshot, so calibration_snapshot is the calibration in force at submission
-        fresh = calibration_csv is None or resubmission is not None or bool((jl.get("placement") or {}).get("pin_snapshot"))
+        fresh = calibration_csv is None or resubmission is not None or rerun is not None or bool((jl.get("placement") or {}).get("pin_snapshot"))
         snapshot = snapshot_calibration(backend) if fresh else calibration_csv
         with Batch(backend=backend) as batch:
             jobs = []
@@ -1953,15 +1992,19 @@ def execute_joblist(jl: dict, points: List[GridPoint], shapes: dict, shots: int,
             batch_id = getattr(batch, "session_id", None)
             list_name = jl.get("name") or (Path(joblist_path).stem if joblist_path else "joblist")
             ids_name = list_name if resubmission is None else f"{list_name}_resubmit_{resubmission['of_tag']}"
+            if rerun is not None:
+                ids_name = f"{list_name}_rerun"
             ids_file = write_ids_file(
                 ids_file_path(root, datetime.now(timezone.utc).strftime("%Y-%m-%d"), ids_name),
                 jl, joblist_path, [dict(job_id=job.job_id(), tag=tag, level=level, shots=gshots, pubs=len(group),
                                         rep_delay_us=None if job_rep_delay_s.get(tag) is None else round(job_rep_delay_s[tag] * 1e6, 6),
-                                        submitted_utc=created) for tag, level, gshots, group, job, _, created in jobs],
+                                        submitted_utc=created, **_rerun_job_fields(rerun, tag)) for tag, level, gshots, group, job, _, created in jobs],
                 batch_id=None if batch_id is None else str(batch_id), calibration_csv=calibration_csv, calibration_snapshot=snapshot,
                 run_id=run_id, notes="written by execute_joblist right after submission" + ("" if wait else " (--submit-only: results not awaited)")
-                + ("" if resubmission is None else f"; resubmission of job {resubmission['of_tag']} ({resubmission.get('of_job_id')}) of {resubmission.get('of_ids_file')}"),
-                resubmission=resubmission)
+                + ("" if resubmission is None else f"; resubmission of job {resubmission['of_tag']} ({resubmission.get('of_job_id')}) of {resubmission.get('of_ids_file')}")
+                + ("" if rerun is None else f"; re-run under Deviation 67 (iii) of jobs of {rerun.get('of_ids_file')}, decision {rerun['decision']['path']} "
+                   f"at commit {rerun['decision']['commit']}"),
+                resubmission=resubmission, rerun_decision=None if rerun is None else dict(rerun["decision"]))
             print(f"job ids written to {ids_file}" + ("" if wait else f"; retrieve with: python -m gradvar.hardware --retrieve {ids_file}"), flush=True)
             if not wait:
                 jobs = []
@@ -2141,6 +2184,212 @@ def run_joblist(path: str, submit: bool, log_dir: str = "data/jobs", run_root: s
     return 0
 
 
+# ------------------------------------------------------------------------------------------------ the one re-run of Deviation 67 (iii)
+# Between the two retrieval phases of Deviation 65 (docs/deviations_drafts/65_implementation/rerun_runner_note.md on branch
+# dev65-implementation): ``rerun_decide`` assembles the inputs of ``gradvar.rerun_decision.decide`` and writes the decision file;
+# it is committed; ``rerun_joblist`` re-dispatches exactly the jobs it names, unchanged. Both do nothing unless the settings table
+# is in force, and neither reads a result.
+
+def rerun_ledger(ledger_path: str | Path, ids_path: str | Path, run_root: str = "data/runs") -> dict:
+    """The ``ledger`` input of the re-run decision from a ledger file ``{lines, charged_ids_files, source}``: ``lines`` are the
+    list's ledger lines (name: minutes) and ``charged_ids_files`` the ids files of every list charged to those lines so far,
+    this list's own among them. The lines are an input: the runner does not derive which lines a list draws on. The minutes
+    charged are computed here, as the sum of ``usage_qpu_seconds`` over the bundles of those ids files; a job without a bundle
+    or without charged seconds stops the decision (the minutes charged so far are then not known)."""
+    led = json.loads(Path(ledger_path).read_text())
+    if not isinstance(led, dict) or set(led) - {"lines", "charged_ids_files", "source"} or not isinstance(led.get("lines"), dict) \
+            or not isinstance(led.get("charged_ids_files"), list) or not led["charged_ids_files"]:
+        raise SystemExit(f"{ledger_path}: a re-run ledger holds lines (name: minutes), charged_ids_files (a non-empty list) and source, and nothing else")
+    files = [str(f) for f in led["charged_ids_files"]]
+    if Path(ids_path).resolve() not in {Path(f).resolve() for f in files}:
+        raise SystemExit(f"{ledger_path}: charged_ids_files does not hold {ids_path}, the list the decision is for")
+    seconds, n = 0.0, 0
+    for f in files:
+        for j in load_ids_file(f)["jobs"]:
+            found = sorted(Path(run_root).glob(f"*/{j['job_id']}/job.json"))
+            if len(found) != 1:
+                raise SystemExit(f"job {j['job_id']} of {f}: {len(found)} bundles under {run_root}; the minutes charged so far are not known")
+            u = json.loads(found[0].read_text()).get("usage_qpu_seconds")
+            if isinstance(u, bool) or not isinstance(u, (int, float)):
+                raise SystemExit(f"job {j['job_id']} of {f}: its bundle records no charged seconds; the minutes charged so far are not known")
+            seconds, n = seconds + float(u), n + 1
+    return dict(lines=dict(led["lines"]), charged_minutes=round(seconds / 60.0, 6),
+                source=f"{led.get('source')}; ledger file {ledger_path} (sha256 {execution_record.sha256_file(ledger_path)}); charged minutes = "
+                       f"usage_qpu_seconds of {n} bundles of {', '.join(files)}")
+
+
+def _rerun_refusals(switch: dict, what: str) -> None:
+    if not switch["in_force"]:
+        raise SystemExit(f"refusing to {what}: {switch['reason']}; the one re-run is a rule of Deviation 67. Nothing is submitted")
+    if switch.get("rerun_rule") != execution_record.RERUN_RULE_ON:
+        raise SystemExit(f"refusing to {what}: the settings table says rerun_rule {switch.get('rerun_rule')!r}: no job is re-run. Nothing is submitted")
+
+
+def rerun_decide(ids_path: str, ledger_path: str, run_root: str = "data/runs", joblist_path: str | None = None, now=None,
+                 predictions_dir: str | Path | None = None) -> Path:
+    """Deviation 67 (iii), between the two retrieval phases: assemble the five inputs of ``gradvar.rerun_decision.decide`` and
+    write ``data/predictions/execution/<list>_rerun_decision.json``. The jobs come from files that hold no measured value (the
+    ids file, the list's budget block, each bundle's job.json after the first phase, the registered prediction files); the
+    ledger from ``rerun_ledger``; the layout check is the runner's live check (``layout_check_for(..., enforce=True)``, passed
+    only when it would submit without an override) for the whole list on the properties in force now. Refused while a result of
+    the list is in the tree, for an ids file of re-run jobs, and while the settings table is not in force. Submits nothing; the
+    decision is to be committed before ``rerun_joblist`` is run."""
+    try:
+        switch = execution_record.adoption()
+    except execution_record.ExecutionRecordError as e:
+        raise SystemExit(str(e))
+    _rerun_refusals(switch, "decide a re-run")
+    from . import execution_calibration as ec
+    from . import rerun_decision as rd
+    ids = load_ids_file(ids_path)
+    if execution_record.is_rerun_ids(ids):
+        raise SystemExit(f"{ids_path} is an ids file of re-run jobs: a re-run is never re-run")
+    joblist_path = joblist_path or ids.get("joblist")
+    jl = load_joblist(joblist_path)
+    if str(jl.get("primitive", "estimator")) == "sampler":
+        raise SystemExit("the re-run of Deviation 67 (iii) is for Paper 1 Estimator lists")
+    name = str(ids.get("joblist_name") or jl.get("name"))
+    bundles: Dict[str, dict] = {}
+    for j in ids["jobs"]:
+        found = sorted(Path(run_root).glob(f"*/{j['job_id']}"))
+        if len(found) != 1 or not (found[0] / "job.json").is_file():
+            raise SystemExit(f"job {j['job_id']}: the first retrieval phase has not written its bundle under {run_root}")
+        if (found[0] / "result.json").exists():
+            raise SystemExit(f"job {j['job_id']}: a result is in the tree; the re-run is decided between the two retrieval phases, before any result is retrieved")
+        bundles[str(j["job_id"])] = json.loads((found[0] / "job.json").read_text())
+    pdir = Path(predictions_dir) if predictions_dir is not None else execution_record.ROOT / execution_record.PREDICTIONS_DIR
+    files = []
+    for p in sorted(pdir.glob(f"{name}_*.json")):
+        if p.name.endswith(("_plan.json", "_rerun_decision.json")):
+            continue
+        f = json.loads(p.read_text(encoding="utf-8"))
+        if isinstance(f, dict) and not f.get("exploratory") and not f.get("plan_only") and (f.get("settings") or {}).get("in_force") is True:
+            files.append(f)
+    if not files:
+        raise SystemExit(f"no registered execution-time rows of {name} under {pdir}: run scripts/redraw_execution.py after the first phase")
+    try:
+        jobs = rd.job_inputs(ids, jl, bundles, files)
+    except rd.DecisionInputError as e:
+        raise SystemExit(f"the re-run decision cannot be computed: {e}")
+    ledger = rerun_ledger(ledger_path, ids_path, run_root)
+    csv = ids.get("calibration_csv") or pinned_calibration_csv(jl) or calibration_csv_not_after(ids.get("written_utc"))
+    resolve_instance(jl["instance"])
+    service = get_service(jl["instance"])
+    backend = get_backend(jl["backend"], service=service)
+    points, shapes, shots = joblist_points(jl, csv)
+    groups, _ = job_groups(jl, points, shapes, shots, backend, csv)
+    chk = layout_check_for(jl, [b for _, _, _, g in groups for b in g], backend, enforce=True)
+    now = now or datetime.now(timezone.utc)
+    print(_layout_check_message(chk), flush=True)
+    layout = dict(passed=chk["action"] == "submit", properties_stamp=str(chk.get("properties_last_update")), checked_utc=_utc_iso(now),
+                  source="gradvar.hardware.layout_check_for(enforce=True) for the whole list on the live properties; an override does not count")
+    try:
+        decision = rd.decide(jobs, ledger, now, layout, ec.load_settings())
+    except rd.DecisionInputError as e:
+        raise SystemExit(f"the re-run decision cannot be computed: {e}")
+    path = rd.write_decision(decision, name, pdir)
+    print(f"re-run decision of {name}: {len(decision['rerun'])} job(s) to re-run ({', '.join(decision['rerun']) or 'none'}); wrote {path}. Commit it before "
+          "anything is dispatched on it", flush=True)
+    return path
+
+
+def rerun_joblist(ids_path: str, submit: bool, run_root: str = "data/runs", joblist_path: str | None = None, now=None,
+                  root: str | Path | None = None) -> int:
+    """The runner's re-dispatch path of Deviation 67 (iii). ``ids_path``: the ids file of the first run. The decision file
+    ``data/predictions/execution/<list>_rerun_decision.json`` must exist, be the committed file, and be a decision the committed
+    function granted (``execution_record.load_rerun_decision``, ``committed_file``); without it nothing is submitted. Exactly the
+    jobs it names are re-dispatched (``execution_record.rerun_plan``), each rebuilt from the same list file on the calibration CSV
+    of the first run, so with the same circuits, placement, seeds, shots, options and repetition delay, and only if (1) the
+    live layout check passes for the whole list with no override, (2) every rebuilt job has the first job's level, shots, pub
+    count and repetition delay, both as the ids file records them and as the service stored them (``job_signature``), and its
+    pubs equal the inputs the service stored for the first job (``verify_job_inputs``). The
+    jobs go in one Batch without waiting (``--submit-only`` semantics); the ids file is ``<list>_rerun_job_ids.json``. A re-run
+    ids file of the list under ``run_root``, an ids file of re-run jobs, or a job tagged ``-rerun`` stops it: a job is re-run
+    once and a re-run is never re-run. Without ``submit`` the plan is printed and nothing is built or submitted."""
+    try:
+        switch = execution_record.adoption()
+    except execution_record.ExecutionRecordError as e:
+        raise SystemExit(str(e))
+    _rerun_refusals(switch, "re-run")
+    ids = load_ids_file(ids_path)
+    joblist_path = joblist_path or ids.get("joblist")
+    if not joblist_path:
+        raise SystemExit(f"{ids_path} names no joblist; pass --joblist")
+    jl = load_joblist(joblist_path)
+    if str(jl.get("primitive", "estimator")) == "sampler":
+        raise SystemExit("the re-run of Deviation 67 (iii) is for Paper 1 Estimator lists. Nothing is submitted")
+    name = str(ids.get("joblist_name") or jl.get("name"))
+    repo = Path(root) if root is not None else execution_record.ROOT
+    dpath = execution_record.rerun_decision_path(repo, name)
+    if not dpath.is_file():
+        raise SystemExit(f"no decision file {dpath}: nothing is submitted (compute it with --rerun-decide between the two retrieval phases and commit it)")
+    try:
+        decision = execution_record.load_rerun_decision(dpath, name)
+        committed = execution_record.committed_file(repo, dpath.relative_to(repo).as_posix())
+        plan = execution_record.rerun_plan(decision, ids, now or datetime.now(timezone.utc),
+                                           prior_rerun_ids=[str(p) for p in sorted(Path(run_root).glob(f"*/{name}_rerun_job_ids.json"))])
+    except execution_record.ExecutionRecordError as e:
+        raise SystemExit(f"refusing to re-run: {e}. Nothing is submitted")
+    if not plan["jobs"]:
+        print(f"the decision {dpath} (commit {committed['commit']}) names no job of {name}: nothing is submitted", flush=True)
+        return 0
+    print(f"re-run of {name} under Deviation 67 (iii), decision {committed['path']} at commit {committed['commit']}: "
+          + ", ".join(f"{x['job_id']} ({x['tag']} -> {x['rerun_tag']})" for x in plan["jobs"]), flush=True)
+    if not submit:
+        print("no --yes-submit: nothing is built and nothing is submitted", flush=True)
+        return 0
+    if jl.get("dry_run", False) is True:
+        raise SystemExit(f"refusing to re-run: {joblist_path} carries dry_run: true. Nothing is submitted")
+    if not joblist_submittable(jl):
+        raise SystemExit(f"refusing to re-run: preflight_review in {joblist_path} is not a review record. Nothing is submitted")
+    resolve_instance(jl["instance"])
+    for diff in check_budget(jl):
+        raise SystemExit(f"refusing to re-run: {diff}. Nothing is submitted")
+    csv = ids.get("calibration_csv") or pinned_calibration_csv(jl) or calibration_csv_not_after(ids.get("written_utc"))   # the CSV of the first run
+    points, shapes, shots = joblist_points(jl, csv)
+    service = get_service(jl["instance"])
+    instance_plan = verify_instance_plan(service, jl["instance"])
+    backend = get_backend(jl["backend"], service=service)
+    first = {str(j["job_id"]): j for j in ids["jobs"]}
+
+    def before(groups, rep_delays):
+        chk = layout_check_for(jl, [b for _, _, _, g in groups for b in g], backend, enforce=True)
+        if chk["action"] != "submit":
+            raise SystemExit(f"refusing to re-run: {_layout_check_message(chk)}; the re-run needs the live layout check to pass for the whole list and "
+                             "takes no override. Nothing is submitted")
+        by_tag = {tag: (level, gshots, group) for tag, level, gshots, group in groups}
+        for x in plan["jobs"]:
+            if x["tag"] not in by_tag:
+                raise SystemExit(f"refusing to re-run: the list built on {csv} has no job tagged {x['tag']}. Nothing is submitted")
+            level, gshots, group = by_tag[x["tag"]]
+            j = first[x["job_id"]]
+            rd_us = None if rep_delays.get(x["tag"]) is None else round(rep_delays[x["tag"]] * 1e6, 6)
+            if (int(j["level"]), int(j["shots"]), int(j["pubs"]), j.get("rep_delay_us")) != (level, gshots, len(group), rd_us):
+                raise SystemExit(f"refusing to re-run {x['job_id']} ({x['tag']}): (level, shots, pubs, rep_delay_us) of the first run "
+                                 f"{(j['level'], j['shots'], j['pubs'], j.get('rep_delay_us'))} differ from the rebuilt job {(level, gshots, len(group), rd_us)}. "
+                                 "Nothing is submitted")
+            try:
+                stored = service.job(x["job_id"]).inputs
+                options = job_signature(stored)                 # (resilience level, shots, rep_delay, pub count) as the service stored them
+                verif = verify_job_inputs(stored, group)
+            except Exception as e:
+                raise SystemExit(f"refusing to re-run {x['job_id']} ({x['tag']}): the inputs of the first run cannot be read ({type(e).__name__}: {e}). "
+                                 "Nothing is submitted")
+            rebuilt = group_signature(level, gshots, rep_delays.get(x["tag"]), group)
+            if not _same_signature(options, rebuilt):
+                raise SystemExit(f"refusing to re-run {x['job_id']} ({x['tag']}): (resilience level, shots, rep_delay, pubs) of the first run as the "
+                                 f"service stored them {options} differ from the rebuilt job {rebuilt}. Nothing is submitted")
+            if not verif.get("match"):
+                raise SystemExit(f"refusing to re-run {x['job_id']} ({x['tag']}): the rebuilt pubs differ from the inputs of the first run: "
+                                 f"{verif.get('mismatches') or verif.get('error')}. Nothing is submitted")
+            print(f"re-run of {x['job_id']} ({x['tag']}): rebuilt pubs equal the inputs of the first run ({len(group)} pubs)", flush=True)
+
+    execute_joblist(jl, points, shapes, shots, backend, submit=True, run_root=run_root, log_path=None, instance_plan=instance_plan, wait=False,
+                    joblist_path=joblist_path, run_id=github_run_id(), calibration_csv=csv,
+                    rerun=dict(jobs=plan["jobs"], decision=committed, of_ids_file=str(ids_path), before=before))
+    return 0
+
+
 # ------------------------------------------------------------------------------------------------ ids file and retrieval
 # Smoke test run 35489912431 (20 Sep 2026): GitHub killed the Action at the 6-hour job limit while the ten ibm_phoenix jobs
 # were still queued; the jobs then ran (52 s charged) but the runner never collected them, and the "submitted job <id>" lines
@@ -2164,18 +2413,22 @@ def ids_file_path(run_root: str | Path, day: str, name: str) -> Path:
 
 def write_ids_file(path: str | Path, jl: dict, joblist_path: str | None, jobs: List[dict], batch_id: str | None = None,
                    calibration_csv: str | None = None, calibration_snapshot: str | None = None, run_id: int | str | None = None,
-                   notes: str | None = None, discovery: dict | None = None, resubmission: dict | None = None) -> Path:
+                   notes: str | None = None, discovery: dict | None = None, resubmission: dict | None = None,
+                   rerun_decision: dict | None = None) -> Path:
     """Write the ids file: the job list it belongs to, the Action run that submitted (``submission_run``), the Batch id,
     the calibration CSV the patch was placed on and the snapshot taken before submission, and one entry per job
     ``{job_id, tag, level, shots, pubs, rep_delay_us, submitted_utc}`` (``job_id`` may be null with a ``discovery``
     window, see ``retrieve_jobs``). ``resubmission`` (``--only-job-tag``): ``{of_tag, max_pubs, of_ids_file, of_job_id,
-    of_submission_run, of_pubs, calibration_csv}``, so ``retrieve_jobs`` rebuilds the same chunks. No secret and no CRN."""
+    of_submission_run, of_pubs, calibration_csv}``, so ``retrieve_jobs`` rebuilds the same chunks. ``rerun_decision`` (the
+    re-run of Deviation 67 (iii)): ``{path, sha256, commit}`` of the committed decision file; the key is written only then, so
+    every other ids file is the file of v0.18.0. No secret and no CRN."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     _dump(path, dict(schema=IDS_SCHEMA, joblist=joblist_path, joblist_name=jl.get("name"), backend=jl.get("backend"), instance=jl.get("instance"),
                      submission_run=run_id, runner_git_commit=git_commit_hash(), batch_id=batch_id, calibration_csv=calibration_csv,
                      calibration_snapshot=calibration_snapshot, written_utc=datetime.now(timezone.utc).isoformat(), notes=notes,
-                     discovery=discovery, resubmission=resubmission, jobs=jobs))
+                     discovery=discovery, resubmission=resubmission, **({} if rerun_decision is None else dict(rerun_decision=rerun_decision)),
+                     jobs=jobs))
     return path
 
 
@@ -2350,6 +2603,171 @@ def verify_job_inputs(inputs: dict, group: Sequence) -> dict:
     return out
 
 
+PROPERTIES_AT_CREATION = "properties at job creation"
+
+
+def properties_label(props_label: str) -> str:
+    """What a retrieved bundle's properties.json holds, in words (its ``_label``): the properties at the job's creation when the
+    service returned them for that time (``properties_at`` label ``retrieved: ...``); otherwise the label says that they are the
+    live properties at retrieval. They are never the properties at execution: a job can wait in the queue across an IBM update."""
+    if str(props_label).startswith("retrieved:"):
+        return PROPERTIES_AT_CREATION
+    return f"properties live at retrieval, not at job creation ({props_label})"
+
+
+def execution_span(metrics, created=None) -> dict:
+    """The job's ``created`` / ``running`` / ``finished`` times as the service gives them (``job.metrics()['timestamps']``), with the
+    seconds queued and running. A record only: no gate, check or reading consumes it. ``created`` falls back to the job's
+    ``creation_date``; a missing time is None and ``complete`` is false."""
+    ts = dict(metrics.get("timestamps") or {}) if isinstance(metrics, dict) else {}
+    out = dict(created=ts.get("created") or _utc_iso(created), running=ts.get("running"), finished=ts.get("finished"),
+               created_source="job.metrics()['timestamps']" if ts.get("created") else ("job.creation_date" if created else None),
+               source="job.metrics()['timestamps'], read at retrieval")
+
+    def secs(a, b):
+        try:
+            return round((_parse_utc(b) - _parse_utc(a)).total_seconds(), 3)
+        except (TypeError, ValueError):
+            return None
+    out["queued_s"] = secs(out["created"], out["running"])
+    out["running_s"] = secs(out["running"], out["finished"])
+    out["complete"] = all(out[k] for k in ("created", "running", "finished"))
+    return out
+
+
+def record_execution_span(bundle_dir, created=None, props_label: str | None = None) -> dict:
+    """Add to a retrieved bundle's job.json, under ``retrieval``: ``execution_span`` (``execution_span`` of the job.json's own
+    ``metrics``) and ``properties_label`` (what properties.json holds: ``properties_label``). Nothing else in the bundle changes and
+    nothing reads these fields: they record when the job ran, so that a review can set the execution against IBM's properties
+    updates. Returns the span."""
+    jp = Path(bundle_dir) / "job.json"
+    job = json.loads(jp.read_text())
+    span = execution_span(job.get("metrics"), created or job.get("creation_date"))
+    rec = dict(job.get("retrieval") or {})
+    rec["execution_span"] = span
+    if props_label is not None:
+        rec["properties_label"] = properties_label(props_label)
+    job["retrieval"] = rec
+    _dump(jp, job)
+    return span
+
+
+# --------------------------------------------------------------------------- execution-time pool (Deviation 65, first retrieval phase)
+# The code below is the two-phase retrieval of docs/deviations_drafts/65_implementation/02_two_phase_retrieval.patch (branch
+# dev65-implementation), re-made on this file. One thing differs from that patch: the phases are behind the adoption switch
+# (gradvar.execution_record.adoption). While the settings table is absent or not in force, ``--retrieve`` without a phase flag is
+# the retrieval of v0.18.0.
+
+EXECUTION_POOL_FILES = ("properties_at_running.json", "properties_between.json", "properties_after_finished.json")
+POOL_MARGIN_H = 6.0      # how far after `finished` the newest set is asked for: more than twice the largest gap between IBM stamps on 10 Nov 2026
+POOL_MAX_WALK = 40
+PHASE_WORDS = dict(metadata="metadata only (Deviation 65, phase 1)", results="results (Deviation 65, phase 2)", single="single phase (outside Deviation 65)")
+
+
+def _properties_json(props) -> dict | None:
+    return json.loads(json.dumps(props.to_dict(), default=str)) if props is not None else None
+
+
+def properties_between(backend, top, floor, max_sets: int = POOL_MAX_WALK) -> dict:
+    """The properties sets from ``backend.properties(datetime=top)`` back to the first one published at or before ``floor``,
+    each asked as ``last_update_date - 1 s`` of the set just returned: ``{sets: [newest first], complete, note}``. ``complete``
+    is false, with the reason in ``note``, when a call fails, returns nothing, does not move back, or ``max_sets`` is reached.
+    The live properties are never asked for. The calls and their order are those the trial of 11 Nov 2026 found to work on
+    this instance (``scripts/trial_properties_history.py``): ``datetime`` is accepted and excludes a set's own stamp."""
+    sets, note, when = [], None, top
+    for _ in range(max_sets):
+        try:
+            d = _properties_json(backend.properties(datetime=when))
+        except Exception as e:
+            note = f"backend.properties(datetime={_utc_iso(when)}) failed: {type(e).__name__}: {e}"
+            break
+        if not d or not d.get("last_update_date"):
+            note = f"backend.properties(datetime={_utc_iso(when)}) returned no set"
+            break
+        u = _parse_utc(d["last_update_date"])
+        if sets and u >= _parse_utc(sets[-1]["last_update_date"]):
+            note = f"asked for {_utc_iso(when)} and got the set of {_utc_iso(u)}, not older than the previous one"
+            break
+        sets.append(d)
+        if u <= floor:
+            return dict(sets=sets, complete=True, note=None)
+        when = u - timedelta(seconds=1)
+    else:
+        note = f"stopped after {max_sets} sets without reaching the set in force at running"
+    return dict(sets=sets, complete=False, note=note)
+
+
+def write_execution_pool(bundle_dir, job, backend, now=None, margin_h: float = POOL_MARGIN_H) -> dict:
+    """Deviation 65, first retrieval phase: the properties the execution-time calibration of a job is built from, written into
+    its bundle in the layout ``gradvar.execution_calibration.load_pool`` reads:
+
+    * ``properties_at_running.json``: ``job_properties`` (``job.properties()``) and ``backend_properties``
+      (``backend.properties(datetime=running)``), each the set or null with the error beside it;
+    * ``properties_between.json``: the sets of the walk-back stamped after that set and before ``finished``;
+    * ``properties_after_finished.json``: ``{"sets": [...]}``, every set of the walk-back stamped at or after ``finished``,
+      sets stamped again without a change of values included, or ``{"status": "pending"}`` when there is none. Which of them is
+      the first update (a change of values) is decided by ``load_pool``, not here.
+
+    A call that fails leaves null / ``complete: false`` and the reason; nothing is replaced by the live properties, and
+    ``load_pool`` then stops. The job's result is not touched. Returns the record stored in job.json
+    (``retrieval.execution_pool``); its ``status`` is what ``load_pool`` makes of the files (``complete``, ``pending``) or
+    ``stopped`` with the reason."""
+    from . import execution_calibration as ec
+    d = Path(bundle_dir)
+    jrec = json.loads((d / "job.json").read_text())      # the same order of sources as gradvar.execution_calibration.load_pool
+    stamps = ((jrec.get("retrieval") or {}).get("execution_span") or jrec.get("execution_window") or (jrec.get("metrics") or {}).get("timestamps") or {})
+    rec: Dict[str, Any] = dict(running=stamps.get("running"), finished=stamps.get("finished"), errors={})
+    try:
+        t_r, t_f = _parse_utc(stamps["running"]), _parse_utc(stamps["finished"])
+    except (KeyError, TypeError, ValueError):
+        t_r = t_f = None
+        rec["errors"]["timestamps"] = "job.metrics() gave no running / finished time"
+    job_props = at_running = None
+    try:
+        job_props = _properties_json(job.properties())
+    except Exception as e:
+        rec["errors"]["job.properties()"] = f"{type(e).__name__}: {e}"
+    if t_r is not None:
+        try:
+            at_running = _properties_json(backend.properties(datetime=t_r))
+        except Exception as e:
+            rec["errors"]["backend.properties(datetime=running)"] = f"{type(e).__name__}: {e}"
+    _dump(d / "properties_at_running.json", dict(job_properties=job_props, backend_properties=at_running, asked=dict(running=stamps.get("running")),
+                                                   errors=rec["errors"] or None))
+    between, after, walk = [], [], dict(sets=[], complete=False, note="the set in force at running is not available")
+    if at_running is not None and at_running.get("last_update_date"):
+        now = now or datetime.now(timezone.utc)
+        top = min(t_f + timedelta(hours=margin_h), now)
+        lo = _parse_utc(at_running["last_update_date"])
+        walk = properties_between(backend, top, lo)
+        ordered = sorted(walk["sets"], key=lambda x: _parse_utc(x["last_update_date"]))
+        after = [x for x in ordered if _parse_utc(x["last_update_date"]) >= t_f]
+        between = [x for x in ordered if lo < _parse_utc(x["last_update_date"]) < t_f]
+        rec["asked_up_to"] = _utc_iso(top)
+    _dump(d / "properties_between.json", dict(complete=bool(walk["complete"]), note=walk["note"], sets=[dict(properties=x) for x in between]))
+    _dump(d / "properties_after_finished.json", dict(sets=[dict(properties=x) for x in after], asked_up_to=rec.get("asked_up_to")) if after
+          else dict(status="pending", asked_up_to=rec.get("asked_up_to")))
+    rec.update(set_at_running=(at_running or {}).get("last_update_date"), job_properties_set=(job_props or {}).get("last_update_date"),
+               sets_between=[x["last_update_date"] for x in between], sets_after_finished=[x["last_update_date"] for x in after],
+               walk_complete=bool(walk["complete"]), walk_note=walk["note"])
+    try:
+        pool = ec.load_pool(d)
+        rec.update(status=pool.status, updates=pool.updates(), restamps=[list(r) for r in pool.restamps], notes=list(pool.notes))
+    except ec.PoolError as e:
+        rec.update(status="stopped", updates=None, restamps=None, notes=[f"{type(e).__name__}: {e}"])
+    return rec
+
+
+def dispatch_update(props_dict: dict | None, source: str | None) -> dict | None:
+    """Review correction C65-5, "the retrieval records the update in force at dispatch": stamp, content hash and value hash of the
+    properties at the job's creation (the set properties.json holds), or None when the service did not return them for that
+    time (the live properties at retrieval are not the update in force at dispatch)."""
+    if not props_dict or not props_dict.get("last_update_date") or not str(source).startswith("retrieved:"):
+        return None
+    ref = execution_record.set_ref(json.loads(json.dumps(props_dict, default=str)))
+    return dict(last_update_date=ref["last_update_date"], sha256=ref["sha256"], value_sha256=ref["value_sha256"], source=source)
+
+
 def properties_at(backend, when) -> Tuple[Any, str]:
     """``backend.properties(datetime=when)``, the calibration in force when the job was created, labelled ``retrieved``;
     a backend that does not take ``datetime`` (fake backends) or returns None falls back to the live properties, and the
@@ -2373,9 +2791,34 @@ def properties_at(backend, when) -> Tuple[Any, str]:
     return props, label
 
 
+def first_phase_refusal(run_root, job_id: str) -> str | None:
+    """Review correction CI2-1: why the first retrieval phase must leave the bundle of ``job_id`` alone, or None. The first phase
+    writes a bundle without a result; run on a job that was retrieved already it would turn the record of a completed job into
+    "metadata only" beside its result.json. It therefore refuses a job whose bundle under ``run_root`` holds result.json, or whose
+    job.json is anything but the record of an earlier first phase (which a repeated first phase may write again: a pending pool
+    is completed that way). Read from the tree only; nothing is written and nobody is contacted."""
+    for b in sorted(Path(run_root).glob(f"*/{job_id}")):
+        if not b.is_dir():
+            continue
+        if (b / "result.json").exists():
+            return f"its bundle {b.as_posix()} holds result.json: the results of this job were retrieved already"
+        jp = b / "job.json"
+        if jp.exists():
+            try:
+                rec = json.loads(jp.read_text())
+                status = rec.get("status")
+                first = status == "metadata only" and (rec.get("retrieval") or {}).get("phase") == PHASE_WORDS["metadata"]
+            except (ValueError, AttributeError):
+                status, first = "unreadable", False
+            if not first:
+                return f"job.json in {b.as_posix()} is not a record of the first phase (status {status!r})"
+    return None
+
+
 def retrieve_jobs(ids_path: str, joblist_path: str | None = None, run_root: str = "data/runs", log_dir: str = "data/jobs",
                   run_id: int | str | None = None, timeout: float | None = None, calibration_csv: str | None = None,
-                  snapshot_dir: str = "data/calibrations") -> List[dict]:
+                  snapshot_dir: str = "data/calibrations", metadata_only: bool = False, execution_rows_commit: str | None = None,
+                  single_phase: bool = False) -> List[dict]:
     """Complete a run whose results were never collected: for every job in the ids file, ``service.job(id)``, wait for a
     final state, and write the same bundle as the live path (``write_job_bundle`` with the PrimitiveResult, ``usage()``,
     ``metrics()``, the options read back from ``job.inputs``, the properties at the job's creation time labelled
@@ -2383,16 +2826,90 @@ def retrieve_jobs(ids_path: str, joblist_path: str | None = None, run_root: str 
     the same CSV rows (``_point_rows``), under ``<run_root>/<job creation day>/<job_id>/``. The pubs are rebuilt from the
     job list on the ids file's ``calibration_csv`` with the recorded seeds and checked against the stored inputs
     (``verify_job_inputs``; a mismatch is flagged in job.json and fails the run after everything is written). Every
-    job.json carries ``retrieved: true``, ``submission_run`` and a ``retrieval`` record. A job with ``job_id`` null is
+    job.json carries ``retrieved: true``, ``submission_run`` and a ``retrieval`` record, which holds ``execution_span`` (the job's
+    created / running / finished times from ``metrics()``, with the seconds queued and running) and ``properties_label`` (what
+    properties.json holds: "properties at job creation", also written there as ``_label``; never the properties at execution). Both
+    are records only: no gate, check or reading consumes them. A job with ``job_id`` null is
     identified in the ids file's discovery window by its signature (``match_jobs_by_signature``) and the ids file is
     rewritten with the ids found. A calibration snapshot at retrieval time goes to ``snapshot_dir`` (metadata only, no QPU
-    time). Submits nothing; the token and CRN are read as on the live path and never written."""
+    time). Submits nothing; the token and CRN are read as on the live path and never written.
+
+    Deviation 65 (the retrieval in two phases; Paper 1 Estimator lists), behind the adoption switch
+    (``gradvar.execution_record.adoption``: the committed settings table says ``in_force``):
+
+    * ``metadata_only`` (``--metadata-only``): the first phase. Per job the bundle is written without its result
+      (``job.result()`` is not called; no result.json, no CSV row) and with the execution-time pool (``write_execution_pool``),
+      and every bundle is checked against the enumerated files and fields of a phase-1 bundle
+      (``retrieval_phases.check_phase1_bundle``, review correction C65-8); a file or field that is not listed fails the phase.
+      A job whose bundle holds result.json, or whose job.json is not the record of an earlier first phase, is refused before
+      anything is written for it (``first_phase_refusal``, review correction CI2-1): its files stay as they are, the other
+      jobs of the list go on, and the phase ends with a non-zero exit that names it. When every job of the list is refused,
+      nothing at all is written and the service is not contacted.
+    * the second phase is this function without ``metadata_only``. While the table is in force it refuses to run unless
+      ``execution_rows_commit`` (``--execution-rows-commit``) is given, every job's bundle carries the pool of the first phase and
+      ``retrieval_phases.verify_phase2`` passes: the commit is an ancestor of the commit this runs on, the hashes it records are
+      those of the phase-1 files in the tree, every job is classified. Every refusal comes before any call to the service.
+    * ``single_phase`` (``--single-phase``): the retrieval as it was before the Deviation, said so in every job.json.
+
+    While the table is absent or not in force, a call with none of the three is the retrieval of v0.18.0, byte for byte: no phase
+    is recorded. The first phase can then still be run (it retrieves no measured value); the second cannot be opened, because the
+    rows drawn while the table is not in force are exploratory. An ids file of re-run jobs (Deviation 67 (iii), ``rerun_joblist``)
+    goes through the same phases; each job's bundle carries the suffixed tag and, under ``retrieval``, ``rerun_of`` and
+    ``rerun_decision``."""
     ids = load_ids_file(ids_path)
     joblist_path = joblist_path or ids.get("joblist")
     if not joblist_path:
         raise SystemExit(f"{ids_path} names no joblist; pass --joblist")
     jl = load_joblist(joblist_path)
     sampler = str(jl.get("primitive", "estimator")) == "sampler"      # Paper 2 lists: gradvar.paper2.retrieve_sampler_jobs after the instance checks
+    if metadata_only and (execution_rows_commit or single_phase):
+        raise SystemExit("--metadata-only is the first phase: it takes neither --execution-rows-commit nor --single-phase")
+    if execution_rows_commit and single_phase:
+        raise SystemExit("--single-phase is the retrieval outside Deviation 65: it takes no --execution-rows-commit")
+    if sampler and (metadata_only or execution_rows_commit):
+        raise SystemExit("the two-phase retrieval of Deviation 65 is for Paper 1 Estimator lists; Sampler lists are retrieved in one phase")
+    phase, phases, phase2_verification = None, None, None            # phase None: the retrieval of v0.18.0, nothing of Deviation 65 recorded
+    rerun_ids = execution_record.is_rerun_ids(ids)                    # Deviation 67 (iii): the ids file of re-run jobs
+    if not sampler:
+        try:
+            switch = execution_record.adoption()
+        except execution_record.ExecutionRecordError as e:
+            raise SystemExit(str(e))
+        phase = "metadata" if metadata_only else "single" if single_phase else "results" if (execution_rows_commit or switch["in_force"]) else None
+        if rerun_ids and any(j["job_id"] is None for j in ids["jobs"]):
+            raise SystemExit(f"{ids_path}: an ids file of re-run jobs is written by the runner and holds every job id")
+    refused: Dict[str, str] = {}                                      # CI2-1: jobs the first phase must not touch (read from the tree only)
+    if phase == "metadata":
+        for j in ids["jobs"]:
+            why = first_phase_refusal(run_root, str(j["job_id"])) if j["job_id"] is not None else None
+            if why:
+                refused[str(j["job_id"])] = why
+                print(f"first phase refused for {j['job_id']} ({j['tag']}): {why}; nothing is written for this job", file=sys.stderr, flush=True)
+        if refused and len(refused) == len(ids["jobs"]):
+            raise SystemExit(f"refusing the first phase (--metadata-only) of {jl.get('name')}: every job of {ids_path} was retrieved already or has a "
+                             "record that is not of the first phase; nothing is written and the service is not contacted:\n  "
+                             + "\n  ".join(f"{k}: {v}" for k, v in refused.items()))
+    if phase in ("metadata", "results"):
+        try:
+            from . import retrieval_phases as phases                  # C65-8: the enumeration of phase 1 and the three checks of phase 2
+        except ImportError:
+            raise SystemExit("the two-phase retrieval needs the code of Deviation 65 (gradvar/retrieval_phases.py, gradvar/execution_calibration.py), "
+                             "which is not on this tree")
+    if phase == "results":
+        if not execution_rows_commit:
+            raise SystemExit(f"refusing to retrieve the results of {jl.get('name')}: the execution-time rows are drawn and committed before the results are "
+                             "retrieved (Deviation 65). Run the first phase (--metadata-only), then scripts/redraw_execution.py, commit its output and "
+                             "pass --execution-rows-commit <sha>; or --single-phase for a retrieval outside the Deviation")
+        missing = [str(j["job_id"]) for j in ids["jobs"] if j["job_id"] is not None
+                   and not any(all((b / f).is_file() for f in EXECUTION_POOL_FILES) for b in Path(run_root).glob(f"*/{j['job_id']}"))]
+        if missing or any(j["job_id"] is None for j in ids["jobs"]):
+            raise SystemExit(f"refusing to retrieve the results of {jl.get('name')}: the first phase (--metadata-only) has not written the execution-time pool of "
+                             f"{', '.join(missing) or 'the jobs still to be discovered'}")
+        try:
+            phase2_verification = phases.verify_phase2(execution_rows_commit, str(ids.get("joblist_name") or jl.get("name")),
+                                                       [str(j["job_id"]) for j in ids["jobs"]], run_root)
+        except phases.PhaseError as e:
+            raise SystemExit(str(e))
     resub = ids.get("resubmission")
     csv = calibration_csv or ids.get("calibration_csv") or pinned_calibration_csv(jl) or calibration_csv_not_after(ids.get("written_utc"))   # the CSV in force at submission
     if not sampler:
@@ -2413,6 +2930,8 @@ def retrieve_jobs(ids_path: str, joblist_path: str | None = None, run_root: str 
     groups, job_rep_delay_s = job_groups(jl, points, shapes, shots, backend, csv, only_tag=None if not resub else str(resub["of_tag"]),
                                          resubmit_max_pubs=None if not resub else resub.get("max_pubs"))
     by_tag = {tag: (level, gshots, group) for tag, level, gshots, group in groups}
+    if rerun_ids:                                                     # a re-run job is the job it repeats: the group of the first run's tag
+        by_tag = {str(j["tag"]): by_tag[str(j.get("rerun_of_tag"))] for j in ids["jobs"] if str(j.get("rerun_of_tag")) in by_tag}
     tags = [str(j["tag"]) for j in ids["jobs"]]
     if set(tags) != set(by_tag):
         raise SystemExit(f"ids file tags {sorted(tags)} differ from the job list's jobs {sorted(by_tag)} (placed on {csv})")
@@ -2456,6 +2975,13 @@ def retrieve_jobs(ids_path: str, joblist_path: str | None = None, run_root: str 
     for j in ids["jobs"]:
         tag, job_id = str(j["tag"]), str(j["job_id"])
         level, gshots, group = by_tag[tag]
+        if phase == "metadata":                          # CI2-1: before anything is written for this job, and before the service is asked for it
+            why = refused.get(job_id) or first_phase_refusal(run_root, job_id)
+            if why:
+                if job_id not in refused:
+                    print(f"first phase refused for {job_id} ({tag}): {why}; nothing is written for this job", file=sys.stderr, flush=True)
+                failures.append(f"{job_id} ({tag}): first phase refused: {why}")
+                continue
         job = service.job(job_id)
         try:
             job.wait_for_final_state(timeout=timeout)
@@ -2483,9 +3009,9 @@ def retrieve_jobs(ids_path: str, joblist_path: str | None = None, run_root: str 
         props_dict = None
         if props is not None:
             try:
-                props_dict = dict(props.to_dict(), _source=props_label)
+                props_dict = dict(props.to_dict(), _source=props_label, _label=properties_label(props_label))
             except Exception as e:  # pragma: no cover
-                props_dict = dict(error=str(e), _source=props_label)
+                props_dict = dict(error=str(e), _source=props_label, _label=properties_label(props_label))
         now = datetime.now(timezone.utc).isoformat()
         submitted = j.get("submitted_utc") or created_iso
         extra = dict(instance_plan=plan, budget=jl.get("budget"), budget_estimate_with_target_durations=budget_target, layout_check=chk,
@@ -2495,7 +3021,37 @@ def retrieve_jobs(ids_path: str, joblist_path: str | None = None, run_root: str 
                      retrieval=dict(ids_file=str(ids_path), retrieval_run=run_id, retrieved_utc=now, job_status=status, submitted_utc=submitted,
                                     properties_source=props_label, calibration_csv=csv, calibration_snapshot=snapshot,
                                     calibration_snapshot_at_retrieval=snapshot_now, inputs_verification=verif))
+        if phase is not None:                            # Deviation 65: which phase wrote this bundle, and what the earlier phase recorded
+            earlier = {}
+            if phase == "results":
+                for b in Path(run_root).glob(f"*/{job_id}/job.json"):
+                    earlier = (json.loads(b.read_text()).get("retrieval") or {})
+            extra["retrieval"].update(phase=PHASE_WORDS[phase], execution_rows_commit=execution_rows_commit, phase2_verification=phase2_verification,
+                                      execution_pool=earlier.get("execution_pool"),
+                                      metadata_retrieved_utc=earlier.get("retrieved_utc") if str(earlier.get("phase", "")).startswith("metadata only") else None)
+        if rerun_ids:                                    # Deviation 67 (iii): the job this one repeats and the decision that granted it
+            extra["retrieval"].update(rerun_of=j.get("rerun_of"), rerun_decision=ids.get("rerun_decision"))
         ts = dict(submitted_local=submitted or "", retrieved_local=now)
+        if phase == "metadata":                          # phase 1: the bundle without its result, and the execution-time pool
+            d = write_job_bundle(root, job_id, group, backend, options, level, gshots, jl, job=job, timestamps=ts, extra=extra, day=day,
+                                 properties=props_dict, metadata_only=True)
+            try:                                         # without properties_label: the enumeration of phase 1 does not list that field
+                record_execution_span(d, created_iso)
+            except Exception as e:                       # a record never fails a retrieval; the pool then reads the times from metrics.timestamps
+                print(f"job {job_id} ({tag}): execution span not recorded ({type(e).__name__}: {e})", file=sys.stderr, flush=True)
+            pool = write_execution_pool(d, job, backend)
+            pool["dispatch_update"] = dispatch_update(props_dict, props_label)
+            jp = d / "job.json"
+            rec = json.loads(jp.read_text())
+            rec["retrieval"]["execution_pool"] = pool
+            _dump(jp, rec)
+            try:
+                phases.check_phase1_bundle(d)            # C65-8: a phase-1 bundle holds the listed files and fields and nothing else
+            except phases.PhaseError as e:
+                failures.append(f"{job_id} ({tag}): {e}")
+            print(f"metadata of {job_id} ({tag}, status {status}): wrote {d} without a result; execution-time pool {pool['status']}"
+                  + (f" ({'; '.join(pool['notes']) or pool['walk_note'] or pool['errors']})" if pool["status"] != "complete" else ""), flush=True)
+            continue
         error = None
         result = None
         if status == "DONE":
@@ -2513,13 +3069,22 @@ def retrieve_jobs(ids_path: str, joblist_path: str | None = None, run_root: str 
             failures.append(f"{job_id} ({tag}): {error}")
             d = write_job_bundle(root, job_id, group, backend, options, level, gshots, jl, job=job, error=error, timestamps=ts, extra=extra,
                                  day=day, properties=props_dict)
+            try:                                                    # record only: created / running / finished as the service gives them
+                record_execution_span(d, created_iso, props_label)
+            except Exception as e:                                  # a record never fails a retrieval
+                print(f"job {job_id} ({tag}): execution span not recorded ({type(e).__name__}: {e})", file=sys.stderr, flush=True)
             print(f"job {job_id} ({tag}) has no result ({error}); wrote {d}", file=sys.stderr, flush=True)
             continue
         d = write_job_bundle(root, job_id, group, backend, options, level, gshots, jl, result=result, job=job, timestamps=ts, extra=extra,
                              day=day, properties=props_dict)
+        try:                                                        # record only: created / running / finished as the service gives them
+            span = record_execution_span(d, created_iso, props_label)
+        except Exception as e:                                      # a record never fails a retrieval
+            span = dict(created=None, running=None, finished=None)
+            print(f"job {job_id} ({tag}): execution span not recorded ({type(e).__name__}: {e})", file=sys.stderr, flush=True)
         rows += _point_rows(backend, job_id, snapshot, group, level, gshots, result, options=options, submit_time=submitted)
         print(f"retrieved {job_id} ({tag}: resilience {level}, {len(group)} pubs, shots {gshots}, status {status}, inputs "
-              f"{'match' if verif.get('match') else 'MISMATCH'}): wrote {d}", flush=True)
+              f"{'match' if verif.get('match') else 'MISMATCH'}): wrote {d}; created {span['created']}, running {span['running']}, finished {span['finished']}", flush=True)
     if rows:
         _append_rows(str(log_path), rows)
         print(f"logged {len(rows)} rows to {log_path}", flush=True)
@@ -2553,6 +3118,17 @@ def main(argv=None):
                                                                         "--submit-only, or hand-written with job_id null and a discovery window) "
                                                                         "into the same bundles and CSV rows as the live path; submits nothing")
     p.add_argument("--timeout", type=float, default=None, help="with --retrieve: seconds to wait per job for a final state (default: no limit)")
+    p.add_argument("--metadata-only", action="store_true", help="with --retrieve: first phase of Deviation 65: bundles without results, with the "
+                                                                "execution-time pool; job.result() is not called")
+    p.add_argument("--execution-rows-commit", default=None, metavar="SHA", help="with --retrieve: second phase of Deviation 65: the commit that holds the "
+                                                                                "list's execution-time rows (scripts/redraw_execution.py)")
+    p.add_argument("--single-phase", action="store_true", help="with --retrieve: the retrieval as before Deviation 65 (recorded as such)")
+    p.add_argument("--rerun-decide", default=None, metavar="IDS_FILE", help="Deviation 67 (iii), between the two retrieval phases: compute the re-run decision "
+                                                                            "of the list of this ids file and write its decision file; needs --ledger; "
+                                                                            "submits nothing")
+    p.add_argument("--ledger", default=None, metavar="FILE", help="with --rerun-decide: the ledger file {lines, charged_ids_files, source}")
+    p.add_argument("--rerun", default=None, metavar="IDS_FILE", help="Deviation 67 (iii): re-dispatch the jobs the committed decision file names, unchanged, "
+                                                                     "from the ids file of the first run; with --yes-submit, else only the plan is printed")
     p.add_argument("--only-job-tag", default=None, metavar="TAG",
                    help="resubmission of one failed job: build the list as submitted (on the calibration CSV of the original submission, found "
                         "through its ids file under --run-root), keep only the job tagged TAG (e.g. L2-c5) and submit its pubs as jobs "
@@ -2564,9 +3140,21 @@ def main(argv=None):
         sys.stdout.reconfigure(line_buffering=True)     # the Action log must show each job id as it is submitted (run 35489912431 lost them)
     except Exception:  # pragma: no cover
         pass
+    if (a.metadata_only or a.execution_rows_commit or a.single_phase) and not a.retrieve:
+        p.error("--metadata-only, --execution-rows-commit and --single-phase go with --retrieve")
     if a.retrieve:
-        retrieve_jobs(a.retrieve, a.joblist, run_root=a.run_root, log_dir=a.log_dir, run_id=github_run_id(), timeout=a.timeout)
+        retrieve_jobs(a.retrieve, a.joblist, run_root=a.run_root, log_dir=a.log_dir, run_id=github_run_id(), timeout=a.timeout,
+                      metadata_only=a.metadata_only, execution_rows_commit=a.execution_rows_commit, single_phase=a.single_phase)
         return 0
+    if bool(a.rerun_decide) != bool(a.ledger):
+        p.error("--rerun-decide and --ledger go together")
+    if a.rerun_decide:
+        rerun_decide(a.rerun_decide, a.ledger, run_root=a.run_root, joblist_path=a.joblist)
+        return 0
+    if a.rerun:
+        if a.submit_only or a.only_job_tag is not None or a.dry_run_sample is not None:
+            p.error("--rerun takes --yes-submit and nothing else of a submission: the re-run is one Batch, not awaited")
+        return rerun_joblist(a.rerun, submit=a.yes_submit, run_root=a.run_root, joblist_path=a.joblist)
     if a.submit_only and not (a.joblist and a.yes_submit):
         p.error("--submit-only needs --joblist and --yes-submit")
     if a.max_pubs is not None and a.only_job_tag is None:

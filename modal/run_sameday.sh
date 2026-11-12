@@ -5,6 +5,9 @@
 #                inputs=['modal/run_sameday.sh'], run_timeout_s=4800, intent='same-day re-package')
 # <run_sha>: the commit printed by `python scripts/sameday_repackage.py prepare --date D --base <pipeline branch>` (repack-<date> with main merged in).
 # Afterwards, with GITHUB_TOKEN: python scripts/sameday_repackage.py publish --bundle hpc/<job id>/out/sameday/bundle ; then c.close().
+# Day 3 with the truncation pairs: add --with-pairs (the realised-mask comparators of both lists are drawn; see docs/repack/REVIEW_CHECKLIST.md).
+# Useful options: --force --force-reason "<why>", --instance-cap-min M --instance-used-min M, --dial-workers N. out/sameday/EXIT holds the exit code
+# (1 for a stopped run: a stop of Deviation 62 (iv), test failures outside the known list included).
 set -u
 SHA=$1; shift
 WORK=$PWD
