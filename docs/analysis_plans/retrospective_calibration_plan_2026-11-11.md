@@ -82,3 +82,36 @@ v0.19.0.
   the measured values are joined.
 - **After v0.19.0:** a second person joins the frozen table to the measured values and runs Section 4 exactly as written.
 - The lead, who knows the results of days 1, 2 and 10 Nov, does not build or edit the table.
+
+## 9. Change of 12 Nov 2026, 03:03 UTC, made before any measured value was joined: the tests are run now, and their results are sealed until v0.19.0 is adopted
+
+On 12 Nov 2026 the operator (M. Owais) instructed that the analysis proceed without waiting for v0.19.0. This section replaces
+the sentences of the status line and of Sections 3, 6 and 8 that make the tests of Section 4 wait for v0.19.0. Section 4 itself
+is unchanged.
+
+- **Table used.** The provisional table of branch `retro-calibration-table` (definitions at
+  aa410cfb607753dbcb798323d5979eaf2b3cec04, table at 73e87c92f6555aa0a142f387f2061500e65ad965 and the later commit of the same
+  worker that completes the shift s). It is built with that worker's own implementation of the per-value rule of draft
+  Deviation 65, not with an adopted builder. Checked against `dev65-implementation` at c7e992e2061ee044e047208cb62c1995ea50733a:
+  E(J) is equal in every value on 80 of 80 jobs, on 6 of them only with a refusal of that code lifted. After v0.19.0 the table is
+  rebuilt with the adopted builder and the tests are repeated on it; both sets of results are reported.
+- **Sealing.** The join of the measured values and the tests of Section 4 are done by a second worker, and checked by a third,
+  on branch `retro-calibration-result`. Neither the lead nor anyone who drafts or corrects Deviations 64, 65 or 67 opens that
+  branch, or is told any result, before v0.19.0 is on `main`. Until then the workers report only that the work is complete, the
+  commit, and what was not done. The reason is the one of the status line: the result must not influence the rules under which
+  day 3 is read.
+- **Limits known before the join, from the calibration side alone.**
+  1. The blinding of the table worker was broken once. At the start of its work, before its definitions were committed, it opened
+     a notes file of this session that named the ratios 0.50, 0.92 and 0.71. It states that none was used for a definition; that
+     statement cannot be verified.
+  2. Points with at least one over-cut element in their light cone: smoke test 0 of 6, day 1 0 of 10, day 2 2 of 49 (both of the
+     16,384-shot list, one of them the point of the job that suggested the hypothesis), 10 Nov 2 of 2. With that job left out and
+     permutations within day, the primary test has at most one flagged point on day 2 and no unflagged point on 10 Nov. It is
+     run as written. It has little power, and a result that is not significant is not evidence that calibration faults have no
+     effect.
+  3. The shift s is zero by identity for the 45 points of the day-2 main grid, so secondary test (c) rests on the other 22.
+  4. The zones rest on the table worker's own light-cone code until its check against the repository's code is read.
+  5. The lead wrote Section 4 knowing the registered readings of days 1, 2 and 10 Nov.
+- **Where the definitions file does not settle a choice** (for instance how a point fed by more than one job is treated when one
+  job is left out), the second worker does not choose: it computes every reading the text allows and reports them side by
+  side, marked as not fixed in advance.
