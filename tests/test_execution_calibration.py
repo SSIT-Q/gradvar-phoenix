@@ -61,8 +61,9 @@ def _settings_with(tmp_path, in_force=False, **changes):
     table = json.loads(ec.SETTINGS_FILE.read_text(encoding="utf-8"))
     for k, v in changes.items():
         table["settings"][k]["value"] = v
-    if in_force:                                                 # what the adopting commit does: every entry ruled on, the switch on
+    if in_force:                                                 # what the adopting commit does: every entry ruled on, the switch on, the time recorded
         table["status"] = "in_force"
+        table["in_force_from_utc"] = "2026-11-19T06:30:00Z"
         for e in table["settings"].values():
             e["provisional"] = False
             e.setdefault("registered", e["value"])               # an entry nobody had ruled on is registered with the value adopted
@@ -112,6 +113,39 @@ def test_the_table_is_not_in_force_and_holds_the_reviews_choices(st, tmp_path):
         (tmp_path / "t2.json").write_text(json.dumps(t2), encoding="utf-8")
         with pytest.raises(ec.SettingsError, match=f"settings missing: .*{name}"):
             ec.load_settings(tmp_path / "t2.json")
+
+
+def test_the_table_records_since_when_it_is_in_force(st, tmp_path):
+    """``in_force_from_utc``, the top-level entry the runner reads to tell the jobs submitted before the adoption from those
+    submitted under it: null (or absent) while the table is not in force, and then a value is refused; required, as a UTC time,
+    when it is in force. The adopting commit writes it with the status."""
+    committed = json.loads(ec.SETTINGS_FILE.read_text(encoding="utf-8"))
+    assert "in_force_from_utc" in committed and committed["in_force_from_utc"] is None and st.in_force_from_utc is None and st.record()["in_force_from_utc"] is None
+    on = _settings_with(tmp_path, in_force=True)
+    assert on.in_force_from_utc == "2026-11-19T06:30:00Z" == on.record()["in_force_from_utc"]
+
+    def table(status, **top):
+        t = json.loads(ec.SETTINGS_FILE.read_text(encoding="utf-8"))
+        t["status"] = status
+        t.pop("in_force_from_utc")
+        t.update(top)
+        (tmp_path / "since.json").write_text(json.dumps(t), encoding="utf-8")
+        return tmp_path / "since.json"
+    assert ec.load_settings(table("not_in_force")).in_force_from_utc is None                              # absent: as null
+    with pytest.raises(ec.SettingsError, match="is given while the table is not in force"):
+        ec.load_settings(table("not_in_force", in_force_from_utc="2026-11-19T06:30:00Z"))
+    for bad in (None, "", "soon", "2026-11-19", 1763533800, True, ["2026-11-19T06:30:00Z"], "2026-13-40T06:30:00Z"):
+        with pytest.raises(ec.SettingsError, match="in_force_from_utc"):
+            ec.load_settings(table("in_force", in_force_from_utc=bad))
+    with pytest.raises(ec.SettingsError, match="cannot be in force without in_force_from_utc"):
+        ec.load_settings(table("in_force"))
+    # any offset is read as the UTC time it names: 12:00 IST is 06:30 UTC
+    assert ec.load_settings(table("in_force", in_force_from_utc="2026-11-19T12:00:00+05:30")).in_force_from_utc == "2026-11-19T06:30:00Z"
+    # the runner's reader gives the same time
+    er = pytest.importorskip("gradvar.execution_record", reason="the runner's side is not on this tree")
+    a = er.adoption(raw=table("in_force", in_force_from_utc="2026-11-19T12:00:00+05:30").read_bytes())
+    assert a["in_force"] is True and ec.parse_utc(a["in_force_from_utc"]) == ec.parse_utc("2026-11-19T06:30:00Z")
+    assert er.adoption()["in_force_from_utc"] is None and er.adoption()["in_force"] is False
 
 
 def test_ci1_an_in_force_table_must_hold_the_registered_values(tmp_path):

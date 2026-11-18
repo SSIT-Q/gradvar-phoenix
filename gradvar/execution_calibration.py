@@ -80,6 +80,7 @@ class Settings:
     path: str
     status: str
     provisional_entries: Tuple[str, ...] = ()
+    in_force_from_utc: Optional[str] = None    # the table's top-level entry: the UTC time from which it is in force (null while it is not)
 
     @property
     def in_force(self) -> bool:
@@ -96,7 +97,7 @@ class Settings:
     def record(self) -> Dict[str, Any]:
         """What every output carries: the table's hash, its status and the values read."""
         return dict(settings_file=self.path, settings_sha256=self.sha256, settings_status=self.status, in_force=self.in_force, provisional=self.provisional,
-                    provisional_entries=list(self.provisional_entries), settings=dict(self.values))
+                    in_force_from_utc=self.in_force_from_utc, provisional_entries=list(self.provisional_entries), settings=dict(self.values))
 
 
 _REQUIRED = ("primary_calibration", "coupler_zone_rule", "coupler_cone_rule", "zone_for_points_shallower_than_zone", "decision_line_abs_ln_ratio",
@@ -116,7 +117,10 @@ def _same_value(a: Any, b: Any) -> bool:
 def load_settings(path: str | Path | None = None) -> Settings:
     """The committed table. A value outside its ``allowed`` list, a missing setting or an unknown status is refused, and so is a
     table that is in force while one of its entries is still provisional, has no ``registered`` value, or holds another value
-    than its registered one: one edited line of the table must not be able to change a registered rule (CI-1)."""
+    than its registered one: one edited line of the table must not be able to change a registered rule (CI-1). The top-level
+    entry ``in_force_from_utc`` says from which UTC time the table is in force: the adopting commit writes it. It is absent or
+    null while the table is not in force, and required, as a UTC time, when it is (the runner reads it to tell the jobs
+    submitted before the adoption from those submitted under it)."""
     path = Path(path) if path is not None else SETTINGS_FILE
     raw = path.read_bytes()
     table = json.loads(raw)
@@ -148,12 +152,22 @@ def load_settings(path: str | Path | None = None) -> Settings:
         raise SettingsError(f"{path}: the table cannot be in force while these entries have no registered value: {unregistered}")
     if table["status"] == "in_force" and departed:
         raise SettingsError(f"{path}: the table cannot be in force with a value other than the registered one: {'; '.join(departed)}")
+    since = table.get("in_force_from_utc")
+    if table["status"] == "in_force":
+        if not isinstance(since, str) or not _DT.match(since.strip()):
+            raise SettingsError(f"{path}: the table cannot be in force without in_force_from_utc, the UTC time from which it is in force (found {since!r})")
+        try:
+            since = iso(since)
+        except ValueError as e:
+            raise SettingsError(f"{path}: in_force_from_utc = {since!r} is not a time") from e
+    elif since is not None:
+        raise SettingsError(f"{path}: in_force_from_utc = {since!r} is given while the table is not in force; it is null until the adopting commit")
     try:
         shown = path.resolve().relative_to(ROOT).as_posix()
     except ValueError:
         shown = str(path)
     return Settings(values=values, sha256=hashlib.sha256(raw.replace(b"\r\n", b"\n")).hexdigest(), path=shown, status=table["status"],
-                    provisional_entries=tuple(provisional))
+                    provisional_entries=tuple(provisional), in_force_from_utc=since)
 
 
 # --------------------------------------------------------------------------------------------------------------

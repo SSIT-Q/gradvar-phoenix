@@ -35,6 +35,7 @@ def _table(tmp_path_factory, name, status="in_force", adopted=(), **values):
     value departs from its registered one and an in-force table holding it is refused (CI-1)."""
     table = json.loads(ec.SETTINGS_FILE.read_text(encoding="utf-8"))
     table["status"] = status
+    table["in_force_from_utc"] = "2026-11-12T00:00:00Z" if status == "in_force" else None
     for k, v in values.items():
         table["settings"][k]["value"] = v
         if k in adopted:

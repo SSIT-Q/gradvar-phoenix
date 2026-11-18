@@ -43,6 +43,7 @@ def _table(status, confirm=True):
     """The committed settings table with another status; ``confirm`` marks every entry as ruled on (the adopting commit does that)."""
     t = json.loads(TABLE.read_text(encoding="utf-8"))
     t["status"] = status
+    t["in_force_from_utc"] = "2026-11-10T00:00:00Z" if status == "in_force" else None       # the adopting commit records since when the table is in force
     if confirm:
         for e in t["settings"].values():
             e["provisional"] = False

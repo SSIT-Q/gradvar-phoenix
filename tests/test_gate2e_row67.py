@@ -43,6 +43,7 @@ def on(tmp_path_factory):
     """The table as the adopting commit leaves it: every entry ruled on, the switch on."""
     table = json.loads(ec.SETTINGS_FILE.read_text(encoding="utf-8"))
     table["status"] = "in_force"
+    table["in_force_from_utc"] = "2026-11-10T00:00:00Z"
     for e in table["settings"].values():
         e["provisional"] = False
         e.setdefault("registered", e["value"])
@@ -169,6 +170,7 @@ def test_8e_the_bracket_is_reported_and_an_in_force_table_cannot_make_it_decide(
     assert "Q75 (readout) [observable_edge, job dbpfnr0qtr0c738ebeng] on 2026-11-10T13:37:31Z in the zone and not on E" in v["note"]
     table = json.loads(ec.SETTINGS_FILE.read_text(encoding="utf-8"))
     table["status"] = "in_force"
+    table["in_force_from_utc"] = "2026-11-10T00:00:00Z"
     table["settings"]["bracket_decides_gate2e"]["value"] = True
     for e in table["settings"].values():
         e["provisional"] = False

@@ -1078,6 +1078,7 @@ def _d65_table(status):
     loader refuses an in-force table with a provisional entry, or with an entry that has no registered value)."""
     t = json.loads((ROOT / D65_TABLE).read_text(encoding="utf-8"))
     t["status"] = status
+    t["in_force_from_utc"] = "2026-11-10T00:00:00Z" if status == "in_force" else None      # the adopting commit records since when the table is in force
     for e in t["settings"].values():
         e["provisional"] = False
         e.setdefault("registered", e["value"])
