@@ -300,15 +300,23 @@ def fold_restamps(sets: Sequence[Dict]) -> List[Tuple[Dict, List[str]]]:
 
 def _assemble(job_id: str, t_r: datetime, t_f: datetime, s0: Dict, later: Sequence[Dict], t_created: Any, source: str, files: Sequence[str] = ()) -> Pool:
     """S0 and every later set known (any stamp after S0's) into a pool of updates. The first update published at or after
-    ``finished`` closes it; later ones are dropped; without one the pool is pending."""
+    ``finished`` closes it; later ones are dropped; without one the pool is pending.
+
+    A set stamped after S0 and at or before running is read like any later set (CI-15, CI-16; row 65 (i) as corrected by
+    CD-8): the set in force at the running time is the set the service returns for that time, and the service returns a newly
+    stamped set only some minutes after its stamp. When such a set repeats S0's values it is a re-stamp of S0 and is folded
+    into it; when it holds other values it is an update of the pool, and the per-value rule reads its entries dated at or
+    before running. Either way a note names it; nothing is refused."""
     lo = _update(s0)
     stamps = [_update(x) for x in later]
     if len(set(stamps)) != len(stamps) or lo in stamps:
         raise PoolError(f"job {job_id}: two sets of the pool carry one last_update_date")
-    early = [u for u in stamps if u <= t_r]
-    if early:
-        raise PoolError(f"job {job_id}: a later set is stamped {iso(max(early))}, at or before running ({iso(t_r)}): the set recorded as in force at "
-                        f"running ({iso(lo)}) was not")
+    if any(u < lo for u in stamps):
+        raise PoolError(f"job {job_id}: a set of the pool is stamped {iso(min(stamps))}, before the set recorded as in force at running ({iso(lo)})")
+    h0 = value_sha256(s0)
+    early = sorted((x for x in later if _update(x) <= t_r), key=_update)
+    early_same = [x for x in early if value_sha256(x) == h0]
+    early_moved = [x for x in early if value_sha256(x) != h0]
     folded = fold_restamps([s0] + list(later))
     keep, restamps, status = [], [], "pending"
     for s, rs in folded:
@@ -318,6 +326,12 @@ def _assemble(job_id: str, t_r: datetime, t_f: datetime, s0: Dict, later: Sequen
             status = "complete"
             break
     notes = []
+    if early_same:
+        notes.append(f"{len(early_same)} re-stamp(s) of the set in force at running stamped at or before running ({', '.join(iso(_update(x)) for x in early_same)}): "
+                     "the service did not yet return them at running")
+    if early_moved:
+        notes.append(f"{len(early_moved)} set(s) with other values stamped after the set in force at running and at or before running "
+                     f"({', '.join(iso(_update(x)) for x in early_moved)}): the service did not yet return them at running; read like any later set")
     n_re = sum(len(r) for r in restamps)
     if n_re:
         notes.append(f"{n_re} re-stamp(s) without a change of value folded into their update")
