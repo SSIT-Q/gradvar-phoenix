@@ -883,6 +883,25 @@ def test_cp3_an_exercise_bundle_is_published_only_as_an_exercise(tmp_path, monke
     assert fake.pr["body"].startswith("**EXERCISE, not dispatchable.** The cycle ran with `--exercise`") and "Do not merge." in fake.pr["body"]
 
 
+def test_ch1_the_forced_summary_of_an_exercise_is_titled_exercise(tmp_path, monkeypatch):
+    """Review correction CH-1: an exercise bundle that stopped at a stop the exercise did not pass over, published with
+    ``publish --exercise --force``, is committed as a summary under the EXERCISE prefix, so the commit, the pull-request title and
+    the EXERCISE paragraph of the body follow. A forced summary of a dispatch bundle keeps its plain title."""
+    stopped_ex = _man(tmp_path / "a", status="stopped", exercise=True)                          # no exercise_stops
+    assert not stopped_ex.get("exercise_stops")
+    assert SR.publish_mode(stopped_ex, exercise=True, force=True) == dict(mode="summary", prefix="EXERCISE, not dispatchable: ", test_stop=False, why=None)
+    assert SR.publish_mode(stopped_ex, force=True)["mode"] == "refuse"                           # never without --exercise
+    assert SR.publish_mode(_man(tmp_path / "b", status="stopped"), force=True) == dict(mode="summary", prefix="", test_stop=False, why=None)
+    b = _bundle(tmp_path / "c", status="stopped", exercise=True)
+    fake = FakeGitHub()
+    monkeypatch.setattr(SR, "gh", fake)
+    assert SR.publish(SimpleNamespace(bundle=str(b), force=True, main="main", exercise=True, allow_test_stop=None)) == 0
+    assert len(fake.commits) == 1 and fake.commits[0]["message"].startswith("EXERCISE, not dispatchable: Same-day re-package")
+    assert "the summary (run stopped: nothing to review)" in fake.commits[0]["message"]
+    assert fake.pr["title"].startswith("EXERCISE, not dispatchable: ") and fake.pr["draft"] is True
+    assert fake.pr["body"].startswith("**EXERCISE, not dispatchable.** The cycle ran with `--exercise`") and "Do not merge." in fake.pr["body"]
+
+
 def test_cp3_the_summary_says_that_a_run_was_an_exercise(tmp_path, monkeypatch):
     """CP-3: the summary's head names an exercise (the manifest alone used to carry it), from ``run.exercise``."""
     S = json.loads((ROOT / "docs/repack/2026-11-10_summary.json").read_text(encoding="utf-8"))

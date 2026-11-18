@@ -2166,6 +2166,15 @@ def run_joblist(path: str, submit: bool, log_dir: str = "data/jobs", run_root: s
     if not joblist_submittable(jl):
         raise SystemExit(f"refusing to submit: preflight_review in {path} is neither a Slack permalink nor the commit-pinned GitHub URL "
                          "of a pre-flight document (https://github.com/SSIT-Q/gradvar-phoenix/blob/<40-hex commit>/docs/preflight/<file>.md)")
+    if not sampler and not submit_only:           # CI2-5 (CI-2): the guard reads the adoption switch and nothing else
+        try:
+            in_force = execution_record.adoption()["in_force"]
+        except execution_record.ExecutionRecordError as e:
+            raise SystemExit(f"refusing to submit: {e}")
+        if in_force:
+            raise SystemExit(f"refusing to submit {path} waiting for its results: Deviation 65 is in force, and a waiting run retrieves the results as soon as "
+                             "the jobs end, before the execution-time rows exist. Submit with --submit-only; the results are retrieved in two phases "
+                             "(--retrieve <ids file> --metadata-only, then --execution-rows-commit)")
     resolve_instance(jl["instance"])   # refuse before touching the network if the named secret is missing
     for diff in check_budget(jl):
         raise SystemExit(f"refusing to submit: {diff}; regenerate the budget field with gradvar.hardware.estimate_budget")
@@ -2659,7 +2668,6 @@ def record_execution_span(bundle_dir, created=None, props_label: str | None = No
 # the retrieval of v0.18.0.
 
 EXECUTION_POOL_FILES = ("properties_at_running.json", "properties_between.json", "properties_after_finished.json")
-POOL_MARGIN_H = 6.0      # how far after `finished` the newest set is asked for: more than twice the largest gap between IBM stamps on 10 Nov 2026
 POOL_MAX_WALK = 40
 PHASE_WORDS = dict(metadata="metadata only (Deviation 65, phase 1)", results="results (Deviation 65, phase 2)", single="single phase (outside Deviation 65)")
 
@@ -2697,22 +2705,58 @@ def properties_between(backend, top, floor, max_sets: int = POOL_MAX_WALK) -> di
     return dict(sets=sets, complete=False, note=note)
 
 
-def write_execution_pool(bundle_dir, job, backend, now=None, margin_h: float = POOL_MARGIN_H) -> dict:
+def pool_closing_bound() -> Dict[str, Any]:
+    """The bound of CD-1 (review correction CI2-3): how long after ``finished`` the closing update of a pool is looked for, as
+    ``{hours, source}``. It is the settings table's entry ``pool_closing_bound_hours``, the value
+    ``gradvar.execution_calibration.load_pool`` reads; the runner has no value of its own. A table that cannot be read or
+    carries no such entry stops the phase."""
+    from . import execution_calibration as ec
+    try:
+        st = ec.load_settings()
+    except (ec.SettingsError, OSError, ValueError) as e:
+        raise SystemExit(f"the settings table cannot be read for the pool's closing bound: {type(e).__name__}: {e}")
+    v = st.values.get("pool_closing_bound_hours")
+    if v is None:
+        raise SystemExit("the settings table carries no entry pool_closing_bound_hours: the bound within which the closing update of a pool is "
+                         "looked for is not known; nothing is written")
+    if isinstance(v, bool) or not isinstance(v, (int, float)) or not 0 < float(v) < 1000:
+        raise SystemExit(f"the settings table's pool_closing_bound_hours is {v!r}: not a number of hours")
+    return dict(hours=float(v), source="settings table entry pool_closing_bound_hours")
+
+
+def pool_state(pool_record: Dict[str, Any]) -> str:
+    """The state of a pool record for the phase's report: its ``status``, with a pool that is complete without a bracket named
+    ``no update within the bound``."""
+    status = str(pool_record.get("status"))
+    return execution_record.NO_UPDATE_WITHIN_BOUND if status == "complete" and pool_record.get("bracket") is False else status
+
+
+POOL_CLOSED = ("complete",)      # the status of a pool that a later first phase does not change (with or without a bracket)
+
+
+def write_execution_pool(bundle_dir, job, backend, now=None, bound: Dict[str, Any] | None = None) -> dict:
     """Deviation 65, first retrieval phase: the properties the execution-time calibration of a job is built from, written into
     its bundle in the layout ``gradvar.execution_calibration.load_pool`` reads:
 
     * ``properties_at_running.json``: ``job_properties`` (``job.properties()``) and ``backend_properties``
       (``backend.properties(datetime=running)``), each the set or null with the error beside it;
     * ``properties_between.json``: the sets of the walk-back stamped after that set and before ``finished``;
-    * ``properties_after_finished.json``: ``{"sets": [...]}``, every set of the walk-back stamped at or after ``finished``,
-      sets stamped again without a change of values included, or ``{"status": "pending"}`` when there is none. Which of them is
-      the first update (a change of values) is decided by ``load_pool``, not here.
+    * ``properties_after_finished.json``: ``{"sets": [...], "asked_utc": <the time of this walk>}``, every set of the walk-back
+      stamped at or after ``finished`` and not later than ``finished`` plus the bound (``pool_closing_bound``; CD-1), sets
+      stamped again without a change of values included; ``"status": "pending"`` is added while there is none. Which of them
+      is the first update (a change of values) is decided by ``load_pool``, not here.
 
     A call that fails leaves null / ``complete: false`` and the reason; nothing is replaced by the live properties, and
     ``load_pool`` then stops. The job's result is not touched. Returns the record stored in job.json
-    (``retrieval.execution_pool``); its ``status`` is what ``load_pool`` makes of the files (``complete``, ``pending``) or
-    ``stopped`` with the reason."""
+    (``retrieval.execution_pool``). Its ``status`` is what ``load_pool`` makes of the files (``complete``; ``pending``), or
+    ``stopped`` with the reason; ``bracket`` is ``load_pool``'s too: false for a pool that is complete because the walk was
+    made at or after ``finished`` plus the bound and no change of values was stamped by then (review correction CI2-3: a pool
+    is not pending for ever; the points of such a job are read with the flag "no bracket"). ``closing`` records the bound,
+    where it comes from, when it runs out, when the service was asked and the state (``closed by an update``,
+    ``no update within the bound``, ``open``). Every stamp of the record is written in one format (``...Z``; CI2-8)."""
     from . import execution_calibration as ec
+    iso = execution_record.iso
+    bound = bound or pool_closing_bound()
     d = Path(bundle_dir)
     jrec = json.loads((d / "job.json").read_text())      # the same order of sources as gradvar.execution_calibration.load_pool
     stamps = ((jrec.get("retrieval") or {}).get("execution_span") or jrec.get("execution_window") or (jrec.get("metrics") or {}).get("timestamps") or {})
@@ -2735,27 +2779,69 @@ def write_execution_pool(bundle_dir, job, backend, now=None, margin_h: float = P
     _dump(d / "properties_at_running.json", dict(job_properties=job_props, backend_properties=at_running, asked=dict(running=stamps.get("running")),
                                                    errors=rec["errors"] or None))
     between, after, walk = [], [], dict(sets=[], complete=False, note="the set in force at running is not available")
+    asked = closes = None
     if at_running is not None and at_running.get("last_update_date"):
-        now = now or datetime.now(timezone.utc)
-        top = min(t_f + timedelta(hours=margin_h), now)
+        asked = now or datetime.now(timezone.utc)        # the instant of this walk: sets stamped later do not exist for it
+        closes = t_f + timedelta(hours=float(bound["hours"]))
+        top = min(closes + timedelta(seconds=1), asked)  # the service returns the set stamped strictly before the time asked
         lo = _parse_utc(at_running["last_update_date"])
         walk = properties_between(backend, top, lo)
         ordered = sorted(walk["sets"], key=lambda x: _parse_utc(x["last_update_date"]))
-        after = [x for x in ordered if _parse_utc(x["last_update_date"]) >= t_f]
+        after = [x for x in ordered if t_f <= _parse_utc(x["last_update_date"]) <= closes]
         between = [x for x in ordered if lo < _parse_utc(x["last_update_date"]) < t_f]
-        rec["asked_up_to"] = _utc_iso(top)
+        rec["asked_up_to"] = iso(top)
     _dump(d / "properties_between.json", dict(complete=bool(walk["complete"]), note=walk["note"], sets=[dict(properties=x) for x in between]))
-    _dump(d / "properties_after_finished.json", dict(sets=[dict(properties=x) for x in after], asked_up_to=rec.get("asked_up_to")) if after
-          else dict(status="pending", asked_up_to=rec.get("asked_up_to")))
-    rec.update(set_at_running=(at_running or {}).get("last_update_date"), job_properties_set=(job_props or {}).get("last_update_date"),
-               sets_between=[x["last_update_date"] for x in between], sets_after_finished=[x["last_update_date"] for x in after],
+    after_file: Dict[str, Any] = dict(sets=[dict(properties=x) for x in after], asked_utc=iso(asked), asked_up_to=rec.get("asked_up_to"))
+    if not after:
+        after_file = dict(status="pending", **after_file)
+    _dump(d / "properties_after_finished.json", after_file)
+    rec.update(set_at_running=iso((at_running or {}).get("last_update_date")), job_properties_set=iso((job_props or {}).get("last_update_date")),
+               sets_between=[iso(x["last_update_date"]) for x in between], sets_after_finished=[iso(x["last_update_date"]) for x in after],
                walk_complete=bool(walk["complete"]), walk_note=walk["note"])
+    closing: Dict[str, Any] = dict(bound_hours=float(bound["hours"]), bound_source=bound["source"], closes_utc=iso(closes), asked_utc=iso(asked), state=None)
     try:
         pool = ec.load_pool(d)
-        rec.update(status=pool.status, updates=pool.updates(), restamps=[list(r) for r in pool.restamps], notes=list(pool.notes))
+        if closes is not None and pool.closes_by is not None and pool.closes_by != closes:
+            raise ec.PoolError(f"the walk was bounded at {iso(closes)} and the pool is read with a bound ending {iso(pool.closes_by)}: two bounds for one pool")
+        rec.update(status=pool.status, bracket=bool(pool.bracket) if pool.status == "complete" else None, updates=pool.updates(),
+                   restamps=[list(r) for r in pool.restamps], notes=list(pool.notes))
+        if pool.status == "complete":
+            closing["state"] = "closed by an update" if pool.bracket else execution_record.NO_UPDATE_WITHIN_BOUND
+        elif pool.status == "pending":
+            closing["state"] = "open"
     except ec.PoolError as e:
-        rec.update(status="stopped", updates=None, restamps=None, notes=[f"{type(e).__name__}: {e}"])
+        rec.update(status="stopped", bracket=None, updates=None, restamps=None, notes=[f"{type(e).__name__}: {e}"])
+    rec["closing"] = closing
     return rec
+
+
+def first_phase_closed(run_root, job_id: str) -> Dict[str, Any] | None:
+    """The pool record of ``job_id`` when an earlier first phase closed its pool (``complete``, with a bracket or, after the
+    bound, without one) and its pool files are there; else None. A later first phase leaves such a bundle as it is (review correction
+    CI2-8): one more set stamped again would change ``properties_after_finished.json``, and the second phase would then refuse
+    the rows drawn on the file as it was."""
+    for b in sorted(Path(run_root).glob(f"*/{job_id}")):
+        jp = b / "job.json"
+        if not (b.is_dir() and jp.exists() and all((b / f).is_file() for f in EXECUTION_POOL_FILES)):
+            continue
+        try:
+            rec = json.loads(jp.read_text())
+            pool = (rec.get("retrieval") or {}).get("execution_pool") or {}
+            if rec.get("status") == "metadata only" and (rec.get("retrieval") or {}).get("phase") == PHASE_WORDS["metadata"] and pool.get("status") in POOL_CLOSED:
+                return dict(pool, bundle=b.as_posix(), retrieved_utc=(rec.get("retrieval") or {}).get("retrieved_utc"))
+        except (ValueError, AttributeError):
+            continue
+    return None
+
+
+def first_phase_status(statuses: Dict[str, str]) -> Dict[str, Any]:
+    """What a first phase ends with, for the workflow and the operator (review correction CI2-2 (c)): ``status`` is ``complete``
+    when every pool of the list is closed, ``stopped`` when a pool is stopped or a job was refused, else ``pending``; with the
+    count of each and the state of every job."""
+    count = {k: sum(1 for v in statuses.values() if v == k) for k in ("complete", execution_record.NO_UPDATE_WITHIN_BOUND, "pending", "stopped", "refused")}
+    other = sorted(set(statuses.values()) - set(count))
+    status = ("stopped" if count["stopped"] or count["refused"] or other else "pending" if count["pending"] or not statuses else "complete")
+    return dict(status=status, counts=count, jobs=dict(statuses))
 
 
 def dispatch_update(props_dict: dict | None, source: str | None) -> dict | None:
@@ -2765,13 +2851,29 @@ def dispatch_update(props_dict: dict | None, source: str | None) -> dict | None:
     if not props_dict or not props_dict.get("last_update_date") or not str(source).startswith("retrieved:"):
         return None
     ref = execution_record.set_ref(json.loads(json.dumps(props_dict, default=str)))
-    return dict(last_update_date=ref["last_update_date"], sha256=ref["sha256"], value_sha256=ref["value_sha256"], source=source)
+    return dict(last_update_date=ref["last_update_date"], sha256=ref["sha256"], value_sha256=ref["value_sha256"],
+                source=str(source).replace("+00:00", "Z"))        # one format for every instant of the pool record (CI2-8)
+
+
+def _properties_stamp(props) -> datetime | None:
+    """``last_update_date`` of a properties object as a UTC instant, or None when it carries none that can be read."""
+    if props is None:
+        return None
+    try:
+        u = getattr(props, "last_update_date", None)
+        if u is None:
+            u = props.to_dict().get("last_update_date")
+        return None if u is None else _parse_utc(u.isoformat() if isinstance(u, datetime) else str(u).strip().replace(" ", "T", 1))
+    except Exception:
+        return None
 
 
 def properties_at(backend, when) -> Tuple[Any, str]:
     """``backend.properties(datetime=when)``, the calibration in force when the job was created, labelled ``retrieved``;
     a backend that does not take ``datetime`` (fake backends) or returns None falls back to the live properties, and the
-    label says so."""
+    label says so. Only a set the service returned for the time asked is labelled ``retrieved`` (review correction CI2-7): when
+    the call returns nothing the label says live, and a set stamped after the time asked, which cannot have been in force at
+    it, is treated as not returned."""
     label = f"retrieved: backend.properties(datetime={_utc_iso(when)})"
     props = None
     if when is not None:
@@ -2781,6 +2883,14 @@ def properties_at(backend, when) -> Tuple[Any, str]:
             label = f"live at retrieval (backend.properties() takes no datetime: {type(e).__name__})"
         except Exception as e:  # pragma: no cover - network errors
             label = f"live at retrieval (backend.properties(datetime=...) failed: {type(e).__name__})"
+        else:
+            stamp = _properties_stamp(props)
+            if props is None:
+                label = f"live at retrieval (backend.properties(datetime={_utc_iso(when)}) returned no set)"
+            elif stamp is not None and stamp > _parse_utc(_utc_iso(when)):
+                props = None
+                label = (f"live at retrieval (backend.properties(datetime={_utc_iso(when)}) returned a set stamped {_utc_iso(stamp)}, after the "
+                         "time asked: not the set in force at it)")
     else:
         label = "live at retrieval (job creation date unknown)"
     if props is None:
@@ -2789,6 +2899,60 @@ def properties_at(backend, when) -> Tuple[Any, str]:
         except Exception:  # pragma: no cover
             props = None
     return props, label
+
+
+def single_phase_refusal(ids: dict, switch: dict) -> str | None:
+    """Review correction CI2-4: why ``--single-phase`` is refused for a Paper 1 Estimator ids file while the settings table is in
+    force, or None. It is allowed only when every job of the file was created before the Deviation came into force, which needs
+    the table to record that time (``in_force_from_utc``); the time of a job is the one its ids file records (``submitted_utc``,
+    else the file's ``written_utc``, else the end of its discovery window). A file that records none, or a table that does not
+    say since when it is in force, is refused."""
+    since = switch.get("in_force_from_utc")
+    if not since:
+        return "the settings table is in force and does not record since when (in_force_from_utc), so no job is known to be older than the adoption"
+    late, unknown = [], []
+    for j in ids.get("jobs") or []:
+        t = j.get("submitted_utc") or ids.get("written_utc") or (ids.get("discovery") or {}).get("created_before")
+        try:
+            if execution_record.parse_utc(t) >= execution_record.parse_utc(since):
+                late.append(f"{j.get('job_id')} ({j.get('tag')}, {execution_record.iso(t)})")
+        except (ValueError, TypeError, AttributeError):
+            unknown.append(f"{j.get('job_id')} ({j.get('tag')})")
+    if unknown:
+        return f"the ids file records no submission time for {', '.join(unknown)}"
+    if late:
+        return f"{len(late)} job(s) were submitted at or after the adoption of the Deviation ({since}): {', '.join(late)}"
+    return None
+
+
+def second_phase_pools(ids: dict, run_root) -> List[str]:
+    """Review correction CI2-2 (b): the jobs of an ids file whose execution-time pool is not closed, each with its state, for the
+    refusal of the second phase. A pool is closed when the first phase recorded it as ``complete`` (with a bracket or, after
+    the bound, without one) and its files still build (``load_pool``): a pool recorded as complete whose files now read as pending or do not
+    build is not closed."""
+    from . import execution_calibration as ec
+    out = []
+    for j in ids["jobs"]:
+        for b in sorted(Path(run_root).glob(f"*/{j['job_id']}")):
+            try:
+                pool = (json.loads((b / "job.json").read_text()).get("retrieval") or {}).get("execution_pool") or {}
+            except (OSError, ValueError, AttributeError):
+                pool = {}
+            state = pool.get("status")
+            if state not in POOL_CLOSED:
+                out.append(f"{j['job_id']} ({j['tag']}): {state or 'no pool record'}")
+                continue
+            try:
+                fresh = ec.load_pool(b)
+            except ec.PoolError as e:
+                out.append(f"{j['job_id']} ({j['tag']}): recorded {state}, but the pool files do not build ({e})")
+                continue
+            if fresh.status != "complete":
+                out.append(f"{j['job_id']} ({j['tag']}): recorded complete, but the pool files read as {fresh.status}")
+            elif pool.get("bracket") is not None and bool(fresh.bracket) != bool(pool["bracket"]):
+                out.append(f"{j['job_id']} ({j['tag']}): recorded {'with' if pool['bracket'] else 'without'} a bracket, but the pool files read "
+                           f"{'with' if fresh.bracket else 'without'} one")
+    return out
 
 
 def first_phase_refusal(run_root, job_id: str) -> str | None:
@@ -2818,7 +2982,7 @@ def first_phase_refusal(run_root, job_id: str) -> str | None:
 def retrieve_jobs(ids_path: str, joblist_path: str | None = None, run_root: str = "data/runs", log_dir: str = "data/jobs",
                   run_id: int | str | None = None, timeout: float | None = None, calibration_csv: str | None = None,
                   snapshot_dir: str = "data/calibrations", metadata_only: bool = False, execution_rows_commit: str | None = None,
-                  single_phase: bool = False) -> List[dict]:
+                  single_phase: bool = False, status_file: str | None = None) -> List[dict]:
     """Complete a run whose results were never collected: for every job in the ids file, ``service.job(id)``, wait for a
     final state, and write the same bundle as the live path (``write_job_bundle`` with the PrimitiveResult, ``usage()``,
     ``metrics()``, the options read back from ``job.inputs``, the properties at the job's creation time labelled
@@ -2849,7 +3013,13 @@ def retrieve_jobs(ids_path: str, joblist_path: str | None = None, run_root: str 
       ``execution_rows_commit`` (``--execution-rows-commit``) is given, every job's bundle carries the pool of the first phase and
       ``retrieval_phases.verify_phase2`` passes: the commit is an ancestor of the commit this runs on, the hashes it records are
       those of the phase-1 files in the tree, every job is classified. Every refusal comes before any call to the service.
-    * ``single_phase`` (``--single-phase``): the retrieval as it was before the Deviation, said so in every job.json.
+    * ``single_phase`` (``--single-phase``): the retrieval as it was before the Deviation, said so in every job.json. While the
+      table is in force it is refused unless every job of the ids file is older than the adoption (``single_phase_refusal``,
+      review correction CI2-4).
+    * Review corrections CI2-2, CI2-3 and CI2-8: the first phase ends with a status (``first_phase_status``: complete, pending
+      or stopped; printed, and written to ``status_file``) and with a non-zero exit when a pool is stopped; it leaves the bundle
+      of a job whose pool is closed as it is; the second phase refuses while a pool of the list is pending or stopped
+      (``second_phase_pools``), and records the commit it was given as its 40-character hash.
 
     While the table is absent or not in force, a call with none of the three is the retrieval of v0.18.0, byte for byte: no phase
     is recorded. The first phase can then still be run (it retrieves no measured value); the second cannot be opened, because the
@@ -2878,17 +3048,50 @@ def retrieve_jobs(ids_path: str, joblist_path: str | None = None, run_root: str 
         phase = "metadata" if metadata_only else "single" if single_phase else "results" if (execution_rows_commit or switch["in_force"]) else None
         if rerun_ids and any(j["job_id"] is None for j in ids["jobs"]):
             raise SystemExit(f"{ids_path}: an ids file of re-run jobs is written by the runner and holds every job id")
+    if phase == "single" and switch["in_force"]:                      # CI2-4: no way round the two phases while the Deviation is in force
+        why = single_phase_refusal(ids, switch)
+        if why:
+            raise SystemExit(f"refusing --single-phase for {jl.get('name')}: {why}. While Deviation 65 is in force the results of a Paper 1 Estimator "
+                             "list are retrieved in two phases (--metadata-only, then --execution-rows-commit); nothing is retrieved")
     refused: Dict[str, str] = {}                                      # CI2-1: jobs the first phase must not touch (read from the tree only)
+    closed: Dict[str, Dict[str, Any]] = {}                            # CI2-8: jobs whose pool an earlier first phase closed; left as they are
+    statuses: Dict[str, str] = {}
+
+    def report_first_phase() -> Dict[str, Any]:
+        out = first_phase_status(statuses)
+        c = out["counts"]
+        print(f"first phase of {jl.get('name')}: {out['status']} (pools complete {c['complete']}, closed without an update within the bound "
+              f"{c[execution_record.NO_UPDATE_WITHIN_BOUND]}, pending {c['pending']}, stopped {c['stopped']}; jobs refused {c['refused']})", flush=True)
+        if status_file:
+            _dump(Path(status_file), dict(phase="metadata", list=jl.get("name"), ids_file=str(ids_path), **out))
+        return out
     if phase == "metadata":
         for j in ids["jobs"]:
-            why = first_phase_refusal(run_root, str(j["job_id"])) if j["job_id"] is not None else None
+            if j["job_id"] is None:
+                continue
+            why = first_phase_refusal(run_root, str(j["job_id"]))
             if why:
                 refused[str(j["job_id"])] = why
+                statuses[str(j["job_id"])] = "refused"
                 print(f"first phase refused for {j['job_id']} ({j['tag']}): {why}; nothing is written for this job", file=sys.stderr, flush=True)
+                continue
+            done = first_phase_closed(run_root, str(j["job_id"]))
+            if done:
+                closed[str(j["job_id"])] = done
+                statuses[str(j["job_id"])] = pool_state(done)
         if refused and len(refused) == len(ids["jobs"]):
+            report_first_phase()
             raise SystemExit(f"refusing the first phase (--metadata-only) of {jl.get('name')}: every job of {ids_path} was retrieved already or has a "
                              "record that is not of the first phase; nothing is written and the service is not contacted:\n  "
                              + "\n  ".join(f"{k}: {v}" for k, v in refused.items()))
+        if len(refused) + len(closed) == len(ids["jobs"]):            # nothing left to ask the service for
+            for k, v in closed.items():
+                print(f"first phase of {k}: its pool is closed ({pool_state(v)}, written {v.get('retrieved_utc')}); the bundle is left as it is", flush=True)
+            report_first_phase()
+            if refused:
+                raise SystemExit(f"first phase (--metadata-only) of {jl.get('name')}: {len(refused)} job(s) refused, the others have a closed pool; nothing "
+                                 "is written and the service is not contacted:\n  " + "\n  ".join(f"{k}: {v}" for k, v in refused.items()))
+            return []
     if phase in ("metadata", "results"):
         try:
             from . import retrieval_phases as phases                  # C65-8: the enumeration of phase 1 and the three checks of phase 2
@@ -2905,6 +3108,15 @@ def retrieve_jobs(ids_path: str, joblist_path: str | None = None, run_root: str 
         if missing or any(j["job_id"] is None for j in ids["jobs"]):
             raise SystemExit(f"refusing to retrieve the results of {jl.get('name')}: the first phase (--metadata-only) has not written the execution-time pool of "
                              f"{', '.join(missing) or 'the jobs still to be discovered'}")
+        not_closed = second_phase_pools(ids, run_root)                # CI2-2 (b): a pool that is pending or stopped does not reach the second phase
+        if not_closed:
+            raise SystemExit(f"refusing to retrieve the results of {jl.get('name')}: the execution-time pool of {len(not_closed)} job(s) is not closed: "
+                             + "; ".join(not_closed) + ". Run the first phase (--metadata-only) again when IBM has published its next change of values; "
+                             "rows drawn for a pool that is not closed are no rows of this list")
+        full = execution_record.resolve_commit(execution_record.ROOT, execution_rows_commit)     # CI2-8: recorded as the 40-character hash
+        if full is None:
+            raise SystemExit(f"refusing to retrieve the results of {jl.get('name')}: commit {execution_rows_commit} is not in this checkout")
+        execution_rows_commit = full
         try:
             phase2_verification = phases.verify_phase2(execution_rows_commit, str(ids.get("joblist_name") or jl.get("name")),
                                                        [str(j["job_id"]) for j in ids["jobs"]], run_root)
@@ -2981,6 +3193,13 @@ def retrieve_jobs(ids_path: str, joblist_path: str | None = None, run_root: str 
                 if job_id not in refused:
                     print(f"first phase refused for {job_id} ({tag}): {why}; nothing is written for this job", file=sys.stderr, flush=True)
                 failures.append(f"{job_id} ({tag}): first phase refused: {why}")
+                statuses[job_id] = "refused"
+                continue
+            done = closed.get(job_id) or first_phase_closed(run_root, job_id)
+            if done:                                     # CI2-8: before the service is asked for this job
+                statuses[job_id] = pool_state(done)
+                print(f"first phase of {job_id} ({tag}): its pool is closed ({pool_state(done)}, written {done.get('retrieved_utc')}); the bundle is left as it is",
+                      flush=True)
                 continue
         job = service.job(job_id)
         try:
@@ -3041,6 +3260,9 @@ def retrieve_jobs(ids_path: str, joblist_path: str | None = None, run_root: str 
                 print(f"job {job_id} ({tag}): execution span not recorded ({type(e).__name__}: {e})", file=sys.stderr, flush=True)
             pool = write_execution_pool(d, job, backend)
             pool["dispatch_update"] = dispatch_update(props_dict, props_label)
+            statuses[job_id] = pool_state(pool)
+            if pool["status"] == "stopped":              # CI2-2 (c): a stopped pool ends the phase with a non-zero exit
+                failures.append(f"{job_id} ({tag}): the execution-time pool is stopped: {'; '.join(pool.get('notes') or []) or pool.get('walk_note') or pool.get('errors')}")
             jp = d / "job.json"
             rec = json.loads(jp.read_text())
             rec["retrieval"]["execution_pool"] = pool
@@ -3088,6 +3310,8 @@ def retrieve_jobs(ids_path: str, joblist_path: str | None = None, run_root: str 
     if rows:
         _append_rows(str(log_path), rows)
         print(f"logged {len(rows)} rows to {log_path}", flush=True)
+    if phase == "metadata":
+        report_first_phase()
     if failures:
         raise SystemExit(f"{len(failures)} problem(s) retrieving {len(ids['jobs'])} jobs (bundles written where a job had a result):\n  " + "\n  ".join(failures))
     return rows
@@ -3123,6 +3347,8 @@ def main(argv=None):
     p.add_argument("--execution-rows-commit", default=None, metavar="SHA", help="with --retrieve: second phase of Deviation 65: the commit that holds the "
                                                                                 "list's execution-time rows (scripts/redraw_execution.py)")
     p.add_argument("--single-phase", action="store_true", help="with --retrieve: the retrieval as before Deviation 65 (recorded as such)")
+    p.add_argument("--phase-status-file", default=None, metavar="FILE", help="with --retrieve --metadata-only: write the status the first phase ends with "
+                   "(complete, pending or stopped, and the state of every job) to FILE as JSON")
     p.add_argument("--rerun-decide", default=None, metavar="IDS_FILE", help="Deviation 67 (iii), between the two retrieval phases: compute the re-run decision "
                                                                             "of the list of this ids file and write its decision file; needs --ledger; "
                                                                             "submits nothing")
@@ -3142,9 +3368,12 @@ def main(argv=None):
         pass
     if (a.metadata_only or a.execution_rows_commit or a.single_phase) and not a.retrieve:
         p.error("--metadata-only, --execution-rows-commit and --single-phase go with --retrieve")
+    if a.phase_status_file and not (a.retrieve and a.metadata_only):
+        p.error("--phase-status-file goes with --retrieve --metadata-only")
     if a.retrieve:
         retrieve_jobs(a.retrieve, a.joblist, run_root=a.run_root, log_dir=a.log_dir, run_id=github_run_id(), timeout=a.timeout,
-                      metadata_only=a.metadata_only, execution_rows_commit=a.execution_rows_commit, single_phase=a.single_phase)
+                      metadata_only=a.metadata_only, execution_rows_commit=a.execution_rows_commit, single_phase=a.single_phase,
+                      status_file=a.phase_status_file)
         return 0
     if bool(a.rerun_decide) != bool(a.ledger):
         p.error("--rerun-decide and --ledger go together")
