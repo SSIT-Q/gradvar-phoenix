@@ -76,27 +76,36 @@ def _rung(joblist, name="n100"):
 def test_the_table_is_not_in_force_and_holds_the_reviews_choices(st, tmp_path):
     table = json.loads(ec.SETTINGS_FILE.read_text(encoding="utf-8"))
     assert table["status"] == "not_in_force" and st.in_force is False and st.provisional is True and "NOT IN FORCE" in table["status_note"]
-    assert st.values == {"primary_calibration": "per_value_at_or_before_running", "coupler_zone_rule": "both_qubits", "coupler_cone_rule": "either_qubit",
+    assert st.values == {"primary_calibration": "per_value_at_or_before_running", "coupler_zone_rule": "both_qubits", "coupler_cone_rule": "both_qubits",
                          "zone_for_points_shallower_than_zone": "zone_applies", "decision_line_abs_ln_ratio": 0.10,
                          "when_execution_calibration_cannot_be_built_from_the_service": "committed_snapshots_else_not_evaluable",
                          "split_point_rule": "execution_weighted_mean", "value_age_bound_hours": None, "bracket_decides_gate2e": False, "bracket_zone_flag": True,
-                         "rerun_rule": "once_when_not_evaluable_on_calibration_grounds", "dispatch_window": "package_update_or_next_same_utc_day"}
-    # the two readings found in implementation are the only entries no review has ruled on
-    assert st.provisional_entries == ("coupler_cone_rule", "zone_for_points_shallower_than_zone")
-    assert all("review" in e["basis"] for k, e in table["settings"].items() if k not in st.provisional_entries)
+                         "rerun_rule": "once_when_not_evaluable_on_calibration_grounds", "dispatch_window": "package_update_or_next_same_utc_day",
+                         "pool_closing_bound_hours": 6.0, "rerun_day": "utc_date_of_creation"}
+    # CI-13: the two readings found in implementation are ruled on (both qubits in the cone as in the zone; the zone at every depth),
+    # so no entry is provisional any more; the pool bound and the day of the re-run are entries of the table
+    assert st.provisional_entries == ()
+    assert all("review" in e["basis"] for k, e in table["settings"].items())
     rec = st.record()
     assert rec["provisional"] is True and rec["in_force"] is False and rec["settings_status"] == "not_in_force" and len(rec["settings_sha256"]) == 64
     assert rec["settings_file"] == "data/settings/execution_calibration_settings.json" and rec["provisional_entries"] == list(st.provisional_entries)
     # the switch cannot be turned on over an entry nobody ruled on
     table["status"] = "in_force"
+    table["settings"]["coupler_cone_rule"]["provisional"] = True
     (tmp_path / "t.json").write_text(json.dumps(table), encoding="utf-8")
-    with pytest.raises(ec.SettingsError, match="provisional"):
+    with pytest.raises(ec.SettingsError, match="provisional.*coupler_cone_rule"):
         ec.load_settings(tmp_path / "t.json")
     on = _settings_with(tmp_path, in_force=True)
     assert on.in_force is True and on.provisional is False and on.provisional_entries == () and on.values == st.values
-    # every entry a review ruled on carries its registered value, and the committed table holds it
-    assert all(e["registered"] == e["value"] for k, e in table["settings"].items() if k not in st.provisional_entries)
-    assert all("registered" not in table["settings"][k] for k in st.provisional_entries)
+    # every entry carries its registered value, and the committed table holds it
+    assert all(e["registered"] == e["value"] for e in json.loads(ec.SETTINGS_FILE.read_text(encoding="utf-8"))["settings"].values())
+    # a table without the pool bound or the day of the re-run is not a table
+    for name in ("pool_closing_bound_hours", "rerun_day"):
+        t2 = json.loads(ec.SETTINGS_FILE.read_text(encoding="utf-8"))
+        del t2["settings"][name]
+        (tmp_path / "t2.json").write_text(json.dumps(t2), encoding="utf-8")
+        with pytest.raises(ec.SettingsError, match=f"settings missing: .*{name}"):
+            ec.load_settings(tmp_path / "t2.json")
 
 
 def test_ci1_an_in_force_table_must_hold_the_registered_values(tmp_path):
@@ -110,11 +119,15 @@ def test_ci1_an_in_force_table_must_hold_the_registered_values(tmp_path):
     # an entry without a registered value cannot be in force, even when it is no longer marked provisional
     table = json.loads(ec.SETTINGS_FILE.read_text(encoding="utf-8"))
     table["status"] = "in_force"
-    for e in table["settings"].values():
-        e["provisional"] = False
+    for name in ("coupler_cone_rule", "zone_for_points_shallower_than_zone"):
+        del table["settings"][name]["registered"]
     (tmp_path / "unregistered.json").write_text(json.dumps(table), encoding="utf-8")
     with pytest.raises(ec.SettingsError, match="no registered value: .*coupler_cone_rule.*zone_for_points_shallower_than_zone"):
         ec.load_settings(tmp_path / "unregistered.json")
+    # CI-13: the cone rule and the pool bound are registered like the rest
+    for name, value in (("coupler_cone_rule", "either_qubit"), ("zone_for_points_shallower_than_zone", "own_cone_only"), ("pool_closing_bound_hours", 12.0)):
+        with pytest.raises(ec.SettingsError, match=f"value other than the registered one: {name} = "):
+            _settings_with(tmp_path, in_force=True, **{name: value})
     # True is not 1 and 0.10 is 0.1: the comparison is by value and by kind
     table = json.loads(ec.SETTINGS_FILE.read_text(encoding="utf-8"))
     table["status"] = "in_force"
@@ -384,7 +397,7 @@ def test_c_a_point_shallower_than_the_zone_follows_the_table(nov10, st, tmp_path
     rung = nov10["rung"]
     q = sorted(set(rung["cone_L2_qubits"]) - {75, 85})[0]
     el = dict(kind="qubit", qubit=q, reasons=["readout"])
-    assert ec.zone(rung, 1, el, st) == ec.ZONE_L2                                            # provisional: the table read from the top
+    assert ec.zone(rung, 1, el, st) == ec.ZONE_L2                                            # the zone applies at every depth of the rung (CI-13)
     own = _settings_with(tmp_path, zone_for_points_shallower_than_zone="own_cone_only")
     assert ec.zone(rung, 1, el, own) == ec.ZONE_OUTSIDE and ec.zone(rung, 2, el, own) == ec.ZONE_L2
 
@@ -419,8 +432,11 @@ def test_c_a_coupler_with_one_qubit_in_the_points_cone(nov10, st, tmp_path):
     c4 = set(light_cone(patch, 4, edge))
     a, b = next((a, b) for a, b in patch.edges() if (a in c4) != (b in c4))
     el = dict(kind="coupler", coupler=[a, b], reasons=["CZ"])
-    assert ec.zone(rung, 4, el, st) == ec.ZONE_CONE                                          # provisional: either qubit, the reading that drops no flag
-    assert ec.zone(rung, 4, el, _settings_with(tmp_path, coupler_cone_rule="both_qubits")) == ec.ZONE_OUTSIDE
+    # CI-13: both qubits, as in the zone. A coupler with one qubit outside the backward cone has no gate inside it and cannot move a row;
+    # it is recorded as outside the cone, and each of its qubits is still tested against its own cuts.
+    assert ec.zone(rung, 4, el, st) == ec.ZONE_OUTSIDE
+    assert ec.zone(rung, 4, el, _settings_with(tmp_path, coupler_cone_rule="either_qubit")) == ec.ZONE_CONE
+    assert ec.classify(rung, 4, [el], None, None, st)["reading"] == ec.READ and ec.classify(rung, 4, [el], None, None, st)["flags"] == []
 
 
 def test_over_cut_elements_refuses_a_csv_without_a_stamp(nov10, tmp_path):

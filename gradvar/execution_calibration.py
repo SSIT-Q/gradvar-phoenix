@@ -98,7 +98,7 @@ class Settings:
 
 _REQUIRED = ("primary_calibration", "coupler_zone_rule", "coupler_cone_rule", "zone_for_points_shallower_than_zone", "decision_line_abs_ln_ratio",
              "when_execution_calibration_cannot_be_built_from_the_service", "split_point_rule", "value_age_bound_hours", "bracket_decides_gate2e",
-             "bracket_zone_flag", "rerun_rule")
+             "bracket_zone_flag", "rerun_rule", "pool_closing_bound_hours", "rerun_day")
 
 
 def _same_value(a: Any, b: Any) -> bool:
