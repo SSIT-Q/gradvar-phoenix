@@ -1,0 +1,575 @@
+diff --git a/gradvar/hardware.py b/gradvar/hardware.py
+index 9d94d6a..7ad97d6 100644
+--- a/gradvar/hardware.py
++++ b/gradvar/hardware.py
+@@ -26,7 +26,7 @@ import re
+ import subprocess
+ import sys
+ from dataclasses import asdict, dataclass, field, is_dataclass
+-from datetime import datetime, timezone
++from datetime import datetime, timedelta, timezone
+ from pathlib import Path
+ from typing import Any, Dict, Iterable, List, Sequence, Tuple
+ 
+@@ -1549,7 +1549,7 @@ def _pub_payload(b) -> dict:
+ 
+ def write_job_bundle(run_root: Path, job_id: str, group: List[BuiltPub], backend, options, level: int, shots: int, jl: dict,
+                      result=None, job=None, timestamps: dict | None = None, dry: bool = False, error: str | None = None,
+-                     extra: dict | None = None, day: str | None = None, properties: dict | None = None) -> Path:
++                     extra: dict | None = None, day: str | None = None, properties: dict | None = None, metadata_only: bool = False) -> Path:
+     """data/runs/<date>/<job_id>/: everything IBM Quantum returns for one job, plus what was sent.
+ 
+     Files: job.json (ids, timestamps, usage, metrics, instance alias and plan, backend, rep_delay, git commit, job-list
+@@ -1559,7 +1559,9 @@ def write_job_bundle(run_root: Path, job_id: str, group: List[BuiltPub], backend
+     No secret and no CRN is ever written: the instance appears only as its alias ('flex' / 'open') and plan name.
+     ``day`` (``YYYY-MM-DD``, default today UTC) is the bundle's date directory: the retrieval path passes the job's
+     creation day. ``properties`` (a dict) replaces the live ``backend.properties()`` in properties.json: the retrieval
+-    path passes the properties at the job's creation time, labelled ``_source``.
++    path passes the properties at the job's creation time, labelled ``_source``. ``metadata_only`` (draft Deviation 65, the first
++    retrieval phase): the bundle is written without the job's result, so no result.json exists and metadata.json holds no result
++    metadata; job.json says ``status: "metadata only"``.
+     """
+     from qiskit import qpy
+     try:
+@@ -1608,7 +1610,7 @@ def write_job_bundle(run_root: Path, job_id: str, group: List[BuiltPub], backend
+     qpy_policy = _qpy_policy(root=run_root, day=day, job_id=job_id, bundle_dir=d, group=group, sampler=custom_kind == "sampler")
+     _dump(d / "job.json", dict(
+         job_id=job_id, dry_run=dry, job_kind=custom_kind or ("probes" if is_probe_job else "gradient_points"),
+-        status="failed" if error else ("dry-run" if dry else "completed"), error=error, error_message=error_message,
++        status="failed" if error else ("metadata only" if metadata_only else ("dry-run" if dry else "completed")), error=error, error_message=error_message,
+         job_errors=job_errors or None, timestamps=ts, usage_qpu_seconds=usage, metrics=metrics, **job_attrs,
+         backend_name=getattr(backend, "name", str(backend)), backend_version=str(getattr(backend, "backend_version", "")),
+         instance=jl.get("instance"), joblist_name=jl.get("name"), preflight_review=jl.get("preflight_review", ""),
+@@ -1623,7 +1625,9 @@ def write_job_bundle(run_root: Path, job_id: str, group: List[BuiltPub], backend
+         points=[dict(_describe(b), **_pub_payload(b)) for b in group],
+         **(extra or {}),
+     ))
+-    if result is not None and RuntimeEncoder is not None:
++    if metadata_only:
++        pass                                             # draft Deviation 65, first phase: no result file of any kind
++    elif result is not None and RuntimeEncoder is not None:
+         try:
+             (d / "result.json").write_text(json.dumps(result, cls=RuntimeEncoder, indent=1))
+         except Exception as e:  # never lose the rest of the bundle over a serialisation error
+@@ -1639,8 +1643,8 @@ def write_job_bundle(run_root: Path, job_id: str, group: List[BuiltPub], backend
+             pub_meta.append(dict(pub_index=i, metadata=_jsonable(getattr(pr, "metadata", {}))))
+     else:
+         pub_meta = [dict(pub_index=i, metadata=dict(shots=shots, resilience_level=level, note="dry run")) for i in range(len(group))]
+-    _dump(d / "metadata.json", dict(result_metadata=_jsonable(getattr(result, "metadata", {})) if result is not None else {"dry_run": True},
+-                                     pubs=pub_meta))
++    _dump(d / "metadata.json", dict(result_metadata=_jsonable(getattr(result, "metadata", {})) if result is not None
++                                     else ({"metadata_only": True} if metadata_only else {"dry_run": True}), pubs=[] if metadata_only else pub_meta))
+     _dump(d / "options.json", options)
+     props = properties
+     if props is None:
+@@ -2350,6 +2354,106 @@ def verify_job_inputs(inputs: dict, group: Sequence) -> dict:
+     return out
+ 
+ 
++# --------------------------------------------------------------------------- execution-time pool (draft Deviation 65, first retrieval phase)
++
++EXECUTION_POOL_FILES = ("properties_at_running.json", "properties_between.json", "properties_after_finished.json")
++POOL_MARGIN_H = 6.0      # how far after `finished` the newest set is asked for: more than twice the largest gap between IBM updates on 10 Nov 2026
++POOL_MAX_WALK = 40
++
++
++def _properties_json(props) -> dict | None:
++    return json.loads(json.dumps(props.to_dict(), default=str)) if props is not None else None
++
++
++def properties_between(backend, top, floor, max_sets: int = POOL_MAX_WALK) -> dict:
++    """The properties sets from ``backend.properties(datetime=top)`` back to the first one published at or before ``floor``,
++    each asked as ``last_update_date - 1 s`` of the set just returned: ``{sets: [newest first], complete, note}``. ``complete``
++    is false, with the reason in ``note``, when a call fails, returns nothing, does not move back, or ``max_sets`` is reached.
++    The live properties are never asked for."""
++    sets, note, when = [], None, top
++    for _ in range(max_sets):
++        try:
++            d = _properties_json(backend.properties(datetime=when))
++        except Exception as e:
++            note = f"backend.properties(datetime={_utc_iso(when)}) failed: {type(e).__name__}: {e}"
++            break
++        if not d or not d.get("last_update_date"):
++            note = f"backend.properties(datetime={_utc_iso(when)}) returned no set"
++            break
++        u = _parse_utc(d["last_update_date"])
++        if sets and u >= _parse_utc(sets[-1]["last_update_date"]):
++            note = f"asked for {_utc_iso(when)} and got the set of {_utc_iso(u)}, not older than the previous one"
++            break
++        sets.append(d)
++        if u <= floor:
++            return dict(sets=sets, complete=True, note=None)
++        when = u - timedelta(seconds=1)
++    else:
++        note = f"stopped after {max_sets} sets without reaching the set in force at running"
++    return dict(sets=sets, complete=False, note=note)
++
++
++def write_execution_pool(bundle_dir, job, backend, now=None, margin_h: float = POOL_MARGIN_H) -> dict:
++    """Draft Deviation 65, first retrieval phase: the properties the execution-time calibration of a job is built from, written
++    into its bundle in the layout ``gradvar.execution_calibration.load_pool`` reads:
++
++    * ``properties_at_running.json``: ``job_properties`` (``job.properties()``) and ``backend_properties``
++      (``backend.properties(datetime=running)``), each the set or null with the error beside it;
++    * ``properties_between.json``: the sets of the walk-back stamped after that set and before ``finished``;
++    * ``properties_after_finished.json``: ``{"sets": [...]}``, every set of the walk-back stamped at or after ``finished``,
++      re-stamps included, or ``{"status": "pending"}`` when there is none. Which of them is the first update (a change of
++      values) is decided by ``load_pool``, not here.
++
++    A call that fails leaves null / ``complete: false`` and the reason; nothing is replaced by the live properties, and
++    ``load_pool`` then stops. The job's result is not touched. Returns the record stored in job.json
++    (``retrieval.execution_pool``); its ``status`` is what ``load_pool`` makes of the files (``complete``, ``pending``) or
++    ``stopped`` with the reason."""
++    from . import execution_calibration as ec
++    d = Path(bundle_dir)
++    jrec = json.loads((d / "job.json").read_text())      # the same order of sources as gradvar.execution_calibration.load_pool
++    stamps = ((jrec.get("retrieval") or {}).get("execution_span") or jrec.get("execution_window") or (jrec.get("metrics") or {}).get("timestamps") or {})
++    rec: Dict[str, Any] = dict(running=stamps.get("running"), finished=stamps.get("finished"), errors={})
++    try:
++        t_r, t_f = _parse_utc(stamps["running"]), _parse_utc(stamps["finished"])
++    except (KeyError, TypeError, ValueError):
++        t_r = t_f = None
++        rec["errors"]["timestamps"] = "job.metrics() gave no running / finished time"
++    job_props = at_running = None
++    try:
++        job_props = _properties_json(job.properties())
++    except Exception as e:
++        rec["errors"]["job.properties()"] = f"{type(e).__name__}: {e}"
++    if t_r is not None:
++        try:
++            at_running = _properties_json(backend.properties(datetime=t_r))
++        except Exception as e:
++            rec["errors"]["backend.properties(datetime=running)"] = f"{type(e).__name__}: {e}"
++    _dump(d / "properties_at_running.json", dict(job_properties=job_props, backend_properties=at_running, asked=dict(running=stamps.get("running")),
++                                                   errors=rec["errors"] or None))
++    between, after, walk = [], [], dict(sets=[], complete=False, note="the set in force at running is not available")
++    if at_running is not None and at_running.get("last_update_date"):
++        now = now or datetime.now(timezone.utc)
++        top = min(t_f + timedelta(hours=margin_h), now)
++        lo = _parse_utc(at_running["last_update_date"])
++        walk = properties_between(backend, top, lo)
++        ordered = sorted(walk["sets"], key=lambda x: _parse_utc(x["last_update_date"]))
++        after = [x for x in ordered if _parse_utc(x["last_update_date"]) >= t_f]
++        between = [x for x in ordered if lo < _parse_utc(x["last_update_date"]) < t_f]
++        rec["asked_up_to"] = _utc_iso(top)
++    _dump(d / "properties_between.json", dict(complete=bool(walk["complete"]), note=walk["note"], sets=[dict(properties=x) for x in between]))
++    _dump(d / "properties_after_finished.json", dict(sets=[dict(properties=x) for x in after], asked_up_to=rec.get("asked_up_to")) if after
++          else dict(status="pending", asked_up_to=rec.get("asked_up_to")))
++    rec.update(set_at_running=(at_running or {}).get("last_update_date"), job_properties_set=(job_props or {}).get("last_update_date"),
++               sets_between=[x["last_update_date"] for x in between], sets_after_finished=[x["last_update_date"] for x in after],
++               walk_complete=bool(walk["complete"]), walk_note=walk["note"])
++    try:
++        pool = ec.load_pool(d)
++        rec.update(status=pool.status, updates=pool.updates(), restamps=[list(r) for r in pool.restamps], notes=list(pool.notes))
++    except ec.PoolError as e:
++        rec.update(status="stopped", updates=None, restamps=None, notes=[f"{type(e).__name__}: {e}"])
++    return rec
++
++
+ def properties_at(backend, when) -> Tuple[Any, str]:
+     """``backend.properties(datetime=when)``, the calibration in force when the job was created, labelled ``retrieved``;
+     a backend that does not take ``datetime`` (fake backends) or returns None falls back to the live properties, and the
+@@ -2375,7 +2479,8 @@ def properties_at(backend, when) -> Tuple[Any, str]:
+ 
+ def retrieve_jobs(ids_path: str, joblist_path: str | None = None, run_root: str = "data/runs", log_dir: str = "data/jobs",
+                   run_id: int | str | None = None, timeout: float | None = None, calibration_csv: str | None = None,
+-                  snapshot_dir: str = "data/calibrations") -> List[dict]:
++                  snapshot_dir: str = "data/calibrations", metadata_only: bool = False, execution_rows_commit: str | None = None,
++                  single_phase: bool = False) -> List[dict]:
+     """Complete a run whose results were never collected: for every job in the ids file, ``service.job(id)``, wait for a
+     final state, and write the same bundle as the live path (``write_job_bundle`` with the PrimitiveResult, ``usage()``,
+     ``metrics()``, the options read back from ``job.inputs``, the properties at the job's creation time labelled
+@@ -2386,13 +2491,44 @@ def retrieve_jobs(ids_path: str, joblist_path: str | None = None, run_root: str
+     job.json carries ``retrieved: true``, ``submission_run`` and a ``retrieval`` record. A job with ``job_id`` null is
+     identified in the ids file's discovery window by its signature (``match_jobs_by_signature``) and the ids file is
+     rewritten with the ids found. A calibration snapshot at retrieval time goes to ``snapshot_dir`` (metadata only, no QPU
+-    time). Submits nothing; the token and CRN are read as on the live path and never written."""
++    time). Submits nothing; the token and CRN are read as on the live path and never written.
++
++    Draft Deviation 65 (two-phase retrieval). ``metadata_only``: the first phase. Per job the bundle is written without its
++    result (``job.result()`` is not called; no result.json, no CSV row) and with the execution-time pool
++    (``write_execution_pool``), and every bundle is checked against the enumerated files and fields of a phase-1 bundle
++    (``retrieval_phases.check_phase1_bundle``). The second phase is this function without ``metadata_only``: it refuses to run
++    unless every job's bundle carries the pool of the first phase and ``retrieval_phases.verify_phase2`` passes for
++    ``execution_rows_commit`` (it is an ancestor of the commit this runs on, the hashes it records are those of the phase-1
++    files in the tree, every job is classified). ``single_phase`` is the
++    retrieval as it was before the Deviation (no pool, no refusal), recorded as such in every job.json."""
+     ids = load_ids_file(ids_path)
+     joblist_path = joblist_path or ids.get("joblist")
+     if not joblist_path:
+         raise SystemExit(f"{ids_path} names no joblist; pass --joblist")
+     jl = load_joblist(joblist_path)
+     sampler = str(jl.get("primitive", "estimator")) == "sampler"      # Paper 2 lists: gradvar.paper2.retrieve_sampler_jobs after the instance checks
++    if metadata_only and (execution_rows_commit or single_phase):
++        raise SystemExit("--metadata-only is the first phase: it takes neither --execution-rows-commit nor --single-phase")
++    if sampler and (metadata_only or execution_rows_commit):
++        raise SystemExit("the two-phase retrieval of draft Deviation 65 is for Paper 1 Estimator lists; Sampler lists are retrieved with --single-phase")
++    if not metadata_only and not single_phase and not sampler:
++        if not execution_rows_commit:
++            raise SystemExit(f"refusing to retrieve the results of {jl.get('name')}: the execution-time rows are drawn and committed before the results are "
++                             "retrieved (draft Deviation 65). Run the first phase (--metadata-only), then scripts/redraw_execution.py, commit its output and "
++                             "pass --execution-rows-commit <sha>; or --single-phase for a retrieval outside the Deviation")
++        missing = [str(j["job_id"]) for j in ids["jobs"] if j["job_id"] is not None
++                   and not any(all((b / f).is_file() for f in EXECUTION_POOL_FILES) for b in Path(run_root).glob(f"*/{j['job_id']}"))]
++        if missing or any(j["job_id"] is None for j in ids["jobs"]):
++            raise SystemExit(f"refusing to retrieve the results of {jl.get('name')}: the first phase (--metadata-only) has not written the execution-time pool of "
++                             f"{', '.join(missing) or 'the jobs still to be discovered'}")
++        from . import retrieval_phases as phases               # C65-8: the three checks, before any call to the service
++        try:
++            phase2_verification = phases.verify_phase2(execution_rows_commit, str(ids.get("joblist_name") or jl.get("name")),
++                                                       [str(j["job_id"]) for j in ids["jobs"]], run_root)
++        except phases.PhaseError as e:
++            raise SystemExit(str(e))
++    else:
++        phase2_verification = None
+     resub = ids.get("resubmission")
+     csv = calibration_csv or ids.get("calibration_csv") or pinned_calibration_csv(jl) or calibration_csv_not_after(ids.get("written_utc"))   # the CSV in force at submission
+     if not sampler:
+@@ -2488,14 +2624,38 @@ def retrieve_jobs(ids_path: str, joblist_path: str | None = None, run_root: str
+                 props_dict = dict(error=str(e), _source=props_label)
+         now = datetime.now(timezone.utc).isoformat()
+         submitted = j.get("submitted_utc") or created_iso
++        phase = "metadata only (draft Deviation 65, phase 1)" if metadata_only else ("single phase (outside draft Deviation 65)" if single_phase or sampler
++                                                                                      else "results (draft Deviation 65, phase 2)")
++        earlier = {}
++        if not metadata_only and not single_phase:       # phase 2: keep the record of phase 1
++            for b in Path(run_root).glob(f"*/{job_id}/job.json"):
++                earlier = (json.loads(b.read_text()).get("retrieval") or {})
+         extra = dict(instance_plan=plan, budget=jl.get("budget"), budget_estimate_with_target_durations=budget_target, layout_check=chk,
+                      max_experiments=max_experiments(jl.get("backend"), backend), max_job_param_mb=MAX_JOB_PARAM_MB, dry_run_sample=None,
+                      resubmission=resub, job_tag=tag, retrieved=True, submission_run=ids.get("submission_run"),
+                      placement_snapshot=Path(csv).name if csv else None,
+                      retrieval=dict(ids_file=str(ids_path), retrieval_run=run_id, retrieved_utc=now, job_status=status, submitted_utc=submitted,
+                                     properties_source=props_label, calibration_csv=csv, calibration_snapshot=snapshot,
+-                                    calibration_snapshot_at_retrieval=snapshot_now, inputs_verification=verif))
++                                    calibration_snapshot_at_retrieval=snapshot_now, inputs_verification=verif, phase=phase,
++                                    execution_rows_commit=execution_rows_commit, phase2_verification=phase2_verification, execution_pool=earlier.get("execution_pool"),
++                                    metadata_retrieved_utc=earlier.get("retrieved_utc") if earlier.get("phase", "").startswith("metadata only") else None))
+         ts = dict(submitted_local=submitted or "", retrieved_local=now)
++        if metadata_only:                                # phase 1: the bundle without its result, and the execution-time pool
++            d = write_job_bundle(root, job_id, group, backend, options, level, gshots, jl, job=job, timestamps=ts, extra=extra, day=day,
++                                 properties=props_dict, metadata_only=True)
++            pool = write_execution_pool(d, job, backend)
++            jp = d / "job.json"
++            rec = json.loads(jp.read_text())
++            rec["retrieval"]["execution_pool"] = pool
++            _dump(jp, rec)
++            from . import retrieval_phases as phases           # C65-8: a phase-1 bundle holds the listed files and fields and nothing else
++            try:
++                phases.check_phase1_bundle(d)
++            except phases.PhaseError as e:
++                failures.append(f"{job_id} ({tag}): {e}")
++            print(f"metadata of {job_id} ({tag}, status {status}): wrote {d} without a result; execution-time pool {pool['status']}"
++                  + (f" ({'; '.join(pool['notes']) or pool['walk_note'] or pool['errors']})" if pool["status"] != "complete" else ""), flush=True)
++            continue
+         error = None
+         result = None
+         if status == "DONE":
+@@ -2553,6 +2713,11 @@ def main(argv=None):
+                                                                         "--submit-only, or hand-written with job_id null and a discovery window) "
+                                                                         "into the same bundles and CSV rows as the live path; submits nothing")
+     p.add_argument("--timeout", type=float, default=None, help="with --retrieve: seconds to wait per job for a final state (default: no limit)")
++    p.add_argument("--metadata-only", action="store_true", help="with --retrieve: first phase of draft Deviation 65: bundles without results, with the "
++                                                                "execution-time pool; job.result() is not called")
++    p.add_argument("--execution-rows-commit", default=None, metavar="SHA", help="with --retrieve: second phase of draft Deviation 65: the commit that holds the "
++                                                                                "list's execution-time rows (scripts/redraw_execution.py)")
++    p.add_argument("--single-phase", action="store_true", help="with --retrieve: the retrieval as before draft Deviation 65 (recorded as such)")
+     p.add_argument("--only-job-tag", default=None, metavar="TAG",
+                    help="resubmission of one failed job: build the list as submitted (on the calibration CSV of the original submission, found "
+                         "through its ids file under --run-root), keep only the job tagged TAG (e.g. L2-c5) and submit its pubs as jobs "
+@@ -2565,7 +2730,8 @@ def main(argv=None):
+     except Exception:  # pragma: no cover
+         pass
+     if a.retrieve:
+-        retrieve_jobs(a.retrieve, a.joblist, run_root=a.run_root, log_dir=a.log_dir, run_id=github_run_id(), timeout=a.timeout)
++        retrieve_jobs(a.retrieve, a.joblist, run_root=a.run_root, log_dir=a.log_dir, run_id=github_run_id(), timeout=a.timeout,
++                      metadata_only=a.metadata_only, execution_rows_commit=a.execution_rows_commit, single_phase=a.single_phase)
+         return 0
+     if a.submit_only and not (a.joblist and a.yes_submit):
+         p.error("--submit-only needs --joblist and --yes-submit")
+diff --git a/tests/test_retrieve.py b/tests/test_retrieve.py
+index 0341222..8bab13c 100644
+--- a/tests/test_retrieve.py
++++ b/tests/test_retrieve.py
+@@ -167,7 +167,7 @@ def test_retrieved_bundles_match_the_live_path_and_discovery_fills_a_missing_id(
+     retr_ids.parent.mkdir(parents=True)
+     retr_ids.write_text(json.dumps(ids))
+     monkeypatch.chdir(tmp_path / "retr")                        # the retrieval-time calibration snapshot lands in <cwd>/data/calibrations
+-    assert hw.main(["--retrieve", str(retr_ids), "--joblist", str(LIST01), "--run-root", str(tmp_path / "retr" / "runs"), "--log-dir", str(tmp_path / "retr" / "jobs"),
++    assert hw.main(["--retrieve", str(retr_ids), "--joblist", str(LIST01), "--run-root", str(tmp_path / "retr" / "runs"), "--log-dir", str(tmp_path / "retr" / "jobs"), "--single-phase",
+                     "--timeout", "120"]) == 0
+     assert list((tmp_path / "retr" / "data" / "calibrations").glob("fake_marrakesh_properties_*.json"))
+     out = capsys.readouterr().out
+@@ -226,7 +226,7 @@ def test_retrieve_flags_a_cancelled_job_and_a_stored_pub_mismatch(tmp_path, monk
+     ids = hw.write_ids_file(tmp_path / "ids.json", jl, str(LIST01), [dict(job_id=f"j{i}", tag=tag, level=level, shots=gshots, pubs=len(g), rep_delay_us=None)
+                                                                      for i, (tag, level, gshots, g) in enumerate(groups)], calibration_csv=CAL, run_id=1)
+     with pytest.raises(SystemExit, match="2 problem") as ex:
+-        hw.retrieve_jobs(str(ids), run_root=str(tmp_path / "runs"), log_dir=str(tmp_path / "jobs"), snapshot_dir=str(tmp_path / "cal"))
++        hw.retrieve_jobs(str(ids), run_root=str(tmp_path / "runs"), log_dir=str(tmp_path / "jobs"), snapshot_dir=str(tmp_path / "cal"), single_phase=True)
+     assert "j1 (L1): rebuilt pubs differ" in str(ex.value) and "pub count: stored 4, rebuilt 5" in str(ex.value)
+     assert "j2 (L0-probes-s1024): job status CANCELLED: job cancelled" in str(ex.value)
+     bundles = {d.name: d for d in (tmp_path / "runs").glob("*/j*")}
+@@ -403,7 +403,7 @@ def test_resubmission_ids_file_round_trips_through_retrieve(tmp_path, monkeypatc
+     groups, _ = hw.job_groups(jl, points, shapes, shots, backend, CAL, only_tag="L1", resubmit_max_pubs=2)
+     jobs = [FakeJob([b.pub() for b in g], level, gshots, job_id=j["job_id"]) for j, (tag, level, gshots, g) in zip(ids["jobs"], groups)]
+     _wire_service(hw, monkeypatch, FakeService(jobs), backend)
+-    assert hw.main(["--retrieve", str(ids_path), "--joblist", str(LIST01), "--run-root", str(tmp_path / "retr"), "--log-dir", str(tmp_path / "retrjobs")]) == 0
++    assert hw.main(["--retrieve", str(ids_path), "--joblist", str(LIST01), "--run-root", str(tmp_path / "retr"), "--log-dir", str(tmp_path / "retrjobs"), "--single-phase"]) == 0
+     out = capsys.readouterr().out
+     assert "resubmission of L1 in jobs of at most 2 pubs" in out and out.count("inputs match") == 3 and "MISMATCH" not in out
+     bundles = sorted((tmp_path / "retr").glob("*/fakejob*"))
+@@ -502,3 +502,254 @@ def test_pinned_list_submission_logs_a_fresh_properties_snapshot(tmp_path, monke
+     ids = hw.load_ids_file(next((tmp_path / "runs").glob("*/*_job_ids.json")))
+     snaps = list((tmp_path / "data" / "calibrations").glob("fake_marrakesh_properties_*.json"))
+     assert ids["calibration_csv"] == CAL and len(snaps) == 1 and Path(ids["calibration_snapshot"]).name == snaps[0].name
++
++
++# ----------------------------------------------------------------------------- draft Deviation 65: two-phase retrieval
++# The fake backend answers ``properties(datetime=...)`` from the ibm_phoenix sets of 10 Nov 2026: the four the snapshots committed
++# and the three stamps only the properties-history trial returned (run 42958459321). The fake job carries the times of the
++# replication job of that day (dbpfnr0qtr0c738ebeng). No result of that job is read: the results here are the constants of ``_result``.
++
++NOV10 = ("ibm_phoenix_properties_20261110T082134Z.json.gz", "ibm_phoenix_properties_20261110T101610Z.json.gz",
++         "trial_2026-11-10/ibm_phoenix_properties_update_20261110T112004Z_c80d21378e55.json", "ibm_phoenix_properties_2026-11-10T124546Z.json",
++         "trial_2026-11-10/ibm_phoenix_properties_update_20261110T131438Z_6331a7c9c5b6.json", "ibm_phoenix_properties_2026-11-10T135646Z.json",
++         "trial_2026-11-10/ibm_phoenix_properties_update_20261110T163405Z_60a212c41b76.json")
++U0732, U0907, U1120, U1135, U1314, U1337, U1634 = ("2026-11-10 07:32:03+00:00", "2026-11-10 09:07:11+00:00", "2026-11-10 11:20:04+00:00", "2026-11-10 11:35:39+00:00",
++                                                    "2026-11-10 13:14:38+00:00", "2026-11-10 13:37:31+00:00", "2026-11-10 16:34:05+00:00")
++RUNNING, FINISHED = "2026-11-10T11:12:05.243865Z", "2026-11-10T12:35:07.784468Z"
++POOL_FILES = ("properties_at_running.json", "properties_between.json", "properties_after_finished.json")
++UPDATES = ["2026-11-10T09:07:11Z", "2026-11-10T11:20:04Z", "2026-11-10T13:37:31Z"]        # the three sets of values behind the six stamps from 09:07:11Z on
++
++
++def _utc(x):
++    dt = x if isinstance(x, datetime) else datetime.fromisoformat(str(x).replace("Z", "+00:00"))
++    return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt.astimezone(timezone.utc)
++
++
++class _Props:
++    def __init__(self, d):
++        self._d = d
++
++    def to_dict(self):
++        return dict(self._d, last_update_date=_utc(self._d["last_update_date"]))      # a datetime, as the service returns it
++
++
++class History:
++    """``backend.properties``: the newest set stamped before the time asked for (the service's reading: strictly older than the
++    instant); without a time, the live (newest) set. ``fail`` is a predicate on the time asked for: the call then fails as a
++    refused call would."""
++
++    def __init__(self, fail=None):
++        import gradvar.execution_calibration as ec
++        self.sets = sorted((ec.load_properties_file(ROOT / "data" / "calibrations" / f) for f in NOV10), key=lambda d: _utc(d["last_update_date"]))
++        self.fail, self.asked = fail, []
++
++    def at(self, when):
++        older = [d for d in self.sets if _utc(d["last_update_date"]) < _utc(when)]
++        return _Props(older[-1]) if older else None
++
++    def properties(self, refresh=False, datetime=None):
++        self.asked.append(datetime)
++        if datetime is None:
++            return _Props(self.sets[-1])
++        if self.fail is not None and self.fail(_utc(datetime)):
++            raise RuntimeError("properties history refused")
++        return self.at(datetime)
++
++
++class TimedJob(FakeJob):
++    result_calls = 0
++
++    def __init__(self, *a, history=None, **k):
++        super().__init__(*a, **k)
++        self.history = history
++        self.creation_date = datetime(2026, 11, 10, 11, 11, 40, 956832, tzinfo=timezone.utc)
++
++    def metrics(self):
++        return {"timestamps": {"created": "2026-11-10T11:11:40.956832Z", "running": RUNNING, "finished": FINISHED},
++                "usage": {"qpu_charge_time_seconds": 5, "status": "complete"}, "circuits_execution_time_ns": 2704611328}
++
++    def properties(self, refresh=False):
++        return self.history.at(RUNNING)
++
++    def result(self):
++        TimedJob.result_calls += 1
++        return super().result()
++
++
++def _two_phase(hw, monkeypatch, tmp_path, fail=None):
++    TimedJob.result_calls = 0
++    jl = hw.load_joblist(str(LIST01))
++    points, shapes, shots = hw.joblist_points(jl, CAL)
++    backend = hw.fake_backend("ibm_marrakesh")
++    history = History(fail)
++    monkeypatch.setattr(backend, "properties", history.properties, raising=False)
++    groups, _ = hw.job_groups(jl, points, shapes, shots, backend, CAL)
++    jobs = [TimedJob([b.pub() for b in g], level, gshots, job_id=f"t{i}", history=history) for i, (tag, level, gshots, g) in enumerate(groups)]
++    _wire_service(hw, monkeypatch, FakeService(jobs), backend)
++    ids = hw.write_ids_file(tmp_path / "ids.json", jl, str(LIST01), [dict(job_id=f"t{i}", tag=tag, level=level, shots=gshots, pubs=len(g), rep_delay_us=None)
++                                                                     for i, (tag, level, gshots, g) in enumerate(groups)], calibration_csv=CAL, run_id=1)
++    kw = dict(run_root=str(tmp_path / "runs"), log_dir=str(tmp_path / "jobs"), snapshot_dir=str(tmp_path / "cal"))
++    return str(ids), kw, jobs, history
++
++
++def _bundles(tmp_path):
++    return {d.name: d for d in sorted((tmp_path / "runs").glob("*/t*")) if d.is_dir()}
++
++
++def test_metadata_only_retrieval_writes_the_pool_and_never_asks_for_a_result(tmp_path, monkeypatch, capsys):
++    """Phase 1: per job the bundle without a result and the three pool files, in the layout ``load_pool`` reads; the pool it
++    gives is the one built directly from the sets; every bundle holds only the files and fields a phase-1 bundle may (test 8g)."""
++    import gradvar.execution_calibration as ec
++    import gradvar.hardware as hw
++    import gradvar.retrieval_phases as rp
++    ids, kw, jobs, history = _two_phase(hw, monkeypatch, tmp_path)
++    assert hw.retrieve_jobs(ids, metadata_only=True, **kw) == []
++    assert TimedJob.result_calls == 0
++    bundles = _bundles(tmp_path)
++    assert set(bundles) == {j.job_id() for j in jobs} and all(d.parent.name == "2026-11-10" for d in bundles.values())
++    assert not list((tmp_path / "runs").rglob("result.json")) and not list((tmp_path / "jobs").glob("*.csv"))
++    S = {d["last_update_date"]: d for d in history.sets}
++    st = ec.load_settings()
++    direct = ec.build_pool("x", RUNNING, FINISHED, S[U0907], S[U0907], [S[U1120], S[U1135]], [S[U1314], S[U1337], S[U1634]], True)
++    for name, d in bundles.items():
++        assert all((d / f).is_file() for f in POOL_FILES)
++        checked = rp.check_phase1_bundle(d)                                               # 8g: the enumeration holds on what phase 1 really writes
++        assert set(checked["files"]) <= rp.PHASE1_FILES and set(checked["job_fields"]) <= rp.PHASE1_JOB_FIELDS
++        job = json.loads((d / "job.json").read_text())
++        assert job["status"] == "metadata only" and job["retrieved"] is True and job["retrieval"]["phase"].startswith("metadata only")
++        assert json.loads((d / "metadata.json").read_text()) == {"result_metadata": {"metadata_only": True}, "pubs": []}
++        rec = job["retrieval"]["execution_pool"]
++        assert rec["status"] == "complete" and rec["walk_complete"] is True and not rec["errors"]
++        assert (rec["set_at_running"], rec["job_properties_set"], rec["sets_between"], rec["sets_after_finished"]) == (U0907, U0907, [U1120, U1135], [U1314, U1337, U1634])
++        assert rec["updates"] == UPDATES and rec["restamps"] == [[], ["2026-11-10T11:35:39Z", "2026-11-10T13:14:38Z"], ["2026-11-10T16:34:05Z"]]
++        at = json.loads((d / "properties_at_running.json").read_text())
++        assert at["job_properties"] == S[U0907] and at["backend_properties"] == S[U0907]              # serialised as the committed snapshots are
++        after = json.loads((d / "properties_after_finished.json").read_text())
++        assert [x["properties"] for x in after["sets"]] == [S[U1314], S[U1337], S[U1634]]
++        pool = ec.load_pool(d)
++        assert pool.status == "complete" and pool.updates() == UPDATES
++        assert ec.execution_calibration(pool, st)["value_sha256"] == ec.execution_calibration(direct, st)["value_sha256"]
++        assert ec.bracket_calibration(pool, st)["value_sha256"] == ec.value_sha256(S[U1337])
++    assert "execution-time pool complete" in capsys.readouterr().out
++
++
++def test_a_restamp_after_finished_leaves_the_pool_pending(tmp_path, monkeypatch):
++    """Only the 13:14:38Z stamp after finished: it repeats the values published at 11:20:04Z, so no update has followed the job yet."""
++    import gradvar.execution_calibration as ec
++    import gradvar.hardware as hw
++    ids, kw, jobs, history = _two_phase(hw, monkeypatch, tmp_path)
++    history.sets = [d for d in history.sets if _utc(d["last_update_date"]) <= _utc(U1314)]
++    hw.retrieve_jobs(ids, metadata_only=True, **kw)
++    for d in _bundles(tmp_path).values():
++        after = json.loads((d / "properties_after_finished.json").read_text())
++        assert [x["properties"]["last_update_date"] for x in after["sets"]] == [U1314]
++        rec = json.loads((d / "job.json").read_text())["retrieval"]["execution_pool"]
++        assert rec["status"] == "pending" and "repeat the values in force before" in " ".join(rec["notes"])
++        pool = ec.load_pool(d)
++        assert pool.status == "pending"
++        with pytest.raises(ec.PoolPending):
++            ec.execution_calibration(pool, ec.load_settings())
++    history.sets = [d for d in history.sets if _utc(d["last_update_date"]) <= _utc(U1135)]       # nothing stamped after finished at all
++    hw.retrieve_jobs(ids, metadata_only=True, **kw)
++    for d in _bundles(tmp_path).values():
++        assert json.loads((d / "properties_after_finished.json").read_text())["status"] == "pending"
++
++
++@pytest.mark.parametrize("where", ["walk", "running"])
++def test_a_refused_properties_call_stops_the_pool_and_nothing_falls_back_to_the_live_set(tmp_path, monkeypatch, where, capsys):
++    import gradvar.execution_calibration as ec
++    import gradvar.hardware as hw
++    t_r = _utc(RUNNING)
++    fail = (lambda when: _utc(U1135) <= when < _utc(U1337)) if where == "walk" else (lambda when: when == t_r)
++    ids, kw, jobs, history = _two_phase(hw, monkeypatch, tmp_path, fail=fail)
++    hw.retrieve_jobs(ids, metadata_only=True, **kw)
++    assert TimedJob.result_calls == 0 and not list((tmp_path / "runs").rglob("result.json"))
++    for d in _bundles(tmp_path).values():
++        rec = json.loads((d / "job.json").read_text())["retrieval"]["execution_pool"]
++        at = json.loads((d / "properties_at_running.json").read_text())
++        bet = json.loads((d / "properties_between.json").read_text())
++        after = json.loads((d / "properties_after_finished.json").read_text())
++        assert rec["status"] == "stopped" and bet["complete"] is False and bet["note"]
++        if where == "walk":
++            assert "properties history refused" in bet["note"] and bet["sets"] == []
++            assert [x["properties"]["last_update_date"] for x in after["sets"]] == [U1337, U1634] and at["backend_properties"]["last_update_date"] == U0907
++        else:
++            assert at["backend_properties"] is None and "properties history refused" in at["errors"]["backend.properties(datetime=running)"]
++            assert at["job_properties"]["last_update_date"] == U0907 and after == {"status": "pending", "asked_up_to": None}
++        with pytest.raises(ec.PoolError):
++            ec.load_pool(d)
++    assert "execution-time pool stopped" in capsys.readouterr().out
++
++
++def test_the_first_phase_fails_on_a_file_or_field_that_is_not_listed(tmp_path, monkeypatch):
++    """Test 8g at the runner: a phase-1 bundle with anything a phase-1 bundle may not hold stops the phase with its name."""
++    import gradvar.hardware as hw
++    ids, kw, jobs, history = _two_phase(hw, monkeypatch, tmp_path)
++    real = hw.write_execution_pool
++
++    def leaky(bundle_dir, job, backend, **k):
++        (Path(bundle_dir) / "result_preview.json").write_text("{}")
++        return real(bundle_dir, job, backend, **k)
++    monkeypatch.setattr(hw, "write_execution_pool", leaky)
++    with pytest.raises(SystemExit) as ex:
++        hw.retrieve_jobs(ids, metadata_only=True, **kw)
++    assert "file result_preview.json" in str(ex.value) and "may hold only the listed files and fields" in str(ex.value) and TimedJob.result_calls == 0
++
++
++def test_the_result_phase_refuses_without_the_pool_or_without_verified_execution_rows(tmp_path, monkeypatch):
++    """Draft Section 8 item 8 g, second half, with C65-8: no path to ``job.result()`` before the execution-time rows are committed
++    and verified against the phase-1 files."""
++    import gradvar.hardware as hw
++    import gradvar.retrieval_phases as rp
++    ids, kw, jobs, history = _two_phase(hw, monkeypatch, tmp_path)
++    with pytest.raises(SystemExit, match="refusing to retrieve the results.*--metadata-only"):
++        hw.retrieve_jobs(ids, **kw)
++    with pytest.raises(SystemExit, match="has not written the execution-time pool of t0, t1"):
++        hw.retrieve_jobs(ids, execution_rows_commit="feedc0de", **kw)
++    with pytest.raises(SystemExit, match="first phase"):
++        hw.retrieve_jobs(ids, metadata_only=True, execution_rows_commit="feedc0de", **kw)
++    with pytest.raises(SystemExit, match="first phase"):
++        hw.retrieve_jobs(ids, metadata_only=True, single_phase=True, **kw)
++    assert TimedJob.result_calls == 0 and not (tmp_path / "runs").exists() and history.asked == []     # refused before any call to the service
++    hw.retrieve_jobs(ids, metadata_only=True, **kw)
++    first = {n: json.loads((d / "job.json").read_text())["retrieval"] for n, d in _bundles(tmp_path).items()}
++    (next(iter(_bundles(tmp_path).values())) / "properties_between.json").rename(tmp_path / "moved.json")
++    with pytest.raises(SystemExit, match="has not written the execution-time pool of t0$"):
++        hw.retrieve_jobs(ids, execution_rows_commit="feedc0de", **kw)
++    (tmp_path / "moved.json").rename(next(iter(_bundles(tmp_path).values())) / "properties_between.json")
++    asked = len(history.asked)
++    with pytest.raises(SystemExit, match="is not in this checkout"):                             # the real check: no such commit
++        hw.retrieve_jobs(ids, execution_rows_commit="0" * 40, **kw)
++    seen = {}
++
++    def verify(commit, list_name, job_ids, runs_root, **k):
++        seen.update(commit=commit, list_name=list_name, job_ids=list(job_ids), runs_root=str(runs_root))
++        if commit != "feedc0de":
++            raise rp.PhaseError(f"refusing to retrieve the results of {list_name}: job t0: no classification")
++        return dict(prediction_commit=commit, checks=["ancestor", "phase-1 input hashes", "classification for every job"])
++    monkeypatch.setattr(rp, "verify_phase2", verify)
++    with pytest.raises(SystemExit, match="job t0: no classification"):
++        hw.retrieve_jobs(ids, execution_rows_commit="badc0de", **kw)
++    assert TimedJob.result_calls == 0 and len(history.asked) == asked                             # every refusal comes before the service is called
++    rows = hw.retrieve_jobs(ids, execution_rows_commit="feedc0de", **kw)
++    assert seen["job_ids"] == sorted(first) and seen["runs_root"] == kw["run_root"] and seen["list_name"] == json.loads(Path(ids).read_text())["joblist_name"]
++    assert TimedJob.result_calls == len(jobs) and len(rows) > 0 and len(list((tmp_path / "jobs").glob("*_retrieved_*.csv"))) == 1
++    for name, d in _bundles(tmp_path).items():
++        job = json.loads((d / "job.json").read_text())
++        assert job["status"] == "completed" and (d / "result.json").is_file() and all((d / f).is_file() for f in POOL_FILES)
++        r = job["retrieval"]
++        assert r["phase"].startswith("results") and r["execution_rows_commit"] == "feedc0de" and r["phase2_verification"]["prediction_commit"] == "feedc0de"
++        assert r["execution_pool"] == first[name]["execution_pool"] and r["metadata_retrieved_utc"] == first[name]["retrieved_utc"]
++
++
++def test_single_phase_is_the_retrieval_as_before_and_says_so(tmp_path, monkeypatch):
++    import gradvar.hardware as hw
++    ids, kw, jobs, history = _two_phase(hw, monkeypatch, tmp_path)
++    rows = hw.retrieve_jobs(ids, single_phase=True, **kw)
++    assert len(rows) > 0 and TimedJob.result_calls == len(jobs)
++    for d in _bundles(tmp_path).values():
++        job = json.loads((d / "job.json").read_text())
++        assert job["status"] == "completed" and job["retrieval"]["phase"].startswith("single phase") and job["retrieval"]["execution_pool"] is None
++        assert (d / "result.json").is_file() and not any((d / f).exists() for f in POOL_FILES)
++    with pytest.raises(SystemExit, match="first phase"):
++        hw.main(["--retrieve", ids, "--joblist", str(LIST01), "--run-root", kw["run_root"], "--log-dir", kw["log_dir"], "--metadata-only", "--single-phase"])
