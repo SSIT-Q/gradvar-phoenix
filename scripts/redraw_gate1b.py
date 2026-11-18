@@ -297,15 +297,17 @@ def layer_tau_for(spec: str, couplers, timing=LAYER_TIMING) -> tuple[dict, dict]
 
 
 def dial_program(patch: Patch, spec: str, L: int, edge: tuple, csv: str, props: str, model: str = "unital", dial_kind: str | None = None,
-                 p: float = 0.0, zz_layer_on: bool = True, timing=LAYER_TIMING):
+                 p: float = 0.0, zz_layer_on: bool = True, timing=LAYER_TIMING, channel=None):
     """The Pauli-propagation program of one Deviation 46 row (k = L) for the observable on ``edge``: the ``model`` snapshot noise,
     the dial channel ``dial_kind`` at ``p`` (``pauliprop.dial_bloch_by_qubit``), the dial-idle ZZ (when a dial is present) and the
     Deviation 34 whole-layer static ZZ, raw readout. Returns (program, dict(zz, zz_layer, taus, tau_src)). ``predict_at_edge`` and the
-    H7 comparator (``scripts/predict_h7_truncation.py``, Deviation 60) build their programs here, so the two use one model."""
+    H7 comparator (``scripts/predict_h7_truncation.py``, Deviation 60) build their programs here, so the two use one model.
+    ``channel`` (``pauliprop.DialChannel``; Deviation 64 draft): the dial at a channel other than the designed one; None is the
+    designed dial and the program as it always was."""
     k = L
     cone = light_cone(patch, L, edge)
     couplers = pp.cone_couplers(patch, cone)
-    dial = pp.dial_bloch_by_qubit(csv, patch.qubits, dial_kind, p) if dial_kind else None
+    dial = pp.dial_bloch_by_qubit(csv, patch.qubits, dial_kind, p, channel=channel) if dial_kind else None
     zz = pp.zz_phases(props, couplers, scale=pp.ZZ_ANGLE_SCALE) if (dial is not None and zz_layer_on) else None
     taus, tau_src = layer_tau_for(spec, couplers, timing)
     zz_layer = pp.zz_phases(props, couplers, idle_ns=taus, scale=pp.ZZ_ANGLE_SCALE) if (zz_layer_on and model != "noiseless") else None
@@ -381,17 +383,24 @@ def probe_masks(jl: dict, pr: dict, prog, patch: Patch, csv: str):
     return full[:, :, cols], full, runner
 
 
-def realised_dial_row(jl: dict, pr: dict, rung: dict, csv: str, props: str, settings: dict = REALISED) -> dict:
+def realised_dial_row(jl: dict, pr: dict, rung: dict, csv: str, props: str, settings: dict = REALISED, channel=None) -> dict:
     """The realised-mask comparator of one dial probe (Deviation 60 part (7)) on the Deviation 46 program of its point
     (``dial_program``): ``pauliprop.propagate_realised`` on the probe's masks for the k = L and k = 1 variances (the off-diagonal
     moment the shared-mask estimator estimates) and Var[C_mix] (that moment minus S^2(c0) / K, ``realised_prefix_constants``),
     each with its sampling error; the expected pattern floors; the mixture values from the same paths; the mask counts of the
-    realised Deviation 33 floors (``floors.mask_floor_stats``) with those floors and the mixture floors on the snapshot."""
+    realised Deviation 33 floors (``floors.mask_floor_stats``) with those floors and the mixture floors on the snapshot.
+
+    ``channel`` (``pauliprop.DialChannel``, Deviation 64 draft): the same row at a channel other than the designed one, on the
+    same masks and sampler stream. Added then: the channel's parameters (``channel_<name>``), ``mix_exact``, the 16 mask-class
+    counts and, for the reset dial, the Deviation 33 floors at the channel (``floors.dial_floor_at_channel`` /
+    ``realised_floor_at_channel``) in place of the designed ones. None: the row and its keys as before."""
     t0 = time.time()
     kind = "dephase" if str(pr.get("reset_kind", "reset")) in ("dephase", "dephasing") else str(pr.get("reset_kind", "reset"))
     L, p = int(pr["L"]), float(pr["p"])
     patch, edge = rung_patch(rung), rung_edge(rung)
-    prog, _meta = dial_program(patch, rung["patch"], L, edge, csv, props, model="unital", dial_kind=kind, p=p)
+    if channel is not None and channel.designed():
+        channel = None
+    prog, _meta = dial_program(patch, rung["patch"], L, edge, csv, props, model="unital", dial_kind=kind, p=p, channel=channel)
     masks, full, runner = probe_masks(jl, pr, prog, patch, csv)
     mask_p = float(pr.get("mask_p", p))
     res = pp.propagate_realised(prog, masks, kind, p=p, mask_p=mask_p, n_samples=settings["n_samples"], seed=settings["seed"], chunk=settings["chunk"])
@@ -402,7 +411,7 @@ def realised_dial_row(jl: dict, pr: dict, rung: dict, csv: str, props: str, sett
     f_mix = dial_floor(p, Calibration.from_csv(csv), edge, patch.qubits, resilience=0)
     f_real = realised_floor(stats, f_mix["a_i"], f_mix["b_i"], f_mix["a_j"], f_mix["b_j"], f_mix["g_i"], f_mix["g_j"]) if kind == "reset" else {}
     nan = float("nan")
-    return dict(probe_id=pr["id"], mask_seed=int(pr["seed"]), mask_p=mask_p, patch=rung["patch"], n=int(rung["n"]), edge=rung["edge"], L=L, k=L,
+    row = dict(probe_id=pr["id"], mask_seed=int(pr["seed"]), mask_p=mask_p, patch=rung["patch"], n=int(rung["n"]), edge=rung["edge"], L=L, k=L,
                 dial=kind, p=p, model="unital", n_cone=prog.m, qubits=" ".join(str(q) for q in sorted(int(q) for q in rung["qubits"])),
                 var_kL_realised=res["kL_off"], se_kL_realised=res["se_kL_off"], var_k1_realised=res["k1_off"], se_k1_realised=res["se_k1_off"],
                 var_cost_T=res["cost_off"], se_cost_T=res["se_cost_off"], c0_mean=float(np.mean(c0)), c0_spread_over_K=spread,
@@ -415,6 +424,22 @@ def realised_dial_row(jl: dict, pr: dict, rung: dict, csv: str, props: str, sett
                 floor_grad_realised=f_real.get("floor_grad", nan), floor_cost_realised=f_real.get("floor_cost", nan),
                 floor_grad_tested=f_real.get("grad_tested"), floor_cost_tested=f_real.get("cost_tested"),
                 n_samples=res["n_samples"], sampler_seed=res["seed"], chunk=res["chunk"], runtime_s=time.time() - t0, status="realised")
+    if channel is None:
+        return row
+    from dataclasses import asdict
+    from gradvar.analysis.floors import dial_floor_at_channel, mask_floor_classes, realised_floor_at_channel
+    ch = asdict(channel)
+    classes = mask_floor_classes(full, L, runner.local(edge[0]), runner.local(edge[1]))
+    row.update({f"channel_{k}": v for k, v in ch.items()}, mix_exact=bool(res.get("mix_exact", True)),
+               mask_classes=" ".join(str(v) for v in classes["classes"]))
+    if kind == "reset":
+        fc_mix = dial_floor_at_channel(p, Calibration.from_csv(csv), edge, patch.qubits, ch, resilience=0)
+        fc_real = realised_floor_at_channel(classes, *(fc_mix[k] for k in ("a_i", "b_i", "a_j", "b_j", "g_i", "g_j")), channel=ch)
+        row.update(dev33_floor_grad=fc_mix["floor_grad"], dev33_floor_cost=fc_mix["floor_cost"], floor_grad_realised=fc_real["floor_grad"],
+                   floor_cost_realised=fc_real["floor_cost"], floor_grad_tested=fc_real["grad_tested"], floor_cost_tested=fc_real["cost_tested"],
+                   channel_sign_ok=fc_real["channel_sign_ok"])
+    row["runtime_s"] = time.time() - t0
+    return row
 
 
 def _run_job(job: dict) -> dict:

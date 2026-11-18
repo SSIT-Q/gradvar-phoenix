@@ -469,7 +469,159 @@ def _live_readout(run: RunData) -> Dict[int, float]:
     return out
 
 
-def gate2_e(run: RunData, snapshot_csv: str | Path | None, reference_reset_error: Dict[int, float] | None = None) -> Dict:
+def gate2_e(run: RunData, snapshot_csv: str | Path | None, reference_reset_error: Dict[int, float] | None = None, settings=None) -> Dict:
+    """Gate 2 (e). One switch decides which evaluator runs: the committed table ``data/settings/execution_calibration_settings.json``
+    (``gradvar.execution_calibration.load_settings``; ``settings`` only lets a test hand in another table). While the table is
+    not in force, which is its state until Deviations 65 and 67 are rows of the pre-registration, the clause is evaluated as
+    registered and as on main (``_gate2_e_registered``). Once it is in force, row 67 is evaluated (``_gate2_e_row67``)."""
+    from .. import execution_calibration as ec
+    st = settings if settings is not None else ec.load_settings()
+    if not st.in_force:
+        return _gate2_e_registered(run, snapshot_csv, reference_reset_error)
+    return _gate2_e_row67(run, snapshot_csv, reference_reset_error, st)
+
+
+ROW67_TEXT = ("Gate 2 (e) as of Deviation 67: the campaign pauses when, on the execution-time calibration E(J) of any job of the run, a placed qubit or live "
+              "coupler of that job's rung is over a registered cut (Deviations 22, 26, 53) on the observable edge or in its L = 2 cone (a coupler counts when "
+              "both its qubits are in it), or when the reset error of a dial-patch qubit, unfolded as in Deviation 63, is at or above 2e-2; any other placed "
+              "element over a cut is handled per job (Deviation 65 (ii)); the 1.5x readout ratio of Deviation 49 and the 1.5x reset-error ratio are logged per "
+              "qubit and do not pause")
+
+
+def clause_49(readout: Dict[int, float], snapshot: Dict[int, float], cone_qubits, readout_cut: float) -> Dict:
+    """The readout half of the clause as Deviations 49 and 52 write it, on the cone qubits of the measured patches: any qubit
+    above the layout cut pauses; a single qubit above 1.5x its snapshot value and not above the cut is a logged transient;
+    two or more such qubits pause. Returned for the log; under Deviation 67 it pauses nothing."""
+    qs = sorted(int(q) for q in cone_qubits if q in readout)
+    above_cut = [dict(qubit=q, readout=readout[q]) for q in qs if readout[q] > readout_cut]
+    ratios = [dict(qubit=q, readout=readout[q], snapshot=snapshot[q], ratio=readout[q] / snapshot[q] if snapshot[q] > 0 else np.inf) for q in qs if q in snapshot]
+    above_ratio = [r for r in ratios if r["ratio"] > READOUT_DRIFT_FACTOR and readout[r["qubit"]] <= readout_cut]
+    return dict(n_cone_qubits=len(qs), above_cut=above_cut, above_ratio=above_ratio, single_qubit_transient=bool(len(above_ratio) == 1 and not above_cut),
+                met=bool(above_cut or len(above_ratio) >= 2), ratio_max=max((r["ratio"] for r in ratios), default=None))
+
+
+def _job_rungs(job: dict) -> List[Dict]:
+    """The placed rungs a job measures with at least one layer, from the points of its job.json (patch, origin, holes, broken
+    edges, placed qubits, observable edge), each with the depths measured on it. Qubits that appear only in L = 0 probes are
+    SPAM-only (Deviation 52) and belong to no rung here."""
+    out: Dict[tuple, Dict] = {}
+    for pt in job.get("points") or []:
+        if not isinstance(pt, dict):
+            continue
+        qubits = pt.get("patch_qubits") or pt.get("qubits")
+        try:
+            L = int(pt.get("L") or 0)
+        except (TypeError, ValueError):
+            L = 0
+        if L < 1 or not qubits or not pt.get("edge") or not pt.get("patch") or pt.get("origin") is None:
+            continue
+        key = (tuple(int(q) for q in qubits), str(pt["edge"]))
+        r = out.setdefault(key, dict(patch=str(pt["patch"]), origin=list(pt["origin"]), holes=list(pt.get("holes") or []), qubits=[int(q) for q in qubits],
+                                     broken_edges=list(pt.get("broken_edges") or []), edge=str(pt["edge"]), n=len(qubits), depths=set()))
+        r["depths"].add(L)
+    return [dict(r, depths=sorted(r["depths"])) for r in out.values()]
+
+
+def _gate2_e_row67(run: RunData, snapshot_csv: str | Path | None, reference_reset_error: Dict[int, float] | None, st) -> Dict:
+    """Row 67 (``ROW67_TEXT``). Per job of the run: its pool (the service's sets of the bundle, else the committed snapshots,
+    C65-4), E(J) and B(J); the placed elements of each of its rungs over a cut on E, split into those on the observable edge or
+    in its L = 2 cone (they pause) and the others (handled per job by Deviation 65, listed); the same on B, reported, deciding
+    only if the table says so; the clause of Deviations 49 and 52 on E, logged. Then the reset error of the dial patch,
+    unfolded with the day's readout references: at or above 2e-2 pauses; the 1.5x ratio against the reference run is logged.
+    ``fail`` means pause. A job whose E cannot be built, or a reset probe that cannot be unfolded, makes the gate not
+    evaluable unless a pause is already established."""
+    import tempfile
+    from .. import execution_calibration as ec
+    from .. import noise
+    from ..circuits import light_cone
+    from . import dial_hypotheses
+    snap = _snapshot_readout(snapshot_csv)
+    jobs: Dict[str, Dict] = {}
+    pausing, per_job, bracket_zone, without = [], [], [], {}
+    with tempfile.TemporaryDirectory() as tmp:
+        for jid, b in sorted(run.bundles.items()):
+            rungs = _job_rungs(b.job)
+            pool, case = ec.pool_for_job(b.path)
+            rec = dict(pool_case=case["case"], rungs=[dict(n=r["n"], edge=r["edge"], depths=r["depths"]) for r in rungs])
+            if pool is None:
+                without[jid] = "; ".join(x for x in (case["service_problem"], case["snapshot_problem"]) if x)
+                jobs[jid] = rec
+                continue
+            E, B = ec.execution_calibration(pool, st), ec.bracket_calibration(pool, st)
+            backend = str(b.job.get("backend_name") or "ibm_phoenix")
+            fe, fb = ec.write_calibration(E, Path(tmp) / jid, backend), ec.write_calibration(B, Path(tmp) / jid, backend)
+            readout = _readout_of(E["properties"])
+            rec.update(E=E["value_sha256"], B=B["value_sha256"], t_running=E["t_running"], t_finished=E["t_finished"], pool_updates=pool.updates(),
+                       readout_age_h_max=E["ages_at_running"].get("readout_error", {}).get("age_h_max"), clause_49=[])
+            for r in rungs:
+                for el in ec.over_cut_elements(r, fe["csv"], fe["properties"]):
+                    z = ec.zone(r, ec.ZONE_L, el, st)
+                    item = dict(el, job_id=jid, rung_n=r["n"], edge=r["edge"], zone=z if z in (ec.ZONE_EDGE, ec.ZONE_L2) else "outside_zone")
+                    (pausing if z in (ec.ZONE_EDGE, ec.ZONE_L2) else per_job).append(item)
+                on_e = {ec._identity(x) for x in ec.over_cut_elements(r, fe["csv"], fe["properties"])}
+                for el in ec.over_cut_elements(r, fb["csv"], fb["properties"]):
+                    z = ec.zone(r, ec.ZONE_L, el, st)
+                    if z in (ec.ZONE_EDGE, ec.ZONE_L2):
+                        bracket_zone.append(dict(el, job_id=jid, rung_n=r["n"], edge=r["edge"], zone=z, also_on_E=ec._identity(el) in on_e))
+                patch, edge = ec.placement_patch(r)
+                cone = set()
+                for L in r["depths"]:
+                    cone |= set(light_cone(patch, int(L), edge))
+                rec["clause_49"].append(dict(rung_n=r["n"], edge=r["edge"], **clause_49(readout, snap, cone, noise.READOUT_CUT)))
+            jobs[jid] = rec
+    raw = _measured_reset_error(run)
+    raw = raw[(raw.reset_kind == "reset") & (raw.prep == "1")] if len(raw) else raw
+    raw_p1 = {int(r.qubit): float(r.p1) for r in raw.itertuples()} if len(raw) else {}
+    eps = dial_hypotheses.reset_errors_from_characterisation(run.reset_error) if len(raw) else {}
+    reset_bad = sorted(q for q, v in eps.items() if v >= RESET_ERROR_KILL)
+    not_unfolded = sorted(q for q in raw_p1 if q not in eps)
+    drift = [dict(qubit=q, p1=v, reference=reference_reset_error[q], ratio=v / reference_reset_error[q] if reference_reset_error[q] > 0 else np.inf)
+             for q, v in raw_p1.items() if reference_reset_error and q in reference_reset_error]
+    drift_above = [d for d in drift if d["ratio"] > RESET_ERROR_DRIFT_FACTOR]
+    bracket_decides = bool(st["bracket_decides_gate2e"])
+    b_only = [x for x in bracket_zone if not x["also_on_E"]]
+    pause = bool(pausing or reset_bad or (bracket_decides and b_only))
+    evaluated = [j for j, r in jobs.items() if "E" in r and r["rungs"]]
+
+    def name(x):
+        return f"{ec._name(x)} [{x['zone']}, job {x['job_id']}]"
+    parts = [f"{len(evaluated)} job(s) read on their execution-time calibration"
+             + (f" ({sum(1 for r in jobs.values() if r['pool_case'] == ec.SOURCE_SNAPSHOTS)} from the committed snapshots)" if any(r["pool_case"] == ec.SOURCE_SNAPSHOTS for r in jobs.values()) else "")]
+    parts.append("over a cut on the observable edge or in its L = 2 cone: " + (", ".join(name(x) for x in pausing) if pausing else "none"))
+    seen = sorted({ec._name(x) for x in per_job})
+    parts.append("over a cut elsewhere on a placed rung, handled per job by Deviation 65 (no pause): " + (", ".join(seen) if seen else "none"))
+    parts.append(f"bracket calibration ({'decides' if bracket_decides else 'reported, does not decide'}): "
+                 + (", ".join(name(x) for x in b_only) + " in the zone on B and not on E" if b_only else "no zone element over a cut on B only"))
+    met49 = sorted(j for j, r in jobs.items() if any(c["met"] for c in r.get("clause_49") or []))
+    parts.append("the clause as Deviations 49 and 52 write it (logged, pauses nothing): " + (f"met for {len(met49)} job(s)" if met49 else "not met"))
+    if raw_p1:
+        parts.append(f"reset error, unfolded: max {max(eps.values()):.2e} over {len(eps)} qubits (line 2e-2), {len(reset_bad)} at or above" if eps
+                     else "reset error: the probes cannot be unfolded (no readout references in the run)")
+        if drift:
+            parts.append(f"reset-error ratio against the reference run (logged): {len(drift_above)} of {len(drift)} above 1.5x")
+    if without:
+        parts.append("no execution-time calibration for " + "; ".join(f"{j}: {w}" for j, w in sorted(without.items())))
+    if pause:
+        result = "fail"
+    elif without or (raw_p1 and not_unfolded) or not (evaluated or eps):
+        result = "not-evaluable"
+    else:
+        result = "pass"
+    return verdict("gate2_e", ROW67_TEXT, result, deviation="67 (draft)",
+                   value=dict(zone_elements_over_a_cut=len(pausing), reset_error_max=max(eps.values(), default=None)),
+                   threshold=dict(zone_elements_over_a_cut=0, reset_error_max=RESET_ERROR_KILL),
+                   note="; ".join(parts), pausing=pausing, handled_per_job=per_job, bracket_zone=bracket_zone, bracket_decides=bracket_decides,
+                   reset_error=eps, reset_error_at_or_above=reset_bad, reset_error_raw=raw_p1, reset_not_unfolded=not_unfolded,
+                   logged=dict(clause_49_met_jobs=met49, reset_drift=drift, reset_drift_above=drift_above), jobs=jobs, jobs_without_execution_calibration=without,
+                   settings=st.record())
+
+
+def _readout_of(props: dict) -> Dict[int, float]:
+    return {q: float(e["value"]) for q, entries in enumerate(props.get("qubits", [])) for e in entries
+            if e.get("name") == "readout_error" and e.get("value") is not None}
+
+
+def _gate2_e_registered(run: RunData, snapshot_csv: str | Path | None, reference_reset_error: Dict[int, float] | None = None) -> Dict:
     """(e) readout errors on the day within 1.5x of the planning snapshot on the patch qubits; reset error on the dial patch
     within 1.5x of its dry-run (earlier smoke-test) value and below the 2e-2 kill line. ``reference_reset_error`` is the
     earlier run's per-qubit P(1); without it only the kill line is checked."""

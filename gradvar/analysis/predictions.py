@@ -322,6 +322,183 @@ def dial_prediction(preds: Dict, n: int, L: int, k: int, dial: str, p: float | N
 MASK_STAT_KEYS = ("n_RR", "n_RK", "n_KR", "n_KK", "n1_i", "n2_i", "n1_j", "n2_j")
 
 
+# --------------------------------------------------------------------------- Deviation 64 (draft): vertex rows and the band
+# Nothing below is called unless the caller asks for a band (``dial_channel.band_enabled()`` or an explicit request): the lookups
+# above and ``load_predictions`` are unchanged. The vertex files are read on first use and kept in ``preds``.
+
+REGISTERED_ROLE = "execution"       # = dial_channel.CALIBRATION_ROLES[0]: the vertex values drawn on E(J) between the retrieval phases
+
+
+def _same_calibration(designed: Dict, label) -> bool:
+    """A vertex value belongs beside a designed-channel value only when both were drawn on one calibration. The designed entry
+    states its calibration under ``calibration_label`` once the execution-time rows of Deviation 65 are loaded; until then (no
+    such key) there is nothing to compare and the vertex value is taken on its role alone."""
+    want = (designed or {}).get("calibration_label")
+    return want is None or str(want) == str(label)
+
+
+def load_vertex_rows(directory: str | Path) -> pd.DataFrame:
+    """Every ``dial_vertices_<tag>.csv`` (``scripts/redraw_dial_points.registered_vertex_rows``): one row per dial probe and distinct
+    channel of the pre-drawn levels, with ``channel_key`` and the columns ``load_realised_rows`` adds. Only rows drawn on the
+    execution-time calibration are read (``calibration_role`` 'execution', review correction C64-8): a row without that column,
+    or drawn on the placement snapshot before dispatch, is a dispatch-time record and is left out."""
+    frames = []
+    for f in sorted(Path(directory).glob("dial_vertices_*.csv")):
+        df = pd.read_csv(f)
+        if "calibration_role" not in df.columns:
+            continue
+        df = df[df.calibration_role.astype(str) == REGISTERED_ROLE]
+        if df.empty:
+            continue
+        df["placement_qubits"] = df["qubits"].map(qubit_key) if "qubits" in df.columns else None
+        df["placement_stamp"] = df["snapshot_stamp"] if "snapshot_stamp" in df.columns else None
+        df["source"] = f.name
+        frames.append(df)
+    return pd.concat(frames, ignore_index=True, sort=False) if frames else pd.DataFrame()
+
+
+def load_vertex_truncation(directory: str | Path) -> List[Dict]:
+    """Every ``entries`` item of ``h7_vertices_*.json`` (``scripts/predict_h7_truncation.registered_vertex_entries``), tagged as the
+    realised entries. Only records drawn on the execution-time calibration are read (``calibration.role`` 'execution', C64-8)."""
+    out = []
+    for f in sorted(Path(directory).glob("h7_vertices_*.json")):
+        rec = json.loads(f.read_text())
+        if (rec.get("calibration") or {}).get("role") != REGISTERED_ROLE:
+            continue
+        snap = rec.get("snapshot")
+        stamp = (snap.get("stamp") or _stamp_of_name(snap.get("csv"))) if isinstance(snap, dict) else _stamp_of_name(snap)
+        for e in rec.get("entries", []):
+            out.append(dict(e, file=f.name, placement_stamp=e.get("placement_stamp") or stamp, table_sha256=(rec.get("table") or {}).get("sha256")))
+    return out
+
+
+def _vertex_tables(preds: Dict) -> tuple:
+    if "dial_vertices" not in preds:
+        preds["dial_vertices"] = load_vertex_rows(preds["dir"]) if preds.get("dir") else pd.DataFrame()
+    if "truncation_vertices" not in preds:
+        preds["truncation_vertices"] = load_vertex_truncation(preds["dir"]) if preds.get("dir") else []
+    return preds["dial_vertices"], preds["truncation_vertices"]
+
+
+def truncation_members(preds: Dict, designed: Dict, level: float, patch=None, edge=None, n=None, p=None, L=None, qubits=None, stamp=None,
+                       seed=None, K=None, reset_kind: str = "reset", table=None) -> tuple:
+    """({member: entry}, [missing members], note): the realised-mask truncation comparator of one arm at the designed channel
+    (``designed``, the ``truncation_prediction(realised=True)`` entry) and at every vertex of ``level`` (``h7_vertices_*`` entries of
+    the same placement, dial kind, probe seed and mask count, matched on the vertex's channel). A vertex that resolves to the
+    designed channel for this dial is the designed entry. Entries of more than one file for one member: that member is missing."""
+    from . import dial_channel as dc
+    table = table if table is not None else dc.load_table()
+    _rows, ents = _vertex_tables(preds)
+    kind = DIAL_KIND.get(str(reset_kind), str(reset_kind))
+    members, missing, notes = {dc.DESIGNED: designed}, [], []
+    for vid, ch in dc.vertex_channels(table, level, kind).items():
+        if vid == dc.DESIGNED:
+            continue
+        if dc.is_designed(ch):
+            members[vid] = designed
+            continue
+        key, hits = dc.channel_key(ch), []
+        for e in ents:
+            if e.get("channel_key") != key or e.get("rms_l2") is None:
+                continue
+            ok, _why = _same_point(e, patch, edge, n, p, L, qubits, stamp, need_stamp=True, reset_kind=reset_kind)
+            if ok and int(e.get("mask_seed", -1)) == int(seed) and int(e.get("K", -1)) == int(K) and _same_calibration(designed, e.get("calibration_label")):
+                hits.append(e)
+        files = sorted({str(h.get("file")) for h in hits})
+        if len(files) == 1 and len(hits) == 1:
+            members[vid] = hits[0]
+        else:
+            missing.append(vid)
+            if len(files) > 1:
+                notes.append(f"{vid}: ambiguous, entries in {', '.join(files)}")
+            elif len(hits) > 1:
+                notes.append(f"{vid}: ambiguous, {len(hits)} entries for one channel in {files[0]}")
+    note = "" if not missing else (f"no vertex entry (h7_vertices_*.json) at level {level!r} for {', '.join(missing)}" + ("; " + "; ".join(notes) if notes else ""))
+    return members, missing, note
+
+
+def truncation_band(preds: Dict, designed: Dict, level: float, ell: int = 2, **point) -> tuple:
+    """(band, note): the band of sqrt(MSD(l)) over the designed channel and the vertices of ``level`` (``dial_channel.band_of``),
+    with every member's value under ``values``; None when a member is missing. ``point``: the keys of ``truncation_members``."""
+    from . import dial_channel as dc
+    members, missing, note = truncation_members(preds, designed, level, **point)
+    if missing:
+        return None, note
+    vals = {}
+    for vid, e in members.items():
+        by = (e.get("by_ell") or {}).get(str(ell)) if ell != 2 or e.get("rms_l2") is None else dict(rms=e["rms_l2"], rms_sigma=e.get("rms_l2_sigma"))
+        if by is None or by.get("rms") is None or by.get("rms_sigma") is None:
+            return None, f"{vid}: no l = {ell} value with its engine error"
+        vals[vid] = (float(by["rms"]), float(by["rms_sigma"]))
+    band = dc.band_of(vals, table=point.get("table"))
+    band.update(level=float(level), values={k: dict(value=v, sigma=s) for k, (v, s) in vals.items()},
+                files=sorted({str(e.get("file")) for e in members.values() if e.get("file")}))
+    return band, ""
+
+
+def dial_members(preds: Dict, designed: Dict, level: float, L: int, k: int, dial: str, p, patch=None, edge=None, qubits=None, stamp=None,
+                 probe_seed=None, K=None, table=None) -> tuple:
+    """({member: dict(var, sigma, var_cost, var_cost_sigma, ...)}, [missing members], note): one dial probe's realised-mask values at
+    the designed channel (``designed``, the ``dial_prediction(realised=True)`` hit) and at every vertex of ``level``
+    (``dial_vertices_*`` rows of the same placement, point, probe seed and mask count, matched on the vertex's channel)."""
+    from . import dial_channel as dc
+    table = table if table is not None else dc.load_table()
+    rows, _ents = _vertex_tables(preds)
+    tag = "kL" if k == L else ("k1" if k == 1 else None)
+    members, missing, notes = {dc.DESIGNED: designed}, [], []
+    qk = qubit_key(qubits)
+    d = rows
+    if len(d):
+        d = d[(d.L == L) & (d.dial.astype(str) == str(dial)) & np.isclose(d.p.astype(float), float(p or 0.0)) & (d.placement_qubits == qk)
+              & (d.placement_stamp.astype(str) == str(stamp)) & (d.mask_seed.astype(int) == int(probe_seed)) & (d.K.astype(int) == int(K))]
+        if patch:
+            d = d[d.patch.astype(str) == str(patch)]
+        if edge:
+            d = d[d.edge.astype(str).str.replace("-", "_") == str(edge).replace("-", "_")]
+    for vid, ch in dc.vertex_channels(table, level, dial).items():
+        if vid == dc.DESIGNED:
+            continue
+        if dc.is_designed(ch):
+            members[vid] = designed
+            continue
+        hit = d[d.channel_key.astype(str) == dc.channel_key(ch)] if len(d) else d
+        if len(hit) and "calibration_label" in hit.columns:
+            hit = hit[[_same_calibration(designed, v) for v in hit.calibration_label]]
+        files = sorted(set(hit.source.astype(str))) if len(hit) else []
+        if len(files) != 1 or len(hit) != 1 or tag is None or not np.isfinite(float(hit.iloc[-1].get(f"var_{tag}_realised", np.nan))):
+            missing.append(vid)
+            if len(files) > 1:
+                notes.append(f"{vid}: ambiguous, rows in {', '.join(files)}")
+            elif len(hit) > 1:
+                notes.append(f"{vid}: ambiguous, {len(hit)} rows for one channel in {files[0]}")
+            continue
+        r = hit.iloc[-1]
+        members[vid] = dict(var=float(r[f"var_{tag}_realised"]), sigma=float(r[f"se_{tag}_realised"]), var_cost=float(r.var_cost_realised),
+                            var_cost_sigma=float(r.se_cost_realised), realised=True, source=str(r.source), probe_id=r.get("probe_id"),
+                            mask_seed=int(r.mask_seed), K=int(r.K), channel={k_: float(r[f"channel_{k_}"]) for k_ in dc.PARAMS},
+                            calibration_label=r.get("calibration_label"),
+                            mask_classes=[int(v) for v in str(r.mask_classes).split()] if pd.notna(r.get("mask_classes")) else None,
+                            mix_exact=bool(r.get("mix_exact", True)), floor_grad_realised=r.get("floor_grad_realised"),
+                            floor_cost_realised=r.get("floor_cost_realised"), channel_sign_ok=r.get("channel_sign_ok"))
+    note = "" if not missing else (f"no vertex row (dial_vertices_*.csv) at level {level!r} for {', '.join(missing)}" + ("; " + "; ".join(notes) if notes else ""))
+    return members, missing, note
+
+
+def dial_band(preds: Dict, designed: Dict, level: float, L: int, k: int, dial: str, p, quantity: str = "var", **point) -> tuple:
+    """(band, note): the band of one dial comparator (``quantity``: 'var', the k-th gradient variance, or 'var_cost') over the
+    designed channel and the vertices of ``level``; None when a member is missing. ``point``: the keys of ``dial_members``."""
+    from . import dial_channel as dc
+    members, missing, note = dial_members(preds, designed, level, L, k, dial, p, **point)
+    if missing:
+        return None, note
+    sig = "sigma" if quantity == "var" else f"{quantity}_sigma"
+    vals = {vid: (float(m[quantity]), float(m[sig])) for vid, m in members.items()}
+    band = dc.band_of(vals, table=point.get("table"))
+    band.update(level=float(level), quantity=quantity, values={k_: dict(value=v, sigma=s) for k_, (v, s) in vals.items()},
+                files=sorted({str(m.get("source")) for m in members.values() if m.get("source")}))
+    return band, ""
+
+
 def _realised_dial(preds: Dict, mixture: Dict, L: int, k: int, dial: str, p, patch, edge, qk, stamp, probe_seed, K, fallback) -> tuple:
     """(prediction, note, fallback): the realised-mask row of the probe (``probe_seed``, ``K``) on the placement, the mixture beside."""
     what = f"{dial} p = {p} L = {L} on {patch} edge {edge}"

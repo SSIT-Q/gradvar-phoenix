@@ -12,10 +12,98 @@ from typing import Dict, List
 import numpy as np
 import pandas as pd
 
+from . import dial_channel as DC
 from . import predictions as P
 from .estimators import Z95, paired_ratio, probe_mask_seed
-from .floors import REALISED_FLOOR_RULE, calibration_for, dial_floor, realised_floor
+from .floors import REALISED_FLOOR_RULE, calibration_for, dial_floor, realised_floor, realised_floor_at_channel
 from .hypotheses import verdict
+
+# ------------------------------------------------------------------------------------------------ Deviation 64 (draft): the band
+# Not in force until the dial-channel table says 'adopted' (``dial_channel.band_enabled``): with the switch off every function below
+# takes the code path it had under pre-registration v0.18.0. With it on, a sub-test that compares with a pre-drawn dial value reads
+# the band of that value over the designed channel and the vertices of the day's level instead of the single designed value.
+_LEGACY = object()                      # default of the ``band`` arguments: the designed-channel comparison, as before
+BAND_RULE = ("Deviation 64 (draft, with review corrections C64-2 to C64-4): the comparator is the band [c_min, c_max], the smallest and the "
+             "largest of its values over the designed channel and the vertices of the dial-channel range at the day's level, with sigma_min "
+             "and sigma_max their engine errors (ratios, factors and margins formed vertex by vertex). The registered test of Deviation 60 "
+             "is unchanged (the linear combined interval for a value, the log-scale combined interval for a ratio) and the sub-test is "
+             "refuted only when the upper end of that combined interval, formed with sigma_min, lies below c_min, or its lower end, formed "
+             "with sigma_max, lies above c_max; a channel inside the range is an offset of unknown sign, so the band is a bound and is not "
+             "added in quadrature. Without every vertex value, without a level, or when the coherence check on the execution-time and "
+             "bracket calibrations (Deviation 65) fails or has not been made, the sub-test is not evaluable (not a miss). A verdict is "
+             "reported as read under the stated range of Deviation 64; Paper 2's Q4 changes no registered verdict.")
+COHERENCE_NOT_MADE = ("the coherence check on the execution-time and bracket calibrations of the jobs that carry the points has not been made "
+                      "(Deviation 65; preds['dial_band']['coherence'])")
+
+
+def _band(preds: Dict | None) -> Dict | None:
+    """None when Deviation 64 is not in force. Else dict(level, table, level_note, coherence, range_check): ``preds['dial_band']`` may
+    set ``enabled`` (default: the table's switch), ``level`` (the day's eps_A from the characterisation probes, ``evaluate_readings``
+    sets it; None: no level, the band sub-tests are not evaluable), ``table`` and ``coherence``, the outcome of review correction
+    C64-3's check: dict(not_evaluable={point id or probe id: reason}) from ``dial_channel.coherence_check`` on E and B of every job
+    that carries the points (the caller makes it with Deviation 65's calibrations, before any measured value is retrieved). Without
+    ``coherence`` the check has not been made and no band sub-test is evaluable."""
+    cfg = (preds or {}).get("dial_band") or {}
+    enabled = cfg.get("enabled")
+    if enabled is None:
+        enabled = DC.band_enabled()
+    if not enabled:
+        return None
+    level = cfg.get("level")
+    coh = cfg.get("coherence")
+    return dict(level=float(level) if level is not None else None, table=cfg.get("table") or DC.load_table(),
+                level_note=cfg.get("level_note") or ("" if level is not None else "no level of the dial-channel range for this run (no characterisation "
+                                                     "probes, or a reset error above the largest pre-drawn level)"),
+                coherence=coh, range_check=DC.RANGE_CHECK_PENDING if coh is None else
+                ("made: " + (f"{len(coh.get('not_evaluable') or {})} point(s) below the coherence floor" if (coh.get("not_evaluable") or {}) else "every light cone at or above the coherence floor")))
+
+
+def _coherence_gap(band: Dict, ids) -> str:
+    """'' when the coherence check (C64-3) was made and none of the sub-test's points or probes (``ids``) failed it; else the reason."""
+    coh = band.get("coherence")
+    if coh is None:
+        return COHERENCE_NOT_MADE
+    bad = coh.get("not_evaluable") or {}
+    hit = [str(i) for i in ids if i is not None and (i in bad or str(i) in bad)]
+    if hit:
+        return "; ".join(f"{i}: {bad.get(i, bad.get(str(i)))}" for i in hit) + " (T1 or T2 below the coherence floor on E or B: outside the stated range)"
+    return ""
+
+
+def _band_fields(band: Dict | None, why: str = "") -> Dict:
+    if band is None:
+        return dict(band=None, band_note=why or "no band: a vertex value or the level is missing", band_rule=BAND_RULE)
+    return dict(band=dict(lo=band["lo"], hi=band["hi"], lo_sigma=band["lo_sigma"], hi_sigma=band["hi_sigma"], lo_member=band["lo_member"],
+                          hi_member=band["hi_member"], level=band.get("level"), z=band["z"], values=band.get("values")), band_rule=BAND_RULE)
+
+
+def _member_band(members: Dict | None, key: str = "var") -> Dict | None:
+    """The band of one quantity over a point's members (``predictions.dial_members``), or None."""
+    if not members:
+        return None
+    sig = "sigma" if key == "var" else f"{key}_sigma"
+    try:
+        vals = {vid: (float(m[key]), float(m[sig])) for vid, m in members.items()}
+        return dict(DC.band_of(vals), values={vid: dict(value=v, sigma=s) for vid, (v, s) in vals.items()})
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
+def _ratio_band(num: Dict | None, den: Dict | None, key: str = "var") -> Dict | None:
+    """The band of a ratio formed vertex by vertex, both members at the same vertex (sigma: the two relative errors in quadrature)."""
+    if not num or not den or set(num) != set(den):
+        return None
+    sig = "sigma" if key == "var" else f"{key}_sigma"
+    vals = {}
+    try:
+        for vid in num:
+            a, b, sa, sb = (float(x) for x in (num[vid][key], den[vid][key], num[vid][sig], den[vid][sig]))
+            if not (b > 0 and a > 0):
+                return None
+            vals[vid] = (a / b, (a / b) * float(np.hypot(sa / a, sb / b)))
+        return dict(DC.band_of(vals), values={vid: dict(value=v, sigma=s) for vid, (v, s) in vals.items()})
+    except (KeyError, TypeError, ValueError):
+        return None
 
 H_TEXT = {
     "H5": "Non-unital cost-variance floor. Refuted if the paired-bootstrap interval of Var[C_mix](L = 12) / Var[C_mix](L = 8) misses the pre-drawn "
@@ -76,8 +164,25 @@ def mark_dial_floors(points: pd.DataFrame, snapshot_csv: str | None = None) -> p
 
 # ------------------------------------------------------------------------------------------------ combined-interval tests
 
-def _ratio_test(pr: Dict, pred: float, pred_sigma: float) -> Dict:
-    """Measured ratio (paired bootstrap) against a predicted ratio +/- sigma: combined interval on the log scale."""
+def _ratio_test(pr: Dict, pred: float, pred_sigma: float, band=_LEGACY) -> Dict:
+    """Measured ratio (paired bootstrap) against a predicted ratio +/- sigma: combined interval on the log scale. ``band`` (Deviation
+    64 draft; a ``_ratio_band`` or None when it could not be formed): the same combined interval against the band [c_min, c_max]
+    (``BAND_RULE``): ``combined_hi`` is formed with sigma_min, ``combined_lo`` with sigma_max, and the test fails only when
+    combined_hi < c_min or combined_lo > c_max."""
+    if band is not _LEGACY:
+        out = dict(measured=pr.get("ratio"), lo=pr.get("lo"), hi=pr.get("hi"), predicted=float(pred) if np.isfinite(pred) else pred,
+                   predicted_sigma=float(pred_sigma) if np.isfinite(pred_sigma) else None, **_band_fields(band))
+        if band is None or not np.isfinite(pr.get("ratio", np.nan)) or not (pr.get("lo", 0) > 0) or not np.isfinite(pr.get("hi", np.nan)):
+            return dict(out, within=None)
+        if not (band["lo"] > 0 and band["hi"] > 0):
+            return dict(out, within=None, band_note="the band of the ratio is not positive: no log-scale interval")
+        # the registered log-scale combined interval, its upper end formed with sigma_min and its lower end with sigma_max (C64-2)
+        wlo, whi = np.log(pr["ratio"] / pr["lo"]), np.log(pr["hi"] / pr["ratio"])
+        s_min, s_max = band["lo_sigma"] / band["lo"], band["hi_sigma"] / band["hi"]
+        c_hi = pr["ratio"] * np.exp(np.sqrt(whi ** 2 + (band["z"] * s_min) ** 2))
+        c_lo = pr["ratio"] * np.exp(-np.sqrt(wlo ** 2 + (band["z"] * s_max) ** 2))
+        return dict(out, measured=float(pr["ratio"]), lo=float(pr["lo"]), hi=float(pr["hi"]), combined_lo=float(c_lo), combined_hi=float(c_hi),
+                    within=bool(not (c_hi < band["lo"] or c_lo > band["hi"])))
     if not np.isfinite(pr.get("ratio", np.nan)) or not (pr.get("lo", 0) > 0) or not np.isfinite(pred) or pred <= 0:
         return dict(measured=pr.get("ratio"), lo=pr.get("lo"), hi=pr.get("hi"), predicted=pred, within=None)
     wlo, whi = np.log(pr["ratio"] / pr["lo"]), np.log(pr["hi"] / pr["ratio"])
@@ -99,22 +204,41 @@ H6_CONTROL_BOUNDS = ("Deviation 60 part (6): when the lower end of the dephasing
                      "miss, and H6 is then not-evaluable unless another sub-test fails. With a resolvably positive dephasing variance the "
                      "paired-bootstrap ratio test is unchanged.")
 H6_CONTROL_NOT_EVALUABLE = "not evaluable: the dephasing interval is not finite"
+H6_CONTROL_RESET_NOT_EVALUABLE = "not evaluable: the lower end of the reset interval is not finite"   # Deviation 64 (draft), with the band only
 
 
-def _control_bounds_test(ra, rb, pred: float, pred_sigma: float) -> Dict:
+def _control_bounds_test(ra, rb, pred: float, pred_sigma: float, band=_LEGACY) -> Dict:
     """H6 reset / dephasing control on the two points' intervals (``H6_CONTROL_BOUNDS``): ``ra`` the reset point, ``rb`` the
     dephasing point, ``pred`` the pre-drawn factor Var_reset / Var_dephase with ``pred_sigma``. No ratio with a non-positive
     denominator is formed; ``lo`` (reported only) is r_lo / d_hi when d_hi > 0. With a non-finite d_hi (the end of the dephasing
     interval this rule reads) nothing is compared: ``evaluable`` is False, ``exceeds`` and ``within`` are None and ``factor_note``
     is ``H6_CONTROL_NOT_EVALUABLE`` (Deviation 63 follow-up review, addendum 2, N2: not a failure of H6, and not 'no pre-drawn
-    factor')."""
+    factor').
+
+    ``band`` (Deviation 64 draft; the ``_ratio_band`` of the factor over the vertices, or None when it could not be formed): the
+    clause is open above, so it reads the largest factor over the vertices with its own relative sigma, F_max exp(1.96 s_max), in
+    place of F exp(1.96 s) (the registered form, the upper end formed with sigma_max: review correction C64-2); and a
+    non-finite lower end of the reset interval is then a computation gap as well (``H6_CONTROL_RESET_NOT_EVALUABLE``; part (b) of
+    docs/reviews/review_final_proposed_patches_2026-11-10.diff), not a failed clause. Without ``band`` both are as before."""
     r_lo, d_lo, d_hi = float(ra.signal_ci_lo), float(rb.signal_ci_lo), float(rb.signal_ci_hi)
-    evaluable = bool(np.isfinite(d_hi))
-    finite = bool(np.isfinite(r_lo) and evaluable)
-    has_pred = bool(np.isfinite(pred) and pred > 0)
-    s = (pred_sigma / pred) if (has_pred and np.isfinite(pred_sigma)) else 0.0
-    f_hi = pred * np.exp(Z95 * s) if has_pred else np.nan
+    banded = band is not _LEGACY
+    d_ok, r_ok = bool(np.isfinite(d_hi)), bool(np.isfinite(r_lo))
+    evaluable = bool(d_ok and r_ok) if banded else d_ok       # with the band neither end of the comparison may be a computation gap
+    finite = bool(r_ok and d_ok)
+    has_pred = bool(band is not None) if banded else bool(np.isfinite(pred) and pred > 0)
+    s = (pred_sigma / pred) if (has_pred and np.isfinite(pred) and pred > 0 and np.isfinite(pred_sigma)) else 0.0
+    f_hi = ((band["hi"] * np.exp(band["z"] * band["hi_sigma"] / band["hi"]) if band["hi"] > 0 else np.nan) if banded else pred * np.exp(Z95 * s)) if has_pred else np.nan
     tested = bool(finite and has_pred and d_hi > 0)          # d_hi <= 0: the interval excludes every admissible variance (addendum 2)
+    if banded:
+        return dict(rule="bounds", measured=None, lo=float(r_lo / d_hi) if (finite and d_hi > 0) else None, hi=None,
+                    reset_variance=float(ra.signal_variance), reset_lo=r_lo, dephasing_variance=float(rb.signal_variance), dephasing_lo=d_lo,
+                    dephasing_hi=d_hi, predicted=float(pred) if (np.isfinite(pred) and pred > 0) else None,
+                    predicted_sigma=float(pred_sigma) if (np.isfinite(pred) and pred > 0 and np.isfinite(pred_sigma)) else None,
+                    factor_hi=float(f_hi) if has_pred else None, within=bool(r_lo <= f_hi * d_hi) if tested else None,
+                    factor_tested=tested, factor_note=None if tested else (H6_CONTROL_NOT_EVALUABLE if not d_ok else H6_CONTROL_RESET_NOT_EVALUABLE if not r_ok else
+                                                                           "factor not tested: the dephasing interval lies at or below zero"
+                                                                           if has_pred else "no factor band: a vertex value or the level is missing"),
+                    exceeds=bool(r_lo > max(d_hi, 0.0)) if evaluable else None, evaluable=evaluable, note=H6_CONTROL_BOUNDS, **_band_fields(band))
     return dict(rule="bounds", measured=None, lo=float(r_lo / d_hi) if (finite and d_hi > 0) else None, hi=None,
                 reset_variance=float(ra.signal_variance), reset_lo=r_lo, dephasing_variance=float(rb.signal_variance), dephasing_lo=d_lo,
                 dephasing_hi=d_hi, predicted=float(pred) if has_pred else None,
@@ -126,8 +250,19 @@ def _control_bounds_test(ra, rb, pred: float, pred_sigma: float) -> Dict:
                 exceeds=bool(finite and r_lo > max(d_hi, 0.0)) if evaluable else None, evaluable=evaluable, note=H6_CONTROL_BOUNDS)
 
 
-def _value_test(meas: float, lo: float, hi: float, pred: float, pred_sigma: float) -> Dict:
-    """Measured value with its interval against a prediction +/- sigma: combined interval on the linear scale."""
+def _value_test(meas: float, lo: float, hi: float, pred: float, pred_sigma: float, band=_LEGACY) -> Dict:
+    """Measured value with its interval against a prediction +/- sigma: combined interval on the linear scale. ``band`` (Deviation
+    64 draft; a ``dial_channel.band_of`` dict, or None when it could not be formed): the same combined interval against the band
+    [c_min, c_max] (``BAND_RULE``): ``combined_hi`` = hi + 1.96 sigma_min, ``combined_lo`` = lo - 1.96 sigma_max, and the test fails
+    only when combined_hi < c_min or combined_lo > c_max; ``predicted`` stays the designed-channel value, for the record."""
+    if band is not _LEGACY:
+        out = dict(measured=meas, lo=lo, hi=hi, predicted=float(pred) if np.isfinite(pred) else pred,
+                   predicted_sigma=float(pred_sigma) if np.isfinite(pred_sigma) else None, **_band_fields(band))
+        if band is None or not (np.isfinite(meas) and np.isfinite(lo) and np.isfinite(hi)):
+            return dict(out, within=None)
+        c_lo, c_hi = lo - band["z"] * band["hi_sigma"], hi + band["z"] * band["lo_sigma"]
+        return dict(out, measured=float(meas), lo=float(lo), hi=float(hi), combined_lo=float(c_lo), combined_hi=float(c_hi),
+                    within=bool(not (c_hi < band["lo"] or c_lo > band["hi"])))
     if not (np.isfinite(meas) and np.isfinite(pred)):
         return dict(measured=meas, lo=lo, hi=hi, predicted=pred, within=None)
     pad = Z95 * pred_sigma if np.isfinite(pred_sigma) else 0.0
@@ -190,10 +325,93 @@ def _mix_ratio(num, den, key: str = "var") -> float | None:
     return float(a / b) if np.isfinite(a) and np.isfinite(b) and b > 0 else None
 
 
-def _realised_floors(r, pr) -> Dict:
+def _members(preds, r, pr, band: Dict | None, missing: list | None = None) -> Dict | None:
+    """Deviation 64 (draft): point ``r``'s realised-mask values at the designed channel (``pr``) and at every vertex of the day's
+    level (``predictions.dial_members``), or None with the reason recorded in ``missing`` (the sub-tests that need them are then
+    not evaluable)."""
+    if band is None or not pr:
+        return None
+    why = _coherence_gap(band, [getattr(r, "point_id", None), getattr(r, "probe_id", None)])
+    if why:
+        pass
+    elif band["level"] is None:
+        why = band["level_note"]
+    elif not pr.get("realised"):
+        why = "the point has no realised-mask comparator (no mask lottery): no band is defined for it"
+    else:
+        mem, miss, why = P.dial_members(preds, pr, band["level"], int(r.L), int(r.k), P.DIAL_KIND.get(str(r.arm), str(r.arm)), float(r.p),
+                                        patch=r.patch, edge=r.edge, qubits=getattr(r, "patch_qubits", None), stamp=getattr(r, "placement_stamp", None),
+                                        probe_seed=getattr(r, "probe_seed", None), K=getattr(r, "probe_K", None), table=band["table"])
+        if not miss:
+            return mem
+    if missing is not None:
+        missing.append(dict(point_id=getattr(r, "point_id", None), arm=str(r.arm), p=float(r.p), n=int(r.n), L=int(r.L), k=int(r.k),
+                            reason=f"Deviation 64 band: {why}", fallback=None))
+    return None
+
+
+FLOOR_EXACT_RULE = ("Deviation 64 (draft, review correction C64-7): the realised form of the floor is a bound where the channel's sign "
+                    "condition holds (eps1 >= eps0, r_x >= 0, r_y >= 0); for the rest of the range it rests on the exact two-copy test "
+                    "recorded for the range (dial_channel.floors_exact_test). Until that record says passed, a floor miss is reported and "
+                    "is not read as R3.")
+
+
+def _lowest_floors(r, members: Dict | None, table=None) -> Dict:
+    """Deviation 64 (draft): the point's realised Deviation 33 floors at the member of the band where each is lowest
+    (``floors.realised_floor_at_channel`` with the run-day readout and gain factors and the 16 mask-class counts the vertex rows
+    carry; the masks are the same for every member). The lowest floor is taken over every member. It is tested (a miss counts, and
+    feeds R3) only when the bound is established at every member: by the sign condition, or, for members where that fails
+    (``not_established``), by the recorded exact two-copy test (``FLOOR_EXACT_RULE``). Otherwise the floor and the miss are reported
+    under ``floor_<name>_reported`` and the clause is not tested. Not tested without members or factors."""
+    fac = [getattr(r, key, np.nan) for key in ("a_i", "b_i", "a_j", "b_j", "g_i", "g_j")]
+    classes = next((m.get("mask_classes") for m in (members or {}).values() if m.get("mask_classes")), None)
+    K = next((m.get("K") for m in (members or {}).values() if m.get("K")), None)
+    if not members or classes is None or not K or not all(np.isfinite(float(x)) for x in fac):
+        why = ("no vertex rows with mask-class counts (Deviation 64 band)" if not (members and classes) else "no run-day readout / gain factors for the floor")
+        return dict(floor_grad=np.nan, floor_cost=np.nan, grad_tested=False, cost_tested=False, grad_note=why, cost_note=why)
+    dial = P.DIAL_KIND.get(str(getattr(r, "arm", "reset")), str(getattr(r, "arm", "reset")))
+    per = {vid: realised_floor_at_channel(dict(K=int(K), classes=classes), *[float(x) for x in fac], channel=m.get("channel") or {}, dial=dial)
+           for vid, m in members.items()}
+    not_est = sorted(vid for vid, f in per.items() if not f["channel_sign_ok"])
+    exact = DC.floors_exact_test(table) if not_est else dict(passed=True, note="the sign condition holds at every member")
+    out = dict(not_established=not_est, exact_test=exact, floor_rule_exact=FLOOR_EXACT_RULE,
+               floors_by_member={vid: dict(floor_grad=f["floor_grad"], floor_cost=f["floor_cost"], sign_ok=f["channel_sign_ok"]) for vid, f in per.items()})
+    for name in ("grad", "cost"):
+        # a member's own gaps other than the channel's sign (a negative readout offset, a floor that is not positive, L = 1) stay gaps
+        own_ok = {vid: (f[f"{name}_tested"] if f["channel_sign_ok"] else bool(f[f"floor_{name}"] > 0 and not f.get(f"{name}_offset_bad") and f.get("has_prev", True)))
+                  for vid, f in per.items()}
+        vid = min(per, key=lambda v: per[v][f"floor_{name}"])
+        lowest = per[vid][f"floor_{name}"]
+        out.update({f"floor_{name}_reported": lowest, f"floor_{name}_member": vid})
+        if all(own_ok.values()) and exact["passed"]:
+            out.update({f"floor_{name}": lowest, f"{name}_tested": True, f"{name}_note": ""})
+        else:
+            bad = next((v for v in per if not own_ok[v]), None)
+            note = (per[bad][f"{name}_note"] or "no tested floor at a member") if bad is not None else \
+                (f"the realised bound is not established at {', '.join(not_est)} and the exact two-copy test is not recorded as passed "
+                 f"({exact['note']}): a floor miss is reported and is not read as R3")
+            out.update({f"floor_{name}": np.nan, f"{name}_tested": False, f"{name}_note": note})
+    return out
+
+
+def _reported_floor(rf: Dict, name: str, hi: float) -> Dict:
+    """The record of a band floor (``_lowest_floors``): the lowest floor over the members with its member, the members where the
+    realised bound is not established, the exact test's record, and whether the measured interval lies below the reported floor
+    (``below_floor_reported``: a miss that is reported and, while the floor is not tested, not read as R3)."""
+    rep_ = rf.get(f"floor_{name}_reported")
+    ok = rep_ is not None and np.isfinite(float(rep_)) and np.isfinite(float(hi))
+    return dict(floor_member=rf.get(f"floor_{name}_member"), floor_not_established=rf.get("not_established"), floor_reported=rep_,
+                below_floor_reported=bool(float(hi) < float(rep_)) if ok else None, floor_exact_test=rf.get("exact_test"),
+                floor_read_as_r3=bool(rf.get(f"{name}_tested")))
+
+
+def _realised_floors(r, pr, members=_LEGACY, table=None) -> Dict:
     """Deviation 60 part (7), option (b): the point's Deviation 33 floors re-derived on its probe's realised masks
     (``floors.realised_floor``: the realised prediction's mask counts with the run-day readout and gain factors of
-    ``mark_dial_floors``); the mixture floors stay beside them. Not tested without the realised mask counts."""
+    ``mark_dial_floors``); the mixture floors stay beside them. Not tested without the realised mask counts. ``members``
+    (Deviation 64 draft): the lowest floor over the band's members instead (``_lowest_floors``)."""
+    if members is not _LEGACY:
+        return _lowest_floors(r, members, table)
     stats = (pr or {}).get("mask_stats") or {}
     need = ("n_RR", "n_RK", "n_KR", "n_KK", "n1_i", "n2_i", "n1_j", "n2_j")
     fac = [getattr(r, key, np.nan) for key in ("a_i", "b_i", "a_j", "b_j", "g_i", "g_j")]
@@ -280,18 +498,23 @@ def evaluate_h5(points: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict
     Deviation 33 cost floor with its interval."""
     d = points[(points.kind == "reset_dial") & (points.arm == "reset") & (points.k == points.L)] if len(points) else points
     ratios, values, floors, missing, pairing = [], [], [], [], []
+    band = _band(preds)                  # Deviation 64 (draft): None unless adopted; then every comparator below is read as a band
     for p, g in d.groupby("p"):
         a, b = _by_rung(g[g.L == 8]), _by_rung(g[g.L == 12])
         for r in g.itertuples():
             pr = _pred(preds, r, missing=missing)
+            mem = _members(preds, r, pr, band, missing)
+            bkw = {} if band is None else dict(band=_member_band(mem, "var_cost"))
             values.append(dict(p=float(p), L=int(r.L), n=int(r.n), **_value_test(r.var_cmix_signal, r.var_cmix_signal_ci_lo, r.var_cmix_signal_ci_hi,
-                                                                                 pr["var_cost"] if pr else np.nan, pr.get("var_cost_sigma", np.nan) if pr else np.nan),
+                                                                                 pr["var_cost"] if pr else np.nan, pr.get("var_cost_sigma", np.nan) if pr else np.nan, **bkw),
                                realised=bool((pr or {}).get("realised")), predicted_mixture=_mix(pr, "var_cost") if pr else None))
-            rf = _realised_floors(r, pr)
+            rf = _realised_floors(r, pr) if band is None else _realised_floors(r, pr, members=mem, table=band["table"])
             floors.append(dict(p=float(p), L=int(r.L), n=int(r.n), **_floor_test(r.var_cmix_signal, r.var_cmix_signal_ci_lo, r.var_cmix_signal_ci_hi,
                                                                               rf["floor_cost"] if rf["cost_tested"] else np.nan),
-                               floor_rule="realised masks (Deviation 60 part (7), option (b))", floor_tested=bool(rf["cost_tested"]),
-                               floor_note=rf["cost_note"], floor_mixture=r.floor_cost, mele_floor=r.mele_floor))
+                               floor_rule="realised masks (Deviation 60 part (7), option (b))" + ("" if band is None else "; lowest over the band's members (Deviation 64 draft)"),
+                               floor_tested=bool(rf["cost_tested"]),
+                               floor_note=rf["cost_note"], floor_mixture=r.floor_cost, mele_floor=r.mele_floor,
+                               **({} if band is None else _reported_floor(rf, "cost", r.var_cmix_signal_ci_hi))))
         for key in sorted(set(a) & set(b), key=str):    # L = 8 and L = 12 of the same rung and placement (day 3: p = 0.25 L = 8 on three rungs)
             what = f"H5 depth ratio p = {float(p):g} on {key[0]} n = {key[1]}"
             ra, rb = _one_point(a[key], what + " (L = 8)", pairing), _one_point(b[key], what + " (L = 12)", pairing)
@@ -301,7 +524,8 @@ def evaluate_h5(points: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict
             meas = _var_ratio_blocks(rb.cmix_draws, ra.cmix_draws, rb.var_cmix_floor, ra.var_cmix_floor, n_boot)
             pred = (pr12["var_cost"] / pr8["var_cost"]) if (pr8 and pr12 and pr8["var_cost"] > 0) else np.nan
             ps = pred * np.sqrt((pr12.get("var_cost_sigma", 0) / pr12["var_cost"]) ** 2 + (pr8.get("var_cost_sigma", 0) / pr8["var_cost"]) ** 2) if np.isfinite(pred) else np.nan
-            ratios.append(dict(p=float(p), n=int(ra.n), **_ratio_test(meas, pred, ps), predicted_mixture=_mix_ratio(pr12, pr8, "var_cost")))
+            bkw = {} if band is None else dict(band=_ratio_band(_members(preds, rb, pr12, band), _members(preds, ra, pr8, band), "var_cost"))
+            ratios.append(dict(p=float(p), n=int(ra.n), **_ratio_test(meas, pred, ps, **bkw), predicted_mixture=_mix_ratio(pr12, pr8, "var_cost")))
     ev = [x for x in ratios + values if x["within"] is not None]
     fl = [x for x in floors if x["below_floor_with_interval"] is not None]
     miss, miss_note = _missing(missing)
@@ -310,6 +534,8 @@ def evaluate_h5(points: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict
         return verdict("H5", H_TEXT["H5"], "not-evaluable", note="no reset k = L point with Var[C_mix], a prediction and a Deviation 33 floor" + miss_note,
                        ratios=ratios, values=values, floors=floors, missing_predictions=miss, pairing=pairing)
     fails = [x for x in ev if not x["within"]] + [x for x in fl if x["below_floor_with_interval"]]
+    if band is not None:
+        miss_note += f"; {BAND_RULE} Level {band['level']!r}; coherence check on the execution-time and bracket calibrations: {band['range_check']}"
     return verdict("H5", H_TEXT["H5"], "fail" if fails else "pass", value=dict(ratio_misses=sum(1 for x in ratios if x["within"] is False), value_misses=sum(1 for x in values if x["within"] is False),
                                                                           below_floor=sum(1 for x in fl if x["below_floor_with_interval"])), threshold="0 of each",
                    note=f"{len(ratios)} depth ratios, {len(values)} values, {len(fl)} floor checks evaluated; p^4/9 is a reference line only (Deviation 33)" + miss_note,
@@ -326,13 +552,17 @@ def evaluate_h6(points: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict
     d = points[points.kind == "reset_dial"] if len(points) else points
     reset = _sel(d, "reset")
     floors, ratios, ladder, controls, k1, missing, pairing = [], [], [], [], [], [], []
+    band = _band(preds)                  # Deviation 64 (draft): None unless adopted
     for r in reset.itertuples():
-        rf = _realised_floors(r, _pred(preds, r, missing=missing) if int(r.k) == int(r.L) else None)
+        pr_r = _pred(preds, r, missing=missing) if int(r.k) == int(r.L) else None
+        rf = _realised_floors(r, pr_r) if band is None else _realised_floors(r, pr_r, members=_members(preds, r, pr_r, band, missing), table=band["table"])
         fg = rf["floor_grad"] if rf["grad_tested"] else np.nan
         head = (r.signal_variance / fg, r.signal_ci_lo / fg, r.signal_ci_hi / fg) if np.isfinite(fg) and fg > 0 else (np.nan, np.nan, np.nan)
         floors.append(dict(p=float(r.p), n=int(r.n), L=int(r.L), headline_ratio=head[0], headline_lo=head[1], headline_hi=head[2], mele_floor=r.mele_floor,
-                           floor_rule="realised masks (Deviation 60 part (7), option (b))", floor_tested=bool(rf["grad_tested"]), floor_note=rf["grad_note"],
+                           floor_rule="realised masks (Deviation 60 part (7), option (b))" + ("" if band is None else "; lowest over the band's members (Deviation 64 draft)"),
+                           floor_tested=bool(rf["grad_tested"]), floor_note=rf["grad_note"],
                            floor_mixture=r.floor_grad, headline_ratio_mixture=r.headline_ratio,
+                           **({} if band is None else _reported_floor(rf, "grad", r.signal_ci_hi)),
                            **_floor_test(r.signal_variance, r.signal_ci_lo, r.signal_ci_hi, fg)))
     for p, g in reset.groupby("p"):
         a, b = _by_rung(g[g.L == 8]), _by_rung(g[g.L == 12])
@@ -345,7 +575,8 @@ def evaluate_h6(points: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict
             meas = paired_ratio(rb.gradients, ra.gradients, n_boot, sub_a=rb.shot_vars, sub_b=ra.shot_vars)
             pred = pr12["var"] / pr8["var"] if (pr8 and pr12 and pr8["var"] > 0) else np.nan
             ps = pred * np.sqrt((pr12["sigma"] / pr12["var"]) ** 2 + (pr8["sigma"] / pr8["var"]) ** 2) if np.isfinite(pred) else np.nan
-            ratios.append(dict(p=float(p), n=int(ra.n), **_ratio_test(meas, pred, ps), predicted_mixture=_mix_ratio(pr12, pr8)))
+            bkw = {} if band is None else dict(band=_ratio_band(_members(preds, rb, pr12, band), _members(preds, ra, pr8, band)))
+            ratios.append(dict(p=float(p), n=int(ra.n), **_ratio_test(meas, pred, ps, **bkw), predicted_mixture=_mix_ratio(pr12, pr8)))
     lad = _sel(reset, "reset", 0.25, 8)
     lo_n, hi_n = _sel(lad, "reset", n=LADDER_LOW, patch=LADDER_LOW_PATCH), _sel(lad, "reset", n=LADDER_HIGH, patch=LADDER_HIGH_PATCH)
     if len(lo_n) and len(hi_n):
@@ -362,7 +593,8 @@ def evaluate_h6(points: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict
             meas = paired_ratio(rb.gradients, ra.gradients, n_boot, sub_a=rb.shot_vars, sub_b=ra.shot_vars)
             pred = prb["var"] / pra["var"] if (pra and prb and pra["var"] > 0) else np.nan
             ps = pred * np.sqrt((prb["sigma"] / prb["var"]) ** 2 + (pra["sigma"] / pra["var"]) ** 2) if np.isfinite(pred) else np.nan
-            ladder.append(dict(n_low=int(ra.n), n_high=int(rb.n), **_ratio_test(meas, pred, ps), predicted_mixture=_mix_ratio(prb, pra)))
+            bkw = {} if band is None else dict(band=_ratio_band(_members(preds, rb, prb, band, missing), _members(preds, ra, pra, band, missing)))
+            ladder.append(dict(n_low=int(ra.n), n_high=int(rb.n), **_ratio_test(meas, pred, ps, **bkw), predicted_mixture=_mix_ratio(prb, pra)))
     deph = _sel(d, "dephase", None, 8, n=CONTROL_N, patch=CONTROL_PATCH)
     rs = _sel(reset, "reset", 0.5, 8, n=CONTROL_N, patch=CONTROL_PATCH)
     control_pair = None
@@ -382,12 +614,14 @@ def evaluate_h6(points: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict
         pred = pra["var"] / prb["var"] if (pra and prb and prb["var"] > 0) else np.nan
         ps = pred * np.sqrt((pra["sigma"] / pra["var"]) ** 2 + (prb["sigma"] / prb["var"]) ** 2) if np.isfinite(pred) else np.nan
         d_lo = float(rb.signal_ci_lo)
+        # Deviation 64 (draft): the factor is formed vertex by vertex (the dephasing dial takes the vertex's gamma and clipped kappa)
+        bkw = {} if band is None else dict(band=_ratio_band(_members(preds, ra, pra, band), _members(preds, rb, prb, band, missing)))
         if np.isfinite(d_lo) and d_lo > 0 and np.isfinite(meas.get("ratio", np.nan)):     # dephasing variance resolvably positive
-            t = _ratio_test(meas, pred, ps)
+            t = _ratio_test(meas, pred, ps, **bkw)
             t["exceeds"] = bool(np.isfinite(meas.get("lo", np.nan)) and meas["lo"] > 1.0)
             t["rule"] = "ratio"
         else:                                                                               # Deviation 60 part (6): bounds, no ratio
-            t = _control_bounds_test(ra, rb, pred, ps)
+            t = _control_bounds_test(ra, rb, pred, ps, **bkw)
         controls.append(dict(n=int(ra.n), p=float(ra.p), **t, predicted_mixture=_mix_ratio(pra, prb)))
     for p, g in _sel(d, "reset", k_eq_L=False).pipe(lambda x: x[x.k == 1]).groupby("p"):
         a, b = g[g.L == 8], g[g.L == 12]
@@ -415,6 +649,10 @@ def evaluate_h6(points: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict
     control_gap = [x for x in controls if x.get("evaluable") is False]
     tested_controls = [x for x in controls if x.get("evaluable") is not False]
     gap_note = f"; reset / dephasing control {H6_CONTROL_NOT_EVALUABLE} (a computation gap, not counted as a miss)" if control_gap else ""
+    if band is not None:                 # Deviation 64 (draft): the gap may be the reset interval's (patch part (b)); say which
+        gap_note = (f"; reset / dephasing control {control_gap[0].get('factor_note') or H6_CONTROL_NOT_EVALUABLE} (a computation gap, not counted as a miss)"
+                    if control_gap else "")
+        miss_note += f"; {BAND_RULE} Level {band['level']!r}; coherence check on the execution-time and bracket calibrations: {band['range_check']}"
     if not fl and not ev and not tested_controls:
         return verdict("H6", H_TEXT["H6"], "not-evaluable", note="no reset k = L point with a Deviation 33 floor or a pre-drawn ratio" + gap_note + miss_note, floors=floors,
                        depth_ratios=ratios, ladder=ladder, controls=controls, k1_series=k1, unital_reference=flat_reference, missing_predictions=miss,
@@ -631,6 +869,43 @@ def _truncation_point(t: pd.DataFrame) -> Dict:
                 stamp=next(iter(stamps)), seed=seed, K=K)
 
 
+def _dispatch_record(t: pd.DataFrame) -> Dict:
+    """Deviation 64 (draft): what the band reads of a truncation arm's rows beside its point: the probe ids (the coherence check is
+    keyed by them) and the UTC days on which the rows' jobs were submitted (``job_submit_time``; none recorded: an empty list)."""
+    ids = sorted(set(t.probe_id.dropna().astype(str))) if "probe_id" in t.columns else []
+    days = []
+    if "job_submit_time" in t.columns:
+        ts = pd.to_datetime(t.job_submit_time.replace("", np.nan), errors="coerce", utc=True).dropna()
+        days = sorted({d.strftime("%Y-%m-%d") for d in ts})
+    return dict(probe_ids=ids, dispatch_days=days)
+
+
+PAIRS_LEVEL_RULE = ("Deviation 64 (draft, review correction C64-6): the pairs' list carries no characterisation probes; it takes the level "
+                    "of the day-3 list when it is dispatched in the same cycle on the same UTC day, and otherwise its comparator sub-tests "
+                    "are not evaluable")
+
+
+def _pairs_band(band: Dict | None, rows: pd.DataFrame, point: Dict, ref_rows: pd.DataFrame | None, ref_point: Dict | None) -> Dict | None:
+    """The band a pair of the pairs' list reads: day 3's (``band``) when the pair's rows and day 3's truncation rows were packaged on
+    one placement snapshot (the cycle) and submitted on one and the same UTC day; else the band without a level, with the reason."""
+    if band is None:
+        return None
+    why = ""
+    if ref_point is None or ref_rows is None or not len(ref_rows):
+        why = "day 3's list is not among the loaded runs"
+    else:
+        a, b = _dispatch_record(rows)["dispatch_days"], _dispatch_record(ref_rows)["dispatch_days"]
+        if point.get("stamp") is None or point.get("stamp") != ref_point.get("stamp"):
+            why = f"packaged on placement snapshot {point.get('stamp')}, day 3 on {ref_point.get('stamp')}: not the same cycle"
+        elif not a or not b:
+            why = "the rows record no submission time, so the same UTC day cannot be shown"
+        elif len(a) != 1 or a != b:
+            why = f"submitted on {', '.join(a)}, day 3 on {', '.join(b)}: not one and the same UTC day"
+    if why:
+        return dict(band, level=None, level_note=f"{PAIRS_LEVEL_RULE}: {why}")
+    return band
+
+
 H7_POINT = dict(arm="reset", p=0.5)                 # the registered H7 truncation point (Section 3b 'Truncation arm')
 
 
@@ -707,7 +982,15 @@ def evaluate_h7(rows: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict:
                        "without it, whatever the l = 4 test shows" + other_note, checks=checks, **common)
     l2 = out[2]
     ps = comp.get("rms_l2_sigma")
-    checks["l2"] = _value_test(l2["rms"], l2["rms_lo"], l2["rms_hi"], float(comp["rms_l2"]), float(ps) if ps is not None else np.nan)
+    band = _band(preds)                  # Deviation 64 (draft): None unless adopted
+    if band is None:
+        checks["l2"] = _value_test(l2["rms"], l2["rms_lo"], l2["rms_hi"], float(comp["rms_l2"]), float(ps) if ps is not None else np.nan)
+    else:
+        tb, why_b = _truncation_band(preds, comp, band, dict(point, **_dispatch_record(t)), H7_POINT["arm"])
+        checks["l2"] = _value_test(l2["rms"], l2["rms_lo"], l2["rms_hi"], float(comp["rms_l2"]), float(ps) if ps is not None else np.nan, band=tb)
+        if tb is None:
+            return verdict("H7", H_TEXT["H7"], "not-evaluable", note=f"Deviation 64 band of the l = 2 comparator: {why_b} (not evaluable, not a miss)" + other_note,
+                           checks=checks, **common)
     if checks["l2"]["within"] is None:
         return verdict("H7", H_TEXT["H7"], "not-evaluable", note="the l = 2 RMS or its comparator is not finite" + other_note, checks=checks, **common)
     fails = [] if checks["l2"]["within"] else ["l2"]
@@ -723,6 +1006,10 @@ def evaluate_h7(rows: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict:
         note += (f" on the probe's realised masks (Deviation 60 part (7)); the mixture comparator "
                  f"{float(mix):.4g} ({(comp.get('mixture') or {}).get('file')}) is recorded only" if mix is not None else
                  " on the probe's realised masks (Deviation 60 part (7))")
+    if band is not None:
+        b = checks["l2"]["band"]
+        note += (f"; {BAND_RULE} Level {band['level']!r}: band [{b['lo']:.4g}, {b['hi']:.4g}] (lowest at {b['lo_member']}, highest at "
+                 f"{b['hi_member']}); coherence check on the execution-time and bracket calibrations: {band['range_check']}")
     if 4 in out:
         note += "; " + L4_RULE
     note += other_note
@@ -810,7 +1097,33 @@ def _pair_stat(t: pd.DataFrame, preds: Dict, arm: str, n_boot: int) -> Dict:
     comp, why = P.truncation_prediction(preds, reset_kind=arm,
                                         **{k: point[k] for k in ("patch", "edge", "n", "p", "L", "qubits", "stamp", "seed", "K")},
                                         realised=P.realised_applies(arm, point["K"]))       # Deviation 60 part (7): the pair's realised masks
+    if _band(preds) is not None:                                # Deviation 64 (draft): read by the band only; nothing added otherwise
+        point = dict(point, **_dispatch_record(t))
     return dict(point=point, stat=stat, comparator=comp, why=why, full=full, cut=cut)
+
+
+def _truncation_band(preds: Dict, comp: Dict, band: Dict, point: Dict, arm: str) -> tuple:
+    """Deviation 64 (draft): (band, note) of a truncation arm's l = 2 comparator over the designed channel (``comp``) and the
+    vertices of the day's level, with the members under ``members`` (``predictions.truncation_members``); None with the reason
+    when the coherence check (C64-3) fails or was not made, there is no level, the comparator is not a realised-mask one, or a
+    vertex entry is missing. ``band['level']`` is the level this arm reads (the pairs: ``_pairs_band``)."""
+    gap = _coherence_gap(band, list(comp.get("probes") or []) + list(point.get("probe_ids") or []))
+    if gap:
+        return None, gap
+    if band["level"] is None:
+        return None, band["level_note"]
+    if not comp.get("realised"):
+        return None, "the comparator is not a realised-mask entry: no vertex entries are defined for it"
+    kw = dict({k: point[k] for k in ("patch", "edge", "n", "p", "L", "qubits", "stamp", "seed", "K")}, reset_kind=arm, table=band["table"])
+    members, missing, note = P.truncation_members(preds, comp, band["level"], **kw)
+    if missing:
+        return None, note
+    try:
+        tb = DC.band_of({vid: (float(e["rms_l2"]), float(e["rms_l2_sigma"])) for vid, e in members.items()})
+    except (KeyError, TypeError, ValueError) as ex:
+        return None, f"a member has no l = 2 value with its engine error ({ex})"
+    tb.update(level=band["level"], values={vid: dict(value=float(e["rms_l2"]), sigma=float(e["rms_l2_sigma"])) for vid, e in members.items()}, members_=members)
+    return tb, ""
 
 
 def _comparator_note(comp: Dict | None, label: str) -> str:
@@ -863,7 +1176,13 @@ def evaluate_truncation_pairs(rows: pd.DataFrame, preds: Dict, n_boot: int = 10_
             out[key] = verdict(hid, text, "not-evaluable", note=f"no pre-drawn l = 2 comparator for this pair on this placement ({s['why']})", **common)
             continue
         ps = comp.get("rms_l2_sigma")
-        checks = dict(l2=_value_test(stat["rms"], stat["rms_lo"], stat["rms_hi"], float(comp["rms_l2"]), float(ps) if ps is not None else np.nan))
+        band = _band(preds)              # Deviation 64 (draft): None unless adopted
+        pband = _pairs_band(band, rk, s["point"], ref_rows, ref.get("point"))     # the level the pairs' list may take (C64-6)
+        own_band, own_why = (None, "") if band is None else _truncation_band(preds, comp, pband, s["point"], spec["arm"])
+        bkw = {} if band is None else dict(band=own_band)
+        checks = dict(l2=_value_test(stat["rms"], stat["rms_lo"], stat["rms_hi"], float(comp["rms_l2"]), float(ps) if ps is not None else np.nan, **bkw))
+        if band is not None and own_band is None:
+            checks["l2"]["band_note"] = own_why
         if "error" in ref:
             out[key] = verdict(hid, text, "not-evaluable", note=f"day 3's reset p = 0.5 pair is needed for the between-pair test: {ref['error']}",
                                checks=checks, **common)
@@ -876,7 +1195,9 @@ def evaluate_truncation_pairs(rows: pd.DataFrame, preds: Dict, n_boot: int = 10_
         checks["versus_reset_p0.5"] = dict(between, reference_rms=ref["stat"]["rms"], reference_rms_lo=ref["stat"]["rms_lo"], reference_rms_hi=ref["stat"]["rms_hi"])
         if key == "a":
             if checks["l2"]["within"] is None or between["a_above_b"] is None:
-                out[key] = verdict(hid, text, "not-evaluable", note="the RMS(2) or its comparator, or the between-strength difference, is not finite", checks=checks, **common)
+                out[key] = verdict(hid, text, "not-evaluable", note="the RMS(2) or its comparator, or the between-strength difference, is not finite"
+                                   if (band is None or own_band is not None) else f"Deviation 64 band of the comparator: {own_why} (not evaluable, not a miss)",
+                                   checks=checks, **common)
                 continue
             fails = ([] if checks["l2"]["within"] else ["comparator"]) + ([] if between["a_above_b"] else ["not above p = 0.5"])
             out[key] = verdict(hid, text, "fail" if fails else "pass", value=dict(rms_l2=stat["rms"], minus_p05=between["point_difference"]),
@@ -891,14 +1212,31 @@ def evaluate_truncation_pairs(rows: pd.DataFrame, preds: Dict, n_boot: int = 10_
         margin = float(comp["rms_l2"]) - float(ref_comp["rms_l2"])
         s_d, s_r = (float(x) if x is not None else 0.0 for x in (comp.get("rms_l2_sigma"), ref_comp.get("rms_l2_sigma")))
         m_sigma = float(np.hypot(s_d, s_r))
-        mt = _value_test(between["point_difference"], between["lo"], between["hi"], margin, m_sigma)
+        if band is None:
+            mt = _value_test(between["point_difference"], between["lo"], between["hi"], margin, m_sigma)
+        else:
+            # the margin is formed vertex by vertex, both comparators at the same vertex; the clause reads the smallest margin
+            ref_band, ref_why = _truncation_band(preds, ref_comp, band, ref["point"], H7_POINT["arm"])
+            mb, m_why = None, own_why or ref_why
+            if own_band is not None and ref_band is not None:
+                dm, rm = own_band["members_"], ref_band["members_"]
+                mb = DC.band_of({vid: (float(dm[vid]["rms_l2"]) - float(rm[vid]["rms_l2"]),
+                                       float(np.hypot(float(dm[vid]["rms_l2_sigma"]), float(rm[vid]["rms_l2_sigma"])))) for vid in dm})
+                mb["level"] = band["level"]
+            mt = _value_test(between["point_difference"], between["lo"], between["hi"], margin, m_sigma, band=mb)
+            if mb is None:
+                mt["band_note"] = m_why
         mixes = [(c.get("mixture") or {}).get("rms_l2") for c in (comp, ref_comp)]
         checks["margin"] = dict(mt, margin=margin, margin_sigma=m_sigma, realised=bool(comp.get("realised") and ref_comp.get("realised")),
                                 margin_mixture=(float(mixes[0]) - float(mixes[1])) if None not in mixes else None)   # recorded only (part (7))
         if mt["within"] is None:
-            out[key] = verdict(hid, text, "not-evaluable", note="the difference or the margin is not finite", checks=checks, **common)
+            out[key] = verdict(hid, text, "not-evaluable", note="the difference or the margin is not finite" if band is None else
+                               f"Deviation 64 band of the margin: {mt.get('band_note') or 'the difference is not finite'} (not evaluable, not a miss)",
+                               checks=checks, **common)
             continue
-        below = bool(mt["combined_hi"] < margin)
+        # with the band (C64-2): refuted only when the upper end of the registered interval lies below m_min - 1.96 sigma_m, i.e.
+        # hi + 1.96 sigma_m < m_min (``combined_hi`` is formed with the sigma of the smallest margin)
+        below = bool(mt["combined_hi"] < margin) if band is None else bool(mt["combined_hi"] < mt["band"]["lo"])
         fails = ["below the pre-drawn margin"] if below else []
         extra = {}
         if (h7 or {}).get("result") == "fail":                     # checkpoint review S3: separate (b) from a miss on H7
@@ -969,16 +1307,33 @@ def _point_mask_seeds(rows: pd.DataFrame | None, point_id) -> tuple:
 
 
 CHARACTERISATION_IDS = dict(reset="reset_error_prep1", ref0="readout_ref_prep0", ref1="readout_ref_prep1")   # Section 3b, day-3 list
+CHARACTERISATION_RESET0 = "reset_error_prep0"       # Deviation 64 (draft), decision 3 (a): P(1) after |0> -> native reset -> measure; lists from the next re-package on
+LEVEL_TEXT = ("Deviation 64 (draft, review corrections C64-5 and C64-6): on every qubit of the n60 rung u_q = max(eps_hat_q, 0) + z s_q, "
+              "eps_hat_q = (a - b) / (c - b) with a, b, c the fractions of outcome 1 in reset_error_prep1, readout_ref_prep0 and "
+              "readout_ref_prep1, and s_q^2 = [a (1 - a) + (1 - eps_hat_q)^2 b (1 - b) + eps_hat_q^2 c (1 - c)] / [N (c - b)^2], N the shots "
+              "of each probe; the day's level eps_A is the smallest pre-drawn level of the dial-channel table with u_q <= eps_A on every "
+              "qubit of the rung, for eps1 (the reset of |1>) and, when the list carries reset_error_prep0, for eps0 (the reset of |0>) by "
+              "the same formula with a from that probe; without that probe eps0 is stated, taken no worse than eps1's level. Above the "
+              "largest level, when a probe is missing for a qubit of the rung, or when the probes' job is not evaluable under Deviation "
+              "65, there is no level and the band sub-tests are not evaluable.")
 
 
-def reset_errors_from_characterisation(reset_error: pd.DataFrame | None) -> Dict[int, float]:
+def reset_errors_from_characterisation(reset_error: pd.DataFrame | None, detail: bool = False, table=None, rung_qubits=None) -> Dict:
     """eps_q per qubit from the characterisation probes of the day's list (``RunData.reset_error``, ``EPS_TEXT``): P(1) after |1> ->
     native reset -> measure, unfolded with the readout references on the same qubits. The probes are taken by their Section 3b ids
     (``CHARACTERISATION_IDS``) when the table has them, else by kind (reset_kind 'reset' with prep 1; reset_kind 'none' with prep 0
     and prep 1), never from a rep-delay ladder probe (``rep_delay_us`` set). Qubits without all three are absent (they take eps = 0
-    in ``mean_cmix_check``)."""
+    in ``mean_cmix_check``).
+
+    ``detail`` (Deviation 64 draft, ``LEVEL_TEXT``): instead of {qubit: eps}, a dict with ``eps`` (that mapping), ``s`` and ``u``
+    per qubit, the same three for the reset of |0> under ``eps0`` / ``s0`` / ``u0`` when the table has ``reset_error_prep0`` (by its
+    id only), ``eps0_source`` ('probe' or 'stated'), ``u_max``, ``level`` (None above the largest pre-drawn level or without
+    probes) and ``level_note``. ``rung_qubits``: the qubits of the n60 rung, over which the level is taken; a probe missing for one
+    of them leaves no level (C64-6). Without ``rung_qubits`` there is no level either (the rung is not known); ``u`` is still
+    returned for every probed qubit. The default return is unchanged."""
     if reset_error is None or not len(reset_error):
-        return {}
+        return {} if not detail else dict(eps={}, s={}, u={}, eps0={}, s0={}, u0={}, eps0_source="stated", u_max=None, level=None,
+                                          level_note="no characterisation probes in the run", rule=LEVEL_TEXT)
     t = reset_error.assign(p1=pd.to_numeric(reset_error.p1, errors="coerce"), prep=reset_error.prep.astype(str),
                            reset_kind=reset_error.reset_kind.astype(str))
     t = t[np.isfinite(t.p1)]
@@ -996,7 +1351,65 @@ def reset_errors_from_characterisation(reset_error: pd.DataFrame | None) -> Dict
     for q, v in r1.items():
         if q in e0.index and q in e1.index and float(e1[q] - e0[q]) > 0:
             out[int(q)] = float(max((float(v) - float(e0[q])) / float(e1[q] - e0[q]), 0.0))
-    return out
+    if not detail:
+        return out
+    table = table if table is not None else DC.load_table()
+    z = float(table["level_rule"]["z"])
+    shots_col = pd.to_numeric(t.shots, errors="coerce") if "shots" in t.columns else pd.Series(np.nan, index=t.index)
+
+    def counts(key: str | None, kind: str, prep: str, named_id: str | None = None) -> pd.Series:
+        """Total shots per qubit of the rows ``per`` averages (NaN when the table records none)."""
+        named = t[ids == (named_id or CHARACTERISATION_IDS[key])]
+        x = named if (len(named) or named_id) else t[(t.reset_kind == kind) & (t.prep == prep)]
+        return shots_col.loc[x.index].groupby(x.qubit).sum(min_count=1)
+
+    n_r, n_0, n_1 = counts("reset", "reset", "1"), counts("ref0", "none", "0"), counts("ref1", "none", "1")
+
+    def spread(r, nr, q) -> tuple:
+        """(eps_hat clipped at 0, s): s^2 = [r (1 - r) / N_r + (1 - e)^2 e0 (1 - e0) / N_0 + e^2 e1 (1 - e1) / N_1] / (e1 - e0)^2, e unclipped."""
+        a, b = float(e0[q]), float(e1[q])
+        raw = (float(r) - a) / (b - a)
+        var = (float(r) * (1 - float(r)) / float(nr) + (1 - raw) ** 2 * a * (1 - a) / float(n_0.get(q, np.nan))
+               + raw ** 2 * b * (1 - b) / float(n_1.get(q, np.nan))) / (b - a) ** 2
+        return max(raw, 0.0), float(np.sqrt(var)) if np.isfinite(var) and var >= 0 else float("nan")
+
+    s1, u1, eps0, s0, u0 = {}, {}, {}, {}, {}
+    for q in out:
+        _e, s1[q] = spread(r1[q], n_r.get(q, np.nan), q)
+        u1[q] = out[q] + z * s1[q]
+    named0 = t[ids == CHARACTERISATION_RESET0]
+    r0 = named0.groupby("qubit").p1.mean() if len(named0) else pd.Series(dtype=float)
+    n_r0 = counts(None, "reset", "0", named_id=CHARACTERISATION_RESET0) if len(named0) else pd.Series(dtype=float)
+    for q, v in r0.items():
+        if q in e0.index and q in e1.index and float(e1[q] - e0[q]) > 0:
+            eps0[int(q)], s0[int(q)] = spread(v, n_r0.get(q, np.nan), q)
+            u0[int(q)] = eps0[int(q)] + z * s0[int(q)]
+    has0 = bool(len(eps0))
+    rung = sorted({int(q) for q in rung_qubits}) if rung_qubits is not None else None
+    note, u_max, level = "", None, None
+    if not out:
+        note = "no qubit with the reset probe and both readout references"
+    elif not rung:
+        note = "the qubits of the n60 rung are not known for this run: no level"
+    else:
+        lack1 = [q for q in rung if q not in u1]
+        lack0 = [q for q in rung if q not in u0] if has0 else []
+        us = [u1[q] for q in rung if q in u1] + ([u0[q] for q in rung if q in u0] if has0 else [])
+        if lack1 or lack0:
+            note = ("a characterisation probe is missing for " + "; ".join(f"{len(x)} qubit(s) of the n60 rung ({name}: {' '.join(map(str, x[:8]))}{' ...' if len(x) > 8 else ''})"
+                                                                              for name, x in (("reset_error_prep1 or a readout reference", lack1), ("reset_error_prep0", lack0)) if x)
+                    + ": no level")
+        elif not all(np.isfinite(x) for x in us):
+            note = "the probes record no shot counts for some qubit of the n60 rung: no standard error, no level"
+        else:
+            u_max = float(max(us))
+            level = DC.choose_level(u_max, table)
+            if level is None:
+                note = f"the largest upper bound {u_max:.3g} lies above the largest pre-drawn level {DC.levels(table)[-1]:g}: not evaluable"
+    return dict(eps=out, s=s1, u=u1, eps0=eps0, s0=s0, u0=u0,
+                eps0_source="probe (reset_error_prep0)" if has0 else "stated: the list has no reset_error_prep0; eps0 taken no worse than eps1's level",
+                u_max=u_max, level=level, level_note=note, z=z, levels=DC.levels(table), n_qubits=len(out),
+                rung_qubits=rung, n_rung_qubits=len(rung) if rung else 0, rule=LEVEL_TEXT)
 
 
 def mean_cmix_check(points: pd.DataFrame, rows: pd.DataFrame | None = None, snapshot_csv: str | None = None, eps: Dict[int, float] | None = None,
@@ -1396,6 +1809,21 @@ def two_strength_statement(points: pd.DataFrame, preds: Dict, h6: Dict | None = 
                 note=("reported only" if np.isfinite(pred) else "no placement-matched pre-drawn ratio") + miss_note)
 
 
+def n60_rung_qubits(points: pd.DataFrame | None, rows: pd.DataFrame | None) -> list | None:
+    """Deviation 64 (draft): the placed qubits of the n60 rung (the 6x10 patch, ``CONTROL_PATCH``) as the loaded runs record them
+    (``patch_qubits`` of the points and rows on that patch). None when no row of the rung is loaded or the rows record more than
+    one placed set (two placements loaded together): the level is then not defined."""
+    sets = set()
+    for df in (points, rows):
+        if df is None or not len(df) or "patch" not in df.columns or "patch_qubits" not in df.columns:
+            continue
+        for v in df.loc[df.patch.astype(str) == CONTROL_PATCH, "patch_qubits"].dropna().unique():
+            key = _qubit_key(v)
+            if key:
+                sets.add(key)
+    return [int(q) for q in next(iter(sets)).split()] if len(sets) == 1 else None
+
+
 def evaluate_readings(points: pd.DataFrame, rows: pd.DataFrame, preds: Dict, reset_error: pd.DataFrame | None = None, snapshot_csv: str | None = None,
                       h4: str | None = None, *, pairs_final: bool, n_boot: int = 10_000) -> Dict:
     """Deviation 63 (draft): everything the reading needs, from one analysis of the day-3 list and the pairs' list loaded together
@@ -1408,6 +1836,16 @@ def evaluate_readings(points: pd.DataFrame, rows: pd.DataFrame, preds: Dict, res
     the pairs:  the same call on the day-3 list and the pairs' list loaded together, with pairs_final=True
 
     with ``res = report.analyse(<run directory>, <predictions directory>, <the same snapshot CSV>)``."""
+    level_detail = None
+    if _band(preds) is not None:         # Deviation 64 (draft), only once adopted: the day's level from the characterisation probes
+        cfg = dict(preds.get("dial_band") or {})
+        level_detail = reset_errors_from_characterisation(reset_error, detail=True, table=_band(preds)["table"], rung_qubits=n60_rung_qubits(points, rows))
+        gap = cfg.get("characterisation_not_evaluable")      # Deviation 65's classification of the probes' job, supplied by the caller
+        if gap:
+            level_detail.update(level=None, level_note=f"the characterisation probes' job is not evaluable under Deviation 65 ({gap}): no level")
+        if "level" not in cfg:           # a caller that sets the level itself (tests) keeps it
+            cfg.update(level=level_detail["level"], level_note=level_detail["level_note"])
+        preds = dict(preds, dial_band=cfg)
     hyp = evaluate_all(points, rows, preds, n_boot)
     pairs = evaluate_truncation_pairs(rows, preds, n_boot, h7=hyp["H7"])
     eps = reset_errors_from_characterisation(reset_error)
@@ -1415,4 +1853,8 @@ def evaluate_readings(points: pd.DataFrame, rows: pd.DataFrame, preds: Dict, res
     ceiling = unital_ceiling_check(points, n_boot=n_boot)
     two_strength = two_strength_statement(points, preds, hyp["H6"], n_boot=n_boot)
     reading = classify_readings(hyp["H5"], hyp["H6"], hyp["H7"], pairs, mean_check, h4, ceiling=ceiling, pairs_final=pairs_final)
-    return dict(hypotheses=hyp, pairs=pairs, eps=eps, mean_check=mean_check, unital_ceiling=ceiling, two_strength=two_strength, reading=reading)
+    out = dict(hypotheses=hyp, pairs=pairs, eps=eps, mean_check=mean_check, unital_ceiling=ceiling, two_strength=two_strength, reading=reading)
+    if level_detail is not None:
+        out["dial_band"] = dict(level=preds["dial_band"].get("level"), level_detail=level_detail, range_check=_band(preds)["range_check"], rule=BAND_RULE,
+                                pairs_level_rule=PAIRS_LEVEL_RULE)
+    return out

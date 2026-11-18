@@ -252,6 +252,160 @@ def draw_realised(job: dict) -> dict:
     return out
 
 
+# --------------------------------------------------------------------------- Deviation 64 (draft): vertex rows
+
+def vertex_plan(joblists: list, table: dict | None = None) -> dict:
+    """Deviation 64 (draft): the vertex rows of lists sharing one placement. One job per dial probe with a mask lottery
+    (``realised_probes``) and per distinct channel of every pre-drawn level (``dial_channel.channels_to_draw``: the table's vertices
+    resolved for the probe's dial; vertices that coincide are drawn once and record the (level, vertex) pairs they serve). The
+    designed-channel member of each band is the committed ``dial_realised_<tag>`` row, which this does not touch."""
+    from gradvar.analysis import dial_channel as dc
+    table = table or dc.load_table()
+    lists = [(str(p), json.loads(Path(p).read_text(encoding="utf-8"))) for p in joblists]
+    stamps = {jl["placement"].get("stamp") or rd.stamp_of(jl["placement"]["snapshot"]) for _, jl in lists}
+    if len(stamps) != 1:
+        raise SystemExit(f"the lists carry {len(stamps)} placement stamps {sorted(stamps)}: run the script once per placement")
+    pl = lists[0][1]["placement"]
+    jobs, seen = [], set()
+    for path, jl in lists:
+        for it in realised_probes(jl):
+            rung_name, rung = h7.rung_for(jl, it)
+            key = (rung_name, it["probe"]["id"], it["seed"], it["K"])
+            if key in seen:
+                continue
+            seen.add(key)
+            for c in dc.channels_to_draw(table, it["dial"]):
+                jobs.append(dict(rung=rung_name, probe_id=it["probe"]["id"], patch=it["patch"], n=it["n"], edge=it["edge"], L=it["L"], dial=it["dial"],
+                                 p=it["p"], seed=it["seed"], K=it["K"], joblist=Path(path).name, probe=it["probe"], rung_block=rung, jl=jl,
+                                 channel=c["channel"], channel_key=c["key"], serves=c["serves"]))
+    return dict(snapshot=str(CAL_DIR / pl["snapshot"]), props=str(CAL_DIR / pl["properties"]), stamp=next(iter(stamps)), jobs=jobs,
+                table=dict(path=Path(table["_path"]).name, sha256=table["_sha256"], status=table["status"], adopted=table["adopted"],
+                           levels=dc.levels(table)))
+
+
+def draw_vertex(job: dict) -> dict:
+    """One vertex row: ``redraw_gate1b.realised_dial_row`` at the job's channel, with what it serves, the table it came from and
+    the calibration it was drawn on (``calibration_role``: 'execution' for the registered values, 'dispatch' for the record drawn on
+    the placement snapshot before dispatch)."""
+    s = dict(rd.REALISED, n_samples=int(job["realised_samples"]))
+    out = rd.realised_dial_row(job["jl"], job["probe"], job["rung_block"], job["csv"], job["props"], s, channel=rd.pp.DialChannel(**job["channel"]))
+    out.update(placement=f"Deviation 46 run-day placement ({Path(job['csv']).name}, pinned list {job['joblist']})", snapshot_stamp=job["stamp"],
+               rung=job["rung"], joblist=job["joblist"], channel_key=job["channel_key"],
+               serves=" ".join(f"{lv!r}:{vid}" for lv, vid in job["serves"]), table_sha256=job["table_sha256"],
+               calibration_role=job["calibration_role"], calibration_label=job["calibration_label"], calibration_csv=Path(job["csv"]).name,
+               redraw_reason="Deviation 64 (draft, not adopted): vertex of the dial-channel range")
+    return out
+
+
+def vertex_rows(joblists: list, csv: str | None, props: str | None, role: str, label: str | None, settings: dict, workers: int = 1,
+                shard: str | None = None, plan_only: bool = False, table: dict | None = None, log=print) -> dict:
+    """Draw the vertex rows of lists sharing one placement on one calibration. ``csv`` / ``props``: the calibration (None: the
+    list's placement snapshot); ``role``: 'execution' or 'dispatch' (``dial_channel.CALIBRATION_ROLES``); ``label``: what names the
+    calibration in the rows (None: the placement stamp). Each vertex is drawn as one channel. Returns dict(rows, plan fields, n_all,
+    shard suffix); nothing is written."""
+    from gradvar.analysis import dial_channel as dc
+    if role not in dc.CALIBRATION_ROLES:
+        raise ValueError(f"calibration role {role!r}: one of {dc.CALIBRATION_ROLES}")
+    vp = vertex_plan(joblists, table)
+    if csv is not None:
+        vp.update(snapshot=str(csv), props=str(props))
+    n_all = len(vp["jobs"])
+    vp["jobs"], suffix = dc.take_shard(vp["jobs"], shard)
+    tb = vp["table"]
+    log(f"Deviation 64 (draft) vertex rows ({role}-time calibration {Path(vp['snapshot']).name}); table {tb['path']} ({tb['status']}, adopted "
+        f"{tb['adopted']}), levels {tb['levels']}; placement {vp['stamp']}; {len(vp['jobs'])} rows" + (f" (shard {shard} of {n_all})" if suffix else ""))
+    for j in vp["jobs"]:
+        log(f"  to draw  {j['rung']:5} {j['probe_id']} {j['dial']:7} serves {' '.join(f'{lv!r}:{vid}' for lv, vid in j['serves'])}")
+    rows = []
+    if plan_only or not vp["jobs"]:
+        return dict(vp, rows=rows, n_all=n_all, suffix=suffix, drawn=False)
+    for j in vp["jobs"]:
+        j.update(csv=vp["snapshot"], props=vp["props"], stamp=vp["stamp"], table_sha256=tb["sha256"], calibration_role=role,
+                 calibration_label=label or vp["stamp"], **settings)
+
+    def done(r):
+        rows.append(r)
+        log(f"  drawn    {r['rung']:5} {r['probe_id']} [{r['serves']}] kL {r['var_kL_realised']:.4e} +/- {r['se_kL_realised']:.1e} "
+            f"C {r['var_cost_realised']:.3e} ({r['runtime_s']:.0f}s)")
+
+    if workers <= 1:
+        for j in vp["jobs"]:
+            done(draw_vertex(j))
+    else:
+        with ProcessPoolExecutor(max_workers=workers) as ex:
+            for fut in as_completed([ex.submit(draw_vertex, j) for j in vp["jobs"]]):
+                done(fut.result())
+    rows.sort(key=lambda r: (r["rung"], r["L"], r["dial"], r["p"], r["probe_id"], r["channel_key"]))
+    return dict(vp, rows=rows, n_all=n_all, suffix=suffix, drawn=True)
+
+
+def _vertex_record(vp: dict, joblists: list, settings: dict, overrides: dict, role: str, label: str | None, workers: int, cmd: str, t0: float,
+                   exploratory: bool = False, shard: str | None = None) -> dict:
+    return dict(deviation="64 (draft, not adopted): vertex rows of the dial-channel range", table=vp["table"],
+                calibration=dict(role=role, label=label or vp["stamp"], csv=Path(vp["snapshot"]).name, properties=Path(vp["props"]).name,
+                                 note="'execution': drawn on the execution-time calibration of the jobs that carry the points, between the "
+                                      "two retrieval phases (Deviation 65): the registered values. 'dispatch': drawn on the placement snapshot "
+                                      "before dispatch: a dispatch-time record the analysis does not read (review correction C64-8)."),
+                generated_utc=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), command=cmd, git_commit=_git_commit(),
+                joblists=[Path(p).name for p in joblists], snapshot=vp["snapshot"], properties=vp["props"], stamp=vp["stamp"],
+                settings=dict(model="unital (the Deviation 46 program of the point) at the vertex's dial channel",
+                              realised=dict(rd.REALISED, n_samples=settings["realised_samples"]), deviation46=not overrides,
+                              exploratory=bool(exploratory), overrides=overrides, workers=int(workers)),
+                rows=vp["rows"], shard=shard, runtime_s=time.time() - t0)
+
+
+def _write_vertex_record(res: dict, out_dir: Path, stem: str) -> None:
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / f"{stem}.json").write_text(json.dumps(res, indent=1, default=rd._json_default), encoding="utf-8")
+    pd.DataFrame(res["rows"]).to_csv(out_dir / f"{stem}.csv", index=False)
+
+
+def registered_vertex_rows(joblists: list, calibration_csv: str, calibration_props: str, calibration_label: str, out_dir: str | Path | None = None,
+                           tag: str | None = None, workers: int = 1, shard: str | None = None, log=print) -> dict:
+    """ENTRY POINT FOR THE DEVIATION 65 RE-DRAW (review correction C64-8): the registered vertex rows of the dial probes of
+    ``joblists`` (lists of one placement), drawn on the execution-time calibration of the jobs that carry the points
+    (``calibration_csv`` / ``calibration_props``: that calibration in the snapshot CSV and properties formats; ``calibration_label``:
+    its name, e.g. the value hash of E(J)), with the Deviation 60 settings and every vertex as one channel.
+
+    The caller is the script that runs between the two retrieval phases of Deviation 65. It is that script, not this function, that
+    builds E(J), that refuses to run once a measured value of the list has been retrieved, and that decides where the rows are
+    committed. With ``out_dir`` the rows are written as ``dial_vertices_<tag>[_shardKofN].csv`` / ``.json``, the names
+    ``predictions.load_vertex_rows`` reads (only rows whose ``calibration_role`` is 'execution'). Returns the record."""
+    t0 = time.time()
+    settings = dict(DEV46, realised_samples=rd.REALISED["n_samples"])
+    vp = vertex_rows(joblists, calibration_csv, calibration_props, "execution", calibration_label, settings, workers=workers, shard=shard, log=log)
+    res = _vertex_record(vp, joblists, settings, {}, "execution", calibration_label, workers,
+                         "scripts/redraw_dial_points.registered_vertex_rows (called by the Deviation 65 re-draw)", t0, shard=shard)
+    if out_dir is not None and vp["drawn"]:
+        stem = f"dial_vertices_{tag or (vp['stamp'][:10] + 'T' + vp['stamp'][11:15])}{vp['suffix']}"
+        _write_vertex_record(res, Path(out_dir), stem)
+        log(f"wrote {stem}.json / .csv in {out_dir}; {res['runtime_s']:.0f}s")
+    return res
+
+
+def write_vertices(joblists: list, settings: dict, overrides: dict, args) -> int:
+    """``--vertices``: draw the vertex rows on the list's placement snapshot and write ``dial_dispatch_vertices_<tag>.csv`` / ``.json``:
+    a dispatch-time record, which the analysis does not read (review correction C64-8: the registered rows are drawn on the
+    execution-time calibration, ``registered_vertex_rows``). An exploratory draw: ``dial_exploratory_vertices_<tag>.*``."""
+    t0 = time.time()
+    shard = getattr(args, "shard", None)
+    vp = vertex_rows(joblists, None, None, "dispatch", None, settings, workers=args.workers, shard=shard, plan_only=args.plan,
+                     log=lambda s: print(s, flush=True))
+    if not vp["drawn"]:
+        print("plan only; nothing drawn" if args.plan else "no dial probe with a mask lottery; nothing to draw")
+        return 0
+    tag = args.tag or f"{vp['stamp'][:10]}T{vp['stamp'][11:15]}"
+    rel = [Path(p).resolve().relative_to(ROOT).as_posix() if Path(p).resolve().is_relative_to(ROOT) else str(p) for p in joblists]
+    cmd = ("python scripts/redraw_dial_points.py " + " ".join(f"--joblist {r}" for r in rel) + " --vertices" + (f" --shard {shard}" if vp["suffix"] else "")
+           + ("".join(f" {SETTING_FLAGS[k]} {v}" for k, v in overrides.items()) + " --exploratory" if args.exploratory else ""))
+    res = _vertex_record(vp, joblists, settings, overrides, "dispatch", None, args.workers, cmd, t0, exploratory=args.exploratory, shard=shard)
+    stem = ("dial_exploratory_vertices" if args.exploratory else "dial_dispatch_vertices") + f"_{tag}{vp['suffix']}"
+    _write_vertex_record(res, Path(args.out_dir), stem)
+    print(f"wrote {stem}.json / .csv in {args.out_dir}; {res['runtime_s']:.0f}s (" + ("EXPLORATORY" if args.exploratory else "dispatch-time record")
+          + ": not read by the analysis)")
+    return 0
+
+
 def attach_mixture(realised: list, rows: pd.DataFrame, stamp: str) -> None:
     """Record beside every realised row the mixture row the analysis pairs it with (``covering_row``), which no test uses."""
     for r in realised:
@@ -315,6 +469,11 @@ def main(argv=None) -> int:
     ap.add_argument("--exploratory", action="store_true",
                     help="allow settings other than Deviation 46; the output is flagged and written as dial_exploratory_<tag>.*, not read by the analysis")
     ap.add_argument("--workers", type=int, default=4)
+    ap.add_argument("--vertices", action="store_true",
+                    help="Deviation 64 (draft): draw only the vertex rows of the dial-channel range on the placement snapshot, as a dispatch-time record "
+                         "(dial_dispatch_vertices_<tag>.*, not read by the analysis; the registered rows: registered_vertex_rows); the designed-channel files are not touched")
+    ap.add_argument("--shard", default=None, help="with --vertices: K/N, draw every N-th row starting at the K-th and write dial_dispatch_vertices_<tag>_shardKofN.*, "
+                                                  "so that the set can be drawn on N machines side by side")
     args = ap.parse_args(argv)
     settings, overrides = settings_from_args(args)
     if overrides and not args.exploratory:
@@ -324,6 +483,10 @@ def main(argv=None) -> int:
         print("WARNING: EXPLORATORY draw, not the Deviation 46 settings" + (f" ({overrides})" if overrides else "")
               + f"; output {output_prefix(True)}_<tag>.*, not read by the analysis", flush=True)
     joblists = args.joblist or [str(DEFAULT_JOBLIST)]
+    if args.shard and not args.vertices:
+        ap.error("--shard applies to --vertices only")
+    if args.vertices:
+        return write_vertices(joblists, settings, overrides, args)
     t0 = time.time()
     pl = plan(joblists, force=args.force)
     tag = args.tag or f"{pl['stamp'][:10]}T{pl['stamp'][11:15]}"
