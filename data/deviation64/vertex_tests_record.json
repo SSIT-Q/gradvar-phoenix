@@ -1,0 +1,32 @@
+{
+ "deviation": "64 (draft, not adopted), review correction C64-8: a passed run of the vertex code's tests, required before dispatch in place of the vertex values (which are drawn on the execution-time calibration after the run)",
+ "generated_utc": "2026-11-11T07:30:16Z",
+ "git_commit": "b20105bf35db96ecc49a4d2f23dbe72bd8c85eec",
+ "uncommitted_changes_in_the_listed_files": null,
+ "command": "python -m pytest -q tests/test_dial_channel_engine.py tests/test_dial_channel_floors.py tests/test_dial_channel_band.py",
+ "exit_code": 0,
+ "n_tests": 77,
+ "n_passed": 77,
+ "failed": 0,
+ "skipped": 0,
+ "passed": true,
+ "runtime_s": 401.14700651168823,
+ "digest": {
+  "gradvar/pauliprop.py": "e7c45a86f24ba2c02cae89fde317ec788d7e4291b144aa2414676d9c2cc1fc13",
+  "gradvar/pauliprop_exact.py": "24cf1419152db36381401881ae3f22ec1ef3e9ab6695dfc50294699b25b65ec5",
+  "gradvar/analysis/dial_channel.py": "afcdace70da910712bcae4743f892a0bc84717847afec9ab9c4f0d4678a7d23a",
+  "gradvar/analysis/floors.py": "7a3390f42f7a2f787cf3ba5ab0030d3e2ac85172414bc933f16ada6b32b049f4",
+  "scripts/redraw_gate1b.py": "ba5d295f9d3e7591b0b7df964b64f1288477899cb7a7b8582ed215ce660ca1be",
+  "scripts/predict_h7_truncation.py": "415e849b59095f28e432dec7261c09937032b47746f3f1697bfa5adace1a4655",
+  "scripts/redraw_dial_points.py": "a6b6d1c87b4c3b5e1b1412a0371a9886aa9db7f0110a7c6f56820608730d8145",
+  "tests/test_dial_channel_engine.py": "99705b7fbaa9e92e7bfdba62ea0d5134bdafc5768d3f6beb7773ab6b1cb7e3f8",
+  "tests/test_dial_channel_floors.py": "3b58ad209f86905bc80329dcec345c7f704fce8cb692e2cc6760a13ddb7cffd4",
+  "tests/test_dial_channel_band.py": "89b78a96996ed86747e4fd625f9ecf2a64cebbb6349254c01b4e685296bcbace",
+  "range_digest": "4f4342911d7b7dd0af815a68ae464788f249b4eb97beffe5ca53e83d29be9da9"
+ },
+ "tail": [
+  "",
+  "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+  "77 passed, 1 warning in 400.31s (0:06:40)"
+ ]
+}

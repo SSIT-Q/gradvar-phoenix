@@ -14,7 +14,7 @@ from typing import Dict, Sequence, Tuple
 
 import numpy as np
 
-from .pauliprop import Bloch, Program
+from .pauliprop import Bloch, DialBloch, Program, dial_reset_probability
 
 _I = np.eye(2, dtype=complex)
 _X = np.array([[0, 1], [1, 0]], dtype=complex)
@@ -96,14 +96,18 @@ def _pauli_row_values(m: int):
 
 def dial_zz_layer_ptm(blochs: Sequence[Bloch | None], edges: Sequence[Tuple[int, int, float]], m: int) -> np.ndarray:
     """PTM (4^m x 4^m) of the mixture layer sum_m Pr(m) [reset on m_q = 1, idle dephasing on m_q = 0] o prod_{e: both idle}
-    rzz(phi_e), built from the diagonal unitary in the computational basis (no Pauli algebra)."""
+    rzz(phi_e), built from the diagonal unitary in the computational basis (no Pauli algebra).
+
+    Designed channel (plain ``Bloch``): the reset probability is the entry's t_z, the reset is perfect and the idle is the entry
+    divided by 1 - t_z, as before. A ``DialBloch`` states its reset probability and carries the two single-qubit maps
+    (``DialBloch.branch``); the idle ZZ of a coupler is on only when both ends idle, whatever the reset leaves behind."""
     d = 2 ** m
     xs, vals = _pauli_row_values(m)
     order = np.argsort(xs, kind="stable")
     s_idx = np.arange(d)
     zsign = {q: 1 - 2 * ((s_idx >> (m - 1 - q)) & 1) for q in range(m)}
     Lam = np.zeros((4 ** m, 4 ** m))
-    probs = [(b.tz if b is not None else 0.0) for b in blochs]
+    probs = [(dial_reset_probability(b) if b is not None else 0.0) for b in blochs]
     for mask in itertools.product((0, 1), repeat=m):
         pr = 1.0
         for q in range(m):
@@ -131,7 +135,9 @@ def dial_zz_layer_ptm(blochs: Sequence[Bloch | None], edges: Sequence[Tuple[int,
         T = RU.reshape((4,) * m + (4 ** m,))
         for q in range(m):
             b = blochs[q] if blochs[q] is not None else Bloch()
-            if mask[q]:
+            if isinstance(b, DialBloch):
+                K = _bloch_ptm(b.branch(mask[q]))
+            elif mask[q]:
                 K = RESET_PTM
             else:
                 idle = Bloch(b.dx / (1 - b.tz), b.dy / (1 - b.tz), b.dz / (1 - b.tz), 0.0) if b.tz < 1 else Bloch()
