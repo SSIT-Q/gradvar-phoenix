@@ -16,7 +16,7 @@ Channels: the designed channel, every vertex of the table at every pre-drawn lev
 the range with the seed ``CHANNEL_SEED`` fixed here before any run (kappa, gamma, eps1, eps0 uniform in their intervals at each
 level; r_x + r_y and r_x - r_y uniform in the intervals complete positivity allows).
 
-    python scripts/floors_bound_exact_test.py --part 1/6 --out part1.json     # one of six (dial, L) groups
+    python scripts/floors_bound_exact_test.py --part 1/6 --out part1.json     # one of six (dial, L) groups (--chunk C/M: a slice of its channels)
     python scripts/floors_bound_exact_test.py --merge part*.json --write      # the record data/deviation64/floors_bound_exact_test.json
     python scripts/floors_bound_exact_test.py --write                         # everything in one process (about an hour)
 
@@ -114,12 +114,13 @@ def one_group(dial: str, p: float, q: float, L: int, label: str, level, channel:
     return out
 
 
-def run(groups=None, table: dict | None = None, progress=None) -> dict:
+def run(groups=None, table: dict | None = None, progress=None, chunk: tuple = (1, 1)) -> dict:
+    """``chunk`` (c, m): the c-th of m slices of each group's channel list, for a run in several processes."""
     table = table if table is not None else dc.load_table()
     t0 = time.time()
     cases = []
     for dial, p, q, L in (groups if groups is not None else GROUPS):
-        for label, level, ch in channels(table, dial):
+        for label, level, ch in channels(table, dial)[chunk[0] - 1::chunk[1]]:
             got = one_group(dial, p, q, L, label, level, ch)
             cases.extend(got)
             if progress:
@@ -153,6 +154,7 @@ def write(rec: dict, out: Path) -> None:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--part", default=None, help="K/N: the K-th of N slices of the (dial, L) groups")
+    ap.add_argument("--chunk", default="1/1", help="C/M: the C-th of M slices of each group's channels")
     ap.add_argument("--merge", nargs="+", default=None, help="part files to merge into one record")
     ap.add_argument("--write", action="store_true", help=f"write {RECORD.relative_to(ROOT).as_posix()}")
     ap.add_argument("--out", default=None, help="write to this path instead")
@@ -163,8 +165,11 @@ def main(argv=None) -> int:
         if any(p["range_digest"] != dc.range_digest(table) or p["git_commit"] != parts[0]["git_commit"] for p in parts):
             raise SystemExit("the parts were made for another range or at different commits")
         cases = [c for p in parts for c in p["cases"]]
-        order = {g: n for n, g in enumerate(GROUPS)}
-        cases.sort(key=lambda c: order[next(g for g in GROUPS if (g[0], g[1], g[3]) == (c["dial"], c["p"], c["L"]))])
+        order = {(g[0], g[1], g[3]): n for n, g in enumerate(GROUPS)}
+        labels = {dial: {lab: n for n, (lab, _lev, _ch) in enumerate(channels(table, dial))} for dial in {g[0] for g in GROUPS}}
+        cases.sort(key=lambda c: (order[(c["dial"], c["p"], c["L"])], labels[c["dial"]][c["channel_label"]], c["mask_seed"], c["kind"] != "grad"))
+        if len({c["case"] for c in cases}) != len(cases):
+            raise SystemExit("a case appears in more than one part")
         want = sum(2 * len(ft.MASK_SEEDS) * len(channels(table, g[0])) for g in GROUPS)
         if len(cases) != want:
             raise SystemExit(f"{len(cases)} cases in the parts, {want} expected")
@@ -181,7 +186,7 @@ def main(argv=None) -> int:
                 print(f"  {'ok   ' if c['ok'] and c['masks_ok'] else 'BELOW'} {c['case']}: bound {c['bound']:+.4e} kept {c['kept']:+.4e} moment {c['moment']:+.4e}"
                       f" slack {c['min_mask_slack']:+.2e}" + ("" if c["sign_ok"] else "  [sign condition not met]"), flush=True)
 
-        rec = run(groups, table, progress)
+        rec = run(groups, table, progress, chunk=tuple(int(x) for x in args.chunk.split("/")))
     print(f"{rec['n_cases']} cases, {rec['n_below']} below the bound, {rec['n_mask_bound_failures']} with a mask above its own bound "
           f"({rec['n_below_kept']} below the kept mode's closed form): {'PASSED' if rec['passed'] else 'NOT PASSED'} ({rec['runtime_s']:.0f}s)")
     if args.write or args.out:
