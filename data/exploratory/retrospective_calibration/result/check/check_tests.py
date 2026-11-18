@@ -13,6 +13,11 @@ Variants of the point-level inputs (the tests are the same):
   strict       measured = printed figure wherever the registered estimate does not round to a printed figure
   s_own        as_applied, but s usable for n37 L2 (the Section 4 table of review 04 prints the table's row)
   registered   measured = registered estimate (divisor M - 1) for every point
+Side computations of the checker, in no family (readings the plan's text also allows and the enumeration does not list):
+  signal_no_floor_rule  as_applied, but the second pass keeps every joined point whose signal variance is positive (no exclusion of
+               the points the reviews mark as at the shot floor)
+  ratio_not_printed     as_applied, but the four day-1 level-1 points for which review 03 prints only the ratio to level 0 are
+               treated as having no printed measured value and are left out
 Usage: python check_tests.py <own_join.csv> <table csv> <own_review_figures.csv> <tests_enumerated.json> <tests_enumerated_signal.json> <out json>
 """
 import json, math, sys, itertools
@@ -54,13 +59,17 @@ def points(own_join, table, figures, variant):
         strict.append(not any(rounds_to(x, v) for x in figs))
         lenient.append(not any(within_one_unit(x, v) for x in figs))
     P["printed_strict"], P["printed_lenient"] = strict, lenient
-    use_printed = {"as_applied": P.printed_lenient, "s_own": P.printed_lenient, "strict": P.printed_strict, "registered": pd.Series(False, index=P.index)}[variant]
+    use_printed = {"strict": P.printed_strict, "registered": pd.Series(False, index=P.index)}.get(variant, P.printed_lenient)
     P["measured_is_printed"] = use_printed
     P["measured"] = np.where(use_printed, pd.to_numeric(raw, errors="coerce"), P.var_m1)
+    if variant == "ratio_not_printed":
+        P["has_printed"] = [a is not None for a in raw]
     P["joined"] = P.has_printed & (P.measured > 0) & (P.pred > 0)
     P["r"] = np.where(P.joined, np.log(P.measured / P.pred), np.nan)
     sig = P.measured - P.shot
     floor = P.list.isin(SHOT_FLOOR_LISTS) & (P.L == 12)
+    if variant == "signal_no_floor_rule":
+        floor = pd.Series(False, index=P.index)
     P["has_r_signal"] = P.joined & ~floor & (sig > 0)
     P["r_signal"] = np.where(P.has_r_signal, np.log(np.where(sig > 0, sig, np.nan) / P.pred), np.nan)
     # the row the review used: the addendum's figure where one is printed, else the first printed; none printed -> usable
@@ -263,7 +272,7 @@ def by_adjust(p):
         i = order[rank - 1]; run = min(run, p[i] * N * c / rank); adj[i] = run
     return adj, c
 
-def run_all(own_join, table, figures, enum1, enum2, variants=("as_applied", "strict", "s_own", "registered")):
+def run_all(own_join, table, figures, enum1, enum2, variants=("as_applied", "strict", "s_own", "registered", "signal_no_floor_rule", "ratio_not_printed")):
     E1, E2 = json.load(open(enum1, encoding="utf-8")), json.load(open(enum2, encoding="utf-8"))
     out = dict(exploratory=True, statement="Exploratory and post hoc: the result is a candidate at most and changes no registered reading, flag or decision.", variants={})
     for v in variants:
