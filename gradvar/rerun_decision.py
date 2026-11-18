@@ -29,6 +29,15 @@ takes the list and the two directories in which a re-run leaves its files, and c
   replace a decision that granted a job;
 * the ``key`` of a point is checked field by field.
 
+The probe jobs (correction CE-5 of the same review, as adopted: "The list's probe jobs are re-run with it and their minutes
+count in the line condition; each run is read with the references of its own run."). A probe job is a job of the list that
+carries no measured item (``probe_job``: the readout and reset references, the null controls); the decision never grants one on
+its own. When at least one job is granted, the list's probe jobs are re-run with it, once for the re-run and not once per
+granted job: the decision names them in ``rerun_with``, beside ``rerun``, and their modelled minutes are counted in the line
+condition together with the granted jobs. When the lines do not hold a job together with the probe jobs, or a probe job cannot
+be re-run (it is a re-run, was re-run before, or was created on another UTC date), no job is granted. The re-dispatch submits
+exactly ``rerun`` and ``rerun_with``.
+
 "Not evaluable on calibration grounds" (``execution_calibration.CALIBRATION_GROUNDS``): an over-cut element on the observable
 edge or in the L = 2 cone on E(J) (``zone``); a row shift above the line (``line``); for a point read by a dial comparator, a
 cone qubit below the coherence floor (``coherence_floor``, Deviation 64 (4); that ground is set by Deviation 64's code, not
@@ -46,7 +55,7 @@ from typing import Any, Dict, List, Sequence
 
 from . import execution_calibration as ec
 
-JOB_FIELDS = frozenset({"job_id", "tag", "created", "is_rerun", "rerun_of", "modelled_minutes", "points"})
+JOB_FIELDS = frozenset({"job_id", "tag", "created", "is_rerun", "rerun_of", "modelled_minutes", "points", "probe_job"})
 POINT_FIELDS = frozenset({"item", "key", "reading", "grounds", "flags"})
 KEY_FIELDS = frozenset({"kind", "arm", "n", "L", "k", "p"})
 KEY_KINDS = ("grid", "reset_dial")
@@ -58,6 +67,7 @@ RERUN_TAG_SUFFIX = "-rerun"
 LIST_SUMMARY = Path(__file__).resolve().parents[1] / "data" / "joblists" / "paper1" / "summary.json"
 CONDITIONS = ("not_evaluable_on_calibration_grounds", "not_a_rerun_and_not_rerun_before", "live_layout_check_passed", "same_utc_day", "within_ledger_lines")
 RULE_ON, RULE_OFF = "once_when_not_evaluable_on_calibration_grounds", "none"
+PROBE_JOBS = "probe_jobs_rerun_with_it"   # in ``refused_by``: the list's probe jobs cannot be re-run with the job (CE-5)
 
 
 class DecisionInputError(ValueError):
@@ -83,6 +93,21 @@ def _number(x: Any) -> bool:
     return isinstance(x, (int, float)) and not isinstance(x, bool) and math.isfinite(x)
 
 
+def _load_summary() -> tuple:
+    """The committed summary of the lists and the record of the file it was read from (path in the repository, sha256)."""
+    p = Path(LIST_SUMMARY)
+    try:
+        raw = p.read_bytes()
+        summary = json.loads(raw.decode("utf-8"))
+    except (OSError, ValueError) as e:
+        raise DecisionInputError(f"the summary of the lists ({p}) is not readable: the minutes of the list's lines are not known") from e
+    try:
+        rel = p.resolve().relative_to(Path(__file__).resolve().parents[1]).as_posix()
+    except ValueError:
+        rel = p.name
+    return summary, dict(path=rel, sha256=hashlib.sha256(raw).hexdigest(), key="ledger_caps_min_at_1us")
+
+
 def ledger_lines(joblist: Dict[str, Any], summary: Dict[str, Any] | None = None) -> Dict[str, float]:
     """The ledger lines of a list, name to minutes, read from the list and from no caller. The list names its line in
     ``campaign.ledger_line`` (for the day-3 list ``day3:dial``, for the day-1 list ``null_controls+main``, for Block C
@@ -96,10 +121,7 @@ def ledger_lines(joblist: Dict[str, Any], summary: Dict[str, Any] | None = None)
     if not isinstance(line, str) or not line.strip():
         raise DecisionInputError(f"the list {joblist.get('name')!r} names no ledger line (campaign.ledger_line)")
     if summary is None:
-        try:
-            summary = json.loads(Path(LIST_SUMMARY).read_text(encoding="utf-8"))
-        except (OSError, ValueError) as e:
-            raise DecisionInputError(f"the summary of the lists ({LIST_SUMMARY}) is not readable: the minutes of the list's lines are not known") from e
+        summary = _load_summary()[0]
     caps = summary.get("ledger_caps_min_at_1us") if isinstance(summary, dict) else None
     lists = summary.get("lists") if isinstance(summary, dict) else None
     if not isinstance(caps, dict) or not isinstance(lists, dict):
@@ -148,7 +170,8 @@ def earlier_reruns(list_name: str, runs_dir: str | Path, predictions_dir: str | 
     """What was re-run, or granted, before: the re-run ids files of the list under the runs directory
     (``<runs dir>/<list>_rerun_job_ids.json`` or one level below, the day's folder; ids-file schema, every job naming the job it
     repeats in ``rerun_of``) and an existing decision file ``<predictions dir>/<list>_rerun_decision.json``. Returns
-    ``{rerun_ids_files, repeated (first job: its re-run), rerun_jobs, decision_file, granted}``. A re-run ids file with a job
+    ``{rerun_ids_files, repeated (first job: its re-run), rerun_jobs, decision_file, granted}`` (``granted``: the jobs the
+    existing decision names in ``rerun`` and in ``rerun_with``). A re-run ids file with a job
     that does not name the job it repeats, a job repeated twice, or a decision file that cannot be read stops the decision."""
     if not list_name or not isinstance(list_name, str):
         raise DecisionInputError("the list has no name: its earlier re-runs cannot be looked for")
@@ -178,7 +201,8 @@ def earlier_reruns(list_name: str, runs_dir: str | Path, predictions_dir: str | 
             raise DecisionInputError(f"{dpath.name}: the existing decision file is not readable; nothing is decided over it") from e
         if not isinstance(d, dict) or not isinstance(d.get("rerun"), list):
             raise DecisionInputError(f"{dpath.name}: the existing file is not a decision; nothing is decided over it")
-        granted = [str(x) for x in d["rerun"]]
+        with_them = d.get("rerun_with") if isinstance(d.get("rerun_with"), list) else []
+        granted = [str(x) for x in list(d["rerun"]) + list(with_them)]        # the jobs granted and the probe jobs re-run with them
     return dict(rerun_ids_files=[f.relative_to(runs).as_posix() for f in files], repeated=repeated,
                 rerun_jobs=sorted(v for v in repeated.values() if v is not None),
                 decision_file=dpath.name if dpath.is_file() else None, granted=granted)
@@ -219,7 +243,8 @@ def decide(jobs: Sequence[Dict[str, Any]], ledger: Dict[str, Any], now: Any, lay
     lines = ledger.get("lines")
     if not isinstance(lines, dict) or not lines or any(not _number(v) or v < 0 for v in lines.values()):
         raise DecisionInputError("the ledger needs its lines as name: minutes, each a finite number")
-    own = ledger_lines(joblist)
+    summary, summary_file = _load_summary()
+    own = ledger_lines(joblist, summary)
     if set(lines) != set(own) or any(abs(float(lines[k]) - own[k]) > 1e-9 for k in own):
         raise DecisionInputError(f"the lines passed ({dict(lines)}) are not the lines of the list ({own}): the list's own lines and no other")
     charged = ledger.get("charged_minutes")
@@ -255,6 +280,8 @@ def decide(jobs: Sequence[Dict[str, Any]], ledger: Dict[str, Any], now: Any, lay
             raise DecisionInputError(f"job {j['job_id']}: modelled_minutes must be a positive, finite number")
         if not isinstance(j.get("points"), list):
             raise DecisionInputError(f"job {j['job_id']}: points must be the list of its classified points")
+        if j.get("probe_job") not in (None, True, False) or (j.get("probe_job") is True and j["points"]):
+            raise DecisionInputError(f"job {j['job_id']}: probe_job is true or false, and a probe job carries no measured item")
         for pt in j["points"]:
             _check(pt, POINT_FIELDS, f"a point of job {j['job_id']}")
             if pt.get("reading") not in ec.READING_ORDER:
@@ -273,30 +300,57 @@ def decide(jobs: Sequence[Dict[str, Any]], ledger: Dict[str, Any], now: Any, lay
     repeated = {str(j["rerun_of"]) for j in jobs if j.get("rerun_of")} | set(earlier["repeated"]) | set(earlier["granted"])
     reruns = set(earlier["rerun_jobs"])
     running = float(charged)
+
+    def is_rerun(j):
+        return bool(j.get("is_rerun")) or bool(j.get("rerun_of")) or str(j["job_id"]) in reruns or str(j.get("tag") or "").endswith(RERUN_TAG_SUFFIX)
+
+    def own_conditions(j):
+        return {"not_a_rerun_and_not_rerun_before": not (is_rerun(j) or str(j["job_id"]) in repeated),
+                "live_layout_check_passed": layout_check["passed"] is True,
+                "same_utc_day": t_now.date() == ec.parse_utc(j["created"]).date()}
+    # CE-5: the list's probe jobs are re-run with the first job granted, once; their minutes count in the line condition
+    probes = [j for j in jobs if j.get("probe_job") is True]
+    probe_minutes = math.fsum(float(j["modelled_minutes"]) for j in probes)
+    probe_blocked = {str(j["job_id"]): [c for c, ok in own_conditions(j).items() if not ok and c != "live_layout_check_passed"] for j in probes}
+    probe_blocked = {k: v for k, v in probe_blocked.items() if v}
+    probes_counted = False
     decisions: List[Dict[str, Any]] = []
     for j in jobs:
+        if j.get("probe_job") is True:
+            decisions.append(None)                                  # filled in below, once it is known whether a job was granted
+            continue
         hit = [pt.get("item") for pt in j["points"] if not_evaluable_on_calibration_grounds(pt)]
         minutes = float(j["modelled_minutes"])
-        is_rerun = bool(j.get("is_rerun")) or bool(j.get("rerun_of")) or str(j["job_id"]) in reruns or str(j.get("tag") or "").endswith(RERUN_TAG_SUFFIX)
-        cond = {
-            "not_evaluable_on_calibration_grounds": bool(hit),
-            "not_a_rerun_and_not_rerun_before": not (is_rerun or str(j["job_id"]) in repeated),
-            "live_layout_check_passed": layout_check["passed"] is True,
-            "same_utc_day": t_now.date() == ec.parse_utc(j["created"]).date(),
-            "within_ledger_lines": running + minutes <= total + 1e-9,
-        }
-        rerun = bool(active and all(cond.values()))
-        decisions.append(dict(job_id=str(j["job_id"]), tag=j.get("tag"), rerun=rerun, conditions=cond, refused_by=[c for c in CONDITIONS if not cond[c]],
-                              points_not_evaluable_on_calibration_grounds=hit, modelled_minutes=minutes, charged_before=round(running, 6),
-                              charged_after=round(running + minutes, 6) if rerun else round(running, 6)))
+        with_probes = 0.0 if probes_counted else probe_minutes
+        cond = {"not_evaluable_on_calibration_grounds": bool(hit), **own_conditions(j), "within_ledger_lines": running + with_probes + minutes <= total + 1e-9}
+        cond = {c: cond[c] for c in CONDITIONS}
+        rerun = bool(active and all(cond.values()) and not probe_blocked)
+        decisions.append(dict(job_id=str(j["job_id"]), tag=j.get("tag"), rerun=rerun, rerun_with=False, conditions=cond,
+                              refused_by=[c for c in CONDITIONS if not cond[c]] + ([PROBE_JOBS] if probe_blocked and all(cond.values()) else []),
+                              points_not_evaluable_on_calibration_grounds=hit, modelled_minutes=minutes,
+                              probe_minutes_counted=round(with_probes, 6) if rerun else 0.0, charged_before=round(running, 6),
+                              charged_after=round(running + with_probes + minutes, 6) if rerun else round(running, 6)))
         if rerun:
-            running += minutes
+            running += with_probes + minutes
+            probes_counted = True
+    granted = any(d is not None and d["rerun"] for d in decisions)
+    for i, j in enumerate(jobs):
+        if decisions[i] is None:
+            cond = {"not_evaluable_on_calibration_grounds": False, **own_conditions(j), "within_ledger_lines": bool(granted or float(charged) + probe_minutes <= total + 1e-9)}
+            decisions[i] = dict(job_id=str(j["job_id"]), tag=j.get("tag"), rerun=False, rerun_with=granted, probe_job=True, conditions={c: cond[c] for c in CONDITIONS},
+                                refused_by=["not_evaluable_on_calibration_grounds"], points_not_evaluable_on_calibration_grounds=[],
+                                modelled_minutes=float(j["modelled_minutes"]), probe_minutes_counted=0.0, charged_before=None, charged_after=None)
     inputs = dict(jobs=[dict(j) for j in jobs], ledger=dict(ledger), now=ec.iso(t_now), layout_check=dict(layout_check),
-                  joblist=dict(name=joblist.get("name"), ledger_line=(joblist.get("campaign") or {}).get("ledger_line"), lines=own), earlier_reruns=earlier)
+                  joblist=dict(name=joblist.get("name"), ledger_line=(joblist.get("campaign") or {}).get("ledger_line"), lines=own, summary=summary_file),
+                  earlier_reruns=earlier)
     out = dict(deviation="67 (draft), part (iii)", rule=rule, rerun_day=settings["rerun_day"], active=active,
                why_inactive=None if active else ("the settings table is not in force" if not settings.in_force else "rerun_rule is none: no job is re-run"),
-               decided_utc=ec.iso(t_now), rerun=[d["job_id"] for d in decisions if d["rerun"]], decisions=decisions,
-               ledger=dict(lines=dict(own), total_minutes=total, charged_before=float(charged), charged_after=round(running, 6), source=ledger.get("source")),
+               decided_utc=ec.iso(t_now), rerun=[d["job_id"] for d in decisions if d["rerun"]],
+               rerun_with=[d["job_id"] for d in decisions if d["rerun_with"]], decisions=decisions,
+               probe_jobs=dict(jobs=[str(j["job_id"]) for j in probes], modelled_minutes=round(probe_minutes, 6), rerun=bool(granted and probes),
+                               cannot_be_rerun=probe_blocked,
+                               rule="re-run with the first job granted, once; minutes counted in the line condition; each run read with the references of its own run"),
+               ledger=dict(lines=dict(own), lines_read_from=summary_file, total_minutes=total, charged_before=float(charged), charged_after=round(running, 6), source=ledger.get("source")),
                layout_check=dict(layout_check, age_minutes=round(age, 3), max_age_minutes=LAYOUT_CHECK_MAX_AGE_MINUTES), earlier_reruns=earlier, inputs=inputs,
                inputs_sha256=hashlib.sha256(json.dumps(inputs, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")).hexdigest())
     out.update(settings.record())
@@ -348,7 +402,8 @@ def job_inputs(ids: Dict[str, Any], joblist: Dict[str, Any], bundles: Dict[str, 
     """The ``jobs`` input of ``decide`` from files that hold no measured value: the ids file (order, tags, which job repeats
     which: ``rerun_of``), the list's budget block (modelled minutes per tag, at the list's repetition delay), each bundle's
     job.json after the first retrieval phase (creation time, the points sent) and the prediction files of
-    ``scripts/redraw_execution.py`` (the classification of every item on each group's E, and the jobs without an E)."""
+    ``scripts/redraw_execution.py`` (the classification of every item on each group's E, and the jobs without an E).
+    ``probe_job``: the job was sent points and none of them is a measured item (a grid point or a dial probe)."""
     minutes = {str(x["tag"]): float(x["seconds_at_1us"]) / 60.0 for x in (joblist.get("budget") or {}).get("per_job") or []}
     by_job: Dict[str, List[Dict[str, Any]]] = {}
     for f in prediction_files:
@@ -369,5 +424,5 @@ def job_inputs(ids: Dict[str, Any], joblist: Dict[str, Any], bundles: Dict[str, 
         points = [dict(item=c.get("item"), key=c.get("key"), reading=c.get("reading"), grounds=list(c.get("grounds") or []), flags=list(c.get("flags") or []))
                   for c in by_job.get(jid, []) if c.get("key") in keys]
         out.append(dict(job_id=jid, tag=tag, created=created, modelled_minutes=minutes[base_tag], is_rerun=bool(j.get("rerun_of")), rerun_of=j.get("rerun_of"),
-                        points=points))
+                        points=points, probe_job=bool(job.get("points")) and not keys))
     return out

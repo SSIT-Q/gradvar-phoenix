@@ -2,6 +2,7 @@
 (review Section 5.3 (a)). No measured value among its inputs; a flag alone never triggers; a re-run is never re-run; the ledger
 cap refuses; a different UTC day refuses."""
 import ast
+import hashlib
 import inspect
 import json
 import math
@@ -154,7 +155,7 @@ def test_no_measured_value_is_among_the_inputs():
     for fn in (n for n in tree.body if isinstance(n, ast.FunctionDef)):
         body = ast.Module(body=fn.body, type_ignores=[])                # the body, without the annotations of the signature
         used[fn.name] = {n.id for n in ast.walk(body) if isinstance(n, ast.Name)} | {n.attr for n in ast.walk(body) if isinstance(n, ast.Attribute)}
-    assert {f for f, names in used.items() if names & {"open", "read_text", "read_bytes", "glob", "rglob", "iterdir"}} == {"ledger_lines", "earlier_reruns", "write_decision"}
+    assert {f for f, names in used.items() if names & {"open", "read_text", "read_bytes", "glob", "rglob", "iterdir"}} == {"_load_summary", "earlier_reruns", "write_decision"}
     assert not set().union(*used.values()) & {"load_run", "read_bundle", "result", "subprocess", "environ", "requests", "urlopen"}
     assert not used["decide"] & {"open", "read_text", "read_bytes", "glob", "Path"}
 
@@ -221,7 +222,12 @@ def test_ci9a_the_lines_are_read_from_the_list_and_a_number_that_is_not_finite_i
         decide([job(minutes=math.inf)], ledger(), NOW, OK_LAYOUT, on)
     with pytest.raises(rd.DecisionInputError, match="not the lines of the list"):                             # the same lines, another list
         decide([job()], ledger(), NOW, OK_LAYOUT, on, joblist=lists["day2_main_grid.json"])
-    assert decide([job()], ledger(), NOW, OK_LAYOUT, on)["inputs"]["joblist"] == dict(name="paper1_day3_dial_refs", ledger_line="day3:dial", lines={"dial": 82.5})
+    # the decision records which file the cap was read from
+    d = decide([job()], ledger(), NOW, OK_LAYOUT, on)
+    summary = dict(path="data/joblists/paper1/summary.json", sha256=hashlib.sha256((ROOT / "data" / "joblists" / "paper1" / "summary.json").read_bytes()).hexdigest(),
+                   key="ledger_caps_min_at_1us")
+    assert d["inputs"]["joblist"] == dict(name="paper1_day3_dial_refs", ledger_line="day3:dial", lines={"dial": 82.5}, summary=summary)
+    assert d["ledger"]["lines_read_from"] == summary and d["ledger"]["lines"] == {"dial": 82.5}
 
 
 def test_ci9b_the_charged_minutes_are_computed_from_the_bundles_charged_seconds(on):
@@ -345,6 +351,60 @@ def test_ci9e_the_key_of_a_point_is_checked_field_by_field(on):
             decide([with_key(key)], ledger(), NOW, OK_LAYOUT, on)
 
 
+def probe(job_id="pr", minutes=0.5, **kw):
+    return dict(job_id=job_id, tag="L0-probes-s4096", created=kw.pop("created", "2026-11-12T11:00:00Z"), modelled_minutes=minutes, points=[], probe_job=True, **kw)
+
+
+def test_ce5_the_probe_jobs_are_rerun_with_a_granted_job_once_and_their_minutes_count(on, tmp_path):
+    """Row 67 (iii) as corrected by CE-5: "The list's probe jobs are re-run with it and their minutes count in the line condition;
+    each run is read with the references of its own run." The decision names them in ``rerun_with``; the re-dispatch submits
+    exactly ``rerun`` and ``rerun_with``."""
+    quiet = job("j2", reading=ec.READ, grounds=())
+    d = decide([probe(), job("j1"), quiet], ledger(), NOW, OK_LAYOUT, on)
+    assert d["rerun"] == ["j1"] and d["rerun_with"] == ["pr"] and d["probe_jobs"]["jobs"] == ["pr"] and d["probe_jobs"]["rerun"] is True
+    by = {x["job_id"]: x for x in d["decisions"]}
+    assert [x["job_id"] for x in d["decisions"]] == ["pr", "j1", "j2"]                                    # the order of the ids file
+    assert by["pr"]["rerun"] is False and by["pr"]["rerun_with"] is True and by["pr"]["probe_job"] is True and by["j2"]["rerun_with"] is False
+    assert by["j1"]["probe_minutes_counted"] == 0.5 and by["j1"]["charged_after"] == pytest.approx(30.6 + 0.5 + 7.3) == d["ledger"]["charged_after"]
+    assert set(by["j1"]["conditions"]) == set(rd.CONDITIONS) and all(by["j1"]["conditions"].values())
+    # once for the re-run, not once per granted job
+    d = decide([job("j1"), probe("pa", 0.5), job("j3", minutes=2.0), probe("pb", 0.25)], ledger(), NOW, OK_LAYOUT, on)
+    assert d["rerun"] == ["j1", "j3"] and d["rerun_with"] == ["pa", "pb"] and d["probe_jobs"]["modelled_minutes"] == 0.75
+    assert d["ledger"]["charged_after"] == pytest.approx(30.6 + 7.3 + 2.0 + 0.75) and [x["probe_minutes_counted"] for x in d["decisions"]] == [0.75, 0.0, 0.0, 0.0]
+    # nothing granted: no probe job is re-run. A probe job is never granted on its own
+    d = decide([probe(), quiet], ledger(), NOW, OK_LAYOUT, on)
+    assert d["rerun"] == [] and d["rerun_with"] == [] and d["probe_jobs"]["rerun"] is False and d["ledger"]["charged_after"] == 30.6
+    # the lines hold the job alone and not the job with the probe jobs: no job is granted
+    assert decide([job("j1")], ledger(75.2), NOW, OK_LAYOUT, on)["rerun"] == ["j1"]
+    d = decide([probe(), job("j1")], ledger(75.2), NOW, OK_LAYOUT, on)
+    assert d["rerun"] == [] and d["rerun_with"] == [] and d["decisions"][1]["refused_by"] == ["within_ledger_lines"] and d["ledger"]["charged_after"] == 75.2
+    d = decide([probe(minutes=0.5), job("big", minutes=7.3), job("small", minutes=6.7)], ledger(75.2), NOW, OK_LAYOUT, on)   # 75.2 + 0.5 + 6.7 = 82.4
+    assert d["rerun"] == ["small"] and d["rerun_with"] == ["pr"] and d["ledger"]["charged_after"] == pytest.approx(82.4)
+    # a probe job that cannot be re-run stops every grant: created on another UTC date; a re-run itself; re-run before
+    for bad in (probe(created="2026-11-11T23:59:00Z"), probe(is_rerun=True), probe(rerun_of="p0")):
+        d = decide([bad, job("j1")], ledger(), NOW, OK_LAYOUT, on)
+        assert d["rerun"] == [] and d["rerun_with"] == [] and d["decisions"][1]["refused_by"] == [rd.PROBE_JOBS] and list(d["probe_jobs"]["cannot_be_rerun"]) == ["pr"]
+        assert all(d["decisions"][1]["conditions"].values())
+    runs = tmp_path / "runs"
+    _rerun_ids(runs, [dict(job_id="prr", tag="L0-probes-s4096-rerun", rerun_of="pr")])
+    d = decide([probe(), job("j1")], ledger(), NOW, OK_LAYOUT, on, runs=runs, preds=tmp_path / "p")
+    assert d["rerun"] == [] and d["probe_jobs"]["cannot_be_rerun"] == {"pr": ["not_a_rerun_and_not_rerun_before"]}
+    # decided twice: the first decision names the probe job too, so nothing is granted the second time
+    preds = tmp_path / "predictions"
+    first = decide([probe(), job("j1"), job("j3")], ledger(80.0), NOW, OK_LAYOUT, on, runs=tmp_path / "none", preds=preds)   # the lines hold neither job with the probes
+    assert first["rerun"] == [] and rd.write_decision(first, "paper1_day3_dial_refs", preds).is_file()
+    d1 = decide([probe(), job("j1"), job("j3", minutes=60.0)], ledger(), NOW, OK_LAYOUT, on, runs=tmp_path / "none", preds=preds)
+    assert d1["rerun"] == ["j1"] and d1["decisions"][2]["refused_by"] == ["within_ledger_lines"]
+    rd.write_decision(d1, "paper1_day3_dial_refs", preds)                                                  # replaces the decision that granted nothing
+    d2 = decide([probe(), job("j1"), job("j3", minutes=1.0)], ledger(), NOW, OK_LAYOUT, on, runs=tmp_path / "none", preds=preds)
+    assert d2["rerun"] == [] and d2["earlier_reruns"]["granted"] == ["j1", "pr"] and d2["decisions"][2]["refused_by"] == [rd.PROBE_JOBS]
+    # a probe job carries no measured item
+    with pytest.raises(rd.DecisionInputError, match="a probe job carries no measured item"):
+        decide([dict(job("j1"), probe_job=True)], ledger(), NOW, OK_LAYOUT, on)
+    with pytest.raises(rd.DecisionInputError, match="probe_job is true or false"):
+        decide([dict(job("j1"), probe_job="yes")], ledger(), NOW, OK_LAYOUT, on)
+
+
 def test_the_rerun_day_is_the_table_entry(on):
     assert on["rerun_day"] == rd.RERUN_DAY == "utc_date_of_creation" and one(job(), on)[1]["rerun_day"] == "utc_date_of_creation"
 
@@ -362,7 +422,7 @@ def test_job_inputs_come_from_the_ids_file_the_budget_block_the_job_json_and_the
                k=int(probe.get("k", probe["L"])), p=float(probe["p"]))
     sent = dict(kind="reset_dial", reset_kind=probe.get("reset_kind", "reset"), n=probe["n"], L=probe["L"], k_1based=probe.get("k", probe["L"]), p=probe["p"])
     bundles = {"id0": dict(metrics=dict(timestamps=dict(created="2026-11-12T11:00:00Z")), points=[sent, dict(kind="null_control", n=20, L=0)]),
-               "id1": dict(metrics=dict(timestamps=dict(created="2026-11-12T11:00:05Z")), points=[]),
+               "id1": dict(metrics=dict(timestamps=dict(created="2026-11-12T11:00:05Z")), points=[dict(kind="reset_error", reset_kind="none", n=48)]),
                "id2": dict(creation_date="2026-11-12T11:00:09Z", points=[sent]),
                "id0r": dict(metrics=dict(timestamps=dict(created="2026-11-12T15:00:00Z")), points=[sent])}
     other = dict(key, p=0.123)
@@ -374,6 +434,7 @@ def test_job_inputs_come_from_the_ids_file_the_budget_block_the_job_json_and_the
     assert [j["job_id"] for j in jobs] == ["id0", "id1", "id2", "id0r"] and all(set(j) <= rd.JOB_FIELDS for j in jobs)
     assert [j["modelled_minutes"] for j in jobs[:3]] == [pytest.approx(x["seconds_at_1us"] / 60) for x in per_job[:3]]
     assert jobs[3]["modelled_minutes"] == jobs[0]["modelled_minutes"] and jobs[3]["rerun_of"] == "id0" and jobs[3]["is_rerun"] is True
+    assert [j["probe_job"] for j in jobs] == [False, True, False, False]                # CE-5: id1 was sent the readout reference only, no measured item
     assert [p["item"] for p in jobs[0]["points"]] == ["probe x"] and jobs[1]["points"] == [] and jobs[2]["points"][0]["grounds"] == [ec.GROUND_NO_E]
     with pytest.raises(rd.DecisionInputError, match="no job tagged"):
         rd.job_inputs(dict(jobs=[dict(job_id="z", tag="not-a-tag")]), joblist, {}, [])
