@@ -34,6 +34,8 @@ def load_table(path: str | Path | None = None) -> dict:
             raise ValueError(f"{p.name}: missing key {k!r}")
     if not isinstance(t["adopted"], bool):
         raise ValueError(f"{p.name}: 'adopted' must be true or false")
+    if t["adopted"] and str(t["status"]).strip().upper() == "PROVISIONAL":
+        raise ValueError(f"{p.name}: 'adopted' is true while 'status' is PROVISIONAL: a provisional table cannot be in force (code review CF-4)")
     lv = [float(v) for v in t["levels"]]
     if not lv or sorted(lv) != lv or len(set(lv)) != len(lv) or lv[0] <= 0:
         raise ValueError(f"{p.name}: 'levels' must be increasing and positive")
@@ -247,10 +249,32 @@ def floors_exact_test(table: Mapping | None = None, path: str | Path | None = No
     if rec.get("range_digest") != range_digest(t):
         return dict(passed=False, note=f"{name} was made for another range (digest {str(rec.get('range_digest'))[:12]}, table {range_digest(t)[:12]})")
     cases = rec.get("cases") or []
+    members = _exact_test_members(rec)
     if not rec.get("passed") or not cases or not all(c.get("ok") for c in cases):
         bad = [c.get("case") for c in cases if not c.get("ok")]
-        return dict(passed=False, note=f"{name}: not passed" + (f" ({len(bad)} of {len(cases)} cases below the floor)" if bad else ""))
-    return dict(passed=True, note=f"{name}: {len(cases)} cases at or above the floor", n_cases=len(cases), git_commit=rec.get("git_commit"))
+        return dict(passed=False, note=f"{name}: not passed" + (f" ({len(bad)} of {len(cases)} cases below the floor)" if bad else ""), members=members)
+    return dict(passed=True, note=f"{name}: {len(cases)} cases at or above the floor", n_cases=len(cases), git_commit=rec.get("git_commit"), members=members)
+
+
+def _exact_test_members(rec: Mapping) -> Dict[str, Dict[str, List[str]]]:
+    """{dial: {level: [member ids]}} that a record of the exact test covers (``setting.members``, which
+    ``scripts/floors_exact_test.py`` writes). A record made before the list was kept per dial and level names one vertex list
+    (``setting.vertices``): that list, with the designed channel, for each of its dials and levels."""
+    setting = rec.get("setting") or {}
+    if isinstance(setting.get("members"), dict):
+        return {str(d): {str(lv): [str(v) for v in ids] for lv, ids in by.items()} for d, by in setting["members"].items()}
+    old = [DESIGNED] + [str(v) for v in setting.get("vertices") or []]
+    dials = sorted({_kind(str(d.get("dial"))) for d in setting.get("dials") or [] if d.get("dial")})
+    return {d: {f"{float(lv):g}": list(old) for lv in (rec.get("table") or {}).get("levels") or []} for d in dials}
+
+
+def floors_exact_test_missing(exact: Mapping, dial: str, level, wanted: Iterable[str]) -> List[str]:
+    """The members of ``wanted`` that the recorded exact test does not cover for this dial and level (code review CF-1): a passed
+    record establishes the realised floor only at the members it tested. Every member is missing without a level or a list."""
+    wanted = [str(v) for v in wanted]
+    by = (exact.get("members") or {}).get(_kind(dial)) or {}
+    have = by.get(f"{float(level):g}") if level is not None else None
+    return sorted(wanted) if have is None else sorted(v for v in wanted if v not in have)
 
 
 VERTEX_CODE = ("gradvar/pauliprop.py", "gradvar/pauliprop_exact.py", "gradvar/analysis/dial_channel.py", "gradvar/analysis/floors.py",

@@ -350,19 +350,33 @@ def _members(preds, r, pr, band: Dict | None, missing: list | None = None) -> Di
     return None
 
 
-FLOOR_EXACT_RULE = ("Deviation 64 (draft, review correction C64-7): the realised form of the floor is a bound where the channel's sign "
-                    "condition holds (eps1 >= eps0, r_x >= 0, r_y >= 0); for the rest of the range it rests on the exact two-copy test "
-                    "recorded for the range (dial_channel.floors_exact_test). Until that record says passed, a floor miss is reported and "
-                    "is not read as R3.")
+# The floor clause of the row, part (2), word for word as code review CG-1 gives it (code review CF-7: the text constants quote the row; A is
+# the stated range, here the table). The same text is the table's ``floors.rule``.
+FLOOR_CLAUSE_ROW = ("The realised form of the floor is a bound only where eps1 >= eps0 and r_x, r_y >= 0. The exact two-copy test of it for the rest of A "
+                    "(data/deviation64/floors_exact_test.json, commit 79db1ea) was run on 11 Nov 2026 and did not pass: 62 of 384 cases lie below the "
+                    "closed form, all of them realised floors of the reset dial at p = 0.5 at members with eps0 > eps1. Under this Deviation no Deviation "
+                    "33 floor of a dial point is therefore tested. The floor of the designed channel and the lowest closed-form value over A are reported "
+                    "beside the measured interval and labelled as not a bound over A; a value below them is reported and is not read as R3; H5 and H6 are "
+                    "not evaluable in their floor clause and are reported as not-evaluable unless another sub-test fails; R3 (i) is not decided, so by "
+                    "Deviation 60 part (7) the Deviation 63 reading is UNRESOLVED unless R3 applies on another ground. The clause returns only by a later "
+                    "Deviation whose floor passes the exact test at every member of A where the sign condition fails, on both dials, adopted before any "
+                    "datum of the list is read.")
+FLOOR_EXACT_RULE = ("Deviation 64 (draft), row part (2): " + FLOOR_CLAUSE_ROW + " In code (code review CF-1, CF-2): the floor of a dial point is "
+                    "tested only when the bound is established at every member of the band, by the sign condition or by a record of the exact "
+                    "two-copy test that passed and lists that member for the dial and level (dial_channel.floors_exact_test); a new closed form "
+                    "replaces floors.realised_floor_at_channel only after that test passes for it.")
+FLOOR_NOT_A_BOUND = "not a bound over the range"
 
 
-def _lowest_floors(r, members: Dict | None, table=None) -> Dict:
+def _lowest_floors(r, members: Dict | None, table=None, level=None) -> Dict:
     """Deviation 64 (draft): the point's realised Deviation 33 floors at the member of the band where each is lowest
     (``floors.realised_floor_at_channel`` with the run-day readout and gain factors and the 16 mask-class counts the vertex rows
     carry; the masks are the same for every member). The lowest floor is taken over every member. It is tested (a miss counts, and
     feeds R3) only when the bound is established at every member: by the sign condition, or, for members where that fails
-    (``not_established``), by the recorded exact two-copy test (``FLOOR_EXACT_RULE``). Otherwise the floor and the miss are reported
-    under ``floor_<name>_reported`` and the clause is not tested. Not tested without members or factors."""
+    (``not_established``), by the recorded exact two-copy test (``FLOOR_EXACT_RULE``), which must have passed and must list each
+    of those members for the dial and ``level`` (code review CF-1). Otherwise the floor and the miss are reported under
+    ``floor_<name>_reported`` and the clause is not tested (``<name>_bound_not_established``: the reason is the bound, not a gap of
+    the point's own). Not tested without members or factors."""
     fac = [getattr(r, key, np.nan) for key in ("a_i", "b_i", "a_j", "b_j", "g_i", "g_j")]
     classes = next((m.get("mask_classes") for m in (members or {}).values() if m.get("mask_classes")), None)
     K = next((m.get("K") for m in (members or {}).values() if m.get("K")), None)
@@ -374,7 +388,9 @@ def _lowest_floors(r, members: Dict | None, table=None) -> Dict:
            for vid, m in members.items()}
     not_est = sorted(vid for vid, f in per.items() if not f["channel_sign_ok"])
     exact = DC.floors_exact_test(table) if not_est else dict(passed=True, note="the sign condition holds at every member")
-    out = dict(not_established=not_est, exact_test=exact, floor_rule_exact=FLOOR_EXACT_RULE,
+    uncovered = DC.floors_exact_test_missing(exact, dial, level, not_est) if (not_est and exact["passed"]) else []
+    established = bool(exact["passed"] and not uncovered)
+    out = dict(not_established=not_est, exact_test=exact, exact_test_uncovered=uncovered, floor_rule_exact=FLOOR_EXACT_RULE,
                floors_by_member={vid: dict(floor_grad=f["floor_grad"], floor_cost=f["floor_cost"], sign_ok=f["channel_sign_ok"]) for vid, f in per.items()})
     for name in ("grad", "cost"):
         # a member's own gaps other than the channel's sign (a negative readout offset, a floor that is not positive, L = 1) stay gaps
@@ -382,14 +398,17 @@ def _lowest_floors(r, members: Dict | None, table=None) -> Dict:
                   for vid, f in per.items()}
         vid = min(per, key=lambda v: per[v][f"floor_{name}"])
         lowest = per[vid][f"floor_{name}"]
-        out.update({f"floor_{name}_reported": lowest, f"floor_{name}_member": vid})
-        if all(own_ok.values()) and exact["passed"]:
+        out.update({f"floor_{name}_reported": lowest, f"floor_{name}_member": vid, f"floor_{name}_designed": per.get(DC.DESIGNED, {}).get(f"floor_{name}"),
+                    f"{name}_bound_not_established": bool(not_est and not established)})
+        if all(own_ok.values()) and established:
             out.update({f"floor_{name}": lowest, f"{name}_tested": True, f"{name}_note": ""})
         else:
             bad = next((v for v in per if not own_ok[v]), None)
+            why = (f"the exact two-copy test is not recorded as passed ({exact['note']})" if not exact["passed"] else
+                   f"the recorded exact two-copy test does not cover {', '.join(uncovered)} for this dial and level")
             note = (per[bad][f"{name}_note"] or "no tested floor at a member") if bad is not None else \
-                (f"the realised bound is not established at {', '.join(not_est)} and the exact two-copy test is not recorded as passed "
-                 f"({exact['note']}): a floor miss is reported and is not read as R3")
+                (f"the realised bound is not established at {', '.join(not_est)} and {why}: the floor is reported, labelled as "
+                 f"{FLOOR_NOT_A_BOUND}, and a value below it is not read as R3")
             out.update({f"floor_{name}": np.nan, f"{name}_tested": False, f"{name}_note": note})
     return out
 
@@ -400,18 +419,36 @@ def _reported_floor(rf: Dict, name: str, hi: float) -> Dict:
     (``below_floor_reported``: a miss that is reported and, while the floor is not tested, not read as R3)."""
     rep_ = rf.get(f"floor_{name}_reported")
     ok = rep_ is not None and np.isfinite(float(rep_)) and np.isfinite(float(hi))
+    unest = bool(rf.get(f"{name}_bound_not_established"))
     return dict(floor_member=rf.get(f"floor_{name}_member"), floor_not_established=rf.get("not_established"), floor_reported=rep_,
+                floor_designed=rf.get(f"floor_{name}_designed"), floor_label=FLOOR_NOT_A_BOUND if unest else None, floor_bound_not_established=unest,
                 below_floor_reported=bool(float(hi) < float(rep_)) if ok else None, floor_exact_test=rf.get("exact_test"),
                 floor_read_as_r3=bool(rf.get(f"{name}_tested")))
 
 
-def _realised_floors(r, pr, members=_LEGACY, table=None) -> Dict:
+def _floor_clause_gap(floors: list) -> tuple:
+    """(points, note) for the floor checks whose bound is not established over the band (code review CF-2): the hypothesis is then
+    not evaluable in its floor clause, and the note prints each such point's measured interval beside the floor of the designed
+    channel and the lowest closed-form value with its member, labelled as not a bound."""
+    gap = [x for x in floors if x.get("floor_bound_not_established")]
+    if not gap:
+        return [], ""
+    fmt = lambda v: "n/a" if v is None or not np.isfinite(float(v)) else f"{float(v):.4g}"      # noqa: E731
+    lines = [f"p = {x['p']:g} L = {x['L']} n = {x['n']}: measured {fmt(x.get('measured'))} [{fmt(x.get('lo'))}, {fmt(x.get('hi'))}]; floor of the designed "
+             f"channel {fmt(x.get('floor_designed'))}, lowest closed-form value {fmt(x.get('floor_reported'))} at {x.get('floor_member')}, "
+             f"{FLOOR_NOT_A_BOUND}" + ("; the interval lies below the reported value (reported, not read as R3)" if x.get("below_floor_reported") else "")
+             for x in gap]
+    return gap, ("; floor clause not evaluable (Deviation 64 draft, code review CG-1: no Deviation 33 floor of a dial point is tested while the realised bound "
+                 "is not established over the range): " + " | ".join(lines))
+
+
+def _realised_floors(r, pr, members=_LEGACY, table=None, level=None) -> Dict:
     """Deviation 60 part (7), option (b): the point's Deviation 33 floors re-derived on its probe's realised masks
     (``floors.realised_floor``: the realised prediction's mask counts with the run-day readout and gain factors of
     ``mark_dial_floors``); the mixture floors stay beside them. Not tested without the realised mask counts. ``members``
     (Deviation 64 draft): the lowest floor over the band's members instead (``_lowest_floors``)."""
     if members is not _LEGACY:
-        return _lowest_floors(r, members, table)
+        return _lowest_floors(r, members, table, level)
     stats = (pr or {}).get("mask_stats") or {}
     need = ("n_RR", "n_RK", "n_KR", "n_KK", "n1_i", "n2_i", "n1_j", "n2_j")
     fac = [getattr(r, key, np.nan) for key in ("a_i", "b_i", "a_j", "b_j", "g_i", "g_j")]
@@ -508,7 +545,7 @@ def evaluate_h5(points: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict
             values.append(dict(p=float(p), L=int(r.L), n=int(r.n), **_value_test(r.var_cmix_signal, r.var_cmix_signal_ci_lo, r.var_cmix_signal_ci_hi,
                                                                                  pr["var_cost"] if pr else np.nan, pr.get("var_cost_sigma", np.nan) if pr else np.nan, **bkw),
                                realised=bool((pr or {}).get("realised")), predicted_mixture=_mix(pr, "var_cost") if pr else None))
-            rf = _realised_floors(r, pr) if band is None else _realised_floors(r, pr, members=mem, table=band["table"])
+            rf = _realised_floors(r, pr) if band is None else _realised_floors(r, pr, members=mem, table=band["table"], level=band["level"])
             floors.append(dict(p=float(p), L=int(r.L), n=int(r.n), **_floor_test(r.var_cmix_signal, r.var_cmix_signal_ci_lo, r.var_cmix_signal_ci_hi,
                                                                               rf["floor_cost"] if rf["cost_tested"] else np.nan),
                                floor_rule="realised masks (Deviation 60 part (7), option (b))" + ("" if band is None else "; lowest over the band's members (Deviation 64 draft)"),
@@ -530,13 +567,17 @@ def evaluate_h5(points: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict
     fl = [x for x in floors if x["below_floor_with_interval"] is not None]
     miss, miss_note = _missing(missing)
     miss_note += _pairing_note(pairing)
+    floor_gap, floor_gap_note = _floor_clause_gap(floors) if band is not None else ([], "")
+    gap_field = {} if band is None else dict(floor_clause_not_evaluable=bool(floor_gap))        # nothing added while switched off
     if not ev and not fl:
-        return verdict("H5", H_TEXT["H5"], "not-evaluable", note="no reset k = L point with Var[C_mix], a prediction and a Deviation 33 floor" + miss_note,
-                       ratios=ratios, values=values, floors=floors, missing_predictions=miss, pairing=pairing)
+        return verdict("H5", H_TEXT["H5"], "not-evaluable", note="no reset k = L point with Var[C_mix], a prediction and a Deviation 33 floor" + floor_gap_note + miss_note,
+                       ratios=ratios, values=values, floors=floors, missing_predictions=miss, pairing=pairing, **gap_field)
     fails = [x for x in ev if not x["within"]] + [x for x in fl if x["below_floor_with_interval"]]
     if band is not None:
         miss_note += f"; {BAND_RULE} Level {band['level']!r}; coherence check on the execution-time and bracket calibrations: {band['range_check']}"
-    return verdict("H5", H_TEXT["H5"], "fail" if fails else "pass", value=dict(ratio_misses=sum(1 for x in ratios if x["within"] is False), value_misses=sum(1 for x in values if x["within"] is False),
+    miss_note = floor_gap_note + miss_note
+    # code review CF-2: a failing sub-test refutes; without one, a floor clause that cannot be tested leaves H5 undecided, not passed
+    return verdict("H5", H_TEXT["H5"], "fail" if fails else ("not-evaluable" if floor_gap else "pass"), **gap_field, value=dict(ratio_misses=sum(1 for x in ratios if x["within"] is False), value_misses=sum(1 for x in values if x["within"] is False),
                                                                           below_floor=sum(1 for x in fl if x["below_floor_with_interval"])), threshold="0 of each",
                    note=f"{len(ratios)} depth ratios, {len(values)} values, {len(fl)} floor checks evaluated; p^4/9 is a reference line only (Deviation 33)" + miss_note,
                    ratios=ratios, values=values, floors=floors, missing_predictions=miss, pairing=pairing)
@@ -555,7 +596,8 @@ def evaluate_h6(points: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict
     band = _band(preds)                  # Deviation 64 (draft): None unless adopted
     for r in reset.itertuples():
         pr_r = _pred(preds, r, missing=missing) if int(r.k) == int(r.L) else None
-        rf = _realised_floors(r, pr_r) if band is None else _realised_floors(r, pr_r, members=_members(preds, r, pr_r, band, missing), table=band["table"])
+        rf = _realised_floors(r, pr_r) if band is None else _realised_floors(r, pr_r, members=_members(preds, r, pr_r, band, missing), table=band["table"],
+                                                                             level=band["level"])
         fg = rf["floor_grad"] if rf["grad_tested"] else np.nan
         head = (r.signal_variance / fg, r.signal_ci_lo / fg, r.signal_ci_hi / fg) if np.isfinite(fg) and fg > 0 else (np.nan, np.nan, np.nan)
         floors.append(dict(p=float(r.p), n=int(r.n), L=int(r.L), headline_ratio=head[0], headline_lo=head[1], headline_hi=head[2], mele_floor=r.mele_floor,
@@ -653,17 +695,21 @@ def evaluate_h6(points: pd.DataFrame, preds: Dict, n_boot: int = 10_000) -> Dict
         gap_note = (f"; reset / dephasing control {control_gap[0].get('factor_note') or H6_CONTROL_NOT_EVALUABLE} (a computation gap, not counted as a miss)"
                     if control_gap else "")
         miss_note += f"; {BAND_RULE} Level {band['level']!r}; coherence check on the execution-time and bracket calibrations: {band['range_check']}"
+    floor_gap, floor_gap_note = _floor_clause_gap(floors) if band is not None else ([], "")
+    gap_field = {} if band is None else dict(floor_clause_not_evaluable=bool(floor_gap))        # nothing added while switched off
+    gap_note += floor_gap_note
     if not fl and not ev and not tested_controls:
         return verdict("H6", H_TEXT["H6"], "not-evaluable", note="no reset k = L point with a Deviation 33 floor or a pre-drawn ratio" + gap_note + miss_note, floors=floors,
                        depth_ratios=ratios, ladder=ladder, controls=controls, k1_series=k1, unital_reference=flat_reference, missing_predictions=miss,
-                       pairing=pairing)
+                       pairing=pairing, **gap_field)
     inconclusive = flat_reference is not None and not flat_reference["falls"]
     fails = [x for x in fl if x["below_floor_with_interval"]] + [x for x in ratios if x["within"] is False] + [x for x in tested_controls if x["within"] is False or not x["exceeds"]]
     if not inconclusive:
         fails += [x for x in ladder if x["within"] is False]
     # a failing sub-test refutes whatever the control shows; without one, a control that could not be computed leaves H6 undecided
-    result = "fail" if fails else ("not-evaluable" if control_gap else "pass")
-    return verdict("H6", H_TEXT["H6"], result,
+    # (code review CF-2: so does a floor clause that cannot be tested because the bound is not established over the band)
+    result = "fail" if fails else ("not-evaluable" if (control_gap or floor_gap) else "pass")
+    return verdict("H6", H_TEXT["H6"], result, **gap_field,
                    value=dict(below_floor=sum(1 for x in fl if x["below_floor_with_interval"]), depth_ratio_misses=sum(1 for x in ratios if x["within"] is False),
                               ladder_misses=sum(1 for x in ladder if x["within"] is False), control_misses=sum(1 for x in tested_controls if x["within"] is False or not x["exceeds"])),
                    threshold="0 of each", comparison="headline: floor-subtracted k = L variance / (1/2 c_i^2 g_i^2 p^2) with its interval above 1",

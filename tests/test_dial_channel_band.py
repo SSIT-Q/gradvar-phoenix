@@ -27,7 +27,7 @@ from gradvar.analysis.loader import load_run                          # noqa: E4
 
 from test_dial_placement import Q52, S23, _h6_point, _point, _with_realised, pred_dir, preds     # noqa: E402,F401  (fixtures and point builders)
 from test_truncation_arm import DELTA, K, _full_seed, _preds as _h7_preds, _qubits, _stamp, day3_run   # noqa: E402,F401
-from test_truncation_pairs import H7_SEED, PAIRS_SEED, STAMP as PSTAMP, _comparators, synthetic       # noqa: E402,F401
+from test_truncation_pairs import H7_OK, H7_SEED, MC_OK, PAIRS_SEED, STAMP as PSTAMP, _comparators, synthetic       # noqa: E402,F401
 
 TABLE = DC.load_table()
 LEVEL = DC.levels(TABLE)[0]
@@ -39,16 +39,33 @@ ON = dict(enabled=True, level=LEVEL, coherence=COH)
 
 def _table_copy(tmp_path, record="pass"):
     """A copy of the table in its own directory, with a record of the exact two-copy test of the floors beside it: 'pass' (made for
-    this range, every case met), 'fail' (one case below its floor), 'other' (made for another range) or None (no record)."""
+    this range, every case met, every member listed for both dials and every level), 'no_V8' (the same without V8 in its lists),
+    'old' (passed, with the one vertex list of the records made before code review CF-1: V1, V2, V6, V7, V9), 'fail' (one case below
+    its floor), 'other' (made for another range) or None (no record)."""
     d = tmp_path / f"table_{record}"
     d.mkdir(exist_ok=True)
     shutil.copy(TABLE["_path"], d / Path(TABLE["_path"]).name)
     t = DC.load_table(d / Path(TABLE["_path"]).name)
     if record:
-        rec = dict(passed=record != "fail", range_digest=DC.range_digest(t) if record != "other" else "0" * 64,
-                   cases=[dict(case="x", ok=True), dict(case="y", ok=record != "fail")])
+        ids = [DC.DESIGNED] + [v for v in VIDS if not (record == "no_V8" and v == "V8")]
+        setting = dict(members={dial: {f"{lv:g}": ids for lv in DC.levels(t)} for dial in ("reset", "dephase")})
+        if record == "old":
+            setting = dict(vertices=["V1", "V2", "V6", "V7", "V9"], dials=[dict(dial="reset", p=0.25), dict(dial="reset", p=0.5), dict(dial="dephase", p=0.5)])
+        rec = dict(passed=record != "fail", range_digest=DC.range_digest(t) if record != "other" else "0" * 64, setting=setting,
+                   table=dict(levels=DC.levels(t)), cases=[dict(case="x", ok=True), dict(case="y", ok=record != "fail")])
         (d / TABLE["floors"]["exact_test_record"]).write_text(json.dumps(rec))
     return t
+
+
+def _labelled(pr, label="E1"):
+    """The comparators with every designed-channel row and entry stating the calibration it was drawn on. Code review CF-4: with
+    the band on a vertex value is a member only beside a designed value that carries the same label."""
+    out = dict(pr)
+    if out.get("truncation_realised"):
+        out["truncation_realised"] = [dict(e, calibration_label=label) for e in out["truncation_realised"]]
+    if out.get("dial_realised") is not None and len(out["dial_realised"]):
+        out["dial_realised"] = out["dial_realised"].assign(calibration_label=label)
+    return out
 
 
 # ------------------------------------------------------------------------------------------------ the table and its reader
@@ -135,7 +152,7 @@ def test_every_number_comes_from_the_table(tmp_path):
     assert DC.choose_level(0.0039, t) == 0.004 and DC.choose_level(0.0041, t) == 0.03 and DC.choose_level(0.031, t) is None
     assert DC.band_of({"designed": (1.0, 0.1)}, table=t)["z"] == 3.0 and t["_sha256"] != TABLE["_sha256"] and DC.range_digest(t) != DC.range_digest(TABLE)
     flipped = copy.deepcopy(raw)
-    flipped["adopted"] = True                                                # adoption changes the file, not the range a record was made for
+    flipped.update(adopted=True, status="ADOPTED (test)")                    # adoption changes the file, not the range a record was made for
     q = tmp_path / "adopted.json"
     q.write_text(json.dumps(flipped))
     assert DC.load_table(q)["_sha256"] != TABLE["_sha256"] and DC.range_digest(DC.load_table(q)) == DC.range_digest(TABLE)
@@ -313,24 +330,75 @@ def test_lowest_floor_is_over_every_member_and_rests_on_the_exact_test_where_the
     not_est = sorted(vid for vid, ch in chans.items() if ch["eps1"] < ch["eps0"] or ch["r_x"] < 0 or ch["r_y"] < 0)
     assert not_est and DC.DESIGNED not in not_est
     lowest = min(f["floor_grad"] for f in per.values())
-    passed = DH._lowest_floors(r, members, _table_copy(tmp_path, "pass"))
+    passed = DH._lowest_floors(r, members, _table_copy(tmp_path, "pass"), LEVEL)
+    assert passed["exact_test_uncovered"] == [] and not passed["grad_bound_not_established"]
     assert passed["grad_tested"] and passed["floor_grad"] == lowest == passed["floor_grad_reported"] and passed["exact_test"]["passed"]
     assert passed["not_established"] == not_est and per[passed["floor_grad_member"]]["floor_grad"] == lowest and passed["floor_grad"] <= per[DC.DESIGNED]["floor_grad"]
     for record, word in ((None, "no record"), ("fail", "not passed"), ("other", "another range")):
-        out = DH._lowest_floors(r, members, _table_copy(tmp_path, record))
+        out = DH._lowest_floors(r, members, _table_copy(tmp_path, record), LEVEL)
         assert not out["grad_tested"] and not out["cost_tested"] and np.isnan(out["floor_grad"]) and out["floor_grad_reported"] == lowest
         assert word in out["exact_test"]["note"] and "not read as R3" in out["grad_note"] and out["not_established"] == not_est
+        assert out["grad_bound_not_established"] and out["cost_bound_not_established"] and DH.FLOOR_NOT_A_BOUND in out["grad_note"]
+        assert out["floor_grad_designed"] == per[DC.DESIGNED]["floor_grad"]
+    # code review CF-1: a passed record establishes the floor only at the members it lists for the dial and level. One that omits
+    # V8, or that was made on the first list (V1, V2, V6, V7, V9), does not establish V8; nor does any record without a level
+    assert "V8" in not_est
+    for record in ("no_V8", "old"):
+        out = DH._lowest_floors(r, members, _table_copy(tmp_path, record), LEVEL)
+        assert out["exact_test"]["passed"] and out["exact_test_uncovered"] == ["V8"] and not out["grad_tested"] and not out["cost_tested"]
+        assert "does not cover V8" in out["grad_note"] and np.isnan(out["floor_cost"]) and out["floor_grad_reported"] == lowest
+    assert DC.floors_exact_test_missing(DC.floors_exact_test(_table_copy(tmp_path, "pass")), "reset", LEVEL, not_est) == []
+    assert DC.floors_exact_test_missing(DC.floors_exact_test(_table_copy(tmp_path, "pass")), "reset", 0.5, not_est) == not_est
+    nolevel = DH._lowest_floors(r, members, _table_copy(tmp_path, "pass"))
+    assert not nolevel["grad_tested"] and nolevel["exact_test_uncovered"] == not_est
     # a band whose members all meet the sign condition needs no record
     easy = {vid: m for vid, m in members.items() if vid not in not_est}
     out = DH._lowest_floors(r, easy, _table_copy(tmp_path, None))
     assert out["grad_tested"] and out["cost_tested"] and out["not_established"] == [] and out["floor_grad"] == min(per[v]["floor_grad"] for v in easy)
     # a negative readout offset stays a gap whatever the record says
-    bad = DH._lowest_floors(SimpleNamespace(arm="reset", **dict(fac, b_j=-0.01)), members, _table_copy(tmp_path, "pass"))
-    assert not bad["grad_tested"] and "b < 0" in bad["grad_note"]
+    bad = DH._lowest_floors(SimpleNamespace(arm="reset", **dict(fac, b_j=-0.01)), members, _table_copy(tmp_path, "pass"), LEVEL)
+    assert not bad["grad_tested"] and "b < 0" in bad["grad_note"] and not bad["grad_bound_not_established"]
     assert not DH._lowest_floors(r, None)["grad_tested"] and not DH._lowest_floors(SimpleNamespace(), members)["cost_tested"]
-    assert DH._realised_floors(r, None, members=members, table=_table_copy(tmp_path, "pass"))["floor_grad"] == lowest
-    rep = DH._reported_floor(DH._lowest_floors(r, members, _table_copy(tmp_path, None)), "grad", 0.5 * lowest)
+    assert DH._realised_floors(r, None, members=members, table=_table_copy(tmp_path, "pass"), level=LEVEL)["floor_grad"] == lowest
+    rep = DH._reported_floor(DH._lowest_floors(r, members, _table_copy(tmp_path, None), LEVEL), "grad", 0.5 * lowest)
     assert rep["below_floor_reported"] is True and rep["floor_read_as_r3"] is False and rep["floor_reported"] == lowest
+    assert rep["floor_label"] == DH.FLOOR_NOT_A_BOUND and rep["floor_bound_not_established"] and rep["floor_designed"] == per[DC.DESIGNED]["floor_grad"]
+
+
+def test_floor_clause_text_is_the_rows_and_no_evaluator_reads_the_proposed_bound():
+    """Code review CF-7: the text constants quote the row's floor clause (CG-1) word for word, and the table carries the same text.
+    The committed record of the exact test did not pass, so no floor of a dial point is tested. The floor that needs no sign
+    condition (``floors.realised_floor_bound_at_channel``) is a proposal: no evaluator reads it."""
+    assert TABLE["floors"]["rule"] == DH.FLOOR_CLAUSE_ROW and DH.FLOOR_CLAUSE_ROW in DH.FLOOR_EXACT_RULE
+    assert DH.FLOOR_CLAUSE_ROW.startswith("The realised form of the floor is a bound only where eps1 >= eps0 and r_x, r_y >= 0. The exact two-copy test")
+    for phrase in ("(data/deviation64/floors_exact_test.json, commit 79db1ea) was run on 11 Nov 2026 and did not pass: 62 of 384 cases lie below the closed form",
+                   "Under this Deviation no Deviation 33 floor of a dial point is therefore tested.", "labelled as not a bound over A",
+                   "H5 and H6 are not evaluable in their floor clause and are reported as not-evaluable unless another sub-test fails",
+                   "R3 (i) is not decided, so by Deviation 60 part (7) the Deviation 63 reading is UNRESOLVED unless R3 applies on another ground",
+                   "passes the exact test at every member of A where the sign condition fails, on both dials, adopted before any datum of the list is read."):
+        assert phrase in DH.FLOOR_CLAUSE_ROW, phrase
+    assert "exact_test_vertices" not in TABLE["floors"] and TABLE["floors"]["exact_test_also"] == ["V6"]
+    exact = DC.floors_exact_test()
+    assert exact["passed"] is False and "not passed" in exact["note"] and set(exact["members"]) == {"reset", "dephase"}
+    for name in ("dial_hypotheses.py", "predictions.py", "report.py", "dial_channel.py"):
+        text = (ROOT / "gradvar" / "analysis" / name).read_text(encoding="utf-8")
+        assert "realised_floor_bound_at_channel" not in text and "UNIVERSAL_FLOOR_RULE" not in text, name
+    assert FL.UNIVERSAL_FLOOR_RULE.startswith("Proposed (not adopted")
+
+
+def test_table_that_is_adopted_while_provisional_is_refused(tmp_path):
+    raw = json.loads(Path(TABLE["_path"]).read_text(encoding="utf-8"))
+    assert raw["status"] == "PROVISIONAL" and raw["adopted"] is False
+    def table(name, **edit):                                 # the reader keeps a table by its path: one file per case
+        p = tmp_path / f"{name}.json"
+        p.write_text(json.dumps(dict(raw, **edit)), encoding="utf-8")
+        return p
+    for status in ("PROVISIONAL", "provisional ", "Provisional"):
+        with pytest.raises(ValueError, match="PROVISIONAL"):
+            DC.load_table(table("refused_" + status.strip().lower() + str(len(status)), adopted=True, status=status))
+    ok = DC.load_table(table("adopted", adopted=True, status="ADOPTED (test)"))
+    assert ok["adopted"] is True and DC.band_enabled(ok)
+    assert DC.load_table(table("as_committed"))["adopted"] is False
 
 
 def test_records_beside_the_table_are_read_only_for_the_range_and_code_they_were_made_on(tmp_path):
@@ -369,7 +437,8 @@ def _h7_entry(vid, rms, level=LEVEL, kind="reset", **kw):
 def test_truncation_members_and_band_from_the_vertex_files(tmp_path):
     vals = {vid: 0.05 + 0.001 * i for i, vid in enumerate(VIDS)}
     rec = dict(snapshot=dict(stamp=ST), table=dict(sha256=TABLE["_sha256"]), calibration=dict(role="execution", label="E1"),
-               entries=[_h7_entry(vid, v, calibration_label="E1") for vid, v in vals.items()])
+               settings=dict(realised=dict(n_samples=P.REGISTERED_PATHS), exploratory=False),
+               entries=[_h7_entry(vid, v, calibration_label="E1", n_samples=P.REGISTERED_PATHS) for vid, v in vals.items()])
     # review correction C64-8: only the values drawn on the execution-time calibration are read. A record drawn on the placement
     # snapshot before dispatch, or one that does not say, is not; nor are the dispatch-time file names
     (tmp_path / "h7_vertices_x.json").write_text(json.dumps(dict(rec, calibration=dict(role="dispatch"))))
@@ -381,15 +450,20 @@ def test_truncation_members_and_band_from_the_vertex_files(tmp_path):
     assert len(P.load_vertex_truncation(tmp_path)) == len(VIDS)
     assert P.load_truncation_entries(tmp_path) == [] and P.load_realised_truncation(tmp_path) == []      # the old loaders do not read the file
     preds_ = dict(dir=str(tmp_path))
-    designed = dict(_h7_entry(DC.DESIGNED, 0.052), file="h7_realised_x.json", placement_stamp=ST)
+    bare = dict(_h7_entry(DC.DESIGNED, 0.052), file="h7_realised_x.json", placement_stamp=ST)
     kw = dict(patch="6x10", edge="84_85", n=52, p=0.5, L=8, qubits=POINT["qubits"], stamp=ST, seed=7, K=256, reset_kind="reset")
+    # code review CF-4: a designed entry without a calibration label takes no vertex value (before: it took every one)
+    _m, missing, note = P.truncation_members(preds_, bare, LEVEL, **kw)
+    assert missing == VIDS and P.NO_DESIGNED_LABEL in note and P.truncation_band(preds_, bare, LEVEL, **kw)[0] is None
+    assert not P._same_calibration(dict(calibration_label="E1"), None) and not P._same_calibration(dict(calibration_label=float("nan")), float("nan"))
+    assert P._same_calibration(dict(calibration_label="E1"), "E1") and not P._same_calibration({}, "E1")
+    designed = dict(bare, calibration_label="E1")
     members, missing, note = P.truncation_members(preds_, designed, LEVEL, **kw)
     assert not missing and note == "" and sorted(members) == sorted([DC.DESIGNED] + VIDS) and members[VIDS[0]]["table_sha256"] == TABLE["_sha256"]
     band, why = P.truncation_band(preds_, designed, LEVEL, **kw)
     z = float(TABLE["band"]["z"])
     assert why == "" and band["lo_member"] == VIDS[0] and band["hi_member"] == VIDS[-1] and (band["hi"], band["hi_sigma"], band["z"]) == (vals[VIDS[-1]], 1e-4, z)
-    # a designed entry that states its calibration takes only vertex values drawn on the same one
-    assert P.truncation_members(preds_, dict(designed, calibration_label="E1"), LEVEL, **kw)[1] == []
+    # a designed entry takes only vertex values drawn on its own calibration
     assert P.truncation_members(preds_, dict(designed, calibration_label="E2"), LEVEL, **kw)[1] == VIDS
     assert band["values"][DC.DESIGNED]["value"] == 0.052 and band["files"] == ["h7_realised_x.json", "h7_vertices_x.json"]
     for other in (dict(seed=8), dict(K=64), dict(stamp="2026-09-28T030800Z"), dict(qubits=list(range(1, 53))), dict(p=0.25)):
@@ -407,6 +481,68 @@ def test_truncation_members_and_band_from_the_vertex_files(tmp_path):
     assert amb[1] == VIDS and "ambiguous" in amb[2]
 
 
+def test_vertex_files_are_read_only_with_the_registered_settings_and_the_loaded_table(tmp_path):
+    """Code review CF-3: a vertex file of role 'execution' is left out, and named in the note, when it was not drawn with the
+    Deviation 60 settings (2,000,000 paths, not marked exploratory) or was drawn for another table. The review's own case: an
+    ``h7_vertices_`` file of role 'execution' drawn with 1,000 paths."""
+    vals = {vid: 0.05 + 0.001 * i for i, vid in enumerate(VIDS)}
+    kw = dict(patch="6x10", edge="84_85", n=52, p=0.5, L=8, qubits=POINT["qubits"], stamp=ST, seed=7, K=256, reset_kind="reset")
+    designed = dict(_h7_entry(DC.DESIGNED, 0.052, calibration_label="E1"), file="h7_realised_x.json", placement_stamp=ST)
+
+    def record(n=P.REGISTERED_PATHS, exploratory=False, sha=TABLE["_sha256"], entry_n=None):
+        return dict(snapshot=dict(stamp=ST), table=dict(sha256=sha), calibration=dict(role="execution", label="E1"),
+                    settings=dict(realised=dict(n_samples=n), exploratory=exploratory),
+                    entries=[_h7_entry(vid, v, calibration_label="E1", n_samples=n if entry_n is None else entry_n) for vid, v in vals.items()])
+    f = tmp_path / "h7_vertices_x.json"
+    assert P.REGISTERED_PATHS == 2_000_000
+    for rec, word in ((record(n=1000, exploratory=True), "1,000 paths"), (record(n=1000), "1,000 paths"), (record(exploratory=True), "marked exploratory"),
+                      (record(entry_n=1000), "1,000 paths"), (record(sha="0" * 64), "another table"), (dict(record(), settings={}), "no path count"),
+                      ({k: v for k, v in record().items() if k != "table"}, "another table")):
+        f.write_text(json.dumps(rec))
+        left = []
+        assert P.load_vertex_truncation(tmp_path, left_out=left) == [] and [x["file"] for x in left] == [f.name] and word in left[0]["why"], (word, left)
+        preds_ = dict(dir=str(tmp_path))
+        _m, missing, note = P.truncation_members(preds_, designed, LEVEL, **kw)
+        assert missing == VIDS and f.name in note and word in note and "left out" in note
+        assert P.vertex_files_note(preds_, "h7_vertices_") in note and P.vertex_files_note(preds_, "dial_vertices_") == ""
+    f.write_text(json.dumps(record()))
+    left = []
+    assert len(P.load_vertex_truncation(tmp_path, left_out=left)) == len(VIDS) and left == []
+    assert P.truncation_members(dict(dir=str(tmp_path)), designed, LEVEL, **kw)[1] == []
+    other = _table_copy(tmp_path, None)                                     # the same range in a table file of its own: the digest is the file's
+    edited = Path(other["_path"])
+    edited.write_text(edited.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+    DC._CACHE.pop(str(edited.resolve()), None)
+    assert DC.load_table(edited)["_sha256"] != TABLE["_sha256"] and P.load_vertex_truncation(tmp_path, table=DC.load_table(edited)) == []
+    # the dial rows: the same two conditions, read from the rows and from the record written beside them
+    row = dict(probe_id="dial_p0.5_L8_kL", L=8, dial="reset", p=0.5, patch="6x10", edge="84_85", qubits=" ".join(str(q) for q in POINT["qubits"]), snapshot_stamp=ST,
+               mask_seed=7, K=256, var_kL_realised=1e-3, se_kL_realised=1e-5, var_cost_realised=2e-3, se_cost_realised=1e-5, n_samples=P.REGISTERED_PATHS)
+    good = _dial_vertex_rows(row).drop(columns=["source"])
+    csv = tmp_path / "dial_vertices_x.csv"
+    for frame, side, word in ((good.assign(n_samples=1000), None, "1,000 paths"), (good.drop(columns=["n_samples"]), None, "no path count"),
+                              (good.assign(table_sha256="0" * 64), None, "another table"), (good.drop(columns=["table_sha256"]), None, "another table"),
+                              (good, dict(settings=dict(exploratory=True)), "marked exploratory"), (good.assign(exploratory=True), None, "marked exploratory")):
+        frame.to_csv(csv, index=False)
+        csv.with_suffix(".json").unlink(missing_ok=True)
+        if side:
+            csv.with_suffix(".json").write_text(json.dumps(side))
+        left = []
+        assert P.load_vertex_rows(tmp_path, left_out=left).empty and [x["file"] for x in left] == [csv.name] and word in left[0]["why"], (word, left)
+    csv.with_suffix(".json").write_text(json.dumps(dict(settings=dict(exploratory=False))))
+    good.to_csv(csv, index=False)
+    left = []
+    got = P.load_vertex_rows(tmp_path, left_out=left)
+    assert len(got) == len(good) and left == [] and set(got.source) == {csv.name}
+    des = dict(var=1e-3, sigma=1e-5, var_cost=2e-3, var_cost_sigma=1e-5, calibration_label="E1")
+    dk = dict(patch="6x10", edge="84_85", qubits=POINT["qubits"], stamp=ST, probe_seed=7, K=256)
+    assert P.dial_members(dict(dir=str(tmp_path)), des, LEVEL, 8, 8, "reset", 0.5, **dk)[1] == []
+    _m, missing, note = P.dial_members(dict(dir=str(tmp_path)), dict(des, calibration_label=None), LEVEL, 8, 8, "reset", 0.5, **dk)
+    assert missing == VIDS and P.NO_DESIGNED_LABEL in note
+    good.assign(n_samples=1000).to_csv(csv, index=False)
+    _m, missing, note = P.dial_members(dict(dir=str(tmp_path)), des, LEVEL, 8, 8, "reset", 0.5, **dk)
+    assert missing == VIDS and csv.name in note and "1,000 paths" in note
+
+
 def _dial_vertex_rows(base: dict, level=LEVEL, dial="reset", scale=None, source="dial_vertices_test.csv"):
     rows = []
     for i, c in enumerate(DC.channels_to_draw(TABLE, dial, [level])):
@@ -414,7 +550,7 @@ def _dial_vertex_rows(base: dict, level=LEVEL, dial="reset", scale=None, source=
         rows.append(dict(base, var_kL_realised=f * base["var_kL_realised"], se_kL_realised=base["se_kL_realised"], var_cost_realised=f * base["var_cost_realised"],
                          se_cost_realised=base["se_cost_realised"], channel_key=c["key"], serves=" ".join(f"{lv!r}:{vid}" for lv, vid in c["serves"]),
                          mask_classes=" ".join(str(v) for v in _classes(int(base["K"]))), mix_exact=c["channel"]["r_x"] == 0.0 == c["channel"]["r_y"], source=source,
-                         calibration_role="execution", calibration_label="E1",
+                         calibration_role="execution", calibration_label="E1", table_sha256=TABLE["_sha256"],
                          **{f"channel_{k}": v for k, v in c["channel"].items()}))
     return pd.DataFrame(rows)
 
@@ -424,9 +560,13 @@ def test_h5_h6_read_the_band_only_when_switched_on(preds, tmp_path):       # noq
     h5 = _point(0.25, 8, 52, Q52, seed=6)
     fac = dict(a_i=0.97, b_i=0.012, a_j=0.975, b_j=0.009, g_i=0.93, g_j=0.91)
     pt = dict(base, **{k: v for k, v in h5.items() if k.startswith("var_cmix") or k in ("cmix_draws", "floor_cost")}, **fac)
-    pr2 = _with_realised(preds, [pt], scale=0.7)
+    bare = _with_realised(preds, [pt], scale=0.7)
+    pr2 = _labelled(bare)
     off5, off6 = DH.evaluate_h5(pd.DataFrame([pt]), pr2, n_boot=200), DH.evaluate_h6(pd.DataFrame([pt]), pr2, n_boot=200)
     assert "band" not in off5["values"][0] and "floor_member" not in off6["floors"][0] and "Deviation 64" not in off5["note"] + off6["note"]
+    assert "floor_clause_not_evaluable" not in off5 and "floor_clause_not_evaluable" not in off6          # nothing added while switched off
+    b5, b6 = DH.evaluate_h5(pd.DataFrame([pt]), bare, n_boot=200), DH.evaluate_h6(pd.DataFrame([pt]), bare, n_boot=200)   # switched off: the label changes nothing
+    assert (b5["result"], b5["value"], b6["result"], b6["value"]) == (off5["result"], off5["value"], off6["result"], off6["value"])
     row = pr2["dial_realised"].iloc[0].to_dict()
     hi_vid = VIDS[2]
     target = pt["var_cmix_signal"] / row["var_cost_realised"]              # one vertex put where the measured value is
@@ -442,13 +582,45 @@ def test_h5_h6_read_the_band_only_when_switched_on(preds, tmp_path):       # noq
     want = {vid: FL.realised_floor_at_channel(dict(K=256, classes=_classes()), *fac.values(), channel=ch) for vid, ch in chans.items()}
     assert fc["floor_tested"] and fc["floor"] == pytest.approx(min(f["floor_cost"] for f in want.values())) and fc["floor_read_as_r3"] is True
     assert fc["floor_not_established"] == sorted(vid for vid, f in want.items() if not f["channel_sign_ok"]) and "lowest over the band" in fc["floor_rule"]
-    (f6,) = DH.evaluate_h6(pd.DataFrame([pt]), on, n_boot=200)["floors"]
+    res6 = DH.evaluate_h6(pd.DataFrame([pt]), on, n_boot=200)
+    (f6,) = res6["floors"]
     assert f6["floor_tested"] and f6["floor"] == pytest.approx(min(f["floor_grad"] for f in want.values())) and f6["floor_member"] in chans
+    assert res5["floor_clause_not_evaluable"] is False and res6["floor_clause_not_evaluable"] is False and fc["floor_label"] is None
     # review correction C64-7: without the record of the exact test the floor and a miss are reported, not tested, not read as R3
     norec = dict(on, dial_band=dict(ON, table=_table_copy(tmp_path, None)))
-    (g5,) = DH.evaluate_h5(pd.DataFrame([pt]), norec, n_boot=200)["floors"]
+    n5 = DH.evaluate_h5(pd.DataFrame([pt]), norec, n_boot=200)
+    (g5,) = n5["floors"]
     assert not g5["floor_tested"] and g5["below_floor_with_interval"] is None and g5["floor_reported"] == pytest.approx(fc["floor"])
     assert g5["below_floor_reported"] in (True, False) and g5["floor_read_as_r3"] is False and "not read as R3" in g5["floor_note"]
+    # code review CF-2: H5 and H6 do not pass without their floor clause. With the band on and the bound not established (no
+    # record; a record that did not pass; a passed record that omits a member; the committed record) the verdict is not-evaluable
+    # unless another sub-test fails, and the note prints the reported floor, its member and the label beside the measured interval
+    assert res5["result"] == "pass" and n5["result"] == "not-evaluable" and n5["floor_clause_not_evaluable"] is True
+    assert g5["floor_label"] == DH.FLOOR_NOT_A_BOUND == "not a bound over the range" and g5["floor_designed"] == pytest.approx(want[DC.DESIGNED]["floor_cost"])
+    for word in ("floor clause not evaluable", DH.FLOOR_NOT_A_BOUND, f"at {g5['floor_member']}", f"{g5['floor_reported']:.4g}", f"{g5['floor_designed']:.4g}",
+                 f"measured {g5['measured']:.4g} [{g5['lo']:.4g}, {g5['hi']:.4g}]"):
+        assert word in n5["note"], (word, n5["note"])
+    for record in (None, "fail", "no_V8", "committed"):
+        cfg = dict(ON) if record == "committed" else dict(ON, table=_table_copy(tmp_path, record))
+        gap5 = DH.evaluate_h5(pd.DataFrame([pt]), dict(on, dial_band=cfg), n_boot=200)
+        gap6 = DH.evaluate_h6(pd.DataFrame([pt]), dict(on, dial_band=cfg), n_boot=200)
+        assert gap5["result"] == "not-evaluable" and gap5["floor_clause_not_evaluable"] and DH.FLOOR_NOT_A_BOUND in gap5["note"], (record, gap5["result"])
+        assert gap6["result"] != "pass" and gap6["floor_clause_not_evaluable"] and DH.FLOOR_NOT_A_BOUND in gap6["note"], (record, gap6["result"])
+        other = sum(v for k, v in (gap6.get("value") or {}).items() if k != "below_floor")           # another sub-test that fails still refutes
+        assert gap6["result"] == ("fail" if other else "not-evaluable") and not (gap6.get("value") or {}).get("below_floor")
+        assert all(np.isnan(x["headline_ratio"]) for x in gap6["floors"]) and len(DH._floor_gaps(gap5, gap6)) == 2
+        if record == "no_V8":
+            assert "does not cover V8" in gap5["floors"][0]["floor_note"]
+        if record == "committed":                # the committed record (11 Nov, not passed): not pass, and the combined reading is UNRESOLVED
+            assert "not passed" in gap5["floors"][0]["floor_exact_test"]["note"] and gap5["result"] != "pass" and gap6["result"] != "pass"
+            reading = DH.classify_readings(gap5, gap6, H7_OK, None, MC_OK, None, pairs_final=True)
+            assert reading["reading"] == "UNRESOLVED" and len(reading["detail"]["floor_gaps"]) == 2
+            assert all("R3 (i) is not decided" in x and DH.FLOOR_NOT_A_BOUND in x for x in reading["detail"]["floor_gaps"])
+    # a value sub-test that fails refutes whatever the floor clause is
+    miss = dict(on, dial_vertices=_dial_vertex_rows(row, scale={v: 1.0 for v in VIDS}), dial_band=dict(ON, table=_table_copy(tmp_path, None)))
+    far5 = DH.evaluate_h5(pd.DataFrame([dict(pt, var_cmix_signal=50 * pt["var_cmix_signal"], var_cmix_signal_ci_lo=49 * pt["var_cmix_signal"],
+                                             var_cmix_signal_ci_hi=51 * pt["var_cmix_signal"])]), miss, n_boot=200)
+    assert far5["result"] == "fail" and far5["floor_clause_not_evaluable"] is True
     # review correction C64-3: the coherence check not made, or failed for the point: not evaluable, never a miss
     for cfg, word in ((dict(enabled=True, level=LEVEL), "has not been made"), (dict(ON, coherence=dict(not_evaluable={pt["point_id"]: "Q84 T1 19 us on E"})), "Q84 T1 19 us on E")):
         gap = DH.evaluate_h5(pd.DataFrame([pt]), dict(on, dial_band=cfg), n_boot=200)
@@ -463,8 +635,9 @@ def test_h5_h6_read_the_band_only_when_switched_on(preds, tmp_path):       # noq
 
 def test_h7_reads_the_band_only_when_switched_on(day3_run):       # noqa: F811
     rows = load_run(day3_run).rows
-    far = _h7_preds(rows, rms_l2=0.09)                                       # the designed-channel comparator alone misses (as in test_truncation_arm)
-    assert DH.evaluate_h7(rows, far, n_boot=300)["result"] == "fail"
+    bare = _h7_preds(rows, rms_l2=0.09)                                      # the designed-channel comparator alone misses (as in test_truncation_arm)
+    far = _labelled(bare)
+    assert DH.evaluate_h7(rows, far, n_boot=300)["result"] == DH.evaluate_h7(rows, bare, n_boot=300)["result"] == "fail"
     real = far["truncation_realised"][0]
 
     def vertex(vid, rms):
@@ -487,6 +660,11 @@ def test_h7_reads_the_band_only_when_switched_on(day3_run):       # noqa: F811
         r = DH.evaluate_h7(rows, broken, n_boot=300)
         assert r["result"] == "not-evaluable" and word in r["note"] and "not a miss" in r["note"], r["note"]
     assert DH.evaluate_h7(rows, dict(on, dial_band=dict(enabled=False, level=LEVEL)), n_boot=300)["result"] == "fail"   # switched off: v0.18.0
+    # code review CF-4: a designed comparator without a calibration label has no vertex value beside it: not evaluable, not a pass
+    nolabel = DH.evaluate_h7(rows, dict(bare, truncation_vertices=verts, dial_band=ON), n_boot=300)
+    assert nolabel["result"] == "not-evaluable" and "no calibration label" in nolabel["note"] and "not a miss" in nolabel["note"]
+    other = DH.evaluate_h7(rows, dict(_labelled(bare, "E2"), truncation_vertices=verts, dial_band=ON), n_boot=300)
+    assert other["result"] == "not-evaluable" and "no vertex entry" in other["note"]
 
 
 def _pair_vertices(comps, scale=None):
@@ -505,7 +683,7 @@ def _pair_vertices(comps, scale=None):
 def test_pairs_read_their_bands_and_the_smallest_margin(synthetic):       # noqa: F811
     DAY = "2026-11-12T05:10:00+00:00"                                       # day 3 and the pairs submitted in one cycle on one UTC day
     rows = pd.concat([synthetic["h7"], synthetic["a"], synthetic["b"]], ignore_index=True).assign(job_submit_time=DAY)
-    comps = _comparators()
+    comps = _labelled(_comparators())
     off = DH.evaluate_truncation_pairs(rows, comps, n_boot=500)
     assert off["a"]["result"] == off["b"]["result"] == "pass" and "band" not in off["b"]["checks"]["margin"]
     assert "dispatch_days" not in off["a"]["point"] and "probe_ids" not in off["a"]["point"]            # nothing added while switched off
@@ -529,7 +707,7 @@ def test_pairs_read_their_bands_and_the_smallest_margin(synthetic):       # noqa
     alone = DH.evaluate_truncation_pairs(rows[rows.probe_id.isin(set(synthetic["a"].probe_id))], on, n_boot=500)["a"]
     assert alone["result"] == "not-evaluable"
     # every member's margin far above the measured difference: refuted; one vertex with the measured margin: not refuted
-    big = _comparators(b_rms=0.46)
+    big = _labelled(_comparators(b_rms=0.46))
     far = DH.evaluate_truncation_pairs(rows, dict(big, truncation_vertices=_pair_vertices(big), dial_band=ON), n_boot=500)["b"]
     assert far["result"] == "fail" and far["fails"] == ["below the pre-drawn margin"]
     dvid = next(vid for vid, ch in DC.vertex_channels(TABLE, LEVEL, "dephase").items() if vid != DC.DESIGNED and not DC.is_designed(ch))
@@ -551,7 +729,7 @@ def test_h5_h6_depth_ratios_are_formed_vertex_by_vertex(preds):       # noqa: F8
     for L, seed in ((8, 6), (12, 7)):
         base, h5 = _h6_point(0.25, L, 52, Q52, "6x10", "84_85", seed=seed), _point(0.25, L, 52, Q52, seed=seed)
         pts.append(dict(base, **{k: v for k, v in h5.items() if k.startswith("var_cmix") or k in ("cmix_draws", "floor_cost")}, **fac))
-    pr2 = _with_realised(preds, pts)
+    pr2 = _labelled(_with_realised(preds, pts))
     real = pr2["dial_realised"]
     # the L = 12 member doubled at one vertex: the ratio band's upper end is twice the designed ratio, at that vertex
     vid = VIDS[4]
@@ -568,7 +746,7 @@ def test_h5_h6_depth_ratios_are_formed_vertex_by_vertex(preds):       # noqa: F8
 
 def test_evaluate_readings_sets_the_level_only_when_switched_on(synthetic):       # noqa: F811
     cols = ["kind", "arm", "p", "n", "L", "k", "patch", "edge", "patch_qubits", "point_id", "resilience_level"]
-    comps = _comparators()
+    comps = _labelled(_comparators())
     rung = DH.n60_rung_qubits(pd.DataFrame(columns=cols), synthetic["h7"])            # the placed qubits of the 6x10 patch, from the rows
     assert rung and len(rung) == len(set(rung)) and DH.n60_rung_qubits(None, None) is None
     char = _char(qubits=rung)
@@ -602,10 +780,14 @@ def pred27(tmp_path_factory):
     for f in (ROOT / "data" / "predictions").iterdir():
         if f.is_file():
             shutil.copy(f, d / f.name)
-    real = pd.read_csv(d / "dial_realised_2026-09-27T0308.csv")
+    real = pd.read_csv(d / "dial_realised_2026-09-27T0308.csv").assign(calibration_label="E1")     # the designed values state their calibration (CF-4)
+    real.to_csv(d / "dial_realised_2026-09-27T0308.csv", index=False)
     frames = [_dial_vertex_rows(r.to_dict(), level=lv, dial=r["dial"]) for _, r in real.iterrows() for lv in DC.levels(TABLE)]
     pd.concat(frames, ignore_index=True).drop(columns=["source"]).drop_duplicates(["probe_id", "channel_key"]).to_csv(d / "dial_vertices_2026-09-27T0308.csv", index=False)
     rec = json.loads((d / "h7_realised_2026-09-27T0308.json").read_text())
+    rec["entries"] = [dict(e, calibration_label="E1") for e in rec["entries"]]
+    (d / "h7_realised_2026-09-27T0308.json").write_text(json.dumps(rec))
+    assert rec["settings"]["realised"]["n_samples"] == P.REGISTERED_PATHS and all(e["n_samples"] == P.REGISTERED_PATHS for e in rec["entries"])
     ents = []
     for e in rec["entries"]:
         for c in DC.channels_to_draw(TABLE, e["point"]["reset_kind"]):
@@ -713,20 +895,19 @@ def test_vertex_plan_and_row_of_the_redraw_scripts():
     assert ents["drawn"] is False and ents["n_all"] == len(DC.channels_to_draw(TABLE, "reset")) * len(h7.truncation_points(jl))
 
 
-def test_generator_adds_the_reset_of_zero_probe_only_with_the_switch():
+def test_generator_adds_the_reset_of_zero_probe_only_with_its_own_switch(monkeypatch):
+    """Code review CF-6: the generator's switch is ``EPS0_PROBE`` alone; the analysis switch of the dial-channel table does not move
+    a list."""
     import make_paper1_joblists as M
     snap = str(ROOT / "data" / "calibrations" / json.loads(LIST27.read_text())["placement"]["snapshot"])
     pl = M.place_rungs(snap, dial=True)
-    try:
-        M.EPS0_PROBE = None
-        default = M.dial_lists(pl)
-        M.EPS0_PROBE = False
-        off = M.dial_lists(pl)
-        M.EPS0_PROBE = True
-        on = M.dial_lists(pl)
-    finally:
-        M.EPS0_PROBE = None
-    assert not M.eps0_probe_enabled() and default == off                                      # the table's switch is off: the lists are unchanged
+    assert M.EPS0_PROBE is False and not M.eps0_probe_enabled()
+    off = M.dial_lists(pl)
+    monkeypatch.setattr(DC, "band_enabled", lambda *a, **k: True)                             # Deviation 64 adopted: the lists do not change
+    assert not M.eps0_probe_enabled() and M.dial_lists(pl) == off
+    monkeypatch.setattr(M, "EPS0_PROBE", True)
+    assert M.eps0_probe_enabled()
+    on = M.dial_lists(pl)
     a, b = off["dial_arm.json"], on["dial_arm.json"]
     ids = lambda jl: [p["id"] for p in jl["probes"]]                                          # noqa: E731
     assert ids(b) == ids(a) + [DH.CHARACTERISATION_RESET0] and b["probes"][:-1] == a["probes"]

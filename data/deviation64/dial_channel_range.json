@@ -81,13 +81,10 @@
  },
  "floors": {
   "sign_condition": "eps1 >= eps0, r_x >= 0 and r_y >= 0 (and the readout offsets non-negative, as under Deviation 60 part (7))",
-  "rule": "the realised form of the Deviation 33 floor is a bound where the sign condition holds; for the rest of the range it rests on the exact two-copy test (2x2 patch, L = 3 and 4, both dials, the designed channel and V1, V2, V6, V7, V9: every exact off-diagonal moment at or above the closed-form floor). Until the record of that test for this range says it passed, a floor miss is reported and is not read as R3 (review C64-7)",
-  "exact_test_vertices": [
-   "V1",
-   "V2",
-   "V6",
-   "V7",
-   "V9"
+  "rule": "The realised form of the floor is a bound only where eps1 >= eps0 and r_x, r_y >= 0. The exact two-copy test of it for the rest of A (data/deviation64/floors_exact_test.json, commit 79db1ea) was run on 11 Nov 2026 and did not pass: 62 of 384 cases lie below the closed form, all of them realised floors of the reset dial at p = 0.5 at members with eps0 > eps1. Under this Deviation no Deviation 33 floor of a dial point is therefore tested. The floor of the designed channel and the lowest closed-form value over A are reported beside the measured interval and labelled as not a bound over A; a value below them is reported and is not read as R3; H5 and H6 are not evaluable in their floor clause and are reported as not-evaluable unless another sub-test fails; R3 (i) is not decided, so by Deviation 60 part (7) the Deviation 63 reading is UNRESOLVED unless R3 applies on another ground. The clause returns only by a later Deviation whose floor passes the exact test at every member of A where the sign condition fails, on both dials, adopted before any datum of the list is read.",
+  "exact_test": "2x2 patch, L = 3 and 4, both dials; for each dial and level the designed channel, the members named in exact_test_also and every member at which the sign condition fails (code review CF-1: taken from this table by scripts/floors_exact_test.py, which records the list per dial and level); every exact off-diagonal moment at or above the closed-form floor. A passed record establishes the floor only at the members it lists",
+  "exact_test_also": [
+   "V6"
   ],
   "exact_test_record": "floors_exact_test.json"
  },

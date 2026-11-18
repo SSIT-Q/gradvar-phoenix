@@ -272,18 +272,16 @@ DIAL_COMMON = (" Design (Section 3b, Deviations 27 and 48): K = 256 Bernoulli(p)
                "references are in references_gate1b.json).")
 
 
-EPS0_PROBE = None       # None: follow the dial-channel table's switch; True / False: set by a test or a budget calculation
+EPS0_PROBE = False      # set to True by the re-package that adds the probe (and by a test or a budget calculation); nothing else reads it
 
 
 def eps0_probe_enabled() -> bool:
-    """Deviation 64 (draft), decision 3 (a): whether the dial-arm core (and so the day-3 list) carries ``reset_error_prep0``. It
-    follows the switch of the dial-channel table (``gradvar.analysis.dial_channel.band_enabled``: false until Deviation 64 is
-    adopted), so the lists this generator writes and ``--check`` compares are unchanged until the adoption commit; the first
-    re-package after it carries the probe. No committed list is edited by hand."""
-    if EPS0_PROBE is not None:
-        return bool(EPS0_PROBE)
-    from gradvar.analysis import dial_channel
-    return dial_channel.band_enabled()
+    """Deviation 64 (draft), decision 3 (a) as written: whether the dial-arm core (and so the day-3 list) carries
+    ``reset_error_prep0``. It is ``bool(EPS0_PROBE)`` and nothing else (code review CF-6): the generator does not follow the
+    analysis switch of the dial-channel table, so adopting Deviation 64 changes no list. The re-package that adopts a list with the
+    probe sets ``EPS0_PROBE`` under the row that adopts that list; until then the lists this generator writes and ``--check``
+    compares are unchanged. No committed list is edited by hand."""
+    return bool(EPS0_PROBE)
 
 
 def dial_lists(pl: dict) -> dict:

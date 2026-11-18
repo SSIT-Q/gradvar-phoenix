@@ -3,8 +3,9 @@
 
 The realised form of the floor (``floors.realised_floor_at_channel``) is a bound by the sign argument only where eps1 >= eps0,
 r_x >= 0 and r_y >= 0. For the rest of the range it rests on this test: on a 2x2 patch, L = 3 and 4, both dials, at the designed
-channel and at the vertices the table names (``floors.exact_test_vertices``: V1, V2, V6, V7, V9) at every pre-drawn level, the
-exact off-diagonal moments (``pauliprop_exact.exact_pair_moments`` on the fixed-mask programs, averaged over the ordered pairs of
+channel, at the members the table names beside it (``floors.exact_test_also``: V6) and at every member of the table at which
+``floors.channel_sign_condition`` fails for the dial (code review CF-1: V1, V2, V7, V8, V9 on the reset dial as the table stands,
+every member on the dephasing dial), at every pre-drawn level, the exact off-diagonal moments (``pauliprop_exact.exact_pair_moments`` on the fixed-mask programs, averaged over the ordered pairs of
 distinct masks of a mask set) against the closed-form floors on the same masks, and the exact mixture moments
 (``pauliprop_exact.exact_moments``) against the mixture floors. The moment must be at or above the floor in every case.
 
@@ -18,7 +19,8 @@ lie below it; the floor is a statement about the mean over pairs).
 
 The record carries the digest of the range it was made for (``dial_channel.range_digest``): ``dial_channel.floors_exact_test`` reads
 it as passed only for that range. Until it says passed, a floor miss at a band whose members include a channel outside the sign
-condition is reported and is not read as R3 (``dial_hypotheses._lowest_floors``)."""
+condition is reported and is not read as R3 (``dial_hypotheses._lowest_floors``). A passed record establishes the floor only at
+the members it lists for the dial and level (``setting.members``)."""
 from __future__ import annotations
 
 import argparse
@@ -59,12 +61,27 @@ def _git_commit() -> str | None:
         return os.environ.get("GRADVAR_COMMIT")                              # a tree without git metadata: the caller names the commit
 
 
-def channels(table: dict, dial: str) -> list:
-    """[(label, channel dict)]: the designed channel and the table's exact-test vertices at every pre-drawn level, resolved for the
-    dial; vertices that coincide for the dial are tested once."""
-    out, seen = [("designed", dc.vertex_channel(table, dc.DESIGNED, dc.levels(table)[0], dial))], {dc.channel_key(dc.vertex_channel(table, dc.DESIGNED, 0.0, dial))}
+def members(table: dict, dial: str) -> dict:
+    """{level: [member ids]} the test covers for the dial (code review CF-1), from the table and not from a fixed list: the designed
+    channel, the members the table names beside it (``floors.exact_test_also``) and every vertex at which the sign condition
+    fails for this dial at that level."""
+    also = [str(v) for v in table["floors"].get("exact_test_also", [])]
+    out = {}
     for level in dc.levels(table):
-        for vid in table["floors"]["exact_test_vertices"]:
+        ids = [dc.DESIGNED]
+        for v in table["vertices"]:
+            if v["id"] in also or not fl.channel_sign_condition(dc.vertex_channel(table, v["id"], level, dial), dial)["channel_sign_ok"]:
+                ids.append(v["id"])
+        out[level] = ids
+    return out
+
+
+def channels(table: dict, dial: str) -> list:
+    """[(label, channel dict)]: the designed channel and the members of ``members`` at every pre-drawn level, resolved for the
+    dial; members that coincide for the dial are tested once (the record lists every member a tested channel stands for)."""
+    out, seen = [("designed", dc.vertex_channel(table, dc.DESIGNED, dc.levels(table)[0], dial))], {dc.channel_key(dc.vertex_channel(table, dc.DESIGNED, 0.0, dial))}
+    for level, ids in members(table, dial).items():
+        for vid in ids[1:]:
             ch = dc.vertex_channel(table, vid, level, dial)
             key = dc.channel_key(ch)
             if key in seen:
@@ -169,7 +186,7 @@ def run(Ls=LS, dials=DIALS, k_masks: int = K, seeds=MASK_SEEDS, table: dict | No
                 setting=dict(patch="2x2 at origin (8, 1)", L=list(Ls), dials=[dict(dial=d, p=p, lottery=q) for d, p, q in dials], K=int(k_masks),
                              mask_seeds=list(seeds), model="noiseless gates (g = 1), snapshot readout, dial-idle and layer ZZ at the registered scale",
                              calibration=Path(CSV).name, properties=Path(PROPS).name, tolerance=TOL,
-                             vertices=list(table["floors"]["exact_test_vertices"])),
+                             members={dial: {f"{lv:g}": ids for lv, ids in members(table, dial).items()} for dial in sorted({d for d, _p, _q in dials})}),
                 n_cases=len(cases), n_below=len(bad), passed=bool(cases) and not bad, cases=cases, runtime_s=time.time() - t0)
 
 

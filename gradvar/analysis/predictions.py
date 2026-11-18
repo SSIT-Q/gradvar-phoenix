@@ -329,19 +329,67 @@ MASK_STAT_KEYS = ("n_RR", "n_RK", "n_KR", "n_KK", "n1_i", "n2_i", "n1_j", "n2_j"
 REGISTERED_ROLE = "execution"       # = dial_channel.CALIBRATION_ROLES[0]: the vertex values drawn on E(J) between the retrieval phases
 
 
+def _label(v):
+    """A calibration label as a string, or None when there is none (None, NaN or an empty cell)."""
+    if v is None or (isinstance(v, float) and np.isnan(v)) or str(v).strip() in ("", "nan", "None"):
+        return None
+    return str(v)
+
+
 def _same_calibration(designed: Dict, label) -> bool:
-    """A vertex value belongs beside a designed-channel value only when both were drawn on one calibration. The designed entry
-    states its calibration under ``calibration_label`` once the execution-time rows of Deviation 65 are loaded; until then (no
-    such key) there is nothing to compare and the vertex value is taken on its role alone."""
-    want = (designed or {}).get("calibration_label")
-    return want is None or str(want) == str(label)
+    """A vertex value belongs beside a designed-channel value only when both were drawn on one calibration (code review CF-4): the
+    designed entry carries a calibration label (``calibration_label``, which the execution-time rows of Deviation 65 state) and the
+    vertex value's label is equal to it. Without a label on either side the vertex value is not a member."""
+    want, have = _label((designed or {}).get("calibration_label")), _label(label)
+    return want is not None and have is not None and want == have
 
 
-def load_vertex_rows(directory: str | Path) -> pd.DataFrame:
+NO_DESIGNED_LABEL = ("the designed-channel value carries no calibration label, so no vertex value can be placed beside it (code review CF-4; the "
+                     "execution-time rows of Deviation 65 state the label)")
+REGISTERED_PATHS = 2_000_000        # = scripts/redraw_gate1b.REALISED["n_samples"]: the Deviation 60 part (7) settings of every registered draw
+
+
+def _is_true(v) -> bool:
+    return bool(v) if isinstance(v, (bool, np.bool_)) else str(v).strip().lower() in ("true", "1", "1.0")
+
+
+def _vertex_file_gap(paths, exploratory, table_digests, table) -> str:
+    """'' when a vertex file of the registered role may be read (code review CF-3), else the reason: (i) the Deviation 60 settings,
+    ``REGISTERED_PATHS`` paths in every draw and not marked exploratory; (ii) the table digest the file states equal to the loaded
+    table's (the sha256 of the table file, ``dial_channel.load_table``)."""
+    why = []
+    paths = [None if (v is None or (isinstance(v, float) and np.isnan(v))) else int(v) for v in paths]
+    if not paths or any(v != REGISTERED_PATHS for v in paths):
+        why.append("not the Deviation 60 settings (" + (", ".join(sorted({"no path count" if v is None else f"{v:,} paths" for v in paths})) or "no path count")
+                   + f"; registered: {REGISTERED_PATHS:,})")
+    if _is_true(exploratory):
+        why.append("marked exploratory")
+    want = str(table.get("_sha256"))
+    got = sorted({str(v) for v in table_digests})
+    if got != [want]:
+        why.append(f"drawn for another table (digest {', '.join(g[:12] for g in got) or 'none'}; loaded table {want[:12]})")
+    return "; ".join(why)
+
+
+def vertex_files_note(preds: Dict, prefix: str = "") -> str:
+    """'' or the vertex files of the registered role that were left out, each with its reason (``prefix``: only the files whose
+    name starts with it)."""
+    out = [f"{x['file']} ({x['why']})" for x in (preds or {}).get("vertex_files_left_out") or [] if str(x["file"]).startswith(prefix)]
+    return ("vertex files left out (code review CF-3): " + "; ".join(out)) if out else ""
+
+
+def load_vertex_rows(directory: str | Path, table=None, left_out: list | None = None) -> pd.DataFrame:
     """Every ``dial_vertices_<tag>.csv`` (``scripts/redraw_dial_points.registered_vertex_rows``): one row per dial probe and distinct
     channel of the pre-drawn levels, with ``channel_key`` and the columns ``load_realised_rows`` adds. Only rows drawn on the
     execution-time calibration are read (``calibration_role`` 'execution', review correction C64-8): a row without that column,
-    or drawn on the placement snapshot before dispatch, is a dispatch-time record and is left out."""
+    or drawn on the placement snapshot before dispatch, is a dispatch-time record and is left out.
+
+    A file of that role is read only when (code review CF-3) every row of it was drawn with the Deviation 60 settings and it is not
+    marked exploratory (a column of the rows, or ``settings.exploratory`` of the ``.json`` written beside it), and its table digest
+    is the one of ``table`` (default: the committed table). A file that fails is left out whole and appended to ``left_out`` as
+    dict(file, why)."""
+    from . import dial_channel as dc
+    table = table if table is not None else dc.load_table()
     frames = []
     for f in sorted(Path(directory).glob("dial_vertices_*.csv")):
         df = pd.read_csv(f)
@@ -350,6 +398,15 @@ def load_vertex_rows(directory: str | Path) -> pd.DataFrame:
         df = df[df.calibration_role.astype(str) == REGISTERED_ROLE]
         if df.empty:
             continue
+        side = f.with_suffix(".json")
+        settings = (json.loads(side.read_text(encoding="utf-8")).get("settings") or {}) if side.exists() else {}
+        expl = _is_true(settings.get("exploratory")) or ("exploratory" in df.columns and any(_is_true(v) for v in df.exploratory))
+        why = _vertex_file_gap(list(df.n_samples) if "n_samples" in df.columns else [], expl,
+                               list(df.table_sha256) if "table_sha256" in df.columns else [], table)
+        if why:
+            if left_out is not None:
+                left_out.append(dict(file=f.name, why=why))
+            continue
         df["placement_qubits"] = df["qubits"].map(qubit_key) if "qubits" in df.columns else None
         df["placement_stamp"] = df["snapshot_stamp"] if "snapshot_stamp" in df.columns else None
         df["source"] = f.name
@@ -357,13 +414,25 @@ def load_vertex_rows(directory: str | Path) -> pd.DataFrame:
     return pd.concat(frames, ignore_index=True, sort=False) if frames else pd.DataFrame()
 
 
-def load_vertex_truncation(directory: str | Path) -> List[Dict]:
+def load_vertex_truncation(directory: str | Path, table=None, left_out: list | None = None) -> List[Dict]:
     """Every ``entries`` item of ``h7_vertices_*.json`` (``scripts/predict_h7_truncation.registered_vertex_entries``), tagged as the
-    realised entries. Only records drawn on the execution-time calibration are read (``calibration.role`` 'execution', C64-8)."""
+    realised entries. Only records drawn on the execution-time calibration are read (``calibration.role`` 'execution', C64-8), and
+    of those only the records drawn with the Deviation 60 settings, not marked exploratory, whose table digest is the one of
+    ``table`` (code review CF-3; default: the committed table). A record that fails is left out whole and appended to ``left_out``
+    as dict(file, why)."""
+    from . import dial_channel as dc
+    table = table if table is not None else dc.load_table()
     out = []
     for f in sorted(Path(directory).glob("h7_vertices_*.json")):
         rec = json.loads(f.read_text())
         if (rec.get("calibration") or {}).get("role") != REGISTERED_ROLE:
+            continue
+        settings = rec.get("settings") or {}
+        paths = [(settings.get("realised") or {}).get("n_samples")] + [e.get("n_samples") for e in rec.get("entries", [])]
+        why = _vertex_file_gap(paths, settings.get("exploratory"), [(rec.get("table") or {}).get("sha256")], table)
+        if why:
+            if left_out is not None:
+                left_out.append(dict(file=f.name, why=why))
             continue
         snap = rec.get("snapshot")
         stamp = (snap.get("stamp") or _stamp_of_name(snap.get("csv"))) if isinstance(snap, dict) else _stamp_of_name(snap)
@@ -372,11 +441,14 @@ def load_vertex_truncation(directory: str | Path) -> List[Dict]:
     return out
 
 
-def _vertex_tables(preds: Dict) -> tuple:
+def _vertex_tables(preds: Dict, table=None) -> tuple:
+    """The vertex rows and entries of ``preds['dir']``, read on first use against ``table`` (the band's table) and kept in ``preds``;
+    the files left out under code review CF-3 are kept under ``preds['vertex_files_left_out']``."""
+    left = preds.setdefault("vertex_files_left_out", [])
     if "dial_vertices" not in preds:
-        preds["dial_vertices"] = load_vertex_rows(preds["dir"]) if preds.get("dir") else pd.DataFrame()
+        preds["dial_vertices"] = load_vertex_rows(preds["dir"], table=table, left_out=left) if preds.get("dir") else pd.DataFrame()
     if "truncation_vertices" not in preds:
-        preds["truncation_vertices"] = load_vertex_truncation(preds["dir"]) if preds.get("dir") else []
+        preds["truncation_vertices"] = load_vertex_truncation(preds["dir"], table=table, left_out=left) if preds.get("dir") else []
     return preds["dial_vertices"], preds["truncation_vertices"]
 
 
@@ -388,7 +460,7 @@ def truncation_members(preds: Dict, designed: Dict, level: float, patch=None, ed
     designed channel for this dial is the designed entry. Entries of more than one file for one member: that member is missing."""
     from . import dial_channel as dc
     table = table if table is not None else dc.load_table()
-    _rows, ents = _vertex_tables(preds)
+    _rows, ents = _vertex_tables(preds, table)
     kind = DIAL_KIND.get(str(reset_kind), str(reset_kind))
     members, missing, notes = {dc.DESIGNED: designed}, [], []
     for vid, ch in dc.vertex_channels(table, level, kind).items():
@@ -413,7 +485,11 @@ def truncation_members(preds: Dict, designed: Dict, level: float, patch=None, ed
                 notes.append(f"{vid}: ambiguous, entries in {', '.join(files)}")
             elif len(hits) > 1:
                 notes.append(f"{vid}: ambiguous, {len(hits)} entries for one channel in {files[0]}")
-    note = "" if not missing else (f"no vertex entry (h7_vertices_*.json) at level {level!r} for {', '.join(missing)}" + ("; " + "; ".join(notes) if notes else ""))
+    if missing and _label(designed.get("calibration_label")) is None:
+        notes.append(NO_DESIGNED_LABEL)
+    left = vertex_files_note(preds, "h7_vertices_")
+    note = "" if not missing else (f"no vertex entry (h7_vertices_*.json) at level {level!r} for {', '.join(missing)}" + ("; " + "; ".join(notes) if notes else "")
+                                   + ("; " + left if left else ""))
     return members, missing, note
 
 
@@ -443,7 +519,7 @@ def dial_members(preds: Dict, designed: Dict, level: float, L: int, k: int, dial
     (``dial_vertices_*`` rows of the same placement, point, probe seed and mask count, matched on the vertex's channel)."""
     from . import dial_channel as dc
     table = table if table is not None else dc.load_table()
-    rows, _ents = _vertex_tables(preds)
+    rows, _ents = _vertex_tables(preds, table)
     tag = "kL" if k == L else ("k1" if k == 1 else None)
     members, missing, notes = {dc.DESIGNED: designed}, [], []
     qk = qubit_key(qubits)
@@ -462,8 +538,8 @@ def dial_members(preds: Dict, designed: Dict, level: float, L: int, k: int, dial
             members[vid] = designed
             continue
         hit = d[d.channel_key.astype(str) == dc.channel_key(ch)] if len(d) else d
-        if len(hit) and "calibration_label" in hit.columns:
-            hit = hit[[_same_calibration(designed, v) for v in hit.calibration_label]]
+        if len(hit):                         # code review CF-4: a member only on the designed entry's calibration, both labels stated
+            hit = hit[[_same_calibration(designed, v) for v in hit.calibration_label]] if "calibration_label" in hit.columns else hit.iloc[0:0]
         files = sorted(set(hit.source.astype(str))) if len(hit) else []
         if len(files) != 1 or len(hit) != 1 or tag is None or not np.isfinite(float(hit.iloc[-1].get(f"var_{tag}_realised", np.nan))):
             missing.append(vid)
@@ -480,7 +556,11 @@ def dial_members(preds: Dict, designed: Dict, level: float, L: int, k: int, dial
                             mask_classes=[int(v) for v in str(r.mask_classes).split()] if pd.notna(r.get("mask_classes")) else None,
                             mix_exact=bool(r.get("mix_exact", True)), floor_grad_realised=r.get("floor_grad_realised"),
                             floor_cost_realised=r.get("floor_cost_realised"), channel_sign_ok=r.get("channel_sign_ok"))
-    note = "" if not missing else (f"no vertex row (dial_vertices_*.csv) at level {level!r} for {', '.join(missing)}" + ("; " + "; ".join(notes) if notes else ""))
+    if missing and _label(designed.get("calibration_label")) is None:
+        notes.append(NO_DESIGNED_LABEL)
+    left = vertex_files_note(preds, "dial_vertices_")
+    note = "" if not missing else (f"no vertex row (dial_vertices_*.csv) at level {level!r} for {', '.join(missing)}" + ("; " + "; ".join(notes) if notes else "")
+                                   + ("; " + left if left else ""))
     return members, missing, note
 
 
@@ -532,6 +612,8 @@ def _realised_dial(preds: Dict, mixture: Dict, L: int, k: int, dial: str, p, pat
                mixture=dict(var=mixture["var"], sigma=mixture["sigma"], var_cost=mixture.get("var_cost"), var_cost_sigma=mixture.get("var_cost_sigma"),
                             pattern_floor=mixture.get("pattern_floor"), source=mixture.get("source")),
                source=str(r.source), mixture_source=mixture.get("source"))
+    if _label(r.get("calibration_label")) is not None:      # the calibration the row was drawn on, when it states one (Deviation 65's rows)
+        hit["calibration_label"] = _label(r.get("calibration_label"))
     return hit, "", fallback
 
 

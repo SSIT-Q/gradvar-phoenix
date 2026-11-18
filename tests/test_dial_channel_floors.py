@@ -218,14 +218,28 @@ def _exact_script():
     return fx
 
 
-def test_exact_test_cases_cover_both_dials_and_the_named_vertices():
+def test_exact_test_cases_cover_both_dials_and_every_member_where_the_sign_condition_fails():
+    """Code review CF-1: the members come from the table, per dial and level: the designed channel, V6 and every member at which
+    the sign condition fails (V8 among them on the reset dial; every member on the dephasing dial)."""
     from gradvar.analysis import dial_channel as dc
     fx = _exact_script()
     table = dc.load_table()
+    vids = [v["id"] for v in table["vertices"]]
+    assert "exact_test_vertices" not in table["floors"] and table["floors"]["exact_test_also"] == ["V6"]
+    for dial in ("reset", "dephase"):
+        mem = fx.members(table, dial)
+        assert list(mem) == dc.levels(table)
+        for level, ids in mem.items():
+            fails = [v for v in vids if not fl.channel_sign_condition(dc.vertex_channel(table, v, level, dial), dial)["channel_sign_ok"]]
+            assert ids[0] == dc.DESIGNED and set(ids[1:]) == set(fails) | {"V6"} and len(set(ids)) == len(ids)
+            if dial == "reset":
+                assert set(fails) == {"V1", "V2", "V7", "V8", "V9"}
+            else:
+                assert fails == vids
     labels = [lab for lab, _ch in fx.channels(table, "reset")]
-    want = ["designed"] + [f"{v}@{lv:g}" for lv in dc.levels(table) for v in table["floors"]["exact_test_vertices"]]
-    assert labels == want and set(table["floors"]["exact_test_vertices"]) == {"V1", "V2", "V6", "V7", "V9"}
-    deph = fx.channels(table, "dephase")                                       # vertices that coincide for the dial are tested once
+    want = ["designed"] + [f"{v}@{lv:g}" for lv, ids in fx.members(table, "reset").items() for v in ids[1:]]
+    assert labels == want and any(lab.startswith("V8@") for lab in labels)
+    deph = fx.channels(table, "dephase")                                       # members that coincide for the dial are tested once
     assert deph[0][0] == "designed" and 1 < len(deph) < len(labels) and all(ch["eps1"] == ch["eps0"] == ch["r_x"] == 0.0 for _lab, ch in deph)
     assert fx.LS == (3, 4) and {d for d, _p, _q in fx.DIALS} == {"reset", "dephase"}
     m = fx.distinct_masks(32, 8, 3, 4, 0.25)
