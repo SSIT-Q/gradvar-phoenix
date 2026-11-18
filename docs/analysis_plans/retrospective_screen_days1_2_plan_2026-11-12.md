@@ -181,3 +181,64 @@ the author does not edit the day-3 plan, family or script without declaring it.
 3. Of the three logs: the header line (the column names), nothing below it. Of the 65 bundles: `job.json`, for the list name,
    the job kind, the status, the time stamps, the shots and level, and per pub the point's identity, seed and placement.
 4. `docs/ANALYSIS.md` and the registered analysis modules, read on 11 Nov 2026 for the day-3 screen.
+
+## 10. Added on 18 Nov 2026, before any synthetic run of step 3 and before any value was opened
+
+Sections 1 to 9 stand as committed on 12 Nov 2026 (730ca737). What follows was fixed while the reader and the family maker were
+written on made-up values (step 2). Nothing here was chosen after a synthetic rate or a measured value was seen.
+
+**The family.** `docs/analysis_plans/retro_days1_2_family.csv`, written by `scripts/make_retro_family.py` from the three lists
+and the committed prediction files alone, holds 565 tests:
+
+| Kind | Tests | What |
+|---|---|---|
+| Item 2 | 5 | joint test that the residuals are zero: all probes with a residual, and within G0, G1, G2, GS |
+| Item 3, design axes | 8 | L and ln n within the main grid; L and ln n within G2; L, ln n and "k = L" within GS; the group as a factor |
+| Item 3, positions | 6 | pooled slope of each per-draw series (v, g, c) on the pub position and on the job position |
+| Item 7 | 3 | pooled slope of each series on the running time of the job |
+| Section 5, pooled | 3 | pooled slope of each series on the queue wait of the job |
+| Section 5, per probe | 540 | for each of the 90 probes and each series: the slope on the pub position, and the difference between the probe's two jobs |
+
+Not members: the 90 rows of item 1 (registered, Section 4) and the descriptions with the job of R3 (Section 6). No rule had two
+readings that would have needed two members under R5; the choices that the rules left open are listed below and in Section 5.
+
+**How many of them can be formed** is a property of the lists and of which jobs completed, not of the values: 376. Of the 189
+that enter with p = 1, 177 are the job difference of the 59 probes whose draws lie in one job (58 by design, and the probe that
+lost its second job to the failed one), 6 are the tests of the probe that lies whole in the failed job, and 6 those of the
+probe that lies whole in the job of R3.
+
+**The per-draw series** enter every test as their normal scores within the probe (the normal quantile of the rank of a draw's
+value among the draws of its probe): this is how "centred and scaled within its probe" of Section 5 is carried out. A squared
+gradient is heavy-tailed, and on normal scores a slope referred to Student's t keeps its size whatever the tail.
+
+**Standard error of a pooled slope.** Probes of one list and seed share their parameter draws, so the rows of one draw in two
+such probes are not independent, and a least squares standard error over all rows would be too small. The pooled slopes
+therefore carry the larger of the least squares standard error and the one that is robust to this sharing (a cluster is one
+shared draw). The tests within one probe need no such step. The joint and axis tests of items 2 and 3 carry the sharing through
+the jackknife covariance of the residuals, and the covariance of residuals read against one prediction row is added to it.
+
+**The reader.** A row of a log is placed on its list entry and draw twice: by the log's own columns (design fields and seed),
+and by the identity `job.json` keeps for the pub at that position. The screen refuses, computes nothing and writes nothing when
+the two differ for any row, when a row of a listed job is the row of no entry or of two, when a draw has values twice, or when
+the rows of a job are not its pubs. Rows of jobs outside the three ids files are not read. How the log holds a job without
+values (rows without values, or no row) is not known to the author; the reader takes both.
+
+**Synthetic runs of step 3** (`scripts/retro_screen_synthetic.py`). The design is the real one: the lists, the predictions, the
+pubs of every job and their order, the time stamps and the status of the jobs. The values are made up: the gradient of a draw
+is zero with probability 0.6 and uniform otherwise (kurtosis 4.5), the cost is uniform, probes of one seed share their draws
+exactly, the shots are binomial. Seeds, fixed in the code: 810000 + run without an effect, 820000 + run with a factor 1.5 on
+the variance of `grid_n50_L4_k1_r0_s4096_seed22282001` (main grid, n60 rung, L = 4, level 0), 830000 + run with a change of 10
+percent of the variance between the two jobs of `grid_n37_L2_k1_r0_s4096_seed21272001` (main grid, n40 rung, L = 2, level 0);
+200 runs each. The 10 percent limit of Section 8 step 3 is read on the 200 runs without an effect.
+
+**Seen by the author since Section 9 was written, before step 5.** The first lines of the commit messages in the history of
+`docs/artifacts/paper1_preregistration.md` and of the two runner commits; the file names of the pre-registration artifacts; one
+row of the smoke-test log with its value columns masked; the keys of the `resubmission` record that some `job.json` carry; which
+job of the day-2 list failed; the code of the runner that writes a log row, at c9377b12. On 18 Nov 2026 an automatic preview
+showed four figure files of the repository (`gate1_noiseless`, `gate1_predictions`, `gate1_renyi`, `pauliprop_predictions`):
+simulations and predictions, no measured value. No log below its header line, no `result.json`, no `metadata.json`, no post-run
+note or review of these days and not the pre-registration mirror.
+
+**Record of the work.** The host stopped on 12 Nov 2026 and the author's working files were lost; the scripts were re-made on
+18 Nov 2026 from the author's own record of them. The remote machines were not available afterwards: the synthetic runs and
+the tests of steps 3 and 4 were run on one Windows machine.

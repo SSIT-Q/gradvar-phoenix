@@ -302,12 +302,17 @@ def main(argv=None) -> int:
     ap.add_argument("--runs", type=int, default=200)
     ap.add_argument("--kinds", nargs="*", default=["null", "variance_factor", "variance_drift"], choices=sorted(SEED_BASE))
     ap.add_argument("--workers", type=int, default=1)
+    ap.add_argument("--slice", default=None, help="i/n: do only every n-th run, starting at run i of the list of all runs (several processes can share --parts)")
     a = ap.parse_args(argv)
     if a.out and not ES._has_pair(Path(a.out).resolve().parts, "data", "exploratory"):
         raise SystemExit("refused: the result file must lie below data/exploratory/")
     parts = Path(a.parts)
     parts.mkdir(parents=True, exist_ok=True)
-    tasks = [(kind, k) for kind in a.kinds for k in range(a.runs) if not (parts / f"{kind}_{k:04d}.json").exists()]
+    tasks = [(kind, k) for kind in a.kinds for k in range(a.runs)]
+    if a.slice:
+        i, n = (int(x) for x in a.slice.split("/"))
+        tasks = tasks[i::n]
+    tasks = [(kind, k) for kind, k in tasks if not (parts / f"{kind}_{k:04d}.json").exists()]
 
     def keep(rec):
         (parts / f"{rec['kind']}_{rec['run']:04d}.json").write_text(json.dumps(rec) + "\n", encoding="utf-8", newline="\n")
