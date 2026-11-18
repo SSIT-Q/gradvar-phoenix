@@ -581,10 +581,28 @@ SWITCH = {
 }
 
 
-def _switch(monkeypatch, status):
-    """The adoption switch as the runner reads it, set for a test."""
+def _switch(monkeypatch, status, since=None):
+    """The adoption switch as the runner reads it, set for a test; ``since``: the time from which the table says it is in force."""
     import gradvar.execution_record as er
-    monkeypatch.setattr(er, "adoption", lambda *a, **k: dict(SWITCH[status]))
+    monkeypatch.setattr(er, "adoption", lambda *a, **k: dict(SWITCH[status], in_force_from_utc=since))
+
+
+def _asked_at(hw, monkeypatch, when):
+    """The first phase run as if the service were asked at ``when`` (the clock decides whether a pool's bound has passed)."""
+    real = getattr(hw.write_execution_pool, "_real", hw.write_execution_pool)
+
+    def at(bundle_dir, job, backend, **k):
+        return real(bundle_dir, job, backend, **dict(k, now=_utc(when)))
+    at._real = real
+    monkeypatch.setattr(hw, "write_execution_pool", at)
+
+
+def _git_head(n=0):
+    """The 40-character hash of HEAD~n of this checkout; a test that needs it is skipped where there is none."""
+    r = subprocess.run(["git", "rev-parse", "--verify", "--quiet", f"HEAD~{n}^{{commit}}"], cwd=str(ROOT), capture_output=True, text=True)
+    if r.returncode != 0 or len(r.stdout.strip()) != 40:
+        pytest.skip("not a git checkout with history")
+    return r.stdout.strip()
 
 
 def _committed_side():
@@ -734,7 +752,15 @@ def test_metadata_only_retrieval_writes_the_pool_and_never_asks_for_a_result(tmp
         assert json.loads((d / "metadata.json").read_text()) == {"result_metadata": {"metadata_only": True}, "pubs": []}
         rec = job["retrieval"]["execution_pool"]
         assert rec["status"] == "complete" and rec["walk_complete"] is True and not rec["errors"]
-        assert (rec["set_at_running"], rec["job_properties_set"], rec["sets_between"], rec["sets_after_finished"]) == (U0907, U0907, [U1120, U1135], [U1314, U1337, U1634])
+        assert (rec["set_at_running"], rec["job_properties_set"], rec["sets_between"], rec["sets_after_finished"]) == (
+            "2026-11-10T09:07:11Z", "2026-11-10T09:07:11Z", ["2026-11-10T11:20:04Z", "2026-11-10T11:35:39Z"],
+            ["2026-11-10T13:14:38Z", "2026-11-10T13:37:31Z", "2026-11-10T16:34:05Z"])
+        # CI2-8: every stamp of the pool record in one format
+        assert "+00:00" not in json.dumps(rec) and rec["asked_up_to"].endswith("Z") and rec["dispatch_update"]["last_update_date"].endswith("Z")
+        # CI2-3: the bound, where it comes from, when it runs out, when the service was asked, and the state
+        c = rec["closing"]
+        assert c["state"] == "closed by an update" and c["bound_hours"] == 6.0 and c["bound_source"].startswith("runner default")
+        assert c["closes_utc"] == "2026-11-10T18:35:07.784468Z" and c["asked_utc"] > c["closes_utc"]
         assert rec["updates"] == UPDATES and rec["restamps"] == [[], ["2026-11-10T11:35:39Z", "2026-11-10T13:14:38Z"], ["2026-11-10T16:34:05Z"]]
         # C65-5: the update in force at dispatch (the job's creation, 11:11:40Z: the 09:07:11Z values), by content hash and value hash
         assert rec["dispatch_update"]["last_update_date"] == "2026-11-10T09:07:11Z" and rec["dispatch_update"]["value_sha256"] == ec.value_sha256(S[U0907])
@@ -743,11 +769,14 @@ def test_metadata_only_retrieval_writes_the_pool_and_never_asks_for_a_result(tmp
         assert at["job_properties"] == S[U0907] and at["backend_properties"] == S[U0907]              # serialised as the committed snapshots are
         after = json.loads((d / "properties_after_finished.json").read_text())
         assert [x["properties"] for x in after["sets"]] == [S[U1314], S[U1337], S[U1634]]
+        assert after["asked_utc"] == rec["closing"]["asked_utc"] and "status" not in after
         pool = ec.load_pool(d)
         assert pool.status == "complete" and pool.updates() == UPDATES
         assert ec.execution_calibration(pool, st)["value_sha256"] == ec.execution_calibration(direct, st)["value_sha256"]
         assert ec.bracket_calibration(pool, st)["value_sha256"] == ec.value_sha256(S[U1337])
-    assert "execution-time pool complete" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "execution-time pool complete" in out
+    assert ": complete (pools complete " in out
 
 
 def test_a_restamp_after_finished_leaves_the_pool_pending(tmp_path, monkeypatch):
@@ -757,12 +786,13 @@ def test_a_restamp_after_finished_leaves_the_pool_pending(tmp_path, monkeypatch)
     _switch(monkeypatch, "in_force")
     ids, kw, jobs, history = _two_phase(hw, monkeypatch, tmp_path)
     history.sets = [d for d in history.sets if _utc(d["last_update_date"]) <= _utc(U1314)]
+    _asked_at(hw, monkeypatch, "2026-11-10T13:35:00Z")                                # inside the bound of 6 h after finished
     hw.retrieve_jobs(ids, metadata_only=True, **kw)
     for d in _bundles(tmp_path).values():
         after = json.loads((d / "properties_after_finished.json").read_text())
-        assert [x["properties"]["last_update_date"] for x in after["sets"]] == [U1314]
+        assert [x["properties"]["last_update_date"] for x in after["sets"]] == [U1314] and after["asked_utc"] == "2026-11-10T13:35:00Z"
         rec = json.loads((d / "job.json").read_text())["retrieval"]["execution_pool"]
-        assert rec["status"] == "pending" and "repeat the values in force before" in " ".join(rec["notes"])
+        assert rec["status"] == "pending" and "repeat the values in force before" in " ".join(rec["notes"]) and rec["closing"]["state"] == "open"
         pool = ec.load_pool(d)
         assert pool.status == "pending"
         with pytest.raises(ec.PoolPending):
@@ -781,7 +811,9 @@ def test_a_refused_properties_call_stops_the_pool_and_nothing_falls_back_to_the_
     t_r = _utc(RUNNING)
     fail = (lambda when: _utc(U1135) <= when < _utc(U1337)) if where == "walk" else (lambda when: when == t_r)
     ids, kw, jobs, history = _two_phase(hw, monkeypatch, tmp_path, fail=fail)
-    hw.retrieve_jobs(ids, metadata_only=True, **kw)
+    with pytest.raises(SystemExit, match="the execution-time pool is stopped"):          # CI2-2 (c): a stopped pool ends the phase with a non-zero exit
+        hw.retrieve_jobs(ids, metadata_only=True, status_file=str(tmp_path / "status.json"), **kw)
+    assert json.loads((tmp_path / "status.json").read_text())["status"] == "stopped"
     assert TimedJob.result_calls == 0 and not list((tmp_path / "runs").rglob("result.json"))
     for d in _bundles(tmp_path).values():
         rec = json.loads((d / "job.json").read_text())["retrieval"]["execution_pool"]
@@ -794,7 +826,7 @@ def test_a_refused_properties_call_stops_the_pool_and_nothing_falls_back_to_the_
             assert [x["properties"]["last_update_date"] for x in after["sets"]] == [U1337, U1634] and at["backend_properties"]["last_update_date"] == U0907
         else:
             assert at["backend_properties"] is None and "properties history refused" in at["errors"]["backend.properties(datetime=running)"]
-            assert at["job_properties"]["last_update_date"] == U0907 and after == {"status": "pending", "asked_up_to": None}
+            assert at["job_properties"]["last_update_date"] == U0907 and after == {"status": "pending", "sets": [], "asked_utc": None, "asked_up_to": None}
         with pytest.raises(ec.PoolError):
             ec.load_pool(d)
     assert "execution-time pool stopped" in capsys.readouterr().out
@@ -816,6 +848,8 @@ def test_the_first_phase_fails_on_a_file_or_field_that_is_not_listed(tmp_path, m
         hw.retrieve_jobs(ids, metadata_only=True, **kw)
     assert "file result_preview.json" in str(ex.value) and "may hold only the listed files and fields" in str(ex.value) and TimedJob.result_calls == 0
     monkeypatch.setattr(hw, "write_execution_pool", real)
+    import shutil
+    shutil.rmtree(tmp_path / "runs")                                                     # a closed pool is not written again (CI2-8): start from no bundle
     span = hw.record_execution_span
 
     def labelled(bundle_dir, created=None, props_label=None):                           # a field the enumeration does not list
@@ -853,19 +887,24 @@ def test_the_result_phase_refuses_without_the_pool_or_without_verified_execution
         hw.retrieve_jobs(ids, execution_rows_commit="0" * 40, **kw)
     with pytest.raises(SystemExit, match="refusing to retrieve the results.*--metadata-only"):   # still no way round it without a commit
         hw.retrieve_jobs(ids, **kw)
+    good, other = _git_head(0), _git_head(1)                                                    # two commits of this checkout
     seen = {}
 
     def verify(commit, list_name, job_ids, runs_root, **k):
         seen.update(commit=commit, list_name=list_name, job_ids=list(job_ids), runs_root=str(runs_root))
-        if commit != "feedc0de":
+        if commit != good:
             raise rp.PhaseError(f"refusing to retrieve the results of {list_name}: job t0: no classification")
         return dict(prediction_commit=commit, checks=["ancestor", "phase-1 input hashes", "classification for every job"])
     monkeypatch.setattr(rp, "verify_phase2", verify)
     with pytest.raises(SystemExit, match="job t0: no classification"):
-        hw.retrieve_jobs(ids, execution_rows_commit="badc0de", **kw)
+        hw.retrieve_jobs(ids, execution_rows_commit=other, **kw)
+    with pytest.raises(SystemExit, match="commit feedc0de is not in this checkout"):             # a name that is no commit here never reaches the check
+        hw.retrieve_jobs(ids, execution_rows_commit="feedc0de", **kw)
+    assert seen["commit"] == other
     assert TimedJob.result_calls == 0 and len(history.asked) == asked                             # every refusal comes before the service is called
     pools = {n: {f: (d / f).read_bytes() for f in POOL_FILES} for n, d in _bundles(tmp_path).items()}
-    rows = hw.retrieve_jobs(ids, execution_rows_commit="feedc0de", **kw)
+    rows = hw.retrieve_jobs(ids, execution_rows_commit=good[:7], **kw)                          # CI2-8: given by its first seven characters
+    assert seen["commit"] == good                                                               # checked and recorded as the 40-character hash
     assert seen["job_ids"] == sorted(first) and seen["runs_root"] == kw["run_root"] and seen["list_name"] == json.loads(Path(ids).read_text())["joblist_name"]
     assert TimedJob.result_calls == len(jobs) and len(rows) > 0 and len(list((tmp_path / "jobs").glob("*_retrieved_*.csv"))) == 1
     for name, d in _bundles(tmp_path).items():
@@ -873,7 +912,7 @@ def test_the_result_phase_refuses_without_the_pool_or_without_verified_execution
         assert job["status"] == "completed" and (d / "result.json").is_file()
         assert {f: (d / f).read_bytes() for f in POOL_FILES} == pools[name]                       # the second phase leaves the pool files as they were hashed
         r = job["retrieval"]
-        assert r["phase"].startswith("results") and r["execution_rows_commit"] == "feedc0de" and r["phase2_verification"]["prediction_commit"] == "feedc0de"
+        assert r["phase"].startswith("results") and r["execution_rows_commit"] == good and r["phase2_verification"]["prediction_commit"] == good
         assert r["execution_pool"] == first[name]["execution_pool"] and r["metadata_retrieved_utc"] == first[name]["retrieved_utc"]
         assert r["properties_label"] == hw.PROPERTIES_AT_CREATION                                 # the second phase records it as the one-step retrieval does
 
@@ -897,7 +936,7 @@ def test_a_commit_does_not_open_the_second_phase_while_the_table_is_not_in_force
 def test_single_phase_is_the_retrieval_as_before_and_says_so(tmp_path, monkeypatch):
     ec, rp = _committed_side()
     import gradvar.hardware as hw
-    _switch(monkeypatch, "in_force")
+    _switch(monkeypatch, "in_force", since="2099-01-01T00:00:00Z")                     # every job of the ids file is older than the adoption (CI2-4)
     ids, kw, jobs, history = _two_phase(hw, monkeypatch, tmp_path)
     rows = hw.retrieve_jobs(ids, single_phase=True, **kw)
     assert len(rows) > 0 and TimedJob.result_calls == len(jobs)
@@ -913,7 +952,8 @@ def test_single_phase_is_the_retrieval_as_before_and_says_so(tmp_path, monkeypat
 V018 = "a0053ae9d28653586e5e77b9aa6e475da06c4fa9"                 # main with pre-registration v0.18.0, before the pipeline and runner branches of 10-11 Nov 2026
 # the functions of v0.18.0 this file's history changed since; ``properties_at`` by review correction CI2-7 (a retrieval only: the label of a
 # set the service did not return for the time asked)
-V018_CHANGED = {"write_job_bundle", "execute_joblist", "write_ids_file", "retrieve_jobs", "main", "properties_at"}
+# ``run_joblist`` by CI2-5 (the guard that reads the adoption switch before a waiting submission)
+V018_CHANGED = {"write_job_bundle", "execute_joblist", "write_ids_file", "retrieve_jobs", "main", "properties_at", "run_joblist"}
 
 
 def _frozen(now):
@@ -1090,10 +1130,14 @@ def test_the_one_rerun_from_the_decision_to_the_bundle(tmp_path, monkeypatch, ca
     _switch(monkeypatch, "in_force")
     monkeypatch.setattr(hw, "check_budget", lambda jl, **k: [])   # this pipeline-check list carries the budget of model v2; its budget block is not the subject here
     committed_table = ec.load_settings()
-    monkeypatch.setattr(ec, "load_settings", lambda *a, **k: dataclasses.replace(committed_table, status="in_force", provisional_entries=()))   # the table once adopted
+    adopted = dict(committed_table.values)
+    adopted.setdefault("pool_closing_bound_hours", 6.0)                 # an in-force table carries the bound of CD-1 (CI-13); the runner refuses one without it
+    monkeypatch.setattr(ec, "load_settings", lambda *a, **k: dataclasses.replace(committed_table, status="in_force", provisional_entries=(), values=adopted))   # the table once adopted
     kw = dict(run_root=run_root, log_dir=str(tmp_path / "jobs"), snapshot_dir=str(tmp_path / "cal"))
-    # phase 1 of the first run: bundles without results (the fake jobs have no properties history: the pool says stopped, the bundle is still a phase-1 bundle)
-    assert hw.retrieve_jobs(str(ids_path), metadata_only=True, **kw) == []
+    # phase 1 of the first run: bundles without results (the fake jobs have no properties history: the pool says stopped, the bundle is still a
+    # phase-1 bundle, and the phase ends non-zero for the stopped pools: CI2-2 (c))
+    with pytest.raises(SystemExit, match="the execution-time pool is stopped"):
+        hw.retrieve_jobs(str(ids_path), metadata_only=True, **kw)
     bundle = {d.name: json.loads((d / "job.json").read_text()) for d in (tmp_path / "runs").glob("*/fakejob*")}
     assert set(bundle) == {"fakejob1", "fakejob2", "fakejob3"} and not list((tmp_path / "runs").rglob("result.json"))
     # the registered rows of the re-draw: the L0 job's point is not evaluable on a calibration ground, the L1 job's point is read
@@ -1187,7 +1231,8 @@ def test_the_one_rerun_from_the_decision_to_the_bundle(tmp_path, monkeypatch, ca
     assert len(sent) == 1
     # the re-run goes through the retrieval like any list: its bundle carries the suffixed tag, the job it repeats and the decision
     service._jobs[sent[0].job_id()] = sent[0]
-    assert hw.retrieve_jobs(str(rerun_ids_path), metadata_only=True, **kw) == []
+    with pytest.raises(SystemExit, match="the execution-time pool is stopped"):
+        hw.retrieve_jobs(str(rerun_ids_path), metadata_only=True, **kw)
     d = next((tmp_path / "runs").glob(f"*/{sent[0].job_id()}"))
     job = json.loads((d / "job.json").read_text())
     assert job["job_tag"] == "L0-rerun" and job["status"] == "metadata only" and not (d / "result.json").exists()
@@ -1317,3 +1362,228 @@ def test_ci2_7_only_a_set_returned_for_the_time_asked_is_the_update_at_dispatch(
     # the function itself: a set stamped before the time asked is the one retrieved
     p, label = hw.properties_at(SimpleNamespace(properties=real), created)
     assert label.startswith("retrieved: backend.properties(datetime=") and hw._properties_stamp(p) < created
+
+
+# ------------------------------------------------------------------------------------------------ review corrections CI2-2, CI2-3, CI2-4, CI2-5, CI2-8
+
+def _passing_verify(monkeypatch, rp):
+    """``verify_phase2`` replaced by a check that passes whatever it is given: what stops the second phase in these tests is the
+    runner's own gate, before the committed check and before the service."""
+    calls = []
+
+    def verify(commit, list_name, job_ids, runs_root, **k):
+        calls.append(commit)
+        return dict(prediction_commit=commit, checks=["ancestor", "phase-1 input hashes", "classification for every job"])
+    monkeypatch.setattr(rp, "verify_phase2", verify)
+    return calls
+
+
+def test_ci2_2_a_pool_that_is_not_closed_does_not_reach_the_second_phase(tmp_path, monkeypatch, capsys):
+    """Review correction CI2-2 (b), (c); stage s6 of the review. The first phase asked at 13:35Z leaves the pools pending: it says
+    so, in words and in the status file, and ends normally. The second phase then refuses, before the committed check and before
+    the service, whatever rows a commit holds. A stopped pool ends the first phase with a non-zero exit and is refused the same
+    way. Once the pools are complete the second phase goes on."""
+    ec, rp = _committed_side()
+    import gradvar.hardware as hw
+    head = _git_head(0)
+    _switch(monkeypatch, "in_force")
+    ids, kw, jobs, history = _two_phase(hw, monkeypatch, tmp_path)
+    full = list(history.sets)
+    status = tmp_path / "status.json"
+    history.sets = [d for d in full if _utc(d["last_update_date"]) <= _utc(U1314)]
+    _asked_at(hw, monkeypatch, "2026-11-10T13:35:00Z")
+    assert hw.retrieve_jobs(ids, metadata_only=True, status_file=str(status), **kw) == []          # pending is not a failure of the phase
+    st = json.loads(status.read_text())
+    assert st["status"] == "pending" and set(st["jobs"].values()) == {"pending"} and st["counts"]["pending"] == len(jobs) and st["phase"] == "metadata"
+    assert ": pending (pools complete 0," in capsys.readouterr().out
+    calls = _passing_verify(monkeypatch, rp)
+    asked = len(history.asked)
+    with pytest.raises(SystemExit, match=r"the execution-time pool of 3 job\(s\) is not closed: t0 \(L0\): pending; t1 \(L1\): pending; t2 .*: pending"):
+        hw.retrieve_jobs(ids, execution_rows_commit=head, **kw)
+    assert calls == [] and TimedJob.result_calls == 0 and len(history.asked) == asked               # before the committed check and before the service
+    with monkeypatch.context() as m:
+        m.chdir(tmp_path)                                        # the command line logs its properties snapshot under <cwd>/data/calibrations
+        assert hw.main(["--retrieve", ids, "--joblist", str(LIST01), "--run-root", kw["run_root"], "--log-dir", kw["log_dir"], "--metadata-only",
+                        "--phase-status-file", str(status)]) == 0                                # the command line: the same status, exit 0
+    assert json.loads(status.read_text())["status"] == "pending"
+    with pytest.raises(SystemExit) as e:
+        hw.main(["--joblist", str(LIST01), "--phase-status-file", str(status)])
+    assert e.value.code == 2 and "--phase-status-file goes with --retrieve --metadata-only" in capsys.readouterr().err
+    # a stopped pool: the walk-back is refused
+    history.sets, history.fail = full, (lambda when: _utc(U1135) <= when < _utc(U1337))
+    _asked_at(hw, monkeypatch, "2026-11-10T18:00:00Z")
+    with pytest.raises(SystemExit, match="the execution-time pool is stopped"):
+        hw.retrieve_jobs(ids, metadata_only=True, status_file=str(status), **kw)
+    st = json.loads(status.read_text())
+    assert st["status"] == "stopped" and set(st["jobs"].values()) == {"stopped"}
+    with pytest.raises(SystemExit, match="is not closed: t0 .*: stopped"):
+        hw.retrieve_jobs(ids, execution_rows_commit=head, **kw)
+    assert calls == [] and TimedJob.result_calls == 0
+    # the service answers: the pools close, and only then does the second phase reach the committed check and the results
+    history.fail = None
+    assert hw.retrieve_jobs(ids, metadata_only=True, status_file=str(status), **kw) == []
+    assert json.loads(status.read_text())["status"] == "complete"
+    d0 = next(iter(_bundles(tmp_path).values()))
+    after = d0 / "properties_after_finished.json"
+    kept = after.read_bytes()
+    after.write_text(json.dumps(dict(status="pending", sets=[], asked_utc=None, asked_up_to=None)))    # recorded complete, the files say pending
+    with pytest.raises(SystemExit, match="recorded complete, but the pool files read as pending"):
+        hw.retrieve_jobs(ids, execution_rows_commit=head, **kw)
+    after.write_bytes(kept)
+    assert calls == [] and TimedJob.result_calls == 0
+    assert len(hw.retrieve_jobs(ids, execution_rows_commit=head, **kw)) > 0 and calls == [head] and TimedJob.result_calls == len(jobs)
+
+
+def test_ci2_3_a_pool_is_not_pending_for_ever(tmp_path, monkeypatch):
+    """Review correction CI2-3 (the last scenario of Section 4.1 of the review): no change of values is stamped within the bound
+    after finished, and one comes later (07:00Z of the next day). Asked inside the bound the pool is pending; asked after it the
+    record carries the terminal state "no update within the bound", the late set is in no pool file, and a later first phase
+    leaves the bundle as it is. The bound is the settings table's entry; a table in force without it stops the phase."""
+    ec, rp = _committed_side()
+    import copy
+    import dataclasses
+    import gradvar.hardware as hw
+    _switch(monkeypatch, "in_force")
+    ids, kw, jobs, history = _two_phase(hw, monkeypatch, tmp_path)
+    late = copy.deepcopy(history.sets[-1])
+    late["last_update_date"] = "2026-11-11 07:00:00+00:00"                                       # other values than those in force at finished, 18.4 h after it
+    full = list(history.sets)
+    history.sets = [d for d in full if _utc(d["last_update_date"]) <= _utc(U1314)] + [late]
+    _asked_at(hw, monkeypatch, "2026-11-10T17:00:00Z")                                           # 4.4 h after finished: inside the bound of 6 h
+    hw.retrieve_jobs(ids, metadata_only=True, **kw)
+    for d in _bundles(tmp_path).values():
+        rec = json.loads((d / "job.json").read_text())["retrieval"]["execution_pool"]
+        assert rec["status"] == "pending" and rec["closing"]["state"] == "open" and rec["closing"]["asked_utc"] == "2026-11-10T17:00:00Z"
+    _asked_at(hw, monkeypatch, "2026-11-11T08:00:00Z")                                           # after the bound, and after the late change of values
+    status = tmp_path / "status.json"
+    assert hw.retrieve_jobs(ids, metadata_only=True, status_file=str(status), **kw) == []
+    assert json.loads(status.read_text())["status"] == "complete"                                # closed: nothing is left to wait for
+    for d in _bundles(tmp_path).values():
+        rec = json.loads((d / "job.json").read_text())["retrieval"]["execution_pool"]
+        c = rec["closing"]
+        assert rec["status"] == c["state"] == "no update within the bound" and rec["sets_after_finished"] == ["2026-11-10T13:14:38Z"]
+        assert (c["bound_hours"], c["closes_utc"], c["asked_utc"]) == (6.0, "2026-11-10T18:35:07.784468Z", "2026-11-11T08:00:00Z")
+        assert "closed without a bracket" in " ".join(rec["notes"])
+        assert not any("2026-11-11 07:00:00" in (d / f).read_text() for f in POOL_FILES)         # the late set is not a set of this pool
+        rp.check_phase1_bundle(d)
+    assert hw.second_phase_pools(json.loads(Path(ids).read_text()), kw["run_root"]) == []        # such a pool is closed for the second phase
+    before = _tree(tmp_path / "runs")
+    _asked_at(hw, monkeypatch, "2026-11-11T12:00:00Z")
+    asked = len(history.asked)
+    assert hw.retrieve_jobs(ids, metadata_only=True, **kw) == []
+    assert _tree(tmp_path / "runs") == before and len(history.asked) == asked                    # terminal: not asked again, not written again
+    # the bound is the table's entry
+    st = ec.load_settings()
+    assert hw.pool_closing_bound() == (dict(hours=float(st.values["pool_closing_bound_hours"]), source="settings table entry pool_closing_bound_hours")
+                                       if "pool_closing_bound_hours" in st.values else dict(hours=6.0, source="runner default (the settings table carries no entry pool_closing_bound_hours)"))
+    monkeypatch.setattr(ec, "load_settings", lambda *a, **k: dataclasses.replace(st, values=dict(st.values, pool_closing_bound_hours=0.5)))
+    assert hw.pool_closing_bound() == dict(hours=0.5, source="settings table entry pool_closing_bound_hours")
+    import shutil
+    shutil.rmtree(tmp_path / "runs")
+    history.sets = full
+    _asked_at(hw, monkeypatch, "2026-11-10T18:00:00Z")
+    hw.retrieve_jobs(ids, metadata_only=True, **kw)
+    for d in _bundles(tmp_path).values():                                                        # half an hour after finished (12:35:07Z): no set is stamped by then
+        rec = json.loads((d / "job.json").read_text())["retrieval"]["execution_pool"]
+        assert rec["status"] == "no update within the bound" and rec["sets_after_finished"] == [] and rec["closing"]["closes_utc"] == "2026-11-10T13:05:07.784468Z"
+        assert rec["closing"]["bound_source"] == "settings table entry pool_closing_bound_hours"
+    values = {k: v for k, v in st.values.items() if k != "pool_closing_bound_hours"}
+    monkeypatch.setattr(ec, "load_settings", lambda *a, **k: dataclasses.replace(st, status="in_force", values=values, provisional_entries=()))
+    with pytest.raises(SystemExit, match="in force and carries no entry pool_closing_bound_hours"):
+        hw.pool_closing_bound()
+
+
+def test_ci2_8_a_closed_pool_is_not_written_again(tmp_path, monkeypatch, capsys):
+    """Review correction CI2-8: a repeated first phase does not rewrite the bundle of a job whose pool is complete (one more set
+    stamped again would change ``properties_after_finished.json`` under the rows drawn on it), and does not ask the service."""
+    ec, rp = _committed_side()
+    import gradvar.hardware as hw
+    _switch(monkeypatch, "in_force")
+    ids, kw, jobs, history = _two_phase(hw, monkeypatch, tmp_path)
+    history.sets = [d for d in history.sets if _utc(d["last_update_date"]) <= _utc(U1337)]       # the closing update is out, the 16:34:05Z re-stamp is not
+    _asked_at(hw, monkeypatch, "2026-11-10T14:00:00Z")
+    hw.retrieve_jobs(ids, metadata_only=True, **kw)
+    before = _tree(tmp_path)
+    history.sets = History().sets                                                                # now the re-stamp exists
+    _asked_at(hw, monkeypatch, "2026-11-10T18:00:00Z")
+
+    def contacted(*a, **k):
+        raise AssertionError("the service was contacted")
+    monkeypatch.setattr(hw, "get_service", contacted)
+    capsys.readouterr()
+    status = tmp_path / "status.json"
+    assert hw.retrieve_jobs(ids, metadata_only=True, status_file=str(status), **kw) == []
+    assert {k: v for k, v in _tree(tmp_path).items() if k != "status.json"} == before
+    out = capsys.readouterr().out
+    assert out.count("its pool is closed (complete, written ") == len(jobs) and "the bundle is left as it is" in out
+    assert json.loads(status.read_text())["status"] == "complete"
+
+
+def test_ci2_4_single_phase_is_refused_in_force_unless_the_jobs_are_older_than_the_adoption(tmp_path, monkeypatch):
+    """Review correction CI2-4 (cases 17 and 18 of the review): while the table is in force ``--single-phase`` retrieves nothing
+    for a Paper 1 Estimator ids file, after a first phase or with none, unless every job of the file was submitted before the
+    time from which the table says it is in force. An ids file of September passes."""
+    ec, rp = _committed_side()
+    import gradvar.hardware as hw
+    ids, kw, jobs, history = _two_phase(hw, monkeypatch, tmp_path)
+    cli = ["--retrieve", ids, "--joblist", str(LIST01), "--run-root", kw["run_root"], "--log-dir", kw["log_dir"], "--single-phase"]
+    for since, words in ((None, "does not record since when"), ("2026-11-12T00:00:00Z", r"3 job\(s\) were submitted at or after the adoption")):
+        _switch(monkeypatch, "in_force", since=since)                                           # the ids file of this test is written now, after either time
+        with pytest.raises(SystemExit, match=words):                                            # case 18: no first phase at all
+            hw.retrieve_jobs(ids, single_phase=True, **kw)
+        with pytest.raises(SystemExit, match="refusing --single-phase"):
+            hw.main(cli)
+    assert TimedJob.result_calls == 0 and not (tmp_path / "runs").exists() and history.asked == []     # refused before the service
+    hw.retrieve_jobs(ids, metadata_only=True, **kw)
+    before = _tree(tmp_path / "runs")
+    with pytest.raises(SystemExit, match="refusing --single-phase"):                             # case 17: after a first phase
+        hw.retrieve_jobs(ids, single_phase=True, **kw)
+    assert TimedJob.result_calls == 0 and _tree(tmp_path / "runs") == before
+    # an ids file of September: every job is older than the adoption
+    old = json.loads(Path(ids).read_text())
+    old["written_utc"] = "2026-09-20T19:03:44.530905+00:00"
+    for j in old["jobs"]:
+        j["submitted_utc"] = "2026-09-20T18:58:51.820228+00:00"
+    assert hw.single_phase_refusal(old, dict(in_force=True, in_force_from_utc="2026-11-19T00:00:00Z")) is None
+    assert "no submission time" in hw.single_phase_refusal(dict(jobs=[dict(job_id="x", tag="L0")]), dict(in_force=True, in_force_from_utc="2026-11-19T00:00:00Z"))
+    import shutil
+    shutil.rmtree(tmp_path / "runs")
+    Path(ids).write_text(json.dumps(old))
+    assert len(hw.retrieve_jobs(ids, single_phase=True, **kw)) > 0 and TimedJob.result_calls == len(jobs)
+    # with the table not in force the flag is the retrieval as before, whatever the dates
+    _switch(monkeypatch, "not_in_force")
+    shutil.rmtree(tmp_path / "runs")
+    assert len(hw.retrieve_jobs(ids, single_phase=True, **kw)) > 0
+
+
+@pytest.mark.parametrize("status", ["absent", "not_in_force", "in_force"])
+def test_ci2_5_a_list_is_not_dispatched_waiting_for_its_results_while_the_table_is_in_force(tmp_path, monkeypatch, status):
+    """Review correction CI2-5 (CI-2 of part 2): with the table in force ``run_joblist`` refuses a submission of a Paper 1
+    Estimator list without ``--submit-only``, before the network; with it, and with the table absent or not in force, the guard
+    lets the submission through. The guard reads the switch and nothing else."""
+    import gradvar.hardware as hw
+    _switch(monkeypatch, status)
+    jl = json.loads(LIST01.read_text())
+    jl["dry_run"] = False
+    jl["preflight_review"] = "https://github.com/SSIT-Q/gradvar-phoenix/blob/" + "a" * 40 + "/docs/preflight/01_marrakesh_pipeline_check.md"
+    path = tmp_path / "armed.json"
+    path.write_text(json.dumps(jl))
+
+    class Past(Exception):
+        pass
+
+    def past(alias):
+        raise Past("the guard let the submission through")
+    monkeypatch.setattr(hw, "resolve_instance", past)                                           # the first thing after the guard
+    kw = dict(log_dir=str(tmp_path / "jobs"), run_root=str(tmp_path / "runs"))
+    if status == "in_force":
+        with pytest.raises(SystemExit, match="waiting for its results: Deviation 65 is in force"):
+            hw.run_joblist(str(path), submit=True, **kw)
+        with pytest.raises(SystemExit, match="Submit with --submit-only"):
+            hw.main(["--joblist", str(path), "--yes-submit", "--run-root", kw["run_root"], "--log-dir", kw["log_dir"]])
+    else:
+        with pytest.raises(Past):
+            hw.run_joblist(str(path), submit=True, **kw)
+    with pytest.raises(Past):
+        hw.run_joblist(str(path), submit=True, submit_only=True, **kw)
+    assert not (tmp_path / "runs").exists()

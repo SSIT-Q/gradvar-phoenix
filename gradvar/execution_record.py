@@ -39,6 +39,7 @@ CODE_FILES = ("gradvar/execution_calibration.py", "gradvar/retrieval_phases.py",
               "gradvar/execution_record.py", SETTINGS_REL)
 WINDOW_RULES = ("package_update_or_next_same_utc_day", "package_update_only", "same_utc_day")
 RERUN_SUFFIX = "-rerun"
+NO_UPDATE_WITHIN_BOUND = "no update within the bound"     # terminal state of a pool whose closing update did not come within the bound (CD-1, CI2-3)
 RERUN_RULE_ON = "once_when_not_evaluable_on_calibration_grounds"
 RERUN_CONDITIONS = ("not_evaluable_on_calibration_grounds", "not_a_rerun_and_not_rerun_before", "live_layout_check_passed", "same_utc_day",
                     "within_ledger_lines")
@@ -82,7 +83,8 @@ def sha256_file(path: str | Path) -> str:
 
 def adoption(root: str | Path | None = None, raw: Any = _UNSET) -> Dict[str, Any]:
     """Whether Deviations 65 and 67 govern: ``{in_force, status, settings_file, settings_sha256, dispatch_window, rerun_rule,
-    reason}``. ``status`` is ``absent`` (no table: v0.18.0), ``not_in_force`` (the table says so: v0.18.0) or ``in_force``.
+    in_force_from_utc, reason}`` (``in_force_from_utc``: the table's top-level entry of that name, the time from which it is in
+    force, or None when it records none). ``status`` is ``absent`` (no table: v0.18.0), ``not_in_force`` (the table says so: v0.18.0) or ``in_force``.
 
     ``root``: the tree whose table is read (default: this checkout). ``raw``: the table's bytes as read from a commit (None: the
     commit has no table), for a check that reads a commit and not a working tree. A table that its loader refuses is an error
@@ -92,6 +94,7 @@ def adoption(root: str | Path | None = None, raw: Any = _UNSET) -> Dict[str, Any
         raw = path.read_bytes() if path.is_file() else None
     if raw is None:
         return dict(in_force=False, status="absent", settings_file=SETTINGS_REL, settings_sha256=None, dispatch_window=None, rerun_rule=None,
+                    in_force_from_utc=None,
                     reason="no settings table on this tree: Deviations 65 and 67 are not in force; v0.18.0 applies")
     ec = _ec()
     with tempfile.TemporaryDirectory() as td:
@@ -102,8 +105,13 @@ def adoption(root: str | Path | None = None, raw: Any = _UNSET) -> Dict[str, Any
         except (ec.SettingsError, ValueError, KeyError, AttributeError, TypeError) as e:
             raise ExecutionRecordError(f"{SETTINGS_REL}: the settings table is not readable by its loader ({type(e).__name__}: {e}); "
                                        "the runner cannot tell which rules apply") from e
+    try:                                                  # since when the table is in force, when it says so (review correction CI2-4)
+        since = json.loads(raw).get("in_force_from_utc")
+        since = iso(since) if since is not None else None
+    except (ValueError, TypeError, AttributeError) as e:
+        raise ExecutionRecordError(f"{SETTINGS_REL}: in_force_from_utc is not a UTC time ({type(e).__name__}: {e})") from e
     return dict(in_force=bool(st.in_force), status=st.status, settings_file=SETTINGS_REL, settings_sha256=st.sha256,
-                dispatch_window=st.values.get("dispatch_window"), rerun_rule=st.values.get("rerun_rule"),
+                dispatch_window=st.values.get("dispatch_window"), rerun_rule=st.values.get("rerun_rule"), in_force_from_utc=since,
                 reason="the settings table says in_force: Deviations 65 and 67 apply" if st.in_force else
                 "the settings table says not_in_force: Deviations 65 and 67 are drafts; v0.18.0 applies")
 
@@ -246,6 +254,14 @@ def rerun_decision_path(root: str | Path, list_name: str) -> Path:
 
 def _git(root: str | Path, *args: str) -> subprocess.CompletedProcess:
     return subprocess.run(["git", *args], cwd=str(root), capture_output=True, timeout=120)
+
+
+def resolve_commit(root: str | Path, commit: Any) -> Optional[str]:
+    """The 40-character hash of ``commit`` (a full or abbreviated hash, or any name git resolves) in the checkout ``root``; None
+    when it names no commit there. A record carries the full hash, never the name it was given by (review correction CI2-8)."""
+    r = _git(root, "rev-parse", "--verify", "--quiet", f"{str(commit).strip()}^{{commit}}")
+    out = r.stdout.decode("utf-8", "replace").strip() if isinstance(r.stdout, bytes) else str(r.stdout).strip()
+    return out if r.returncode == 0 and re.fullmatch(r"[0-9a-f]{40}", out) else None
 
 
 def committed_file(root: str | Path, rel: str) -> Dict[str, Any]:
