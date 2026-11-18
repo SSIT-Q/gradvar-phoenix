@@ -267,6 +267,93 @@ def realised_floor_at_channel(classes: Dict, a_i: float, b_i: float, a_j: float,
                 rule=CHANNEL_FLOOR_RULE, **sign)
 
 
+UNIVERSAL_FLOOR_RULE = (
+    "Proposed (not adopted; docs/deviations_drafts/64_support/floor_bound_derivation.md on branch dev64-dial-channel): a realised "
+    "floor that needs no sign condition. For each realised mask the k = L gradient is X_m = -sin(theta_k) u_m - cos(theta_k) v_m, "
+    "and the theta-mean of u_m is the kept amplitude A_m. The matrix G_mm' = E[X_m X_m'] is then 1/2 A_m A_m' plus a positive "
+    "semidefinite rest, so sum_{m != m'} G_mm' = E[(sum X)^2] - sum_m E[X_m^2] >= 1/2 (sum A)^2 - sum_m W_m for any W_m >= E[X_m^2]. "
+    "W_m = 1/2 (a_i g_i D(s_i^L))^2 [beta_j^2 zeta_m + a_j^2 D(s_j^L)^2 xi_m], beta_j = a_j t(s_j^L) + b_j, holds for every state: "
+    "zeta_m = xi_m = 1, and where i is reset in layer L - 1 zeta_m = min(1, (t(1) + |D(1)|)^2 + r_x^2), xi_m = min(1, zeta_m / 2). "
+    "floor_grad = [1/2 (sum A)^2 - sum W] / (K (K - 1)): the kept mode less the part of each mask's own second moment that the kept "
+    "mode does not explain, over K - 1. The cost: Var[C_m] <= V_m = 1/2 (a_i a_j D_i D_j)^2 xi_m' + 1/2 (a_i g_i D_i beta_j)^2 "
+    "zeta_m(i) + 1/2 (a_j g_j D_j beta_i)^2 zeta_m(j), floor_cost = [1/2 (sum A_i)^2 + 1/2 (sum A_j)^2 - sum V] / (K (K - 1)) - "
+    "S^2(c0) / K. Valid for every dial channel, every mask set and both dials; it reads the same four mask bits as the kept mode. "
+    "It is not positive on the dephasing dial and, at K = 256, at the p = 0.25 gradient points.")
+
+
+def realised_floor_bound_at_channel(classes: Dict, a_i: float, b_i: float, a_j: float, b_j: float, g_i: float, g_j: float, channel,
+                                    dial: str = "reset") -> Dict:
+    """A lower bound of the realised off-diagonal moments that holds for every dial channel and every mask set, with no sign
+    condition (``UNIVERSAL_FLOOR_RULE``; proposed, not read by any registered evaluator). From the 16 class counts of
+    ``mask_floor_classes``. Returns ``floor_grad`` / ``floor_cost`` (the bounds), ``kept_grad`` / ``kept_cost`` (the closed form
+    of ``realised_floor_at_channel`` on the same masks, which is a bound only under the sign condition) and the two penalties
+    ``kept - floor``. ``grad_positive`` / ``cost_positive``: whether the bound is above zero (a floor that is not positive
+    tests nothing)."""
+    K = int(classes["K"])
+    n = np.asarray(classes["classes"], dtype=float)
+    if n.size != 16 or int(n.sum()) != K:
+        raise ValueError("classes: 16 counts that sum to K")
+    dz, tz, (rx, _ry) = _channel_branches(channel, dial)
+    dz, tz = np.asarray(dz), np.asarray(tz)
+    code = np.arange(16)
+    si, sj, pi, pj = code & 1, (code >> 1) & 1, (code >> 2) & 1, (code >> 3) & 1
+    beta_j, beta_i = a_j * tz[sj] + b_j, a_i * tz[si] + b_i
+    A_i = a_i * g_i * dz[si] * beta_j * tz[pi]
+    A_j = a_j * g_j * dz[sj] * beta_i * tz[pj]
+    if _is_dephase(dial):                                         # no reset on this dial: nothing is known of the qubit's state
+        zeta_i = zeta_j = xi_i = xi_ij = np.ones(16)
+    else:
+        z0 = min(1.0, (tz[1] + abs(dz[1])) ** 2 + rx ** 2)        # <Z>^2 + <X>^2 of a qubit that the layer before has just reset
+        zeta_i, zeta_j = np.where(pi == 1, z0, 1.0), np.where(pj == 1, z0, 1.0)
+        xi_i = np.where(pi == 1, min(1.0, 0.5 * z0), 1.0)
+        xi_ij = np.where((pi == 1) | (pj == 1), min(1.0, 0.5 * z0), 1.0)
+    W = 0.5 * (a_i * g_i * dz[si]) ** 2 * (beta_j ** 2 * zeta_i + a_j ** 2 * dz[sj] ** 2 * xi_i)
+    V = (0.5 * (a_i * a_j * dz[si] * dz[sj]) ** 2 * xi_ij + 0.5 * (a_i * g_i * dz[si] * beta_j) ** 2 * zeta_i
+         + 0.5 * (a_j * g_j * dz[sj] * beta_i) ** 2 * zeta_j)
+    c0 = beta_i * beta_j
+    has_prev = int(classes.get("L", 2)) >= 2
+    if K < 2:
+        nan = float("nan")
+        return dict(floor_grad=nan, floor_cost=nan, kept_grad=nan, kept_cost=nan, penalty_grad=nan, penalty_cost=nan, grad_positive=False,
+                    cost_positive=False, has_prev=bool(has_prev), rule=UNIVERSAL_FLOOR_RULE)
+    pairs = K * (K - 1)
+    s_i, s_j = float((n * A_i).sum()), float((n * A_j).sum())
+    q_i, q_j = float((n * A_i * A_i).sum()), float((n * A_j * A_j).sum())
+    mean0 = float((n * c0).sum() / K)
+    spread = float((n * (c0 - mean0) ** 2).sum() / (K - 1) / K)
+    kept_g, kept_c = 0.5 * (s_i ** 2 - q_i) / pairs, 0.5 * (s_i ** 2 - q_i + s_j ** 2 - q_j) / pairs - spread
+    fg = (0.5 * s_i ** 2 - float((n * W).sum())) / pairs
+    fc = (0.5 * s_i ** 2 + 0.5 * s_j ** 2 - float((n * V).sum())) / pairs - spread
+    return dict(floor_grad=float(fg), floor_cost=float(fc), kept_grad=float(kept_g), kept_cost=float(kept_c), penalty_grad=float(kept_g - fg),
+                penalty_cost=float(kept_c - fc), grad_positive=bool(fg > 0 and has_prev), cost_positive=bool(fc > 0 and has_prev),
+                c0_spread_over_K=spread, has_prev=bool(has_prev), dial="dephase" if _is_dephase(dial) else "reset", rule=UNIVERSAL_FLOOR_RULE)
+
+
+def mask_second_moment_bounds(masks: np.ndarray, L: int, i: int, j: int, a_i: float, b_i: float, a_j: float, b_j: float, g_i: float,
+                              g_j: float, channel, dial: str = "reset") -> Dict:
+    """Per mask, the bounds W_m >= E[X_m^2] (k = L gradient) and V_m >= Var[C_m] of ``UNIVERSAL_FLOOR_RULE`` and the kept amplitudes
+    A_i, A_j, in the order of ``masks`` (K, L, n) bool: what ``realised_floor_bound_at_channel`` sums, for the exact test of each
+    inequality on its own."""
+    mk = np.asarray(masks, dtype=bool)
+    si, sj = mk[:, L - 1, i].astype(int), mk[:, L - 1, j].astype(int)
+    pi, pj = (mk[:, L - 2, i].astype(int), mk[:, L - 2, j].astype(int)) if L >= 2 else (np.zeros_like(si), np.zeros_like(sj))
+    dz, tz, (rx, _ry) = _channel_branches(channel, dial)
+    dz, tz = np.asarray(dz), np.asarray(tz)
+    beta_j, beta_i = a_j * tz[sj] + b_j, a_i * tz[si] + b_i
+    one = np.ones(len(si))
+    if _is_dephase(dial):
+        zeta_i = zeta_j = xi_i = xi_ij = one
+    else:
+        z0 = min(1.0, (tz[1] + abs(dz[1])) ** 2 + rx ** 2)
+        zeta_i, zeta_j = np.where(pi == 1, z0, 1.0), np.where(pj == 1, z0, 1.0)
+        xi_i = np.where(pi == 1, min(1.0, 0.5 * z0), 1.0)
+        xi_ij = np.where((pi == 1) | (pj == 1), min(1.0, 0.5 * z0), 1.0)
+    W = 0.5 * (a_i * g_i * dz[si]) ** 2 * (beta_j ** 2 * zeta_i + a_j ** 2 * dz[sj] ** 2 * xi_i)
+    V = (0.5 * (a_i * a_j * dz[si] * dz[sj]) ** 2 * xi_ij + 0.5 * (a_i * g_i * dz[si] * beta_j) ** 2 * zeta_i
+         + 0.5 * (a_j * g_j * dz[sj] * beta_i) ** 2 * zeta_j)
+    return dict(W=W, V=V, A_i=a_i * g_i * dz[si] * beta_j * tz[pi], A_j=a_j * g_j * dz[sj] * beta_i * tz[pj])
+
+
 def calibration_for(properties_file: str | None, snapshot_csv: str | None) -> Calibration | None:
     """The run-day calibration: the bundle's ``properties.json`` when it carries confusion and gate errors (real
     backends), else the ``--snapshot-csv`` planning snapshot, labelled by ``source``."""
