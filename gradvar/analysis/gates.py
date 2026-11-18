@@ -541,17 +541,19 @@ def _gate2_e_row67(run: RunData, snapshot_csv: str | Path | None, reference_rese
     with tempfile.TemporaryDirectory() as tmp:
         for jid, b in sorted(run.bundles.items()):
             rungs = _job_rungs(b.job)
-            pool, case = ec.pool_for_job(b.path)
+            pool, case = ec.pool_for_job(b.path, settings=st)
             rec = dict(pool_case=case["case"], rungs=[dict(n=r["n"], edge=r["edge"], depths=r["depths"]) for r in rungs])
-            if pool is None:
+            if pool is None:                                # no E, or a pool that is still pending (CI-5): the gate cannot be evaluated on this job
                 without[jid] = "; ".join(x for x in (case["service_problem"], case["snapshot_problem"]) if x)
                 jobs[jid] = rec
                 continue
             E, B = ec.execution_calibration(pool, st), ec.bracket_calibration(pool, st)
             backend = str(b.job.get("backend_name") or "ibm_phoenix")
-            fe, fb = ec.write_calibration(E, Path(tmp) / jid, backend), ec.write_calibration(B, Path(tmp) / jid, backend)
+            fe = ec.write_calibration(E, Path(tmp) / jid, backend)
+            fb = ec.write_calibration(B, Path(tmp) / jid, backend) if B is not None else None      # None: complete without a bracket
             readout = _readout_of(E["properties"])
-            rec.update(E=E["value_sha256"], B=B["value_sha256"], t_running=E["t_running"], t_finished=E["t_finished"], pool_updates=pool.updates(),
+            rec.update(E=E["value_sha256"], B=B["value_sha256"] if B is not None else None, bracket=B is not None,
+                       t_running=E["t_running"], t_finished=E["t_finished"], pool_updates=pool.updates(),
                        readout_age_h_max=E["ages_at_running"].get("readout_error", {}).get("age_h_max"), clause_49=[])
             for r in rungs:
                 for el in ec.over_cut_elements(r, fe["csv"], fe["properties"]):
@@ -559,7 +561,7 @@ def _gate2_e_row67(run: RunData, snapshot_csv: str | Path | None, reference_rese
                     item = dict(el, job_id=jid, rung_n=r["n"], edge=r["edge"], zone=z if z in (ec.ZONE_EDGE, ec.ZONE_L2) else "outside_zone")
                     (pausing if z in (ec.ZONE_EDGE, ec.ZONE_L2) else per_job).append(item)
                 on_e = {ec._identity(x) for x in ec.over_cut_elements(r, fe["csv"], fe["properties"])}
-                for el in ec.over_cut_elements(r, fb["csv"], fb["properties"]):
+                for el in (ec.over_cut_elements(r, fb["csv"], fb["properties"]) if fb is not None else []):
                     z = ec.zone(r, ec.ZONE_L, el, st)
                     if z in (ec.ZONE_EDGE, ec.ZONE_L2):
                         bracket_zone.append(dict(el, job_id=jid, rung_n=r["n"], edge=r["edge"], zone=z, also_on_E=ec._identity(el) in on_e))
@@ -592,6 +594,9 @@ def _gate2_e_row67(run: RunData, snapshot_csv: str | Path | None, reference_rese
     parts.append("over a cut elsewhere on a placed rung, handled per job by Deviation 65 (no pause): " + (", ".join(seen) if seen else "none"))
     parts.append(f"bracket calibration ({'decides' if bracket_decides else 'reported, does not decide'}): "
                  + (", ".join(name(x) for x in b_only) + " in the zone on B and not on E" if b_only else "no zone element over a cut on B only"))
+    no_b = sorted(j for j, r in jobs.items() if r.get("bracket") is False)
+    if no_b:
+        parts.append(f"no bracket for {len(no_b)} job(s) (no change of values stamped within the bound after finished): " + ", ".join(no_b))
     met49 = sorted(j for j, r in jobs.items() if any(c["met"] for c in r.get("clause_49") or []))
     parts.append("the clause as Deviations 49 and 52 write it (logged, pauses nothing): " + (f"met for {len(met49)} job(s)" if met49 else "not met"))
     if raw_p1:

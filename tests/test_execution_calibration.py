@@ -595,8 +595,8 @@ def test_f_the_degraded_pool_from_the_committed_snapshots(S, st, tmp_path):
     # pool_for_job: the service files first, then the committed snapshots, else not evaluable; the case is recorded
     pool, rec = ec.pool_for_job(_write_bundle(tmp_path / "svc", MAIN, "0907", ["1135"], "1337", S))
     assert rec["case"] == ec.SOURCE_SERVICE and pool.source == ec.SOURCE_SERVICE and rec["service_problem"] is None
-    for name, kw in (("nofile", dict(drop="properties_between.json")), ("gap", dict(complete=False)), ("pending", dict())):
-        d = _write_bundle(tmp_path / name, MAIN, "0907", ["1135"], None if name == "pending" else "1337", S, **kw)
+    for name, kw in (("nofile", dict(drop="properties_between.json")), ("gap", dict(complete=False))):
+        d = _write_bundle(tmp_path / name, MAIN, "0907", ["1135"], "1337", S, **kw)
         pool, rec = ec.pool_for_job(d)
         assert rec["case"] == ec.SOURCE_SNAPSHOTS and pool.source == ec.SOURCE_SNAPSHOTS and pool.status == "complete" and rec["service_problem"]
         assert set(rec["files"]) == set(main.files)
@@ -604,6 +604,61 @@ def test_f_the_degraded_pool_from_the_committed_snapshots(S, st, tmp_path):
         assert pool is None and rec["case"] == "not_evaluable" and rec["snapshot_problem"].startswith("pending")
     c = ec.classify_without_execution_calibration(rec["snapshot_problem"], st)
     assert c["reading"] == ec.NOT_EVALUABLE and c["grounds"] == [ec.GROUND_NO_E]
+
+
+def test_ci5_a_pending_service_pool_stays_pending_and_never_falls_to_the_snapshots(S, st, tmp_path):
+    """CI-5. A service pool that is only pending is the case ``pending``: no pool, nothing to draw. It does not fall through to the
+    committed snapshots, although their pool is complete for this job, and it is not "not evaluable": when the build is run must
+    not decide the reading. Only a pool that cannot be built (``PoolError``) goes to the snapshots."""
+    d = _write_bundle(tmp_path / "pending", MAIN, "0907", ["1135"], None, S)
+    assert ec.committed_snapshot_pool(MAIN[0], "ibm_phoenix", MAIN[1], MAIN[2]).status == "complete"
+    pool, rec = ec.pool_for_job(d)
+    assert pool is None and rec["case"] == ec.CASE_PENDING == "pending" and rec["snapshot_problem"] is None and rec["files"] == []
+    assert rec["pending"]["bound_hours"] == st["pool_closing_bound_hours"] == 6.0
+    assert rec["pending"]["until_utc"] == ec.iso(ec.parse_utc(MAIN[2]) + timedelta(hours=6)) and "no update published at or after finished yet" in rec["pending"]["why"]
+    # only a re-stamp after finished, and the service asked before the bound: still pending
+    c2 = ("dbpfon8qtr0c738ebgj0", "2026-11-10T12:54:22.817673Z", "2026-11-10T13:10:40.143310Z")
+    d = _write_bundle(tmp_path / "restamp", c2, "1135", [], None, S)
+    (d / "properties_after_finished.json").write_text(json.dumps(dict(sets=[dict(properties=S["t1314"])], asked_utc="2026-11-10T13:30:00Z")), encoding="utf-8")
+    pool, rec = ec.pool_for_job(d)
+    assert pool is None and rec["case"] == "pending" and "repeat the values in force before it" in rec["pending"]["why"]
+    # the closing update arrives: the service pool, with its bracket
+    (d / "properties_after_finished.json").write_text(json.dumps(dict(sets=[dict(properties=S["t1314"]), dict(properties=S["1337"])], asked_utc="2026-11-10T13:50:00Z")), encoding="utf-8")
+    pool, rec = ec.pool_for_job(d)
+    assert rec["case"] == ec.SOURCE_SERVICE and pool.bracket is True and pool.updates()[-1] == "2026-11-10T13:37:31Z" and rec["pending"] is None
+
+
+def test_ci5_the_pool_bound_no_update_within_it_gives_e_without_a_bracket(S, st, nov10):
+    """Code review Section 8 item 1 (i): the closing update is looked for among the sets stamped up to ``pool_closing_bound_hours``
+    after finished. When none is stamped by then, E is built on the sets stamped up to that time, there is no bracket and the points
+    are read with the flag 'no bracket'. Before that time the pool is pending. A set stamped later than the bound is not read."""
+    job = ("late", "2026-11-10T13:40:00Z", "2026-11-10T13:45:00Z")                             # on the 13:37:31Z values; 16:34:05Z repeats them
+    kw = dict(bound_hours=6.0)
+    waiting = ec.build_pool(job[0], job[1], job[2], S["1337"], S["1337"], [], [S["t1634"]], True, asked_utc="2026-11-10T19:44:59Z", **kw)
+    assert waiting.status == "pending" and ec.iso(waiting.closes_by) == "2026-11-10T19:45:00Z" and "pending until 2026-11-10T19:45:00Z" in " ".join(waiting.notes)
+    assert ec.build_pool(job[0], job[1], job[2], S["1337"], S["1337"], [], [S["t1634"]], True, **kw).status == "pending"   # nobody says when the service was asked
+    done = ec.build_pool(job[0], job[1], job[2], S["1337"], S["1337"], [], [S["t1634"]], True, asked_utc="2026-11-10T19:45:00Z", **kw)
+    assert done.status == "complete" and done.bracket is False and done.s_after is None and done.updates() == ["2026-11-10T13:37:31Z"]
+    assert done.restamps == (("2026-11-10T16:34:05Z",),) and "no bracket" in " ".join(done.notes) and done.record()["bracket"] is False
+    E = ec.execution_calibration(done, st)
+    assert E["value_sha256"] == ec.value_sha256(S["1337"]) and ec.bracket_calibration(done, st) is None
+    # a change of values stamped later than the bound is not the closing update: the reading does not depend on when the build is run
+    early = ("early", "2026-11-10T09:10:00Z", "2026-11-10T09:12:00Z")
+    in_time = ec.build_pool(early[0], early[1], early[2], S["0907"], S["0907"], [], [S["t1120"]], True, asked_utc="2026-11-10T16:00:00Z", bound_hours=3.0)
+    assert in_time.status == "complete" and in_time.bracket is True and in_time.updates() == ["2026-11-10T09:07:11Z", "2026-11-10T11:20:04Z"]
+    for asked in ("2026-11-10T11:30:00Z", "2026-11-10T16:00:00Z"):
+        late = ec.build_pool(early[0], early[1], early[2], S["0907"], S["0907"], [], [S["t1120"]], True, asked_utc=asked, bound_hours=2.0)
+        assert late.status == "complete" and late.bracket is False and late.updates() == ["2026-11-10T09:07:11Z"] and ec.iso(late.closes_by) == "2026-11-10T11:12:00Z"
+    assert ec.build_pool(early[0], early[1], early[2], S["0907"], S["0907"], [], [], True, asked_utc="2026-11-10T11:00:00Z", bound_hours=2.0).status == "pending"
+    # the walk-back cannot have returned a set stamped after the time the service was asked
+    with pytest.raises(ec.PoolError, match="stamped after the time the service was asked"):
+        ec.build_pool(early[0], early[1], early[2], S["0907"], S["0907"], [], [S["t1120"]], True, asked_utc="2026-11-10T11:00:00Z", bound_hours=3.0)
+    # the flag: a point that would be read is read with the flag 'no bracket'; a stricter reading is not softened
+    rung = nov10["rung"]
+    c = ec.classify(rung, 8, [], None, None, st, no_bracket=True)
+    assert c["reading"] == ec.READ_WITH_FLAG and c["flags"] == [ec.FLAG_NO_BRACKET] == ["no bracket"] and c["reason"].startswith("no bracket")
+    q75 = dict(kind="qubit", qubit=75, reasons=["readout"])
+    assert ec.classify(rung, 8, [q75], None, None, st, no_bracket=True)["reading"] == ec.NOT_EVALUABLE
 
 
 def test_c_the_flags_that_do_not_come_from_e(nov10, st, tmp_path):
@@ -646,6 +701,15 @@ def test_f_load_pool_reads_the_bundle_and_never_the_properties_at_creation(S, st
     assert "2026-11-10T07:32:03Z" not in pool.updates()
     assert ec.execution_calibration(pool, st)["value_sha256"] == ec.execution_calibration(_pool(S, MAIN, "0907", ["1135"], "1337"), st)["value_sha256"]
     assert ec.load_pool(_write_bundle(tmp_path / "b", BLOCKC, "1135", [], None, S)).status == "pending"
+    # the bound is the table's, and ``asked_utc`` of properties_after_finished.json tells whether the walk-back reached it (CI-5)
+    late = ("late", "2026-11-10T13:40:00Z", "2026-11-10T13:45:00Z")
+    d = _write_bundle(tmp_path / "nb", late, "1337", [], None, S)
+    for asked, status, bracket in (("2026-11-10T19:00:00Z", "pending", True), ("2026-11-10T19:45:00Z", "complete", False)):
+        (d / "properties_after_finished.json").write_text(json.dumps(dict(sets=[dict(properties=S["t1634"])], asked_utc=asked)), encoding="utf-8")
+        p = ec.load_pool(d)
+        assert (p.status, p.bracket) == (status, bracket) and ec.iso(p.closes_by) == "2026-11-10T19:45:00Z"
+    (d / "properties_after_finished.json").write_text(json.dumps(dict(status="pending", asked_utc="2026-11-10T20:00:00Z")), encoding="utf-8")
+    assert ec.load_pool(d).bracket is False and ec.pool_for_job(d)[1]["case"] == ec.SOURCE_SERVICE
     # the times are taken from the retrieval record when the bundle has one (branch pipeline-day3-2026-11-10), before metrics.timestamps
     d = _write_bundle(tmp_path / "b2", MAIN, "0907", ["1135"], "1337", S)
     job = json.loads((d / "job.json").read_text(encoding="utf-8"))

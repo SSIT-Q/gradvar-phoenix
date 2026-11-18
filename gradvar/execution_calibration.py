@@ -50,6 +50,8 @@ READING_ORDER = {READ: 0, READ_WITH_FLAG: 1, None: 2, NOT_EVALUABLE: 3}      # N
 GROUND_ZONE, GROUND_LINE, GROUND_NO_E = "zone", "line", "no_execution_calibration"
 CALIBRATION_GROUNDS = (GROUND_ZONE, GROUND_LINE, "coherence_floor")           # review Section 5.3 (a); the third is Deviation 64's, set by its code
 FLAG_CONE, FLAG_BRACKET_ZONE, FLAG_SNAPSHOTS = "element over a cut elsewhere in the cone", "zone element over a cut on B only", "E from committed snapshots"
+FLAG_NO_BRACKET = "no bracket"                  # no change of values stamped within the pool bound after finished (code review 8 (a) (i))
+CASE_PENDING, CASE_NOT_EVALUABLE = "pending", "not_evaluable"
 SOURCE_SERVICE, SOURCE_SNAPSHOTS = "service", "committed_snapshots"
 ZONE_EDGE, ZONE_L2, ZONE_CONE, ZONE_OUTSIDE = "observable_edge", "l2_cone", "cone", "outside_cone"
 
@@ -254,6 +256,8 @@ class Pool:
     source: str = SOURCE_SERVICE               # or SOURCE_SNAPSHOTS (C65-4)
     restamps: Tuple[Tuple[str, ...], ...] = () # per update, the later stamps that repeat its values
     files: Tuple[str, ...] = ()                # committed files a snapshot pool was built from
+    bracket: bool = True                       # False: complete without a closing update ("no bracket": none was stamped within the bound)
+    closes_by: Optional[datetime] = None       # finished + the pool bound, when a bound applies
 
     @property
     def s0(self) -> Dict:
@@ -261,7 +265,7 @@ class Pool:
 
     @property
     def s_after(self) -> Optional[Dict]:
-        return self.sets[-1] if self.status == "complete" else None
+        return self.sets[-1] if self.status == "complete" and self.bracket else None
 
     def updates(self) -> List[str]:
         """The publication time of each update of the pool (the earliest stamp that carries its values)."""
@@ -270,7 +274,7 @@ class Pool:
     def record(self) -> Dict[str, Any]:
         rs = list(self.restamps) + [()] * (len(self.sets) - len(self.restamps))
         return dict(job_id=self.job_id, t_created=iso(self.t_created), t_running=iso(self.t_running), t_finished=iso(self.t_finished), status=self.status,
-                    source=self.source, files=list(self.files),
+                    bracket=bool(self.bracket and self.status == "complete"), closes_by=iso(self.closes_by), source=self.source, files=list(self.files),
                     sets=[dict(last_update_date=u, restamps=list(r), sha256=sha256_canonical(s), value_sha256=value_sha256(s))
                           for u, s, r in zip(self.updates(), self.sets, rs)],
                     notes=list(self.notes))
@@ -298,9 +302,16 @@ def fold_restamps(sets: Sequence[Dict]) -> List[Tuple[Dict, List[str]]]:
     return out
 
 
-def _assemble(job_id: str, t_r: datetime, t_f: datetime, s0: Dict, later: Sequence[Dict], t_created: Any, source: str, files: Sequence[str] = ()) -> Pool:
+def _assemble(job_id: str, t_r: datetime, t_f: datetime, s0: Dict, later: Sequence[Dict], t_created: Any, source: str, files: Sequence[str] = (),
+              bound_hours: Optional[float] = None, asked: Optional[datetime] = None) -> Pool:
     """S0 and every later set known (any stamp after S0's) into a pool of updates. The first update published at or after
     ``finished`` closes it; later ones are dropped; without one the pool is pending.
+
+    With ``bound_hours`` (the table's ``pool_closing_bound_hours``; code review Section 8 item 1 (i), CI-5) the closing update is
+    looked for among the sets stamped up to that many hours after ``finished``; a set stamped later is not read. When none is
+    stamped by then and the service was asked at or after that time (``asked``), the pool is complete without a bracket: E is
+    built on the sets stamped up to that time, no B is drawn, and the job's points carry the flag 'no bracket'. Before the
+    closing update or that time, whichever is first, the pool is pending and nothing is drawn.
 
     A set stamped after S0 and at or before running is read like any later set (CI-15, CI-16; row 65 (i) as corrected by
     CD-8): the set in force at the running time is the set the service returns for that time, and the service returns a newly
@@ -317,8 +328,10 @@ def _assemble(job_id: str, t_r: datetime, t_f: datetime, s0: Dict, later: Sequen
     early = sorted((x for x in later if _update(x) <= t_r), key=_update)
     early_same = [x for x in early if value_sha256(x) == h0]
     early_moved = [x for x in early if value_sha256(x) != h0]
-    folded = fold_restamps([s0] + list(later))
-    keep, restamps, status = [], [], "pending"
+    closes_by = t_f + timedelta(hours=float(bound_hours)) if bound_hours is not None else None
+    within = [x for x in later if closes_by is None or _update(x) <= closes_by]
+    folded = fold_restamps([s0] + within)
+    keep, restamps, status, bracket = [], [], "pending", True
     for s, rs in folded:
         keep.append(s)
         restamps.append(tuple(rs))
@@ -336,14 +349,22 @@ def _assemble(job_id: str, t_r: datetime, t_f: datetime, s0: Dict, later: Sequen
     if n_re:
         notes.append(f"{n_re} re-stamp(s) without a change of value folded into their update")
     if status == "pending":
-        after = [u for u in stamps if u >= t_f]
-        notes.append("no update published at or after finished yet" + (f" ({len(after)} set(s) stamped after finished repeat the values in force before it)" if after else ""))
+        after = [u for u in stamps if u >= t_f and (closes_by is None or u <= closes_by)]
+        repeat = f"{len(after)} set(s) stamped after finished repeat the values in force before it" if after else ""
+        if closes_by is not None and asked is not None and asked >= closes_by:
+            status, bracket = "complete", False
+            notes.append(f"no update stamped from finished to {iso(closes_by)} ({bound_hours:g} h after finished; the service was asked at {iso(asked)}): no bracket"
+                         + (f"; {repeat}" if repeat else ""))
+        else:
+            notes.append("no update published at or after finished yet" + (f" ({repeat})" if repeat else "")
+                         + (f"; pending until {iso(closes_by)}" if closes_by is not None else ""))
     return Pool(job_id=job_id, t_created=parse_utc(t_created) if t_created is not None else None, t_running=t_r, t_finished=t_f, sets=tuple(keep),
-                status=status, notes=tuple(notes), source=source, restamps=tuple(restamps), files=tuple(files))
+                status=status, notes=tuple(notes), source=source, restamps=tuple(restamps), files=tuple(files), bracket=bracket, closes_by=closes_by)
 
 
 def build_pool(job_id: str, t_running: Any, t_finished: Any, job_properties: Optional[Dict], backend_properties_at_running: Optional[Dict],
-               between: Sequence[Dict], after_finished: Any, walk_complete: bool, t_created: Any = None, walk_note: Optional[str] = None) -> Pool:
+               between: Sequence[Dict], after_finished: Any, walk_complete: bool, t_created: Any = None, walk_note: Optional[str] = None,
+               bound_hours: Optional[float] = None, asked_utc: Any = None) -> Pool:
     """Check and assemble the pool of one job from what the service returned.
 
     ``job_properties``: what ``job.properties()`` returned; ``backend_properties_at_running``: what
@@ -352,7 +373,8 @@ def build_pool(job_id: str, t_running: Any, t_finished: Any, job_properties: Opt
     ``walk_complete``: whether that walk reached S0 without a gap. ``after_finished``: the sets stamped at or after
     ``t_finished`` that the walk returned (one set, a list, or None when IBM has not published since). Re-stamps are folded
     (``fold_restamps``): the pool is closed by the first set at or after ``t_finished`` whose values differ from those in force
-    before it, and stays ``pending`` until there is one."""
+    before it, and stays ``pending`` until there is one. ``bound_hours`` and ``asked_utc`` (the time of the service call that
+    ended the walk-back): the bound of ``_assemble``; without them the pool waits for a change of values without limit."""
     t_r, t_f = parse_utc(t_running), parse_utc(t_finished)
     if t_f < t_r:
         raise PoolError(f"job {job_id}: finished {iso(t_f)} precedes running {iso(t_r)}")
@@ -378,7 +400,13 @@ def build_pool(job_id: str, t_running: Any, t_finished: Any, job_properties: Opt
     for x in after:
         if _update(x) < t_f:
             raise PoolError(f"job {job_id}: a set recorded as stamped at or after finished is stamped {iso(_update(x))}, before finished ({iso(t_f)})")
-    return _assemble(job_id, t_r, t_f, s0, list(between) + after, t_created, SOURCE_SERVICE)
+    try:
+        asked = parse_utc(asked_utc) if asked_utc is not None else None
+    except (ValueError, TypeError) as e:
+        raise PoolError(f"job {job_id}: asked_utc is not a time") from e
+    if asked is not None and any(_update(x) > asked for x in list(between) + after):
+        raise PoolError(f"job {job_id}: a set of the pool is stamped after the time the service was asked ({iso(asked)})")
+    return _assemble(job_id, t_r, t_f, s0, list(between) + after, t_created, SOURCE_SERVICE, bound_hours=bound_hours, asked=asked)
 
 
 POOL_FILES = ("properties_at_running.json", "properties_between.json", "properties_after_finished.json")
@@ -400,7 +428,7 @@ def _job_times(job_dir: Path) -> Tuple[Dict, datetime, datetime, Any]:
     return job, t_r, t_f, stamps.get("created") or (job.get("metrics") or {}).get("timestamps", {}).get("created")
 
 
-def load_pool(job_dir: str | Path, root: str | Path | None = None) -> Pool:
+def load_pool(job_dir: str | Path, root: str | Path | None = None, settings: Optional[Settings] = None) -> Pool:
     """The pool of the job whose bundle is ``job_dir``, from the files the metadata-only retrieval phase writes there
     (the layout is fixed HERE and the runner must write it):
 
@@ -413,8 +441,13 @@ def load_pool(job_dir: str | Path, root: str | Path | None = None) -> Pool:
       root>} | {"properties": <set>}, ...]}``, the sets of the walk-back stamped after the set at running and before
       ``finished``;
     * ``properties_after_finished.json``: ``{"sets": [...]}`` in the same form, every set of the walk-back stamped at or
-      after ``finished`` (re-stamps included: which of them is the first update is decided here, by value); a single set is
-      accepted as a list of one; ``{"status": "pending"}`` when there is none.
+      after ``finished`` and not later than ``pool_closing_bound_hours`` after it (re-stamps included: which of them is the
+      first update is decided here, by value), with ``"asked_utc"``, the time of the service call that ended the walk-back:
+      once it lies at or after finished + the bound and no change of values was stamped, the pool is complete without a
+      bracket; without ``asked_utc`` such a pool stays pending. A single set is accepted as a list of one;
+      ``{"status": "pending"}`` (optionally with ``asked_utc``) when there is none.
+
+    The bound is the table's ``pool_closing_bound_hours`` (``settings``; default: the committed table).
 
     A missing or unreadable file stops the build (``PoolError``). ``properties.json`` (the properties at job creation)
     is never read."""
@@ -455,6 +488,7 @@ def load_pool(job_dir: str | Path, root: str | Path | None = None) -> Pool:
     after = read("properties_after_finished.json")
     if not isinstance(after, dict):
         raise PoolError(f"{job_dir.name}: properties_after_finished.json must hold sets, one set, or status pending")
+    asked_utc = after.get("asked_utc")
     if isinstance(after.get("sets"), list):
         after = sets_of(after["sets"], "properties_after_finished.json")
     elif "last_update_date" in after:
@@ -463,8 +497,10 @@ def load_pool(job_dir: str | Path, root: str | Path | None = None) -> Pool:
         after = []
     else:
         raise PoolError(f"{job_dir.name}: properties_after_finished.json must hold sets, one set, or status pending")
+    settings = settings if settings is not None else load_settings()
     return build_pool(str(job.get("job_id") or job_dir.name), t_r, t_f, at_r["job_properties"], at_r["backend_properties"], mid, after,
-                      walk_complete=bool(bet["complete"]), t_created=t_c, walk_note=bet.get("note"))
+                      walk_complete=bool(bet["complete"]), t_created=t_c, walk_note=bet.get("note"),
+                      bound_hours=settings["pool_closing_bound_hours"], asked_utc=asked_utc)
 
 
 SNAPSHOT_FILE = re.compile(r"^(?P<backend>ibm_[a-z0-9]+)_properties_(?P<stamp>\d{8}T\d{6}Z|\d{4}-\d{2}-\d{2}T\d{6}Z)\.json(\.gz)?$")
@@ -520,18 +556,29 @@ def committed_snapshot_pool(job_id: str, backend: str, t_running: Any, t_finishe
                 restamps=pool.restamps, files=tuple(files))
 
 
-def pool_for_job(job_dir: str | Path, calibrations_dir: str | Path | None = None, root: str | Path | None = None) -> Tuple[Optional[Pool], Dict[str, Any]]:
-    """C65-4: the pool of a job and which case applied. ``service``: the complete pool of the bundle's files. Otherwise
-    ``committed_snapshots``: the complete degraded pool. Otherwise ``not_evaluable`` (no pool is returned). The record says why
-    each step before the one that applied failed; it is written before any measured value is retrieved."""
+def pool_for_job(job_dir: str | Path, calibrations_dir: str | Path | None = None, root: str | Path | None = None,
+                 settings: Optional[Settings] = None) -> Tuple[Optional[Pool], Dict[str, Any]]:
+    """C65-4 with CI-5: the pool of a job and which case applied (``record["case"]``).
+
+    * ``service``: the complete pool of the bundle's files (with or without a bracket).
+    * ``pending``: the service pool is readable and not closed yet. No pool is returned, nothing is drawn and no registered
+      file is written; ``record["pending"]`` says until when (``until_utc``: finished + ``pool_closing_bound_hours``). A
+      pending service pool never falls through to the snapshots: when the build is run must not decide the reading.
+    * ``committed_snapshots``: the service pool cannot be built (``PoolError``) and the degraded pool is complete.
+    * ``not_evaluable``: neither can be built (no pool is returned).
+
+    The record says why each step before the one that applied failed; it is written before any measured value is retrieved."""
     job_dir = Path(job_dir)
-    rec: Dict[str, Any] = dict(case=None, service_problem=None, snapshot_problem=None, files=[])
+    settings = settings if settings is not None else load_settings()
+    rec: Dict[str, Any] = dict(case=None, service_problem=None, snapshot_problem=None, files=[], pending=None)
     try:
-        pool = load_pool(job_dir, root)
+        pool = load_pool(job_dir, root, settings)
         if pool.status == "complete":
             rec["case"] = SOURCE_SERVICE
             return pool, rec
-        rec["service_problem"] = "pending: " + "; ".join(pool.notes)
+        rec.update(case=CASE_PENDING, service_problem="pending: " + "; ".join(pool.notes),
+                   pending=dict(until_utc=iso(pool.closes_by), bound_hours=settings["pool_closing_bound_hours"], why="; ".join(pool.notes)))
+        return None, rec
     except PoolError as e:
         rec["service_problem"] = f"{type(e).__name__}: {e}"
     try:
@@ -546,7 +593,7 @@ def pool_for_job(job_dir: str | Path, calibrations_dir: str | Path | None = None
         rec["snapshot_problem"] = "pending: " + "; ".join(pool.notes)
     except PoolError as e:
         rec["snapshot_problem"] = f"{type(e).__name__}: {e}"
-    rec["case"] = "not_evaluable"
+    rec["case"] = CASE_NOT_EVALUABLE
     return None, rec
 
 
@@ -603,6 +650,8 @@ def execution_calibration(pool: Pool, settings: Settings) -> Dict[str, Any]:
         props = copy.deepcopy(pool.s0)
         return _record("execution", rule, pool, props, settings, {"*": {pool.updates()[0]: sum(1 for _ in _iter_entries(props))}})
     if rule == "first_set_after_finished":
+        if pool.s_after is None:
+            raise PoolError(f"job {pool.job_id}: the pool has no bracket: there is no first set after finished to read")
         props = copy.deepcopy(pool.s_after)
         return _record("execution", rule, pool, props, settings, {"*": {pool.updates()[-1]: sum(1 for _ in _iter_entries(props))}})
     chosen: Dict[tuple, Tuple[datetime, Dict, str]] = {}
@@ -665,9 +714,12 @@ def execution_calibration(pool: Pool, settings: Settings) -> Dict[str, Any]:
 
 def bracket_calibration(pool: Pool, settings: Settings) -> Dict[str, Any]:
     """B(J): the first update published at or after ``finished``, as published. It is reported beside E(J). It classifies in
-    one way only (C65-6, ``classify``): a zone element over a cut on B and not on E flags the point."""
+    one way only (C65-6, ``classify``): a zone element over a cut on B and not on E flags the point. ``None`` for a pool that
+    is complete without a bracket (no change of values stamped within the bound): no B is drawn."""
     if pool.status != "complete":
         raise PoolPending(f"job {pool.job_id}: {'; '.join(pool.notes) or 'the pool is not complete'}")
+    if not pool.bracket:
+        return None
     props = copy.deepcopy(pool.s_after)
     return _record("bracket", "first_update_at_or_after_finished_as_published", pool, props, settings, {"*": {pool.updates()[-1]: sum(1 for _ in _iter_entries(props))}})
 
@@ -785,7 +837,7 @@ def _identity(e: Dict[str, Any]) -> tuple:
 
 
 def classify(rung: Dict, L: int, elements: Sequence[Dict[str, Any]], p_execution: Optional[float], p_dispatch: Optional[float], settings: Settings,
-             bracket_elements: Optional[Sequence[Dict[str, Any]]] = None, from_committed_snapshots: bool = False) -> Dict[str, Any]:
+             bracket_elements: Optional[Sequence[Dict[str, Any]]] = None, from_committed_snapshots: bool = False, no_bracket: bool = False) -> Dict[str, Any]:
     """The reading of one measured point, from the over-cut elements of its placement on E(J) (``elements``) and on B(J)
     (``bracket_elements``) and from its execution-time and dispatch-time rows (``p_execution``, ``p_dispatch``: the value the
     point's test reads, both on one estimator).
@@ -796,8 +848,9 @@ def classify(rung: Dict, L: int, elements: Sequence[Dict[str, Any]], p_execution
       decides; a null line means flags only);
     * else: read; the elements outside the cone are recorded.
 
-    Two further flags turn a reading of ``read`` into ``read_with_flag`` and change no other reading: a zone element that is
-    over a cut on B and not on E (C65-6, when ``bracket_zone_flag`` is on), and an E built from the committed snapshots (C65-4).
+    Three further flags turn a reading of ``read`` into ``read_with_flag`` and change no other reading: a zone element that is
+    over a cut on B and not on E (C65-6, when ``bracket_zone_flag`` is on), an E built from the committed snapshots (C65-4),
+    and a pool without a bracket (``no_bracket``: no change of values was stamped within the bound after finished).
     ``grounds`` lists why a point is not evaluable; ``flags`` every flag raised."""
     placed = [dict(e, zone=zone(rung, L, e, settings)) for e in elements]
     out: Dict[str, Any] = dict(L=int(L), elements=placed, ln_ratio=None, line=settings["decision_line_abs_ln_ratio"], flag=False, flags=[], grounds=[],
@@ -842,6 +895,11 @@ def classify(rung: Dict, L: int, elements: Sequence[Dict[str, Any]], p_execution
         if out["reading"] == READ:
             out.update(reading=READ_WITH_FLAG, reason="read on an execution-time calibration built from the committed snapshots, not from the service; "
                        + out["reason"])
+    if no_bracket:
+        out["flag"] = True
+        out["flags"].append(FLAG_NO_BRACKET)
+        if out["reading"] == READ:
+            out.update(reading=READ_WITH_FLAG, reason="no bracket: no change of values was stamped within the bound after the job finished; " + out["reason"])
     out.update(settings.record())
     return out
 
