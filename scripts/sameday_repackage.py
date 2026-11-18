@@ -1502,7 +1502,8 @@ def publish_mode(man: dict, exercise: bool = False, allow_test_stop: str | None 
     ``--allow-test-stop``.
 
     An ``--exercise`` bundle is a test of the pipeline and never a dispatch package: whatever its status, it is refused unless
-    ``publish --exercise`` is given, and then every title says EXERCISE (review correction CP-3). ``--allow-test-stop`` opens the
+    ``publish --exercise`` is given, and then every title says EXERCISE (review correction CP-3), also when ``--force`` commits
+    the summary alone of an exercise that stopped at a stop it did not pass over (CH-1). ``--allow-test-stop`` opens the
     review of a test stop of a dispatch package whose suite ran in full: it does not apply to an exercise bundle, nor to a bundle
     whose manifest says ``suite_ran`` false (``--no-tests``, ``--deselect``; CP-5). A manifest written before that field is read
     as before."""
@@ -1521,8 +1522,8 @@ def publish_mode(man: dict, exercise: bool = False, allow_test_stop: str | None 
     reason = str(allow_test_stop or "").strip()
     if only_tests and ran and reason:
         return dict(mode="full", prefix="STOPPED by the test suite (Deviation 62 (iv)), not dispatchable as published: ", test_stop=True, why=None)
-    if force:
-        return dict(mode="summary", prefix="", test_stop=False, why=None)
+    if force:                                                              # CH-1: the summary of an exercise is titled EXERCISE as well
+        return dict(mode="summary", prefix="EXERCISE, not dispatchable: " if man.get("exercise") else "", test_stop=False, why=None)
     why = f"run status {status}: {man.get('stop_reason')}; nothing committed"
     if only_tests and ran:
         why += (". The cycle is stopped by the test suite alone (Deviation 62 (iv)): publish with --allow-test-stop \"<reason>\" to open the draft pull "
