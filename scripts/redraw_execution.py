@@ -54,7 +54,7 @@ IDS_SCHEMA = "gradvar.hardware job ids v1"
 DEV46 = dict(n_samples=500_000, pattern_samples=250_000, n_cap=400_000, time_limit_s=600.0, realised_samples=2_000_000)   # as redraw_dial_points.DEV46
 SETTING_FLAGS = dict(n_samples="--n-samples", pattern_samples="--pattern-samples", n_cap="--n-cap", time_limit_s="--time-limit", realised_samples="--realised-samples")
 MODELS = ("unital", "nonunital")
-REFUSED, INCOMPLETE = 3, 5
+REFUSED, PENDING, INCOMPLETE = 3, 4, 5      # PENDING (CI-5): a job's pool is not closed yet; nothing is drawn and nothing is written
 
 
 # --------------------------------------------------------------------------------------------------------------
@@ -129,10 +129,12 @@ def build_calibrations(ids: Dict, runs_root: Path, st: ec.Settings, calibrations
             out.append(rec)
             continue
         rec["phase1"] = phases.phase1_inputs(bundle)
-        pool, case = ec.pool_for_job(bundle, cal)
+        pool, case = ec.pool_for_job(bundle, cal, settings=st)
         case["snapshot_files"] = {n: phases.sha256_file(cal / n) for n in case.pop("files")}
         rec["pool_case"] = case
-        if pool is None:
+        if case["case"] == ec.CASE_PENDING:                # CI-5: never the snapshots, never "not evaluable": the build waits
+            rec.update(status="pending", why=case["service_problem"], pending=case["pending"])
+        elif pool is None:
             rec.update(status="not_evaluable", why="; ".join(x for x in (case["service_problem"], case["snapshot_problem"]) if x))
         else:
             rec.update(pool=pool.record(), E=ec.execution_calibration(pool, st), B=ec.bracket_calibration(pool, st), status=BUILT[pool.source],
@@ -149,9 +151,12 @@ def group_by_execution_calibration(jobs: List[Dict[str, Any]]) -> List[Dict[str,
         if j["status"] not in BUILT.values():
             continue
         snap = bool(j["E"]["from_committed_snapshots"])
-        g = groups.setdefault((j["E"]["value_sha256"], snap), dict(E=j["E"], jobs=[], brackets={}, from_committed_snapshots=snap))
-        g["jobs"].append(dict(job_id=j["job_id"], tag=j["tag"], t_running=j["E"]["t_running"], t_finished=j["E"]["t_finished"], bracket=j["B"]["value_sha256"]))
-        g["brackets"].setdefault(j["B"]["value_sha256"], j["B"])
+        no_b = j["B"] is None                              # CI-5: complete without a bracket; such jobs form their own group (their readings carry a flag)
+        g = groups.setdefault((j["E"]["value_sha256"], snap, no_b), dict(E=j["E"], jobs=[], brackets={}, from_committed_snapshots=snap, no_bracket=no_b))
+        g["jobs"].append(dict(job_id=j["job_id"], tag=j["tag"], t_running=j["E"]["t_running"], t_finished=j["E"]["t_finished"],
+                              bracket=None if no_b else j["B"]["value_sha256"]))
+        if not no_b:
+            g["brackets"].setdefault(j["B"]["value_sha256"], j["B"])
     return [groups[k] for k in sorted(groups)]
 
 
@@ -350,9 +355,10 @@ def classify_items(jl: Dict, group: Dict[str, Any], rows_E: Dict[tuple, Dict], d
         worst = max(usable, key=lambda r: abs(r["ln_ratio"])) if len(usable) == len(ratios) and usable else None
         try:
             c = ec.classify(it["rung"], it["L"], elements, worst["p_execution"] if worst else None, worst["p_dispatch"] if worst else None, st,
-                            bracket_elements=on_b, from_committed_snapshots=snap)
+                            bracket_elements=on_b, from_committed_snapshots=snap, no_bracket=bool(group.get("no_bracket")))
         except ValueError as e:
-            c = dict(reading=None, flag=True, flags=[ec.FLAG_CONE] + ([ec.FLAG_SNAPSHOTS] if snap else []), grounds=[], reason=f"unclassified: {e}",
+            c = dict(reading=None, flag=True, flags=[ec.FLAG_CONE] + ([ec.FLAG_SNAPSHOTS] if snap else []) + ([ec.FLAG_NO_BRACKET] if group.get("no_bracket") else []),
+                     grounds=[], reason=f"unclassified: {e}",
                      elements=[dict(el, zone=ec.zone(it["rung"], it["L"], el, st)) for el in elements], **st.record())
         c = dict(c)
         if c.get("reading") is None and any(r["mixed_estimators"] for r in ratios):
@@ -393,7 +399,7 @@ def markdown(res: Dict[str, Any]) -> str:
                   "Its points are **not evaluable**: " + "; ".join(c["item"] for c in j["classification"]) + "."]
     for g in res["groups"]:
         lines += ["", f"## E {g['E'][:12]} ({len(g['jobs'])} job(s): {', '.join(j['job_id'] for j in g['jobs'])})"
-                  + (" - built from the committed snapshots" if g.get("from_committed_snapshots") else ""), "",
+                  + (" - built from the committed snapshots" if g.get("from_committed_snapshots") else "") + (" - no bracket" if g.get("no_bracket") else ""), "",
                   f"Calibration files: `{Path(g['files']['csv']).name}` (sha256 `{g['files']['csv_sha256'][:12]}`), `{Path(g['files']['properties']).name}`. "
                   f"Updates of the pool: {', '.join(g['pool_updates'])}.", "",
                   "| item | L | reading | reason | ln(P_E / P_dispatch) by row |", "|---|---|---|---|---|"]
@@ -452,11 +458,16 @@ def main(argv=None) -> int:
     jl = json.loads(joblist_path.read_text(encoding="utf-8"))
     name = ids.get("joblist_name") or jl.get("name") or joblist_path.stem
     jobs = build_calibrations(ids, Path(args.runs_root), st, Path(args.calibrations_dir))
+    waiting = [j for j in jobs if j["status"] == "pending"]
+    if waiting:                                            # CI-5: before the closing update or the bound, whichever is first, nothing is drawn or written
+        print(f"PENDING: the pool of {len(waiting)} of {len(jobs)} job(s) of {name} is not closed yet; nothing is drawn and nothing is written:\n  "
+              + "\n  ".join(f"{j['job_id']} ({j.get('tag')}): until {(j.get('pending') or {}).get('until_utc')} - {j['why']}" for j in waiting), file=sys.stderr, flush=True)
+        return PENDING
     groups = group_by_execution_calibration(jobs)
     plan = row_plan(jl, joblist_path)
     dispatch = dispatch_rows(jl, Path(args.pred_dir))
     for j in jobs:
-        print(f"job {j['job_id']} ({j.get('tag')}): {j['status']}" + (f"; E {j['E']['value_sha256'][:12]}, B {j['B']['value_sha256'][:12]}" if j.get("E") else "")
+        print(f"job {j['job_id']} ({j.get('tag')}): {j['status']}" + (f"; E {j['E']['value_sha256'][:12]}, B {j['B']['value_sha256'][:12] if j.get('B') else 'none (no bracket)'}" if j.get("E") else "")
               + (f" - {j['why']}" if j.get("why") else ""), flush=True)
     job_records = [dict(job_id=j["job_id"], tag=j.get("tag"), status=j["status"], why=j.get("why"), t_running=(j.get("pool") or {}).get("t_running"),
                         t_finished=(j.get("pool") or {}).get("t_finished"), E=(j.get("E") or {}).get("value_sha256"), B=(j.get("B") or {}).get("value_sha256"),
@@ -506,13 +517,14 @@ def main(argv=None) -> int:
                 rows_E[(r["kind"], t["rung_name"], t["L"], t.get("model") or t.get("dial"), t.get("p") if r["kind"] == "dial" else None)] = r["row"]
         classification = classify_items(jl, g, rows_E, dispatch, st)
         res = dict(header(bool(args.plan)),
-                   groups=[dict(E=g["E"]["value_sha256"], E_sha256=g["E"]["sha256"], rule=g["E"]["rule"], from_committed_snapshots=g["from_committed_snapshots"], jobs=g["jobs"],
+                   groups=[dict(E=g["E"]["value_sha256"], E_sha256=g["E"]["sha256"], rule=g["E"]["rule"], from_committed_snapshots=g["from_committed_snapshots"],
+                                no_bracket=g["no_bracket"], jobs=g["jobs"],
                                 pool_updates=[s["last_update_date"] for s in g["E"]["pool"]["sets"]], pool_restamps=[s["restamps"] for s in g["E"]["pool"]["sets"]],
                                 cases=g["E"].get("cases"), files=files, bracket_files=g["bracket_files"], ages_at_running=g["E"]["ages_at_running"],
                                 sources=g["E"]["sources"], classification=classification, rows=rows)],
                    not_evaluable=[], runtime_s=round(time.time() - t0, 1))
         out_dir.mkdir(parents=True, exist_ok=True)
-        stem = f"{name}_{g['E']['value_sha256'][:12]}" + ("_snapshots" if g["from_committed_snapshots"] else "") + ("_plan" if args.plan else "")
+        stem = f"{name}_{g['E']['value_sha256'][:12]}" + ("_snapshots" if g["from_committed_snapshots"] else "") + ("_nobracket" if g["no_bracket"] else "") + ("_plan" if args.plan else "")
         (out_dir / f"{stem}.json").write_text(json.dumps(res, indent=1, default=str) + "\n", encoding="utf-8", newline="\n")
         (out_dir / f"{stem}.md").write_text(markdown(res), encoding="utf-8", newline="\n")
         if rows:

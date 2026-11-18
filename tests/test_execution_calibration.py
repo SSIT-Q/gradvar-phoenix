@@ -6,6 +6,7 @@ import json
 import math
 import shutil
 import sys
+from datetime import timedelta
 from pathlib import Path
 
 import pytest
@@ -24,7 +25,12 @@ FILES = {"0732": "ibm_phoenix_properties_20261110T082134Z.json.gz", "0907": "ibm
          # (run 42958459321, branch trial-properties-history-run-42958459321); the trial's other three sets equal committed files
          "t1120": "trial_2026-11-10/ibm_phoenix_properties_update_20261110T112004Z_c80d21378e55.json",
          "t1314": "trial_2026-11-10/ibm_phoenix_properties_update_20261110T131438Z_6331a7c9c5b6.json",
-         "t1634": "trial_2026-11-10/ibm_phoenix_properties_update_20261110T163405Z_60a212c41b76.json"}
+         "t1634": "trial_2026-11-10/ibm_phoenix_properties_update_20261110T163405Z_60a212c41b76.json",
+         # three stamps of 20 / 21 Sep around the day-2 job dao2pqv8gn2s739nabkg, as the second trial returned them (run 43061209099,
+         # branch trial-properties-history-run-43061209099; identical files): the fixture of correction CI-15
+         "sep20_2252": "trial_2026-11-10/ibm_phoenix_properties_update_20260920T225252Z_4f604f4901e7.json",
+         "sep21_0001": "trial_2026-11-10/ibm_phoenix_properties_update_20260921T000112Z_9148a5187b56.json",
+         "sep21_0113": "trial_2026-11-10/ibm_phoenix_properties_update_20260921T011326Z_b18af03bef6f.json"}
 # metrics.timestamps of the committed job.json files (running, finished)
 MAIN = ("dbpfnr0qtr0c738ebeng", "2026-11-10T11:12:05.243865Z", "2026-11-10T12:35:07.784468Z")      # replication, main job
 PROBES = ("dbpfnrgqtr0c738ebeog", "2026-11-10T11:12:33.691043Z", "2026-11-10T11:21:02.733793Z")    # replication, probes
@@ -76,27 +82,36 @@ def _rung(joblist, name="n100"):
 def test_the_table_is_not_in_force_and_holds_the_reviews_choices(st, tmp_path):
     table = json.loads(ec.SETTINGS_FILE.read_text(encoding="utf-8"))
     assert table["status"] == "not_in_force" and st.in_force is False and st.provisional is True and "NOT IN FORCE" in table["status_note"]
-    assert st.values == {"primary_calibration": "per_value_at_or_before_running", "coupler_zone_rule": "both_qubits", "coupler_cone_rule": "either_qubit",
+    assert st.values == {"primary_calibration": "per_value_at_or_before_running", "coupler_zone_rule": "both_qubits", "coupler_cone_rule": "both_qubits",
                          "zone_for_points_shallower_than_zone": "zone_applies", "decision_line_abs_ln_ratio": 0.10,
                          "when_execution_calibration_cannot_be_built_from_the_service": "committed_snapshots_else_not_evaluable",
                          "split_point_rule": "execution_weighted_mean", "value_age_bound_hours": None, "bracket_decides_gate2e": False, "bracket_zone_flag": True,
-                         "rerun_rule": "once_when_not_evaluable_on_calibration_grounds", "dispatch_window": "package_update_or_next_same_utc_day"}
-    # the two readings found in implementation are the only entries no review has ruled on
-    assert st.provisional_entries == ("coupler_cone_rule", "zone_for_points_shallower_than_zone")
-    assert all("review" in e["basis"] for k, e in table["settings"].items() if k not in st.provisional_entries)
+                         "rerun_rule": "once_when_not_evaluable_on_calibration_grounds", "dispatch_window": "package_update_or_next_same_utc_day",
+                         "pool_closing_bound_hours": 6.0, "rerun_day": "utc_date_of_creation"}
+    # CI-13: the two readings found in implementation are ruled on (both qubits in the cone as in the zone; the zone at every depth),
+    # so no entry is provisional any more; the pool bound and the day of the re-run are entries of the table
+    assert st.provisional_entries == ()
+    assert all("review" in e["basis"] for k, e in table["settings"].items())
     rec = st.record()
     assert rec["provisional"] is True and rec["in_force"] is False and rec["settings_status"] == "not_in_force" and len(rec["settings_sha256"]) == 64
     assert rec["settings_file"] == "data/settings/execution_calibration_settings.json" and rec["provisional_entries"] == list(st.provisional_entries)
     # the switch cannot be turned on over an entry nobody ruled on
     table["status"] = "in_force"
+    table["settings"]["coupler_cone_rule"]["provisional"] = True
     (tmp_path / "t.json").write_text(json.dumps(table), encoding="utf-8")
-    with pytest.raises(ec.SettingsError, match="provisional"):
+    with pytest.raises(ec.SettingsError, match="provisional.*coupler_cone_rule"):
         ec.load_settings(tmp_path / "t.json")
     on = _settings_with(tmp_path, in_force=True)
     assert on.in_force is True and on.provisional is False and on.provisional_entries == () and on.values == st.values
-    # every entry a review ruled on carries its registered value, and the committed table holds it
-    assert all(e["registered"] == e["value"] for k, e in table["settings"].items() if k not in st.provisional_entries)
-    assert all("registered" not in table["settings"][k] for k in st.provisional_entries)
+    # every entry carries its registered value, and the committed table holds it
+    assert all(e["registered"] == e["value"] for e in json.loads(ec.SETTINGS_FILE.read_text(encoding="utf-8"))["settings"].values())
+    # a table without the pool bound or the day of the re-run is not a table
+    for name in ("pool_closing_bound_hours", "rerun_day"):
+        t2 = json.loads(ec.SETTINGS_FILE.read_text(encoding="utf-8"))
+        del t2["settings"][name]
+        (tmp_path / "t2.json").write_text(json.dumps(t2), encoding="utf-8")
+        with pytest.raises(ec.SettingsError, match=f"settings missing: .*{name}"):
+            ec.load_settings(tmp_path / "t2.json")
 
 
 def test_ci1_an_in_force_table_must_hold_the_registered_values(tmp_path):
@@ -110,11 +125,15 @@ def test_ci1_an_in_force_table_must_hold_the_registered_values(tmp_path):
     # an entry without a registered value cannot be in force, even when it is no longer marked provisional
     table = json.loads(ec.SETTINGS_FILE.read_text(encoding="utf-8"))
     table["status"] = "in_force"
-    for e in table["settings"].values():
-        e["provisional"] = False
+    for name in ("coupler_cone_rule", "zone_for_points_shallower_than_zone"):
+        del table["settings"][name]["registered"]
     (tmp_path / "unregistered.json").write_text(json.dumps(table), encoding="utf-8")
     with pytest.raises(ec.SettingsError, match="no registered value: .*coupler_cone_rule.*zone_for_points_shallower_than_zone"):
         ec.load_settings(tmp_path / "unregistered.json")
+    # CI-13: the cone rule and the pool bound are registered like the rest
+    for name, value in (("coupler_cone_rule", "either_qubit"), ("zone_for_points_shallower_than_zone", "own_cone_only"), ("pool_closing_bound_hours", 12.0)):
+        with pytest.raises(ec.SettingsError, match=f"value other than the registered one: {name} = "):
+            _settings_with(tmp_path, in_force=True, **{name: value})
     # True is not 1 and 0.10 is 0.1: the comparison is by value and by kind
     table = json.loads(ec.SETTINGS_FILE.read_text(encoding="utf-8"))
     table["status"] = "in_force"
@@ -278,9 +297,63 @@ def test_a_the_trial_sets_fold_into_three_updates_and_leave_e_unchanged(S, st):
     assert ec.build_pool(c2[0], c2[1], c2[2], S["1135"], S["1135"], [], [S["t1314"]], True).status == "pending"
     done = ec.build_pool(c2[0], c2[1], c2[2], S["1135"], S["1135"], [], [S["t1314"], S["1337"]], True)
     assert done.status == "complete" and done.updates()[-1] == "2026-11-10T13:37:31Z"
-    # the set recorded as in force at running must be the last one stamped before it
-    with pytest.raises(ec.PoolError, match="at or before running"):
-        ec.build_pool(BLOCKC[0], BLOCKC[1], BLOCKC[2], S["t1120"], S["t1120"], [S["1135"]], [S["1337"]], True)
+    # CI-15. The service's answer lags a stamp: a set stamped after S0 and at or before running that repeats S0's values is a re-stamp
+    # of S0 (six of the 80 jobs of 20 Sep to 10 Nov 2026 ran 64 to 263 s after one). It is folded into S0 and changes nothing.
+    lag = ec.build_pool(BLOCKC[0], BLOCKC[1], BLOCKC[2], S["t1120"], S["t1120"], [S["1135"], S["t1314"]], [S["1337"], S["t1634"]], True)
+    assert lag.status == "complete" and lag.updates() == ["2026-11-10T11:20:04Z", "2026-11-10T13:37:31Z"]
+    assert lag.restamps == (("2026-11-10T11:35:39Z", "2026-11-10T13:14:38Z"), ("2026-11-10T16:34:05Z",)) and "stamped at or before running" in " ".join(lag.notes)
+    assert ec.execution_calibration(lag, st)["value_sha256"] == ec.execution_calibration(blockc, st)["value_sha256"]
+    assert ec.bracket_calibration(lag, st)["value_sha256"] == ec.bracket_calibration(blockc, st)["value_sha256"]
+
+
+def test_ci15_the_day_2_job_that_ran_263_s_after_a_restamp(S, st):
+    """CI-15, the real case: job dao2pqv8gn2s739nabkg became running at 00:05:35Z on 21 Sep. The service returned the set stamped
+    20 Sep 22:52:52Z as in force then, although a set stamped 00:01:12Z existed; it repeats the same values, and so do the stamps of
+    01:13:26Z and 01:27:50Z. The builder refused this pool; it is the pool 22:52:52Z to 02:05:47Z with three re-stamps."""
+    v = {k: ec.value_sha256(S[k]) for k in ("sep20_2252", "sep21_0001", "sep21_0113", "sep21_0127", "sep21_0205")}
+    assert v["sep20_2252"] == v["sep21_0001"] == v["sep21_0113"] == v["sep21_0127"] != v["sep21_0205"]
+    assert [ec.iso(ec.parse_utc(S[k]["last_update_date"])) for k in ("sep20_2252", "sep21_0001", "sep21_0113", "sep21_0127", "sep21_0205")] == [
+        "2026-09-20T22:52:52Z", "2026-09-21T00:01:12Z", "2026-09-21T01:13:26Z", "2026-09-21T01:27:50Z", "2026-09-21T02:05:47Z"]
+    assert (ec.parse_utc(DAY2[1]) - ec.parse_utc("2026-09-21T00:01:12Z")).total_seconds() == 263.0
+    pool = ec.build_pool(DAY2[0], DAY2[1], DAY2[2], S["sep20_2252"], S["sep20_2252"], [S["sep21_0001"]], [S["sep21_0113"], S["sep21_0127"], S["sep21_0205"]], True)
+    assert pool.status == "complete" and pool.updates() == ["2026-09-20T22:52:52Z", "2026-09-21T02:05:47Z"]
+    assert pool.restamps == (("2026-09-21T00:01:12Z", "2026-09-21T01:13:26Z", "2026-09-21T01:27:50Z"), ())
+    assert "1 re-stamp(s) of the set in force at running stamped at or before running (2026-09-21T00:01:12Z)" in " ".join(pool.notes)
+    E = ec.execution_calibration(pool, st)
+    # the same E and B as the builder gave when the early set was left out by hand
+    by_hand = ec.build_pool(DAY2[0], DAY2[1], DAY2[2], S["sep20_2252"], S["sep20_2252"], [], [S["sep21_0113"], S["sep21_0127"], S["sep21_0205"]], True)
+    assert E["value_sha256"] == ec.execution_calibration(by_hand, st)["value_sha256"]
+    assert ec.bracket_calibration(pool, st)["value_sha256"] == v["sep21_0205"] == ec.bracket_calibration(by_hand, st)["value_sha256"]
+
+
+def test_ci16_a_set_with_other_values_stamped_before_running_is_read_like_any_later_set(S, st):
+    """CI-16 (row 65 (i) as corrected by CD-8): a set stamped after S0 and at or before running, with other values, that the service
+    did not yet return at running. No refusal: it is an update of the pool, the per-value rule reads it and a note names it. Of two
+    values it changes, the one dated at or before running is taken and the one dated after running is not."""
+    t_r = ec.parse_utc(BLOCKC[1])
+    moved = json.loads(json.dumps(S["1135"]))
+    moved["last_update_date"] = ec.iso(t_r - timedelta(seconds=100))
+    taken = next(x for x in moved["qubits"][0] if x["name"] == "readout_error")
+    left = next(x for x in moved["qubits"][1] if x["name"] == "readout_error")
+    old = {q: next(x for x in S["t1120"]["qubits"][q] if x["name"] == "readout_error")["value"] for q in (0, 1)}
+    taken.update(value=float(taken["value"]) + 1e-3, date=ec.iso(t_r - timedelta(seconds=200)))
+    left.update(value=float(left["value"]) + 1e-3, date=ec.iso(t_r + timedelta(seconds=60)))
+    pool = ec.build_pool(BLOCKC[0], BLOCKC[1], BLOCKC[2], S["t1120"], S["t1120"], [moved], [S["1337"], S["t1634"]], True)
+    assert pool.status == "complete" and pool.updates() == ["2026-11-10T11:20:04Z", moved["last_update_date"], "2026-11-10T13:37:31Z"]
+    assert "1 set(s) with other values stamped after the set in force at running and at or before running" in " ".join(pool.notes)
+    assert "read like any later set" in " ".join(pool.notes)
+    E = ec.execution_calibration(pool, st)
+    e = _entries(E["properties"])
+    assert e[("qubits", 0, "readout_error")]["value"] == pytest.approx(old[0] + 1e-3) and e[("qubits", 0, "readout_error")]["value"] != old[0]
+    assert e[("qubits", 1, "readout_error")]["value"] == old[1]
+    assert E["sources"]["readout_error"] == {"2026-11-10T11:20:04Z": 119, moved["last_update_date"]: 1}
+    # every other value is what the pool without that set gives
+    plain = ec.execution_calibration(ec.build_pool(BLOCKC[0], BLOCKC[1], BLOCKC[2], S["t1120"], S["t1120"], [], [S["1337"], S["t1634"]], True), st)
+    ep = _entries(plain["properties"])
+    assert [k for k in e if e[k].get("value") != ep[k].get("value")] == [("qubits", 0, "readout_error")]
+    # a set stamped before the set recorded as in force at running is not a later set: the build stops
+    with pytest.raises(ec.PoolError, match="before the set recorded as in force at running"):
+        ec._assemble(BLOCKC[0], t_r, ec.parse_utc(BLOCKC[2]), S["1135"], [S["t1120"], S["1337"]], None, ec.SOURCE_SERVICE)
 
 
 # ---------------------------------------------------------------------------------------------------------------------------
@@ -384,7 +457,7 @@ def test_c_a_point_shallower_than_the_zone_follows_the_table(nov10, st, tmp_path
     rung = nov10["rung"]
     q = sorted(set(rung["cone_L2_qubits"]) - {75, 85})[0]
     el = dict(kind="qubit", qubit=q, reasons=["readout"])
-    assert ec.zone(rung, 1, el, st) == ec.ZONE_L2                                            # provisional: the table read from the top
+    assert ec.zone(rung, 1, el, st) == ec.ZONE_L2                                            # the zone applies at every depth of the rung (CI-13)
     own = _settings_with(tmp_path, zone_for_points_shallower_than_zone="own_cone_only")
     assert ec.zone(rung, 1, el, own) == ec.ZONE_OUTSIDE and ec.zone(rung, 2, el, own) == ec.ZONE_L2
 
@@ -419,8 +492,11 @@ def test_c_a_coupler_with_one_qubit_in_the_points_cone(nov10, st, tmp_path):
     c4 = set(light_cone(patch, 4, edge))
     a, b = next((a, b) for a, b in patch.edges() if (a in c4) != (b in c4))
     el = dict(kind="coupler", coupler=[a, b], reasons=["CZ"])
-    assert ec.zone(rung, 4, el, st) == ec.ZONE_CONE                                          # provisional: either qubit, the reading that drops no flag
-    assert ec.zone(rung, 4, el, _settings_with(tmp_path, coupler_cone_rule="both_qubits")) == ec.ZONE_OUTSIDE
+    # CI-13: both qubits, as in the zone. A coupler with one qubit outside the backward cone has no gate inside it and cannot move a row;
+    # it is recorded as outside the cone, and each of its qubits is still tested against its own cuts.
+    assert ec.zone(rung, 4, el, st) == ec.ZONE_OUTSIDE
+    assert ec.zone(rung, 4, el, _settings_with(tmp_path, coupler_cone_rule="either_qubit")) == ec.ZONE_CONE
+    assert ec.classify(rung, 4, [el], None, None, st)["reading"] == ec.READ and ec.classify(rung, 4, [el], None, None, st)["flags"] == []
 
 
 def test_over_cut_elements_refuses_a_csv_without_a_stamp(nov10, tmp_path):
@@ -519,8 +595,8 @@ def test_f_the_degraded_pool_from_the_committed_snapshots(S, st, tmp_path):
     # pool_for_job: the service files first, then the committed snapshots, else not evaluable; the case is recorded
     pool, rec = ec.pool_for_job(_write_bundle(tmp_path / "svc", MAIN, "0907", ["1135"], "1337", S))
     assert rec["case"] == ec.SOURCE_SERVICE and pool.source == ec.SOURCE_SERVICE and rec["service_problem"] is None
-    for name, kw in (("nofile", dict(drop="properties_between.json")), ("gap", dict(complete=False)), ("pending", dict())):
-        d = _write_bundle(tmp_path / name, MAIN, "0907", ["1135"], None if name == "pending" else "1337", S, **kw)
+    for name, kw in (("nofile", dict(drop="properties_between.json")), ("gap", dict(complete=False))):
+        d = _write_bundle(tmp_path / name, MAIN, "0907", ["1135"], "1337", S, **kw)
         pool, rec = ec.pool_for_job(d)
         assert rec["case"] == ec.SOURCE_SNAPSHOTS and pool.source == ec.SOURCE_SNAPSHOTS and pool.status == "complete" and rec["service_problem"]
         assert set(rec["files"]) == set(main.files)
@@ -528,6 +604,61 @@ def test_f_the_degraded_pool_from_the_committed_snapshots(S, st, tmp_path):
         assert pool is None and rec["case"] == "not_evaluable" and rec["snapshot_problem"].startswith("pending")
     c = ec.classify_without_execution_calibration(rec["snapshot_problem"], st)
     assert c["reading"] == ec.NOT_EVALUABLE and c["grounds"] == [ec.GROUND_NO_E]
+
+
+def test_ci5_a_pending_service_pool_stays_pending_and_never_falls_to_the_snapshots(S, st, tmp_path):
+    """CI-5. A service pool that is only pending is the case ``pending``: no pool, nothing to draw. It does not fall through to the
+    committed snapshots, although their pool is complete for this job, and it is not "not evaluable": when the build is run must
+    not decide the reading. Only a pool that cannot be built (``PoolError``) goes to the snapshots."""
+    d = _write_bundle(tmp_path / "pending", MAIN, "0907", ["1135"], None, S)
+    assert ec.committed_snapshot_pool(MAIN[0], "ibm_phoenix", MAIN[1], MAIN[2]).status == "complete"
+    pool, rec = ec.pool_for_job(d)
+    assert pool is None and rec["case"] == ec.CASE_PENDING == "pending" and rec["snapshot_problem"] is None and rec["files"] == []
+    assert rec["pending"]["bound_hours"] == st["pool_closing_bound_hours"] == 6.0
+    assert rec["pending"]["until_utc"] == ec.iso(ec.parse_utc(MAIN[2]) + timedelta(hours=6)) and "no update published at or after finished yet" in rec["pending"]["why"]
+    # only a re-stamp after finished, and the service asked before the bound: still pending
+    c2 = ("dbpfon8qtr0c738ebgj0", "2026-11-10T12:54:22.817673Z", "2026-11-10T13:10:40.143310Z")
+    d = _write_bundle(tmp_path / "restamp", c2, "1135", [], None, S)
+    (d / "properties_after_finished.json").write_text(json.dumps(dict(sets=[dict(properties=S["t1314"])], asked_utc="2026-11-10T13:30:00Z")), encoding="utf-8")
+    pool, rec = ec.pool_for_job(d)
+    assert pool is None and rec["case"] == "pending" and "repeat the values in force before it" in rec["pending"]["why"]
+    # the closing update arrives: the service pool, with its bracket
+    (d / "properties_after_finished.json").write_text(json.dumps(dict(sets=[dict(properties=S["t1314"]), dict(properties=S["1337"])], asked_utc="2026-11-10T13:50:00Z")), encoding="utf-8")
+    pool, rec = ec.pool_for_job(d)
+    assert rec["case"] == ec.SOURCE_SERVICE and pool.bracket is True and pool.updates()[-1] == "2026-11-10T13:37:31Z" and rec["pending"] is None
+
+
+def test_ci5_the_pool_bound_no_update_within_it_gives_e_without_a_bracket(S, st, nov10):
+    """Code review Section 8 item 1 (i): the closing update is looked for among the sets stamped up to ``pool_closing_bound_hours``
+    after finished. When none is stamped by then, E is built on the sets stamped up to that time, there is no bracket and the points
+    are read with the flag 'no bracket'. Before that time the pool is pending. A set stamped later than the bound is not read."""
+    job = ("late", "2026-11-10T13:40:00Z", "2026-11-10T13:45:00Z")                             # on the 13:37:31Z values; 16:34:05Z repeats them
+    kw = dict(bound_hours=6.0)
+    waiting = ec.build_pool(job[0], job[1], job[2], S["1337"], S["1337"], [], [S["t1634"]], True, asked_utc="2026-11-10T19:44:59Z", **kw)
+    assert waiting.status == "pending" and ec.iso(waiting.closes_by) == "2026-11-10T19:45:00Z" and "pending until 2026-11-10T19:45:00Z" in " ".join(waiting.notes)
+    assert ec.build_pool(job[0], job[1], job[2], S["1337"], S["1337"], [], [S["t1634"]], True, **kw).status == "pending"   # nobody says when the service was asked
+    done = ec.build_pool(job[0], job[1], job[2], S["1337"], S["1337"], [], [S["t1634"]], True, asked_utc="2026-11-10T19:45:00Z", **kw)
+    assert done.status == "complete" and done.bracket is False and done.s_after is None and done.updates() == ["2026-11-10T13:37:31Z"]
+    assert done.restamps == (("2026-11-10T16:34:05Z",),) and "no bracket" in " ".join(done.notes) and done.record()["bracket"] is False
+    E = ec.execution_calibration(done, st)
+    assert E["value_sha256"] == ec.value_sha256(S["1337"]) and ec.bracket_calibration(done, st) is None
+    # a change of values stamped later than the bound is not the closing update: the reading does not depend on when the build is run
+    early = ("early", "2026-11-10T09:10:00Z", "2026-11-10T09:12:00Z")
+    in_time = ec.build_pool(early[0], early[1], early[2], S["0907"], S["0907"], [], [S["t1120"]], True, asked_utc="2026-11-10T16:00:00Z", bound_hours=3.0)
+    assert in_time.status == "complete" and in_time.bracket is True and in_time.updates() == ["2026-11-10T09:07:11Z", "2026-11-10T11:20:04Z"]
+    for asked in ("2026-11-10T11:30:00Z", "2026-11-10T16:00:00Z"):
+        late = ec.build_pool(early[0], early[1], early[2], S["0907"], S["0907"], [], [S["t1120"]], True, asked_utc=asked, bound_hours=2.0)
+        assert late.status == "complete" and late.bracket is False and late.updates() == ["2026-11-10T09:07:11Z"] and ec.iso(late.closes_by) == "2026-11-10T11:12:00Z"
+    assert ec.build_pool(early[0], early[1], early[2], S["0907"], S["0907"], [], [], True, asked_utc="2026-11-10T11:00:00Z", bound_hours=2.0).status == "pending"
+    # the walk-back cannot have returned a set stamped after the time the service was asked
+    with pytest.raises(ec.PoolError, match="stamped after the time the service was asked"):
+        ec.build_pool(early[0], early[1], early[2], S["0907"], S["0907"], [], [S["t1120"]], True, asked_utc="2026-11-10T11:00:00Z", bound_hours=3.0)
+    # the flag: a point that would be read is read with the flag 'no bracket'; a stricter reading is not softened
+    rung = nov10["rung"]
+    c = ec.classify(rung, 8, [], None, None, st, no_bracket=True)
+    assert c["reading"] == ec.READ_WITH_FLAG and c["flags"] == [ec.FLAG_NO_BRACKET] == ["no bracket"] and c["reason"].startswith("no bracket")
+    q75 = dict(kind="qubit", qubit=75, reasons=["readout"])
+    assert ec.classify(rung, 8, [q75], None, None, st, no_bracket=True)["reading"] == ec.NOT_EVALUABLE
 
 
 def test_c_the_flags_that_do_not_come_from_e(nov10, st, tmp_path):
@@ -570,6 +701,15 @@ def test_f_load_pool_reads_the_bundle_and_never_the_properties_at_creation(S, st
     assert "2026-11-10T07:32:03Z" not in pool.updates()
     assert ec.execution_calibration(pool, st)["value_sha256"] == ec.execution_calibration(_pool(S, MAIN, "0907", ["1135"], "1337"), st)["value_sha256"]
     assert ec.load_pool(_write_bundle(tmp_path / "b", BLOCKC, "1135", [], None, S)).status == "pending"
+    # the bound is the table's, and ``asked_utc`` of properties_after_finished.json tells whether the walk-back reached it (CI-5)
+    late = ("late", "2026-11-10T13:40:00Z", "2026-11-10T13:45:00Z")
+    d = _write_bundle(tmp_path / "nb", late, "1337", [], None, S)
+    for asked, status, bracket in (("2026-11-10T19:00:00Z", "pending", True), ("2026-11-10T19:45:00Z", "complete", False)):
+        (d / "properties_after_finished.json").write_text(json.dumps(dict(sets=[dict(properties=S["t1634"])], asked_utc=asked)), encoding="utf-8")
+        p = ec.load_pool(d)
+        assert (p.status, p.bracket) == (status, bracket) and ec.iso(p.closes_by) == "2026-11-10T19:45:00Z"
+    (d / "properties_after_finished.json").write_text(json.dumps(dict(status="pending", asked_utc="2026-11-10T20:00:00Z")), encoding="utf-8")
+    assert ec.load_pool(d).bracket is False and ec.pool_for_job(d)[1]["case"] == ec.SOURCE_SERVICE
     # the times are taken from the retrieval record when the bundle has one (branch pipeline-day3-2026-11-10), before metrics.timestamps
     d = _write_bundle(tmp_path / "b2", MAIN, "0907", ["1135"], "1337", S)
     job = json.loads((d / "job.json").read_text(encoding="utf-8"))

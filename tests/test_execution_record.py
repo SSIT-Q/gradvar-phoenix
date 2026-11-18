@@ -192,9 +192,11 @@ def _decision(tmp_path, in_force=True, layout=True, created="2026-11-12T05:00:00
                  points=[dict(item="x", key=None, reading=ec.NOT_EVALUABLE, grounds=[ec.CALIBRATION_GROUNDS[0]], flags=[])]),
             dict(job_id="b", tag="L1", created=created, is_rerun=False, rerun_of=None, modelled_minutes=1.0,
                  points=[dict(item="y", key=None, reading=ec.READ, grounds=[], flags=[])])]
-    ledger = dict(lines=dict(dial=65.0), charged_minutes=30.0, source="test")
+    jl = dict(name="lst", campaign=dict(ledger_line="day3:dial"))                           # the committed function reads the lines from the list
+    ledger = dict(lines=rd.ledger_lines(jl), charged_minutes=30.0, source="test")
     check = dict(passed=layout, properties_stamp="2026-11-12T04:00:00Z", checked_utc="2026-11-12T06:00:00Z")
-    return rd.write_decision(rd.decide(jobs, ledger, "2026-11-12T06:00:00Z", check, st), "lst", tmp_path)
+    (tmp_path / "lst_rerun_decision.json").unlink(missing_ok=True)                          # a fresh file each time: a decision that granted a job is not replaced
+    return rd.write_decision(rd.decide(jobs, ledger, "2026-11-12T06:00:00Z", check, st, jl, tmp_path / "runs", tmp_path), "lst", tmp_path)
 
 
 IDS = dict(jobs=[dict(job_id="a", tag="L0"), dict(job_id="b", tag="L1")])

@@ -3,7 +3,7 @@
  "status": "not_in_force",
  "status_note": "The one adoption switch. NOT IN FORCE: Deviations 65 and 67 are drafts, not rows of the pre-registration (v0.18.0 is in force). While this says not_in_force, everything computed from this table is exploratory and says so, and gradvar.analysis.gates.gate2_e evaluates the clause as registered. Set it to in_force in the commit that adopts the two rows; the loader refuses in_force while any entry below is provisional.",
  "registered_note": "'registered' is the value the adopted rows fix (Deviations 65 and 67 as corrected by the reviews). The loader refuses an in-force table in which an entry has no registered value or holds another value than its registered one: while the table is in force, an edit of 'value' cannot change a registered rule. An entry without 'registered' has not been ruled on.",
- "basis": "Draft docs/deviations_drafts/65_execution_time_calibration_2026-11-10.md (branch dev65-execution-calibration) as corrected by the independent review docs/reviews/review_dev64_dev65_dev66_2026-11-10.md (11 Nov 2026, corrections C65-1 to C65-8, Sections 5.3 and 8.5), which the lead adopted with the PI's authorisation as relayed by the operator on 10 Nov 2026. 'provisional: false' means the review confirmed or replaced the entry; 'provisional: true' means the entry was found in implementation and no review has ruled on it.",
+ "basis": "Draft docs/deviations_drafts/65_execution_time_calibration_2026-11-10.md (branch dev65-execution-calibration) as corrected by the independent review docs/reviews/review_dev64_dev65_dev66_2026-11-10.md (11 Nov 2026, corrections C65-1 to C65-8, Sections 5.3 and 8.5), which the lead adopted with the PI's authorisation as relayed by the operator on 10 Nov 2026. 'provisional: false' means the review confirmed or replaced the entry; 'provisional: true' means the entry was found in implementation and no review has ruled on it. Corrections CI-1 and CI-13 of the code review of 11 and 12 Nov 2026: every entry carries its registered value, and the two entries found in implementation are ruled on.",
  "settings": {
   "primary_calibration": {
    "value": "per_value_at_or_before_running",
@@ -29,23 +29,25 @@
    "meaning": "When a coupler over the CZ cut counts as lying in the L = 2 cone of the observable: both of its qubits in the cone, or either."
   },
   "coupler_cone_rule": {
-   "value": "either_qubit",
+   "value": "both_qubits",
+   "registered": "both_qubits",
    "allowed": [
     "both_qubits",
     "either_qubit"
    ],
-   "basis": "found in implementation; the review does not rule on it",
-   "provisional": true,
+   "basis": "ruled by the code review of 11 and 12 Nov 2026 (part 2, review_day3_code_part2_2026-11-11.md), Section 8 item 2 and Section 11.3, adopted by the lead: both qubits, as in the zone (correction CI-13; row 65 (ii) as corrected by CD-5)",
+   "provisional": false,
    "meaning": "When a coupler over the CZ cut counts as lying in the point's own light cone (the 'elsewhere in the cone' flag). either_qubit is the reading that never drops a flag."
   },
   "zone_for_points_shallower_than_zone": {
    "value": "zone_applies",
+   "registered": "zone_applies",
    "allowed": [
     "zone_applies",
     "own_cone_only"
    ],
-   "basis": "found in implementation; the review does not rule on it",
-   "provisional": true,
+   "basis": "ruled by the code review of 11 and 12 Nov 2026 (part 2, review_day3_code_part2_2026-11-11.md), Section 8 item 3, adopted by the lead: the zone applies at every depth of the rung (correction CI-13; row 65 (ii) as corrected by CD-5)",
+   "provisional": false,
    "meaning": "zone_applies: an over-cut element in the L = 2 cone makes a point not evaluable whatever its L. own_cone_only: for a point with L below 2 only its own cone counts."
   },
   "decision_line_abs_ln_ratio": {
@@ -129,6 +131,24 @@
    "basis": "confirmed by the review with added sentences (C65-5, Section 8.5 item 4). An update is a change of values: a re-stamp without one is not 'the update that follows'",
    "provisional": false,
    "meaning": "The window in which a package may be dispatched. Read by no code on this branch; it belongs to the same-day pipeline scripts."
+  },
+  "pool_closing_bound_hours": {
+   "value": 6.0,
+   "registered": 6.0,
+   "allowed": null,
+   "basis": "code review of 11 and 12 Nov 2026 (part 2, review_day3_code_part2_2026-11-11.md), Section 8 item 1 (i), adopted by the lead (corrections CI-5, CI-13; row 65 (i) as corrected by CD-1)",
+   "provisional": false,
+   "meaning": "The closing update of a job's pool is looked for among the sets stamped up to this many hours after the job's finished time. When none is stamped by then, E is built on the sets stamped up to that time, no bracket is drawn and every point of the job is read with the flag 'no bracket'. Before the closing update or that time, whichever is first, the pool is pending: nothing is drawn, nothing is written under data/predictions/execution and no result is retrieved. Read by the builder (gradvar.execution_calibration) and by the runner's walk-back."
+  },
+  "rerun_day": {
+   "value": "utc_date_of_creation",
+   "registered": "utc_date_of_creation",
+   "allowed": [
+    "utc_date_of_creation"
+   ],
+   "basis": "code review of 11 and 12 Nov 2026 (part 2, review_day3_code_part2_2026-11-11.md), Section 8 item 5, adopted by the lead (correction CI-13; row 67 (iii) as corrected by CE-1)",
+   "provisional": false,
+   "meaning": "The day of the one re-run of Deviation 67 (iii): the re-run job is created on the UTC date on which the job it repeats was created. The runner refuses to submit when the UTC date has changed since the decision."
   }
  }
 }

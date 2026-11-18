@@ -177,10 +177,10 @@ def test_block_c_shares_one_calibration_equal_to_the_1135_set(S, tmp_path):
 
 
 def test_a_job_whose_service_pool_cannot_be_used_is_built_from_the_committed_snapshots_or_not_evaluable(S, tmp_path, capsys):
-    """C65-4. One job with no set after finished, one whose two records of the set at running disagree, one with only a re-stamp
-    after finished: with the committed snapshots each gets a flagged E; without them its points are not evaluable. Never the
-    dispatch-time row."""
-    root = write_bundles(tmp_path, S, pending=("dbpfom8ou4as73ctjes0",), disagree=("dbpfon8qtr0c738ebgj0",), restamp_only=("dbpfontt7fqc7389bsu0",))
+    """C65-4. Three jobs whose two records of the set at running disagree, so that the service pool cannot be built: with the
+    committed snapshots each gets a flagged E; without them its points are not evaluable. Never the dispatch-time row. (A pool
+    that is only pending does not come here: CI-5, next test.)"""
+    root = write_bundles(tmp_path, S, disagree=("dbpfom8ou4as73ctjes0", "dbpfon8qtr0c738ebgj0", "dbpfontt7fqc7389bsu0"))
     assert rx.main(args_for(root, BLOCKC, "--plan")) == 0
     files = sorted(p.name for p in (root / "out").glob("*.json"))
     assert len(files) == 1 and files[0].endswith("_snapshots_plan.json")
@@ -188,8 +188,7 @@ def test_a_job_whose_service_pool_cannot_be_used_is_built_from_the_committed_sna
     by = {j["job_id"]: j for j in res["jobs"]}
     assert all(j["status"] == "built_from_committed_snapshots" and j["pool_case"]["case"] == "committed_snapshots" and j["pool"]["source"] == "committed_snapshots"
                for j in res["jobs"])
-    assert by["dbpfom8ou4as73ctjes0"]["why"].startswith("pending") and "disagree" in by["dbpfon8qtr0c738ebgj0"]["why"]
-    assert "repeat the values in force before" in by["dbpfontt7fqc7389bsu0"]["why"]                       # a re-stamp does not close the pool
+    assert all("disagree" in j["why"] for j in res["jobs"])
     snap = by["dbpfom8ou4as73ctjes0"]["pool_case"]["snapshot_files"]
     assert set(snap) == {SETS["1135"], SETS["1337"]} and snap[SETS["1337"]] == hashlib.sha256((CAL / SETS["1337"]).read_bytes()).hexdigest()
     g = res["groups"][0]
@@ -211,6 +210,43 @@ def test_a_job_whose_service_pool_cannot_be_used_is_built_from_the_committed_sna
         assert [c["item"] for c in j["classification"]] == ["point 0: n=82 L=8 k=1", "point 1: n=82 L=10 k=1"]
         assert all(c["reading"] == ec.NOT_EVALUABLE and c["grounds"] == [ec.GROUND_NO_E] and c["key"]["n"] == 82 for c in j["classification"])
     assert "not evaluable" in (out2 / "paper1_section3c_blockC_not_evaluable_plan.md").read_text(encoding="utf-8")
+
+
+def test_ci5_a_pending_job_stops_the_script_with_its_own_status_and_nothing_is_written(S, tmp_path, capsys):
+    """CI-5. One job with no set after finished and one with only a re-stamp after it: their pools are pending. The script exits
+    with the status PENDING, draws nothing and writes nothing, neither rows nor calibrations nor a 'not evaluable' file; the
+    committed snapshots, which would close both pools, are not read."""
+    root = write_bundles(tmp_path, S, pending=("dbpfom8ou4as73ctjes0",), restamp_only=("dbpfontt7fqc7389bsu0",))
+    for extra in (("--plan",), ()):
+        assert rx.main(args_for(root, BLOCKC, *extra)) == rx.PENDING == 4
+        err = capsys.readouterr().err
+        assert "PENDING: the pool of 2 of 3 job(s) of paper1_section3c_blockC is not closed yet; nothing is drawn and nothing is written" in err
+        assert "dbpfom8ou4as73ctjes0" in err and "dbpfontt7fqc7389bsu0" in err and "until 2026-11-10T19:31:41.789031Z" in err
+        assert outputs(root) == [] and not (root / "cal").exists()
+    assert rx.PENDING not in (0, rx.REFUSED, rx.INCOMPLETE)
+
+
+def test_ci5_jobs_without_a_bracket_form_their_own_group_and_carry_the_flag(S, tmp_path):
+    """The bound has passed without a change of values for one job of the list: it is built without a bracket, forms its own group
+    (file suffix ``_nobracket``) and every item of it carries the flag 'no bracket'."""
+    root = write_bundles(tmp_path, S, restamp_only=("dbpfontt7fqc7389bsu0",))
+    f = root / "runs" / "2026-11-10" / "dbpfontt7fqc7389bsu0" / "properties_after_finished.json"
+    later = json.loads(f.read_text(encoding="utf-8"))
+    later["asked_utc"] = "2026-11-10T19:10:00Z"                                               # 6 h after it finished (13:08:16Z)
+    later["sets"] = [dict(file="data/calibrations/" + SETS["t1314"])]
+    f.write_text(json.dumps(later), encoding="utf-8")
+    assert rx.main(args_for(root, BLOCKC, "--plan")) == 0
+    files = sorted(p.name for p in (root / "out").glob("*.json"))
+    assert len(files) == 2 and sum(1 for n in files if n.endswith("_nobracket_plan.json")) == 1
+    nb = json.loads(next(p for p in (root / "out").glob("*_nobracket_plan.json")).read_text(encoding="utf-8"))
+    g = nb["groups"][0]
+    assert g["no_bracket"] is True and [j["job_id"] for j in g["jobs"]] == ["dbpfontt7fqc7389bsu0"] and g["jobs"][0]["bracket"] is None and g["bracket_files"] == {}
+    assert all(ec.FLAG_NO_BRACKET in c["flags"] for c in g["classification"])
+    job = next(j for j in nb["jobs"] if j["job_id"] == "dbpfontt7fqc7389bsu0")
+    assert job["B"] is None and job["pool"]["bracket"] is False and job["status"] == "built"
+    other = json.loads(next(p for p in (root / "out").glob("*.json") if not p.name.endswith("_nobracket_plan.json")).read_text(encoding="utf-8"))
+    assert other["groups"][0]["no_bracket"] is False and len(other["groups"][0]["jobs"]) == 2
+    assert not any(ec.FLAG_NO_BRACKET in c["flags"] for c in other["groups"][0]["classification"])
 
 
 def test_another_sampler_setting_needs_exploratory(S, tmp_path):

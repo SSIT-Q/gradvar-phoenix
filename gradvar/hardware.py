@@ -2292,11 +2292,11 @@ def rerun_decide(ids_path: str, ledger_path: str, run_root: str = "data/runs", j
     print(_layout_check_message(chk), flush=True)
     layout = dict(passed=chk["action"] == "submit", properties_stamp=str(chk.get("properties_last_update")), checked_utc=_utc_iso(now),
                   source="gradvar.hardware.layout_check_for(enforce=True) for the whole list on the live properties; an override does not count")
-    try:
-        decision = rd.decide(jobs, ledger, now, layout, ec.load_settings())
+    try:        # the committed function reads the list's lines and finds earlier re-runs itself; it does not replace a decision that granted a job
+        decision = rd.decide(jobs, ledger, now, layout, ec.load_settings(), jl, run_root, pdir)
+        path = rd.write_decision(decision, name, pdir)
     except rd.DecisionInputError as e:
         raise SystemExit(f"the re-run decision cannot be computed: {e}")
-    path = rd.write_decision(decision, name, pdir)
     print(f"re-run decision of {name}: {len(decision['rerun'])} job(s) to re-run ({', '.join(decision['rerun']) or 'none'}); wrote {path}. Commit it before "
           "anything is dispatched on it", flush=True)
     return path
