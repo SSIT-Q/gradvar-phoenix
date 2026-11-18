@@ -39,6 +39,12 @@ Deviation 63's reviews or the PI's countersignature. The list is built from the 
   override). After a stop the pairs are reported as not run.
 
 Only this file is written; ``scripts/make_paper1_joblists.py`` and the committed lists are not touched (the re-package track owns them).
+
+The seed check and the list's own file. The same-day cycle writes this list into ``data/joblists/paper1/`` and then runs the test suite
+and ``--check`` in that tree, so the check meets the list's own earlier copy. An entry of a list that carries this list's name, with
+the id and the seed of a new probe, is that same probe and is not counted as an overlap; every other entry under ``data/joblists/``
+and of the day-3 list still is, so a second list under another name cannot take this seed block. A list that was armed or dispatched
+is the record of its run (``scripts/run_records.py``): this script does not write over it.
 """
 from __future__ import annotations
 
@@ -51,7 +57,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+sys.path.insert(0, str(ROOT / "scripts"))
+
 from gradvar.hardware import estimate_budget, load_joblist            # noqa: E402
+
+import run_records as RR                                              # noqa: E402
 
 PLACEHOLDER = "TBD: pre-flight review permalink"
 DEFAULT_OUT = ROOT / "data" / "joblists" / "paper1" / "dial_truncation_pairs.json"
@@ -74,10 +84,19 @@ def _seed_span(entry: dict) -> tuple[int, int]:
     return s, s + max(int(entry.get("M", 1) or 1), int(entry.get("masks", 0) or 0) + 1)
 
 
-def seed_clashes(probes: list, lists_dir: Path, extra: dict | None = None) -> list:
-    """Every committed list entry (points and probes) under ``lists_dir``, and ``extra``, whose seed span overlaps a new probe's."""
+def seed_clashes(probes: list, lists_dir: Path, extra: dict | None = None, own: str | None = None, own_files=None) -> list:
+    """Every committed list entry (points and probes) under ``lists_dir``, and ``extra``, whose seed span overlaps a new probe's.
+
+    ``own`` is the name of the list the probes are built for and ``own_files`` the paths that list is written to (default: its one
+    place in the tree, ``<lists_dir>/paper1/dial_truncation_pairs.json``). A file that is one of those paths AND carries that
+    ``name`` is an earlier copy of the same list (the same-day cycle writes it before the test suite and ``--check`` run): its
+    entries that carry a new probe's id and seed are that probe, not a second use of its seeds, and are left out. Any other
+    entry of that file, every entry of a list under another name, and every entry of the same list under another file name
+    counts as before: a copy of the list elsewhere in the tree is a second use of its seeds."""
     spans = sorted({_seed_span(p) for p in probes})
+    mine = {(p.get("id"), int(p["seed"])) for p in probes} if own else set()
     out = []
+    places = {Path(p).resolve() for p in (own_files if own_files is not None else [Path(lists_dir) / "paper1" / DEFAULT_OUT.name])}
     sources = [(f, None) for f in sorted(lists_dir.rglob("*.json"))] + ([("given day-3 list", extra)] if extra else [])
     for f, jl in sources:
         if jl is None:
@@ -87,9 +106,12 @@ def seed_clashes(probes: list, lists_dir: Path, extra: dict | None = None) -> li
                 continue
         if not isinstance(jl, dict):
             continue
+        same_list = bool(own) and jl is not extra and jl.get("name") == own and Path(f).resolve() in places
         for kind in ("points", "probes"):
             for e in jl.get(kind, []) or []:
                 if not isinstance(e, dict) or "seed" not in e:
+                    continue
+                if same_list and kind == "probes" and (e.get("id"), int(e["seed"])) in mine:
                     continue
                 a, b = _seed_span(e)
                 for lo, hi in spans:
@@ -111,8 +133,10 @@ def _probe(pid: str, template: dict, p: float, reset_kind: str, purpose: str, tr
     return pr
 
 
-def build(day3: dict, day3_name: str, allow_dial_excluded: bool = False, lists_dir: Path | None = None) -> dict:
-    """The Deviation 63 pairs' list for the day-3 list ``day3`` (read from ``day3_name``)."""
+def build(day3: dict, day3_name: str, allow_dial_excluded: bool = False, lists_dir: Path | None = None, out: Path | None = None) -> dict:
+    """The Deviation 63 pairs' list for the day-3 list ``day3`` (read from ``day3_name``). ``out``: where the list is written when
+    that is not its place in the tree (``--out``); the list's own earlier copy is recognised at its place in the tree and at
+    ``out``, nowhere else."""
     pl = day3.get("placement") or {}
     if not pl.get("pin_snapshot"):
         raise SystemExit(f"{day3_name}: the placement block has no pin_snapshot; the pairs must be pinned to day 3's snapshot (Deviation 58)")
@@ -147,7 +171,8 @@ def build(day3: dict, day3_name: str, allow_dial_excluded: bool = False, lists_d
         _probe("trunc_l2_dephase_p0.5_L8", tmpl, 0.5, "dephase", B.format(what="the circuit with its first 6 layers deleted, all qubits from |0>, the last "
                                                                   "2 layers' theta and Z masks of the full circuit"), 2, 0.25),
     ]
-    clashes = seed_clashes(new, lists_dir or (ROOT / "data" / "joblists"), extra=day3)
+    ldir = Path(lists_dir) if lists_dir is not None else ROOT / "data" / "joblists"
+    clashes = seed_clashes(new, ldir, extra=day3, own=LIST_NAME, own_files=[ldir / "paper1" / DEFAULT_OUT.name] + ([Path(out)] if out is not None else []))
     if clashes:
         raise SystemExit(f"seed block {PAIRS_SEED} overlaps committed entries: {clashes[:5]}")
     camp = day3.get("campaign") or {}
@@ -188,6 +213,16 @@ def build(day3: dict, day3_name: str, allow_dial_excluded: bool = False, lists_d
     return jl
 
 
+def record_of(out: Path) -> dict | None:
+    """The run-record status (``run_records.status_of``) of the pairs' list at ``out``, or None when it is not a record: the file
+    there is armed, or job-ids files of this list's name lie in the runs directory that belongs to ``out`` (also when the file itself
+    is missing or un-armed again)."""
+    st = RR.status_of_file(out)
+    if not st["record"]:
+        st = RR.status_of(dict(name=LIST_NAME, dry_run=True), RR.run_root_for(Path(out).parent), stem=Path(out).stem)
+    return st if st["record"] else None
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("day3", help="the day-3 list whose placement the pairs follow (data/joblists/paper1/day3_dial_refs.json)")
@@ -198,12 +233,15 @@ def main(argv=None) -> int:
     src = Path(a.day3)
     day3 = json.loads(src.read_text(encoding="utf-8"))
     rel = src.resolve().relative_to(ROOT).as_posix() if src.resolve().is_relative_to(ROOT) else str(src)
-    jl = build(day3, rel, allow_dial_excluded=a.allow_dial_excluded)
     out = Path(a.out)
+    jl = build(day3, rel, allow_dial_excluded=a.allow_dial_excluded, out=out)
     if a.check:
         same = out.exists() and json.loads(out.read_text(encoding="utf-8")) == jl
         print("matches the generator" if same else f"differs: {out}")
         return 0 if same else 1
+    rec = record_of(out)
+    if rec is not None:                                      # a dispatched list is never regenerated (scripts/run_records.py)
+        raise SystemExit(str(RR.refuse_rerun(out.name, rec, "the pairs' list would be written over the record of its run")))
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(jl, indent=1) + "\n", encoding="utf-8")
     load_joblist(str(out))                                   # schema check

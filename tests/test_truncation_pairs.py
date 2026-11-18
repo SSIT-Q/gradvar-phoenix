@@ -71,7 +71,9 @@ def test_pairs_list_follows_the_day3_placement_and_the_booked_pair():
     assert "truncate_to" not in by["trunc_full_p0.25_L8"] and "truncate_to" not in by["trunc_full_dephase_p0.5_L8"]
     assert {p["reset_kind"] for p in jl["probes"][:2]} == {"reset"} and {p["p"] for p in jl["probes"][:2]} == {0.25} and "mask_p" not in by["trunc_full_p0.25_L8"]
     assert {p["reset_kind"] for p in jl["probes"][2:]} == {"dephase"} and {(p["p"], p["mask_p"]) for p in jl["probes"][2:]} == {(0.5, 0.25)}
-    assert MTP.seed_clashes(jl["probes"], ROOT / "data" / "joblists", extra=day3) == []            # a fresh seed block
+    # a fresh seed block: no other list holds it (the same-day cycle writes this list into the tree before the suite runs, so the
+    # list's own probes there are named as its own)
+    assert MTP.seed_clashes(jl["probes"], ROOT / "data" / "joblists", extra=day3, own=MTP.LIST_NAME) == []
     assert jl["budget"] == estimate_budget(jl)
     assert jl["budget"]["pubs"] == 4 * 256 and jl["budget"]["executions"] == 4 * 100 * 256 * 64 and jl["budget"]["trex_executions"] == 0
     assert "Deviation 63" in jl["notes"] and jl["campaign"]["deviation"].startswith("Deviation 63")

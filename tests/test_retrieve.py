@@ -202,6 +202,12 @@ def test_retrieved_bundles_match_the_live_path_and_discovery_fills_a_missing_id(
         assert opts["default_shots"] == 1024 and opts["resilience_level"] == a["resilience_level"] and opts["options_source"].startswith("job.inputs")
         props = json.loads((retr[name] / "properties.json").read_text())
         assert props["_source"] == r["properties_source"] and props["qubits"]
+        # record only (pipeline change of 10 Nov 2026): when the job ran, as the service gives it, and what properties.json holds
+        span = r["execution_span"]
+        assert (span["created"], span["running"], span["finished"]) == ("2026-09-20T04:47:12.5Z", "2026-09-20T09:58:01Z", "2026-09-20T09:58:07Z")
+        assert span["queued_s"] == 18648.5 and span["running_s"] == 6.0 and span["complete"] is True and span == hw.execution_span(b["metrics"])
+        assert r["properties_label"] == props["_label"] and props["_label"].startswith("properties live at retrieval, not at job creation")   # fake backends take no datetime
+        assert "execution_span" not in a and "_label" not in json.loads((live[name] / "properties.json").read_text())                       # the live path is untouched
     live_csv = pd.read_csv(tmp_path / "live" / "jobs" / "live.csv")
     retr_csv = pd.read_csv(next((tmp_path / "retr" / "jobs").glob("*_retrieved_*.csv")))
     assert list(live_csv.columns) == list(retr_csv.columns) == hw.LOG_COLUMNS and len(retr_csv) == len(live_csv) == 12
@@ -502,3 +508,39 @@ def test_pinned_list_submission_logs_a_fresh_properties_snapshot(tmp_path, monke
     ids = hw.load_ids_file(next((tmp_path / "runs").glob("*/*_job_ids.json")))
     snaps = list((tmp_path / "data" / "calibrations").glob("fake_marrakesh_properties_*.json"))
     assert ids["calibration_csv"] == CAL and len(snaps) == 1 and Path(ids["calibration_snapshot"]).name == snaps[0].name
+
+
+def test_cp4_a_record_that_cannot_be_written_never_fails_a_retrieval(tmp_path, monkeypatch, capsys):
+    """Review correction CP-4 (11 Nov 2026): ``execution_span`` is a record that nothing reads. When writing it fails, for a job
+    with a result and for a job without one, the retrieval goes on, says so on stderr, logs its rows and reports only the
+    problems it would have reported anyway."""
+    import gradvar.hardware as hw
+    jl = hw.load_joblist(str(LIST01))
+    points, shapes, shots = hw.joblist_points(jl, CAL)
+    backend = hw.fake_backend("ibm_marrakesh")
+    groups, _ = hw.job_groups(jl, points, shapes, shots, backend, CAL)
+    jobs = [FakeJob([b.pub() for b in g], level, gshots, status="CANCELLED" if i == 2 else "DONE", job_id=f"j{i}") for i, (tag, level, gshots, g) in enumerate(groups)]
+    _wire_service(hw, monkeypatch, FakeService(jobs), backend)
+    ids = hw.write_ids_file(tmp_path / "ids.json", jl, str(LIST01), [dict(job_id=f"j{i}", tag=tag, level=level, shots=gshots, pubs=len(g), rep_delay_us=None)
+                                                                     for i, (tag, level, gshots, g) in enumerate(groups)], calibration_csv=CAL, run_id=1)
+    calls = []
+
+    def broken(bundle_dir, created=None, props_label=None):
+        calls.append(Path(bundle_dir).name)
+        raise OSError("disk full")
+    monkeypatch.setattr(hw, "record_execution_span", broken)
+    with pytest.raises(SystemExit) as ex:                                       # the cancelled job is the one problem, as without the failure
+        hw.retrieve_jobs(str(ids), run_root=str(tmp_path / "runs"), log_dir=str(tmp_path / "jobs"), snapshot_dir=str(tmp_path / "cal"))
+    assert "1 problem(s)" in str(ex.value) and "j2 (L0-probes-s1024): job status CANCELLED" in str(ex.value) and "disk full" not in str(ex.value)
+    io = capsys.readouterr()
+    assert calls == ["j0", "j1", "j2"]
+    for j, tag in (("j0", "L0"), ("j1", "L1"), ("j2", "L0-probes-s1024")):
+        assert f"job {j} ({tag}): execution span not recorded (OSError: disk full)" in io.err
+    assert "retrieved j0" in io.out and "retrieved j1" in io.out and "created None, running None, finished None" in io.out
+    bundles = {d.name: d for d in (tmp_path / "runs").glob("*/j*")}
+    assert set(bundles) == {"j0", "j1", "j2"}
+    for name, d in bundles.items():
+        job = json.loads((d / "job.json").read_text())
+        assert "execution_span" not in job["retrieval"] and job["status"] == ("failed" if name == "j2" else "completed")
+    rows = pd.read_csv(next((tmp_path / "jobs").glob("*_retrieved_*.csv")))
+    assert set(rows.job_id) == {"j0", "j1"} and len(rows) == 10                 # the rows of the two jobs with a result are logged
