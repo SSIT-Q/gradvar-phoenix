@@ -46,6 +46,7 @@ def _table(status, confirm=True):
     if confirm:
         for e in t["settings"].values():
             e["provisional"] = False
+            e.setdefault("registered", e["value"])      # the loader refuses an in-force table with an entry that has no registered value
     return json.dumps(t).encode("utf-8")
 
 
