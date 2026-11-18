@@ -1055,11 +1055,13 @@ def _d65():
 
 
 def _d65_table(status):
-    """The committed settings table with another status, every entry ruled on (what the adopting commit does)."""
+    """The committed settings table with another status, every entry ruled on and registered (what the adopting commit does: the
+    loader refuses an in-force table with a provisional entry, or with an entry that has no registered value)."""
     t = json.loads((ROOT / D65_TABLE).read_text(encoding="utf-8"))
     t["status"] = status
     for e in t["settings"].values():
         e["provisional"] = False
+        e.setdefault("registered", e["value"])
     return json.dumps(t).encode("utf-8")
 
 
