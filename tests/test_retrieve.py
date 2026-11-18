@@ -759,7 +759,7 @@ def test_metadata_only_retrieval_writes_the_pool_and_never_asks_for_a_result(tmp
         assert "+00:00" not in json.dumps(rec) and rec["asked_up_to"].endswith("Z") and rec["dispatch_update"]["last_update_date"].endswith("Z")
         # CI2-3: the bound, where it comes from, when it runs out, when the service was asked, and the state
         c = rec["closing"]
-        assert c["state"] == "closed by an update" and c["bound_hours"] == 6.0 and c["bound_source"].startswith("runner default")
+        assert c["state"] == "closed by an update" and c["bound_hours"] == 6.0 and c["bound_source"] == "settings table entry pool_closing_bound_hours" and rec["bracket"] is True
         assert c["closes_utc"] == "2026-11-10T18:35:07.784468Z" and c["asked_utc"] > c["closes_utc"]
         assert rec["updates"] == UPDATES and rec["restamps"] == [[], ["2026-11-10T11:35:39Z", "2026-11-10T13:14:38Z"], ["2026-11-10T16:34:05Z"]]
         # C65-5: the update in force at dispatch (the job's creation, 11:11:40Z: the 09:07:11Z values), by content hash and value hash
@@ -1131,7 +1131,6 @@ def test_the_one_rerun_from_the_decision_to_the_bundle(tmp_path, monkeypatch, ca
     monkeypatch.setattr(hw, "check_budget", lambda jl, **k: [])   # this pipeline-check list carries the budget of model v2; its budget block is not the subject here
     committed_table = ec.load_settings()
     adopted = dict(committed_table.values)
-    adopted.setdefault("pool_closing_bound_hours", 6.0)                 # an in-force table carries the bound of CD-1 (CI-13); the runner refuses one without it
     monkeypatch.setattr(ec, "load_settings", lambda *a, **k: dataclasses.replace(committed_table, status="in_force", provisional_entries=(), values=adopted))   # the table once adopted
     kw = dict(run_root=run_root, log_dir=str(tmp_path / "jobs"), snapshot_dir=str(tmp_path / "cal"))
     # phase 1 of the first run: bundles without results (the fake jobs have no properties history: the pool says stopped, the bundle is still a
@@ -1439,8 +1438,9 @@ def test_ci2_2_a_pool_that_is_not_closed_does_not_reach_the_second_phase(tmp_pat
 def test_ci2_3_a_pool_is_not_pending_for_ever(tmp_path, monkeypatch):
     """Review correction CI2-3 (the last scenario of Section 4.1 of the review): no change of values is stamped within the bound
     after finished, and one comes later (07:00Z of the next day). Asked inside the bound the pool is pending; asked after it the
-    record carries the terminal state "no update within the bound", the late set is in no pool file, and a later first phase
-    leaves the bundle as it is. The bound is the settings table's entry; a table in force without it stops the phase."""
+    pool is complete without a bracket (closing state "no update within the bound"), the late set is in no pool file, and a
+    later first phase leaves the bundle as it is. The bound is the settings table's entry, read by the runner's walk and by the
+    committed ``load_pool`` alike; a table without it stops the phase."""
     ec, rp = _committed_side()
     import copy
     import dataclasses
@@ -1459,13 +1459,17 @@ def test_ci2_3_a_pool_is_not_pending_for_ever(tmp_path, monkeypatch):
     _asked_at(hw, monkeypatch, "2026-11-11T08:00:00Z")                                           # after the bound, and after the late change of values
     status = tmp_path / "status.json"
     assert hw.retrieve_jobs(ids, metadata_only=True, status_file=str(status), **kw) == []
-    assert json.loads(status.read_text())["status"] == "complete"                                # closed: nothing is left to wait for
+    report = json.loads(status.read_text())
+    assert report["status"] == "complete" and report["counts"]["no update within the bound"] == len(jobs)    # closed: nothing is left to wait for
     for d in _bundles(tmp_path).values():
         rec = json.loads((d / "job.json").read_text())["retrieval"]["execution_pool"]
         c = rec["closing"]
-        assert rec["status"] == c["state"] == "no update within the bound" and rec["sets_after_finished"] == ["2026-11-10T13:14:38Z"]
+        assert (rec["status"], rec["bracket"], c["state"]) == ("complete", False, "no update within the bound") and rec["sets_after_finished"] == ["2026-11-10T13:14:38Z"]
         assert (c["bound_hours"], c["closes_utc"], c["asked_utc"]) == (6.0, "2026-11-10T18:35:07.784468Z", "2026-11-11T08:00:00Z")
-        assert "closed without a bracket" in " ".join(rec["notes"])
+        assert "no bracket" in " ".join(rec["notes"])
+        pool = ec.load_pool(d)                                                                   # the committed reader: complete, no bracket, no B
+        assert pool.status == "complete" and pool.bracket is False and pool.s_after is None and ec.bracket_calibration(pool, ec.load_settings()) is None
+        assert ec.pool_for_job(d)[1]["case"] == "service"
         assert not any("2026-11-11 07:00:00" in (d / f).read_text() for f in POOL_FILES)         # the late set is not a set of this pool
         rp.check_phase1_bundle(d)
     assert hw.second_phase_pools(json.loads(Path(ids).read_text()), kw["run_root"]) == []        # such a pool is closed for the second phase
@@ -1476,8 +1480,8 @@ def test_ci2_3_a_pool_is_not_pending_for_ever(tmp_path, monkeypatch):
     assert _tree(tmp_path / "runs") == before and len(history.asked) == asked                    # terminal: not asked again, not written again
     # the bound is the table's entry
     st = ec.load_settings()
-    assert hw.pool_closing_bound() == (dict(hours=float(st.values["pool_closing_bound_hours"]), source="settings table entry pool_closing_bound_hours")
-                                       if "pool_closing_bound_hours" in st.values else dict(hours=6.0, source="runner default (the settings table carries no entry pool_closing_bound_hours)"))
+    assert hw.pool_closing_bound() == dict(hours=float(st.values["pool_closing_bound_hours"]), source="settings table entry pool_closing_bound_hours")
+    assert not hasattr(hw, "POOL_MARGIN_H")                                                      # the runner has no bound of its own
     monkeypatch.setattr(ec, "load_settings", lambda *a, **k: dataclasses.replace(st, values=dict(st.values, pool_closing_bound_hours=0.5)))
     assert hw.pool_closing_bound() == dict(hours=0.5, source="settings table entry pool_closing_bound_hours")
     import shutil
@@ -1487,11 +1491,12 @@ def test_ci2_3_a_pool_is_not_pending_for_ever(tmp_path, monkeypatch):
     hw.retrieve_jobs(ids, metadata_only=True, **kw)
     for d in _bundles(tmp_path).values():                                                        # half an hour after finished (12:35:07Z): no set is stamped by then
         rec = json.loads((d / "job.json").read_text())["retrieval"]["execution_pool"]
-        assert rec["status"] == "no update within the bound" and rec["sets_after_finished"] == [] and rec["closing"]["closes_utc"] == "2026-11-10T13:05:07.784468Z"
+        assert (rec["status"], rec["bracket"], rec["closing"]["state"]) == ("complete", False, "no update within the bound")
+        assert rec["sets_after_finished"] == [] and rec["closing"]["closes_utc"] == "2026-11-10T13:05:07.784468Z"
         assert rec["closing"]["bound_source"] == "settings table entry pool_closing_bound_hours"
     values = {k: v for k, v in st.values.items() if k != "pool_closing_bound_hours"}
-    monkeypatch.setattr(ec, "load_settings", lambda *a, **k: dataclasses.replace(st, status="in_force", values=values, provisional_entries=()))
-    with pytest.raises(SystemExit, match="in force and carries no entry pool_closing_bound_hours"):
+    monkeypatch.setattr(ec, "load_settings", lambda *a, **k: dataclasses.replace(st, values=values))
+    with pytest.raises(SystemExit, match="carries no entry pool_closing_bound_hours"):
         hw.pool_closing_bound()
 
 
