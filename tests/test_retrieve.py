@@ -911,7 +911,9 @@ def test_single_phase_is_the_retrieval_as_before_and_says_so(tmp_path, monkeypat
 
 # ----------------------------------------------------------------------------- Deviation 67 (iii): the one re-run, and the normal dispatch
 V018 = "a0053ae9d28653586e5e77b9aa6e475da06c4fa9"                 # main with pre-registration v0.18.0, before the pipeline and runner branches of 10-11 Nov 2026
-V018_CHANGED = {"write_job_bundle", "execute_joblist", "write_ids_file", "retrieve_jobs", "main"}   # the functions of v0.18.0 this file's history changed since
+# the functions of v0.18.0 this file's history changed since; ``properties_at`` by review correction CI2-7 (a retrieval only: the label of a
+# set the service did not return for the time asked)
+V018_CHANGED = {"write_job_bundle", "execute_joblist", "write_ids_file", "retrieve_jobs", "main", "properties_at"}
 
 
 def _frozen(now):
@@ -1277,3 +1279,41 @@ def test_ci2_1_the_other_jobs_of_the_list_go_on(tmp_path, monkeypatch, capsys, s
     assert job["status"] == "metadata only" and not (d / "result.json").exists() and all((d / f).is_file() for f in POOL_FILES)
     rp.check_phase1_bundle(d)
     assert hw.first_phase_refusal(kw["run_root"], fresh) is None                        # a first-phase record: the phase may be repeated on it
+
+
+# ------------------------------------------------------------------------------------------------ review correction CI2-7
+
+@pytest.mark.parametrize("service", ["returns nothing for the time asked", "answers every time with its newest set"])
+def test_ci2_7_only_a_set_returned_for_the_time_asked_is_the_update_at_dispatch(tmp_path, monkeypatch, service):
+    """Review correction CI2-7 (code review part 4, Section 4.1 finding 1): when ``backend.properties(datetime=created)`` returns
+    nothing, or a set stamped after the creation time, the properties of the bundle are labelled live, ``dispatch_update`` is
+    null, and nothing says "properties at job creation". The live set used to be recorded as the update in force at dispatch."""
+    ec, rp = _committed_side()
+    import gradvar.hardware as hw
+    _switch(monkeypatch, "in_force")
+    ids, kw, jobs, history = _two_phase(hw, monkeypatch, tmp_path)
+    backend = hw.get_backend("ibm_marrakesh")
+    created = jobs[0].creation_date
+    real = history.properties
+    if service == "returns nothing for the time asked":
+        monkeypatch.setattr(backend, "properties", lambda refresh=False, datetime=None: None if datetime == created else real(refresh=refresh, datetime=datetime), raising=False)
+    else:
+        monkeypatch.setattr(backend, "properties", lambda refresh=False, datetime=None: _Props(history.sets[-1]), raising=False)
+    try:
+        hw.retrieve_jobs(ids, metadata_only=True, **kw)
+    except SystemExit:
+        pass                                                                            # the phase may end non-zero for a stopped pool; the record is what counts here
+    assert TimedJob.result_calls == 0
+    for d in _bundles(tmp_path).values():
+        job = json.loads((d / "job.json").read_text())
+        props = json.loads((d / "properties.json").read_text())
+        assert job["retrieval"]["properties_source"].startswith("live at retrieval (backend.properties(datetime=")
+        assert ("returned no set" if service.startswith("returns nothing") else "after the time asked") in job["retrieval"]["properties_source"]
+        assert job["retrieval"]["execution_pool"]["dispatch_update"] is None
+        assert props["_label"].startswith("properties live at retrieval, not at job creation") and props["_source"] == job["retrieval"]["properties_source"]
+        assert props["last_update_date"].startswith("2026-11-10 16:34:05")                # the live set, labelled as what it is
+        if service.startswith("answers"):                                               # such a service gives no pool: the two records of the set at running disagree
+            assert job["retrieval"]["execution_pool"]["status"] == "stopped"
+    # the function itself: a set stamped before the time asked is the one retrieved
+    p, label = hw.properties_at(SimpleNamespace(properties=real), created)
+    assert label.startswith("retrieved: backend.properties(datetime=") and hw._properties_stamp(p) < created

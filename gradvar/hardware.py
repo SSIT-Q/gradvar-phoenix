@@ -2768,10 +2768,25 @@ def dispatch_update(props_dict: dict | None, source: str | None) -> dict | None:
     return dict(last_update_date=ref["last_update_date"], sha256=ref["sha256"], value_sha256=ref["value_sha256"], source=source)
 
 
+def _properties_stamp(props) -> datetime | None:
+    """``last_update_date`` of a properties object as a UTC instant, or None when it carries none that can be read."""
+    if props is None:
+        return None
+    try:
+        u = getattr(props, "last_update_date", None)
+        if u is None:
+            u = props.to_dict().get("last_update_date")
+        return None if u is None else _parse_utc(u.isoformat() if isinstance(u, datetime) else str(u).strip().replace(" ", "T", 1))
+    except Exception:
+        return None
+
+
 def properties_at(backend, when) -> Tuple[Any, str]:
     """``backend.properties(datetime=when)``, the calibration in force when the job was created, labelled ``retrieved``;
     a backend that does not take ``datetime`` (fake backends) or returns None falls back to the live properties, and the
-    label says so."""
+    label says so. Only a set the service returned for the time asked is labelled ``retrieved`` (review correction CI2-7): when
+    the call returns nothing the label says live, and a set stamped after the time asked, which cannot have been in force at
+    it, is treated as not returned."""
     label = f"retrieved: backend.properties(datetime={_utc_iso(when)})"
     props = None
     if when is not None:
@@ -2781,6 +2796,14 @@ def properties_at(backend, when) -> Tuple[Any, str]:
             label = f"live at retrieval (backend.properties() takes no datetime: {type(e).__name__})"
         except Exception as e:  # pragma: no cover - network errors
             label = f"live at retrieval (backend.properties(datetime=...) failed: {type(e).__name__})"
+        else:
+            stamp = _properties_stamp(props)
+            if props is None:
+                label = f"live at retrieval (backend.properties(datetime={_utc_iso(when)}) returned no set)"
+            elif stamp is not None and stamp > _parse_utc(_utc_iso(when)):
+                props = None
+                label = (f"live at retrieval (backend.properties(datetime={_utc_iso(when)}) returned a set stamped {_utc_iso(stamp)}, after the "
+                         "time asked: not the set in force at it)")
     else:
         label = "live at retrieval (job creation date unknown)"
     if props is None:
