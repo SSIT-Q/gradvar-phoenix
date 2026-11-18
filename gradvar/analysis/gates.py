@@ -525,7 +525,8 @@ def _job_rungs(job: dict) -> List[Dict]:
 def _gate2_e_row67(run: RunData, snapshot_csv: str | Path | None, reference_reset_error: Dict[int, float] | None, st) -> Dict:
     """Row 67 (``ROW67_TEXT``). Per job of the run: its pool (the service's sets of the bundle, else the committed snapshots,
     C65-4), E(J) and B(J); the placed elements of each of its rungs over a cut on E, split into those on the observable edge or
-    in its L = 2 cone (they pause) and the others (handled per job by Deviation 65, listed); the same on B, reported, deciding
+    in its L = 2 cone (they pause) and the others (handled per job by Deviation 65, listed); the zone elements over a cut on any
+    set of the pool stamped after S0, the bracket B among them, each with its stamp (``bracket_zone``; CI-6), reported, deciding
     only if the table says so; the clause of Deviations 49 and 52 on E, logged. Then the reset error of the dial patch,
     unfolded with the day's readout references: at or above 2e-2 pauses; the 1.5x ratio against the reference run is logged.
     ``fail`` means pause. A job whose E cannot be built, or a reset probe that cannot be unfolded, makes the gate not
@@ -550,7 +551,7 @@ def _gate2_e_row67(run: RunData, snapshot_csv: str | Path | None, reference_rese
             E, B = ec.execution_calibration(pool, st), ec.bracket_calibration(pool, st)
             backend = str(b.job.get("backend_name") or "ibm_phoenix")
             fe = ec.write_calibration(E, Path(tmp) / jid, backend)
-            fb = ec.write_calibration(B, Path(tmp) / jid, backend) if B is not None else None      # None: complete without a bracket
+            later = [(s, ec.write_calibration(s, Path(tmp) / jid, backend)) for s in ec.later_sets(pool, st)]   # every set stamped after S0; B is the last when there is one
             readout = _readout_of(E["properties"])
             rec.update(E=E["value_sha256"], B=B["value_sha256"] if B is not None else None, bracket=B is not None,
                        t_running=E["t_running"], t_finished=E["t_finished"], pool_updates=pool.updates(),
@@ -561,10 +562,12 @@ def _gate2_e_row67(run: RunData, snapshot_csv: str | Path | None, reference_rese
                     item = dict(el, job_id=jid, rung_n=r["n"], edge=r["edge"], zone=z if z in (ec.ZONE_EDGE, ec.ZONE_L2) else "outside_zone")
                     (pausing if z in (ec.ZONE_EDGE, ec.ZONE_L2) else per_job).append(item)
                 on_e = {ec._identity(x) for x in ec.over_cut_elements(r, fe["csv"], fe["properties"])}
-                for el in (ec.over_cut_elements(r, fb["csv"], fb["properties"]) if fb is not None else []):
-                    z = ec.zone(r, ec.ZONE_L, el, st)
-                    if z in (ec.ZONE_EDGE, ec.ZONE_L2):
-                        bracket_zone.append(dict(el, job_id=jid, rung_n=r["n"], edge=r["edge"], zone=z, also_on_E=ec._identity(el) in on_e))
+                for s, fl in later:
+                    for el in ec.over_cut_elements(r, fl["csv"], fl["properties"]):
+                        z = ec.zone(r, ec.ZONE_L, el, st)
+                        if z in (ec.ZONE_EDGE, ec.ZONE_L2):
+                            bracket_zone.append(dict(el, job_id=jid, rung_n=r["n"], edge=r["edge"], zone=z, also_on_E=ec._identity(el) in on_e,
+                                                     stamp=s["stamp"], restamps=s["restamps"], is_bracket=s["is_bracket"]))
                 patch, edge = ec.placement_patch(r)
                 cone = set()
                 for L in r["depths"]:
@@ -592,8 +595,9 @@ def _gate2_e_row67(run: RunData, snapshot_csv: str | Path | None, reference_rese
     parts.append("over a cut on the observable edge or in its L = 2 cone: " + (", ".join(name(x) for x in pausing) if pausing else "none"))
     seen = sorted({ec._name(x) for x in per_job})
     parts.append("over a cut elsewhere on a placed rung, handled per job by Deviation 65 (no pause): " + (", ".join(seen) if seen else "none"))
-    parts.append(f"bracket calibration ({'decides' if bracket_decides else 'reported, does not decide'}): "
-                 + (", ".join(name(x) for x in b_only) + " in the zone on B and not on E" if b_only else "no zone element over a cut on B only"))
+    parts.append(f"sets of the pool stamped after S0, the bracket included ({'decide' if bracket_decides else 'reported, do not decide'}): "
+                 + (", ".join(f"{name(x)} on {x['stamp']}" for x in b_only) + " in the zone and not on E" if b_only
+                    else "no zone element over a cut on one of them only"))
     no_b = sorted(j for j, r in jobs.items() if r.get("bracket") is False)
     if no_b:
         parts.append(f"no bracket for {len(no_b)} job(s) (no change of values stamped within the bound after finished): " + ", ".join(no_b))

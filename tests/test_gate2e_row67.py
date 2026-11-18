@@ -146,7 +146,13 @@ def test_8e_row_67_pauses_on_an_element_of_the_zone_and_only_there(S, on, tmp_pa
         _entry(sets["1135"], 75, "readout_error").update(value=4e-2, date="2026-11-10 11:15:00+00:00")
         _entry(sets["t1314"], 75, "readout_error").update(value=4e-2, date="2026-11-10 11:15:00+00:00")
     bundle(tmp_path / "late", jid, S, change=late)
-    assert gates.gate2_e(run_of(tmp_path / "late"), SNAPSHOT, None, settings=on)["result"] == "pass"
+    v = gates.gate2_e(run_of(tmp_path / "late"), SNAPSHOT, None, settings=on)
+    assert v["result"] == "pass"
+    # CI-6 (cases 56, 57 of the code review): the element is over the cut on the update published inside the job's window and normal
+    # again at the closing update. It is not on E and not on B; the verdict names it all the same, with the stamp of that update
+    assert [(x["qubit"], x["zone"], x["also_on_E"], x["stamp"], x["is_bracket"], x["restamps"]) for x in v["bracket_zone"]] == \
+        [(75, "observable_edge", False, "2026-11-10T11:20:04Z", False, ["2026-11-10T11:35:39Z", "2026-11-10T13:14:38Z"])]
+    assert "Q75 (readout) [observable_edge, job dbpfnr0qtr0c738ebeng] on 2026-11-10T11:20:04Z in the zone and not on E" in v["note"]
 
 
 def test_8e_the_bracket_is_reported_and_an_in_force_table_cannot_make_it_decide(S, on, tmp_path):
@@ -159,7 +165,8 @@ def test_8e_the_bracket_is_reported_and_an_in_force_table_cannot_make_it_decide(
     run = run_of(tmp_path / "b")
     v = gates.gate2_e(run, SNAPSHOT, None, settings=on)
     assert v["result"] == "pass" and [(x["qubit"], x["zone"], x["also_on_E"]) for x in v["bracket_zone"]] == [(75, "observable_edge", False)]
-    assert "Q75 (readout) [observable_edge, job dbpfnr0qtr0c738ebeng] in the zone on B and not on E" in v["note"]
+    assert [(x["stamp"], x["is_bracket"], x["restamps"]) for x in v["bracket_zone"]] == [("2026-11-10T13:37:31Z", True, ["2026-11-10T16:34:05Z"])]   # case 58: on the closing update only
+    assert "Q75 (readout) [observable_edge, job dbpfnr0qtr0c738ebeng] on 2026-11-10T13:37:31Z in the zone and not on E" in v["note"]
     table = json.loads(ec.SETTINGS_FILE.read_text(encoding="utf-8"))
     table["status"] = "in_force"
     table["settings"]["bracket_decides_gate2e"]["value"] = True

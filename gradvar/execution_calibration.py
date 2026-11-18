@@ -49,7 +49,8 @@ READ, READ_WITH_FLAG, NOT_EVALUABLE = "read", "read_with_flag", "not_evaluable"
 READING_ORDER = {READ: 0, READ_WITH_FLAG: 1, None: 2, NOT_EVALUABLE: 3}      # None: unclassified. The strictest reading is the largest.
 GROUND_ZONE, GROUND_LINE, GROUND_NO_E = "zone", "line", "no_execution_calibration"
 CALIBRATION_GROUNDS = (GROUND_ZONE, GROUND_LINE, "coherence_floor")           # review Section 5.3 (a); the third is Deviation 64's, set by its code
-FLAG_CONE, FLAG_BRACKET_ZONE, FLAG_SNAPSHOTS = "element over a cut elsewhere in the cone", "zone element over a cut on B only", "E from committed snapshots"
+FLAG_CONE, FLAG_SNAPSHOTS = "element over a cut elsewhere in the cone", "E from committed snapshots"
+FLAG_BRACKET_ZONE = "zone element over a cut on a later set of the pool and not on E"      # any set stamped after S0, the bracket B included (CI-6, CD-3)
 FLAG_NO_BRACKET = "no bracket"                  # no change of values stamped within the pool bound after finished (code review 8 (a) (i))
 CASE_PENDING, CASE_NOT_EVALUABLE = "pending", "not_evaluable"
 SOURCE_SERVICE, SOURCE_SNAPSHOTS = "service", "committed_snapshots"
@@ -724,6 +725,25 @@ def bracket_calibration(pool: Pool, settings: Settings) -> Dict[str, Any]:
     return _record("bracket", "first_update_at_or_after_finished_as_published", pool, props, settings, {"*": {pool.updates()[-1]: sum(1 for _ in _iter_entries(props))}})
 
 
+def later_sets(pool: Pool, settings: Settings) -> List[Dict[str, Any]]:
+    """Every set of the pool stamped after S0, as published, each with its stamp: the updates after S0, in the order of their
+    publication, the closing update B last when the pool has a bracket (``is_bracket``). The flag of C65-6 reads all of them and
+    not only B (code review part 2, Section 8 item 1 (iii), corrections CI-6 and CD-3): a zone element over a cut on an update
+    published inside the job's window and normal again at the closing update would otherwise appear nowhere. A re-stamp repeats
+    the values of its update and is named with it (``restamps``); the re-stamps of S0 repeat S0."""
+    if pool.status != "complete":
+        raise PoolPending(f"job {pool.job_id}: {'; '.join(pool.notes) or 'the pool is not complete'}")
+    stamps = pool.updates()
+    restamps = list(pool.restamps) + [()] * (len(pool.sets) - len(pool.restamps))
+    out = []
+    for i in range(1, len(pool.sets)):
+        props = copy.deepcopy(pool.sets[i])
+        rec = _record("pool_set", "set_of_the_pool_stamped_after_s0_as_published", pool, props, settings, {"*": {stamps[i]: sum(1 for _ in _iter_entries(props))}})
+        rec.update(stamp=stamps[i], restamps=list(restamps[i]), is_bracket=bool(pool.bracket and i == len(pool.sets) - 1))
+        out.append(rec)
+    return out
+
+
 def calibration_csv_text(props: Dict) -> str:
     """The calibration CSV of a properties dict, through ``scripts/snapshot_calibration.properties_to_rows`` (the function the
     snapshot workflow writes every committed CSV with)."""
@@ -838,8 +858,9 @@ def _identity(e: Dict[str, Any]) -> tuple:
 
 def classify(rung: Dict, L: int, elements: Sequence[Dict[str, Any]], p_execution: Optional[float], p_dispatch: Optional[float], settings: Settings,
              bracket_elements: Optional[Sequence[Dict[str, Any]]] = None, from_committed_snapshots: bool = False, no_bracket: bool = False) -> Dict[str, Any]:
-    """The reading of one measured point, from the over-cut elements of its placement on E(J) (``elements``) and on B(J)
-    (``bracket_elements``) and from its execution-time and dispatch-time rows (``p_execution``, ``p_dispatch``: the value the
+    """The reading of one measured point, from the over-cut elements of its placement on E(J) (``elements``) and on the sets of
+    the pool stamped after S0, the bracket B(J) included (``bracket_elements``; each may carry the ``stamps`` of the sets it is
+    over a cut on) and from its execution-time and dispatch-time rows (``p_execution``, ``p_dispatch``: the value the
     point's test reads, both on one estimator).
 
     * an element over a cut on E on the observable edge or in the L = 2 cone: not evaluable (ground ``zone``);
@@ -849,7 +870,7 @@ def classify(rung: Dict, L: int, elements: Sequence[Dict[str, Any]], p_execution
     * else: read; the elements outside the cone are recorded.
 
     Three further flags turn a reading of ``read`` into ``read_with_flag`` and change no other reading: a zone element that is
-    over a cut on B and not on E (C65-6, when ``bracket_zone_flag`` is on), an E built from the committed snapshots (C65-4),
+    over a cut on a set of the pool stamped after S0 and not on E (C65-6 as corrected by CI-6, when ``bracket_zone_flag`` is on), an E built from the committed snapshots (C65-4),
     and a pool without a bracket (``no_bracket``: no change of values was stamped within the bound after finished).
     ``grounds`` lists why a point is not evaluable; ``flags`` every flag raised."""
     placed = [dict(e, zone=zone(rung, L, e, settings)) for e in elements]
@@ -887,8 +908,9 @@ def classify(rung: Dict, L: int, elements: Sequence[Dict[str, Any]], p_execution
             out["flag"] = True
             out["flags"].append(FLAG_BRACKET_ZONE)
             if out["reading"] == READ:
-                out.update(reading=READ_WITH_FLAG, reason="an element on the observable edge or in its L = 2 cone is over a cut on the bracket calibration and "
-                           "not at execution: " + ", ".join(_name(e) for e in b_only))
+                out.update(reading=READ_WITH_FLAG, reason="an element on the observable edge or in its L = 2 cone is over a cut on a set of the pool stamped after "
+                           "S0 (the bracket included) and not at execution: "
+                           + ", ".join(_name(e) + (f" [{', '.join(e['stamps'])}]" if e.get("stamps") else "") for e in b_only))
     if from_committed_snapshots:
         out["flag"] = True
         out["flags"].append(FLAG_SNAPSHOTS)

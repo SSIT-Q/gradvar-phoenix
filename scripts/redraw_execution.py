@@ -137,8 +137,8 @@ def build_calibrations(ids: Dict, runs_root: Path, st: ec.Settings, calibrations
         elif pool is None:
             rec.update(status="not_evaluable", why="; ".join(x for x in (case["service_problem"], case["snapshot_problem"]) if x))
         else:
-            rec.update(pool=pool.record(), E=ec.execution_calibration(pool, st), B=ec.bracket_calibration(pool, st), status=BUILT[pool.source],
-                       why=case["service_problem"])
+            rec.update(pool=pool.record(), E=ec.execution_calibration(pool, st), B=ec.bracket_calibration(pool, st), later=ec.later_sets(pool, st),
+                       status=BUILT[pool.source], why=case["service_problem"])
         out.append(rec)
     return out
 
@@ -152,7 +152,11 @@ def group_by_execution_calibration(jobs: List[Dict[str, Any]]) -> List[Dict[str,
             continue
         snap = bool(j["E"]["from_committed_snapshots"])
         no_b = j["B"] is None                              # CI-5: complete without a bracket; such jobs form their own group (their readings carry a flag)
-        g = groups.setdefault((j["E"]["value_sha256"], snap, no_b), dict(E=j["E"], jobs=[], brackets={}, from_committed_snapshots=snap, no_bracket=no_b))
+        g = groups.setdefault((j["E"]["value_sha256"], snap, no_b), dict(E=j["E"], jobs=[], brackets={}, later={}, from_committed_snapshots=snap, no_bracket=no_b))
+        for s in j.get("later") or []:                     # CI-6: every set of the job's pool stamped after S0, the bracket among them
+            x = g["later"].setdefault(s["value_sha256"], dict(record=s, stamps=[], jobs=[]))
+            x["stamps"] = sorted(set(x["stamps"]) | {s["stamp"]})
+            x["jobs"].append(j["job_id"])
         g["jobs"].append(dict(job_id=j["job_id"], tag=j["tag"], t_running=j["E"]["t_running"], t_finished=j["E"]["t_finished"],
                               bracket=None if no_b else j["B"]["value_sha256"]))
         if not no_b:
@@ -163,6 +167,18 @@ def group_by_execution_calibration(jobs: List[Dict[str, Any]]) -> List[Dict[str,
 # --------------------------------------------------------------------------------------------------------------
 # The rows of a list
 # --------------------------------------------------------------------------------------------------------------
+
+def write_group_files(g: Dict[str, Any], cal_out: Path, backend: str = "ibm_phoenix") -> None:
+    """Write the calibrations of a group: E (``files``), the brackets of its jobs (``bracket_files``, by value hash) and every set
+    of its jobs' pools stamped after S0 (``later_files``, by value hash, each with the stamps it was published under and the jobs
+    whose pool holds it; a bracket is written once and is among them)."""
+    g["files"] = ec.write_calibration(g["E"], cal_out, backend=backend)
+    g["bracket_files"] = {bh: ec.write_calibration(B, cal_out, backend=backend) for bh, B in g["brackets"].items()}
+    g["later_files"] = {}
+    for lh, x in sorted((g.get("later") or {}).items(), key=lambda kv: kv[1]["stamps"]):
+        files = g["bracket_files"].get(lh) or ec.write_calibration(x["record"], cal_out, backend=backend)
+        g["later_files"][lh] = dict(files, stamps=list(x["stamps"]), jobs=list(x["jobs"]), bracket=lh in g["bracket_files"])
+
 
 def rung_of(jl: Dict, item: Dict) -> Tuple[str, Dict]:
     for name, r in jl["placement"]["rungs"].items():
@@ -327,8 +343,9 @@ def measured_items(jl: Dict) -> List[Dict[str, Any]]:
 def classify_items(jl: Dict, group: Dict[str, Any], rows_E: Dict[tuple, Dict], dispatch: Dict[tuple, Dict], st: ec.Settings) -> List[Dict[str, Any]]:
     """Every measured item of the list on the group's E: the over-cut elements of its rung, their zones, and the reading. The
     decision line is read on the item's row that moved most; an item that is flagged and lacks a row is left unclassified,
-    with the reason, never read. An element of the zone that is over a cut on a bracket calibration of the group's jobs and not on
-    E flags the item (C65-6), and so does an E built from the committed snapshots (C65-4). A ratio is formed only between two rows on the same estimator (both truncated or both
+    with the reason, never read. An element of the zone that is over a cut on a set stamped after S0 of the pool of one of the
+    group's jobs (the brackets included; ``later_files``, each element with the stamps of those sets) and not on E flags the item
+    (C65-6 as corrected by CI-6), and so does an E built from the committed snapshots (C65-4). A ratio is formed only between two rows on the same estimator (both truncated or both
     sampled): a truncated value and a sampled one of the same row differ by more than the shifts the line is meant to read.
     A ratio of sampled values carries its standard error (``se_ln_ratio``); the line is read on the ratio itself."""
     out, cache, bcache = [], {}, {}
@@ -337,9 +354,11 @@ def classify_items(jl: Dict, group: Dict[str, Any], rows_E: Dict[tuple, Dict], d
         if it["rung_name"] not in cache:
             cache[it["rung_name"]] = ec.over_cut_elements(it["rung"], group["files"]["csv"], group["files"]["properties"])
             seen: Dict[tuple, Dict] = {}
-            for bf in (group.get("bracket_files") or {}).values():                     # the union over the brackets of the group's jobs
-                for el in ec.over_cut_elements(it["rung"], bf["csv"], bf["properties"]):
-                    seen.setdefault(ec._identity(el), el)
+            later = group.get("later_files") if group.get("later_files") is not None else group.get("bracket_files") or {}
+            for lf in later.values():                                                  # the union over the sets stamped after S0 of the pools of the group's jobs
+                for el in ec.over_cut_elements(it["rung"], lf["csv"], lf["properties"]):
+                    x = seen.setdefault(ec._identity(el), dict(el, stamps=[]))
+                    x["stamps"] = sorted(set(x["stamps"]) | set(lf.get("stamps") or []))
             bcache[it["rung_name"]] = list(seen.values())
         elements, on_b = cache[it["rung_name"]], bcache[it["rung_name"]]
         ratios = []
@@ -484,16 +503,13 @@ def main(argv=None) -> int:
     t0 = time.time()
     written = []
     for g in groups:
-        files = ec.write_calibration(g["E"], cal_out, backend=str(ids.get("backend") or "ibm_phoenix"))
-        g["files"] = files
+        write_group_files(g, cal_out, backend=str(ids.get("backend") or "ibm_phoenix"))
+        files = g["files"]
         tasks = []
         stamp = _stamp(files["csv"])
         for t in plan:
             tasks.append(dict(t, csv=files["csv"], props=files["properties"], stamp=stamp, calibration_kind="execution", calibration_hash=g["E"]["value_sha256"], settings=settings))
-        g["bracket_files"] = {}
-        for bh, B in g["brackets"].items():
-            bf = ec.write_calibration(B, cal_out, backend=str(ids.get("backend") or "ibm_phoenix"))
-            g["bracket_files"][bh] = bf
+        for bh, bf in g["bracket_files"].items():
             if bh == g["E"]["value_sha256"]:
                 continue                                   # the bracket holds the same values: one set of rows serves both
             for t in plan:
@@ -520,7 +536,7 @@ def main(argv=None) -> int:
                    groups=[dict(E=g["E"]["value_sha256"], E_sha256=g["E"]["sha256"], rule=g["E"]["rule"], from_committed_snapshots=g["from_committed_snapshots"],
                                 no_bracket=g["no_bracket"], jobs=g["jobs"],
                                 pool_updates=[s["last_update_date"] for s in g["E"]["pool"]["sets"]], pool_restamps=[s["restamps"] for s in g["E"]["pool"]["sets"]],
-                                cases=g["E"].get("cases"), files=files, bracket_files=g["bracket_files"], ages_at_running=g["E"]["ages_at_running"],
+                                cases=g["E"].get("cases"), files=files, bracket_files=g["bracket_files"], later_set_files=g["later_files"], ages_at_running=g["E"]["ages_at_running"],
                                 sources=g["E"]["sources"], classification=classification, rows=rows)],
                    not_evaluable=[], runtime_s=round(time.time() - t0, 1))
         out_dir.mkdir(parents=True, exist_ok=True)

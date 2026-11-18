@@ -661,6 +661,23 @@ def test_ci5_the_pool_bound_no_update_within_it_gives_e_without_a_bracket(S, st,
     assert ec.classify(rung, 8, [q75], None, None, st, no_bracket=True)["reading"] == ec.NOT_EVALUABLE
 
 
+def test_ci6_the_sets_of_the_pool_stamped_after_s0(S, st):
+    """``later_sets``: every update after S0 as published, each with its stamp and the re-stamps that repeat it; the closing
+    update is the last and is marked as the bracket; a pool without a bracket has none marked; a pending pool gives nothing."""
+    main = ec.build_pool(MAIN[0], MAIN[1], MAIN[2], S["0907"], S["0907"], [S["t1120"], S["1135"]], [S["t1314"], S["1337"], S["t1634"]], True)
+    later = ec.later_sets(main, st)
+    assert [(x["stamp"], x["is_bracket"], x["restamps"], x["kind"]) for x in later] == \
+        [("2026-11-10T11:20:04Z", False, ["2026-11-10T11:35:39Z", "2026-11-10T13:14:38Z"], "pool_set"), ("2026-11-10T13:37:31Z", True, ["2026-11-10T16:34:05Z"], "pool_set")]
+    assert [x["value_sha256"] for x in later] == [ec.value_sha256(S["t1120"]), ec.value_sha256(S["1337"])] and later[1]["value_sha256"] == ec.bracket_calibration(main, st)["value_sha256"]
+    assert later[0]["properties"] == S["t1120"] and later[0]["rule"] == "set_of_the_pool_stamped_after_s0_as_published"
+    blockc = _pool(S, BLOCKC, "1135", [], "1337")
+    assert [(x["stamp"], x["is_bracket"]) for x in ec.later_sets(blockc, st)] == [("2026-11-10T13:37:31Z", True)]
+    nob = ec.build_pool("early", "2026-11-10T09:10:00Z", "2026-11-10T11:25:00Z", S["0907"], S["0907"], [S["t1120"]], [S["1135"]], True, asked_utc="2026-11-10T13:30:00Z", bound_hours=1.0)
+    assert nob.bracket is False and [(x["stamp"], x["is_bracket"], x["restamps"]) for x in ec.later_sets(nob, st)] == [("2026-11-10T11:20:04Z", False, ["2026-11-10T11:35:39Z"])]
+    with pytest.raises(ec.PoolPending):
+        ec.later_sets(_pool(S, BLOCKC, "1135", [], None), st)
+
+
 def test_c_the_flags_that_do_not_come_from_e(nov10, st, tmp_path):
     """C65-6: a zone element over a cut on B and not on E flags the point. C65-4: so does an E from the committed snapshots.
     Neither changes a reading other than 'read'."""
@@ -671,6 +688,10 @@ def test_c_the_flags_that_do_not_come_from_e(nov10, st, tmp_path):
     both = ec.classify(rung, 8, [q75], 1.0, 1.0, st, bracket_elements=[q75])                 # over the cut on E too: the rule on E decides
     assert both["reading"] == ec.NOT_EVALUABLE and both["bracket_zone_elements"] == [] and both["flags"] == []
     assert ec.classify(rung, 8, [], None, None, _settings_with(tmp_path, bracket_zone_flag=False), bracket_elements=[q75])["reading"] == ec.READ
+    # CI-6: the element may come from any set of the pool stamped after S0, and carries the stamps of those sets
+    c = ec.classify(rung, 8, [], None, None, st, bracket_elements=[dict(q75, stamps=["2026-11-10T11:20:04Z"])])
+    assert c["flags"] == [ec.FLAG_BRACKET_ZONE] and c["bracket_zone_elements"][0]["stamps"] == ["2026-11-10T11:20:04Z"]
+    assert "stamped after S0 (the bracket included) and not at execution: Q75 (readout) [2026-11-10T11:20:04Z]" in c["reason"]
     # the 10 Nov bracket (13:37:31Z): Q25, Q98 and Q100 are over a cut, none of them in the zone, so B raises no flag
     assert [ec._name(e) for e in nov10["blockc_bracket"]] == ["Q25 (init)", "Q98 (readout)", "Q100 (init)"]
     c = ec.classify(rung, 8, nov10["blockc"], 1.0105, 1.0, st, bracket_elements=nov10["blockc_bracket"])

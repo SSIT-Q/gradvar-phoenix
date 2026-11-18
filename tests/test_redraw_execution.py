@@ -4,6 +4,7 @@ against, pending and stopped pools, and the classification written beside the ro
 tree from the committed 10 Nov properties files and the jobs' committed timestamps; no result file and no measured value
 is read (the one result file here is an empty stand-in the script must refuse on, by name)."""
 import ast
+import copy
 import hashlib
 import json
 import math
@@ -132,6 +133,9 @@ def test_plan_of_the_replication_list(S, tmp_path):
     assert g["pool_restamps"] == [[], ["2026-11-10T11:35:39Z", "2026-11-10T13:14:38Z"], ["2026-11-10T16:34:05Z"]]
     assert Path(g["files"]["csv"]).name == f"ibm_phoenix_2026-11-10T111205Z_execution_{g['E'][:12]}.csv" and Path(g["files"]["csv"]).is_file()
     assert sorted(g["bracket_files"]) == [ec.value_sha256(S["1337"])]
+    # CI-6: every set of the two pools stamped after S0 is written and read for the flag, the bracket among them
+    assert sorted((tuple(x["stamps"]), x["bracket"], len(x["jobs"])) for x in g["later_set_files"].values()) == \
+        [(("2026-11-10T11:20:04Z",), False, 2), (("2026-11-10T13:37:31Z",), True, 2)]
     c = g["classification"]
     assert len(c) == 1 and c[0]["item"] == "point 0: n=82 L=8 k=1" and c[0]["reading"] is None and c[0]["flag"] is True      # flagged, and no row yet: not read
     assert "decision line" in c[0]["reason"] and sorted((e["qubit"], e["zone"]) for e in c[0]["elements"]) == [(31, "cone"), (98, "cone")]
@@ -294,6 +298,43 @@ def test_classification_reads_the_line_on_the_row_that_moved_most(S, tmp_path):
     assert c["reading"] is None
     assert all(r["estimator_execution"] == "truncated" and r["estimator_dispatch"] == "truncated" and r["se_ln_ratio"] is None
                for r in rx.classify_items(jl, group, rows(1.0105, 1.0105), dispatch, st)[0]["ratios"])
+
+
+def test_ci6_the_flag_reads_every_set_of_the_pool_stamped_after_s0_each_with_its_stamp(S, tmp_path):
+    """CI-6. An edge qubit over the readout cut on the update published inside the job's window (11:20:04Z and its two re-stamps),
+    dated after the running time and normal again at the closing update (13:37:31Z): it is neither on E nor on B. The item is
+    flagged all the same, and the element carries the stamp of the set it was over the cut on."""
+    job = "dbpfnr0qtr0c738ebeng"
+    (c, r, f), s0, mid, after = JOBS[job]
+    st = ec.load_settings()
+    joblist = ROOT / json.loads(REPLICATION.read_text(encoding="utf-8"))["joblist"]
+    jl = json.loads(joblist.read_text(encoding="utf-8"))
+    dispatch = rx.dispatch_rows(jl, ROOT / "data" / "predictions")
+    keys = [("main_grid", "n100", 8, m, None) for m in rx.MODELS]
+    rows = {k: dict(dispatch[k], var_k1_pp=dispatch[k]["var_k1_pp"] * 1.0105) for k in keys}
+
+    def group(change, name):
+        sets = {k: copy.deepcopy(S[k]) for k in [s0] + mid + after}
+        for k in change:
+            next(e for e in sets[k]["qubits"][75] if e["name"] == "readout_error").update(value=4e-2, date="2026-11-10 11:15:00+00:00")
+        pool = ec.build_pool(job, r, f, sets[s0], sets[s0], [sets[m] for m in mid], [sets[a] for a in after], True)
+        rec = dict(job_id=job, tag="L0", status="built", E=ec.execution_calibration(pool, st), B=ec.bracket_calibration(pool, st), later=ec.later_sets(pool, st))
+        g = rx.group_by_execution_calibration([rec])[0]
+        rx.write_group_files(g, tmp_path / name)
+        return g
+    inside = group(("t1120", "1135", "t1314"), "inside")
+    assert [(x["stamps"], x["bracket"], x["jobs"]) for x in inside["later_files"].values()] == [(["2026-11-10T11:20:04Z"], False, [job]), (["2026-11-10T13:37:31Z"], True, [job])]
+    assert list(inside["bracket_files"]) == [ec.value_sha256(S["1337"])] and len({v["csv"] for v in inside["later_files"].values()}) == 2
+    assert not any(e.get("qubit") == 75 for e in ec.over_cut_elements(jl["placement"]["rungs"]["n100"], inside["files"]["csv"], inside["files"]["properties"]))   # not on E
+    c = rx.classify_items(jl, inside, rows, dispatch, st)[0]
+    assert c["flags"] == [ec.FLAG_CONE, ec.FLAG_BRACKET_ZONE] and c["reading"] == ec.READ_WITH_FLAG
+    assert [(e["qubit"], e["zone"], e["stamps"]) for e in c["bracket_zone_elements"]] == [(75, ec.ZONE_EDGE, ["2026-11-10T11:20:04Z"])]
+    # on the closing update as well: both stamps; on no later set: no such flag
+    both = group(("t1120", "1135", "t1314", "1337", "t1634"), "both")
+    assert rx.classify_items(jl, both, rows, dispatch, st)[0]["bracket_zone_elements"][0]["stamps"] == ["2026-11-10T11:20:04Z", "2026-11-10T13:37:31Z"]
+    plain = group((), "plain")
+    c = rx.classify_items(jl, plain, rows, dispatch, st)[0]
+    assert c["flags"] == [ec.FLAG_CONE] and c["bracket_zone_elements"] == []
 
 
 def test_a_ratio_is_formed_only_between_rows_on_the_same_estimator(S, tmp_path):
