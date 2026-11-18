@@ -39,6 +39,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "scripts"))
+
+import run_records as _records                                             # noqa: E402  (what counts as the record of a run)
 
 from gradvar.circuits import light_cone                                    # noqa: E402
 from gradvar.hardware import BUDGET_MODEL_VERSION, LEVEL2_LARGE_N_MIN, LEVEL2_MAX_PUBS, MAX_JOB_PARAM_MB, estimate_budget, load_joblist, max_experiments, properties_for_csv   # noqa: E402
@@ -499,12 +502,16 @@ def section3c_blockC_list(pl: dict) -> dict:
 
 
 def armed(path: Path) -> bool:
-    """True when the committed list at ``path`` has been armed (``dry_run`` false): it is then the record of a run and the generator
-    neither rewrites nor checks it (its placement block is the snapshot it ran on)."""
-    try:
-        return path.exists() and json.loads(path.read_text()).get("dry_run") is False
-    except (OSError, ValueError):
-        return False
+    """True when the committed list at ``path`` is the record of a run: it has been armed (``dry_run`` false) or dispatched (a job-ids
+    file under ``data/runs``; ``scripts/run_records.py``, no hard-coded names). The generator neither rewrites nor checks a record
+    (its placement block is the snapshot it ran on)."""
+    return _records.status_of_file(path)["record"]
+
+
+def record_conflicts(out: Path, names) -> list:
+    """Lists that were dispatched (job-ids file) and are un-armed again: the generator would regenerate the record of a run under
+    its own name. ``main`` refuses; the name of a list that must run again is the operator's decision."""
+    return [c for c in (_records.status_of_file(out / n)["conflict"] for n in names) if c]
 
 
 def day1_list(pl: dict, lists: dict) -> dict:
@@ -683,9 +690,12 @@ def main(argv=None) -> int:
         lists = {REPL_NAME: lists[REPL_NAME], REPL16_NAME: lists[REPL16_NAME]}
     if a.section3c:
         lists = {BLOCKC_NAME: lists[BLOCKC_NAME]}
-    kept = [n for n in lists if armed(out / n)]           # armed lists are run records: never rewritten, never checked against a newer snapshot
+    conflicts = record_conflicts(out, lists)
+    if conflicts:                                         # before anything is written or compared
+        raise SystemExit("refusing to regenerate: " + "; ".join(conflicts) + ". " + _records.DECISION)
+    kept = [n for n in lists if armed(out / n)]           # run records (armed or dispatched): never rewritten, never checked against a newer snapshot
     if kept:
-        print("kept (armed, dry_run false; the record of a run): " + ", ".join(kept))
+        print("kept (armed or dispatched; the record of a run): " + ", ".join(kept))
     if a.check:
         bad = [n for n, jl in lists.items() if n not in kept and (not (out / n).exists() or json.loads((out / n).read_text()) != jl)]
         print("differs: " + ", ".join(bad) if bad else "all committed lists match the generator")
