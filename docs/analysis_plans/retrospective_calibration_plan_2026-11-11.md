@@ -115,3 +115,36 @@ is unchanged.
 - **Where the definitions file does not settle a choice** (for instance how a point fed by more than one job is treated when one
   job is left out), the second worker does not choose: it computes every reading the text allows and reports them side by
   side, marked as not fixed in advance.
+
+## 10. Change of 18 Nov 2026, 20:29 UTC: the seal of Section 9 is lifted for the lead, on the operator's instruction, before v0.19.0
+
+On 18 Nov 2026 the operator (M. Owais) instructed the lead to open the results now ("open now"), after being told that the
+record must then say what follows. This section is committed before the lead reads any file of branch
+`retro-calibration-result`.
+
+- **What is opened.** Both passes of the join and tests at 72609557de71c38b8013bb2e566f707b244848a3 (raw variance, listed at
+  daefc84e; signal variance, listed at 9d324880). The independent check of Section 9 is in progress: the branch stands at
+  85a8a95953b11b410031c807d32409efae40aadf with the checker's own scripts and outputs under `result/check/` and no verdict yet. The results are read
+  unchecked and are reported as unchecked.
+- **Who knows the results from this time.** The lead and the operator. The lead assembles v0.19.0. **Deviations 64, 65 and 67
+  are therefore adopted by a lead who has seen these results**; the sentence of the status line and of Section 9 that the
+  result cannot influence the rules under which day 3 is read no longer holds for the lead.
+- **What was fixed before this time.** The heads below, and the corrections ruled by the independent code review of 12 Nov 2026
+  (parts 2, 3 and 4: CI-1 to CI-16, CD-1 to CD-8, CE-1 to CE-6, CF-1 to CF-8, CG-1 to CG-6, CH-1, CI2-1 to CI2-15), all of
+  which the lead adopted on 12 Nov 2026. A change to the text of row 64, 65 or 67, or to their code, that is not one of those
+  corrections and is made after this time is marked in the row's record as decided with knowledge of these results. One such
+  decision is known to be open at this time: which floor replaces the closed form of Deviation 33 in row 64 (review part 3).
+  - `dev64-dial-channel`: a4a02d9d02f3ed9f43640ee75818c38c35041655
+  - `dev65-execution-calibration`: 3a7fd6ec2d1f96f34b032c20164087c97979b97f
+  - `dev67-gate2e-scope`: 0e6e4b6e886fd33dd90824f8e1b5c0e4857628fe
+  - `dev64-corrections`: 834b52cb4b3533c809b8578fc041f37688301ced
+  - `dev65-corrections`: 45a2b3a0d5b492cc0206b609b087bcbf1cfd93c8
+  - `runner-corrections`: f51e0b6460cc7c3f849e8392662348d606877533
+  - `dev64-implementation`: 6072f32e570cf1188831d77eea585b9df130952c
+  - `dev65-implementation`: 70b4c5cac260a2a307247f07aaa376c4883e2e70
+  - `runner-day3-2026-11-11`: 348a83c2353890875ed4b3c6593f2e9253baeade
+  - `main`: 34904009771c61b18c99eba788e7a3822953f47b
+- **Who stays barred.** The authors of the drafts and of the code of Deviations 64, 65 and 67, the code reviewer and the
+  checker are not told any result and do not open the branch before v0.19.0 is on `main`. The lead passes no result to them.
+- **Unchanged.** The result is a candidate at most, changes no registered reading, and is tested prospectively on day 3 with
+  the prediction written in Section 5. The repetition on a table rebuilt with the adopted builder (Section 9) is still owed.
