@@ -1105,6 +1105,8 @@ def test_the_one_rerun_from_the_decision_to_the_bundle(tmp_path, monkeypatch, ca
     ledger = tmp_path / "ledger.json"
     ledger.write_text(json.dumps(dict(lines={"pipeline_checks": 3.0}, charged_ids_files=[str(ids_path)], source="test ledger")), encoding="utf-8")
     now = datetime(2026, 9, 20, 12, 0, 0, tzinfo=timezone.utc)                                 # the UTC day of the first run (CREATED)
+    # the committed function reads the lines from the list and the summary of the Paper 1 lists; this pipeline-check list is not one of them
+    monkeypatch.setattr(rd, "ledger_lines", lambda joblist, summary=None: {"pipeline_checks": 3.0})
     with pytest.raises(SystemExit, match="does not hold"):
         other = tmp_path / "other_ledger.json"
         other.write_text(json.dumps(dict(lines={"pipeline_checks": 3.0}, charged_ids_files=[str(tmp_path / "nowhere.json")], source="x")), encoding="utf-8")
