@@ -58,9 +58,28 @@ def sizes(joblist: Path = LIST, table: dict | None = None) -> dict:
             c = fl.realised_floor_at_channel(classes, **fac, channel=ch, dial=kind)
             rows[label] = dict(bound_grad=b["floor_grad"], bound_cost=b["floor_cost"], kept_grad=b["kept_grad"], kept_cost=b["kept_cost"],
                                closed_grad=c["floor_grad"], closed_cost=c["floor_cost"], sign_ok=bool(c["channel_sign_ok"]))
+        half = 0.5 * rows[dc.DESIGNED]["kept_grad"]                 # half of the present floor at the designed channel
+        need = {label: masks_needed(classes, fac, ch, kind, half) for label, ch in chans.items()} if half > 0 else {}
         res["probes"][pid] = dict(dial=kind, p=p, L=L, n=int(rung["n"]), K=int(classes["K"]), edge=rung["edge"], factors=fac,
-                                  classes=[int(v) for v in classes["classes"]], members=rows)
+                                  classes=[int(v) for v in classes["classes"]], members=rows, masks_needed_grad=need)
     return res
+
+
+def masks_needed(classes: dict, fac: dict, channel: dict, dial: str, target: float) -> dict:
+    """How the gradient bound moves with the number of masks K when the 16 mask classes keep the frequencies they have on the
+    realised masks: B(K) = [1/2 K mu^2 - w] / (K - 1), with mu the mean kept amplitude and w the mean of the per-mask bounds W_m, so
+    the loss against the kept mode falls as 1 / (K - 1). mu^2 and w are read off the bound at K and at 2 K (every class count
+    doubled). Returns mu2, w, the K at which the bound crosses zero (2 w / mu^2) and the K at which it reaches ``target``
+    ((2 w - 2 target) / (mu^2 - 2 target); None when mu^2 <= 2 target, i.e. no K reaches it). A figure for the record: it says
+    nothing about any list."""
+    K = int(classes["K"])
+    twice = dict(classes, K=2 * K, classes=[2 * int(v) for v in classes["classes"]])
+    b1 = fl.realised_floor_bound_at_channel(classes, **fac, channel=channel, dial=dial)["floor_grad"]
+    b2 = fl.realised_floor_bound_at_channel(twice, **fac, channel=channel, dial=dial)["floor_grad"]
+    half_mu2_K = b2 * (2 * K - 1) - b1 * (K - 1)                     # = 1/2 K mu^2
+    mu2, w = 2 * half_mu2_K / K, half_mu2_K - b1 * (K - 1)
+    return dict(mu2=float(mu2), w=float(w), limit_large_K=float(0.5 * mu2), K_zero=float(2 * w / mu2) if mu2 > 0 else None,
+                K_target=float((2 * w - 2 * target) / (mu2 - 2 * target)) if mu2 > 2 * target else None, target=float(target))
 
 
 def lowest(res: dict) -> list:
@@ -90,6 +109,14 @@ def main(argv=None) -> int:
         pct = f"{100 * r['bound_lowest'] / r['kept_designed']:6.1f} %" if r["kept_designed"] > 0 else "   n/a  "
         print(f"{r['probe']:28s} {r['level']:<5g} {r['quantity']}: kept (designed) {r['kept_designed']: .4e}  bound (designed) {r['bound_designed']: .4e}  "
               f"lowest bound {r['bound_lowest']: .4e} at {r['bound_member']:8s} = {pct} of the kept floor; lowest closed form {r['closed_lowest']: .4e} at {r['closed_member']}")
+    print("masks at which the gradient bound reaches half of the present designed floor, the class frequencies kept (designed channel; the worst member):")
+    for pid, pr in res["probes"].items():
+        need = pr["masks_needed_grad"]
+        if need:
+            worst = max(need, key=lambda k: need[k]["K_target"] if need[k]["K_target"] is not None else float("inf"))
+            f = lambda x: "none" if x is None else f"{x:,.0f}"      # noqa: E731
+            print(f"  {pid:28s} K = {pr['K']}: zero at {f(need[dc.DESIGNED]['K_zero'])}, half at {f(need[dc.DESIGNED]['K_target'])}; "
+                  f"worst member {worst}: zero at {f(need[worst]['K_zero'])}, half at {f(need[worst]['K_target'])}")
     if args.write:
         RECORD.write_text(json.dumps(res, indent=1) + "\n", encoding="utf-8")
         print(f"wrote {RECORD}")
