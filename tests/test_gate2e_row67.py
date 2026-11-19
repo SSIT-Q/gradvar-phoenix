@@ -43,6 +43,7 @@ def on(tmp_path_factory):
     """The table as the adopting commit leaves it: every entry ruled on, the switch on."""
     table = json.loads(ec.SETTINGS_FILE.read_text(encoding="utf-8"))
     table["status"] = "in_force"
+    table["in_force_from_utc"] = "2026-11-10T00:00:00Z"
     for e in table["settings"].values():
         e["provisional"] = False
         e.setdefault("registered", e["value"])
@@ -146,7 +147,13 @@ def test_8e_row_67_pauses_on_an_element_of_the_zone_and_only_there(S, on, tmp_pa
         _entry(sets["1135"], 75, "readout_error").update(value=4e-2, date="2026-11-10 11:15:00+00:00")
         _entry(sets["t1314"], 75, "readout_error").update(value=4e-2, date="2026-11-10 11:15:00+00:00")
     bundle(tmp_path / "late", jid, S, change=late)
-    assert gates.gate2_e(run_of(tmp_path / "late"), SNAPSHOT, None, settings=on)["result"] == "pass"
+    v = gates.gate2_e(run_of(tmp_path / "late"), SNAPSHOT, None, settings=on)
+    assert v["result"] == "pass"
+    # CI-6 (cases 56, 57 of the code review): the element is over the cut on the update published inside the job's window and normal
+    # again at the closing update. It is not on E and not on B; the verdict names it all the same, with the stamp of that update
+    assert [(x["qubit"], x["zone"], x["also_on_E"], x["stamp"], x["is_bracket"], x["restamps"]) for x in v["bracket_zone"]] == \
+        [(75, "observable_edge", False, "2026-11-10T11:20:04Z", False, ["2026-11-10T11:35:39Z", "2026-11-10T13:14:38Z"])]
+    assert "Q75 (readout) [observable_edge, job dbpfnr0qtr0c738ebeng] on 2026-11-10T11:20:04Z in the zone and not on E" in v["note"]
 
 
 def test_8e_the_bracket_is_reported_and_an_in_force_table_cannot_make_it_decide(S, on, tmp_path):
@@ -159,9 +166,11 @@ def test_8e_the_bracket_is_reported_and_an_in_force_table_cannot_make_it_decide(
     run = run_of(tmp_path / "b")
     v = gates.gate2_e(run, SNAPSHOT, None, settings=on)
     assert v["result"] == "pass" and [(x["qubit"], x["zone"], x["also_on_E"]) for x in v["bracket_zone"]] == [(75, "observable_edge", False)]
-    assert "Q75 (readout) [observable_edge, job dbpfnr0qtr0c738ebeng] in the zone on B and not on E" in v["note"]
+    assert [(x["stamp"], x["is_bracket"], x["restamps"]) for x in v["bracket_zone"]] == [("2026-11-10T13:37:31Z", True, ["2026-11-10T16:34:05Z"])]   # case 58: on the closing update only
+    assert "Q75 (readout) [observable_edge, job dbpfnr0qtr0c738ebeng] on 2026-11-10T13:37:31Z in the zone and not on E" in v["note"]
     table = json.loads(ec.SETTINGS_FILE.read_text(encoding="utf-8"))
     table["status"] = "in_force"
+    table["in_force_from_utc"] = "2026-11-10T00:00:00Z"
     table["settings"]["bracket_decides_gate2e"]["value"] = True
     for e in table["settings"].values():
         e["provisional"] = False
@@ -212,6 +221,79 @@ def test_8e_a_job_without_an_execution_time_calibration_makes_the_gate_not_evalu
     assert v["result"] == "not-evaluable" and list(v["jobs_without_execution_calibration"]) == ["dbpfnr0qtr0c738ebeng"]
     bundle(tmp_path / "none", "dbpfom8ou4as73ctjes0", S, change=lambda sets: [_entry(s, 85, "readout_error").update(value=5e-2) for s in sets.values()])
     assert gates.gate2_e(run_of(tmp_path / "none"), SNAPSHOT, None, settings=on)["result"] == "fail"
+
+
+# ------------------------------------------------------------------------------------------------ correction CI-12 (code review part 2)
+
+ROW67_PARTS_I_II_SHA256 = "b11074ce37db7e8b2d9c2b76924280cb759d2d904a74a0e37228d18d77056091"      # of parts (i) and (ii) of the row in the draft, branch dev67-gate2e-scope at 0e6e4b6
+
+
+def test_ci12_the_text_of_the_evaluator_is_the_row(S, on, tmp_path):
+    """``ROW67_TEXT`` is parts (i) and (ii) of row 67, word for word (the hash is that of the text in the draft); once the row is
+    in the pre-registration the text must be found there."""
+    import hashlib
+    assert hashlib.sha256(gates.ROW67_TEXT.encode("utf-8")).hexdigest() == ROW67_PARTS_I_II_SHA256
+    assert gates.ROW67_TEXT.startswith("(i) What pauses. From this Deviation on, Gate 2 (e) pauses the campaign when, on the execution-time calibration E(J)")
+    assert gates.ROW67_TEXT.endswith("are computed and logged per qubit for every job and no longer pause.") and len(gates.ROW67_TEXT.split()) == 174
+    assert "(a coupler counts when both its qubits are in it)" in gates.ROW67_TEXT and "(iii)" not in gates.ROW67_TEXT
+    prereg = (ROOT / "docs" / "artifacts" / "paper1_preregistration.md").read_text(encoding="utf-8")
+    if "| 67. Gate 2 (e) after Deviation 65" in prereg:                # after adoption: the registered row holds the evaluator's text
+        assert gates.ROW67_TEXT in prereg
+    bundle(tmp_path, "dbpfnr0qtr0c738ebeng", S)
+    v = gates.gate2_e(run_of(tmp_path), SNAPSHOT, None, settings=on)
+    assert v["text"] == gates.ROW67_TEXT and v["id"] == "gate2_e"
+
+
+def test_ci12_the_two_ratios_are_logged_per_qubit_for_every_job(S, on, tmp_path):
+    """Row 67 (ii): "computed and logged per qubit for every job". The readout ratio (E over the planning snapshot) of every cone
+    qubit of the main job and of every SPAM-only qubit of the probes job (Deviation 52), not only of those above 1.5x; the reset
+    ratio of every probed qubit, with or without a reference value."""
+    for jid in ("dbpfnr0qtr0c738ebeng", "dbpfnrgqtr0c738ebeog"):
+        bundle(tmp_path, jid, S)
+    reset = pd.DataFrame([dict(qubit=q, p1=p1, prep=prep, reset_kind=kind, probe_id=pid) for q in (10, 11, 75)
+                          for p1, prep, kind, pid in ((0.0064, "1", "reset", "reset_error_prep1"), (0.004, "0", "none", "readout_ref_prep0"), (0.984, "1", "none", "readout_ref_prep1"))])
+    v = gates.gate2_e(run_of(tmp_path, reset), SNAPSHOT, {10: 0.002, 75: 0.0064}, settings=on)
+    main, probes = v["jobs"]["dbpfnr0qtr0c738ebeng"], v["jobs"]["dbpfnrgqtr0c738ebeog"]
+    cone = main["clause_49"][0]["n_cone_qubits"]
+    assert {x["role"] for x in main["readout_ratios"]} == {"cone"} and len(main["readout_ratios"]) == cone > 60
+    assert sum(1 for x in main["readout_ratios"] if x["above"]) >= 2 and all(x["ratio"] == pytest.approx(x["readout"] / x["snapshot"]) for x in main["readout_ratios"])
+    by = {x["qubit"]: x for x in main["readout_ratios"]}
+    assert by[31]["above"] and by[98]["above"] and by[31]["readout"] > 3e-2                                # the two qubits of 10 Nov, and every other cone qubit beside them
+    assert probes["rungs"] == [] and {x["role"] for x in probes["readout_ratios"]} == {"spam_only"} and len(probes["readout_ratios"]) == 82
+    assert v["logged"]["readout_ratios"].keys() == {"dbpfnr0qtr0c738ebeng", "dbpfnrgqtr0c738ebeog"} and "82 SPAM-only entries" in v["note"]
+    rr = {x["qubit"]: x for x in v["logged"]["reset_ratios"]}
+    assert sorted(rr) == [10, 11, 75] and rr[10]["ratio"] == pytest.approx(3.2) and rr[10]["above"] is True and rr[75]["ratio"] == pytest.approx(1.0) and rr[75]["above"] is False
+    assert rr[11]["reference"] is None and rr[11]["ratio"] is None and rr[11]["unfolded"] == pytest.approx((0.0064 - 0.004) / 0.98)      # no reference: logged all the same
+    # per job: the probed qubits among its own cone and SPAM-only qubits (10 and 11 are not placed on this rung)
+    assert [x["qubit"] for x in probes["reset_ratios"]] == [x["qubit"] for x in main["reset_ratios"]] == [75] and v["result"] == "pass"
+
+
+def test_ci12_a_run_with_dial_points_and_no_reset_probe_is_not_evaluable(S, on, tmp_path):
+    """The reset-error half of the pause clause cannot pass silently: dial points without a reset probe make the gate not evaluable."""
+    d = bundle(tmp_path, "dbpfnr0qtr0c738ebeng", S)
+    job = json.loads((d / "job.json").read_text(encoding="utf-8"))
+    first = job["points"][0]
+    job["points"].append(dict(kind="reset_dial", reset_kind="reset", p=0.25, n=first["n"], L=8, k_1based=8, qubits=first["patch_qubits"], edge=first["edge"],
+                              patch=first["patch"], origin=first["origin"], holes=first["holes"], broken_edges=first["broken_edges"]))
+    (d / "job.json").write_text(json.dumps(job), encoding="utf-8")
+    v = gates.gate2_e(run_of(tmp_path), SNAPSHOT, None, settings=on)
+    assert v["result"] == "not-evaluable" and v["dial_points_without_reset_probe"] is True and "dial points and no reset probe" in v["note"]
+    probes = pd.DataFrame([dict(qubit=10, p1=0.0064, prep="1", reset_kind="reset", probe_id="reset_error_prep1"),
+                           dict(qubit=10, p1=0.004, prep="0", reset_kind="none", probe_id="readout_ref_prep0"), dict(qubit=10, p1=0.984, prep="1", reset_kind="none", probe_id="readout_ref_prep1")])
+    v = gates.gate2_e(run_of(tmp_path, probes), SNAPSHOT, None, settings=on)
+    assert v["result"] == "pass" and v["dial_points_without_reset_probe"] is False
+    # a reference at p = 0 is not a dial point: the run of 10 Nov (no dial point) passes without a reset probe, as before
+    job["points"][-1]["p"] = 0.0
+    (d / "job.json").write_text(json.dumps(job), encoding="utf-8")
+    assert gates.gate2_e(run_of(tmp_path), SNAPSHOT, None, settings=on)["result"] == "pass"
+    # a pause that is established stays a pause
+    job["points"][-1]["p"] = 0.25
+    (d / "job.json").write_text(json.dumps(job), encoding="utf-8")
+    shutil.rmtree(tmp_path / "runs")
+    bundle(tmp_path, "dbpfnr0qtr0c738ebeng", S, change=lambda sets: [_entry(s, 75, "readout_error").update(value=4e-2) for s in sets.values()])
+    d2 = tmp_path / "runs" / "2026-11-10" / "dbpfnr0qtr0c738ebeng"
+    (d2 / "job.json").write_text(json.dumps(job), encoding="utf-8")
+    assert gates.gate2_e(run_of(tmp_path), SNAPSHOT, None, settings=on)["result"] == "fail"
 
 
 def test_the_single_qubit_transient_rule_of_deviation_49_and_the_cut_itself():

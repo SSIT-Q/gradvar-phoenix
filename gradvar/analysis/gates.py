@@ -481,11 +481,17 @@ def gate2_e(run: RunData, snapshot_csv: str | Path | None, reference_reset_error
     return _gate2_e_row67(run, snapshot_csv, reference_reset_error, st)
 
 
-ROW67_TEXT = ("Gate 2 (e) as of Deviation 67: the campaign pauses when, on the execution-time calibration E(J) of any job of the run, a placed qubit or live "
-              "coupler of that job's rung is over a registered cut (Deviations 22, 26, 53) on the observable edge or in its L = 2 cone (a coupler counts when "
-              "both its qubits are in it), or when the reset error of a dial-patch qubit, unfolded as in Deviation 63, is at or above 2e-2; any other placed "
-              "element over a cut is handled per job (Deviation 65 (ii)); the 1.5x readout ratio of Deviation 49 and the 1.5x reset-error ratio are logged per "
-              "qubit and do not pause")
+# Row 67, parts (i) and (ii), word for word as the Markdown mirror of the row gives them (draft
+# docs/deviations_drafts/67_gate2e_scope_2026-11-11.md on branch dev67-gate2e-scope; the review's Section 5.3 (d)). Parts (i) and (ii)
+# are the same in the row for option (ii) and in the row for option (iii). tests/test_gate2e_row67.py holds the sha256 of this text.
+ROW67_TEXT = ("(i) What pauses. From this Deviation on, Gate 2 (e) pauses the campaign when, on the execution-time calibration E(J) "
+              "of Deviation 65 of any job of the run, a placed qubit or live coupler of that job's rung is over a registered cut "
+              "(Deviations 22, 26, 53) on the observable edge or in its L = 2 cone (a coupler counts when both its qubits are in it), "
+              "or when the reset error of a dial-patch qubit, unfolded as in Deviation 63, is at or above the Section 3b kill line of "
+              "2×10<sup>−2</sup>. The pause rule is otherwise as registered: the cause is logged and the PI signs a recorded "
+              "deviation before any further list is dispatched. (ii) What no longer pauses. Any other placed element over a cut on "
+              "E(J) is handled per job by Deviation 65 (ii) and does not pause. The 1.5× readout ratio of Deviation 49 and the 1.5× "
+              "reset-error ratio against the 20 Sep smoke test are computed and logged per qubit for every job and no longer pause.")
 
 
 def clause_49(readout: Dict[int, float], snapshot: Dict[int, float], cone_qubits, readout_cut: float) -> Dict:
@@ -525,11 +531,15 @@ def _job_rungs(job: dict) -> List[Dict]:
 def _gate2_e_row67(run: RunData, snapshot_csv: str | Path | None, reference_reset_error: Dict[int, float] | None, st) -> Dict:
     """Row 67 (``ROW67_TEXT``). Per job of the run: its pool (the service's sets of the bundle, else the committed snapshots,
     C65-4), E(J) and B(J); the placed elements of each of its rungs over a cut on E, split into those on the observable edge or
-    in its L = 2 cone (they pause) and the others (handled per job by Deviation 65, listed); the same on B, reported, deciding
-    only if the table says so; the clause of Deviations 49 and 52 on E, logged. Then the reset error of the dial patch,
-    unfolded with the day's readout references: at or above 2e-2 pauses; the 1.5x ratio against the reference run is logged.
-    ``fail`` means pause. A job whose E cannot be built, or a reset probe that cannot be unfolded, makes the gate not
-    evaluable unless a pause is already established."""
+    in its L = 2 cone (they pause) and the others (handled per job by Deviation 65, listed); the zone elements over a cut on any
+    set of the pool stamped after S0, the bracket B among them, each with its stamp (``bracket_zone``; CI-6), reported, deciding
+    only if the table says so; the clause of Deviations 49 and 52 on E, logged, and with it the readout ratio (E over the
+    planning snapshot) of every cone qubit and of every SPAM-only qubit of the job (``readout_ratios``; Deviation 52: qubits that
+    appear only in the job's points without a layer). Then the reset error of the dial patch, unfolded with the day's readout
+    references: at or above 2e-2 pauses; the ratio against the reference run is logged for every probed qubit
+    (``logged.reset_ratios``, and per job for its qubits). ``fail`` means pause. A job whose E cannot be built, a reset probe
+    that cannot be unfolded, or a run with dial points and no reset probe makes the gate not evaluable unless a pause is already
+    established (CI-12)."""
     import tempfile
     from .. import execution_calibration as ec
     from .. import noise
@@ -538,9 +548,25 @@ def _gate2_e_row67(run: RunData, snapshot_csv: str | Path | None, reference_rese
     snap = _snapshot_readout(snapshot_csv)
     jobs: Dict[str, Dict] = {}
     pausing, per_job, bracket_zone, without = [], [], [], {}
+    job_qubits: Dict[str, set] = {}
+    has_dial = False
     with tempfile.TemporaryDirectory() as tmp:
         for jid, b in sorted(run.bundles.items()):
             rungs = _job_rungs(b.job)
+            layered, unlayered = set(), set()
+            for pt in b.job.get("points") or []:
+                if not isinstance(pt, dict):
+                    continue
+                try:
+                    depth = int(pt.get("L") or 0)
+                except (TypeError, ValueError):
+                    depth = 0
+                (layered if depth >= 1 else unlayered).update(int(q) for q in (pt.get("patch_qubits") or pt.get("qubits") or []))
+                try:
+                    has_dial = has_dial or (pt.get("kind") == "reset_dial" and float(pt.get("p") or 0.0) > 0.0)
+                except (TypeError, ValueError):
+                    pass
+            spam_only = unlayered - layered
             pool, case = ec.pool_for_job(b.path, settings=st)
             rec = dict(pool_case=case["case"], rungs=[dict(n=r["n"], edge=r["edge"], depths=r["depths"]) for r in rungs])
             if pool is None:                                # no E, or a pool that is still pending (CI-5): the gate cannot be evaluated on this job
@@ -550,26 +576,36 @@ def _gate2_e_row67(run: RunData, snapshot_csv: str | Path | None, reference_rese
             E, B = ec.execution_calibration(pool, st), ec.bracket_calibration(pool, st)
             backend = str(b.job.get("backend_name") or "ibm_phoenix")
             fe = ec.write_calibration(E, Path(tmp) / jid, backend)
-            fb = ec.write_calibration(B, Path(tmp) / jid, backend) if B is not None else None      # None: complete without a bracket
+            later = [(s, ec.write_calibration(s, Path(tmp) / jid, backend)) for s in ec.later_sets(pool, st)]   # every set stamped after S0; B is the last when there is one
             readout = _readout_of(E["properties"])
             rec.update(E=E["value_sha256"], B=B["value_sha256"] if B is not None else None, bracket=B is not None,
                        t_running=E["t_running"], t_finished=E["t_finished"], pool_updates=pool.updates(),
                        readout_age_h_max=E["ages_at_running"].get("readout_error", {}).get("age_h_max"), clause_49=[])
+            cone_all: set = set()
             for r in rungs:
                 for el in ec.over_cut_elements(r, fe["csv"], fe["properties"]):
                     z = ec.zone(r, ec.ZONE_L, el, st)
                     item = dict(el, job_id=jid, rung_n=r["n"], edge=r["edge"], zone=z if z in (ec.ZONE_EDGE, ec.ZONE_L2) else "outside_zone")
                     (pausing if z in (ec.ZONE_EDGE, ec.ZONE_L2) else per_job).append(item)
                 on_e = {ec._identity(x) for x in ec.over_cut_elements(r, fe["csv"], fe["properties"])}
-                for el in (ec.over_cut_elements(r, fb["csv"], fb["properties"]) if fb is not None else []):
-                    z = ec.zone(r, ec.ZONE_L, el, st)
-                    if z in (ec.ZONE_EDGE, ec.ZONE_L2):
-                        bracket_zone.append(dict(el, job_id=jid, rung_n=r["n"], edge=r["edge"], zone=z, also_on_E=ec._identity(el) in on_e))
+                for s, fl in later:
+                    for el in ec.over_cut_elements(r, fl["csv"], fl["properties"]):
+                        z = ec.zone(r, ec.ZONE_L, el, st)
+                        if z in (ec.ZONE_EDGE, ec.ZONE_L2):
+                            bracket_zone.append(dict(el, job_id=jid, rung_n=r["n"], edge=r["edge"], zone=z, also_on_E=ec._identity(el) in on_e,
+                                                     stamp=s["stamp"], restamps=s["restamps"], is_bracket=s["is_bracket"]))
                 patch, edge = ec.placement_patch(r)
                 cone = set()
                 for L in r["depths"]:
                     cone |= set(light_cone(patch, int(L), edge))
                 rec["clause_49"].append(dict(rung_n=r["n"], edge=r["edge"], **clause_49(readout, snap, cone, noise.READOUT_CUT)))
+                cone_all |= cone
+            # row 67 (ii): the 1.5x readout ratio, logged per qubit for every job: every cone qubit and every SPAM-only qubit
+            rec["readout_ratios"] = [dict(qubit=q, role=role, readout=readout[q], snapshot=snap.get(q),
+                                          ratio=readout[q] / snap[q] if snap.get(q, 0.0) > 0 else None,
+                                          above=bool(snap.get(q, 0.0) > 0 and readout[q] / snap[q] > READOUT_DRIFT_FACTOR))
+                                     for role, qs in (("cone", sorted(cone_all)), ("spam_only", sorted(spam_only - cone_all))) for q in qs if q in readout]
+            job_qubits[jid] = cone_all | spam_only
             jobs[jid] = rec
     raw = _measured_reset_error(run)
     raw = raw[(raw.reset_kind == "reset") & (raw.prep == "1")] if len(raw) else raw
@@ -580,6 +616,13 @@ def _gate2_e_row67(run: RunData, snapshot_csv: str | Path | None, reference_rese
     drift = [dict(qubit=q, p1=v, reference=reference_reset_error[q], ratio=v / reference_reset_error[q] if reference_reset_error[q] > 0 else np.inf)
              for q, v in raw_p1.items() if reference_reset_error and q in reference_reset_error]
     drift_above = [d for d in drift if d["ratio"] > RESET_ERROR_DRIFT_FACTOR]
+    # row 67 (ii): the 1.5x reset-error ratio, logged per qubit: every probed qubit, with or without a reference value
+    ref = reference_reset_error or {}
+    reset_ratios = [dict(qubit=q, p1=v, unfolded=eps.get(q), reference=ref.get(q), ratio=(v / ref[q] if ref.get(q, 0.0) > 0 else None),
+                         above=bool(ref.get(q, 0.0) > 0 and v / ref[q] > RESET_ERROR_DRIFT_FACTOR)) for q, v in sorted(raw_p1.items())]
+    for jid, qs in job_qubits.items():
+        jobs[jid]["reset_ratios"] = [x for x in reset_ratios if x["qubit"] in qs]
+    no_reset_probe = bool(has_dial and not raw_p1)
     bracket_decides = bool(st["bracket_decides_gate2e"])
     b_only = [x for x in bracket_zone if not x["also_on_E"]]
     pause = bool(pausing or reset_bad or (bracket_decides and b_only))
@@ -592,13 +635,19 @@ def _gate2_e_row67(run: RunData, snapshot_csv: str | Path | None, reference_rese
     parts.append("over a cut on the observable edge or in its L = 2 cone: " + (", ".join(name(x) for x in pausing) if pausing else "none"))
     seen = sorted({ec._name(x) for x in per_job})
     parts.append("over a cut elsewhere on a placed rung, handled per job by Deviation 65 (no pause): " + (", ".join(seen) if seen else "none"))
-    parts.append(f"bracket calibration ({'decides' if bracket_decides else 'reported, does not decide'}): "
-                 + (", ".join(name(x) for x in b_only) + " in the zone on B and not on E" if b_only else "no zone element over a cut on B only"))
+    parts.append(f"sets of the pool stamped after S0, the bracket included ({'decide' if bracket_decides else 'reported, do not decide'}): "
+                 + (", ".join(f"{name(x)} on {x['stamp']}" for x in b_only) + " in the zone and not on E" if b_only
+                    else "no zone element over a cut on one of them only"))
     no_b = sorted(j for j, r in jobs.items() if r.get("bracket") is False)
     if no_b:
         parts.append(f"no bracket for {len(no_b)} job(s) (no change of values stamped within the bound after finished): " + ", ".join(no_b))
     met49 = sorted(j for j, r in jobs.items() if any(c["met"] for c in r.get("clause_49") or []))
     parts.append("the clause as Deviations 49 and 52 write it (logged, pauses nothing): " + (f"met for {len(met49)} job(s)" if met49 else "not met"))
+    logged_ro = [x for r in jobs.values() for x in r.get("readout_ratios") or []]
+    parts.append(f"readout ratio against the planning snapshot, logged per qubit for every job: {sum(1 for x in logged_ro if x['role'] == 'cone')} cone and "
+                 f"{sum(1 for x in logged_ro if x['role'] == 'spam_only')} SPAM-only entries, {sum(1 for x in logged_ro if x['above'])} above 1.5x")
+    if no_reset_probe:
+        parts.append("the run has dial points and no reset probe: the reset-error half of the clause cannot be evaluated")
     if raw_p1:
         parts.append(f"reset error, unfolded: max {max(eps.values()):.2e} over {len(eps)} qubits (line 2e-2), {len(reset_bad)} at or above" if eps
                      else "reset error: the probes cannot be unfolded (no readout references in the run)")
@@ -608,7 +657,7 @@ def _gate2_e_row67(run: RunData, snapshot_csv: str | Path | None, reference_rese
         parts.append("no execution-time calibration for " + "; ".join(f"{j}: {w}" for j, w in sorted(without.items())))
     if pause:
         result = "fail"
-    elif without or (raw_p1 and not_unfolded) or not (evaluated or eps):
+    elif without or (raw_p1 and not_unfolded) or no_reset_probe or not (evaluated or eps):
         result = "not-evaluable"
     else:
         result = "pass"
@@ -617,7 +666,9 @@ def _gate2_e_row67(run: RunData, snapshot_csv: str | Path | None, reference_rese
                    threshold=dict(zone_elements_over_a_cut=0, reset_error_max=RESET_ERROR_KILL),
                    note="; ".join(parts), pausing=pausing, handled_per_job=per_job, bracket_zone=bracket_zone, bracket_decides=bracket_decides,
                    reset_error=eps, reset_error_at_or_above=reset_bad, reset_error_raw=raw_p1, reset_not_unfolded=not_unfolded,
-                   logged=dict(clause_49_met_jobs=met49, reset_drift=drift, reset_drift_above=drift_above), jobs=jobs, jobs_without_execution_calibration=without,
+                   logged=dict(clause_49_met_jobs=met49, reset_drift=drift, reset_drift_above=drift_above, reset_ratios=reset_ratios,
+                               readout_ratios={j: r["readout_ratios"] for j, r in jobs.items() if "readout_ratios" in r}),
+                   dial_points_without_reset_probe=no_reset_probe, jobs=jobs, jobs_without_execution_calibration=without,
                    settings=st.record())
 
 

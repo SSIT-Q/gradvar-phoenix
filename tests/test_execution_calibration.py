@@ -61,8 +61,9 @@ def _settings_with(tmp_path, in_force=False, **changes):
     table = json.loads(ec.SETTINGS_FILE.read_text(encoding="utf-8"))
     for k, v in changes.items():
         table["settings"][k]["value"] = v
-    if in_force:                                                 # what the adopting commit does: every entry ruled on, the switch on
+    if in_force:                                                 # what the adopting commit does: every entry ruled on, the switch on, the time recorded
         table["status"] = "in_force"
+        table["in_force_from_utc"] = "2026-11-19T06:30:00Z"
         for e in table["settings"].values():
             e["provisional"] = False
             e.setdefault("registered", e["value"])               # an entry nobody had ruled on is registered with the value adopted
@@ -112,6 +113,39 @@ def test_the_table_is_not_in_force_and_holds_the_reviews_choices(st, tmp_path):
         (tmp_path / "t2.json").write_text(json.dumps(t2), encoding="utf-8")
         with pytest.raises(ec.SettingsError, match=f"settings missing: .*{name}"):
             ec.load_settings(tmp_path / "t2.json")
+
+
+def test_the_table_records_since_when_it_is_in_force(st, tmp_path):
+    """``in_force_from_utc``, the top-level entry the runner reads to tell the jobs submitted before the adoption from those
+    submitted under it: null (or absent) while the table is not in force, and then a value is refused; required, as a UTC time,
+    when it is in force. The adopting commit writes it with the status."""
+    committed = json.loads(ec.SETTINGS_FILE.read_text(encoding="utf-8"))
+    assert "in_force_from_utc" in committed and committed["in_force_from_utc"] is None and st.in_force_from_utc is None and st.record()["in_force_from_utc"] is None
+    on = _settings_with(tmp_path, in_force=True)
+    assert on.in_force_from_utc == "2026-11-19T06:30:00Z" == on.record()["in_force_from_utc"]
+
+    def table(status, **top):
+        t = json.loads(ec.SETTINGS_FILE.read_text(encoding="utf-8"))
+        t["status"] = status
+        t.pop("in_force_from_utc")
+        t.update(top)
+        (tmp_path / "since.json").write_text(json.dumps(t), encoding="utf-8")
+        return tmp_path / "since.json"
+    assert ec.load_settings(table("not_in_force")).in_force_from_utc is None                              # absent: as null
+    with pytest.raises(ec.SettingsError, match="is given while the table is not in force"):
+        ec.load_settings(table("not_in_force", in_force_from_utc="2026-11-19T06:30:00Z"))
+    for bad in (None, "", "soon", "2026-11-19", 1763533800, True, ["2026-11-19T06:30:00Z"], "2026-13-40T06:30:00Z"):
+        with pytest.raises(ec.SettingsError, match="in_force_from_utc"):
+            ec.load_settings(table("in_force", in_force_from_utc=bad))
+    with pytest.raises(ec.SettingsError, match="cannot be in force without in_force_from_utc"):
+        ec.load_settings(table("in_force"))
+    # any offset is read as the UTC time it names: 12:00 IST is 06:30 UTC
+    assert ec.load_settings(table("in_force", in_force_from_utc="2026-11-19T12:00:00+05:30")).in_force_from_utc == "2026-11-19T06:30:00Z"
+    # the runner's reader gives the same time
+    er = pytest.importorskip("gradvar.execution_record", reason="the runner's side is not on this tree")
+    a = er.adoption(raw=table("in_force", in_force_from_utc="2026-11-19T12:00:00+05:30").read_bytes())
+    assert a["in_force"] is True and ec.parse_utc(a["in_force_from_utc"]) == ec.parse_utc("2026-11-19T06:30:00Z")
+    assert er.adoption()["in_force_from_utc"] is None and er.adoption()["in_force"] is False
 
 
 def test_ci1_an_in_force_table_must_hold_the_registered_values(tmp_path):
@@ -661,6 +695,23 @@ def test_ci5_the_pool_bound_no_update_within_it_gives_e_without_a_bracket(S, st,
     assert ec.classify(rung, 8, [q75], None, None, st, no_bracket=True)["reading"] == ec.NOT_EVALUABLE
 
 
+def test_ci6_the_sets_of_the_pool_stamped_after_s0(S, st):
+    """``later_sets``: every update after S0 as published, each with its stamp and the re-stamps that repeat it; the closing
+    update is the last and is marked as the bracket; a pool without a bracket has none marked; a pending pool gives nothing."""
+    main = ec.build_pool(MAIN[0], MAIN[1], MAIN[2], S["0907"], S["0907"], [S["t1120"], S["1135"]], [S["t1314"], S["1337"], S["t1634"]], True)
+    later = ec.later_sets(main, st)
+    assert [(x["stamp"], x["is_bracket"], x["restamps"], x["kind"]) for x in later] == \
+        [("2026-11-10T11:20:04Z", False, ["2026-11-10T11:35:39Z", "2026-11-10T13:14:38Z"], "pool_set"), ("2026-11-10T13:37:31Z", True, ["2026-11-10T16:34:05Z"], "pool_set")]
+    assert [x["value_sha256"] for x in later] == [ec.value_sha256(S["t1120"]), ec.value_sha256(S["1337"])] and later[1]["value_sha256"] == ec.bracket_calibration(main, st)["value_sha256"]
+    assert later[0]["properties"] == S["t1120"] and later[0]["rule"] == "set_of_the_pool_stamped_after_s0_as_published"
+    blockc = _pool(S, BLOCKC, "1135", [], "1337")
+    assert [(x["stamp"], x["is_bracket"]) for x in ec.later_sets(blockc, st)] == [("2026-11-10T13:37:31Z", True)]
+    nob = ec.build_pool("early", "2026-11-10T09:10:00Z", "2026-11-10T11:25:00Z", S["0907"], S["0907"], [S["t1120"]], [S["1135"]], True, asked_utc="2026-11-10T13:30:00Z", bound_hours=1.0)
+    assert nob.bracket is False and [(x["stamp"], x["is_bracket"], x["restamps"]) for x in ec.later_sets(nob, st)] == [("2026-11-10T11:20:04Z", False, ["2026-11-10T11:35:39Z"])]
+    with pytest.raises(ec.PoolPending):
+        ec.later_sets(_pool(S, BLOCKC, "1135", [], None), st)
+
+
 def test_c_the_flags_that_do_not_come_from_e(nov10, st, tmp_path):
     """C65-6: a zone element over a cut on B and not on E flags the point. C65-4: so does an E from the committed snapshots.
     Neither changes a reading other than 'read'."""
@@ -671,6 +722,10 @@ def test_c_the_flags_that_do_not_come_from_e(nov10, st, tmp_path):
     both = ec.classify(rung, 8, [q75], 1.0, 1.0, st, bracket_elements=[q75])                 # over the cut on E too: the rule on E decides
     assert both["reading"] == ec.NOT_EVALUABLE and both["bracket_zone_elements"] == [] and both["flags"] == []
     assert ec.classify(rung, 8, [], None, None, _settings_with(tmp_path, bracket_zone_flag=False), bracket_elements=[q75])["reading"] == ec.READ
+    # CI-6: the element may come from any set of the pool stamped after S0, and carries the stamps of those sets
+    c = ec.classify(rung, 8, [], None, None, st, bracket_elements=[dict(q75, stamps=["2026-11-10T11:20:04Z"])])
+    assert c["flags"] == [ec.FLAG_BRACKET_ZONE] and c["bracket_zone_elements"][0]["stamps"] == ["2026-11-10T11:20:04Z"]
+    assert "stamped after S0 (the bracket included) and not at execution: Q75 (readout) [2026-11-10T11:20:04Z]" in c["reason"]
     # the 10 Nov bracket (13:37:31Z): Q25, Q98 and Q100 are over a cut, none of them in the zone, so B raises no flag
     assert [ec._name(e) for e in nov10["blockc_bracket"]] == ["Q25 (init)", "Q98 (readout)", "Q100 (init)"]
     c = ec.classify(rung, 8, nov10["blockc"], 1.0105, 1.0, st, bracket_elements=nov10["blockc_bracket"])
