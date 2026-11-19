@@ -105,8 +105,8 @@ def adoption(root: str | Path | None = None, raw: Any = _UNSET) -> Dict[str, Any
         except (ec.SettingsError, ValueError, KeyError, AttributeError, TypeError) as e:
             raise ExecutionRecordError(f"{SETTINGS_REL}: the settings table is not readable by its loader ({type(e).__name__}: {e}); "
                                        "the runner cannot tell which rules apply") from e
-    try:                                                  # since when the table is in force, when it says so (review correction CI2-4)
-        since = json.loads(raw).get("in_force_from_utc")
+    try:                                                  # since when the table is in force, as its loader read it (review correction CI2-4)
+        since = st.in_force_from_utc
         since = iso(since) if since is not None else None
     except (ValueError, TypeError, AttributeError) as e:
         raise ExecutionRecordError(f"{SETTINGS_REL}: in_force_from_utc is not a UTC time ({type(e).__name__}: {e})") from e

@@ -581,10 +581,28 @@ SWITCH = {
 }
 
 
-def _switch(monkeypatch, status, since=None):
-    """The adoption switch as the runner reads it, set for a test; ``since``: the time from which the table says it is in force."""
+def _switch(monkeypatch, status):
+    """The adoption switch as the runner reads it, set for a test (``_table_switch``: the same through the committed loader)."""
     import gradvar.execution_record as er
-    monkeypatch.setattr(er, "adoption", lambda *a, **k: dict(SWITCH[status], in_force_from_utc=since))
+    monkeypatch.setattr(er, "adoption", lambda *a, **k: dict(SWITCH[status], in_force_from_utc=None))
+
+
+def _table_switch(monkeypatch, since):
+    """The adoption switch read by the runner's own function through the committed loader, from a copy of the committed table
+    set in force with ``in_force_from_utc`` = ``since`` (what the adopting commit writes)."""
+    import gradvar.execution_record as er
+    t = json.loads((ROOT / "data" / "settings" / "execution_calibration_settings.json").read_text(encoding="utf-8"))
+    t["status"], t["in_force_from_utc"] = "in_force", since
+    for e in t["settings"].values():
+        e["provisional"] = False
+        e.setdefault("registered", e["value"])
+    raw = json.dumps(t).encode("utf-8")
+    real = getattr(er.adoption, "_real", er.adoption)
+
+    def switch(*a, **k):
+        return real(raw=raw)
+    switch._real = real
+    monkeypatch.setattr(er, "adoption", switch)
 
 
 def _asked_at(hw, monkeypatch, when):
@@ -936,7 +954,7 @@ def test_a_commit_does_not_open_the_second_phase_while_the_table_is_not_in_force
 def test_single_phase_is_the_retrieval_as_before_and_says_so(tmp_path, monkeypatch):
     ec, rp = _committed_side()
     import gradvar.hardware as hw
-    _switch(monkeypatch, "in_force", since="2099-01-01T00:00:00Z")                     # every job of the ids file is older than the adoption (CI2-4)
+    _table_switch(monkeypatch, "2099-01-01T00:00:00Z")                                 # every job of the ids file is older than the adoption (CI2-4)
     ids, kw, jobs, history = _two_phase(hw, monkeypatch, tmp_path)
     rows = hw.retrieve_jobs(ids, single_phase=True, **kw)
     assert len(rows) > 0 and TimedJob.result_calls == len(jobs)
@@ -1561,12 +1579,15 @@ def test_ci2_4_single_phase_is_refused_in_force_unless_the_jobs_are_older_than_t
     import gradvar.hardware as hw
     ids, kw, jobs, history = _two_phase(hw, monkeypatch, tmp_path)
     cli = ["--retrieve", ids, "--joblist", str(LIST01), "--run-root", kw["run_root"], "--log-dir", kw["log_dir"], "--single-phase"]
-    for since, words in ((None, "does not record since when"), ("2026-11-12T00:00:00Z", r"3 job\(s\) were submitted at or after the adoption")):
-        _switch(monkeypatch, "in_force", since=since)                                           # the ids file of this test is written now, after either time
+    # the switch is the committed table set in force, read by the committed loader: it records since when (in_force_from_utc)
+    for since, words, cli_words in ((None, "the settings table is not readable by its loader", "not readable by its loader"),
+                                    ("2026-11-12T00:00:00Z", r"3 job\(s\) were submitted at or after the adoption of the Deviation \(2026-11-12T00:00:00Z\)", "refusing --single-phase")):
+        _table_switch(monkeypatch, since)                                                       # the ids file of this test is written now, after that time
         with pytest.raises(SystemExit, match=words):                                            # case 18: no first phase at all
             hw.retrieve_jobs(ids, single_phase=True, **kw)
-        with pytest.raises(SystemExit, match="refusing --single-phase"):
+        with pytest.raises(SystemExit, match=cli_words):
             hw.main(cli)
+    assert "does not record since when" in hw.single_phase_refusal(json.loads(Path(ids).read_text()), dict(in_force=True, in_force_from_utc=None))
     assert TimedJob.result_calls == 0 and not (tmp_path / "runs").exists() and history.asked == []     # refused before the service
     hw.retrieve_jobs(ids, metadata_only=True, **kw)
     before = _tree(tmp_path / "runs")
@@ -1583,6 +1604,7 @@ def test_ci2_4_single_phase_is_refused_in_force_unless_the_jobs_are_older_than_t
     import shutil
     shutil.rmtree(tmp_path / "runs")
     Path(ids).write_text(json.dumps(old))
+    _table_switch(monkeypatch, "2026-11-12T00:00:00Z")
     assert len(hw.retrieve_jobs(ids, single_phase=True, **kw)) > 0 and TimedJob.result_calls == len(jobs)
     # with the table not in force the flag is the retrieval as before, whatever the dates
     _switch(monkeypatch, "not_in_force")
