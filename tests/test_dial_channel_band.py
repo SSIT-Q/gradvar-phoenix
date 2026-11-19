@@ -380,6 +380,13 @@ def test_floor_clause_text_is_the_rows_and_no_evaluator_reads_the_proposed_bound
     assert "exact_test_vertices" not in TABLE["floors"] and TABLE["floors"]["exact_test_also"] == ["V6"]
     exact = DC.floors_exact_test()
     assert exact["passed"] is False and "not passed" in exact["note"] and set(exact["members"]) == {"reset", "dephase"}
+    # the record at the head was re-made under code review CF-1 (the row cites the first run, at 79db1ea): it lists its members per
+    # dial and level and covers every member at which the sign condition fails, V8 among them. It did not pass either
+    for dial in ("reset", "dephase"):
+        for level in DC.levels(TABLE):
+            fails = [v for v in VIDS if not FL.channel_sign_condition(DC.vertex_channel(TABLE, v, level, dial), dial)["channel_sign_ok"]]
+            assert fails and DC.floors_exact_test_missing(exact, dial, level, fails) == [] and DC.DESIGNED in exact["members"][dial][f"{level:g}"]
+    assert "V8" in exact["members"]["reset"][f"{LEVEL:g}"]
     for name in ("dial_hypotheses.py", "predictions.py", "report.py", "dial_channel.py"):
         text = (ROOT / "gradvar" / "analysis" / name).read_text(encoding="utf-8")
         assert "realised_floor_bound_at_channel" not in text and "UNIVERSAL_FLOOR_RULE" not in text, name
