@@ -3183,7 +3183,7 @@ def retrieve_jobs(ids_path: str, joblist_path: str | None = None, run_root: str 
         execution_rows_commit = full
         try:
             phase2_verification = phases.verify_phase2(execution_rows_commit, str(ids.get("joblist_name") or jl.get("name")),
-                                                       [str(j["job_id"]) for j in ids["jobs"]], run_root)
+                                                       [str(j["job_id"]) for j in ids["jobs"]], run_root, ids_path=ids_path)
         except phases.PhaseError as e:
             raise SystemExit(str(e))
     resub = ids.get("resubmission")
