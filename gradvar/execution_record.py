@@ -264,6 +264,18 @@ def resolve_commit(root: str | Path, commit: Any) -> Optional[str]:
     return out if r.returncode == 0 and re.fullmatch(r"[0-9a-f]{40}", out) else None
 
 
+def commit_on_ref(root: str | Path, commit: str, ref: str) -> Optional[str]:
+    """Why ``commit`` does not count as a commit of ``ref`` in the checkout ``root``, or None when it is an ancestor of it (or
+    the same commit). Review correction CI2-9: a decision that is not on main precedes nothing; a workflow started on another
+    branch must not honour it."""
+    tip = resolve_commit(root, ref)
+    if tip is None:
+        return f"{ref} names no commit in this checkout"
+    if _git(root, "merge-base", "--is-ancestor", str(commit), tip).returncode != 0:
+        return f"commit {commit} is not an ancestor of {ref} ({tip})"
+    return None
+
+
 def committed_file(root: str | Path, rel: str) -> Dict[str, Any]:
     """The commit that holds ``rel`` as it is in the tree: ``{path, sha256, commit}``. The file must be tracked and unchanged
     since ``HEAD``; the commit is the last one that changed it. A decision that is not committed precedes nothing."""

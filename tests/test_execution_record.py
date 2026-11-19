@@ -286,3 +286,33 @@ def test_a_decision_counts_only_as_the_committed_file(tmp_path):
     (repo / rel).write_text('{"a": 2}\n', encoding="utf-8", newline="\n")
     with pytest.raises(er.ExecutionRecordError, match="differs from the committed file"):
         er.committed_file(repo, rel)
+
+
+def test_ci2_9_a_decision_counts_only_when_its_commit_is_on_the_ref_named(tmp_path):
+    """Review correction CI2-9: the dispatch step passes ``--decision-on origin/main``; a decision committed on another branch
+    is not a decision on main, whatever the checkout holds."""
+    repo = tmp_path / "repo"
+    (repo / er.PREDICTIONS_DIR).mkdir(parents=True)
+    if _git(repo, "init", "-q", "-b", "main").returncode != 0:
+        pytest.skip("git cannot make a repository here")
+    for k, v in (("user.name", "t"), ("user.email", "t@example.org"), ("core.autocrlf", "false"), ("commit.gpgsign", "false"), ("core.longpaths", "true")):
+        _git(repo, "config", k, v)
+    (repo / "base.txt").write_text("x\n", encoding="utf-8")
+    _git(repo, "add", "base.txt")
+    assert _git(repo, "commit", "-q", "-m", "base").returncode == 0
+    _git(repo, "checkout", "-q", "-b", "side")
+    rel = f"{er.PREDICTIONS_DIR}/lst_rerun_decision.json"
+    (repo / rel).write_text('{"a": 1}\n', encoding="utf-8", newline="\n")
+    _git(repo, "add", rel)
+    assert _git(repo, "commit", "-q", "-m", "decision on a side branch").returncode == 0
+    commit = er.committed_file(repo, rel)["commit"]
+    assert "is not an ancestor of main" in er.commit_on_ref(repo, commit, "main")              # committed, but not on main
+    assert er.commit_on_ref(repo, commit, "side") is None and er.commit_on_ref(repo, commit, commit) is None
+    assert "names no commit" in er.commit_on_ref(repo, commit, "origin/main")                  # a ref the checkout does not have is no proof
+    _git(repo, "checkout", "-q", "main")
+    assert _git(repo, "merge", "-q", "--no-ff", "-m", "merge", "side").returncode == 0
+    assert er.commit_on_ref(repo, commit, "main") is None
+    import gradvar.hardware as hw
+    with pytest.raises(SystemExit) as e:
+        hw.main(["--joblist", "x.json", "--decision-on", "origin/main"])
+    assert e.value.code == 2

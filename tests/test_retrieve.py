@@ -1380,10 +1380,12 @@ def _passing_verify(monkeypatch, rp):
 
 
 def test_ci2_2_a_pool_that_is_not_closed_does_not_reach_the_second_phase(tmp_path, monkeypatch, capsys):
-    """Review correction CI2-2 (b), (c); stage s6 of the review. The first phase asked at 13:35Z leaves the pools pending: it says
-    so, in words and in the status file, and ends normally. The second phase then refuses, before the committed check and before
-    the service, whatever rows a commit holds. A stopped pool ends the first phase with a non-zero exit and is refused the same
-    way. Once the pools are complete the second phase goes on."""
+    """Review correction CI2-2 (a) to (d); stage s6 of the review. The first phase asked at 13:35Z leaves the pools pending: it
+    says so, in words and in the status file, and ends normally. The step that draws the rows reads the same status from the
+    tree (``--first-phase-status``: exit 4, nobody contacted), and the committed re-draw run on these bundles writes nothing
+    (its exit 4). The second phase then refuses, before the committed check and before the service, whatever rows a commit
+    holds. A stopped pool ends the first phase with a non-zero exit and is refused the same way. Once the pools are complete the
+    status read from the tree is complete (exit 0) and the second phase goes on."""
     ec, rp = _committed_side()
     import gradvar.hardware as hw
     head = _git_head(0)
@@ -1410,6 +1412,25 @@ def test_ci2_2_a_pool_that_is_not_closed_does_not_reach_the_second_phase(tmp_pat
     with pytest.raises(SystemExit) as e:
         hw.main(["--joblist", str(LIST01), "--phase-status-file", str(status)])
     assert e.value.code == 2 and "--phase-status-file goes with --retrieve --metadata-only" in capsys.readouterr().err
+    # (a), (d): the step that draws the rows reads the status from the tree and contacts nobody; the committed re-draw writes nothing
+    real_service = hw.get_service
+
+    def contacted(*a, **k):
+        raise AssertionError("the service was contacted")
+    monkeypatch.setattr(hw, "get_service", contacted)
+    tree_status = tmp_path / "tree_status.json"
+    assert hw.main(["--first-phase-status", ids, "--run-root", kw["run_root"], "--phase-status-file", str(tree_status)]) == hw.PHASE_PENDING_EXIT == 4
+    ts = json.loads(tree_status.read_text())
+    assert ts["status"] == "pending" and ts["jobs"] == st["jobs"] and set(ts["why"]) == set(st["jobs"]) and ts["read_from"] == "the tree"
+    with pytest.raises(SystemExit) as e:
+        hw.main(["--first-phase-status", ids, "--retrieve", ids])
+    assert e.value.code == 2 and "--first-phase-status reads the tree" in capsys.readouterr().err
+    sys.path.insert(0, str(ROOT / "scripts"))
+    import redraw_execution as rx
+    out = tmp_path / "rows"
+    assert rx.main(["--ids", ids, "--runs-root", kw["run_root"], "--out-dir", str(out), "--calibrations-out", str(tmp_path / "rows_cal")]) == rx.PENDING == 4
+    assert not out.exists() and not (tmp_path / "rows_cal").exists() and "PENDING" in capsys.readouterr().err
+    monkeypatch.setattr(hw, "get_service", real_service)
     # a stopped pool: the walk-back is refused
     history.sets, history.fail = full, (lambda when: _utc(U1135) <= when < _utc(U1337))
     _asked_at(hw, monkeypatch, "2026-11-10T18:00:00Z")
@@ -1417,6 +1438,8 @@ def test_ci2_2_a_pool_that_is_not_closed_does_not_reach_the_second_phase(tmp_pat
         hw.retrieve_jobs(ids, metadata_only=True, status_file=str(status), **kw)
     st = json.loads(status.read_text())
     assert st["status"] == "stopped" and set(st["jobs"].values()) == {"stopped"}
+    with pytest.raises(SystemExit, match="is stopped: no execution-time rows are drawn"):
+        hw.main(["--first-phase-status", ids, "--run-root", kw["run_root"]])
     with pytest.raises(SystemExit, match="is not closed: t0 .*: stopped"):
         hw.retrieve_jobs(ids, execution_rows_commit=head, **kw)
     assert calls == [] and TimedJob.result_calls == 0
@@ -1424,12 +1447,16 @@ def test_ci2_2_a_pool_that_is_not_closed_does_not_reach_the_second_phase(tmp_pat
     history.fail = None
     assert hw.retrieve_jobs(ids, metadata_only=True, status_file=str(status), **kw) == []
     assert json.loads(status.read_text())["status"] == "complete"
+    assert hw.main(["--first-phase-status", ids, "--run-root", kw["run_root"], "--phase-status-file", str(tree_status)]) == 0
+    assert json.loads(tree_status.read_text())["jobs"] == json.loads(status.read_text())["jobs"]
     d0 = next(iter(_bundles(tmp_path).values()))
     after = d0 / "properties_after_finished.json"
     kept = after.read_bytes()
     after.write_text(json.dumps(dict(status="pending", sets=[], asked_utc=None, asked_up_to=None)))    # recorded complete, the files say pending
     with pytest.raises(SystemExit, match="recorded complete, but the pool files read as pending"):
         hw.retrieve_jobs(ids, execution_rows_commit=head, **kw)
+    with pytest.raises(SystemExit, match="is stopped"):                                             # the tree's status does not trust the record either
+        hw.main(["--first-phase-status", ids, "--run-root", kw["run_root"]])
     after.write_bytes(kept)
     assert calls == [] and TimedJob.result_calls == 0
     assert len(hw.retrieve_jobs(ids, execution_rows_commit=head, **kw)) > 0 and calls == [head] and TimedJob.result_calls == len(jobs)

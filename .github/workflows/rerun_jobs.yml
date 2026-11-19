@@ -11,6 +11,8 @@ name: re-run hardware jobs (Deviation 67 (iii))
 #                  when the live layout check fails, when the rebuilt pubs differ from the first run's inputs, on another UTC
 #                  day than the first run, or when the list was re-run before.
 # The re-run's ids file then goes through retrieve_jobs.yml like any list: phase metadata, then phase results.
+# The steps decide and dispatch hold the IBM secrets and commit: they run on refs/heads/main only, and dispatch honours only a
+# decision whose commit is an ancestor of origin/main.
 on:
   workflow_dispatch:
     inputs:
@@ -47,6 +49,11 @@ jobs:
     env:
       PYTHONUNBUFFERED: "1"
     steps:
+      - name: Refuse the steps decide and dispatch on any ref but main (they hold the IBM secrets and commit to main)
+        if: ${{ inputs.step != 'plan' && github.ref != 'refs/heads/main' }}
+        run: |
+          echo "the steps decide and dispatch run on refs/heads/main only; this run was started on $GITHUB_REF"
+          exit 1
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0          # the commit that holds the decision file is read from this checkout
@@ -80,7 +87,7 @@ jobs:
           IDS_FILE: ${{ inputs.ids_file }}
         run: python -m gradvar.hardware --rerun "$IDS_FILE"
       - name: "Step decide: compute the re-run decision (live layout check; no result is read; nothing is submitted)"
-        if: ${{ inputs.step == 'decide' }}
+        if: ${{ inputs.step == 'decide' && github.ref == 'refs/heads/main' }}
         env:
           IDS_FILE: ${{ inputs.ids_file }}
           LEDGER: ${{ inputs.ledger_file }}
@@ -89,15 +96,17 @@ jobs:
           QISKIT_IBM_INSTANCE_OPEN: ${{ secrets.QISKIT_IBM_INSTANCE_OPEN }}
         run: python -m gradvar.hardware --rerun-decide "$IDS_FILE" --ledger "$LEDGER"
       - name: "Step dispatch: re-dispatch the jobs the committed decision names"
-        if: ${{ inputs.step == 'dispatch' }}
+        if: ${{ inputs.step == 'dispatch' && github.ref == 'refs/heads/main' }}
         env:
           IDS_FILE: ${{ inputs.ids_file }}
           QISKIT_IBM_TOKEN: ${{ secrets.QISKIT_IBM_TOKEN }}
           QISKIT_IBM_INSTANCE: ${{ secrets.QISKIT_IBM_INSTANCE }}
           QISKIT_IBM_INSTANCE_OPEN: ${{ secrets.QISKIT_IBM_INSTANCE_OPEN }}
-        run: python -m gradvar.hardware --rerun "$IDS_FILE" --yes-submit
+        run: |
+          git fetch origin main
+          python -m gradvar.hardware --rerun "$IDS_FILE" --yes-submit --decision-on origin/main
       - name: Commit the decision file, or the ids file of the re-run and the calibration snapshot (also after a failure, so the ids of submitted jobs are kept)
-        if: ${{ always() && inputs.step != 'plan' }}
+        if: ${{ always() && inputs.step != 'plan' && github.ref == 'refs/heads/main' }}
         env:
           IDS_FILE: ${{ inputs.ids_file }}
           STEP: ${{ inputs.step }}

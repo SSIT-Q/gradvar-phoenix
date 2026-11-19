@@ -6,13 +6,16 @@ name: retrieve hardware jobs
 # Deviation 65 (the retrieval in two phases; Paper 1 Estimator lists). The runner applies it only while the committed settings
 # table data/settings/execution_calibration_settings.json says in_force; until then phase "results" with no commit is the
 # retrieval as it always was.
-#   phase metadata  bundles without results and the execution-time pool of every job (job.result() is not called); then the
-#                   execution-time rows are drawn by scripts/redraw_execution.py in a step that holds no IBM credentials (it
-#                   refuses to run when a result of the list is in the tree); everything is committed and the commit is printed;
-#   phase results   the results. While Deviation 65 is in force: only with execution_rows_commit = the commit printed by phase
-#                   metadata, and only when every bundle carries the pool of the first phase;
-#   phase single    the retrieval as it was before the Deviation, said so in every job.json.
+#   phase metadata  bundles without results and the execution-time pool of every job (job.result() is not called); the bundles
+#                   are committed and the phase's status is printed: complete (every pool is closed), pending (IBM has not yet
+#                   published the change of values that closes a pool: run the phase again later) or stopped. No row is drawn
+#                   here: the execution-time rows are drawn by redraw_execution.yml, on its own, once the phase is complete;
+#   phase results   the results. While Deviation 65 is in force: only with execution_rows_commit = the commit printed by
+#                   redraw_execution.yml, and only when the pool of every job of the list is closed;
+#   phase single    the retrieval as it was before the Deviation, said so in every job.json. While Deviation 65 is in force
+#                   the runner refuses it unless every job of the ids file is older than the adoption.
 # The one re-run of Deviation 67 (iii) is decided and dispatched between the two phases by rerun_jobs.yml.
+# The steps that hold the IBM secrets or commit run on refs/heads/main only.
 on:
   workflow_dispatch:
     inputs:
@@ -21,7 +24,7 @@ on:
         required: true
         type: string
       phase:
-        description: "results (default; under Deviation 65 it needs execution_rows_commit), metadata (first phase, then the re-draw) or single (the retrieval as before Deviation 65, recorded as such)"
+        description: "results (default; under Deviation 65 it needs execution_rows_commit), metadata (first phase; the rows are drawn afterwards by the workflow 'draw the execution-time rows') or single (the retrieval as before Deviation 65, recorded as such)"
         required: true
         type: choice
         default: results
@@ -30,15 +33,10 @@ on:
           - metadata
           - single
       execution_rows_commit:
-        description: "phase results under Deviation 65: the 40-hex commit printed by phase metadata (it holds data/predictions/execution/<list>_*.json)"
+        description: "phase results under Deviation 65: the 40-hex commit printed by the workflow 'draw the execution-time rows' (it holds data/predictions/execution/<list>_*.json)"
         required: false
         type: string
         default: ""
-      redraw_workers:
-        description: "phase metadata: worker processes of scripts/redraw_execution.py"
-        required: false
-        type: string
-        default: "4"
 
 permissions:
   contents: write
@@ -54,6 +52,11 @@ jobs:
     env:
       PYTHONUNBUFFERED: "1"
     steps:
+      - name: Refuse any ref but main (the retrieval holds the IBM secrets and commits to main)
+        if: ${{ github.ref != 'refs/heads/main' }}
+        run: |
+          echo "this workflow runs on refs/heads/main only; it was started on $GITHUB_REF"
+          exit 1
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0          # phase results looks the execution-rows commit up in this checkout and tests that it is an ancestor
@@ -71,10 +74,12 @@ jobs:
             *) echo "ids file must be a committed file under data/runs/"; exit 1 ;;
           esac
       - name: Retrieve the jobs (nothing is submitted; waits for jobs still queued)
+        if: ${{ github.ref == 'refs/heads/main' }}
         env:
           IDS_FILE: ${{ inputs.ids_file }}
           PHASE: ${{ inputs.phase }}
           ROWS_COMMIT: ${{ inputs.execution_rows_commit }}
+          STATUS_FILE: ${{ runner.temp }}/first_phase_status.json
           QISKIT_IBM_TOKEN: ${{ secrets.QISKIT_IBM_TOKEN }}
           QISKIT_IBM_INSTANCE: ${{ secrets.QISKIT_IBM_INSTANCE }}
           QISKIT_IBM_INSTANCE_OPEN: ${{ secrets.QISKIT_IBM_INSTANCE_OPEN }}
@@ -85,7 +90,7 @@ jobs:
           case "$PHASE" in
             metadata)
               if [ -n "$ROWS_COMMIT" ]; then echo "phase metadata takes no execution_rows_commit"; exit 1; fi
-              python -m gradvar.hardware --retrieve "$IDS_FILE" --metadata-only ;;
+              python -m gradvar.hardware --retrieve "$IDS_FILE" --metadata-only --phase-status-file "$STATUS_FILE" ;;
             results)
               if [ -n "$ROWS_COMMIT" ]; then
                 python -m gradvar.hardware --retrieve "$IDS_FILE" --execution-rows-commit "$ROWS_COMMIT"
@@ -97,16 +102,6 @@ jobs:
               python -m gradvar.hardware --retrieve "$IDS_FILE" --single-phase ;;
             *) echo "unknown phase"; exit 1 ;;
           esac
-      - name: "Phase metadata: draw the execution-time rows (no IBM credentials in this step; refuses when a result of the list is in the tree)"
-        if: ${{ inputs.phase == 'metadata' }}
-        env:
-          IDS_FILE: ${{ inputs.ids_file }}
-          WORKERS: ${{ inputs.redraw_workers }}
-        run: |
-          case "$WORKERS" in
-            ""|*[!0-9]*) echo "redraw_workers must be a number"; exit 1 ;;
-          esac
-          python scripts/redraw_execution.py --ids "$IDS_FILE" --workers "$WORKERS"
       - name: "Upload the ISA circuits of Sampler jobs (kept as an artefact, not committed)"
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
@@ -116,24 +111,28 @@ jobs:
           if-no-files-found: ignore
           retention-days: 90
       - name: Commit bundles, CSV, ids file and calibration snapshot (also after a failed job, so the bundles of the retrieved jobs are kept)
-        if: ${{ always() }}
+        if: ${{ always() && github.ref == 'refs/heads/main' }}
         env:
           IDS_FILE: ${{ inputs.ids_file }}
           PHASE: ${{ inputs.phase }}
+          STATUS_FILE: ${{ runner.temp }}/first_phase_status.json
         run: |
           git config user.name "gradvar-hardware-bot"
           git config user.email "gradvar-hardware-bot@users.noreply.github.com"
           git add data/jobs/ data/calibrations/ data/runs/
-          for d in data/predictions/execution data/predictions/execution_exploratory; do
-            if [ -d "$d" ]; then git add "$d"; fi
-          done
           if git diff --cached --quiet; then
             echo "nothing to commit"
           else
             git commit -m "hardware retrieve ($PHASE): $IDS_FILE $(date -u +%Y-%m-%dT%H:%MZ)"
             git pull --rebase origin main
             git push
-            if [ "$PHASE" = "metadata" ]; then
-              echo "execution_rows_commit for phase results (the commit on main that holds the pool and the rows): $(git rev-parse HEAD)"
-            fi
+          fi
+          if [ "$PHASE" = "metadata" ]; then
+            # the status the first phase ended with; no row is drawn in this workflow and no commit for phase results is printed here
+            status="$(python -c 'import json, sys; print(json.load(open(sys.argv[1]))["status"])' "$STATUS_FILE" 2>/dev/null || echo "not reported")"
+            case "$status" in
+              complete) echo "first phase: complete, every pool is closed. Next: the workflow 'draw the execution-time rows (Deviation 65)' with this ids file and first_phase_commit $(git rev-parse HEAD)" ;;
+              pending) echo "first phase: pending. IBM has not yet published the change of values that closes every pool. Run phase metadata again later; until it is complete no row is drawn and no result can be retrieved" ;;
+              *) echo "first phase: $status. See the retrieval step; no row is drawn and no result can be retrieved" ;;
+            esac
           fi

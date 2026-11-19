@@ -2303,7 +2303,7 @@ def rerun_decide(ids_path: str, ledger_path: str, run_root: str = "data/runs", j
 
 
 def rerun_joblist(ids_path: str, submit: bool, run_root: str = "data/runs", joblist_path: str | None = None, now=None,
-                  root: str | Path | None = None) -> int:
+                  root: str | Path | None = None, decision_on: str | None = None) -> int:
     """The runner's re-dispatch path of Deviation 67 (iii). ``ids_path``: the ids file of the first run. The decision file
     ``data/predictions/execution/<list>_rerun_decision.json`` must exist, be the committed file, and be a decision the committed
     function granted (``execution_record.load_rerun_decision``, ``committed_file``); without it nothing is submitted. Exactly the
@@ -2314,7 +2314,9 @@ def rerun_joblist(ids_path: str, submit: bool, run_root: str = "data/runs", jobl
     pubs equal the inputs the service stored for the first job (``verify_job_inputs``). The
     jobs go in one Batch without waiting (``--submit-only`` semantics); the ids file is ``<list>_rerun_job_ids.json``. A re-run
     ids file of the list under ``run_root``, an ids file of re-run jobs, or a job tagged ``-rerun`` stops it: a job is re-run
-    once and a re-run is never re-run. Without ``submit`` the plan is printed and nothing is built or submitted."""
+    once and a re-run is never re-run. Without ``submit`` the plan is printed and nothing is built or submitted.
+    ``decision_on`` (``--decision-on``, review correction CI2-9): a ref the commit that holds the decision must be an ancestor of
+    (the workflow passes ``origin/main``); a decision committed anywhere else is refused."""
     try:
         switch = execution_record.adoption()
     except execution_record.ExecutionRecordError as e:
@@ -2335,6 +2337,10 @@ def rerun_joblist(ids_path: str, submit: bool, run_root: str = "data/runs", jobl
     try:
         decision = execution_record.load_rerun_decision(dpath, name)
         committed = execution_record.committed_file(repo, dpath.relative_to(repo).as_posix())
+        if decision_on:
+            off = execution_record.commit_on_ref(repo, committed["commit"], decision_on)
+            if off:
+                raise execution_record.ExecutionRecordError(f"the decision file {committed['path']} is not committed on {decision_on}: {off}")
         plan = execution_record.rerun_plan(decision, ids, now or datetime.now(timezone.utc),
                                            prior_rerun_ids=[str(p) for p in sorted(Path(run_root).glob(f"*/{name}_rerun_job_ids.json"))])
     except execution_record.ExecutionRecordError as e:
@@ -2955,6 +2961,66 @@ def second_phase_pools(ids: dict, run_root) -> List[str]:
     return out
 
 
+def first_phase_line(name: Any, out: Dict[str, Any]) -> str:
+    c = out["counts"]
+    return (f"first phase of {name}: {out['status']} (pools complete {c['complete']}, closed without an update within the bound "
+            f"{c[execution_record.NO_UPDATE_WITHIN_BOUND]}, pending {c['pending']}, stopped {c['stopped']}; jobs refused {c['refused']})")
+
+
+PHASE_PENDING_EXIT = 4      # exit status of --first-phase-status while a pool is pending (scripts/redraw_execution.py uses the same number)
+
+
+def first_phase_status_of_tree(ids_path: str, run_root: str = "data/runs", status_file: str | None = None) -> Dict[str, Any]:
+    """The status of the first phase of the list of an ids file as the files in the tree say it (review correction CI2-2 (a)
+    and (d)): for the step that draws the execution-time rows, which runs on its own, from the commit of the first phase, and
+    only when every pool is closed. Nobody is contacted and nothing is written but ``status_file``. Per job: ``complete`` or
+    ``no update within the bound`` when the first phase recorded its pool as complete and the pool files still build so
+    (``second_phase_pools``); ``pending``; ``stopped`` for a stopped pool, a job without a bundle, a job still to be discovered
+    or a pool record the files contradict; ``refused`` for a job whose result is in the tree or whose record is not of the
+    first phase (``first_phase_refusal``). Returns ``first_phase_status`` with ``why`` for every job that is not closed."""
+    ids = load_ids_file(ids_path)
+    statuses: Dict[str, str] = {}
+    why: Dict[str, str] = {}
+    for n, j in enumerate(ids["jobs"]):
+        if j["job_id"] is None:
+            key = f"job {n + 1} ({j.get('tag')})"
+            statuses[key], why[key] = "stopped", "the job is still to be discovered: no first phase has run for it"
+            continue
+        key = str(j["job_id"])
+        refusal = first_phase_refusal(run_root, key)
+        if refusal:
+            statuses[key], why[key] = "refused", refusal
+            continue
+        records = []
+        for b in sorted(Path(run_root).glob(f"*/{key}")):
+            try:
+                records.append((json.loads((b / "job.json").read_text()).get("retrieval") or {}).get("execution_pool") or {})
+            except (OSError, ValueError, AttributeError):
+                records.append({})
+        if len(records) != 1:
+            statuses[key], why[key] = "stopped", f"{len(records)} bundles of a first phase under {run_root}"
+            continue
+        state = records[0].get("status")
+        if state in POOL_CLOSED:
+            problems = second_phase_pools(dict(jobs=[j]), run_root)
+            if problems:
+                statuses[key], why[key] = "stopped", problems[0]
+            else:
+                statuses[key] = pool_state(records[0])
+        elif state == "pending":
+            statuses[key], why[key] = "pending", "; ".join(str(x) for x in records[0].get("notes") or []) or "the closing update is not published yet"
+        else:
+            statuses[key], why[key] = "stopped", "; ".join(str(x) for x in records[0].get("notes") or []) or f"pool record {state!r}"
+    out = dict(first_phase_status(statuses), why=why)
+    name = ids.get("joblist_name") or ids.get("joblist")
+    print(first_phase_line(name, out), flush=True)
+    for k, v in why.items():
+        print(f"  {k}: {statuses[k]}: {v}", flush=True)
+    if status_file:
+        _dump(Path(status_file), dict(phase="metadata", read_from="the tree", list=name, ids_file=str(ids_path), **out))
+    return out
+
+
 def first_phase_refusal(run_root, job_id: str) -> str | None:
     """Review correction CI2-1: why the first retrieval phase must leave the bundle of ``job_id`` alone, or None. The first phase
     writes a bundle without a result; run on a job that was retrieved already it would turn the record of a completed job into
@@ -3059,9 +3125,7 @@ def retrieve_jobs(ids_path: str, joblist_path: str | None = None, run_root: str 
 
     def report_first_phase() -> Dict[str, Any]:
         out = first_phase_status(statuses)
-        c = out["counts"]
-        print(f"first phase of {jl.get('name')}: {out['status']} (pools complete {c['complete']}, closed without an update within the bound "
-              f"{c[execution_record.NO_UPDATE_WITHIN_BOUND]}, pending {c['pending']}, stopped {c['stopped']}; jobs refused {c['refused']})", flush=True)
+        print(first_phase_line(jl.get("name"), out), flush=True)
         if status_file:
             _dump(Path(status_file), dict(phase="metadata", list=jl.get("name"), ids_file=str(ids_path), **out))
         return out
@@ -3349,12 +3413,17 @@ def main(argv=None):
     p.add_argument("--single-phase", action="store_true", help="with --retrieve: the retrieval as before Deviation 65 (recorded as such)")
     p.add_argument("--phase-status-file", default=None, metavar="FILE", help="with --retrieve --metadata-only: write the status the first phase ends with "
                    "(complete, pending or stopped, and the state of every job) to FILE as JSON")
+    p.add_argument("--first-phase-status", default=None, metavar="IDS_FILE", help="read from the tree, contacting nobody, whether the first phase of this ids "
+                   "file closed every pool: exit 0 when complete, 4 while a pool is pending, 1 when a pool is stopped or a job refused; "
+                   "--phase-status-file writes the status as JSON")
     p.add_argument("--rerun-decide", default=None, metavar="IDS_FILE", help="Deviation 67 (iii), between the two retrieval phases: compute the re-run decision "
                                                                             "of the list of this ids file and write its decision file; needs --ledger; "
                                                                             "submits nothing")
     p.add_argument("--ledger", default=None, metavar="FILE", help="with --rerun-decide: the ledger file {lines, charged_ids_files, source}")
     p.add_argument("--rerun", default=None, metavar="IDS_FILE", help="Deviation 67 (iii): re-dispatch the jobs the committed decision file names, unchanged, "
                                                                      "from the ids file of the first run; with --yes-submit, else only the plan is printed")
+    p.add_argument("--decision-on", default=None, metavar="REF", help="with --rerun: the commit that holds the decision file must be an ancestor of REF "
+                                                                      "(the workflow passes origin/main)")
     p.add_argument("--only-job-tag", default=None, metavar="TAG",
                    help="resubmission of one failed job: build the list as submitted (on the calibration CSV of the original submission, found "
                         "through its ids file under --run-root), keep only the job tagged TAG (e.g. L2-c5) and submit its pubs as jobs "
@@ -3368,8 +3437,15 @@ def main(argv=None):
         pass
     if (a.metadata_only or a.execution_rows_commit or a.single_phase) and not a.retrieve:
         p.error("--metadata-only, --execution-rows-commit and --single-phase go with --retrieve")
+    if a.first_phase_status:
+        if a.retrieve or a.joblist or a.yes_submit or a.rerun or a.rerun_decide:
+            p.error("--first-phase-status reads the tree and goes with --run-root and --phase-status-file only")
+        out = first_phase_status_of_tree(a.first_phase_status, run_root=a.run_root, status_file=a.phase_status_file)
+        if out["status"] == "stopped":
+            raise SystemExit(f"the first phase of {a.first_phase_status} is stopped: no execution-time rows are drawn for it")
+        return 0 if out["status"] == "complete" else PHASE_PENDING_EXIT
     if a.phase_status_file and not (a.retrieve and a.metadata_only):
-        p.error("--phase-status-file goes with --retrieve --metadata-only")
+        p.error("--phase-status-file goes with --retrieve --metadata-only, or with --first-phase-status")
     if a.retrieve:
         retrieve_jobs(a.retrieve, a.joblist, run_root=a.run_root, log_dir=a.log_dir, run_id=github_run_id(), timeout=a.timeout,
                       metadata_only=a.metadata_only, execution_rows_commit=a.execution_rows_commit, single_phase=a.single_phase,
@@ -3383,7 +3459,9 @@ def main(argv=None):
     if a.rerun:
         if a.submit_only or a.only_job_tag is not None or a.dry_run_sample is not None:
             p.error("--rerun takes --yes-submit and nothing else of a submission: the re-run is one Batch, not awaited")
-        return rerun_joblist(a.rerun, submit=a.yes_submit, run_root=a.run_root, joblist_path=a.joblist)
+        return rerun_joblist(a.rerun, submit=a.yes_submit, run_root=a.run_root, joblist_path=a.joblist, decision_on=a.decision_on)
+    if a.decision_on:
+        p.error("--decision-on goes with --rerun")
     if a.submit_only and not (a.joblist and a.yes_submit):
         p.error("--submit-only needs --joblist and --yes-submit")
     if a.max_pubs is not None and a.only_job_tag is None:

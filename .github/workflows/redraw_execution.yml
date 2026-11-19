@@ -1,0 +1,106 @@
+name: draw the execution-time rows (Deviation 65)
+
+# Between the two retrieval phases of Deviation 65 (retrieve_jobs.yml): draws the execution-time rows of a list with
+# scripts/redraw_execution.py and commits them. It is its own step, started by the operator once phase metadata reported
+# "complete"; it is never chained to the first phase. This workflow holds no IBM secret and contacts nobody.
+#   1. the commit of the first phase must be on main (an ancestor of the checkout);
+#   2. every pool of the list must be closed, read from the committed bundles (python -m gradvar.hardware --first-phase-status:
+#      exit 0 complete, 4 pending, 1 stopped); while a pool is pending or stopped nothing is drawn;
+#   3. the rows are drawn; only when that step succeeds are data/predictions/execution and data/calibrations/execution
+#      committed and the commit printed as execution_rows_commit for phase results. When the pools are not closed, or the
+#      re-draw fails or is refused (a result of the list in the tree: exit 3; a pending pool: exit 4; a job without a reading:
+#      exit 5), nothing is committed and no commit is printed.
+# The same three commands may be run on any machine from a checkout of main at or after the first-phase commit (more cores:
+# --workers); the output is then committed to main by hand and that commit is the execution_rows_commit.
+on:
+  workflow_dispatch:
+    inputs:
+      ids_file:
+        description: "Ids file under data/runs/ whose first phase is complete (e.g. data/runs/2026-11-12/day3_dial_refs_job_ids.json)"
+        required: true
+        type: string
+      first_phase_commit:
+        description: "The 40-hex commit printed by phase metadata of 'retrieve hardware jobs' (it holds the bundles and the pools)"
+        required: true
+        type: string
+      workers:
+        description: "Worker processes of scripts/redraw_execution.py"
+        required: false
+        type: string
+        default: "4"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: hardware-jobs
+  cancel-in-progress: false
+
+jobs:
+  redraw:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    env:
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - name: Refuse any ref but main (the rows are committed to main)
+        if: ${{ github.ref != 'refs/heads/main' }}
+        run: |
+          echo "this workflow runs on refs/heads/main only; it was started on $GITHUB_REF"
+          exit 1
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # the first-phase commit is looked up in this checkout
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install package (pinned versions)
+        run: pip install -r requirements.lock && pip install -e . --no-deps
+      - name: Check the inputs (the first-phase commit is on main)
+        env:
+          IDS_FILE: ${{ inputs.ids_file }}
+          FIRST_PHASE_COMMIT: ${{ inputs.first_phase_commit }}
+          WORKERS: ${{ inputs.workers }}
+        run: |
+          case "$IDS_FILE" in
+            data/runs/*.json) test -f "$IDS_FILE" ;;
+            *) echo "ids file must be a committed file under data/runs/"; exit 1 ;;
+          esac
+          case "$FIRST_PHASE_COMMIT" in
+            *[!0-9a-f]*) echo "first_phase_commit must be a commit hash"; exit 1 ;;
+          esac
+          if [ "${#FIRST_PHASE_COMMIT}" -ne 40 ]; then echo "first_phase_commit must be the 40-character hash"; exit 1; fi
+          case "$WORKERS" in
+            ""|*[!0-9]*) echo "workers must be a number"; exit 1 ;;
+          esac
+          if ! git merge-base --is-ancestor "$FIRST_PHASE_COMMIT" HEAD; then
+            echo "commit $FIRST_PHASE_COMMIT is not an ancestor of main: the rows are drawn on the bundles of a first phase that is on main"; exit 1
+          fi
+          echo "first-phase commit $FIRST_PHASE_COMMIT; rows drawn on main at $(git rev-parse HEAD)"
+      - name: Every pool of the list is closed (read from the committed bundles; nobody is contacted)
+        env:
+          IDS_FILE: ${{ inputs.ids_file }}
+        run: python -m gradvar.hardware --first-phase-status "$IDS_FILE"
+      - name: Draw the execution-time rows (no IBM credentials; refuses when a result of the list is in the tree)
+        env:
+          IDS_FILE: ${{ inputs.ids_file }}
+          WORKERS: ${{ inputs.workers }}
+        run: python scripts/redraw_execution.py --ids "$IDS_FILE" --workers "$WORKERS"
+      - name: Commit the rows and print the commit for phase results (only after a re-draw that succeeded)
+        if: ${{ success() && github.ref == 'refs/heads/main' }}
+        env:
+          IDS_FILE: ${{ inputs.ids_file }}
+        run: |
+          git config user.name "gradvar-hardware-bot"
+          git config user.email "gradvar-hardware-bot@users.noreply.github.com"
+          for d in data/predictions/execution data/predictions/execution_exploratory data/calibrations/execution data/calibrations/execution_exploratory; do
+            if [ -d "$d" ]; then git add "$d"; fi
+          done
+          if git diff --cached --quiet; then
+            echo "nothing to commit: the re-draw wrote no file that is not on main already; no commit is printed"
+          else
+            git commit -m "execution-time rows: $IDS_FILE $(date -u +%Y-%m-%dT%H:%MZ)"
+            git pull --rebase origin main
+            git push
+            echo "execution_rows_commit for phase results (the commit on main that holds the rows): $(git rev-parse HEAD)"
+          fi
