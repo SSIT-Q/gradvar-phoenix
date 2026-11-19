@@ -166,11 +166,12 @@ CHANNEL_FLOOR_RULE = (
     "(a_i t(s_i^L) + b_i)(a_j t(s_j^L) + b_j). The value of the kept mode is exact for every channel. That the dropped modes do not "
     "lower the off-diagonal moment needs their per-mask coefficients to share a sign: the readout offsets non-negative as before, "
     "eps1 >= eps0 (else D(1) < 0) and r_x >= 0, r_y >= 0 (else a transverse string changes sign with every reset it survives). Where "
-    "the condition fails the realised form is not established by this argument: it then rests on the exact two-copy test recorded "
-    "for the range (review correction C64-7; scripts/floors_exact_test.py), and until that test has passed the floor is reported, "
-    "marked not tested, and a miss is not read as R3. The dephasing dial has no reset: both branches are Z -> (1 - gamma) Z + gamma I, "
-    "the floor is zero at the designed channel, and its mask bit flips the sign of every transverse string, so its realised form "
-    "always rests on the exact test.")
+    "the condition fails the realised form is not established by this argument, and it is not a bound: the exact two-copy test of it "
+    "over the range (review correction C64-7; scripts/floors_exact_test.py) did not pass. Under the Deviation 64 draft as corrected "
+    "(code review CG-1; dial_hypotheses.FLOOR_CLAUSE_ROW) no Deviation 33 floor of a dial point is therefore tested: the floor is "
+    "reported, labelled as not a bound over the range, and a value below it is not read as R3. The dephasing dial has no reset: both "
+    "branches are Z -> (1 - gamma) Z + gamma I, the floor is zero at the designed channel, and its mask bit flips the sign of every "
+    "transverse string, so the sign argument never establishes its realised form.")
 
 
 def _is_dephase(dial: str) -> bool:

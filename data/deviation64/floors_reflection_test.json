@@ -1,0 +1,4718 @@
+{
+ "deviation": "64 (draft, not adopted): exact test of a reflection inequality for the off-diagonal moments; a numerical finding, not a floor",
+ "generated_utc": "2026-11-19T04:07:27Z",
+ "git_commit": "4621a5472846900a6fedb4a4b039f2fae5405072",
+ "script": "scripts/floors_reflection_test.py",
+ "range_digest": "4f4342911d7b7dd0af815a68ae464788f249b4eb97beffe5ca53e83d29be9da9",
+ "setting": {
+  "patch": {
+   "rows": 2,
+   "cols": 2,
+   "origin": [
+    8,
+    1
+   ]
+  },
+  "L": [
+   3
+  ],
+  "dial": "reset",
+  "p": [
+   0.25,
+   0.5
+  ],
+  "K": 8,
+  "mask_seeds": [
+   31,
+   32,
+   33
+  ],
+  "tolerance": 1e-13
+ },
+ "n_cases": 120,
+ "n_fail": 0,
+ "holds": true,
+ "cases": [
+  {
+   "case": "reset p=0.25 L=3 V1@0.01 grad masks 31",
+   "L": 3,
+   "p": 0.25,
+   "member": "V1@0.01",
+   "mask_seed": 31,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.0,
+    "eps0": 0.01,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.005,
+    "eps0": 0.005,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.004372620621156049,
+   "T_corner": 0.004602028481627863,
+   "T_reflected": 0.004835034113076072,
+   "second_difference": 3.5977709763965887e-06,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V1@0.01 cost masks 31",
+   "L": 3,
+   "p": 0.25,
+   "member": "V1@0.01",
+   "mask_seed": 31,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.0,
+    "eps0": 0.01,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.005,
+    "eps0": 0.005,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.004630104248581521,
+   "T_corner": 0.004862214090823551,
+   "T_reflected": 0.005097943150893661,
+   "second_difference": 3.6192178280800708e-06,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V1@0.01 grad masks 32",
+   "L": 3,
+   "p": 0.25,
+   "member": "V1@0.01",
+   "mask_seed": 32,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.0,
+    "eps0": 0.01,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.005,
+    "eps0": 0.005,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.013948275458926495,
+   "T_corner": 0.01410103752892781,
+   "T_reflected": 0.014257357392936182,
+   "second_difference": 3.557794007059273e-06,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V1@0.01 cost masks 32",
+   "L": 3,
+   "p": 0.25,
+   "member": "V1@0.01",
+   "mask_seed": 32,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.0,
+    "eps0": 0.01,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.005,
+    "eps0": 0.005,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.014209826038830156,
+   "T_corner": 0.014364596038744428,
+   "T_reflected": 0.014522955203250369,
+   "second_difference": 3.5891645916684423e-06,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V1@0.01 grad masks 33",
+   "L": 3,
+   "p": 0.25,
+   "member": "V1@0.01",
+   "mask_seed": 33,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.0,
+    "eps0": 0.01,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.005,
+    "eps0": 0.005,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.0034729478466924276,
+   "T_corner": 0.0036383374009454363,
+   "T_reflected": 0.0038067007275599868,
+   "second_difference": 2.973772361541775e-06,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V1@0.01 cost masks 33",
+   "L": 3,
+   "p": 0.25,
+   "member": "V1@0.01",
+   "mask_seed": 33,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.0,
+    "eps0": 0.01,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.005,
+    "eps0": 0.005,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.009003866335099966,
+   "T_corner": 0.009264266276678812,
+   "T_reflected": 0.0095277700502983,
+   "second_difference": 3.103832040642074e-06,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V2@0.01 grad masks 31",
+   "L": 3,
+   "p": 0.25,
+   "member": "V2@0.01",
+   "mask_seed": 31,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.002,
+    "eps0": 0.01,
+    "r_x": -0.044497190922573975,
+    "r_y": -0.044497190922573975
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.006,
+    "eps0": 0.006,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.01,
+    "eps0": 0.002,
+    "r_x": 0.044497190922573975,
+    "r_y": 0.044497190922573975
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.004206587700302059,
+   "T_corner": 0.004586694746513449,
+   "T_reflected": 0.0049808531040543514,
+   "second_difference": 1.4051311329511817e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V2@0.01 cost masks 31",
+   "L": 3,
+   "p": 0.25,
+   "member": "V2@0.01",
+   "mask_seed": 31,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.002,
+    "eps0": 0.01,
+    "r_x": -0.044497190922573975,
+    "r_y": -0.044497190922573975
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.006,
+    "eps0": 0.006,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.01,
+    "eps0": 0.002,
+    "r_x": 0.044497190922573975,
+    "r_y": 0.044497190922573975
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.0044628865828576616,
+   "T_corner": 0.00484628277245415,
+   "T_reflected": 0.005243786974786488,
+   "second_difference": 1.4108012735849357e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V2@0.01 grad masks 32",
+   "L": 3,
+   "p": 0.25,
+   "member": "V2@0.01",
+   "mask_seed": 32,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.002,
+    "eps0": 0.01,
+    "r_x": -0.044497190922573975,
+    "r_y": -0.044497190922573975
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.006,
+    "eps0": 0.006,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.01,
+    "eps0": 0.002,
+    "r_x": 0.044497190922573975,
+    "r_y": 0.044497190922573975
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.013626239885438504,
+   "T_corner": 0.014033770789107372,
+   "T_reflected": 0.014453320978643644,
+   "second_difference": 1.2019285867404667e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V2@0.01 cost masks 32",
+   "L": 3,
+   "p": 0.25,
+   "member": "V2@0.01",
+   "mask_seed": 32,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.002,
+    "eps0": 0.01,
+    "r_x": -0.044497190922573975,
+    "r_y": -0.044497190922573975
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.006,
+    "eps0": 0.006,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.01,
+    "eps0": 0.002,
+    "r_x": 0.044497190922573975,
+    "r_y": 0.044497190922573975
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.013887110626998472,
+   "T_corner": 0.014296751551270111,
+   "T_reflected": 0.01471857736708966,
+   "second_difference": 1.2184891547910304e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V2@0.01 grad masks 33",
+   "L": 3,
+   "p": 0.25,
+   "member": "V2@0.01",
+   "mask_seed": 33,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.002,
+    "eps0": 0.01,
+    "r_x": -0.044497190922573975,
+    "r_y": -0.044497190922573975
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.006,
+    "eps0": 0.006,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.01,
+    "eps0": 0.002,
+    "r_x": 0.044497190922573975,
+    "r_y": 0.044497190922573975
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.0035062783221592457,
+   "T_corner": 0.0036372730277924666,
+   "T_reflected": 0.003781442763980769,
+   "second_difference": 1.3175030555081721e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V2@0.01 cost masks 33",
+   "L": 3,
+   "p": 0.25,
+   "member": "V2@0.01",
+   "mask_seed": 33,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.002,
+    "eps0": 0.01,
+    "r_x": -0.044497190922573975,
+    "r_y": -0.044497190922573975
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.006,
+    "eps0": 0.006,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.01,
+    "eps0": 0.002,
+    "r_x": 0.044497190922573975,
+    "r_y": 0.044497190922573975
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.008935930901559133,
+   "T_corner": 0.009241013324486583,
+   "T_reflected": 0.009559964952556758,
+   "second_difference": 1.386920514272541e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V7@0.01 grad masks 31",
+   "L": 3,
+   "p": 0.25,
+   "member": "V7@0.01",
+   "mask_seed": 31,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.0,
+    "eps0": 0.01,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.005,
+    "eps0": 0.005,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.004074115325741352,
+   "T_corner": 0.004372510063833733,
+   "T_reflected": 0.004675847998352216,
+   "second_difference": 4.943196426101387e-06,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V7@0.01 cost masks 31",
+   "L": 3,
+   "p": 0.25,
+   "member": "V7@0.01",
+   "mask_seed": 31,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.0,
+    "eps0": 0.01,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.005,
+    "eps0": 0.005,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.004074115325741353,
+   "T_corner": 0.004372510063833734,
+   "T_reflected": 0.004675847998352216,
+   "second_difference": 4.943196426101387e-06,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V7@0.01 grad masks 32",
+   "L": 3,
+   "p": 0.25,
+   "member": "V7@0.01",
+   "mask_seed": 32,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.0,
+    "eps0": 0.01,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.005,
+    "eps0": 0.005,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.017141015164146862,
+   "T_corner": 0.017336318806969554,
+   "T_reflected": 0.017536135266367527,
+   "second_difference": 4.512816575284739e-06,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V7@0.01 cost masks 32",
+   "L": 3,
+   "p": 0.25,
+   "member": "V7@0.01",
+   "mask_seed": 32,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.0,
+    "eps0": 0.01,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.005,
+    "eps0": 0.005,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.017141015164146862,
+   "T_corner": 0.017336318806969554,
+   "T_reflected": 0.017536135266367527,
+   "second_difference": 4.512816575284739e-06,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V7@0.01 grad masks 33",
+   "L": 3,
+   "p": 0.25,
+   "member": "V7@0.01",
+   "mask_seed": 33,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.0,
+    "eps0": 0.01,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.005,
+    "eps0": 0.005,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.0052456871255183125,
+   "T_corner": 0.0054795505389092294,
+   "T_reflected": 0.0057171830730361126,
+   "second_difference": 3.769120735967052e-06,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V7@0.01 cost masks 33",
+   "L": 3,
+   "p": 0.25,
+   "member": "V7@0.01",
+   "mask_seed": 33,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.0,
+    "eps0": 0.01,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.005,
+    "eps0": 0.005,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.010598614003984532,
+   "T_corner": 0.010935987325989303,
+   "T_reflected": 0.011277235701584856,
+   "second_difference": 3.875053590784994e-06,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V8@0.01 grad masks 31",
+   "L": 3,
+   "p": 0.25,
+   "member": "V8@0.01",
+   "mask_seed": 31,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": -0.1,
+    "r_y": -0.1
+   },
+   "corner": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": 0.1,
+    "r_y": 0.1
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.003992312941595088,
+   "T_corner": 0.004675847998352216,
+   "T_reflected": 0.005388450038994288,
+   "second_difference": 2.906698388494347e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V8@0.01 cost masks 31",
+   "L": 3,
+   "p": 0.25,
+   "member": "V8@0.01",
+   "mask_seed": 31,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": -0.1,
+    "r_y": -0.1
+   },
+   "corner": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": 0.1,
+    "r_y": 0.1
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.003992312941595089,
+   "T_corner": 0.004675847998352216,
+   "T_reflected": 0.005388450038994289,
+   "second_difference": 2.9066983884945205e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V8@0.01 grad masks 32",
+   "L": 3,
+   "p": 0.25,
+   "member": "V8@0.01",
+   "mask_seed": 32,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": -0.1,
+    "r_y": -0.1
+   },
+   "corner": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": 0.1,
+    "r_y": 0.1
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.01649978798739637,
+   "T_corner": 0.017536135266367527,
+   "T_reflected": 0.018606253853818113,
+   "second_difference": 3.377130847943138e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V8@0.01 cost masks 32",
+   "L": 3,
+   "p": 0.25,
+   "member": "V8@0.01",
+   "mask_seed": 32,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": -0.1,
+    "r_y": -0.1
+   },
+   "corner": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": 0.1,
+    "r_y": 0.1
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.01649978798739637,
+   "T_corner": 0.017536135266367527,
+   "T_reflected": 0.018606253853818113,
+   "second_difference": 3.377130847943138e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V8@0.01 grad masks 33",
+   "L": 3,
+   "p": 0.25,
+   "member": "V8@0.01",
+   "mask_seed": 33,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": -0.1,
+    "r_y": -0.1
+   },
+   "corner": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": 0.1,
+    "r_y": 0.1
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.005715006960465429,
+   "T_corner": 0.0057171830730361126,
+   "T_reflected": 0.00574695194716168,
+   "second_difference": 2.759276155488502e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V8@0.01 cost masks 33",
+   "L": 3,
+   "p": 0.25,
+   "member": "V8@0.01",
+   "mask_seed": 33,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": -0.1,
+    "r_y": -0.1
+   },
+   "corner": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": 0.1,
+    "r_y": 0.1
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.011003232466587437,
+   "T_corner": 0.011277235701584856,
+   "T_reflected": 0.011578885736204155,
+   "second_difference": 2.7646799621881823e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V9@0.01 grad masks 31",
+   "L": 3,
+   "p": 0.25,
+   "member": "V9@0.01",
+   "mask_seed": 31,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.002,
+    "eps0": 0.01,
+    "r_x": -0.1443971408725114,
+    "r_y": 0.05540275902736344
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.006,
+    "eps0": 0.006,
+    "r_x": 0.0,
+    "r_y": 0.05540275902736344
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.01,
+    "eps0": 0.002,
+    "r_x": 0.1443971408725114,
+    "r_y": 0.05540275902736344
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.0037700596731391916,
+   "T_corner": 0.004586793179784511,
+   "T_reflected": 0.0054589484560740795,
+   "second_difference": 5.5421769644249316e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V9@0.01 cost masks 31",
+   "L": 3,
+   "p": 0.25,
+   "member": "V9@0.01",
+   "mask_seed": 31,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.002,
+    "eps0": 0.01,
+    "r_x": -0.1443971408725114,
+    "r_y": 0.05540275902736344
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.006,
+    "eps0": 0.006,
+    "r_x": 0.0,
+    "r_y": 0.05540275902736344
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.01,
+    "eps0": 0.002,
+    "r_x": 0.1443971408725114,
+    "r_y": 0.05540275902736344
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.004023913546718735,
+   "T_corner": 0.00484638120616535,
+   "T_reflected": 0.005724613947917169,
+   "second_difference": 5.576508230520534e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V9@0.01 grad masks 32",
+   "L": 3,
+   "p": 0.25,
+   "member": "V9@0.01",
+   "mask_seed": 32,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.002,
+    "eps0": 0.01,
+    "r_x": -0.1443971408725114,
+    "r_y": 0.05540275902736344
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.006,
+    "eps0": 0.006,
+    "r_x": 0.0,
+    "r_y": 0.05540275902736344
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.01,
+    "eps0": 0.002,
+    "r_x": 0.1443971408725114,
+    "r_y": 0.05540275902736344
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.013074856440118502,
+   "T_corner": 0.014057786698693276,
+   "T_reflected": 0.015086475847552763,
+   "second_difference": 4.5758890284713916e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V9@0.01 cost masks 32",
+   "L": 3,
+   "p": 0.25,
+   "member": "V9@0.01",
+   "mask_seed": 32,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.002,
+    "eps0": 0.01,
+    "r_x": -0.1443971408725114,
+    "r_y": 0.05540275902736344
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.006,
+    "eps0": 0.006,
+    "r_x": 0.0,
+    "r_y": 0.05540275902736344
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.01,
+    "eps0": 0.002,
+    "r_x": 0.1443971408725114,
+    "r_y": 0.05540275902736344
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.013334899408891099,
+   "T_corner": 0.014320767460856016,
+   "T_reflected": 0.01535349695340999,
+   "second_difference": 4.686144058905703e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V9@0.01 grad masks 33",
+   "L": 3,
+   "p": 0.25,
+   "member": "V9@0.01",
+   "mask_seed": 33,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.002,
+    "eps0": 0.01,
+    "r_x": -0.1443971408725114,
+    "r_y": 0.05540275902736344
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.006,
+    "eps0": 0.006,
+    "r_x": 0.0,
+    "r_y": 0.05540275902736344
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.01,
+    "eps0": 0.002,
+    "r_x": 0.1443971408725114,
+    "r_y": 0.05540275902736344
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.0035225548160389935,
+   "T_corner": 0.0036372730967524397,
+   "T_reflected": 0.003817225834025947,
+   "second_difference": 6.523445656006054e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V9@0.01 cost masks 33",
+   "L": 3,
+   "p": 0.25,
+   "member": "V9@0.01",
+   "mask_seed": 33,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.002,
+    "eps0": 0.01,
+    "r_x": -0.1443971408725114,
+    "r_y": 0.05540275902736344
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.006,
+    "eps0": 0.006,
+    "r_x": 0.0,
+    "r_y": 0.05540275902736344
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.01,
+    "eps0": 0.002,
+    "r_x": 0.1443971408725114,
+    "r_y": 0.05540275902736344
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.008731474049425968,
+   "T_corner": 0.009241013547310462,
+   "T_reflected": 0.009818199845591194,
+   "second_difference": 6.764680039623647e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V1@0.02 grad masks 31",
+   "L": 3,
+   "p": 0.25,
+   "member": "V1@0.02",
+   "mask_seed": 31,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.0,
+    "eps0": 0.02,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.01,
+    "eps0": 0.01,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.004075354274249379,
+   "T_corner": 0.0045257521273603584,
+   "T_reflected": 0.00499049617373464,
+   "second_difference": 1.4346193263301346e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V1@0.02 cost masks 31",
+   "L": 3,
+   "p": 0.25,
+   "member": "V1@0.02",
+   "mask_seed": 31,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.0,
+    "eps0": 0.02,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.01,
+    "eps0": 0.01,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.004327226790550815,
+   "T_corner": 0.004782954394490417,
+   "T_reflected": 0.00525311316713721,
+   "second_difference": 1.4431168707191092e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V1@0.02 grad masks 32",
+   "L": 3,
+   "p": 0.25,
+   "member": "V1@0.02",
+   "mask_seed": 32,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.0,
+    "eps0": 0.02,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.01,
+    "eps0": 0.01,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.013468812621671291,
+   "T_corner": 0.013768675881683429,
+   "T_reflected": 0.014082684572845564,
+   "second_difference": 1.4145431149997778e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V1@0.02 cost masks 32",
+   "L": 3,
+   "p": 0.25,
+   "member": "V1@0.02",
+   "mask_seed": 32,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.0,
+    "eps0": 0.02,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.01,
+    "eps0": 0.01,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.013725539565715802,
+   "T_corner": 0.014029347821258623,
+   "T_reflected": 0.014347425768317159,
+   "second_difference": 1.4269691515713528e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V1@0.02 grad masks 33",
+   "L": 3,
+   "p": 0.25,
+   "member": "V1@0.02",
+   "mask_seed": 33,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.0,
+    "eps0": 0.02,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.01,
+    "eps0": 0.01,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.0033064430974307376,
+   "T_corner": 0.003633048978684558,
+   "T_reflected": 0.003971397075775426,
+   "second_difference": 1.174221583704737e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V1@0.02 cost masks 33",
+   "L": 3,
+   "p": 0.25,
+   "member": "V1@0.02",
+   "mask_seed": 33,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.0,
+    "eps0": 0.02,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.01,
+    "eps0": 0.01,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.008635746035866927,
+   "T_corner": 0.009148496185053966,
+   "T_reflected": 0.009673493827097793,
+   "second_difference": 1.2247492856786585e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V2@0.02 grad masks 31",
+   "L": 3,
+   "p": 0.25,
+   "member": "V2@0.02",
+   "mask_seed": 31,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.002,
+    "eps0": 0.02,
+    "r_x": -0.04427188724235731,
+    "r_y": -0.04427188724235731
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.011,
+    "eps0": 0.011,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.02,
+    "eps0": 0.002,
+    "r_x": 0.04427188724235731,
+    "r_y": 0.04427188724235731
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.003916042219675766,
+   "T_corner": 0.0045106143497734225,
+   "T_reflected": 0.005138620036645211,
+   "second_difference": 3.343355677413139e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V2@0.02 cost masks 31",
+   "L": 3,
+   "p": 0.25,
+   "member": "V2@0.02",
+   "mask_seed": 31,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.002,
+    "eps0": 0.02,
+    "r_x": -0.04427188724235731,
+    "r_y": -0.04427188724235731
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.011,
+    "eps0": 0.011,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.02,
+    "eps0": 0.002,
+    "r_x": 0.04427188724235731,
+    "r_y": 0.04427188724235731
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.004166754274745955,
+   "T_corner": 0.0047672213166908275,
+   "T_reflected": 0.005401253676911323,
+   "second_difference": 3.356531827562216e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V2@0.02 grad masks 32",
+   "L": 3,
+   "p": 0.25,
+   "member": "V2@0.02",
+   "mask_seed": 32,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.002,
+    "eps0": 0.02,
+    "r_x": -0.04427188724235731,
+    "r_y": -0.04427188724235731
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.011,
+    "eps0": 0.011,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.02,
+    "eps0": 0.002,
+    "r_x": 0.04427188724235731,
+    "r_y": 0.04427188724235731
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.013154059454949006,
+   "T_corner": 0.013703387196194988,
+   "T_reflected": 0.014282160618930024,
+   "second_difference": 2.944568148905563e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V2@0.02 cost masks 32",
+   "L": 3,
+   "p": 0.25,
+   "member": "V2@0.02",
+   "mask_seed": 32,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.002,
+    "eps0": 0.02,
+    "r_x": -0.04427188724235731,
+    "r_y": -0.04427188724235731
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.011,
+    "eps0": 0.011,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.02,
+    "eps0": 0.002,
+    "r_x": 0.04427188724235731,
+    "r_y": 0.04427188724235731
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.01341014624245085,
+   "T_corner": 0.013963482472130223,
+   "T_reflected": 0.01454658311115187,
+   "second_difference": 2.976440934227692e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V2@0.02 grad masks 33",
+   "L": 3,
+   "p": 0.25,
+   "member": "V2@0.02",
+   "mask_seed": 33,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.002,
+    "eps0": 0.02,
+    "r_x": -0.04427188724235731,
+    "r_y": -0.04427188724235731
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.011,
+    "eps0": 0.011,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.02,
+    "eps0": 0.002,
+    "r_x": 0.04427188724235731,
+    "r_y": 0.04427188724235731
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.003343705085251364,
+   "T_corner": 0.0036320012951380773,
+   "T_reflected": 0.0039502038732906536,
+   "second_difference": 2.99063682658628e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V2@0.02 cost masks 33",
+   "L": 3,
+   "p": 0.25,
+   "member": "V2@0.02",
+   "mask_seed": 33,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.002,
+    "eps0": 0.02,
+    "r_x": -0.04427188724235731,
+    "r_y": -0.04427188724235731
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.011,
+    "eps0": 0.011,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.02,
+    "eps0": 0.002,
+    "r_x": 0.04427188724235731,
+    "r_y": 0.04427188724235731
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.008574716482319935,
+   "T_corner": 0.009125490465022076,
+   "T_reflected": 0.009707840231281918,
+   "second_difference": 3.1575783557700327e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V7@0.02 grad masks 31",
+   "L": 3,
+   "p": 0.25,
+   "member": "V7@0.02",
+   "mask_seed": 31,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.0,
+    "eps0": 0.02,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.01,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.0037313371920723597,
+   "T_corner": 0.004317672972720831,
+   "T_reflected": 0.004923731158556402,
+   "second_difference": 1.972240518710068e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V7@0.02 cost masks 31",
+   "L": 3,
+   "p": 0.25,
+   "member": "V7@0.02",
+   "mask_seed": 31,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.0,
+    "eps0": 0.02,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.01,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.0037313371920723606,
+   "T_corner": 0.004317672972720832,
+   "T_reflected": 0.004923731158556403,
+   "second_difference": 1.972240518710068e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V7@0.02 grad masks 32",
+   "L": 3,
+   "p": 0.25,
+   "member": "V7@0.02",
+   "mask_seed": 32,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.0,
+    "eps0": 0.02,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.01,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.016610945218218407,
+   "T_corner": 0.016994998717683837,
+   "T_reflected": 0.017397017045777823,
+   "second_difference": 1.7964828628556917e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V7@0.02 cost masks 32",
+   "L": 3,
+   "p": 0.25,
+   "member": "V7@0.02",
+   "mask_seed": 32,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.0,
+    "eps0": 0.02,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.01,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.016610945218218407,
+   "T_corner": 0.016994998717683837,
+   "T_reflected": 0.017397017045777823,
+   "second_difference": 1.7964828628556917e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V7@0.02 grad masks 33",
+   "L": 3,
+   "p": 0.25,
+   "member": "V7@0.02",
+   "mask_seed": 33,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.0,
+    "eps0": 0.02,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.01,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.0050165237384706554,
+   "T_corner": 0.0054795505389092294,
+   "T_reflected": 0.005957499654135385,
+   "second_difference": 1.4922314787581964e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V7@0.02 cost masks 33",
+   "L": 3,
+   "p": 0.25,
+   "member": "V7@0.02",
+   "mask_seed": 33,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.0,
+    "eps0": 0.02,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.01,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.010160525554888764,
+   "T_corner": 0.010826313002241239,
+   "T_reflected": 0.011507429696966946,
+   "second_difference": 1.5329247373230964e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V8@0.02 grad masks 31",
+   "L": 3,
+   "p": 0.25,
+   "member": "V8@0.02",
+   "mask_seed": 31,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": -0.1414213562373095,
+    "r_y": -0.1414213562373095
+   },
+   "corner": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": 0.1414213562373095,
+    "r_y": 0.1414213562373095
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.00394875596572872,
+   "T_corner": 0.004923731158556402,
+   "T_reflected": 0.0059603527934688014,
+   "second_difference": 6.164644208471633e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V8@0.02 cost masks 31",
+   "L": 3,
+   "p": 0.25,
+   "member": "V8@0.02",
+   "mask_seed": 31,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": -0.1414213562373095,
+    "r_y": -0.1414213562373095
+   },
+   "corner": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": 0.1414213562373095,
+    "r_y": 0.1414213562373095
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.00394875596572872,
+   "T_corner": 0.004923731158556403,
+   "T_reflected": 0.005960352793468804,
+   "second_difference": 6.164644208471806e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V8@0.02 grad masks 32",
+   "L": 3,
+   "p": 0.25,
+   "member": "V8@0.02",
+   "mask_seed": 32,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": -0.1414213562373095,
+    "r_y": -0.1414213562373095
+   },
+   "corner": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": 0.1414213562373095,
+    "r_y": 0.1414213562373095
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.015923806677575803,
+   "T_corner": 0.017397017045777823,
+   "T_reflected": 0.01894068229014742,
+   "second_difference": 7.045487616757357e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V8@0.02 cost masks 32",
+   "L": 3,
+   "p": 0.25,
+   "member": "V8@0.02",
+   "mask_seed": 32,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": -0.1414213562373095,
+    "r_y": -0.1414213562373095
+   },
+   "corner": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": 0.1414213562373095,
+    "r_y": 0.1414213562373095
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.015923806677575803,
+   "T_corner": 0.017397017045777823,
+   "T_reflected": 0.01894068229014742,
+   "second_difference": 7.045487616757357e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V8@0.02 grad masks 33",
+   "L": 3,
+   "p": 0.25,
+   "member": "V8@0.02",
+   "mask_seed": 33,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": -0.1414213562373095,
+    "r_y": -0.1414213562373095
+   },
+   "corner": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": 0.1414213562373095,
+    "r_y": 0.1414213562373095
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.005939523845262721,
+   "T_corner": 0.005957499654135385,
+   "T_reflected": 0.00603090945385904,
+   "second_difference": 5.5433990850990364e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V8@0.02 cost masks 33",
+   "L": 3,
+   "p": 0.25,
+   "member": "V8@0.02",
+   "mask_seed": 33,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": -0.1414213562373095,
+    "r_y": -0.1414213562373095
+   },
+   "corner": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": 0.1414213562373095,
+    "r_y": 0.1414213562373095
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.011111348335708116,
+   "T_corner": 0.011507429696966946,
+   "T_reflected": 0.011959158694967758,
+   "second_difference": 5.5647636741984474e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V9@0.02 grad masks 31",
+   "L": 3,
+   "p": 0.25,
+   "member": "V9@0.02",
+   "mask_seed": 31,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.002,
+    "eps0": 0.02,
+    "r_x": -0.1855517513419522,
+    "r_y": 0.09700797685723758
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.011,
+    "eps0": 0.011,
+    "r_x": 0.0,
+    "r_y": 0.09700797685723758
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.02,
+    "eps0": 0.002,
+    "r_x": 0.1855517513419522,
+    "r_y": 0.09700797685723758
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.0033182953737722664,
+   "T_corner": 0.004510784960884828,
+   "T_reflected": 0.00583497905052896,
+   "second_difference": 0.00013170450253157003,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V9@0.02 cost masks 31",
+   "L": 3,
+   "p": 0.25,
+   "member": "V9@0.02",
+   "mask_seed": 31,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.002,
+    "eps0": 0.02,
+    "r_x": -0.1855517513419522,
+    "r_y": 0.09700797685723758
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.011,
+    "eps0": 0.011,
+    "r_x": 0.0,
+    "r_y": 0.09700797685723758
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.02,
+    "eps0": 0.002,
+    "r_x": 0.1855517513419522,
+    "r_y": 0.09700797685723758
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.0035656441298583057,
+   "T_corner": 0.004767391928571216,
+   "T_reflected": 0.006101519192704124,
+   "second_difference": 0.00013237946541999786,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V9@0.02 grad masks 32",
+   "L": 3,
+   "p": 0.25,
+   "member": "V9@0.02",
+   "mask_seed": 32,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.002,
+    "eps0": 0.02,
+    "r_x": -0.1855517513419522,
+    "r_y": 0.09700797685723758
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.011,
+    "eps0": 0.011,
+    "r_x": 0.0,
+    "r_y": 0.09700797685723758
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.02,
+    "eps0": 0.002,
+    "r_x": 0.1855517513419522,
+    "r_y": 0.09700797685723758
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.012387736252326535,
+   "T_corner": 0.013745438076522546,
+   "T_reflected": 0.015213245083367249,
+   "second_difference": 0.00011010518264869054,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V9@0.02 cost masks 32",
+   "L": 3,
+   "p": 0.25,
+   "member": "V9@0.02",
+   "mask_seed": 32,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.002,
+    "eps0": 0.02,
+    "r_x": -0.1855517513419522,
+    "r_y": 0.09700797685723758
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.011,
+    "eps0": 0.011,
+    "r_x": 0.0,
+    "r_y": 0.09700797685723758
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.02,
+    "eps0": 0.002,
+    "r_x": 0.1855517513419522,
+    "r_y": 0.09700797685723758
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.012642901403122044,
+   "T_corner": 0.01400553335245778,
+   "T_reflected": 0.015480378148977725,
+   "second_difference": 0.00011221284718420863,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V9@0.02 grad masks 33",
+   "L": 3,
+   "p": 0.25,
+   "member": "V9@0.02",
+   "mask_seed": 33,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.002,
+    "eps0": 0.02,
+    "r_x": -0.1855517513419522,
+    "r_y": 0.09700797685723758
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.011,
+    "eps0": 0.011,
+    "r_x": 0.0,
+    "r_y": 0.09700797685723758
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.02,
+    "eps0": 0.002,
+    "r_x": 0.1855517513419522,
+    "r_y": 0.09700797685723758
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.0033851273643989376,
+   "T_corner": 0.0036320014146617404,
+   "T_reflected": 0.0040214640953926085,
+   "second_difference": 0.00014258863046806482,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.25 L=3 V9@0.02 cost masks 33",
+   "L": 3,
+   "p": 0.25,
+   "member": "V9@0.02",
+   "mask_seed": 33,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.002,
+    "eps0": 0.02,
+    "r_x": -0.1855517513419522,
+    "r_y": 0.09700797685723758
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.011,
+    "eps0": 0.011,
+    "r_x": 0.0,
+    "r_y": 0.09700797685723758
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.02,
+    "eps0": 0.002,
+    "r_x": 0.1855517513419522,
+    "r_y": 0.09700797685723758
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.008311231365800987,
+   "T_corner": 0.009125490843281963,
+   "T_reflected": 0.010088681522812148,
+   "second_difference": 0.00014893120204920868,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V1@0.01 grad masks 31",
+   "L": 3,
+   "p": 0.5,
+   "member": "V1@0.01",
+   "mask_seed": 31,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.0,
+    "eps0": 0.01,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.005,
+    "eps0": 0.005,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.051104831888017774,
+   "T_corner": 0.05144184434229532,
+   "T_reflected": 0.05178835224525239,
+   "second_difference": 9.495448679536223e-06,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V1@0.01 cost masks 31",
+   "L": 3,
+   "p": 0.5,
+   "member": "V1@0.01",
+   "mask_seed": 31,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.0,
+    "eps0": 0.01,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.005,
+    "eps0": 0.005,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.051001495077421424,
+   "T_corner": 0.05144618257180663,
+   "T_reflected": 0.05190157445761628,
+   "second_difference": 1.07043914244348e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V1@0.01 grad masks 32",
+   "L": 3,
+   "p": 0.5,
+   "member": "V1@0.01",
+   "mask_seed": 32,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.0,
+    "eps0": 0.01,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.005,
+    "eps0": 0.005,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.025362834576028986,
+   "T_corner": 0.025729504555533373,
+   "T_reflected": 0.02610029399196326,
+   "second_difference": 4.1194569255012525e-06,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V1@0.01 cost masks 32",
+   "L": 3,
+   "p": 0.5,
+   "member": "V1@0.01",
+   "mask_seed": 32,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.0,
+    "eps0": 0.01,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.005,
+    "eps0": 0.005,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.026184738656102807,
+   "T_corner": 0.026552351665016887,
+   "T_reflected": 0.026924151475227365,
+   "second_difference": 4.186801296400533e-06,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V1@0.01 grad masks 33",
+   "L": 3,
+   "p": 0.5,
+   "member": "V1@0.01",
+   "mask_seed": 33,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.0,
+    "eps0": 0.01,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.005,
+    "eps0": 0.005,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 2.9578388343806887e-05,
+   "T_corner": 3.88634481809809e-05,
+   "T_reflected": 5.387910401345589e-05,
+   "second_difference": 5.730595995300991e-06,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V1@0.01 cost masks 33",
+   "L": 3,
+   "p": 0.5,
+   "member": "V1@0.01",
+   "mask_seed": 33,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.0,
+    "eps0": 0.01,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.005,
+    "eps0": 0.005,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.01687197195852176,
+   "T_corner": 0.017736810002908353,
+   "T_reflected": 0.018615401880546424,
+   "second_difference": 1.3753833251479997e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V2@0.01 grad masks 31",
+   "L": 3,
+   "p": 0.5,
+   "member": "V2@0.01",
+   "mask_seed": 31,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.002,
+    "eps0": 0.01,
+    "r_x": -0.044497190922573975,
+    "r_y": -0.044497190922573975
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.006,
+    "eps0": 0.006,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.01,
+    "eps0": 0.002,
+    "r_x": 0.044497190922573975,
+    "r_y": 0.044497190922573975
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.05076738042855772,
+   "T_corner": 0.05103066207943855,
+   "T_reflected": 0.05131429343092909,
+   "second_difference": 2.0349700609698096e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V2@0.01 cost masks 31",
+   "L": 3,
+   "p": 0.5,
+   "member": "V2@0.01",
+   "mask_seed": 31,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.002,
+    "eps0": 0.01,
+    "r_x": -0.044497190922573975,
+    "r_y": -0.044497190922573975
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.006,
+    "eps0": 0.006,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.01,
+    "eps0": 0.002,
+    "r_x": 0.044497190922573975,
+    "r_y": 0.044497190922573975
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.05068599229646442,
+   "T_corner": 0.05103498279845507,
+   "T_reflected": 0.051405359531847196,
+   "second_difference": 2.1386231401465672e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V2@0.01 grad masks 32",
+   "L": 3,
+   "p": 0.5,
+   "member": "V2@0.01",
+   "mask_seed": 32,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.002,
+    "eps0": 0.01,
+    "r_x": -0.044497190922573975,
+    "r_y": -0.044497190922573975
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.006,
+    "eps0": 0.006,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.01,
+    "eps0": 0.002,
+    "r_x": 0.044497190922573975,
+    "r_y": 0.044497190922573975
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.025192484135887757,
+   "T_corner": 0.025525867895569165,
+   "T_reflected": 0.025871305899194695,
+   "second_difference": 1.2054243944119303e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V2@0.01 cost masks 32",
+   "L": 3,
+   "p": 0.5,
+   "member": "V2@0.01",
+   "mask_seed": 32,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.002,
+    "eps0": 0.01,
+    "r_x": -0.044497190922573975,
+    "r_y": -0.044497190922573975
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.006,
+    "eps0": 0.006,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.01,
+    "eps0": 0.002,
+    "r_x": 0.044497190922573975,
+    "r_y": 0.044497190922573975
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.026008813829881443,
+   "T_corner": 0.026343773882920283,
+   "T_reflected": 0.026690836130032945,
+   "second_difference": 1.2102194073819461e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V2@0.01 grad masks 33",
+   "L": 3,
+   "p": 0.5,
+   "member": "V2@0.01",
+   "mask_seed": 33,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.002,
+    "eps0": 0.01,
+    "r_x": -0.044497190922573975,
+    "r_y": -0.044497190922573975
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.006,
+    "eps0": 0.006,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.01,
+    "eps0": 0.002,
+    "r_x": 0.044497190922573975,
+    "r_y": 0.044497190922573975
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 3.219199235536565e-05,
+   "T_corner": 3.878720412512834e-05,
+   "T_reflected": 5.337460943903324e-05,
+   "second_difference": 7.99219354414222e-06,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V2@0.01 cost masks 33",
+   "L": 3,
+   "p": 0.5,
+   "member": "V2@0.01",
+   "mask_seed": 33,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.002,
+    "eps0": 0.01,
+    "r_x": -0.044497190922573975,
+    "r_y": -0.044497190922573975
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.006,
+    "eps0": 0.006,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.01,
+    "eps0": 0.002,
+    "r_x": 0.044497190922573975,
+    "r_y": 0.044497190922573975
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.01683164870409109,
+   "T_corner": 0.01759637044495057,
+   "T_reflected": 0.018376578664635306,
+   "second_difference": 1.5486478825252337e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V7@0.01 grad masks 31",
+   "L": 3,
+   "p": 0.5,
+   "member": "V7@0.01",
+   "mask_seed": 31,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.0,
+    "eps0": 0.01,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.005,
+    "eps0": 0.005,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.05113015863551935,
+   "T_corner": 0.051460500535714285,
+   "T_reflected": 0.05180071125098547,
+   "second_difference": 9.868815076252702e-06,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V7@0.01 cost masks 31",
+   "L": 3,
+   "p": 0.5,
+   "member": "V7@0.01",
+   "mask_seed": 31,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.0,
+    "eps0": 0.01,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.005,
+    "eps0": 0.005,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.0510086584291466,
+   "T_corner": 0.051460500535714285,
+   "T_reflected": 0.05192351409754463,
+   "second_difference": 1.1171455262665164e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V7@0.01 grad masks 32",
+   "L": 3,
+   "p": 0.5,
+   "member": "V7@0.01",
+   "mask_seed": 32,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.0,
+    "eps0": 0.01,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.005,
+    "eps0": 0.005,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.02534980093630196,
+   "T_corner": 0.025730250267857146,
+   "T_reflected": 0.026115190616869916,
+   "second_difference": 4.491017457579349e-06,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V7@0.01 cost masks 32",
+   "L": 3,
+   "p": 0.5,
+   "member": "V7@0.01",
+   "mask_seed": 32,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.0,
+    "eps0": 0.01,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.005,
+    "eps0": 0.005,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.025349800936301962,
+   "T_corner": 0.025730250267857153,
+   "T_reflected": 0.02611519061686992,
+   "second_difference": 4.491017457579349e-06,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V7@0.01 grad masks 33",
+   "L": 3,
+   "p": 0.5,
+   "member": "V7@0.01",
+   "mask_seed": 33,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.0,
+    "eps0": 0.01,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.005,
+    "eps0": 0.005,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": -1.3709677677501189e-05,
+   "T_corner": 1.3473638439981798e-19,
+   "T_reflected": 1.9315518275917927e-05,
+   "second_difference": 5.605840598416469e-06,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V7@0.01 cost masks 33",
+   "L": 3,
+   "p": 0.5,
+   "member": "V7@0.01",
+   "mask_seed": 33,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.0,
+    "eps0": 0.01,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.005,
+    "eps0": 0.005,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.016286043285416368,
+   "T_corner": 0.01715350017857143,
+   "T_reflected": 0.01803450753758886,
+   "second_difference": 1.3550465862363636e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V8@0.01 grad masks 31",
+   "L": 3,
+   "p": 0.5,
+   "member": "V8@0.01",
+   "mask_seed": 31,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": -0.1,
+    "r_y": -0.1
+   },
+   "corner": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": 0.1,
+    "r_y": 0.1
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.051823001700196325,
+   "T_corner": 0.05180071125098547,
+   "T_reflected": 0.051843787313567154,
+   "second_difference": 6.536651179253616e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V8@0.01 cost masks 31",
+   "L": 3,
+   "p": 0.5,
+   "member": "V8@0.01",
+   "mask_seed": 31,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": -0.1,
+    "r_y": -0.1
+   },
+   "corner": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": 0.1,
+    "r_y": 0.1
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.05194537634417527,
+   "T_corner": 0.05192351409754463,
+   "T_reflected": 0.051967231543912536,
+   "second_difference": 6.557969299855748e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V8@0.01 grad masks 32",
+   "L": 3,
+   "p": 0.5,
+   "member": "V8@0.01",
+   "mask_seed": 32,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": -0.1,
+    "r_y": -0.1
+   },
+   "corner": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": 0.1,
+    "r_y": 0.1
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.026005312470917336,
+   "T_corner": 0.026115190616869916,
+   "T_reflected": 0.026247574523927335,
+   "second_difference": 2.250576110483793e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V8@0.01 cost masks 32",
+   "L": 3,
+   "p": 0.5,
+   "member": "V8@0.01",
+   "mask_seed": 32,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": -0.1,
+    "r_y": -0.1
+   },
+   "corner": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": 0.1,
+    "r_y": 0.1
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.02600531247091734,
+   "T_corner": 0.02611519061686992,
+   "T_reflected": 0.026247574523927338,
+   "second_difference": 2.250576110483793e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V8@0.01 grad masks 33",
+   "L": 3,
+   "p": 0.5,
+   "member": "V8@0.01",
+   "mask_seed": 33,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": -0.1,
+    "r_y": -0.1
+   },
+   "corner": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": 0.1,
+    "r_y": 0.1
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 2.6933248969645804e-05,
+   "T_corner": 1.9315518275917927e-05,
+   "T_reflected": 3.3737129823695494e-05,
+   "second_difference": 2.2039342241505443e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V8@0.01 cost masks 33",
+   "L": 3,
+   "p": 0.5,
+   "member": "V8@0.01",
+   "mask_seed": 33,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": -0.1,
+    "r_y": -0.1
+   },
+   "corner": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.0,
+    "r_x": 0.1,
+    "r_y": 0.1
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.01783686102494225,
+   "T_corner": 0.01803450753758886,
+   "T_reflected": 0.018260160432060326,
+   "second_difference": 2.8006381824853543e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V9@0.01 grad masks 31",
+   "L": 3,
+   "p": 0.5,
+   "member": "V9@0.01",
+   "mask_seed": 31,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.002,
+    "eps0": 0.01,
+    "r_x": -0.1443971408725114,
+    "r_y": 0.05540275902736344
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.006,
+    "eps0": 0.006,
+    "r_x": 0.0,
+    "r_y": 0.05540275902736344
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.01,
+    "eps0": 0.002,
+    "r_x": 0.1443971408725114,
+    "r_y": 0.05540275902736344
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.05081238207678474,
+   "T_corner": 0.05103066207943855,
+   "T_reflected": 0.05136774634165333,
+   "second_difference": 0.00011880425956097007,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V9@0.01 cost masks 31",
+   "L": 3,
+   "p": 0.5,
+   "member": "V9@0.01",
+   "mask_seed": 31,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.002,
+    "eps0": 0.01,
+    "r_x": -0.1443971408725114,
+    "r_y": 0.05540275902736344
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.006,
+    "eps0": 0.006,
+    "r_x": 0.0,
+    "r_y": 0.05540275902736344
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.01,
+    "eps0": 0.002,
+    "r_x": 0.1443971408725114,
+    "r_y": 0.05540275902736344
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.05073116857168144,
+   "T_corner": 0.05103498279845507,
+   "T_reflected": 0.051459247268674124,
+   "second_difference": 0.00012045024344542465,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V9@0.01 grad masks 32",
+   "L": 3,
+   "p": 0.5,
+   "member": "V9@0.01",
+   "mask_seed": 32,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.002,
+    "eps0": 0.01,
+    "r_x": -0.1443971408725114,
+    "r_y": 0.05540275902736344
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.006,
+    "eps0": 0.006,
+    "r_x": 0.0,
+    "r_y": 0.05540275902736344
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.01,
+    "eps0": 0.002,
+    "r_x": 0.1443971408725114,
+    "r_y": 0.05540275902736344
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.025109057976331634,
+   "T_corner": 0.025525867956906485,
+   "T_reflected": 0.02600133039817314,
+   "second_difference": 5.8652460691803465e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V9@0.01 cost masks 32",
+   "L": 3,
+   "p": 0.5,
+   "member": "V9@0.01",
+   "mask_seed": 32,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.002,
+    "eps0": 0.01,
+    "r_x": -0.1443971408725114,
+    "r_y": 0.05540275902736344
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.006,
+    "eps0": 0.006,
+    "r_x": 0.0,
+    "r_y": 0.05540275902736344
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.01,
+    "eps0": 0.002,
+    "r_x": 0.1443971408725114,
+    "r_y": 0.05540275902736344
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.025923502967940278,
+   "T_corner": 0.026343773944257607,
+   "T_reflected": 0.02682278419036099,
+   "second_difference": 5.8739269786049764e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V9@0.01 grad masks 33",
+   "L": 3,
+   "p": 0.5,
+   "member": "V9@0.01",
+   "mask_seed": 33,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.002,
+    "eps0": 0.01,
+    "r_x": -0.1443971408725114,
+    "r_y": 0.05540275902736344
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.006,
+    "eps0": 0.006,
+    "r_x": 0.0,
+    "r_y": 0.05540275902736344
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.01,
+    "eps0": 0.002,
+    "r_x": 0.1443971408725114,
+    "r_y": 0.05540275902736344
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 3.708688562124008e-05,
+   "T_corner": 3.878720412512834e-05,
+   "T_reflected": 6.631918609222607e-05,
+   "second_difference": 2.5831663463209465e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V9@0.01 cost masks 33",
+   "L": 3,
+   "p": 0.5,
+   "member": "V9@0.01",
+   "mask_seed": 33,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.002,
+    "eps0": 0.01,
+    "r_x": -0.1443971408725114,
+    "r_y": 0.05540275902736344
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.006,
+    "eps0": 0.006,
+    "r_x": 0.0,
+    "r_y": 0.05540275902736344
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.01,
+    "eps0": 0.002,
+    "r_x": 0.1443971408725114,
+    "r_y": 0.05540275902736344
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.016660684358377125,
+   "T_corner": 0.017596370445003253,
+   "T_reflected": 0.018577557560304884,
+   "second_difference": 4.550102867550282e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V1@0.02 grad masks 31",
+   "L": 3,
+   "p": 0.5,
+   "member": "V1@0.02",
+   "mask_seed": 31,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.0,
+    "eps0": 0.02,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.01,
+    "eps0": 0.01,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.04876600315480293,
+   "T_corner": 0.0494105320364544,
+   "T_reflected": 0.05009201107333689,
+   "second_difference": 3.695015523101641e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V1@0.02 cost masks 31",
+   "L": 3,
+   "p": 0.5,
+   "member": "V1@0.02",
+   "mask_seed": 31,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.0,
+    "eps0": 0.02,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.01,
+    "eps0": 0.01,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.04856113687280985,
+   "T_corner": 0.0494147830675968,
+   "T_reflected": 0.050310108937036836,
+   "second_difference": 4.1679674653086196e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V1@0.02 grad masks 32",
+   "L": 3,
+   "p": 0.5,
+   "member": "V1@0.02",
+   "mask_seed": 32,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.0,
+    "eps0": 0.02,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.01,
+    "eps0": 0.01,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.024018444348063824,
+   "T_corner": 0.024723404327499778,
+   "T_reflected": 0.025444577866011574,
+   "second_difference": 1.621355907584221e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V1@0.02 cost masks 32",
+   "L": 3,
+   "p": 0.5,
+   "member": "V1@0.02",
+   "mask_seed": 32,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.0,
+    "eps0": 0.02,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.01,
+    "eps0": 0.01,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.024814984094403438,
+   "T_corner": 0.02552174363825563,
+   "T_reflected": 0.026244983426553962,
+   "second_difference": 1.6480244446143155e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V1@0.02 grad masks 33",
+   "L": 3,
+   "p": 0.5,
+   "member": "V1@0.02",
+   "mask_seed": 33,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.0,
+    "eps0": 0.02,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.01,
+    "eps0": 0.01,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 2.5191504670034556e-05,
+   "T_corner": 3.8482238413744274e-05,
+   "T_reflected": 7.392516215466229e-05,
+   "second_difference": 2.2152189997208302e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V1@0.02 cost masks 33",
+   "L": 3,
+   "p": 0.5,
+   "member": "V1@0.02",
+   "mask_seed": 33,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.0,
+    "eps0": 0.02,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.01,
+    "eps0": 0.01,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.015393675736841963,
+   "T_corner": 0.017042943939219932,
+   "T_reflected": 0.01874525236312637,
+   "second_difference": 5.3040221528466436e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V2@0.02 grad masks 31",
+   "L": 3,
+   "p": 0.5,
+   "member": "V2@0.02",
+   "mask_seed": 31,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.002,
+    "eps0": 0.02,
+    "r_x": -0.04427188724235731,
+    "r_y": -0.04427188724235731
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.011,
+    "eps0": 0.011,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.02,
+    "eps0": 0.002,
+    "r_x": 0.04427188724235731,
+    "r_y": 0.04427188724235731
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.048441794837442195,
+   "T_corner": 0.04901159988016441,
+   "T_reflected": 0.04963142013776062,
+   "second_difference": 5.0015214873994074e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V2@0.02 cost masks 31",
+   "L": 3,
+   "p": 0.5,
+   "member": "V2@0.02",
+   "mask_seed": 31,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.002,
+    "eps0": 0.02,
+    "r_x": -0.04427188724235731,
+    "r_y": -0.04427188724235731
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.011,
+    "eps0": 0.011,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.02,
+    "eps0": 0.002,
+    "r_x": 0.04427188724235731,
+    "r_y": 0.04427188724235731
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.04825876283406163,
+   "T_corner": 0.04901583357786454,
+   "T_reflected": 0.04982730607099279,
+   "second_difference": 5.440174932533348e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V2@0.02 grad masks 32",
+   "L": 3,
+   "p": 0.5,
+   "member": "V2@0.02",
+   "mask_seed": 32,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.002,
+    "eps0": 0.02,
+    "r_x": -0.04427188724235731,
+    "r_y": -0.04427188724235731
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.011,
+    "eps0": 0.011,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.02,
+    "eps0": 0.002,
+    "r_x": 0.04427188724235731,
+    "r_y": 0.04427188724235731
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.023857737330667265,
+   "T_corner": 0.024525785114899997,
+   "T_reflected": 0.025223305399472096,
+   "second_difference": 2.9472500339362828e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V2@0.02 cost masks 32",
+   "L": 3,
+   "p": 0.5,
+   "member": "V2@0.02",
+   "mask_seed": 32,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.002,
+    "eps0": 0.02,
+    "r_x": -0.04427188724235731,
+    "r_y": -0.04427188724235731
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.011,
+    "eps0": 0.011,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.02,
+    "eps0": 0.002,
+    "r_x": 0.04427188724235731,
+    "r_y": 0.04427188724235731
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.02464881593124285,
+   "T_corner": 0.025319282010306525,
+   "T_reflected": 0.02601944289812457,
+   "second_difference": 2.9694808754372748e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V2@0.02 grad masks 33",
+   "L": 3,
+   "p": 0.5,
+   "member": "V2@0.02",
+   "mask_seed": 33,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.002,
+    "eps0": 0.02,
+    "r_x": -0.04427188724235731,
+    "r_y": -0.04427188724235731
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.011,
+    "eps0": 0.011,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.02,
+    "eps0": 0.002,
+    "r_x": 0.04427188724235731,
+    "r_y": 0.04427188724235731
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 2.7756541767137655e-05,
+   "T_corner": 3.8405999613904796e-05,
+   "T_reflected": 7.345731740660257e-05,
+   "second_difference": 2.440185994593064e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V2@0.02 cost masks 33",
+   "L": 3,
+   "p": 0.5,
+   "member": "V2@0.02",
+   "mask_seed": 33,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.002,
+    "eps0": 0.02,
+    "r_x": -0.04427188724235731,
+    "r_y": -0.04427188724235731
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.011,
+    "eps0": 0.011,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.02,
+    "eps0": 0.002,
+    "r_x": 0.04427188724235731,
+    "r_y": 0.04427188724235731
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.015362885480820787,
+   "T_corner": 0.016906653645638006,
+   "T_reflected": 0.018503689717046298,
+   "second_difference": 5.326790659107572e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V7@0.02 grad masks 31",
+   "L": 3,
+   "p": 0.5,
+   "member": "V7@0.02",
+   "mask_seed": 31,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.0,
+    "eps0": 0.02,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.01,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.04878119308060601,
+   "T_corner": 0.04941258,
+   "T_reflected": 0.05008238460121863,
+   "second_difference": 3.841768182463734e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V7@0.02 cost masks 31",
+   "L": 3,
+   "p": 0.5,
+   "member": "V7@0.02",
+   "mask_seed": 31,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.0,
+    "eps0": 0.02,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.01,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.04854533935088313,
+   "T_corner": 0.04941258,
+   "T_reflected": 0.05032332785703413,
+   "second_difference": 4.350720791726492e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V7@0.02 grad masks 32",
+   "L": 3,
+   "p": 0.5,
+   "member": "V7@0.02",
+   "mask_seed": 32,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.0,
+    "eps0": 0.02,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.01,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.02397505028067836,
+   "T_corner": 0.024706290000000002,
+   "T_reflected": 0.02545521714201584,
+   "second_difference": 1.7687422694194488e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V7@0.02 cost masks 32",
+   "L": 3,
+   "p": 0.5,
+   "member": "V7@0.02",
+   "mask_seed": 32,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.0,
+    "eps0": 0.02,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.01,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.02397505028067836,
+   "T_corner": 0.024706290000000002,
+   "T_reflected": 0.025455217142015842,
+   "second_difference": 1.7687422694194488e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V7@0.02 grad masks 33",
+   "L": 3,
+   "p": 0.5,
+   "member": "V7@0.02",
+   "mask_seed": 33,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.0,
+    "eps0": 0.02,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.01,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": -2.235840723263018e-05,
+   "T_corner": 1.322547264102974e-19,
+   "T_reflected": 4.403573800695882e-05,
+   "second_difference": 2.1677330774328378e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V7@0.02 cost masks 33",
+   "L": 3,
+   "p": 0.5,
+   "member": "V7@0.02",
+   "mask_seed": 33,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.0,
+    "eps0": 0.02,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.01,
+    "eps0": 0.01,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.014816355534004682,
+   "T_corner": 0.01647086,
+   "T_reflected": 0.018177613975419088,
+   "second_difference": 5.224950942377127e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V8@0.02 grad masks 31",
+   "L": 3,
+   "p": 0.5,
+   "member": "V8@0.02",
+   "mask_seed": 31,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": -0.1414213562373095,
+    "r_y": -0.1414213562373095
+   },
+   "corner": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": 0.1414213562373095,
+    "r_y": 0.1414213562373095
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.05011791622605945,
+   "T_corner": 0.05008238460121863,
+   "T_reflected": 0.05017639287884172,
+   "second_difference": 0.00012953990246390712,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V8@0.02 cost masks 31",
+   "L": 3,
+   "p": 0.5,
+   "member": "V8@0.02",
+   "mask_seed": 31,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": -0.1414213562373095,
+    "r_y": -0.1414213562373095
+   },
+   "corner": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": 0.1414213562373095,
+    "r_y": 0.1414213562373095
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.0503577963560105,
+   "T_corner": 0.05032332785703413,
+   "T_reflected": 0.050419222564582325,
+   "second_difference": 0.0001303632065245558,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V8@0.02 grad masks 32",
+   "L": 3,
+   "p": 0.5,
+   "member": "V8@0.02",
+   "mask_seed": 32,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": -0.1414213562373095,
+    "r_y": -0.1414213562373095
+   },
+   "corner": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": 0.1414213562373095,
+    "r_y": 0.1414213562373095
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.025292916646803366,
+   "T_corner": 0.02545521714201584,
+   "T_reflected": 0.025663499777303082,
+   "second_difference": 4.5982140074771194e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V8@0.02 cost masks 32",
+   "L": 3,
+   "p": 0.5,
+   "member": "V8@0.02",
+   "mask_seed": 32,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": -0.1414213562373095,
+    "r_y": -0.1414213562373095
+   },
+   "corner": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": 0.1414213562373095,
+    "r_y": 0.1414213562373095
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.02529291664680337,
+   "T_corner": 0.025455217142015842,
+   "T_reflected": 0.025663499777303082,
+   "second_difference": 4.5982140074764255e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V8@0.02 grad masks 33",
+   "L": 3,
+   "p": 0.5,
+   "member": "V8@0.02",
+   "mask_seed": 33,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": -0.1414213562373095,
+    "r_y": -0.1414213562373095
+   },
+   "corner": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": 0.1414213562373095,
+    "r_y": 0.1414213562373095
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 5.641684728332876e-05,
+   "T_corner": 4.403573800695882e-05,
+   "T_reflected": 7.614720258026715e-05,
+   "second_difference": 4.449257384967827e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V8@0.02 cost masks 33",
+   "L": 3,
+   "p": 0.5,
+   "member": "V8@0.02",
+   "mask_seed": 33,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": -0.1414213562373095,
+    "r_y": -0.1414213562373095
+   },
+   "corner": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": 0.0,
+    "r_y": 0.0
+   },
+   "reflected": {
+    "kappa": 0.0,
+    "gamma": 0.0,
+    "eps1": 0.02,
+    "eps0": 0.0,
+    "r_x": 0.1414213562373095,
+    "r_y": 0.1414213562373095
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.017919612917090898,
+   "T_corner": 0.018177613975419088,
+   "T_reflected": 0.01849294087469867,
+   "second_difference": 5.732584095138882e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V9@0.02 grad masks 31",
+   "L": 3,
+   "p": 0.5,
+   "member": "V9@0.02",
+   "mask_seed": 31,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.002,
+    "eps0": 0.02,
+    "r_x": -0.1855517513419522,
+    "r_y": 0.09700797685723758
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.011,
+    "eps0": 0.011,
+    "r_x": 0.0,
+    "r_y": 0.09700797685723758
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.02,
+    "eps0": 0.002,
+    "r_x": 0.1855517513419522,
+    "r_y": 0.09700797685723758
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.048526052419918045,
+   "T_corner": 0.04901159988016441,
+   "T_reflected": 0.04973007398620564,
+   "second_difference": 0.00023292664579487032,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V9@0.02 cost masks 31",
+   "L": 3,
+   "p": 0.5,
+   "member": "V9@0.02",
+   "mask_seed": 31,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.002,
+    "eps0": 0.02,
+    "r_x": -0.1855517513419522,
+    "r_y": 0.09700797685723758
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.011,
+    "eps0": 0.011,
+    "r_x": 0.0,
+    "r_y": 0.09700797685723758
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.02,
+    "eps0": 0.002,
+    "r_x": 0.1855517513419522,
+    "r_y": 0.09700797685723758
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.0483434657059159,
+   "T_corner": 0.04901583357786454,
+   "T_reflected": 0.04992739207017348,
+   "second_difference": 0.00023919062036029115,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V9@0.02 grad masks 32",
+   "L": 3,
+   "p": 0.5,
+   "member": "V9@0.02",
+   "mask_seed": 32,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.002,
+    "eps0": 0.02,
+    "r_x": -0.1855517513419522,
+    "r_y": 0.09700797685723758
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.011,
+    "eps0": 0.011,
+    "r_x": 0.0,
+    "r_y": 0.09700797685723758
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.02,
+    "eps0": 0.002,
+    "r_x": 0.1855517513419522,
+    "r_y": 0.09700797685723758
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.02375518239239463,
+   "T_corner": 0.02452578521909297,
+   "T_reflected": 0.025423554417848614,
+   "second_difference": 0.00012716637205730658,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V9@0.02 cost masks 32",
+   "L": 3,
+   "p": 0.5,
+   "member": "V9@0.02",
+   "mask_seed": 32,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.002,
+    "eps0": 0.02,
+    "r_x": -0.1855517513419522,
+    "r_y": 0.09700797685723758
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.011,
+    "eps0": 0.011,
+    "r_x": 0.0,
+    "r_y": 0.09700797685723758
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.02,
+    "eps0": 0.002,
+    "r_x": 0.1855517513419522,
+    "r_y": 0.09700797685723758
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.024543620628181672,
+   "T_corner": 0.025319282114499495,
+   "T_reflected": 0.026222407385032398,
+   "second_difference": 0.00012746378421508303,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V9@0.02 grad masks 33",
+   "L": 3,
+   "p": 0.5,
+   "member": "V9@0.02",
+   "mask_seed": 33,
+   "kind": "grad",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.002,
+    "eps0": 0.02,
+    "r_x": -0.1855517513419522,
+    "r_y": 0.09700797685723758
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.011,
+    "eps0": 0.011,
+    "r_x": 0.0,
+    "r_y": 0.09700797685723758
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.02,
+    "eps0": 0.002,
+    "r_x": 0.1855517513419522,
+    "r_y": 0.09700797685723758
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 3.866770158107444e-05,
+   "T_corner": 3.8405999613904796e-05,
+   "T_reflected": 0.00010002736581073783,
+   "second_difference": 6.188306816400268e-05,
+   "holds": true
+  },
+  {
+   "case": "reset p=0.5 L=3 V9@0.02 cost masks 33",
+   "L": 3,
+   "p": 0.5,
+   "member": "V9@0.02",
+   "mask_seed": 33,
+   "kind": "cost",
+   "channel": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.002,
+    "eps0": 0.02,
+    "r_x": -0.1855517513419522,
+    "r_y": 0.09700797685723758
+   },
+   "corner": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.011,
+    "eps0": 0.011,
+    "r_x": 0.0,
+    "r_y": 0.09700797685723758
+   },
+   "reflected": {
+    "kappa": 0.105,
+    "gamma": 0.016,
+    "eps1": 0.02,
+    "eps0": 0.002,
+    "r_x": 0.1855517513419522,
+    "r_y": 0.09700797685723758
+   },
+   "corner_sign_ok": true,
+   "reflected_sign_ok": true,
+   "T_member": 0.015145238297276958,
+   "T_corner": 0.0169066536457284,
+   "T_reflected": 0.01878368508839533,
+   "second_difference": 0.00011561609421548852,
+   "holds": true
+  }
+ ],
+ "runtime_s": 1091.396112203598
+}
